@@ -1,2 +1,3 @@
 from .tipo_de_anuncio import TipoDeAnuncioMercadoLivre
 from .anuncio import AnuncioMercadoLivre
+from .variacao import VariacaoAnuncioMercadoLivre

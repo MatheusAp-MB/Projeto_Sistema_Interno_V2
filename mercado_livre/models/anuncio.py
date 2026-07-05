@@ -1,23 +1,12 @@
-# mercado_livre/models/anuncio.py
-
 from django.db import models
-from produtos.models import Produto
 
 
 class AnuncioMercadoLivre(models.Model):
+    # * [EXPLICAÇÃO] → Agrupador — dados confirmados como idênticos entre
+    #                  todas as variações do mesmo MLB (validado com dado
+    #                  real: título, status/tipo, catálogo, datas e
+    #                  permalink não mudam entre variações de um MLB).
     mlb  = models.CharField(max_length=20, unique=True)
-    mlbu = models.CharField(max_length=20, blank=True, null=True)
-
-    sku_ml = models.CharField(max_length=30, blank=True, null=True)
-
-    produto = models.ForeignKey(
-        Produto,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='anuncios_mercado_livre',
-        to_field='sku'
-    )
 
     titulo_anuncio = models.CharField(max_length=255, blank=True, null=True)
 
@@ -33,10 +22,7 @@ class AnuncioMercadoLivre(models.Model):
     catalog_listing     = models.BooleanField(null=True, blank=True)
     item_relations      = models.JSONField(blank=True, null=True)
 
-    estoque    = models.IntegerField(default=0)
-    qtd_vendas = models.IntegerField(default=0)
     permalink  = models.URLField(max_length=500, blank=True, null=True)
-
     data_criacao_ml       = models.DateTimeField(blank=True, null=True)
     ultima_atualizacao_ml = models.DateTimeField(blank=True, null=True)
 
