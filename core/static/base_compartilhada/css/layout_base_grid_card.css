@@ -1,0 +1,82 @@
+/*
+* [RESUMO] → CSS compartilhado para páginas com grid de cards.
+* Define o estilo dos cards de módulos reutilizável em qualquer página.
+* Importado pelo estrutura_base_grid_card.html
+*/
+
+/* + [STATUS: APROVADO] */
+
+/* ================================================
+   CARDS DE MÓDULOS
+   ================================================ */
+
+#Container_Cards{
+    margin-top: 7.5vh;
+}
+.card-modulo {
+    /*
+    * [EXPLICAÇÃO] → height: 100% garante que todos os cards da mesma
+    * linha tenham a mesma altura, mesmo com textos de tamanhos diferentes.
+    */
+    height: 100%;
+    background-color: var(--cor-fundo-card);
+    border: 2px solid var(--cor-borda);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--cor-primaria);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.card-modulo:hover {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(26, 58, 92, 0.2);
+}
+
+.card-modulo h5 {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.card-modulo p {
+    font-size: 0.875rem;
+    opacity: 0.75;
+    margin: 0;
+}
+
+/* ================================================
+   CARDS VAZIOS — módulos futuros
+   ================================================ */
+.card-modulo-vazio {
+    /*
+    * [EXPLICAÇÃO] → Cards reservados para módulos futuros.
+    * Aparecem com opacidade reduzida e sem cursor pointer
+    * para indicar que ainda não estão disponíveis.
+    */
+    opacity: 0.35;
+    cursor: default;
+    border-style: dashed;
+}
+
+.card-modulo-vazio:hover {
+    /*
+    * [EXPLICAÇÃO] → Sobrescreve o hover do card normal —
+    * cards vazios não têm efeito de hover.
+    */
+    background-color: var(--cor-fundo-card);
+    border-color: var(--cor-borda);
+    color: var(--cor-primaria);
+    transform: none;
+    box-shadow: none;
+}
+/** [EXPLICAÇÃO] → Padroniza o tamanho e espaçamento das logos dos marketplaces nos cards. */
+.card-modulo img {
+    height: 80px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 12px;
+}

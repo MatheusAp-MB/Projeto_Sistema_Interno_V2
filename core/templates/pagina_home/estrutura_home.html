@@ -1,0 +1,75 @@
+<!--
+* [RESUMO] → Template da homepage do sistema.
+* Herda de estrutura_base_grid_card.html — que já inclui
+* o grid e o CSS dos cards.
+* Define apenas os cards específicos da homepage.
+-->
+{% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
+{% load static %}
+
+{% block titulo %}Início — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Página Inicial{% endblock %}
+
+{% block head_grid %}
+<!-- * [EXPLICAÇÃO] → CSS exclusivo da homepage, se necessário -->
+<link rel="stylesheet" href="{% static 'pagina_home/css/layout_home.css' %}">
+{% endblock %}
+
+{% block cards %}
+
+<!-- Card: Precificação — ATIVO -->
+<div class="col-md-4">
+    <a href="#" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-tags fa-2x mb-3"></i>
+            <h5>Precificação</h5>
+            <p>Calcule e gerencie os preços ideais por marketplace</p>
+        </div>
+    </a>
+</div>
+
+<!-- Card: Produtos — ATIVO -->
+<div class="col-md-4">
+    <a href="#" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-box fa-2x mb-3"></i>
+            <h5>Produtos</h5>
+            <p>Consulte o catálogo completo de produtos</p>
+        </div>
+    </a>
+</div>
+
+<!-- Card: Anúncios — ATIVO -->
+<div class="col-md-4">
+    <a href="#" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-bullhorn fa-2x mb-3"></i>
+            <h5>Anúncios</h5>
+            <p>Gerencie e monitore seus anúncios por marketplace</p>
+        </div>
+    </a>
+</div>
+
+<!-- Card: Marketplaces — ATIVO -->
+<div class="col-md-4">
+    <a href="#" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-store fa-2x mb-3"></i>
+            <h5>Marketplaces</h5>
+            <p>Configure parâmetros e regras por marketplace</p>
+        </div>
+    </a>
+</div>
+
+<!-- Cards em branco — reservados para módulos futuros -->
+{% for i in "12345" %}
+<div class="col-md-4">
+    <div class="card-modulo card-modulo-vazio">
+        <i class="fas fa-plus fa-2x mb-3"></i>
+        <h5>Em breve</h5>
+        <p>Novo módulo</p>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}

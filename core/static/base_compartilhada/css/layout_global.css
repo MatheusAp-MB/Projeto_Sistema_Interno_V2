@@ -1,0 +1,326 @@
+/*
+* [RESUMO] → CSS global do sistema — define o layout principal compartilhado
+* por todas as páginas: sidebar, toolbar e área de conteúdo.
+* Importado pelo estrutura_base_global.html
+*/
+
+/* + [STATUS: APROVADO] */
+
+/* ================================================
+   VARIÁVEIS GLOBAIS DE COR
+   Edite aqui para alterar o tema do sistema inteiro.
+   ================================================ */
+:root {
+    /* Cores primárias */
+    --cor-primaria:        #1a3a5c;
+    --cor-primaria-clara:  #2e7bb5;
+    --cor-primaria-escura: #0f2744;
+
+    /* Cores de texto */
+    --cor-texto-claro:     #ffffff;
+    --cor-texto-muted:     #6c757d;
+
+    /* Cores de fundo */
+    --cor-fundo-pagina:    #e9edf4;
+    --cor-fundo-card:      #ffffff;
+
+    /* Bordas */
+    --cor-borda:           #dee2e6;
+
+    /* Sidebar */
+    --sidebar-largura:     260px;
+    --sidebar-largura-min: 0px;
+
+    /* Toolbar */
+    --toolbar-altura:      60px;
+
+    /* Feedback */
+    --cor-positivo:        #2d7a4f;
+    --cor-negativo:        #dc3545;
+    --cor-alerta:          #f59e0b;
+}
+
+/* ================================================
+   RESET E BASE
+   ================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    /*
+    * [EXPLICAÇÃO] → Nunito para títulos, Open Sans para textos.
+    * O stack de fallback garante que mesmo sem carregar as fontes
+    * do Google, o sistema usa fontes adequadas.
+    */
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 1rem;
+    background-color: var(--cor-fundo-pagina);
+    color: #515151;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Nunito", sans-serif;
+    font-weight: 600;
+}
+
+a {
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--cor-primaria);
+    text-decoration: underline;
+}
+
+/* ================================================
+   LAYOUT PRINCIPAL
+   Sidebar fixa à esquerda + área principal à direita
+   ================================================ */
+.layout-container {
+    /*
+    * [EXPLICAÇÃO] → Flexbox coloca sidebar e main-wrapper lado a lado.
+    * min-height: 100vh garante que o layout ocupe toda a altura da tela
+    * mesmo quando o conteúdo é pequeno.
+    */
+    display: flex;
+    min-height: 100vh;
+}
+
+/* ================================================
+   SIDEBAR
+   ================================================ */
+.sidebar {
+    /*
+    * [EXPLICAÇÃO] → position: sticky + height: 100vh mantém a sidebar
+    * visível enquanto o usuário rola o conteúdo principal.
+    * overflow-y: auto permite scroll interno se o menu for muito longo.
+    */
+    width: var(--sidebar-largura);
+    min-width: var(--sidebar-largura);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    background-color: var(--cor-primaria);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: width 0.3s, min-width 0.3s;
+    z-index: 100;
+}
+
+/* Sidebar oculta — ativada pelo JS ao clicar no toggle */
+.sidebar-oculta .sidebar {
+    width: var(--sidebar-largura-min);
+    min-width: var(--sidebar-largura-min);
+}
+
+/* Logo */
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 70px;
+}
+
+#sidebar > a> div:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+.sidebar-logo img {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    margin: 0px 5px;
+}
+
+.sidebar-logo span {
+    font-family: "Nunito", sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--cor-texto-claro);
+    white-space: nowrap;
+}
+
+/* Navegação */
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+}
+
+/* Item de navegação */
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+.sidebar-item i:first-child {
+    width: 20px;
+    font-size: 1rem;
+}
+
+/* Dropdown da sidebar */
+.sidebar-chevron {
+    /*
+    * [EXPLICAÇÃO] → margin-left: auto empurra o chevron para a direita,
+    * independente do tamanho do texto do item.
+    */
+    margin-left: auto;
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+
+.sidebar-dropdown.aberto .sidebar-chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-dropdown-menu {
+    display: none;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-dropdown.aberto .sidebar-dropdown-menu {
+    display: block;
+}
+
+/* Subitem do dropdown */
+.sidebar-subitem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px 10px 48px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.sidebar-subitem:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+/* ================================================
+   ÁREA PRINCIPAL
+   ================================================ */
+.main-wrapper {
+    /*
+    * [EXPLICAÇÃO] → flex: 1 faz a área principal ocupar todo o
+    * espaço restante após a sidebar. overflow: hidden evita
+    * que conteúdo largo quebre o layout.
+    */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+/* ================================================
+   TOOLBAR
+   ================================================ */
+.toolbar {
+    /*
+    * [EXPLICAÇÃO] → position: sticky + top: 0 mantém a toolbar
+    * visível enquanto o usuário rola o conteúdo.
+    * z-index: 99 garante que fique acima do conteúdo ao rolar.
+    */
+    position: sticky;
+    top: 0;
+    z-index: 99;
+    height: var(--toolbar-altura);
+    background-color: var(--cor-primaria);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+}
+
+/* Botão toggle da sidebar */
+.toolbar-toggle {
+    background: none;
+    border: none;
+    color: var(--cor-texto-claro);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.toolbar-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Título da página */
+.toolbar-titulo {
+    font-family: "Nunito", sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--cor-texto-claro);
+    margin: 0;
+    flex: 1;
+}
+
+/* Área de botões de ação */
+.toolbar-acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Perfil do usuário */
+.btn-perfil {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: var(--cor-texto-claro);
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-perfil:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.btn-perfil::after {
+    /* * [EXPLICAÇÃO] → Remove o caret padrão do Bootstrap dropdown. */
+    display: none;
+}
+
+/* ================================================
+   CONTEÚDO PRINCIPAL
+   ================================================ */
+.conteudo-principal {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    overflow-x: auto;
+}

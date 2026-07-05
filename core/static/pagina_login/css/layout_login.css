@@ -1,0 +1,191 @@
+/*
+* [RESUMO] → CSS da tela de login.
+* Página independente — não usa o layout_global.css.
+* Define o card centralizado, formulário e mensagens de erro.
+*/
+
+/* + [STATUS: APROVADO] */
+
+/* ================================================
+   VARIÁVEIS — reutiliza as mesmas cores do projeto
+   ================================================ */
+:root {
+    --cor-primaria:        #1a3a5c;
+    --cor-primaria-clara:  #2e7bb5;
+    --cor-primaria-escura: #0f2744;
+    --cor-fundo-pagina:    #e9edf4;
+    --cor-fundo-card:      #ffffff;
+    --cor-borda:           #dee2e6;
+    --cor-texto-muted:     #6c757d;
+    --cor-negativo:        #dc3545;
+}
+
+/* ================================================
+   FUNDO DA PÁGINA
+   ================================================ */
+.login-body {
+    /*
+    * [EXPLICAÇÃO] → min-height: 100vh garante que o fundo azul
+    * cubra toda a tela mesmo em páginas com pouco conteúdo.
+    */
+    min-height: 100vh;
+    background-color: var(--cor-fundo-pagina);
+    font-family: "Open Sans", sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* ================================================
+   WRAPPER — centraliza o card na tela
+   ================================================ */
+.login-wrapper {
+    /*
+    * [EXPLICAÇÃO] → Flex com align-items e justify-content center
+    * centraliza o card tanto vertical quanto horizontalmente.
+    * min-height: 100vh garante que o wrapper ocupe a tela toda.
+    */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+}
+
+/* ================================================
+   CARD DO FORMULÁRIO
+   ================================================ */
+.login-card {
+    background-color: var(--cor-fundo-card);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(26, 58, 92, 0.15);
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+}
+
+/* ================================================
+   LOGO
+   ================================================ */
+.login-logo {
+    margin-bottom: 20px;
+}
+
+.login-logo img {
+    width: 72px;
+    height: 72px;
+    border-radius: 12px;
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(26, 58, 92, 0.2);
+}
+
+/* ================================================
+   TÍTULOS
+   ================================================ */
+.login-titulo {
+    font-family: "Nunito", sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    margin-bottom: 4px;
+}
+
+.login-subtitulo {
+    font-size: 0.85rem;
+    color: var(--cor-texto-muted);
+    margin-bottom: 24px;
+}
+
+/* ================================================
+   MENSAGEM DE ERRO
+   ================================================ */
+.login-erro {
+    /*
+    * [EXPLICAÇÃO] → Exibido quando as credenciais são inválidas.
+    * Usa cor vermelha e ícone para chamar atenção do usuário.
+    */
+    background-color: #fff2f2;
+    border: 1px solid var(--cor-negativo);
+    border-radius: 8px;
+    color: var(--cor-negativo);
+    font-size: 0.875rem;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+}
+
+/* ================================================
+   FORMULÁRIO
+   ================================================ */
+.login-form {
+    text-align: left;
+}
+
+.login-campo {
+    margin-bottom: 16px;
+}
+
+.login-campo label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    margin-bottom: 6px;
+}
+
+.login-campo .form-control {
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-campo .form-control:focus {
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 3px rgba(46, 123, 181, 0.15);
+    outline: none;
+}
+
+/* ================================================
+   BOTÃO DE ENTRAR
+   ================================================ */
+.login-btn {
+    width: 100%;
+    background-color: var(--cor-primaria);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-family: "Nunito", sans-serif;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.login-btn:hover {
+    background-color: var(--cor-primaria-clara);
+}
+
+.login-btn:active {
+    transform: scale(0.98);
+}
+
+/* ================================================
+   MENSAGEM DE CONTATO
+   ================================================ */
+.login-contato {
+    font-size: 0.8rem;
+    color: var(--cor-texto-muted);
+    margin-top: 24px;
+    margin-bottom: 0;
+}

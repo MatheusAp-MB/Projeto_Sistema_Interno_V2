@@ -1,0 +1,36 @@
+<!--
+* [RESUMO] → Template parcial do grid de marketplaces.
+* Reutilizável em qualquer módulo do sistema.
+* Recebe 'urls_marketplaces' da view — dicionário {id: url}.
+* Se o id do marketplace não estiver no dicionário, o card aparece como "Em breve".
+-->
+
+{% load static %}
+{% load filtros %}
+
+{% for marketplace in marketplaces %}
+    {% if marketplace.id in urls_marketplaces %}
+
+        <!-- Card ativo — marketplace tem tela neste módulo -->
+        <div class="col-md-4">
+            <a href="{{ urls_marketplaces|get_item:marketplace.id }}" class="text-decoration-none">
+                <div class="card-modulo">
+                    <img src="{% static marketplace.logo %}" alt="{{ marketplace.nome }}">
+                    <h5>{{ marketplace.nome }}</h5>
+                </div>
+            </a>
+        </div>
+
+    {% else %}
+
+        <!-- Card em breve — marketplace ainda não tem tela neste módulo -->
+        <div class="col-md-4">
+            <div class="card-modulo card-modulo-vazio">
+                <img src="{% static marketplace.logo %}" alt="{{ marketplace.nome }}">
+                <h5>{{ marketplace.nome }}</h5>
+                <p>Em breve</p>
+            </div>
+        </div>
+
+    {% endif %}
+{% endfor %}

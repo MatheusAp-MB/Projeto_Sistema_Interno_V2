@@ -1,0 +1,41 @@
+
+/* * [EXPLICAÇÃO] → Cabeçalho de cada card de categoria. */
+.modal-card-cabecalho {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    text-align: center;
+}
+
+/* * [EXPLICAÇÃO] → Tabela interna de cada card — ocupa largura total. */
+.modal-tabela {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* * [EXPLICAÇÃO] → Largura da coluna de labels (dado) — fixa para alinhar visualmente. */
+.modal-col-dado {
+    width: 40%;
+}
+
+/* * [EXPLICAÇÃO] → Largura da coluna de valores — ocupa o restante. */
+.modal-col-valor {
+    width: 60%;
+}
+
+/* * [EXPLICAÇÃO] → Célula de label — fundo levemente diferenciado para distinguir do valor. */
+.modal-td-dado {
+    background-color: rgb(220, 233, 248);
+    color: rgb(0, 1, 46);
+    font-weight: 600;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgb(180, 210, 240);
+}
+
+/* * [EXPLICAÇÃO] → Célula de valor — fundo claro, texto escuro. */
+.modal-td-valor {
+    background-color: rgb(233, 243, 255);
+    color: rgb(0, 1, 46);
+    padding: 8px 12px;
+    border-bottom: 1px solid rgb(180, 210, 240);
+    text-align: center;
+}

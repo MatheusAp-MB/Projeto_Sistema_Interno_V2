@@ -1,0 +1,524 @@
+/*
+* [RESUMO] → CSS do DataTables — compartilhado entre todas as telas que usam tabelas.
+* Adaptado da old_dev usando as variáveis de cor do projeto.
+*/
+
+/* ================================================
+   BARRA DE AÇÕES
+   ================================================ */
+
+.barra-acoes {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.btn-acao {
+    background-color: var(--cor-primaria-clara);
+    border: 2px solid var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.btn-acao:hover {
+    background-color: var(--cor-primaria);
+}
+
+/* ================================================
+   PAINEL DE OPÇÕES DE COLUNAS
+   ================================================ */
+
+#painel-colunas {
+    display: none;
+    background-color: var(--cor-primaria);
+    border: 2px solid var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+    padding: 16px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+}
+
+#painel-colunas h6 {
+    color: var(--cor-texto-claro);
+    border-bottom: 2px solid var(--cor-primaria-clara);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    font-size: 1rem;
+}
+
+.grid-botoes-colunas {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+}
+
+.grid-botoes-colunas button {
+    height: 36px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.grid-botoes-colunas button.active {
+    background-color: var(--cor-positivo);
+    color: var(--cor-texto-claro);
+}
+
+.grid-botoes-colunas button.not_active {
+    background-color: var(--cor-negativo);
+    color: var(--cor-texto-claro);
+}
+
+.grid-botoes-colunas button:hover {
+    opacity: 0.85;
+    outline: 3px solid white;
+}
+
+/* ================================================
+   WRAPPER DO DATATABLES
+   ================================================ */
+
+.dataTables_wrapper {
+    background-color: rgba(174, 206, 255, 0.15);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    padding: 8px;
+    overflow-x: auto;
+}
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.dataTables_wrapper .dataTables_info {
+    text-align: center;
+    min-width: 100%;
+}
+
+.dataTables_wrapper .dataTables_paginate {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+/* ================================================
+   CABEÇALHO DA TABELA
+   ================================================ */
+
+table.dataTable thead th {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    border-bottom: 2px solid var(--cor-primaria-clara);
+    white-space: nowrap;
+}
+
+table.dataTable thead th:hover {
+    background-color: var(--cor-primaria-clara);
+}
+
+table.dataTable tbody tr:hover {
+    background-color: rgba(46, 123, 181, 0.08);
+    cursor: pointer;
+}
+
+/* ================================================
+   PAGINAÇÃO
+   ================================================ */
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: var(--cor-primaria) !important;
+    color: var(--cor-texto-claro) !important;
+    border: 1px solid var(--cor-primaria) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    background: var(--cor-primaria-clara) !important;
+    color: var(--cor-texto-claro) !important;
+    border: 1px solid var(--cor-primaria-clara) !important;
+}
+
+/* ================================================
+   INPUTS DE BUSCA E LENGTH
+   ================================================ */
+
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_length select {
+    background-color: var(--cor-fundo-card) !important;
+    border: 1px solid var(--cor-primaria-clara) !important;
+    border-radius: 6px !important;
+    padding: 4px 10px !important;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+    min-width: 300px;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+    border-color: var(--cor-primaria) !important;
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.25) !important;
+}
+
+/* ================================================
+   CÉLULAS
+   ================================================ */
+
+table.dataTable td,
+table.dataTable th {
+    height: 44px;
+    border: 1px solid var(--cor-borda) !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* ================================================
+   BOTÕES DE VISIBILIDADE DE COLUNAS
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Botão ativo — coluna visível na tabela. */
+.btn-ativo {
+    background-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+    border: 1px solid var(--cor-primaria);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-ativo:hover {
+    background-color: var(--cor-primaria);
+}
+
+/* * [EXPLICAÇÃO] → Botão inativo — coluna oculta na tabela. */
+.btn-inativo {
+    background-color: #495057;
+    color: var(--cor-texto-claro);
+    border: 1px solid #6c757d;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-inativo:hover {
+    background-color: #6c757d;
+}
+
+/* ================================================
+   SEARCHPANES — CONTAINER E TÍTULO
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Container principal — oculto por padrão, controlado pelo toggle em script_produtos.js. */
+.dtsp-panesContainer {
+    display: none;
+    background-color: rgb(233, 243, 255);
+    border: 1px solid rgb(180, 210, 240);
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 0;
+}
+
+/* * [EXPLICAÇÃO] → Barra de título — exibe só o botão Limpar tudo quando há filtros ativos. */
+.dtsp-titleRow {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0 0 6px 0;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgb(180, 210, 240);
+}
+
+/* * [EXPLICAÇÃO] → Oculta elementos desnecessários da barra de título. */
+.dtsp-title,
+.dtsp-showAll,
+.dtsp-collapseAll {
+    display: none !important;
+}
+
+/* * [EXPLICAÇÃO] → Botão Limpar tudo — aparece apenas quando há filtros ativos. */
+.dtsp-clearAll {
+    background-color: var(--cor-negativo) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 4px 12px !important;
+    font-size: 0.75rem !important;
+    cursor: pointer !important;
+    transition: opacity 0.2s !important;
+}
+
+.dtsp-clearAll:hover {
+    opacity: 0.85 !important;
+}
+
+/* * [EXPLICAÇÃO] → Esconde o botão Limpar quando desabilitado (sem filtros ativos). */
+.dtsp-disabledButton.dtsp-clearAll {
+    display: none !important;
+}
+
+/* ================================================
+   SEARCHPANES — GRID DE PAINÉIS
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Grid dos painéis — flex wrap para adaptar à largura da tela. */
+.dtsp-searchPanes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+/* * [EXPLICAÇÃO] → Painel individual de cada coluna. */
+.dtsp-searchPane {
+    background-color: white !important;
+    border: 1px solid rgb(180, 210, 240) !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+}
+
+/* ================================================
+   SEARCHPANES — CABEÇALHO DE CADA PAINEL
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Cabeçalho do painel — fundo primário, itens em linha. */
+.dtsp-topRow,
+.dtsp-subRowsContainer {
+    background-color: var(--cor-primaria) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 5px 8px !important;
+}
+
+/* * [EXPLICAÇÃO] → Input de busca ocupa o espaço restante do cabeçalho. */
+.dtsp-subRow1 {
+    flex: 1 !important;
+    margin: 0 !important;
+}
+
+/* * [EXPLICAÇÃO] → Força visibilidade dos botões mesmo no modo estreito (dtsp-narrow).
+*                  O plugin SearchPanes aplica display:none nos botões quando o painel
+*                  é considerado estreito — este seletor específico sobrescreve isso. */
+.dtsp-subRow2,
+.dtsp-narrow .dtsp-subRow2 {
+    display: flex !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    margin: 0 !important;
+}
+
+/* * [EXPLICAÇÃO] → Input de busca com texto branco em negrito para contraste. */
+.dtsp-search {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 4px !important;
+    color: white !important;
+    font-weight: 700 !important;
+    padding: 3px 6px !important;
+    font-size: 0.78rem !important;
+    width: 100% !important;
+    outline: none !important;
+}
+
+.dtsp-search::placeholder {
+    color: white !important;
+    font-weight: 700 !important;
+}
+
+/* * [EXPLICAÇÃO] → Esconde o botão de ícone de busca — desnecessário. */
+.dtsp-searchButtonCont {
+    display: none !important;
+}
+
+/* * [EXPLICAÇÃO] → Botões × Aa # ^ — compactos e visíveis sobre fundo escuro. */
+.dtsp-paneButton {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+    padding: 2px 5px !important;
+    border-radius: 3px !important;
+    font-size: 0.7rem !important;
+    cursor: pointer !important;
+    min-width: 20px !important;
+    text-align: center !important;
+}
+
+.dtsp-paneButton:not(.dtsp-disabledButton):hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.dtsp-disabledButton.dtsp-paneButton {
+    opacity: 0.3 !important;
+    cursor: default !important;
+}
+
+/* ================================================
+   SEARCHPANES — LISTA DE VALORES
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Células da lista — sem padding extra nem borda. */
+.dtsp-searchPane tbody tr td {
+    padding: 0 !important;
+    border: none !important;
+    background-color: white !important;
+}
+
+/* * [EXPLICAÇÃO] → Linha de cada valor — flex entre nome e pill. */
+.dtsp-nameCont {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 5px 8px !important;
+    font-size: 0.8rem !important;
+    cursor: pointer !important;
+    border-bottom: 1px solid rgb(220, 233, 248) !important;
+}
+
+/* * [EXPLICAÇÃO] → Hover sobre valor — azul suave. */
+.dtsp-searchPane tbody tr:hover td,
+.dtsp-searchPane tbody tr:hover .dtsp-nameCont {
+    background-color: rgba(38, 157, 255, 0.1) !important;
+}
+
+/* * [EXPLICAÇÃO] → Valor selecionado — fundo azul #269dff com texto branco. */
+.dtsp-searchPane tbody tr.selected td {
+    background-color: #269dff !important;
+    box-shadow: none !important;
+}
+
+.dtsp-searchPane tbody tr.selected .dtsp-name {
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+/* * [EXPLICAÇÃO] → Pill inverte cores quando selecionado. */
+.dtsp-searchPane tbody tr.selected .dtsp-pill {
+    background-color: white !important;
+    color: #269dff !important;
+}
+
+/* * [EXPLICAÇÃO] → Pill de contagem de registros. */
+.dtsp-pill {
+    background-color: var(--cor-primaria) !important;
+    color: white !important;
+    border-radius: 10px !important;
+    padding: 1px 7px !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    min-width: 24px !important;
+    text-align: center !important;
+    flex-shrink: 0 !important;
+}
+
+/* * [EXPLICAÇÃO] → Limita altura do scroll interno da lista de valores. */
+.dtsp-searchPane .dataTables_scrollBody {
+    max-height: 150px !important;
+}
+
+/* * [EXPLICAÇÃO] → Remove controles desnecessários dentro dos painéis. */
+.dtsp-searchPane .dataTables_length,
+.dtsp-searchPane .dataTables_filter,
+.dtsp-searchPane .dataTables_info,
+.dtsp-searchPane .dataTables_paginate,
+.dtsp-searchPane .dataTables_scrollHead {
+    display: none !important;
+}
+
+/* ================================================
+   LINHA DE FILTROS ATIVOS
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Linha sempre visível com status dos filtros e botão toggle. */
+#linha-filtros {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgb(220, 233, 248);
+    border: 1px solid rgb(180, 210, 240);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    color: var(--cor-primaria);
+}
+
+#filtros-ativos-texto {
+    flex: 1;
+    font-weight: 500;
+}
+
+/* * [EXPLICAÇÃO] → Botão de toggle do painel de filtros. */
+#btn-toggle-filtros {
+    background-color: var(--cor-primaria);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+#btn-toggle-filtros:hover {
+    background-color: var(--cor-primaria-clara);
+}
+
+/* ================================================
+   PAINEL DE COLUNAS — CARDS (compartilhado)
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Card interno do painel de colunas visíveis.
+*                  Compartilhado entre todas as telas com DataTables. */
+.painel-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 12px;
+    height: 100%;
+}
+
+.painel-card-titulo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 8px;
+}
+
+.painel-card-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}

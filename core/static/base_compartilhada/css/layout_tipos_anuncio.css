@@ -1,0 +1,189 @@
+/* ================================================
+   CORES DE LINHA POR TIPO, LOGÍSTICA E CATÁLOGO
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Lógica de cores:
+*   Família: Flex = amarelo | FULL = verde
+*   Tom: Clássico = pastel suave | Premium = saturado rico
+*   Catálogo: levemente mais intenso dentro do mesmo tom */
+
+/* Clássico + Flex */
+tr.anuncio-classico-flex td {
+    background-color: #fffde7 !important;
+    color: #5a4a00 !important;
+}
+
+tr.anuncio-classico-flex:hover td {
+    background-color: #fff9c4 !important;
+}
+
+/* Clássico + Flex + Catálogo */
+tr.anuncio-classico-flex-cat td {
+    background-color: #fff9c4 !important;
+    color: #5a4a00 !important;
+}
+
+tr.anuncio-classico-flex-cat:hover td {
+    background-color: #fff59d !important;
+}
+
+/* Premium + Flex */
+tr.anuncio-premium-flex td {
+    background-color: #fff3cd !important;
+    color: #5a3600 !important;
+}
+
+tr.anuncio-premium-flex:hover td {
+    background-color: #ffe082 !important;
+}
+
+/* Premium + Flex + Catálogo */
+tr.anuncio-premium-flex-cat td {
+    background-color: #ffe082 !important;
+    color: #5a3600 !important;
+}
+
+tr.anuncio-premium-flex-cat:hover td {
+    background-color: #ffd54f !important;
+}
+
+/* Clássico + FULL */
+tr.anuncio-classico-full td {
+    background-color: #f1f8e9 !important;
+    color: #1b4a1e !important;
+}
+
+tr.anuncio-classico-full:hover td {
+    background-color: #dcedc8 !important;
+}
+
+/* Clássico + FULL + Catálogo */
+tr.anuncio-classico-full-cat td {
+    background-color: #dcedc8 !important;
+    color: #1b4a1e !important;
+}
+
+tr.anuncio-classico-full-cat:hover td {
+    background-color: #c5e1a5 !important;
+}
+
+/* Premium + FULL */
+tr.anuncio-premium-full td {
+    background-color: #c8e6c9 !important;
+    color: #0d3b10 !important;
+}
+
+tr.anuncio-premium-full:hover td {
+    background-color: #a5d6a7 !important;
+}
+
+/* Premium + FULL + Catálogo */
+tr.anuncio-premium-full-cat td {
+    background-color: #a5d6a7 !important;
+    color: #0d3b10 !important;
+}
+
+tr.anuncio-premium-full-cat:hover td {
+    background-color: #81c784 !important;
+}
+
+/* ================================================
+   BADGES DE TIPO DE ANÚNCIO
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Badge exibido abaixo do título identificando o tipo do anúncio. */
+.badge-anuncio {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 4px;
+}
+
+.badge-classico {
+    background-color: rgba(255, 220, 60, 0.3);
+    color: #8a6d00;
+    border: 1px solid rgba(255, 200, 0, 0.5);
+}
+
+.badge-premium {
+    background-color: rgba(212, 170, 50, 0.3);
+    color: #7a5500;
+    border: 1px solid rgba(200, 150, 0, 0.5);
+}
+
+/* ================================================
+   BADGES DE LOGÍSTICA
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Badge de tipo logístico com ícone. */
+.badge-logistica {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    margin-right: 4px;
+}
+
+.badge-full {
+    background-color: rgba(0, 150, 100, 0.15);
+    color: #006644;
+    border: 1px solid rgba(0, 150, 100, 0.3);
+}
+
+.badge-flex {
+    background-color: rgba(80, 120, 220, 0.15);
+    color: #1a3a8a;
+    border: 1px solid rgba(80, 120, 220, 0.3);
+}
+
+.badge-padrao {
+    background-color: rgba(100, 100, 100, 0.12);
+    color: #444;
+    border: 1px solid rgba(100, 100, 100, 0.25);
+}
+
+/* ================================================
+   BADGE DE CATÁLOGO
+   ================================================ */
+
+.badge-catalogo {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background-color: rgba(46, 123, 181, 0.15);
+    color: #1a3a5c;
+    border: 1px solid rgba(46, 123, 181, 0.3);
+}
+
+/* ================================================
+   CÉLULA DE TÍTULO RICA
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Célula do título com hierarquia visual —
+*                  título em destaque e badges abaixo. */
+.celula-titulo {
+    text-align: left !important;
+    padding: 8px 12px !important;
+    min-width: 280px;
+}
+
+.celula-titulo .titulo-principal {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #1a3a5c;
+    display: block;
+    margin-bottom: 4px;
+    white-space: normal;
+    line-height: 1.3;
+}
+
+.celula-titulo .titulo-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}

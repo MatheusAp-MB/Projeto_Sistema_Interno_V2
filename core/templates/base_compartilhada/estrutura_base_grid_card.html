@@ -1,0 +1,27 @@
+<!--
+* [RESUMO] → Template base para páginas com grid de cards.
+* Herda toda a estrutura do estrutura_base_global.html e adiciona
+* o bloco de conteúdo preparado para receber um grid de cards.
+* Páginas que usam grid de cards herdam deste template.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block head_extra %}
+    <!--
+    * [EXPLICAÇÃO] → Carrega o CSS base dos cards compartilhado.
+    * Páginas filhas podem adicionar mais CSS via { % block head_extra % }.
+    -->
+    <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_base_grid_card.css' %}">
+    {% block head_grid %}{% endblock %}
+{% endblock %}
+
+{% block conteudo %}
+    <!--
+    * [EXPLICAÇÃO] → Container padrão para o grid de cards.
+    * Páginas filhas preenchem o block cards com seus próprios cards.
+    -->
+    <div class="row g-4">
+        {% block cards %}{% endblock %}
+    </div>
+{% endblock %}
