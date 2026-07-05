@@ -7,6 +7,7 @@
 
 from pathlib import Path
 from django.core.management.base import BaseCommand
+from core.management.commands.popular_banco_suporte.importar_produtos_ml import importar_produtos_ml
 from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
@@ -17,5 +18,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write('Iniciando importação de dados reais...\n')
+        importar_produtos_ml(self.stdout, self.style, CAMINHO_DETALHES_MLBS)
+        self.stdout.write('')
         importar_anuncios_ml(self.stdout, self.style, CAMINHO_DETALHES_MLBS)
         self.stdout.write(self.style.SUCCESS('\nImportação concluída!'))
+
+
+CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
