@@ -4,4 +4,4 @@ from .models import Marketplace
 
 @admin.register(Marketplace)
 class MarketplaceAdmin(admin.ModelAdmin):
-    list_display = ['nome', 'sigla', 'ativo']
+    list_display = ['nome', 'sigla', 'ordem', 'ativo']
