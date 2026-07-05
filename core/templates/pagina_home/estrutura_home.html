@@ -1,8 +1,7 @@
 <!--
 * [RESUMO] → Template da homepage do sistema.
-* Herda de estrutura_base_grid_card.html — que já inclui
-* o grid e o CSS dos cards.
-* Define apenas os cards específicos da homepage.
+* Card "Marketplaces" leva à grid de marketplaces (2º nível de navegação).
+* Configuração de usuários fica reservada para o futuro (controle de cargo/admin).
 -->
 {% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
 {% load static %}
@@ -11,26 +10,14 @@
 {% block toolbar_titulo %}Página Inicial{% endblock %}
 
 {% block head_grid %}
-<!-- * [EXPLICAÇÃO] → CSS exclusivo da homepage, se necessário -->
 <link rel="stylesheet" href="{% static 'pagina_home/css/layout_home.css' %}">
 {% endblock %}
 
 {% block cards %}
 
-<!-- Card: Precificação — ATIVO -->
+<!-- Card: Produtos — universal, sem marketplace -->
 <div class="col-md-4">
-    <a href="#" class="text-decoration-none">
-        <div class="card-modulo">
-            <i class="fas fa-tags fa-2x mb-3"></i>
-            <h5>Precificação</h5>
-            <p>Calcule e gerencie os preços ideais por marketplace</p>
-        </div>
-    </a>
-</div>
-
-<!-- Card: Produtos — ATIVO -->
-<div class="col-md-4">
-    <a href="#" class="text-decoration-none">
+    <a href="{% url 'produtos' %}" class="text-decoration-none">
         <div class="card-modulo">
             <i class="fas fa-box fa-2x mb-3"></i>
             <h5>Produtos</h5>
@@ -39,30 +26,28 @@
     </a>
 </div>
 
-<!-- Card: Anúncios — ATIVO -->
-<div class="col-md-4">
-    <a href="#" class="text-decoration-none">
-        <div class="card-modulo">
-            <i class="fas fa-bullhorn fa-2x mb-3"></i>
-            <h5>Anúncios</h5>
-            <p>Gerencie e monitore seus anúncios por marketplace</p>
-        </div>
-    </a>
-</div>
-
-<!-- Card: Marketplaces — ATIVO -->
+<!-- Card: Marketplaces — abre a grid de marketplaces (2º nível) -->
 <div class="col-md-4">
     <a href="#" class="text-decoration-none">
         <div class="card-modulo">
             <i class="fas fa-store fa-2x mb-3"></i>
             <h5>Marketplaces</h5>
-            <p>Configure parâmetros e regras por marketplace</p>
+            <p>Escolha um marketplace para trabalhar</p>
         </div>
     </a>
 </div>
 
-<!-- Cards em branco — reservados para módulos futuros -->
-{% for i in "12345" %}
+<!-- Card: Configurações — reservado para o futuro (controle de admin) -->
+<div class="col-md-4">
+    <div class="card-modulo card-modulo-vazio">
+        <i class="fas fa-users-cog fa-2x mb-3"></i>
+        <h5>Configurações</h5>
+        <p>Em breve</p>
+    </div>
+</div>
+
+<!-- Cards em branco — reservados para módulos futuros (resumos/cruzamentos) -->
+{% for i in "1234" %}
 <div class="col-md-4">
     <div class="card-modulo card-modulo-vazio">
         <i class="fas fa-plus fa-2x mb-3"></i>

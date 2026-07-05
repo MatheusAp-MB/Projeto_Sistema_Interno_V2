@@ -1,0 +1,136 @@
+<!--
+* [RESUMO] → Template parcial do modal de detalhes do produto.
+* Retornado pelo HTMX ao clicar em uma linha da tabela de produtos.
+* Exibe todos os campos do produto agrupados por categoria — somente leitura.
+-->
+
+<!-- * [EXPLICAÇÃO] → Título do produto exibido no topo do modal. -->
+<div class="modal-produto-imagem-wrap">
+    {% if produto.imagem_url %}
+    <img src="{{ produto.imagem_url }}" class="modal-produto-imagem" alt="{{ produto.titulo }}">
+    {% else %}
+    <div class="modal-produto-imagem modal-produto-imagem-vazia"><i class="fas fa-image"></i></div>
+    {% endif %}
+</div>
+<h6 class="modal-produto-titulo">{{ produto.titulo }}</h6>
+
+<div class="row g-4">
+
+    <!-- Identificação -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Identificação</strong>
+            </div>
+            <div class="card-body">
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    <tr><td class="modal-td-dado">EAN</td><td class="modal-td-valor">{{ produto.ean }}</td></tr>
+                    <tr><td class="modal-td-dado">SKU</td><td class="modal-td-valor">{{ produto.sku|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Cód. Fabricante</td><td class="modal-td-valor">{{ produto.cod_fabricante|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Marca</td><td class="modal-td-valor">{{ produto.marca|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Curva</td><td class="modal-td-valor">{{ produto.curva|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Estoque</td><td class="modal-td-valor">{{ produto.estoque }}</td></tr>
+                    <tr><td class="modal-td-dado">Categoria</td><td class="modal-td-valor">{{ produto.categoria|default:"" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fiscal -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Fiscal</strong>
+            </div>
+            <div class="card-body">
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    <tr><td class="modal-td-dado">NCM</td><td class="modal-td-valor">{{ produto.ncm|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">IPI</td><td class="modal-td-valor">{{ produto.ipi|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">ICMS Entrada</td><td class="modal-td-valor">{{ produto.icms_entrada|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">ICMS Saída SP</td><td class="modal-td-valor">{{ produto.icms_saida_sp|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">ICMS Saída Média</td><td class="modal-td-valor">{{ produto.icms_saida_media|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">PIS/COFINS</td><td class="modal-td-valor">{{ produto.pis_cofins|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">MVA</td><td class="modal-td-valor">{{ produto.mva|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">ST Valor</td><td class="modal-td-valor">{{ produto.st_valor|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Frete CIF/FOB</td><td class="modal-td-valor">{{ produto.frete_cif_fob|default:"" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dimensões -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Dimensões</strong>
+            </div>
+            <div class="card-body">
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    <tr><td class="modal-td-dado">Peso</td><td class="modal-td-valor">{{ produto.peso|floatformat:3 }} kg</td></tr>
+                    <tr><td class="modal-td-dado">Peso Cubado</td><td class="modal-td-valor">{{ produto.peso_cubado|floatformat:3 }} kg</td></tr>
+                    <tr><td class="modal-td-dado">Altura</td><td class="modal-td-valor">{{ produto.altura|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Largura</td><td class="modal-td-valor">{{ produto.largura|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Profundidade</td><td class="modal-td-valor">{{ produto.profundidade|floatformat:2 }} cm</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+        <!-- Financeiro -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Financeiro</strong>
+            </div>
+            <div class="card-body">
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    <tr><td class="modal-td-dado">Custo</td><td class="modal-td-valor">R$ {{ produto.custo|floatformat:2 }}</td></tr>
+                    <tr><td class="modal-td-dado">Custo c/ Boni</td><td class="modal-td-valor">{{ produto.custo_com_boni|floatformat:2|default:"" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Controle -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Controle</strong>
+            </div>
+            <div class="card-body">
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    <tr><td class="modal-td-dado">Entrada no DB</td><td class="modal-td-valor">{{ produto.criado_em|date:"d/m/Y H:i" }}</td></tr>
+                    <tr><td class="modal-td-dado">Atualização no DB</td><td class="modal-td-valor">{{ produto.atualizado_em|date:"d/m/Y H:i" }}</td></tr>
+                    <tr><td class="modal-td-dado">Cadastro no ERP</td><td class="modal-td-valor">{{ produto.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Última Compra</td><td class="modal-td-valor">{{ produto.ultima_compra|date:"d/m/Y"|default:"" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+</div>

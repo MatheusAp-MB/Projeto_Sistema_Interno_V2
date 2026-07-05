@@ -1,0 +1,181 @@
+/*
+* [RESUMO] → CSS específico da tela de produtos.
+*/
+
+/* ================================================
+   TABELA
+   ================================================ */
+
+#tabela-produtos td,
+#tabela-produtos th {
+    height: 44px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ================================================
+   PAINEL DE COLUNAS — CARDS
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Títulos dos cards centralizados e em destaque. */
+.painel-card-titulo {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+/* * [EXPLICAÇÃO] → Botões internos dos cards em flex wrap. */
+.painel-card-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+   
+}
+
+.painel-card-botoes > button {
+    min-width: 110px;
+    max-width: 110px;
+
+    max-height: 50px;
+    min-height: 50px;
+    text-wrap: inherit;
+    /* background-color: red; */
+}
+
+/* * [EXPLICAÇÃO] → Larguras individuais por card. */
+@media (min-width: 768px) {
+    .painel-col-identificacao { flex: 0 0 auto; width: 480px;  }
+    .painel-col-financeiro    { flex: 0 0 auto; width: 400px;  }
+    .painel-col-controle      { flex: 0 0 auto; width: 400px;  }
+    .painel-col-fiscal        { flex: 0 0 auto; width: 480px;}
+    .painel-col-dimensoes     { flex: 0 0 auto; width: 480px; }
+}
+
+/* * [EXPLICAÇÃO] → Estilo visual dos cards do painel de colunas. */
+.painel-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 8px 12px;
+    height: 100%;
+}
+
+.painel-card-titulo {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+#painel-colunas > div, #painel-colunas > h6{
+    justify-content: center;
+    text-align: center;
+
+}
+
+/* ================================================
+   MODAL DE DETALHES DO PRODUTO
+   ================================================ */
+
+#modal-conteudo{
+    background-color: azure;
+}
+
+.card-body{
+    padding: 0px;
+}
+
+/* * [EXPLICAÇÃO] → Cabeçalho do modal — fundo escuro com título centralizado. */
+#modal-produto-header {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+#modal-produto-titulo-header {
+    width: 100%;
+    text-align: center;
+}
+
+/* * [EXPLICAÇÃO] → Botão de fechar customizado — substitui o btn-close padrão do Bootstrap. */
+#modal-produto-btn-fechar {
+    background: none;
+    border: none;
+    color: var(--cor-texto-claro);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+#modal-produto-btn-fechar:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* * [EXPLICAÇÃO] → Título do produto no corpo do modal. */
+.modal-produto-titulo {
+    text-align: center;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    margin-bottom: 16px;
+    font-size: 1rem;
+}
+
+
+.painel-col-controle-db  { flex: 0 0 auto; width: 300px; }
+.painel-col-controle-erp { flex: 0 0 auto; width: 300px; }
+
+/* ================================================
+   IMAGEM DO PRODUTO — TABELA E MODAL
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Miniatura na tabela: tamanho fixo, object-fit garante
+                     que qualquer proporção de imagem original preencha
+                     o quadrado sem distorcer. */
+.miniatura-produto {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    display: block;
+}
+
+.miniatura-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f1f3f5;
+    color: #adb5bd;
+    font-size: 1rem;
+}
+
+/* * [EXPLICAÇÃO] → Imagem grande no modal: mesma lógica, tamanho maior,
+                     sempre centralizada acima do título. */
+.modal-produto-imagem-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.modal-produto-imagem {
+    width: 250px;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.modal-produto-imagem-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f1f3f5;
+    color: #adb5bd;
+    font-size: 2.5rem;
+}
