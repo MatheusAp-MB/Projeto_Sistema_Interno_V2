@@ -91,47 +91,27 @@
             </a>
 
             <!-- Navegação -->
-<nav class="sidebar-nav">
+            <nav class="sidebar-nav">
 
                 <!-- Produtos -->
-                <a href="#" class="sidebar-item">
+                <a href="{% url 'produtos' %}" class="sidebar-item">
                     <i class="fas fa-box"></i>
                     <span>Produtos</span>
                 </a>
 
-                <!-- Precificação -->
-                <div class="sidebar-dropdown">
-                    <a href="#" class="sidebar-item sidebar-dropdown-toggle">
-                        <i class="fas fa-tags"></i>
-                        <span>Precificação</span>
-                        <i class="fas fa-chevron-down sidebar-chevron"></i>
-                    </a>
-                    <div class="sidebar-dropdown-menu">
-                        <a href="#" class="sidebar-subitem">
-                            <i class="fas fa-store"></i> Mercado Livre
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Anúncios -->
-                <div class="sidebar-dropdown">
-                    <a href="#" class="sidebar-item sidebar-dropdown-toggle">
-                        <i class="fas fa-bullhorn"></i>
-                        <span>Anúncios</span>
-                        <i class="fas fa-chevron-down sidebar-chevron"></i>
-                    </a>
-                    <div class="sidebar-dropdown-menu">
-                        <a href="#" class="sidebar-subitem">
-                            <i class="fas fa-store"></i> Mercado Livre
-                        </a>
-                    </div>
-                </div>
-
                 <!-- Marketplaces -->
-                <a href="#" class="sidebar-item">
-                    <i class="fas fa-store"></i>
-                    <span>Marketplaces</span>
-                </a>
+                <div class="sidebar-dropdown">
+                    <a href="{% url 'marketplaces' %}" class="sidebar-item sidebar-dropdown-toggle">
+                        <i class="fas fa-tags"></i>
+                        <span>Marketplaces</span>
+                        <i class="fas fa-chevron-down sidebar-chevron"></i>
+                    </a>
+                    <div class="sidebar-dropdown-menu">
+                        <a href="#" class="sidebar-subitem">
+                            <i class="fas fa-store"></i> Mercado Livre
+                        </a>
+                    </div>
+                </div>
 
                 <!-- Configurações -->
                 <div class="sidebar-dropdown">

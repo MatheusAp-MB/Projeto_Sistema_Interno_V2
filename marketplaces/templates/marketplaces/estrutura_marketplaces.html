@@ -1,0 +1,14 @@
+<!--
+* [RESUMO] → Template da tela de marketplaces — grid de seleção.
+* Herda de estrutura_base_grid_card.html.
+* Usa o parcial compartilhado de marketplaces.
+-->
+{% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
+{% load static %}
+
+{% block titulo %}Marketplaces — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Marketplaces{% endblock %}
+
+{% block cards %}
+    {% include 'base_compartilhada/estrutura_parcial_grid_marketplaces.html' %}
+{% endblock %}
