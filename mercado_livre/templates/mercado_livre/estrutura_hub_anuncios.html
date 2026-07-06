@@ -32,17 +32,7 @@
 <p class="hub-contador">{{ pagina.paginator.count }} SKUs encontrados — página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</p>
 
 {% for sku, arvore in arvores.items %}
-<details class="hub-sku-bloco" open>
-    <summary class="hub-sku-header">
-        <div class="hub-sku-info">
-            <span class="hub-sku-marca">{{ arvore.marca|default:"—" }}</span>
-            <span class="hub-sku-titulo">{{ arvore.titulo_produto|default:sku }}</span>
-            <span class="hub-sku-codigo">{{ sku }}</span>
-        </div>
-        <span class="hub-sku-contagem">{{ arvore.total_anuncios }} anúncio{{ arvore.total_anuncios|pluralize }}</span>
-    </summary>
-
-    <div class="hub-sku-conteudo">
+<div class="hub-sku-conteudo">
 
         {% for pagina_cat in arvore.paginas_catalogo %}
         <details class="hub-pagina-catalogo" open>
@@ -53,14 +43,21 @@
             <div class="hub-lista-cards">
                 {% for base in pagina_cat.anuncios_base %}
                 <div class="hub-grupo-base">
-                    {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=base tag_papel="Base" %}
+                    {% for folha in base.folhas %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Base" %}
+                    {% endfor %}
                     {% for cat in base.anuncios_catalogo %}
-                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=cat tag_papel="Catálogo" %}
+                        {% for folha in cat.folhas %}
+                            {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo" %}
+                        {% endfor %}
                     {% endfor %}
                 </div>
                 {% endfor %}
+
                 {% for orfao in pagina_cat.anuncios_catalogo_orfaos %}
-                    {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=orfao tag_papel="Catálogo órfão" %}
+                    {% for folha in orfao.folhas %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo órfão" %}
+                    {% endfor %}
                 {% endfor %}
             </div>
         </details>
@@ -69,16 +66,17 @@
         {% if arvore.anuncios_simples %}
         <details class="hub-anuncios-simples" open>
             <summary class="hub-pagina-catalogo-titulo">🔹 Anúncios Simples</summary>
-            <div class="hub-cards-grid">
+            <div class="hub-lista-cards">
                 {% for simples in arvore.anuncios_simples %}
-                    {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=simples tag_papel="Simples" %}
+                    {% for folha in simples.folhas %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Simples" %}
+                    {% endfor %}
                 {% endfor %}
             </div>
         </details>
         {% endif %}
 
     </div>
-</details>
 {% endfor %}
 
 <div class="hub-paginacao">
