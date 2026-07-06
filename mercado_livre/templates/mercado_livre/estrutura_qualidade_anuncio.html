@@ -1,0 +1,161 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Qualidade do Anúncio — {{ dados.mlb }}{% endblock %}
+{% block toolbar_titulo %}Qualidade do Anúncio{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'mercado_livre/css/layout_qualidade_anuncio.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if not dados.encontrado %}
+<p>Anúncio não encontrado.</p>
+{% else %}
+
+<!-- Cabeçalho -->
+<div class="qualidade-header">
+    {% if dados.imagem_url %}
+    <img src="{{ dados.imagem_url }}" class="qualidade-imagem" alt="{{ dados.titulo }}">
+    {% else %}
+    <div class="qualidade-imagem qualidade-imagem-vazia"><i class="fas fa-image"></i></div>
+    {% endif %}
+
+    <div class="qualidade-header-info">
+        <h2 class="qualidade-titulo">{{ dados.titulo }}</h2>
+        <span class="qualidade-mlb-sku">{{ dados.mlb }} · {{ dados.sku|default:"—" }}</span>
+    </div>
+
+{% if not dados.sem_dado_qualidade %}
+    <div class="qualidade-score-bloco">
+        <span class="qualidade-nivel">{{ dados.nivel|upper }}</span>
+        <svg viewBox="0 0 60 34" class="termometro-svg-grande">
+            <path d="{{ dados.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
+            <path d="{{ dados.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
+            <path d="{{ dados.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
+            <line x1="30" y1="30" x2="{{ dados.ponteiro_x }}" y2="{{ dados.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
+        </svg>
+        <span class="qualidade-score-numero">{{ dados.score }}</span>
+        <span class="qualidade-score-legenda">{{ dados.total_ok }} de {{ dados.total_criterios }} critérios cumpridos</span>
+    </div>
+    {% endif %}
+</div>
+
+{% if dados.sem_dado_qualidade %}
+<p class="qualidade-sem-dado">Ainda não temos dados de qualidade importados para este anúncio.</p>
+{% else %}
+
+<!-- Resumo escaneável: OK -> N/A -> Falta -->
+<div class="resumo-linha">
+    <span class="resumo-titulo">Já está OK · {{ dados.total_ok }}</span>
+    <div class="resumo-tags">
+        {% for item in dados.resumo_ok %}
+        <span class="tag-criterio tag-ok"><i class="fas fa-check"></i> {{ item.nome }}</span>
+        {% endfor %}
+    </div>
+</div>
+
+{% if dados.resumo_na %}
+<div class="resumo-linha">
+    <span class="resumo-titulo">Não se aplica · {{ dados.total_na }}</span>
+    <div class="resumo-tags">
+        {% for item in dados.resumo_na %}
+        <span class="tag-criterio tag-na"><i class="fas fa-minus"></i> {{ item.nome }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="resumo-linha">
+    <span class="resumo-titulo">Falta fazer · {{ dados.total_falta }}</span>
+    <div class="resumo-tags">
+        {% for item in dados.resumo_falta %}
+        <span class="tag-criterio tag-falta"><i class="fas fa-times"></i> {{ item.nome }}</span>
+        {% endfor %}
+    </div>
+</div>
+
+<hr class="qualidade-divisor">
+
+<!-- Visão detalhada: Falta -> N/A -> OK -->
+<h3 class="qualidade-secao-titulo">O que fazer</h3>
+
+{% for grupo in dados.detalhado_falta %}
+<div class="grupo-criterios">
+    <h4 class="grupo-titulo">{{ grupo.nome_grupo }}</h4>
+    <div class="grupo-cards-linha">
+        {% for item in grupo.criterios %}
+        <details class="criterio-card criterio-falta" open>
+            <summary class="criterio-header">
+                <span class="criterio-nome">{{ item.nome }}{% if not item.catalogado %} <i class="fas fa-question-circle" title="Critério novo, ainda não traduzido"></i>{% endif %}</span>
+                <span class="badge-criterio badge-criterio-falta">Falta fazer</span>
+            </summary>
+            <div class="criterio-corpo">
+                <div class="criterio-metadados">
+                    <div class="criterio-metadado">
+                        <span class="criterio-metadado-label">Score</span>
+                        <span class="criterio-metadado-valor">{{ item.score|default:"—" }}</span>
+                    </div>
+                    <div class="criterio-metadado">
+                        <span class="criterio-metadado-label">Atualizado em</span>
+                        <span class="criterio-metadado-valor">{{ item.calculado_em|date:"d/m/Y H:i"|default:"—" }}</span>
+                    </div>
+                </div>
+                <p class="criterio-pergunta">{{ item.pergunta }}</p>
+                {% if item.como_aprovar %}
+                <p class="criterio-como-aprovar">{{ item.como_aprovar|linebreaksbr }}</p>
+                {% endif %}
+                {% if item.link %}
+                <a href="{{ item.link }}" target="_blank" class="btn-corrigir">Corrigir no Mercado Livre →</a>
+                {% endif %}
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% for grupo in dados.detalhado_na %}
+<div class="grupo-criterios">
+    <h4 class="grupo-titulo">{{ grupo.nome_grupo }}</h4>
+    <div class="grupo-cards-linha">
+        {% for item in grupo.criterios %}
+        <details class="criterio-card criterio-na">
+            <summary class="criterio-header">
+                <span class="criterio-nome">{{ item.nome }}</span>
+                <span class="badge-criterio badge-criterio-na">Não se aplica</span>
+            </summary>
+            <div class="criterio-corpo">
+                <p class="criterio-pergunta">{{ item.pergunta }}</p>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% for grupo in dados.detalhado_ok %}
+<div class="grupo-criterios">
+    <h4 class="grupo-titulo">{{ grupo.nome_grupo }}</h4>
+    <div class="grupo-cards-linha">
+        {% for item in grupo.criterios %}
+        <details class="criterio-card criterio-ok">
+            <summary class="criterio-header">
+                <span class="criterio-nome">{{ item.nome }}</span>
+                <span class="badge-criterio badge-criterio-ok">Aprovado</span>
+            </summary>
+            <div class="criterio-corpo">
+                <p class="criterio-pergunta">{{ item.pergunta }}</p>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% endif %}
+{% endif %}
+
+{% endblock %}

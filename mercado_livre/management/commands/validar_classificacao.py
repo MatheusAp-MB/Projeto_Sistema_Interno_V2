@@ -1,5 +1,6 @@
+#validar
 from django.core.management.base import BaseCommand
-from mercado_livre.management.commands.validar_classificacao_suporte.classificacao_catalogo import classificar_todos_os_skus
+from mercado_livre.funcoes_auxiliares.classificacao_catalogo import classificar_todos_os_skus
 
 
 class Command(BaseCommand):

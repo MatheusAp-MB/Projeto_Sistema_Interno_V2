@@ -65,7 +65,7 @@
         </div>
         <div class="card-termometro-coluna">
             <span class="card-objetivos">— objetivos</span>
-            <div class="card-termometro card-termometro-grande" title="Score: {{ anuncio.score }}">
+            <a href="{% url 'mercado_livre_qualidade' mlb=anuncio.mlb %}" class="card-termometro card-termometro-grande" title="Score: {{ anuncio.score }}">
             <svg viewBox="0 0 60 34" class="termometro-svg">
                 <path d="{{ anuncio.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
                 <path d="{{ anuncio.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
@@ -73,8 +73,8 @@
                 <line x1="30" y1="30" x2="{{ anuncio.ponteiro_x }}" y2="{{ anuncio.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
                 <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
             </svg>
-    <span class="termometro-valor">{{ anuncio.score }}</span>
-        </div>
+        <span class="termometro-valor">{{ anuncio.score }}</span>
+        </a>
         </div>
     </div>
 

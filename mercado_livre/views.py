@@ -1,7 +1,8 @@
+#Views
 from django.core.paginator import Paginator
 from django.shortcuts import render
 
-from mercado_livre.management.commands.validar_classificacao_suporte.classificacao_catalogo import (
+from mercado_livre.funcoes_auxiliares.classificacao_catalogo import (
     listar_skus_filtrados,
     classificar_lote_de_skus,
 )
@@ -32,3 +33,10 @@ def view_hub_anuncios(request):
         'busca': busca,
         'por_pagina': por_pagina,
     })
+
+from mercado_livre.funcoes_auxiliares.qualidade_anuncio import montar_qualidade_da_folha
+
+
+def view_qualidade_anuncio(request, mlb):
+    dados = montar_qualidade_da_folha(mlb)
+    return render(request, 'mercado_livre/estrutura_qualidade_anuncio.html', {'dados': dados})
