@@ -1,9 +1,15 @@
 # * [RESUMO] → Importa dados de qualidade/performance do JSON gerado
 #              pelo buscar_dados_sku_completo.py (projeto paralelo de
 #              API). Para cada MLB: cria/atualiza QualidadeAnuncio
-#              (resumo) e QualidadeAnuncioCriterio (os 16 critérios).
-#              Critérios não catalogados são criados automaticamente
-#              (catalogado=False), nunca perdendo dado da API.
+#              (resumo, por VARIAÇÃO) e QualidadeAnuncioCriterio
+#              (os 16 critérios). Critérios não catalogados são
+#              criados automaticamente (catalogado=False), nunca
+#              perdendo dado da API.
+#
+#              Qualidade é medida por MLB pela API, mas a fonte da
+#              verdade no sistema é a Variação (folha) — o mesmo
+#              resultado é replicado para todas as variações daquele
+#              MLB. Hoje, na prática, é quase sempre 1 variação só.
 
 import json
 from datetime import datetime
@@ -20,8 +26,6 @@ def parsear_data(valor):
 
 
 def extrair_regras_do_bucket(buckets):
-    # * [EXPLICAÇÃO] → buckets já vem decodificado (lista de dicts),
-    #                  conforme combinado com o script gerador.
     resultado = {}
     if not buckets:
         return resultado
@@ -79,61 +83,67 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
                 stdout.write(f'    [SEM ANÚNCIO] {mlb} não encontrado no banco — pulado')
                 continue
 
-            performance = mlb_dados.get('performance', {})
-            perf_dados = performance.get('dados') if performance.get('chamado') else None
-
-            qualidade, criado = QualidadeAnuncio.objects.update_or_create(
-                anuncio=anuncio,
-                defaults={
-                    'score': perf_dados.get('score') if perf_dados else None,
-                    'nivel': perf_dados.get('level_wording') if perf_dados else None,
-                    'calculado_em': parsear_data(perf_dados.get('calculated_at')) if perf_dados else None,
-                    'http_status': performance.get('http'),
-                    'erro': performance.get('erro'),
-                }
-            )
-
-            if criado:
-                qualidades_criadas += 1
-            else:
-                qualidades_atualizadas += 1
-
-            if not perf_dados:
+            variacoes_do_mlb = list(anuncio.variacoes.all())
+            if not variacoes_do_mlb:
+                sem_anuncio_correspondente += 1
+                stdout.write(f'    [SEM VARIAÇÃO] {mlb} não tem nenhuma variação no banco — pulado')
                 continue
 
-            regras = extrair_regras_do_bucket(perf_dados.get('buckets'))
+            performance = mlb_dados.get('performance', {})
+            perf_dados = performance.get('dados') if performance.get('chamado') else None
+            regras = extrair_regras_do_bucket(perf_dados.get('buckets')) if perf_dados else {}
 
-            for rule_key, info in regras.items():
-                criterio = criterios_por_key.get(rule_key)
-
-                if not criterio:
-                    criterio = CriterioQualidade.objects.create(
-                        rule_key=rule_key,
-                        grupo=CriterioQualidade.Grupo.DESCONHECIDO,
-                        nome=info.get('api_title') or rule_key,
-                        pergunta=info.get('api_title') or rule_key,
-                        catalogado=False,
-                    )
-                    criterios_por_key[rule_key] = criterio
-                    criterios_novos_catalogados_como_desconhecido += 1
-                    stdout.write(style.WARNING(f'    [CRITÉRIO NOVO] {rule_key} não catalogado — criado como Desconhecido'))
-
-                status_valor = (
-                    QualidadeAnuncioCriterio.Status.APROVADO
-                    if info['status'] == 'COMPLETED'
-                    else QualidadeAnuncioCriterio.Status.NAO_APROVADO
-                )
-
-                QualidadeAnuncioCriterio.objects.update_or_create(
-                    qualidade=qualidade,
-                    criterio=criterio,
+            for variacao_alvo in variacoes_do_mlb:
+                qualidade, criado = QualidadeAnuncio.objects.update_or_create(
+                    variacao=variacao_alvo,
                     defaults={
-                        'status': status_valor,
-                        'score': info.get('score'),
-                        'calculado_em': parsear_data(info.get('calculated_at')),
-                        'link_correcao': info.get('link'),
+                        'score': perf_dados.get('score') if perf_dados else None,
+                        'nivel': perf_dados.get('level_wording') if perf_dados else None,
+                        'calculado_em': parsear_data(perf_dados.get('calculated_at')) if perf_dados else None,
+                        'http_status': performance.get('http'),
+                        'erro': performance.get('erro'),
                     }
                 )
+
+                if criado:
+                    qualidades_criadas += 1
+                else:
+                    qualidades_atualizadas += 1
+
+                if not perf_dados:
+                    continue
+
+                for rule_key, info in regras.items():
+                    criterio = criterios_por_key.get(rule_key)
+
+                    if not criterio:
+                        criterio = CriterioQualidade.objects.create(
+                            rule_key=rule_key,
+                            grupo=CriterioQualidade.Grupo.DESCONHECIDO,
+                            nome=info.get('api_title') or rule_key,
+                            pergunta=info.get('api_title') or rule_key,
+                            catalogado=False,
+                        )
+                        criterios_por_key[rule_key] = criterio
+                        criterios_novos_catalogados_como_desconhecido += 1
+                        stdout.write(style.WARNING(f'    [CRITÉRIO NOVO] {rule_key} não catalogado — criado como Desconhecido'))
+
+                    status_valor = (
+                        QualidadeAnuncioCriterio.Status.APROVADO
+                        if info['status'] == 'COMPLETED'
+                        else QualidadeAnuncioCriterio.Status.NAO_APROVADO
+                    )
+
+                    QualidadeAnuncioCriterio.objects.update_or_create(
+                        qualidade=qualidade,
+                        criterio=criterio,
+                        defaults={
+                            'status': status_valor,
+                            'score': info.get('score'),
+                            'calculado_em': parsear_data(info.get('calculated_at')),
+                            'link_correcao': info.get('link'),
+                        }
+                    )
 
     stdout.write('')
     stdout.write(style.SUCCESS(

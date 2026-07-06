@@ -71,6 +71,13 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
 
     arcos = montar_arcos_termometro()
 
+    # * [EXPLICAÇÃO] → Qualidade agora é ligada à Variação (folha),
+    #                  não ao MLB — reflete a decisão de que a
+    #                  Variação é a fonte da verdade no sistema.
+    qualidade = getattr(variacao, 'qualidade', None)
+    score_numerico = qualidade.score if qualidade and qualidade.score is not None else 0
+    ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
+
 
 
     Status = TipoDeAnuncioMercadoLivre.Status

@@ -2,8 +2,8 @@ from django.db import models
 
 
 class QualidadeAnuncio(models.Model):
-    anuncio = models.OneToOneField(
-        'mercado_livre.AnuncioMercadoLivre',
+    variacao = models.OneToOneField(
+        'mercado_livre.VariacaoAnuncioMercadoLivre',
         on_delete=models.CASCADE,
         related_name='qualidade'
     )
@@ -22,4 +22,4 @@ class QualidadeAnuncio(models.Model):
         verbose_name_plural  = 'Qualidade dos Anúncios'
 
     def __str__(self):
-        return f'{self.anuncio.mlb} — score {self.score}'
+        return f'{self.variacao.anuncio.mlb} — score {self.score}'
