@@ -1,0 +1,92 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+
+{% block titulo %}Anúncios — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Anúncios — Mercado Livre{% endblock %}
+
+{% block conteudo %}
+
+<!-- Barra de busca e controle de paginação -->
+<form method="get" style="display: flex; gap: 12px; margin-bottom: 20px; align-items: center;">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por SKU, Marca, MLB ou Título..."
+        style="flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px;"
+    >
+
+    <select name="por_pagina" onchange="this.form.submit()">
+        <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
+        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
+    </select>
+
+    <button type="submit" class="btn-acao">Buscar</button>
+</form>
+
+<p>{{ pagina.paginator.count }} SKUs encontrados — página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</p>
+
+<!-- Lista de árvores, uma por SKU -->
+{% for sku, arvore in arvores.items %}
+<details style="margin-bottom: 12px; border: 1px solid #ddd; border-radius: 6px; padding: 10px;">
+    <summary style="cursor: pointer; font-weight: 600;">
+        {{ sku }} — {{ arvore.total_anuncios }} anúncio{{ arvore.total_anuncios|pluralize }}
+    </summary>
+
+    <div style="margin-top: 12px; padding-left: 16px;">
+
+        <!-- Páginas de Catálogo -->
+        {% for pagina_cat in arvore.paginas_catalogo %}
+        <details style="margin-bottom: 8px;">
+            <summary style="color: #7c3aed; font-weight: 600;">
+                📦 Página de Catálogo {{ pagina_cat.catalog_product_id }}
+            </summary>
+            <ul>
+                {% for base in pagina_cat.anuncios_base %}
+                <li>
+                    <strong>[BASE]</strong> {{ base.mlb }} — {{ base.titulo }}
+                    <ul>
+                        {% for cat in base.anuncios_catalogo %}
+                        <li>[CATÁLOGO] {{ cat.mlb }} — {{ cat.titulo }}</li>
+                        {% endfor %}
+                    </ul>
+                </li>
+                {% endfor %}
+                {% for orfao in pagina_cat.anuncios_catalogo_orfaos %}
+                <li style="color: #999;">[CATÁLOGO órfão] {{ orfao.mlb }} — {{ orfao.titulo }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endfor %}
+
+        <!-- Anúncios Simples -->
+        {% if arvore.anuncios_simples %}
+        <details>
+            <summary style="color: #2563eb; font-weight: 600;">🔹 Anúncios Simples</summary>
+            <ul>
+                {% for simples in arvore.anuncios_simples %}
+                <li>[SIMPLES] {{ simples.mlb }} — {{ simples.titulo }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+        {% endif %}
+
+    </div>
+</details>
+{% endfor %}
+
+<!-- Paginação -->
+<div style="margin-top: 20px; display: flex; gap: 8px;">
+    {% if pagina.has_previous %}
+        <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}&pagina={{ pagina.previous_page_number }}">« Anterior</a>
+    {% endif %}
+
+    <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+
+    {% if pagina.has_next %}
+        <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}&pagina={{ pagina.next_page_number }}">Próxima »</a>
+    {% endif %}
+</div>
+
+{% endblock %}

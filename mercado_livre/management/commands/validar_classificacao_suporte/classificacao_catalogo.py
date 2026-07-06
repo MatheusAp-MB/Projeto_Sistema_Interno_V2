@@ -9,7 +9,8 @@
 
 import json as jsonlib
 from collections import defaultdict
-
+from django.db.models import Q
+from produtos.models import Produto
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
 
 
@@ -103,6 +104,47 @@ def classificar_todos_os_skus():
     # * [EXPLICAÇÃO] → Ponto de entrada para validação/uso em massa.
     #                  Retorna {sku: estrutura}, para todos os SKUs do banco.
     anuncios_por_sku = carregar_anuncios_por_sku()
+    return {
+        sku: montar_estrutura_de_sku(sku, anuncios)
+        for sku, anuncios in anuncios_por_sku.items()
+    }
+
+def listar_skus_filtrados(busca=None):
+    # * [EXPLICAÇÃO] → Só a lista de SKUs (sem árvore, sem anúncio) —
+    #                  usada para paginação. Busca genérica: procura o
+    #                  termo em SKU, Marca, MLB e Título simultaneamente.
+    qs = VariacaoAnuncioMercadoLivre.objects.exclude(produto__isnull=True)
+
+    if busca:
+        qs = qs.filter(
+            Q(produto__sku__icontains=busca) |
+            Q(produto__marca__icontains=busca) |
+            Q(anuncio__mlb__icontains=busca) |
+            Q(anuncio__titulo_anuncio__icontains=busca)
+        )
+
+    return list(
+        qs.select_related('produto')
+        .values_list('produto__sku', flat=True)
+        .distinct()
+        .order_by('produto__sku')
+    )
+
+
+def classificar_lote_de_skus(skus):
+    # * [EXPLICAÇÃO] → Mesma lógica de carregar_anuncios_por_sku(), mas
+    #                  filtrada só para os SKUs do lote — nunca processa
+    #                  o banco inteiro. Usada para montar a árvore só
+    #                  dos SKUs da página atual.
+    anuncios_por_sku = defaultdict(set)
+
+    variacoes = VariacaoAnuncioMercadoLivre.objects.filter(
+        produto__sku__in=skus
+    ).select_related('anuncio', 'anuncio__tipo_de_anuncio', 'produto')
+
+    for v in variacoes:
+        anuncios_por_sku[v.produto.sku].add(v.anuncio)
+
     return {
         sku: montar_estrutura_de_sku(sku, anuncios)
         for sku, anuncios in anuncios_por_sku.items()

@@ -18,7 +18,7 @@ VISUAL_MARKETPLACES = {
 def view_marketplaces(request):
     marketplaces = []
     urls_marketplaces = {
-        # 'ML': '/mercado-livre/anuncios/',   ← exemplo, quando existir de fato
+        'ML': '/mercado-livre/anuncios/', 
     }
 
     for mp in Marketplace.objects.all():
