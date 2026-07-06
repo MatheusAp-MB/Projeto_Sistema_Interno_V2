@@ -1,0 +1,40 @@
+<!--
+* [RESUMO] → Card de 1 anúncio individual (1 MLB = 1 folha da árvore).
+* Recebe `anuncio` (dict com dados básicos) e `tag_papel` (Base/Catálogo/Simples/órfão).
+-->
+<div class="card-anuncio card-anuncio-{{ anuncio.tipo_anuncio_classe|default:'padrao' }}">
+
+    <div class="card-anuncio-badges">
+        {% if anuncio.badge_tipo %}
+            <span class="badge-anuncio badge-{{ anuncio.badge_tipo }}">{{ anuncio.badge_tipo_label }}</span>
+        {% endif %}
+        {% if anuncio.badge_logistica %}
+            <span class="badge-logistica badge-{{ anuncio.badge_logistica }}">{{ anuncio.badge_logistica_label }}</span>
+        {% endif %}
+        <span class="badge-papel">{{ tag_papel }}</span>
+    </div>
+
+    <div class="card-anuncio-mlb">{{ anuncio.mlb }}</div>
+    <div class="card-anuncio-sku">{{ anuncio.sku_ml|default:"—" }}</div>
+
+    <div class="card-anuncio-titulo">{{ anuncio.titulo }}</div>
+
+    <div class="card-anuncio-situacao">
+        <span class="status-dot status-{{ anuncio.status_classe|default:'default' }}"></span>
+        {{ anuncio.status_label|default:"—" }}
+    </div>
+
+    <div class="card-anuncio-metricas">
+        <div class="card-metrica">
+            <span class="card-metrica-label">Estoque</span>
+            <span class="card-metrica-valor">{{ anuncio.estoque|default:"0" }}</span>
+        </div>
+        <div class="card-metrica">
+            <span class="card-metrica-label">Score</span>
+            <span class="card-metrica-valor">{{ anuncio.score|default:"000" }}</span>
+        </div>
+    </div>
+
+    <a href="{{ anuncio.permalink|default:'#' }}" target="_blank" class="btn-ver-no-ml">Ver no ML</a>
+
+</div>

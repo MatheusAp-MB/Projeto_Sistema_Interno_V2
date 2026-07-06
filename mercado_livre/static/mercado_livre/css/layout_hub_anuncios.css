@@ -1,0 +1,379 @@
+/* ================================================
+   BARRA DE BUSCA
+   ================================================ */
+
+.hub-barra-busca {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+}
+
+.hub-input-busca {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.hub-select-paginacao {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.hub-contador {
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+}
+
+/* ================================================
+   BLOCO DE SKU (HEADER DO AGRUPADOR)
+   ================================================ */
+
+.hub-sku-bloco {
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.hub-sku-header {
+    background: var(--cor-primaria, #1e3a5f);
+    color: #fff;
+    padding: 14px 18px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    list-style: none;
+}
+
+.hub-sku-header::-webkit-details-marker {
+    display: none;
+}
+
+.hub-sku-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.hub-sku-marca {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.hub-sku-titulo {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.hub-sku-codigo {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.7);
+    font-family: monospace;
+}
+
+.hub-sku-contagem {
+    font-size: 0.8rem;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.hub-sku-conteudo {
+    padding: 16px 18px;
+    background: #f8f9fb;
+}
+
+/* ================================================
+   PÁGINA DE CATÁLOGO / ANÚNCIOS SIMPLES
+   ================================================ */
+
+.hub-pagina-catalogo,
+.hub-anuncios-simples {
+    margin-bottom: 16px;
+}
+
+.hub-pagina-catalogo:last-child,
+.hub-anuncios-simples:last-child {
+    margin-bottom: 0;
+}
+
+.hub-pagina-catalogo-titulo {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #444;
+    cursor: pointer;
+    padding: 8px 0;
+    list-style: none;
+}
+
+.hub-pagina-catalogo-titulo::-webkit-details-marker {
+    display: none;
+}
+
+/* ================================================
+   GRID DE CARDS
+   ================================================ */
+
+.hub-lista-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+/* * [EXPLICAÇÃO] → Envolve visualmente 1 Base + seus Catálogos filhos —
+                     borda e fundo levemente diferente do resto, deixando
+                     claro que pertencem ao mesmo grupo. */
+.hub-grupo-base {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    background: #eef1f6;
+    border: 1px solid #d5dbe5;
+    border-radius: 10px;
+}
+
+/* * [EXPLICAÇÃO] → Catálogos filhos ficam levemente recuados,
+                     reforçando a hierarquia dentro do grupo. */
+.hub-grupo-base .card-anuncio:not(:first-child) {
+    margin-left: 24px;
+    border-left: 3px solid var(--cor-primaria, #1e3a5f);
+}
+
+/* ================================================
+   CARD DE ANÚNCIO
+   ================================================ */
+
+.card-anuncio {
+    background: #fff;
+    border: 1px solid #e0e4ea;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.card-anuncio-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.badge-papel {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: #eef0f4;
+    color: #555;
+    border: 1px solid #d8dce4;
+}
+
+.card-anuncio-mlb {
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #1a3a5c;
+}
+
+.card-anuncio-sku {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.card-anuncio-titulo {
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: #333;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.4em;
+}
+
+.card-anuncio-situacao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #555;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #999;
+    flex-shrink: 0;
+}
+
+.status-ativo    { background: #2e9e44; }
+.status-pausado  { background: #e0a800; }
+.status-encerrado{ background: #c0392b; }
+
+.card-anuncio-metricas {
+    display: flex;
+    gap: 16px;
+    padding: 8px 0;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+}
+
+.card-metrica {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-metrica-label {
+    font-size: 0.65rem;
+    color: #999;
+    text-transform: uppercase;
+}
+
+.card-metrica-valor {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a3a5c;
+}
+
+.btn-ver-no-ml {
+    text-align: center;
+    padding: 6px 10px;
+    background: #f0f2f5;
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1a3a5c;
+    text-decoration: none;
+}
+
+.btn-ver-no-ml:hover {
+    background: #e0e4ea;
+}
+
+/* ================================================
+   PAGINAÇÃO
+   ================================================ */
+
+.hub-paginacao {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.hub-paginacao-link {
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #1a3a5c;
+    font-size: 0.85rem;
+}
+
+.hub-paginacao-atual {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+
+
+
+
+.card-anuncio {
+    background: #fff;
+    border: 1px solid #e0e4ea;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.card-anuncio-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+    width: 90px;
+}
+
+.card-anuncio-mlb {
+    font-family: monospace;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #1a3a5c;
+    width: 110px;
+    flex-shrink: 0;
+}
+
+.card-anuncio-sku {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #888;
+    width: 110px;
+    flex-shrink: 0;
+}
+
+.card-anuncio-titulo {
+    font-size: 0.8rem;
+    line-height: 1.3;
+    color: #333;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.card-anuncio-situacao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #555;
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.card-anuncio-metricas {
+    display: flex;
+    gap: 16px;
+    padding: 0 12px;
+    border-left: 1px solid #eee;
+    border-right: 1px solid #eee;
+    flex-shrink: 0;
+}
+
+.btn-ver-no-ml {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    background: #f0f2f5;
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #1a3a5c;
+    text-decoration: none;
+    white-space: nowrap;
+}
