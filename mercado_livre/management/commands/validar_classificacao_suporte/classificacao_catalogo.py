@@ -11,9 +11,6 @@
 #                     menos 1 por MLB (mesmo sem variação de cor/tamanho)
 #              - Folha: o nó final da árvore = 1 Variação = 1 card na tela.
 #                     Um MLB com 20 variações gera 20 folhas/cards.
-#
-#              A classificação (Base/Catálogo/Simples) é do MLB — todas
-#              as variações do mesmo MLB herdam a mesma classificação.
 
 import json as jsonlib
 from collections import defaultdict
@@ -33,8 +30,6 @@ def parsear_item_relations(valor):
 
 
 def info_variacao(variacao):
-    # * [EXPLICAÇÃO] → Monta o dict completo que o card precisa exibir.
-    #                  1 variação = 1 folha = 1 card.
     anuncio = variacao.anuncio
     tipo = anuncio.tipo_de_anuncio if anuncio else None
 
@@ -63,7 +58,7 @@ def info_variacao(variacao):
         'permalink': anuncio.permalink if anuncio else None,
 
         'estoque': variacao.estoque,
-        'score': '000',  # * [EXPLICAÇÃO] → placeholder até o módulo de Reputação existir
+        'score': '000',
 
         'status_classe': status_classe_map.get(status, 'default'),
         'status_label': dict(Status.choices).get(status, '—'),
@@ -78,10 +73,6 @@ def info_variacao(variacao):
 
 
 def carregar_variacoes_por_sku(skus=None):
-    # * [EXPLICAÇÃO] → 1 única query. Agrupa VARIAÇÕES (folhas reais) por SKU
-    #                  do produto — nunca deduplica por MLB.
-    #                  Se `skus` for None, carrega o banco inteiro (uso em massa).
-    #                  Se `skus` for uma lista, filtra só esses (uso paginado).
     qs = VariacaoAnuncioMercadoLivre.objects.select_related(
         'anuncio', 'anuncio__tipo_de_anuncio', 'produto'
     ).exclude(produto__isnull=True)
@@ -97,23 +88,22 @@ def carregar_variacoes_por_sku(skus=None):
 
 
 def montar_estrutura_de_sku(sku, variacoes):
-    # * [EXPLICAÇÃO] → Recebe a LISTA de Variações já carregada (folhas reais).
-    #                  A classificação (Base/Catálogo/Simples) é do MLB
-    #                  (anuncio.tipo_de_anuncio) — todas as variações do
-    #                  mesmo MLB herdam a mesma classificação.
     if not variacoes:
         return {'sku': sku, 'encontrado': False, 'paginas_catalogo': [], 'anuncios_simples': [], 'total_anuncios': 0}
 
+    # * [EXPLICAÇÃO] → Todas as variações do mesmo SKU compartilham o
+    #                  mesmo Produto — pega do primeiro item da lista.
+    produto = variacoes[0].produto
+
     Classificacao = TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo
 
-    # Agrupa variações por MLB (precisamos disso para achar item_relations do MLB)
     variacoes_por_mlb = defaultdict(list)
     anuncio_por_mlb = {}
     for v in variacoes:
         anuncio_por_mlb[v.anuncio.mlb] = v.anuncio
         variacoes_por_mlb[v.anuncio.mlb].append(v)
 
-    paginas = {}   # catalog_product_id -> lista de MLBs (não variações ainda)
+    paginas = {}
     simples_mlbs = []
 
     for mlb, anuncio in anuncio_por_mlb.items():
@@ -127,7 +117,6 @@ def montar_estrutura_de_sku(sku, variacoes):
         paginas.setdefault(anuncio.catalog_product_id, []).append(mlb)
 
     def folhas_do_mlb(mlb):
-        # * [EXPLICAÇÃO] → Todo card/folha daquele MLB — 1 por variação.
         return [info_variacao(v) for v in variacoes_por_mlb[mlb]]
 
     paginas_saida = []
@@ -175,7 +164,10 @@ def montar_estrutura_de_sku(sku, variacoes):
     return {
         'sku': sku,
         'encontrado': True,
-        'total_anuncios': len(variacoes),  # * total de FOLHAS (variações), não de MLBs
+        'marca': produto.marca,
+        'titulo_produto': produto.titulo,
+        'imagem_url': produto.imagem_url,
+        'total_anuncios': len(variacoes),
         'paginas_catalogo': paginas_saida,
         'anuncios_simples': [
             {'mlb': m, 'folhas': folhas_do_mlb(m)}
@@ -196,12 +188,19 @@ def listar_skus_filtrados(busca=None):
     qs = VariacaoAnuncioMercadoLivre.objects.exclude(produto__isnull=True)
 
     if busca:
-        qs = qs.filter(
-            Q(produto__sku__icontains=busca) |
-            Q(produto__marca__icontains=busca) |
-            Q(anuncio__mlb__icontains=busca) |
-            Q(anuncio__titulo_anuncio__icontains=busca)
-        )
+        termos = busca.split()  # * [EXPLICAÇÃO] → separa por espaço: "6671 guarany" → ["6671", "guarany"]
+
+        for termo in termos:
+            # * [EXPLICAÇÃO] → CADA termo precisa aparecer em ALGUM dos campos —
+            #                  não precisam estar juntos, nem no mesmo campo.
+            qs = qs.filter(
+                Q(produto__sku__icontains=termo) |
+                Q(produto__marca__icontains=termo) |
+                Q(produto__titulo__icontains=termo) |
+                Q(produto__ean__icontains=termo) |
+                Q(anuncio__mlb__icontains=termo) |
+                Q(anuncio__titulo_anuncio__icontains=termo)
+            )
 
     return list(
         qs.select_related('produto')

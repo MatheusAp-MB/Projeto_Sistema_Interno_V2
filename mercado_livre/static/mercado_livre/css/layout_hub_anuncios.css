@@ -78,9 +78,12 @@
 }
 
 .hub-sku-codigo {
-    font-size: 0.8rem;
-    color: rgba(255,255,255,0.7);
-    font-family: monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.15);
+    padding: 3px 8px;
+    border-radius: 4px;
 }
 
 .hub-sku-contagem {
@@ -376,4 +379,22 @@
     color: #1a3a5c;
     text-decoration: none;
     white-space: nowrap;
+}
+
+
+.hub-sku-imagem {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+    flex-shrink: 0;
+}
+
+.hub-sku-imagem-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.4);
 }
