@@ -188,6 +188,8 @@ def importar_anuncios_ml(stdout, style, caminho_json):
                 qtd_vendas=linha.get('sold_quantity') or 0,
                 atributos=linha.get('variacao_atributos'),
                 num_fotos=linha.get('variacao_num_fotos') or 0,
+                thumbnail_url=linha.get('thumbnail'),
+                imagem_principal_url=linha.get('imagem_principal'),
             )
 
             chave = (anuncio.pk, variacao_id)
@@ -205,7 +207,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
         VariacaoAnuncioMercadoLivre.objects.bulk_create(variacoes_para_criar, batch_size=1000)
 
     if variacoes_para_atualizar:
-        campos_variacao = ['sku_ml', 'produto', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos']
+        campos_variacao = ['sku_ml', 'produto', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url']
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
             variacoes_para_atualizar, campos_variacao, batch_size=1000
         )

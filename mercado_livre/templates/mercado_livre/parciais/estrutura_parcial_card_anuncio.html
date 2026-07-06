@@ -1,6 +1,10 @@
 <div class="card-anuncio card-anuncio-{{ anuncio.tipo_anuncio_classe|default:'padrao' }} logistica-{{ anuncio.badge_logistica|default:'padrao' }}">
 
-    {% if anuncio.imagem_url %}
+    {% if anuncio.imagem_principal_url %}
+    <img src="{{ anuncio.imagem_principal_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
+    {% elif anuncio.thumbnail_url %}
+    <img src="{{ anuncio.thumbnail_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
+    {% elif anuncio.imagem_url %}
     <img src="{{ anuncio.imagem_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
     {% else %}
     <div class="card-anuncio-imagem card-anuncio-imagem-vazia"><i class="fas fa-image"></i></div>

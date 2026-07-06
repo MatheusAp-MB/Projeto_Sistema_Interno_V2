@@ -40,6 +40,9 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     atributos  = models.CharField(max_length=255, blank=True, null=True)
     num_fotos  = models.IntegerField(default=0)
 
+    thumbnail_url = models.URLField(max_length=500, blank=True, null=True)
+    imagem_principal_url = models.URLField(max_length=500, blank=True, null=True)
+
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'

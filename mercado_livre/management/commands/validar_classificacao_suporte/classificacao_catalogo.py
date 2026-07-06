@@ -97,6 +97,8 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'sku_ml': variacao.sku_ml,
         'titulo': anuncio.titulo_anuncio if anuncio else None,
         'permalink': anuncio.permalink if anuncio else None,
+        'thumbnail_url': variacao.thumbnail_url,
+        'imagem_principal_url': variacao.imagem_principal_url,
         'imagem_url': imagem_url,
         'titulo_produto': titulo_produto,
 
