@@ -1,23 +1,23 @@
-<!--
-* [RESUMO] → Card de 1 anúncio individual (1 MLB = 1 folha da árvore).
-* Recebe `anuncio` (dict com dados básicos) e `tag_papel` (Base/Catálogo/Simples/órfão).
--->
-<div class="card-anuncio card-anuncio-{{ anuncio.tipo_anuncio_classe|default:'padrao' }}">
+<div class="card-anuncio card-anuncio-{{ anuncio.tipo_anuncio_classe|default:'padrao' }} logistica-{{ anuncio.badge_logistica|default:'padrao' }}">
 
-    <div class="card-anuncio-badges">
-        {% if anuncio.badge_tipo %}
+    <div class="card-anuncio-corpo">
+
+        <div class="card-anuncio-badges">
             <span class="badge-anuncio badge-{{ anuncio.badge_tipo }}">{{ anuncio.badge_tipo_label }}</span>
-        {% endif %}
-        {% if anuncio.badge_logistica %}
             <span class="badge-logistica badge-{{ anuncio.badge_logistica }}">{{ anuncio.badge_logistica_label }}</span>
-        {% endif %}
-        <span class="badge-papel">{{ tag_papel }}</span>
+            {% if anuncio.tem_flex %}
+            <span class="badge-flex-ativo">FLEX</span>
+            {% endif %}
+            <span class="badge-papel">{{ tag_papel }}</span>
+        </div>
+
+        <div class="card-anuncio-linha-principal">
+            <span class="card-anuncio-mlb">{{ anuncio.mlb }}</span>
+            <span class="card-anuncio-sku">{{ anuncio.sku_ml|default:"—" }}</span>
+            <span class="card-anuncio-titulo">{{ anuncio.titulo }}</span>
+        </div>
+
     </div>
-
-    <div class="card-anuncio-mlb">{{ anuncio.mlb }}</div>
-    <div class="card-anuncio-sku">{{ anuncio.sku_ml|default:"—" }}</div>
-
-    <div class="card-anuncio-titulo">{{ anuncio.titulo }}</div>
 
     <div class="card-anuncio-situacao">
         <span class="status-dot status-{{ anuncio.status_classe|default:'default' }}"></span>

@@ -1,4 +1,28 @@
 /* ================================================
+   TOKENS
+   ================================================ */
+
+:root {
+    --navy: #1e3a5f;
+    --navy-deep: #142943;
+    --paper: #f4f6f9;
+
+    --classico: #b8860b;
+    --classico-bg: #fdf6e3;
+    --premium: #8b4fc7;
+    --premium-bg: #f5edfc;
+
+    --full: #1a8a5f;
+    --full-bg: #e6f5ee;
+    --coleta: #2563eb;
+    --coleta-bg: #eaf1fd;
+
+    --ativo: #1a8a5f;
+    --pausado: #d97706;
+    --encerrado: #b91c1c;
+}
+
+/* ================================================
    BARRA DE BUSCA
    ================================================ */
 
@@ -11,23 +35,23 @@
 
 .hub-input-busca {
     flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    padding: 9px 14px;
+    border: 1px solid #ccd3de;
+    border-radius: 8px;
     font-size: 0.9rem;
 }
 
 .hub-select-paginacao {
-    padding: 8px 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    padding: 9px 14px;
+    border: 1px solid #ccd3de;
+    border-radius: 8px;
     font-size: 0.9rem;
 }
 
 .hub-contador {
-    color: #666;
-    font-size: 0.85rem;
-    margin-bottom: 20px;
+    color: #667;
+    font-size: 0.82rem;
+    margin-bottom: 18px;
 }
 
 /* ================================================
@@ -37,66 +61,85 @@
 .hub-sku-bloco {
     border: 1px solid #dde3ec;
     border-radius: 10px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     overflow: hidden;
     background: #fff;
 }
 
 .hub-sku-header {
-    background: var(--cor-primaria, #1e3a5f);
+    background: var(--navy-deep);
     color: #fff;
-    padding: 14px 18px;
+    padding: 10px 16px;
     cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
     list-style: none;
+    gap: 12px;
 }
 
-.hub-sku-header::-webkit-details-marker {
-    display: none;
-}
+.hub-sku-header::-webkit-details-marker { display: none; }
 
 .hub-sku-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    min-width: 0;
+}
+
+.hub-sku-imagem {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.hub-sku-imagem-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.4);
 }
 
 .hub-sku-marca {
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     background: rgba(255,255,255,0.15);
-    padding: 3px 8px;
+    padding: 3px 7px;
     border-radius: 4px;
+    flex-shrink: 0;
 }
 
 .hub-sku-titulo {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.88rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .hub-sku-codigo {
     font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    background: rgba(255,255,255,0.15);
-    padding: 3px 8px;
-    border-radius: 4px;
+    color: rgba(255,255,255,0.65);
+    font-family: 'SF Mono', Consolas, monospace;
+    flex-shrink: 0;
 }
 
 .hub-sku-contagem {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     background: rgba(255,255,255,0.15);
     padding: 4px 10px;
     border-radius: 20px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .hub-sku-conteudo {
-    padding: 16px 18px;
-    background: #f8f9fb;
+    padding: 14px 16px;
+    background: var(--paper);
 }
 
 /* ================================================
@@ -105,7 +148,7 @@
 
 .hub-pagina-catalogo,
 .hub-anuncios-simples {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
 }
 
 .hub-pagina-catalogo:last-child,
@@ -115,46 +158,38 @@
 
 .hub-pagina-catalogo-titulo {
     font-weight: 600;
-    font-size: 0.85rem;
-    color: #444;
+    font-size: 0.8rem;
+    color: #556;
     cursor: pointer;
-    padding: 8px 0;
+    padding: 6px 0;
     list-style: none;
 }
 
-.hub-pagina-catalogo-titulo::-webkit-details-marker {
-    display: none;
-}
+.hub-pagina-catalogo-titulo::-webkit-details-marker { display: none; }
 
 /* ================================================
-   GRID DE CARDS
+   LISTA DE CARDS
    ================================================ */
 
 .hub-lista-cards {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 6px;
+    margin-top: 6px;
 }
 
-/* * [EXPLICAÇÃO] → Envolve visualmente 1 Base + seus Catálogos filhos —
-                     borda e fundo levemente diferente do resto, deixando
-                     claro que pertencem ao mesmo grupo. */
 .hub-grupo-base {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    background: #eef1f6;
+    gap: 6px;
+    padding: 8px;
+    background: #e9edf3;
     border: 1px solid #d5dbe5;
     border-radius: 10px;
 }
 
-/* * [EXPLICAÇÃO] → Catálogos filhos ficam levemente recuados,
-                     reforçando a hierarquia dentro do grupo. */
 .hub-grupo-base .card-anuncio:not(:first-child) {
-    margin-left: 24px;
-    border-left: 3px solid var(--cor-primaria, #1e3a5f);
+    margin-left: 20px;
 }
 
 /* ================================================
@@ -163,111 +198,151 @@
 
 .card-anuncio {
     background: #fff;
-    border: 1px solid #e0e4ea;
-    border-radius: 8px;
-    padding: 12px;
+    border: 1px solid #e3e7ee;
+    border-left: 4px solid #ccc;
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: box-shadow 0.15s ease;
+}
+
+.card-anuncio:hover {
+    box-shadow: 0 2px 8px rgba(20, 41, 67, 0.08);
+}
+
+/* Cor da espinha por Tipo de anúncio */
+.card-anuncio-classico { border-left-color: var(--classico); }
+.card-anuncio-premium  { border-left-color: var(--premium); }
+
+.card-anuncio-corpo {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
 }
 
 .card-anuncio-badges {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    gap: 5px;
 }
 
+.badge-anuncio,
+.badge-logistica,
 .badge-papel {
     display: inline-block;
     padding: 2px 7px;
     border-radius: 4px;
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    line-height: 1.5;
+}
+
+.badge-classico { background: var(--classico-bg); color: var(--classico); }
+.badge-premium  { background: var(--premium-bg); color: var(--premium); }
+.badge-full     { background: var(--full-bg); color: var(--full); }
+.badge-flex     { background: var(--coleta-bg); color: var(--coleta); }
+
+.badge-papel {
     background: #eef0f4;
-    color: #555;
-    border: 1px solid #d8dce4;
+    color: #667;
+}
+
+.card-anuncio-linha-principal {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
 }
 
 .card-anuncio-mlb {
-    font-family: monospace;
+    font-family: 'SF Mono', Consolas, monospace;
     font-weight: 700;
-    font-size: 0.85rem;
-    color: #1a3a5c;
+    font-size: 0.78rem;
+    color: var(--navy);
+    flex-shrink: 0;
 }
 
 .card-anuncio-sku {
-    font-family: monospace;
-    font-size: 0.75rem;
-    color: #888;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.72rem;
+    color: #99a;
+    flex-shrink: 0;
 }
 
 .card-anuncio-titulo {
-    font-size: 0.8rem;
-    line-height: 1.35;
-    color: #333;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    font-size: 1rem;
+    color: #334;
     overflow: hidden;
-    min-height: 2.4em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-wrap: inherit;
+    min-width: 0;
 }
 
 .card-anuncio-situacao {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    color: #555;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: #556;
+    width: 76px;
+    flex-shrink: 0;
 }
 
 .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: #999;
     flex-shrink: 0;
 }
 
-.status-ativo    { background: #2e9e44; }
-.status-pausado  { background: #e0a800; }
-.status-encerrado{ background: #c0392b; }
+.status-ativo     { background: var(--ativo); }
+.status-pausado   { background: var(--pausado); }
+.status-encerrado { background: var(--encerrado); }
 
 .card-anuncio-metricas {
     display: flex;
-    gap: 16px;
-    padding: 8px 0;
-    border-top: 1px solid #eee;
-    border-bottom: 1px solid #eee;
+    gap: 14px;
+    padding: 0 12px;
+    border-left: 1px solid #eee;
+    flex-shrink: 0;
 }
 
 .card-metrica {
     display: flex;
     flex-direction: column;
+    line-height: 1.2;
 }
 
 .card-metrica-label {
-    font-size: 0.65rem;
-    color: #999;
+    font-size: 0.6rem;
+    color: #aab;
     text-transform: uppercase;
 }
 
 .card-metrica-valor {
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    color: #1a3a5c;
+    color: var(--navy);
 }
 
 .btn-ver-no-ml {
-    text-align: center;
-    padding: 6px 10px;
-    background: #f0f2f5;
+    flex-shrink: 0;
+    padding: 5px 12px;
+    background: var(--paper);
     border: 1px solid #d8dce4;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    color: #1a3a5c;
+    color: var(--navy);
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .btn-ver-no-ml:hover {
@@ -282,7 +357,7 @@
     display: flex;
     gap: 12px;
     align-items: center;
-    margin-top: 20px;
+    margin-top: 18px;
 }
 
 .hub-paginacao-link {
@@ -290,111 +365,107 @@
     border: 1px solid #ccc;
     border-radius: 6px;
     text-decoration: none;
-    color: #1a3a5c;
-    font-size: 0.85rem;
+    color: var(--navy);
+    font-size: 0.82rem;
 }
 
 .hub-paginacao-atual {
-    font-size: 0.85rem;
-    color: #666;
+    font-size: 0.82rem;
+    color: #667;
 }
 
+/* ================================================
+   IDENTIDADE DE PÁGINA DE CATÁLOGO / SIMPLES
+   ================================================ */
 
-
-
-
-.card-anuncio {
-    background: #fff;
-    border: 1px solid #e0e4ea;
+.hub-pagina-catalogo {
     border-radius: 8px;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-}
-
-.card-anuncio-badges {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    flex-shrink: 0;
-    width: 90px;
-}
-
-.card-anuncio-mlb {
-    font-family: monospace;
-    font-weight: 700;
-    font-size: 0.8rem;
-    color: #1a3a5c;
-    width: 110px;
-    flex-shrink: 0;
-}
-
-.card-anuncio-sku {
-    font-family: monospace;
-    font-size: 0.75rem;
-    color: #888;
-    width: 110px;
-    flex-shrink: 0;
-}
-
-.card-anuncio-titulo {
-    font-size: 0.8rem;
-    line-height: 1.3;
-    color: #333;
-    flex: 1;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    border: 1px solid #d8dde8;
 }
 
-.card-anuncio-situacao {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    color: #555;
-    width: 90px;
-    flex-shrink: 0;
+.hub-pagina-catalogo-titulo {
+    background: linear-gradient(135deg, #6d4c1f, #8a6428);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 8px 14px;
+    margin: 0;
+    cursor: pointer;
+    list-style: none;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
 }
 
-.card-anuncio-metricas {
-    display: flex;
-    gap: 16px;
-    padding: 0 12px;
-    border-left: 1px solid #eee;
-    border-right: 1px solid #eee;
-    flex-shrink: 0;
+.hub-pagina-catalogo-titulo::-webkit-details-marker { display: none; }
+
+.hub-anuncios-simples .hub-pagina-catalogo-titulo {
+    background: linear-gradient(135deg, #ac5c16, #da6600);
 }
 
-.btn-ver-no-ml {
-    flex-shrink: 0;
-    padding: 6px 14px;
-    background: #f0f2f5;
-    border: 1px solid #d8dce4;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #1a3a5c;
-    text-decoration: none;
-    white-space: nowrap;
+.hub-pagina-catalogo .hub-sku-conteudo-interno,
+.hub-pagina-catalogo .hub-lista-cards {
+    padding: 10px;
+    background: #fdfbf5; /* tom quente sutil — reforça "catálogo" */
 }
 
-
-.hub-sku-imagem {
-    width: 100px;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.3);
-    flex-shrink: 0;
+.hub-anuncios-simples .hub-lista-cards {
+    padding: 10px;
+    background: #f5f8fd; /* tom azul sutil — reforça "simples" */
 }
 
-.hub-sku-imagem-vazia {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(255,255,255,0.1);
-    color: rgba(255,255,255,0.4);
+/* Alterna leve entre múltiplas páginas de catálogo do mesmo SKU */
+.hub-pagina-catalogo:nth-of-type(even) .hub-pagina-catalogo-titulo {
+    background: linear-gradient(135deg, #8a6428, #6d4c1f);
+}
+
+/* ================================================
+   BADGE FLEX (separado — Flex é campo próprio, não é logística)
+   ================================================ */
+
+.badge-flex-ativo {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    background: #fef3c7;
+    color: #92400e;
+    text-transform: uppercase;
+}
+
+/* ================================================
+   CORES POR TIPO DE ANÚNCIO
+   ================================================ */
+
+.badge-classico { background: #dbeafe; color: #1d4ed8; }
+.badge-premium  { background: #f5edfc; color: #8b4fc7; }
+
+/* Espinha lateral do card */
+.card-anuncio-classico { border-left-color: #1d4ed8; }
+.card-anuncio-premium  { border-left-color: #8b4fc7; }
+
+/* ================================================
+   CORES POR LOGÍSTICA
+   ================================================ */
+
+.badge-full   { background: #dcfce7; color: #15803d; }
+.badge-coleta { background: #fef3c7; color: #b45309; }
+
+/* ================================================
+   FLEX — tom bronze, distinto do amarelo de Coleta
+   ================================================ */
+
+.badge-flex-ativo {
+    background: #fde68a;
+    color: #78350f;
+}
+
+/* ================================================
+   BASE / CATÁLOGO — neutros, a estrutura já comunica a relação
+   ================================================ */
+
+.badge-papel {
+    background: #eef0f4;
+    color: #556;
 }

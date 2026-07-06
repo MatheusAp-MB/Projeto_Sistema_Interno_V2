@@ -67,8 +67,10 @@ def info_variacao(variacao):
         'badge_tipo': 'premium' if tipo_anuncio_valor == TipoAnuncio.PREMIUM else 'classico',
         'badge_tipo_label': dict(TipoAnuncio.choices).get(tipo_anuncio_valor, '—'),
 
-        'badge_logistica': 'full' if tipo_logistico_valor == TipoLogistico.FULL else 'flex',
+        'badge_logistica': 'full' if tipo_logistico_valor == TipoLogistico.FULL else 'coleta',
         'badge_logistica_label': dict(TipoLogistico.choices).get(tipo_logistico_valor, '—'),
+
+        'tem_flex': tipo.flex if tipo else False,
     }
 
 
