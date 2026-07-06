@@ -61,7 +61,7 @@ def montar_arcos_termometro():
         'verde':    f'M {corte2[0]} {corte2[1]} A 26 26 0 0 1 {fim[0]} {fim[1]}',
     }
 
-def info_variacao(variacao):
+def info_variacao(variacao, imagem_url=None, titulo_produto=None):
     anuncio = variacao.anuncio
     tipo = anuncio.tipo_de_anuncio if anuncio else None
 
@@ -97,6 +97,8 @@ def info_variacao(variacao):
         'sku_ml': variacao.sku_ml,
         'titulo': anuncio.titulo_anuncio if anuncio else None,
         'permalink': anuncio.permalink if anuncio else None,
+        'imagem_url': imagem_url,
+        'titulo_produto': titulo_produto,
 
         'estoque': variacao.estoque,
         'score': score_numerico,
@@ -165,7 +167,10 @@ def montar_estrutura_de_sku(sku, variacoes):
         paginas.setdefault(anuncio.catalog_product_id, []).append(mlb)
 
     def folhas_do_mlb(mlb):
-        return [info_variacao(v) for v in variacoes_por_mlb[mlb]]
+        return [
+            info_variacao(v, imagem_url=produto.imagem_url, titulo_produto=produto.titulo)
+            for v in variacoes_por_mlb[mlb]
+        ]
 
     paginas_saida = []
     for cpid, mlbs_membros in paginas.items():

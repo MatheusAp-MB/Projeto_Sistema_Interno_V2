@@ -1,5 +1,11 @@
 <div class="card-anuncio card-anuncio-{{ anuncio.tipo_anuncio_classe|default:'padrao' }} logistica-{{ anuncio.badge_logistica|default:'padrao' }}">
 
+    {% if anuncio.imagem_url %}
+    <img src="{{ anuncio.imagem_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
+    {% else %}
+    <div class="card-anuncio-imagem card-anuncio-imagem-vazia"><i class="fas fa-image"></i></div>
+    {% endif %}
+
     <div class="card-anuncio-corpo">
 
         <div class="card-anuncio-badges">
@@ -12,9 +18,20 @@
         </div>
 
         <div class="card-anuncio-linha-principal">
-            <span class="card-anuncio-mlb">{{ anuncio.mlb }}</span>
-            <span class="card-anuncio-sku">{{ anuncio.sku_ml|default:"—" }}</span>
-            <span class="card-anuncio-titulo">{{ anuncio.titulo }}</span>
+            <span class="card-copiavel">
+                <span class="card-anuncio-mlb">{{ anuncio.mlb }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.mlb }}"></i>
+            </span>
+
+            <span class="card-copiavel">
+                <span class="card-anuncio-sku">{{ anuncio.sku_ml|default:"—" }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.sku_ml }}"></i>
+            </span>
+
+            <span class="card-copiavel card-copiavel-titulo">
+                <span class="card-anuncio-titulo">{{ anuncio.titulo }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.titulo }}"></i>
+            </span>
         </div>
 
     </div>
