@@ -557,3 +557,120 @@
 .icone-copiar-header:hover {
     color: #fff;
 }
+
+
+/* ================================================
+   BADGE DE COMPETIÇÃO (GANHANDO/PERDENDO)
+   ================================================ */
+
+.badge-competicao-espaco {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.badge-competicao {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.badge-competicao-placeholder {
+    background: #eef0f4;
+    color: #778;
+    border: 1px dashed #ccd1db;
+}
+
+.badge-ganhando {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-perdendo {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* * [EXPLICAÇÃO] → Empurra a badge de competição pra direita da linha,
+                     separada visualmente das badges de classificação. */
+.card-anuncio-badges {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+/* ================================================
+   LINHA SECUNDÁRIA (PREÇO)
+   ================================================ */
+
+.card-anuncio-linha-secundaria {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.card-anuncio-preco {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.card-anuncio-preco-label {
+    font-size: 0.62rem;
+    color: #99a;
+    text-transform: uppercase;
+}
+
+.card-anuncio-preco-valor {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--navy);
+}
+
+/* ================================================
+   BLOCO DE REPUTAÇÃO (OBJETIVOS + TERMÔMETRO)
+   ================================================ */
+
+.card-reputacao {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+    padding: 0 10px;
+}
+
+.card-reputacao .card-termometro-grande {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.card-objetivos {
+    font-size: 0.62rem;
+    color: #99a;
+    white-space: nowrap;
+}
+
+.card-termometro-grande {
+    width: 78px;
+}
+
+.card-termometro-grande .termometro-svg {
+    width: 76px;
+    height: 42px;
+}
+
+.card-termometro-grande .termometro-valor {
+    font-size: 0.78rem;
+}
+
+.card-termometro-coluna {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
