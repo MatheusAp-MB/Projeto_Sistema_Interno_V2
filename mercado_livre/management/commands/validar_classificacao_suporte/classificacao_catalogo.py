@@ -16,7 +16,7 @@ import json as jsonlib
 from collections import defaultdict
 from django.db.models import Q
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
-
+import math
 
 def parsear_item_relations(valor):
     if isinstance(valor, list):
@@ -29,9 +29,49 @@ def parsear_item_relations(valor):
     return []
 
 
+def calcular_ponteiro_termometro(score):
+    score = max(0, min(100, score or 0))
+    angulo_graus = 180 - (score / 100 * 180)
+    angulo_rad = math.radians(angulo_graus)
+    x = 30 + 22 * math.cos(angulo_rad)
+    y = 30 - 22 * math.sin(angulo_rad)
+    return f'{x:.1f}', f'{y:.1f}'
+
+CORTE_SCORE_VERMELHO_AMARELO = 33
+CORTE_SCORE_AMARELO_VERDE = 66
+
+
+def calcular_ponto_arco(porcentagem, raio=26, centro_x=30, centro_y=30):
+    angulo_graus = 180 - (porcentagem / 100 * 180)
+    angulo_rad = math.radians(angulo_graus)
+    x = centro_x + raio * math.cos(angulo_rad)
+    y = centro_y - raio * math.sin(angulo_rad)
+    return f'{x:.1f}', f'{y:.1f}'
+
+
+def montar_arcos_termometro():
+    inicio = calcular_ponto_arco(0)
+    corte1 = calcular_ponto_arco(CORTE_SCORE_VERMELHO_AMARELO)
+    corte2 = calcular_ponto_arco(CORTE_SCORE_AMARELO_VERDE)
+    fim = calcular_ponto_arco(100)
+
+    return {
+        'vermelho': f'M {inicio[0]} {inicio[1]} A 26 26 0 0 1 {corte1[0]} {corte1[1]}',
+        'amarelo':  f'M {corte1[0]} {corte1[1]} A 26 26 0 0 1 {corte2[0]} {corte2[1]}',
+        'verde':    f'M {corte2[0]} {corte2[1]} A 26 26 0 0 1 {fim[0]} {fim[1]}',
+    }
+
 def info_variacao(variacao):
     anuncio = variacao.anuncio
     tipo = anuncio.tipo_de_anuncio if anuncio else None
+
+    score_numerico = 0
+    ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
+
+
+    arcos = montar_arcos_termometro()
+
+
 
     Status = TipoDeAnuncioMercadoLivre.Status
     TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
@@ -47,6 +87,7 @@ def info_variacao(variacao):
     }
 
     status = tipo.status if tipo else None
+    
     tipo_anuncio_valor = tipo.tipo_anuncio if tipo else None
     tipo_logistico_valor = tipo.tipo_logistico if tipo else None
 
@@ -58,7 +99,12 @@ def info_variacao(variacao):
         'permalink': anuncio.permalink if anuncio else None,
 
         'estoque': variacao.estoque,
-        'score': '000',
+        'score': score_numerico,
+        'ponteiro_x': ponteiro_x,
+        'ponteiro_y': ponteiro_y,
+        'arco_vermelho': arcos['vermelho'],
+        'arco_amarelo': arcos['amarelo'],
+        'arco_verde': arcos['verde'],
 
         'status_classe': status_classe_map.get(status, 'default'),
         'status_label': dict(Status.choices).get(status, '—'),

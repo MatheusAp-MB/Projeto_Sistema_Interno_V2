@@ -469,3 +469,24 @@
     background: #eef0f4;
     color: #556;
 }
+
+
+.card-termometro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 62px;
+    flex-shrink: 0;
+}
+
+.termometro-svg {
+    width: 60px;
+    height: 34px;
+}
+
+.termometro-valor {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--navy);
+    margin-top: -2px;
+}

@@ -29,9 +29,15 @@
             <span class="card-metrica-label">Estoque</span>
             <span class="card-metrica-valor">{{ anuncio.estoque|default:"0" }}</span>
         </div>
-        <div class="card-metrica">
-            <span class="card-metrica-label">Score</span>
-            <span class="card-metrica-valor">{{ anuncio.score|default:"000" }}</span>
+        <div class="card-termometro" title="Score: {{ anuncio.score }}">
+            <svg viewBox="0 0 60 34" class="termometro-svg">
+                <path d="{{ anuncio.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
+                <path d="{{ anuncio.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
+                <path d="{{ anuncio.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
+                <line x1="30" y1="30" x2="{{ anuncio.ponteiro_x }}" y2="{{ anuncio.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
+            </svg>
+            <span class="termometro-valor">{{ anuncio.score }}</span>
         </div>
     </div>
 
