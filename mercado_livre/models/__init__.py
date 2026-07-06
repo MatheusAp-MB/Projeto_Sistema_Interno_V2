@@ -1,3 +1,6 @@
 from .tipo_de_anuncio import TipoDeAnuncioMercadoLivre
 from .anuncio import AnuncioMercadoLivre
 from .variacao import VariacaoAnuncioMercadoLivre
+from .criterio_qualidade import CriterioQualidade
+from .qualidade_anuncio import QualidadeAnuncio
+from .qualidade_anuncio_criterio import QualidadeAnuncioCriterio

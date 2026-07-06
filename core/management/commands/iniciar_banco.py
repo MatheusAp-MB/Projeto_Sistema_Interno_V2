@@ -5,6 +5,7 @@
 
 from django.core.management.base import BaseCommand
 from core.management.commands.iniciar_banco_suporte.popular_marketplaces import popular_marketplaces
+from core.management.commands.iniciar_banco_suporte.popular_criterios_qualidade import popular_criterios_qualidade
 
 
 class Command(BaseCommand):
@@ -13,4 +14,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write('Iniciando seed do banco...\n')
         popular_marketplaces(self.stdout, self.style)
+        self.stdout.write('')
+        popular_criterios_qualidade(self.stdout, self.style)
         self.stdout.write(self.style.SUCCESS('\nSeed concluído!'))
