@@ -1,0 +1,14 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+
+{% block titulo %}Competição de Catálogo{% endblock %}
+{% block toolbar_titulo %}Competição de Catálogo{% endblock %}
+
+{% block conteudo %}
+{% if not encontrado %}
+<p>Dados de competição não encontrados para este anúncio.</p>
+{% else %}
+<h2>{{ titulo }}</h2>
+<p>{{ mlb }} — Status: {{ status }}</p>
+<pre>{{ boosts }}</pre>
+{% endif %}
+{% endblock %}

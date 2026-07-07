@@ -60,8 +60,8 @@
         <div class="card-termometro-coluna">
             {% if anuncio.eh_catalogo %}
             <span class="card-objetivos">Competição</span>
-            <a href="#" class="card-badge-competicao" title="Ver detalhes da competição">
-                <span class="badge-competicao badge-competicao-placeholder">GANHANDO | PERDENDO</span>
+            <a href="{% url 'mercado_livre_competicao' mlb=anuncio.mlb %}" class="card-badge-competicao" title="{{ anuncio.status_competicao_label|default:'Sem dado' }}">
+                <span class="badge-competicao badge-{{ anuncio.status_competicao|default:'sem-dado' }}">{{ anuncio.status_competicao_label|default:"Sem dado" }}</span>
             </a>
             {% else %}
             <span class="card-objetivos">— objetivos</span>

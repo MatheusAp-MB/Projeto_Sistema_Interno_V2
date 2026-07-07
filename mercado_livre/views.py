@@ -40,3 +40,29 @@ from mercado_livre.funcoes_auxiliares.qualidade_anuncio import montar_qualidade_
 def view_qualidade_anuncio(request, mlb):
     dados = montar_qualidade_da_folha(mlb)
     return render(request, 'mercado_livre/estrutura_qualidade_anuncio.html', {'dados': dados})
+
+
+def view_competicao_catalogo(request, mlb):
+    from mercado_livre.models import AnuncioMercadoLivre
+
+    anuncio = AnuncioMercadoLivre.objects.filter(mlb=mlb).select_related('competicao', 'tipo_de_anuncio').first()
+
+    if not anuncio or not hasattr(anuncio, 'competicao'):
+        return render(request, 'mercado_livre/estrutura_competicao_catalogo.html', {'encontrado': False})
+
+    competicao = anuncio.competicao
+
+    return render(request, 'mercado_livre/estrutura_competicao_catalogo.html', {
+        'encontrado': True,
+        'mlb': anuncio.mlb,
+        'titulo': anuncio.titulo_anuncio,
+        'status': competicao.get_status_display(),
+        'status_classe': competicao.status,
+        'current_price': competicao.current_price,
+        'price_to_win': competicao.price_to_win,
+        'visit_share': competicao.visit_share,
+        'competitors_sharing_first_place': competicao.competitors_sharing_first_place,
+        'reason': competicao.reason,
+        'boosts': competicao.boosts,
+        'winner': competicao.winner,
+    })

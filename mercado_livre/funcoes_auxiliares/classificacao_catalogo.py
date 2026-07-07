@@ -68,10 +68,18 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
     Classificacao = TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo
     eh_catalogo = tipo and tipo.classificacao_catalogo == Classificacao.CATALOGO
 
+    status_competicao = None
+    status_competicao_label = None
+
     if eh_catalogo:
         arcos = None
         score_numerico = None
         ponteiro_x = ponteiro_y = None
+
+        competicao = getattr(anuncio, 'competicao', None) if anuncio else None
+        if competicao and competicao.status:
+            status_competicao = competicao.status
+            status_competicao_label = competicao.get_status_display()
     else:
         arcos = montar_arcos_termometro()
         qualidade = getattr(variacao, 'qualidade', None)
@@ -129,6 +137,8 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'badge_logistica_label': dict(TipoLogistico.choices).get(tipo_logistico_valor, '—'),
 
         'tem_flex': tipo.flex if tipo else False,
+        'status_competicao': status_competicao,
+        'status_competicao_label': status_competicao_label,
     }
 
 
