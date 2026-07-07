@@ -386,3 +386,17 @@
 .tag-resumo-novo  { background: #fef3c7; color: #92400e; }
 
 
+.link-ver-no-ml {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1e3a5f;
+    text-decoration: none;
+}
+
+.link-ver-no-ml:hover {
+    text-decoration: underline;
+}

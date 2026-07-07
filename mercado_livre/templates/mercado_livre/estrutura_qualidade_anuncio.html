@@ -25,7 +25,9 @@
         {% endif %}
 
         <div class="qualidade-header-info">
-            <h2 class="qualidade-titulo">{{ dados.titulo }}</h2>
+            <h2 class="qualidade-titulo">{{ dados.titulo }}{% if dados.permalink %}
+            <a href="{{ dados.permalink }}" target="_blank" class="link-ver-no-ml">
+            <i class="fas fa-arrow-up-right-from-square"></i></a>{% endif %}</h2>
             <span class="qualidade-mlb-sku">{{ dados.mlb }} · {{ dados.sku|default:"—" }}</span>
         </div>
 

@@ -42,15 +42,25 @@ def view_qualidade_anuncio(request, mlb):
     return render(request, 'mercado_livre/estrutura_qualidade_anuncio.html', {'dados': dados})
 
 
+VISIT_SHARE_LABELS = {
+    'low': 'Baixo',
+    'medium': 'Médio',
+    'high': 'Alto',
+}
+
+
 def view_competicao_catalogo(request, mlb):
     from mercado_livre.models import AnuncioMercadoLivre
 
-    anuncio = AnuncioMercadoLivre.objects.filter(mlb=mlb).select_related('competicao', 'tipo_de_anuncio').first()
+    anuncio = AnuncioMercadoLivre.objects.filter(
+        mlb=mlb
+    ).select_related('competicao', 'tipo_de_anuncio').prefetch_related('variacoes').first()
 
     if not anuncio or not hasattr(anuncio, 'competicao'):
         return render(request, 'mercado_livre/estrutura_competicao_catalogo.html', {'encontrado': False})
 
     competicao = anuncio.competicao
+    variacao = anuncio.variacoes.first()
 
     BOOST_LABELS_CONHECIDOS = {
         'fulfillment', 'free_installments', 'free_shipping',
@@ -86,7 +96,10 @@ def view_competicao_catalogo(request, mlb):
 
         'current_price': competicao.current_price,
         'price_to_win': competicao.price_to_win,
-        'visit_share': competicao.visit_share,
+        
+        'sku': variacao.sku_ml if variacao else None,
+        'imagem_url': (variacao.imagem_principal_url or variacao.thumbnail_url) if variacao else None,
+        'visit_share': VISIT_SHARE_LABELS.get((competicao.visit_share or '').lower(), competicao.visit_share),
         'competitors_sharing_first_place': competicao.competitors_sharing_first_place,
         'consistent': competicao.consistent,
         'reason': competicao.reason,

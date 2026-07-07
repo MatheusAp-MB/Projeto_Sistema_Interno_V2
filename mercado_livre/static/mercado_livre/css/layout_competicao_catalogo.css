@@ -9,13 +9,37 @@
 
 .competicao-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 20px;
     background: #fff;
     border: 1px solid #dde3ec;
     border-radius: 10px;
     padding: 18px 20px;
     margin-bottom: 12px;
+}
+
+.competicao-imagem {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: #f4f6f9;
+    border: 1px solid #e3e7ee;
+    padding: 8px;
+    flex-shrink: 0;
+}
+
+.competicao-imagem-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aab;
+    font-size: 1.4rem;
+}
+
+.competicao-header-info {
+    flex: 1;
+    min-width: 0;
 }
 
 .competicao-titulo {
@@ -43,9 +67,16 @@
 }
 
 .competicao-aviso {
-    font-size: 0.78rem;
-    color: #99a;
-    margin: 0 0 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #5f1c00ca;
+    background: #fffee1;
+    border: 1px solid #dde3ec;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 0 0 16px 0;
 }
 
 /* ================================================
@@ -274,4 +305,20 @@
 
 .btn-ver-no-ml-grande:hover {
     background: #142943;
+}
+
+
+.link-ver-no-ml {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1e3a5f;
+    text-decoration: none;
+}
+
+.link-ver-no-ml:hover {
+    text-decoration: underline;
 }

@@ -19,18 +19,29 @@
 
     <!-- CABEÇALHO -->
     <div class="competicao-header">
+        {% if imagem_url %}
+        <img src="{{ imagem_url }}" class="competicao-imagem" alt="{{ titulo }}">
+        {% else %}
+        <div class="competicao-imagem competicao-imagem-vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+        
         <div class="competicao-header-info">
-            <h2 class="competicao-titulo">{{ titulo }}</h2>
-            <span class="competicao-mlb">{{ mlb }}</span>
-        </div>
+            <h2 class="competicao-titulo">{{ titulo }}
+            {% if permalink %}
+            <a href="{{ permalink }}" target="_blank" class="link-ver-no-ml">
+            <i class="fas fa-arrow-up-right-from-square"></i></a></h2>
+        <div class="competicao-mlb">{{ mlb }} · {{ sku|default:"—" }}</div>
+    </a>
+    {% endif %}
+</div>
         <span class="badge-competicao-grande badge-{{ status_classe }}">{{ status }}</span>
     </div>
 
-    <p class="competicao-aviso">
+    <div class="competicao-aviso">
         <i class="fas fa-info-circle"></i>
-        Verificado em: {{ atualizado_em|date:"d/m/Y H:i" }} — este dado reflete o momento da
-        última verificação, não necessariamente o cálculo mais recente do Mercado Livre.
-    </p>
+        <span>Verificado em: {{ atualizado_em|date:"d/m/Y H:i" }} — este dado reflete o momento da
+        última verificação, não necessariamente o cálculo mais recente do Mercado Livre.</span>
+    </div>
 
     <!-- PREÇOS -->
     <div class="competicao-precos">
@@ -44,7 +55,7 @@
         </div>
         <div class="preco-bloco">
             <span class="preco-label">Alcance de visitas</span>
-            <span class="preco-valor">{{ visit_share|default:"—"|capfirst }}</span>
+            <span class="preco-valor">{{ visit_share|default:"—" }}</span>
         </div>
         <div class="preco-bloco">
             <span class="preco-label">Concorrentes empatados em 1º</span>
@@ -116,10 +127,6 @@
             {% endfor %}
         </div>
     </section>
-    {% endif %}
-
-    {% if permalink %}
-    <a href="{{ permalink }}" target="_blank" class="btn-ver-no-ml-grande">Ver este anúncio no Mercado Livre →</a>
     {% endif %}
 
 </div>

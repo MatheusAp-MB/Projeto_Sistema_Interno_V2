@@ -74,6 +74,7 @@ def montar_qualidade_da_folha(mlb):
             'score': None,
             'nivel': None,
             'sem_dado_qualidade': True,
+            'permalink': anuncio.permalink
         
         }
 
