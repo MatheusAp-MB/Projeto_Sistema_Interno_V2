@@ -165,17 +165,7 @@
     overflow: hidden;
 }
 
-.criterio-falta {
-    border-left: 4px solid #b91c1c;
-}
 
-.criterio-na {
-    border-left: 4px solid #6b7280;
-}
-
-.criterio-ok {
-    border-left: 4px solid #15803d;
-}
 
 .criterio-header {
     display: flex;
@@ -222,13 +212,12 @@
 }
 
 .criterio-corpo {
-    padding: 14px;
-    font-size: 0.82rem;
-    color: #445;
+    padding: 14px;    
 }
 
 .criterio-pergunta {
-    font-weight: 600;
+    font-weight: 1000;
+    font-size: 1.2rem;
     margin: 0 0 8px 0;
 }
 
@@ -287,34 +276,44 @@
 }
 
 .criterio-metadado-label {
-    font-size: 0.65rem;
-    color: #99a;
+    font-size: 1rem;
+    color: rgb(0, 0, 0);
     text-transform: uppercase;
+    font-weight: 1000;
 }
 
 .criterio-metadado-valor {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--navy, #1e3a5f);
+    font-weight: 1000;
 }
 
 .grupo-criterios {
     margin-bottom: 16px;
+    width: 30vw;
+    display: inline-block;
+
 }
 
 .grupo-titulo {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    color: #778;
+    color: #fff;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     margin: 0 0 8px 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    
 }
 
 .grupo-cards-linha {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    width: 30vw;
+   display: inline-block;
 }
 
 .grupo-cards-linha .criterio-card {
@@ -326,4 +325,16 @@
 .termometro-svg-grande {
     width: 110px;
     height: 62px;
+}
+
+.criterio-card {
+    border-left: 4px solid #b91c1c;
+}
+
+.criterio-na {
+    border-left: 4px solid #6b7280;
+}
+
+.criterio-ok {
+    border-left: 4px solid #15803d;
 }

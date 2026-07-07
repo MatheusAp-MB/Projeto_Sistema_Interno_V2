@@ -84,11 +84,11 @@
 
 {% for grupo in dados.detalhado_falta %}
 <div class="grupo-criterios">
-    <h4 class="grupo-titulo">{{ grupo.nome_grupo }}</h4>
+    <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
     <div class="grupo-cards-linha">
         {% for item in grupo.criterios %}
-        <details class="criterio-card criterio-falta" open>
-            <summary class="criterio-header">
+        <details class="criterio-card" style="border-left-color: #{{ item.cor_grupo }};" open>
+            <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
                 <span class="criterio-nome">{{ item.nome }}{% if not item.catalogado %} <i class="fas fa-question-circle" title="Critério novo, ainda não traduzido"></i>{% endif %}</span>
                 <span class="badge-criterio badge-criterio-falta">Falta fazer</span>
             </summary>
@@ -119,11 +119,11 @@
 
 {% for grupo in dados.detalhado_na %}
 <div class="grupo-criterios">
-    <h4 class="grupo-titulo">{{ grupo.nome_grupo }}</h4>
+    <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
     <div class="grupo-cards-linha">
         {% for item in grupo.criterios %}
-        <details class="criterio-card criterio-na">
-            <summary class="criterio-header">
+        <details class="criterio-card" style="border-left-color: #{{ item.cor_grupo }};">
+            <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
                 <span class="criterio-nome">{{ item.nome }}</span>
                 <span class="badge-criterio badge-criterio-na">Não se aplica</span>
             </summary>
@@ -138,11 +138,11 @@
 
 {% for grupo in dados.detalhado_ok %}
 <div class="grupo-criterios">
-    <h4 class="grupo-titulo">{{ grupo.nome_grupo }}</h4>
+    <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
     <div class="grupo-cards-linha">
         {% for item in grupo.criterios %}
-        <details class="criterio-card criterio-ok">
-            <summary class="criterio-header">
+        <details class="criterio-card" style="border-left-color: #{{ item.cor_grupo }};">
+            <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
                 <span class="criterio-nome">{{ item.nome }}</span>
                 <span class="badge-criterio badge-criterio-ok">Aprovado</span>
             </summary>

@@ -8,6 +8,37 @@
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, CriterioQualidade
 from mercado_livre.funcoes_auxiliares.classificacao_catalogo import montar_arcos_termometro, calcular_ponteiro_termometro
 
+
+GRUPO_CORES = {
+    'UP_SHORTS': '7030A0',
+    'UP_PICTURES': '17375E',
+    'UP_TITLE': '375623',
+    'UP_GTIN': 'C00000',
+    'UP_TECHNICAL_SPECIFICATIONS_MAIN': 'E26B0A',
+    'UP_STOCK_DEPOSITO': '7B3F00',
+    'UP_STOCK_AVAILABILITY_TIME': '4F5B66',
+    'UP_FREE_SHIPPING': '1F4E79',
+    'UP_FINANCING': '7B2C2C',
+    'UP_PROMOTIONS': '1D6B5A',
+    'UP_PRICE': '7F6000',
+    'UP_ME_FLEX_ITEM_OPTIN': '2E4057',
+    'UP_SIZE_CHART': '833C00',
+    'UP_CATALOG': '1F3864',
+    'DESCONHECIDO': '595959',
+}
+
+
+def pastel(hex_color, fator=0.85):
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    r = int(r + (255 - r) * fator)
+    g = int(g + (255 - g) * fator)
+    b = int(b + (255 - b) * fator)
+    return f'{r:02x}{g:02x}{b:02x}'
+
+
+
 def montar_qualidade_da_folha(mlb):
     variacao = VariacaoAnuncioMercadoLivre.objects.filter(
         anuncio__mlb=mlb
@@ -41,6 +72,8 @@ def montar_qualidade_da_folha(mlb):
     falta = []
 
     for av in avaliacoes:
+        cor_grupo = GRUPO_CORES.get(av.criterio.grupo, '595959')
+
         item = {
             'rule_key': av.criterio.rule_key,
             'grupo': av.criterio.get_grupo_display(),
@@ -51,6 +84,8 @@ def montar_qualidade_da_folha(mlb):
             'catalogado': av.criterio.catalogado,
             'score': av.score,
             'calculado_em': av.calculado_em,
+            'cor_grupo': cor_grupo,
+            'cor_grupo_pastel': pastel(cor_grupo),
         }
 
         if av.status == 'aprovado':
@@ -63,8 +98,12 @@ def montar_qualidade_da_folha(mlb):
     def agrupar_por_grupo(lista):
         grupos = {}
         for item in lista:
-            grupos.setdefault(item['grupo'], []).append(item)
-        return [{'nome_grupo': nome, 'criterios': criterios} for nome, criterios in grupos.items()]
+            grupos.setdefault(item['grupo'], {'cor': item['cor_grupo'], 'criterios': []})
+            grupos[item['grupo']]['criterios'].append(item)
+        return [
+            {'nome_grupo': nome, 'cor': dados['cor'], 'criterios': dados['criterios']}
+            for nome, dados in grupos.items()
+        ]
 
 
     arcos = montar_arcos_termometro()
