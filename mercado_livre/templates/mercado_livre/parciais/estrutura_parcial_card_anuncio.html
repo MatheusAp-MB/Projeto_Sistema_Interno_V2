@@ -19,12 +19,6 @@
             <span class="badge-flex-ativo">FLEX</span>
             {% endif %}
             <span class="badge-papel">{{ tag_papel }}</span>
-
-            {% if tag_papel == "Catálogo" or tag_papel == "Catálogo órfão" %}
-            <span class="badge-competicao-espaco">
-                <span class="badge-competicao badge-competicao-placeholder">GANHANDO | PERDENDO</span>
-            </span>
-            {% endif %}
         </div>
 
 <div class="card-anuncio-linha-titulo">
@@ -64,17 +58,24 @@
             <span class="card-metrica-valor">{{ anuncio.estoque|default:"0" }}</span>
         </div>
         <div class="card-termometro-coluna">
+            {% if anuncio.eh_catalogo %}
+            <span class="card-objetivos">Competição</span>
+            <a href="#" class="card-badge-competicao" title="Ver detalhes da competição">
+                <span class="badge-competicao badge-competicao-placeholder">GANHANDO | PERDENDO</span>
+            </a>
+            {% else %}
             <span class="card-objetivos">— objetivos</span>
             <a href="{% url 'mercado_livre_qualidade' mlb=anuncio.mlb %}" class="card-termometro card-termometro-grande" title="Score: {{ anuncio.score }}">
-            <svg viewBox="0 0 60 34" class="termometro-svg">
-                <path d="{{ anuncio.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
-                <path d="{{ anuncio.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
-                <path d="{{ anuncio.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
-                <line x1="30" y1="30" x2="{{ anuncio.ponteiro_x }}" y2="{{ anuncio.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
-                <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
-            </svg>
-        <span class="termometro-valor">{{ anuncio.score }}</span>
-        </a>
+                <svg viewBox="0 0 60 34" class="termometro-svg">
+                    <path d="{{ anuncio.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
+                    <path d="{{ anuncio.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
+                    <path d="{{ anuncio.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
+                    <line x1="30" y1="30" x2="{{ anuncio.ponteiro_x }}" y2="{{ anuncio.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
+                </svg>
+                <span class="termometro-valor">{{ anuncio.score }}</span>
+            </a>
+            {% endif %}
         </div>
     </div>
 

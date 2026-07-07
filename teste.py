@@ -1,19 +1,19 @@
-import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
-django.setup()
+import json
 
-from mercado_livre.models import VariacaoAnuncioMercadoLivre
-from mercado_livre.management.commands.validar_classificacao_suporte.classificacao_catalogo import (
-    info_variacao,
-    calcular_ponteiro_termometro,
-)
-import random
+with open('Arquivos_API/dados_completos_por_sku.json', encoding='utf-8') as f:  # ajusta o nome se for diferente
+    dados = json.load(f)
 
-variacoes = VariacaoAnuncioMercadoLivre.objects.filter(produto__sku='F7908050719121.001')
+for bloco_sku in dados.get('skus', []):
+    for mlb_dados in bloco_sku.get('mlbs', []):
+        if mlb_dados.get('classificacao') != 'catalogo':
+            continue
 
-print(f'Total de variações encontradas: {variacoes.count()}\n')
+        ptw = mlb_dados.get('price_to_win', {})
+        info = ptw.get('dados')
+        if not info:
+            continue
 
-for v in variacoes:
-    score_teste = random.randint(0, 100)
-    x, y = calcular_ponteiro_termometro(score_teste)
-    print(f'{v.anuncio.mlb}: score={score_teste} -> ponteiro=({x}, {y})')
+        status = info.get('status')
+        tem_winner = 'winner' in info
+
+        print(f"{mlb_dados.get('mlb')}: status={status} | tem_winner={tem_winner}")

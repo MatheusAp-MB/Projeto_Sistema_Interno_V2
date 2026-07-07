@@ -10,9 +10,11 @@ from django.core.management.base import BaseCommand
 from core.management.commands.popular_banco_suporte.importar_produtos_ml import importar_produtos_ml
 from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
 from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
+from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
+
 
 
 class Command(BaseCommand):
@@ -25,6 +27,8 @@ class Command(BaseCommand):
         importar_anuncios_ml(self.stdout, self.style, CAMINHO_DETALHES_MLBS)
         self.stdout.write('')
         importar_qualidade_anuncio(self.stdout, self.style, CAMINHO_QUALIDADE)
+        self.stdout.write('')
+        importar_competicao_catalogo(self.stdout, self.style, CAMINHO_QUALIDADE)
         self.stdout.write(self.style.SUCCESS('\nImportação concluída!'))
 
 

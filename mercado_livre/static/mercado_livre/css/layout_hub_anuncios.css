@@ -676,3 +676,22 @@
     flex-direction: column;
     align-items: center;
 }
+
+.card-badge-competicao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 42px;
+    text-decoration: none;
+}
+
+.card-badge-competicao .badge-competicao {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}

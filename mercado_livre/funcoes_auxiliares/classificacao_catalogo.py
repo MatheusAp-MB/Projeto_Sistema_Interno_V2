@@ -65,19 +65,18 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
     anuncio = variacao.anuncio
     tipo = anuncio.tipo_de_anuncio if anuncio else None
 
-    score_numerico = 0
-    ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
+    Classificacao = TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo
+    eh_catalogo = tipo and tipo.classificacao_catalogo == Classificacao.CATALOGO
 
-
-    arcos = montar_arcos_termometro()
-
-    # * [EXPLICAÇÃO] → Qualidade agora é ligada à Variação (folha),
-    #                  não ao MLB — reflete a decisão de que a
-    #                  Variação é a fonte da verdade no sistema.
-    qualidade = getattr(variacao, 'qualidade', None)
-    score_numerico = qualidade.score if qualidade and qualidade.score is not None else 0
-    ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
-
+    if eh_catalogo:
+        arcos = None
+        score_numerico = None
+        ponteiro_x = ponteiro_y = None
+    else:
+        arcos = montar_arcos_termometro()
+        qualidade = getattr(variacao, 'qualidade', None)
+        score_numerico = qualidade.score if qualidade and qualidade.score is not None else 0
+        ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
 
 
     Status = TipoDeAnuncioMercadoLivre.Status
@@ -110,12 +109,14 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'titulo_produto': titulo_produto,
 
         'estoque': variacao.estoque,
+    
         'score': score_numerico,
         'ponteiro_x': ponteiro_x,
         'ponteiro_y': ponteiro_y,
-        'arco_vermelho': arcos['vermelho'],
-        'arco_amarelo': arcos['amarelo'],
-        'arco_verde': arcos['verde'],
+        'arco_vermelho': arcos['vermelho'] if arcos else None,
+        'arco_amarelo': arcos['amarelo'] if arcos else None,
+        'arco_verde': arcos['verde'] if arcos else None,
+        'eh_catalogo': eh_catalogo,
 
         'status_classe': status_classe_map.get(status, 'default'),
         'status_label': dict(Status.choices).get(status, '—'),
