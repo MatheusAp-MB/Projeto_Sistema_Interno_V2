@@ -1,14 +1,128 @@
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
 
-{% block titulo %}Competição de Catálogo{% endblock %}
+{% block titulo %}Competição de Catálogo — {{ mlb }}{% endblock %}
 {% block toolbar_titulo %}Competição de Catálogo{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'mercado_livre/css/layout_cores_padrao.css' %}">
+<link rel="stylesheet" href="{% static 'mercado_livre/css/layout_competicao_catalogo.css' %}">
+{% endblock %}
+
 {% block conteudo %}
+
 {% if not encontrado %}
 <p>Dados de competição não encontrados para este anúncio.</p>
 {% else %}
-<h2>{{ titulo }}</h2>
-<p>{{ mlb }} — Status: {{ status }}</p>
-<pre>{{ boosts }}</pre>
+
+<div class="competicao-pagina">
+
+    <!-- CABEÇALHO -->
+    <div class="competicao-header">
+        <div class="competicao-header-info">
+            <h2 class="competicao-titulo">{{ titulo }}</h2>
+            <span class="competicao-mlb">{{ mlb }}</span>
+        </div>
+        <span class="badge-competicao-grande badge-{{ status_classe }}">{{ status }}</span>
+    </div>
+
+    <p class="competicao-aviso">
+        <i class="fas fa-info-circle"></i>
+        Verificado em: {{ atualizado_em|date:"d/m/Y H:i" }} — este dado reflete o momento da
+        última verificação, não necessariamente o cálculo mais recente do Mercado Livre.
+    </p>
+
+    <!-- PREÇOS -->
+    <div class="competicao-precos">
+        <div class="preco-bloco">
+            <span class="preco-label">Seu preço atual</span>
+            <span class="preco-valor">R$ {{ current_price|floatformat:2 }}</span>
+        </div>
+        <div class="preco-bloco">
+            <span class="preco-label">Preço para ganhar</span>
+            <span class="preco-valor preco-valor-destaque">R$ {{ price_to_win|floatformat:2 }}</span>
+        </div>
+        <div class="preco-bloco">
+            <span class="preco-label">Alcance de visitas</span>
+            <span class="preco-valor">{{ visit_share|default:"—"|capfirst }}</span>
+        </div>
+        <div class="preco-bloco">
+            <span class="preco-label">Concorrentes empatados em 1º</span>
+            <span class="preco-valor">{{ competitors_sharing_first_place|default:"0" }}</span>
+        </div>
+    </div>
+
+    <!-- CONCORRENTE VENCEDOR -->
+    {% if winner_eh_outro %}
+    <div class="competicao-concorrente">
+        <span class="concorrente-label">Quem está ganhando agora</span>
+        <div class="concorrente-info">
+            <span class="concorrente-mlb">{{ winner_item_id }}</span>
+            <span class="concorrente-preco">R$ {{ winner_price|floatformat:2 }}</span>
+            <a href="{{ winner_link }}" target="_blank" class="btn-ver-concorrente">Ver anúncio concorrente →</a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if reason %}
+    <div class="competicao-motivos">
+        <span class="motivos-label">Motivos informados pela API</span>
+        <div class="motivos-tags">
+            {% for motivo in reason %}
+            <span class="tag-motivo">{{ motivo }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- BOOSTS -->
+    {% if boosts_oportunidade %}
+    <section class="zona-boosts zona-boosts-oportunidade">
+        <h3 class="zona-titulo">Oportunidade de Melhoria <span class="zona-contagem">{{ boosts_oportunidade|length }}</span></h3>
+        <div class="boosts-grid">
+            {% for boost in boosts_oportunidade %}
+            <div class="boost-card boost-oportunidade">
+                <span class="boost-nome">{{ boost.description }}</span>
+                <span class="badge-boost badge-boost-oportunidade">Oportunidade</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if boosts_concluidos %}
+    <section class="zona-boosts zona-boosts-concluidos">
+        <h3 class="zona-titulo">Concluídos <span class="zona-contagem">{{ boosts_concluidos|length }}</span></h3>
+        <div class="boosts-grid">
+            {% for boost in boosts_concluidos %}
+            <div class="boost-card boost-concluido">
+                <span class="boost-nome">{{ boost.description }}</span>
+                <span class="badge-boost badge-boost-concluido">Concluído</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if boosts_novos %}
+    <section class="zona-boosts zona-boosts-novos">
+        <h3 class="zona-titulo">Novos <span class="zona-contagem">{{ boosts_novos|length }}</span></h3>
+        <div class="boosts-grid">
+            {% for boost in boosts_novos %}
+            <div class="boost-card boost-novo">
+                <span class="boost-nome"><i class="fas fa-question-circle"></i> {{ boost.description|default:boost.id }}</span>
+                <span class="badge-boost badge-boost-novo">{{ boost.status|default:"—" }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if permalink %}
+    <a href="{{ permalink }}" target="_blank" class="btn-ver-no-ml-grande">Ver este anúncio no Mercado Livre →</a>
+    {% endif %}
+
+</div>
 {% endif %}
+
 {% endblock %}

@@ -52,17 +52,53 @@ def view_competicao_catalogo(request, mlb):
 
     competicao = anuncio.competicao
 
+    BOOST_LABELS_CONHECIDOS = {
+        'fulfillment', 'free_installments', 'free_shipping',
+        'shipping_collect', 'same_day_shipping',
+    }
+
+    boosts_concluidos = []
+    boosts_oportunidade = []
+    boosts_novos = []
+
+    for boost in (competicao.boosts or []):
+        if boost.get('id') not in BOOST_LABELS_CONHECIDOS:
+            boosts_novos.append(boost)
+        elif boost.get('status') == 'boosted':
+            boosts_concluidos.append(boost)
+        elif boost.get('status') == 'opportunity':
+            boosts_oportunidade.append(boost)
+        else:
+            boosts_novos.append(boost)
+
+    winner = competicao.winner or {}
+    winner_eh_outro = winner.get('item_id') and winner.get('item_id') != anuncio.mlb
+    winner_link = f"https://produto.mercadolivre.com.br/{winner['item_id']}" if winner_eh_outro else None
+
     return render(request, 'mercado_livre/estrutura_competicao_catalogo.html', {
         'encontrado': True,
         'mlb': anuncio.mlb,
         'titulo': anuncio.titulo_anuncio,
+        'permalink': anuncio.permalink,
+
         'status': competicao.get_status_display(),
         'status_classe': competicao.status,
+
         'current_price': competicao.current_price,
         'price_to_win': competicao.price_to_win,
         'visit_share': competicao.visit_share,
         'competitors_sharing_first_place': competicao.competitors_sharing_first_place,
+        'consistent': competicao.consistent,
         'reason': competicao.reason,
-        'boosts': competicao.boosts,
-        'winner': competicao.winner,
+
+        'winner_eh_outro': winner_eh_outro,
+        'winner_item_id': winner.get('item_id'),
+        'winner_price': winner.get('price'),
+        'winner_link': winner_link,
+
+        'boosts_concluidos': boosts_concluidos,
+        'boosts_oportunidade': boosts_oportunidade,
+        'boosts_novos': boosts_novos,
+
+        'atualizado_em': anuncio.competicao.atualizado_em,
     })
