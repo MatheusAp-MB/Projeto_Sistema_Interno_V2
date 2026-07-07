@@ -1,13 +1,12 @@
-# * [RESUMO] → Monta os dados de qualidade de 1 folha (Variação) para
-#              a tela de detalhe. Organiza os 16 critérios em 3 grupos
-#              (OK / Não se aplica / Falta fazer), na ordem certa para
-#              cada contexto: resumo mostra OK→N/A→Falta (do mais
-#              tranquilo pro mais urgente); detalhado mostra
-#              Falta→N/A→OK (ordem de ação).
+# * [RESUMO] → Monta os dados de qualidade de 1 folha (MLB) para a
+#              tela de detalhe, organizados em 4 zonas fixas:
+#              A Fazer, Feitos, Não Aplicável, Novos Critérios.
+#              Novos Critérios é independente do status (catalogado=False,
+#              qualquer status) — critério que a API trouxe e ainda não
+#              foi traduzido/formalizado no nosso seed.
 
-from mercado_livre.models import VariacaoAnuncioMercadoLivre, CriterioQualidade
+from mercado_livre.models import VariacaoAnuncioMercadoLivre
 from mercado_livre.funcoes_auxiliares.classificacao_catalogo import montar_arcos_termometro, calcular_ponteiro_termometro
-
 
 GRUPO_CORES = {
     'UP_SHORTS': '7030A0',
@@ -38,6 +37,21 @@ def pastel(hex_color, fator=0.85):
     return f'{r:02x}{g:02x}{b:02x}'
 
 
+def agrupar_por_grupo(lista):
+    grupos = {}
+    for item in lista:
+        grupos.setdefault(item['grupo'], {'cor': item['cor_grupo'], 'criterios': []})
+        grupos[item['grupo']]['criterios'].append(item)
+    return [
+        {
+            'nome_grupo': nome,
+            'cor': dados['cor'],
+            'criterios': dados['criterios'],
+            'col_span': min(len(dados['criterios']), 4),
+        }
+        for nome, dados in grupos.items()
+    ]
+
 
 def montar_qualidade_da_folha(mlb):
     variacao = VariacaoAnuncioMercadoLivre.objects.filter(
@@ -60,16 +74,15 @@ def montar_qualidade_da_folha(mlb):
             'score': None,
             'nivel': None,
             'sem_dado_qualidade': True,
-            'resumo_ok': [], 'resumo_na': [], 'resumo_falta': [],
-            'detalhado_falta': [], 'detalhado_na': [], 'detalhado_ok': [],
+        
         }
 
-    Status = CriterioQualidade  # apenas para leitura mais clara abaixo
     avaliacoes = qualidade.criterios.select_related('criterio').all()
 
-    ok = []
-    na = []
-    falta = []
+    a_fazer = []
+    feitos = []
+    nao_aplicavel = []
+    novos_criterios = []
 
     for av in avaliacoes:
         cor_grupo = GRUPO_CORES.get(av.criterio.grupo, '595959')
@@ -88,23 +101,14 @@ def montar_qualidade_da_folha(mlb):
             'cor_grupo_pastel': pastel(cor_grupo),
         }
 
-        if av.status == 'aprovado':
-            ok.append(item)
+        if not av.criterio.catalogado:
+            novos_criterios.append(item)
+        elif av.status == 'aprovado':
+            feitos.append(item)
         elif av.status == 'nao_aplicavel':
-            na.append(item)
+            nao_aplicavel.append(item)
         else:
-            falta.append(item)
-
-    def agrupar_por_grupo(lista):
-        grupos = {}
-        for item in lista:
-            grupos.setdefault(item['grupo'], {'cor': item['cor_grupo'], 'criterios': []})
-            grupos[item['grupo']]['criterios'].append(item)
-        return [
-            {'nome_grupo': nome, 'cor': dados['cor'], 'criterios': dados['criterios']}
-            for nome, dados in grupos.items()
-        ]
-
+            a_fazer.append(item)
 
     arcos = montar_arcos_termometro()
     ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(qualidade.score or 0)
@@ -119,22 +123,27 @@ def montar_qualidade_da_folha(mlb):
         'score': qualidade.score,
         'nivel': qualidade.nivel,
         'sem_dado_qualidade': False,
+
+        'total_a_fazer': len(a_fazer),
+        'total_feitos': len(feitos),
+        'total_nao_aplicavel': len(nao_aplicavel),
+        'total_novos_criterios': len(novos_criterios),
+        'total_criterios': len(a_fazer) + len(feitos) + len(nao_aplicavel) + len(novos_criterios),
+
+        'zona_a_fazer': agrupar_por_grupo(a_fazer),
+        'zona_feitos': agrupar_por_grupo(feitos),
+        'zona_nao_aplicavel': agrupar_por_grupo(nao_aplicavel),
+        'zona_novos_criterios': agrupar_por_grupo(novos_criterios),
+
         'arco_vermelho': arcos['vermelho'],
         'arco_amarelo': arcos['amarelo'],
         'arco_verde': arcos['verde'],
         'ponteiro_x': ponteiro_x,
         'ponteiro_y': ponteiro_y,
 
-        'total_ok': len(ok),
-        'total_na': len(na),
-        'total_falta': len(falta),
-        'total_criterios': len(ok) + len(na) + len(falta),
-
-        'resumo_ok': ok,
-        'resumo_na': na,
-        'resumo_falta': falta,
-
-        'detalhado_falta': agrupar_por_grupo(falta),
-        'detalhado_na': agrupar_por_grupo(na),
-        'detalhado_ok': agrupar_por_grupo(ok),
+        'resumo_a_fazer': a_fazer,
+        'resumo_feitos': feitos,
+        'resumo_nao_aplicavel': nao_aplicavel,
+        'resumo_novos_criterios': novos_criterios,
+        
     }

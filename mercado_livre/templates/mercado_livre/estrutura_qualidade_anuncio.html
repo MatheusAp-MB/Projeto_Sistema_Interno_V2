@@ -14,148 +14,166 @@
 <p>Anúncio não encontrado.</p>
 {% else %}
 
-<!-- Cabeçalho -->
-<div class="qualidade-header">
-    {% if dados.imagem_url %}
-    <img src="{{ dados.imagem_url }}" class="qualidade-imagem" alt="{{ dados.titulo }}">
+<div class="qualidade-pagina">
+
+    <!-- CABEÇALHO -->
+    <div class="qualidade-header">
+        {% if dados.imagem_url %}
+        <img src="{{ dados.imagem_url }}" class="qualidade-imagem" alt="{{ dados.titulo }}">
+        {% else %}
+        <div class="qualidade-imagem qualidade-imagem-vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+
+        <div class="qualidade-header-info">
+            <h2 class="qualidade-titulo">{{ dados.titulo }}</h2>
+            <span class="qualidade-mlb-sku">{{ dados.mlb }} · {{ dados.sku|default:"—" }}</span>
+        </div>
+
+        {% if not dados.sem_dado_qualidade %}
+        <div class="qualidade-score-bloco">
+            <span class="qualidade-nivel">{{ dados.nivel|upper }}</span>
+            <svg viewBox="0 0 60 34" class="termometro-svg-grande">
+                <path d="{{ dados.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
+                <path d="{{ dados.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
+                <path d="{{ dados.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
+                <line x1="30" y1="30" x2="{{ dados.ponteiro_x }}" y2="{{ dados.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
+            </svg>
+            <span class="qualidade-score-numero">{{ dados.score }}</span>
+            <span class="qualidade-score-legenda">{{ dados.total_feitos }} de {{ dados.total_criterios }} critérios cumpridos</span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if dados.sem_dado_qualidade %}
+    <p class="qualidade-sem-dado">Ainda não temos dados de qualidade importados para este anúncio.</p>
     {% else %}
-    <div class="qualidade-imagem qualidade-imagem-vazia"><i class="fas fa-image"></i></div>
-    {% endif %}
 
-    <div class="qualidade-header-info">
-        <h2 class="qualidade-titulo">{{ dados.titulo }}</h2>
-        <span class="qualidade-mlb-sku">{{ dados.mlb }} · {{ dados.sku|default:"—" }}</span>
+    <!-- RESUMO ESCANEÁVEL -->
+    <div class="resumo-bloco">
+        {% if dados.resumo_a_fazer %}
+        <div class="resumo-linha">
+            <span class="resumo-linha-label">Falta fazer</span>
+            <div class="resumo-tags">
+                {% for item in dados.resumo_a_fazer %}
+                <span class="tag-resumo tag-resumo-falta"><i class="fas fa-times"></i> {{ item.nome }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if dados.resumo_feitos %}
+        <div class="resumo-linha">
+            <span class="resumo-linha-label">Já está OK</span>
+            <div class="resumo-tags">
+                {% for item in dados.resumo_feitos %}
+                <span class="tag-resumo tag-resumo-ok"><i class="fas fa-check"></i> {{ item.nome }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if dados.resumo_nao_aplicavel %}
+        <div class="resumo-linha">
+            <span class="resumo-linha-label">Não se aplica</span>
+            <div class="resumo-tags">
+                {% for item in dados.resumo_nao_aplicavel %}
+                <span class="tag-resumo tag-resumo-na"><i class="fas fa-minus"></i> {{ item.nome }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if dados.resumo_novos_criterios %}
+        <div class="resumo-linha">
+            <span class="resumo-linha-label">Novo da API</span>
+            <div class="resumo-tags">
+                {% for item in dados.resumo_novos_criterios %}
+                <span class="tag-resumo tag-resumo-novo"><i class="fas fa-question"></i> {{ item.nome }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
-{% if not dados.sem_dado_qualidade %}
-    <div class="qualidade-score-bloco">
-        <span class="qualidade-nivel">{{ dados.nivel|upper }}</span>
-        <svg viewBox="0 0 60 34" class="termometro-svg-grande">
-            <path d="{{ dados.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
-            <path d="{{ dados.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
-            <path d="{{ dados.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
-            <line x1="30" y1="30" x2="{{ dados.ponteiro_x }}" y2="{{ dados.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
-        </svg>
-        <span class="qualidade-score-numero">{{ dados.score }}</span>
-        <span class="qualidade-score-legenda">{{ dados.total_ok }} de {{ dados.total_criterios }} critérios cumpridos</span>
-    </div>
-    {% endif %}
-</div>
-
-{% if dados.sem_dado_qualidade %}
-<p class="qualidade-sem-dado">Ainda não temos dados de qualidade importados para este anúncio.</p>
-{% else %}
-
-<!-- Resumo escaneável: OK -> N/A -> Falta -->
-<div class="resumo-linha">
-    <span class="resumo-titulo">Já está OK · {{ dados.total_ok }}</span>
-    <div class="resumo-tags">
-        {% for item in dados.resumo_ok %}
-        <span class="tag-criterio tag-ok"><i class="fas fa-check"></i> {{ item.nome }}</span>
-        {% endfor %}
-    </div>
-</div>
-
-{% if dados.resumo_na %}
-<div class="resumo-linha">
-    <span class="resumo-titulo">Não se aplica · {{ dados.total_na }}</span>
-    <div class="resumo-tags">
-        {% for item in dados.resumo_na %}
-        <span class="tag-criterio tag-na"><i class="fas fa-minus"></i> {{ item.nome }}</span>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
-<div class="resumo-linha">
-    <span class="resumo-titulo">Falta fazer · {{ dados.total_falta }}</span>
-    <div class="resumo-tags">
-        {% for item in dados.resumo_falta %}
-        <span class="tag-criterio tag-falta"><i class="fas fa-times"></i> {{ item.nome }}</span>
-        {% endfor %}
-    </div>
-</div>
-
-<hr class="qualidade-divisor">
-
-<!-- Visão detalhada: Falta -> N/A -> OK -->
-<h3 class="qualidade-secao-titulo">O que fazer</h3>
-
-{% for grupo in dados.detalhado_falta %}
-<div class="grupo-criterios">
-    <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
-    <div class="grupo-cards-linha">
-        {% for item in grupo.criterios %}
-        <details class="criterio-card" style="border-left-color: #{{ item.cor_grupo }};" open>
-            <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
-                <span class="criterio-nome">{{ item.nome }}{% if not item.catalogado %} <i class="fas fa-question-circle" title="Critério novo, ainda não traduzido"></i>{% endif %}</span>
-                <span class="badge-criterio badge-criterio-falta">Falta fazer</span>
-            </summary>
-            <div class="criterio-corpo">
-                <div class="criterio-metadados">
-                    <div class="criterio-metadado">
-                        <span class="criterio-metadado-label">Score</span>
-                        <span class="criterio-metadado-valor">{{ item.score|default:"—" }}</span>
-                    </div>
-                    <div class="criterio-metadado">
-                        <span class="criterio-metadado-label">Atualizado em</span>
-                        <span class="criterio-metadado-valor">{{ item.calculado_em|date:"d/m/Y H:i"|default:"—" }}</span>
-                    </div>
+    <!-- ZONA: A FAZER -->
+    <details id="A_Fazer" class="zona zona-a-fazer" open>
+        <summary class="zona-titulo">O que fazer <span class="zona-contagem">{{ dados.total_a_fazer }}</span></summary>
+        <div class="zona-grupos">
+            {% for grupo in dados.zona_a_fazer %}
+            <div class="grupo-bloco" data-col-span="{{ grupo.col_span }}">
+                <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
+                <div class="cards-grid">
+                    {% for item in grupo.criterios %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_criterio_card.html' with item=item aberto=True badge_classe='badge-falta' badge_label='Falta fazer' %}
+                    {% endfor %}
                 </div>
-                <p class="criterio-pergunta">{{ item.pergunta }}</p>
-                {% if item.como_aprovar %}
-                <p class="criterio-como-aprovar">{{ item.como_aprovar|linebreaksbr }}</p>
-                {% endif %}
-                {% if item.link %}
-                <a href="{{ item.link }}" target="_blank" class="btn-corrigir">Corrigir no Mercado Livre →</a>
-                {% endif %}
             </div>
-        </details>
-        {% endfor %}
-    </div>
-</div>
-{% endfor %}
+            {% endfor %}
+        </div>
+    </details>
 
-{% for grupo in dados.detalhado_na %}
-<div class="grupo-criterios">
-    <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
-    <div class="grupo-cards-linha">
-        {% for item in grupo.criterios %}
-        <details class="criterio-card" style="border-left-color: #{{ item.cor_grupo }};">
-            <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
-                <span class="criterio-nome">{{ item.nome }}</span>
-                <span class="badge-criterio badge-criterio-na">Não se aplica</span>
-            </summary>
-            <div class="criterio-corpo">
-                <p class="criterio-pergunta">{{ item.pergunta }}</p>
+    <!-- ZONA: FEITOS -->
+    <details id="Feitos" class="zona zona-feitos">
+        <summary class="zona-titulo">Já está OK <span class="zona-contagem">{{ dados.total_feitos }}</span></summary>
+        <div class="zona-grupos">
+            {% for grupo in dados.zona_feitos %}
+            <div class="grupo-bloco"  data-col-span="{{ grupo.col_span }}">
+                <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
+                <div class="cards-grid">
+                    {% for item in grupo.criterios %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_criterio_card.html' with item=item aberto=False badge_classe='badge-ok' badge_label='Aprovado' %}
+                    {% endfor %}
+                </div>
             </div>
-        </details>
-        {% endfor %}
-    </div>
-</div>
-{% endfor %}
+            {% endfor %}
+        </div>
+    </details>
 
-{% for grupo in dados.detalhado_ok %}
-<div class="grupo-criterios">
-    <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
-    <div class="grupo-cards-linha">
-        {% for item in grupo.criterios %}
-        <details class="criterio-card" style="border-left-color: #{{ item.cor_grupo }};">
-            <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
-                <span class="criterio-nome">{{ item.nome }}</span>
-                <span class="badge-criterio badge-criterio-ok">Aprovado</span>
-            </summary>
-            <div class="criterio-corpo">
-                <p class="criterio-pergunta">{{ item.pergunta }}</p>
+    <!-- ZONA: NÃO APLICÁVEL -->
+    {% if dados.zona_nao_aplicavel %}
+    <details id="Nao_Aplicavel" class="zona zona-na">
+        <summary class="zona-titulo">Não se aplica <span class="zona-contagem">{{ dados.total_nao_aplicavel }}</span></summary>
+        <div class="zona-grupos">
+            {% for grupo in dados.zona_nao_aplicavel %}
+            <div class="grupo-bloco" data-col-span="{{ grupo.col_span }}">
+                <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
+                <div class="cards-grid">
+                    {% for item in grupo.criterios %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_criterio_card.html' with item=item aberto=False badge_classe='badge-na' badge_label='Não se aplica' %}
+                    {% endfor %}
+                </div>
             </div>
-        </details>
-        {% endfor %}
-    </div>
-</div>
-{% endfor %}
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
 
+    <!-- ZONA: NOVOS CRITÉRIOS -->
+    {% if dados.zona_novos_criterios %}
+    <details id="Novos_Criterios" class="zona zona-novos" open>
+        <summary class="zona-titulo">Novos critérios da API <span class="zona-contagem">{{ dados.total_novos_criterios }}</span></summary>
+        <div class="zona-grupos">
+            {% for grupo in dados.zona_novos_criterios %}
+            <div class="grupo-bloco" data-col-span="{{ grupo.col_span }}">
+                <h4 class="grupo-titulo" style="background-color: #{{ grupo.cor }};">{{ grupo.nome_grupo }}</h4>
+                <div class="cards-grid">
+                    {% for item in grupo.criterios %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_criterio_card.html' with item=item aberto=True badge_classe='badge-novo' badge_label=item.pergunta %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+
+    {% endif %}
+</div>
 {% endif %}
-{% endif %}
+
+{% block scripts %}
+<script src="{% static 'mercado_livre/js/script_qualidade_anuncio.js' %}"></script>
+{% endblock %}
 
 {% endblock %}

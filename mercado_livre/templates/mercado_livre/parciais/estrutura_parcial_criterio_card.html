@@ -1,0 +1,25 @@
+<details class="criterio-card" style="border-color: #{{ item.cor_grupo }};" {% if aberto %}open{% endif %}>
+    <summary class="criterio-header" style="background-color: #{{ item.cor_grupo_pastel }};">
+        <span class="criterio-nome">{% if not item.catalogado %}<i class="fas fa-question-circle"></i> {% endif %}{{ item.nome }}</span>
+        <span class="badge-criterio {{ badge_classe }}">{{ badge_label }}</span>
+    </summary>
+    <div class="criterio-corpo" style="background-color: #{{ item.cor_grupo_pastel }};">
+        <div class="criterio-metadados">
+            <div class="criterio-metadado">
+                <span class="criterio-metadado-label">Score</span>
+                <span class="criterio-metadado-valor">{{ item.score|default:"—" }}</span>
+            </div>
+            <div class="criterio-metadado">
+                <span class="criterio-metadado-label">Atualizado em</span>
+                <span class="criterio-metadado-valor">{{ item.calculado_em|date:"d/m/Y H:i"|default:"—" }}</span>
+            </div>
+        </div>
+        <p class="criterio-pergunta">{{ item.pergunta }}</p>
+        {% if item.como_aprovar %}
+        <p class="criterio-como-aprovar">{{ item.como_aprovar|linebreaksbr }}</p>
+        {% endif %}
+        {% if item.link %}
+        <a href="{{ item.link }}" target="_blank" class="btn-corrigir">Corrigir no Mercado Livre →</a>
+        {% endif %}
+    </div>
+</details>
