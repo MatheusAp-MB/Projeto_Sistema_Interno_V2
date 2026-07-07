@@ -6,20 +6,6 @@
     --navy: #1e3a5f;
     --navy-deep: #142943;
     --paper: #f4f6f9;
-
-    --classico: #b8860b;
-    --classico-bg: #fdf6e3;
-    --premium: #8b4fc7;
-    --premium-bg: #f5edfc;
-
-    --full: #1a8a5f;
-    --full-bg: #e6f5ee;
-    --coleta: #2563eb;
-    --coleta-bg: #eaf1fd;
-
-    --ativo: #1a8a5f;
-    --pausado: #d97706;
-    --encerrado: #b91c1c;
 }
 
 /* ================================================
@@ -212,10 +198,6 @@
     box-shadow: 0 2px 8px rgba(20, 41, 67, 0.08);
 }
 
-/* Cor da espinha por Tipo de anúncio */
-.card-anuncio-classico { border-left-color: var(--classico); }
-.card-anuncio-premium  { border-left-color: var(--premium); }
-
 .card-anuncio-corpo {
     display: flex;
     flex-direction: column;
@@ -242,15 +224,7 @@
     line-height: 1.5;
 }
 
-.badge-classico { background: var(--classico-bg); color: var(--classico); }
-.badge-premium  { background: var(--premium-bg); color: var(--premium); }
-.badge-full     { background: var(--full-bg); color: var(--full); }
-.badge-flex     { background: var(--coleta-bg); color: var(--coleta); }
 
-.badge-papel {
-    background: #eef0f4;
-    color: #667;
-}
 
 .card-anuncio-linha-principal {
     display: flex;
@@ -302,9 +276,7 @@
     flex-shrink: 0;
 }
 
-.status-ativo     { background: var(--ativo); }
-.status-pausado   { background: var(--pausado); }
-.status-encerrado { background: var(--encerrado); }
+
 
 .card-anuncio-metricas {
     display: flex;
@@ -429,37 +401,9 @@
     border-radius: 4px;
     font-size: 0.62rem;
     font-weight: 700;
-    background: #fef3c7;
-    color: #92400e;
     text-transform: uppercase;
 }
 
-/* ================================================
-   CORES POR TIPO DE ANÚNCIO
-   ================================================ */
-
-.badge-classico { background: #dbeafe; color: #1d4ed8; }
-.badge-premium  { background: #f5edfc; color: #8b4fc7; }
-
-/* Espinha lateral do card */
-.card-anuncio-classico { border-left-color: #1d4ed8; }
-.card-anuncio-premium  { border-left-color: #8b4fc7; }
-
-/* ================================================
-   CORES POR LOGÍSTICA
-   ================================================ */
-
-.badge-full   { background: #dcfce7; color: #15803d; }
-.badge-coleta { background: #fef3c7; color: #b45309; }
-
-/* ================================================
-   FLEX — tom bronze, distinto do amarelo de Coleta
-   ================================================ */
-
-.badge-flex-ativo {
-    background: #fde68a;
-    color: #78350f;
-}
 
 /* ================================================
    BASE / CATÁLOGO — neutros, a estrutura já comunica a relação
@@ -581,21 +525,6 @@
     text-transform: uppercase;
 }
 
-.badge-competicao-placeholder {
-    background: #eef0f4;
-    color: #778;
-    border: 1px dashed #ccd1db;
-}
-
-.badge-ganhando {
-    background: #dcfce7;
-    color: #15803d;
-}
-
-.badge-perdendo {
-    background: #fee2e2;
-    color: #b91c1c;
-}
 
 /* * [EXPLICAÇÃO] → Empurra a badge de competição pra direita da linha,
                      separada visualmente das badges de classificação. */
@@ -696,9 +625,3 @@
     white-space: nowrap;
 }
 
-.badge-winning              { background: #dcfce7; color: #15803d; }
-.badge-competing             { background: #fee2e2; color: #b91c1c; }
-.badge-sharing_first_place    { background: #dbeafe; color: #1d4ed8; }
-.badge-listed                  { background: #fef3c7; color: #92400e; }
-.badge-not_listed               { background: #e5e7eb; color: #4b5563; }
-.badge-sem-dado                  { background: #e5e7eb; color: #6b7280; }

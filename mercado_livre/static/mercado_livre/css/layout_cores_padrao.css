@@ -1,0 +1,52 @@
+/* * [RESUMO] → Paleta única de cores por categoria, reaproveitada em
+ *              qualquer tela que precisar dessas badges. Nunca
+ *              duplicar essas regras em outro arquivo CSS.
+ */
+
+/* ================================================
+   TIPO DE ANÚNCIO
+   ================================================ */
+.badge-classico { background: #dbeafe; color: #1d4ed8; }
+.badge-premium  { background: #f5edfc; color: #8b4fc7; }
+
+.card-anuncio-classico { border-left-color: #1d4ed8; }
+.card-anuncio-premium  { border-left-color: #8b4fc7; }
+
+/* ================================================
+   LOGÍSTICA
+   ================================================ */
+.badge-full   { background: #dcfce7; color: #15803d; }
+.badge-coleta { background: #fef3c7; color: #b45309; }
+
+/* ================================================
+   FLEX
+   ================================================ */
+.badge-flex-ativo {
+    background: #fde68a;
+    color: #78350f;
+}
+
+/* ================================================
+   BASE / CATÁLOGO — neutros
+   ================================================ */
+.badge-papel {
+    background: #eef0f4;
+    color: #556;
+}
+
+/* ================================================
+   STATUS DO ANÚNCIO
+   ================================================ */
+.status-ativo     { background: #1a8a5f; }
+.status-pausado   { background: #d97706; }
+.status-encerrado { background: #b91c1c; }
+
+/* ================================================
+   STATUS DE COMPETIÇÃO
+   ================================================ */
+.badge-winning              { background: #dcfce7; color: #15803d; }
+.badge-competing            { background: #fee2e2; color: #b91c1c; }
+.badge-sharing_first_place  { background: #dbeafe; color: #1d4ed8; }
+.badge-listed               { background: #fef3c7; color: #92400e; }
+.badge-not_listed           { background: #e5e7eb; color: #4b5563; }
+.badge-sem-dado             { background: #e5e7eb; color: #6b7280; }
