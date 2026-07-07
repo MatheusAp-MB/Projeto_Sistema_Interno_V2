@@ -1,8 +1,8 @@
 # Created by https://www.toptal.com/developers/gitignore/api/django,python,windows,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=django,python,windows,visualstudiocode
 
-.rar
-.zip
+*.rar
+*.zip
 
 Arquivos_API/
 ### excel ###
