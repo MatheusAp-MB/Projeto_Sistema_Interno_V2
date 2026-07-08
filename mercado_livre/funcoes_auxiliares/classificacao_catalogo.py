@@ -266,6 +266,7 @@ def carregar_variacoes_por_sku(skus=None):
 
 def montar_estrutura_de_sku(sku, variacoes, filtros=None):
     filtros = filtros or {}
+    filtro_excecao_ativo = bool(filtros.get('faixas_score')) or bool(filtros.get('situacoes_competicao'))
 
     if not variacoes:
         return {'sku': sku, 'encontrado': False, 'paginas_catalogo': [], 'anuncios_simples': [], 'total_anuncios': 0}
@@ -336,6 +337,7 @@ def montar_estrutura_de_sku(sku, variacoes, filtros=None):
                     catalogos_filhos_saida.append({'mlb': c, 'folhas': folhas_do_mlb(c)})
                     total_visiveis += len(variacoes_c)
 
+
             base_passa_sozinha = _base_passa_sozinha(tipo_base, variacoes_base, filtros)
 
             if catalogos_filhos_saida:
@@ -346,7 +348,12 @@ def montar_estrutura_de_sku(sku, variacoes, filtros=None):
                     'sem_catalogo_no_filtro': False,
                 })
                 total_visiveis += len(variacoes_base)
-            elif base_passa_sozinha:
+            elif base_passa_sozinha and not filtro_excecao_ativo:
+                # * [EXPLICAÇÃO] → Aviso "nenhum catálogo atende ao filtro"
+                #                  só faz sentido pros filtros gerais.
+                #                  Quando Score ou Competição estão ativos,
+                #                  essas regras vencem e a Base vazia
+                #                  desaparece direto, sem aviso.
                 bases_saida.append({
                     'mlb': base_mlb,
                     'folhas': folhas_do_mlb(base_mlb),
@@ -354,8 +361,9 @@ def montar_estrutura_de_sku(sku, variacoes, filtros=None):
                     'sem_catalogo_no_filtro': True,
                 })
                 total_visiveis += len(variacoes_base)
-            # * [EXPLICAÇÃO] → Nem base sozinha, nem catálogo algum passou:
-            #                  o grupo inteiro some, nada a adicionar.
+            # * [EXPLICAÇÃO] → Nem base sozinha (ou filtro de exceção ativo),
+            #                  nem catálogo algum passou: o grupo inteiro
+            #                  some, nada a adicionar.
 
         orfaos_mlbs = [c for c in catalogos_mlbs if c not in catalogos_usados]
         orfaos_saida = []
