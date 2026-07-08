@@ -243,6 +243,47 @@ def view_resumo_criterios(request):
     pagina = paginator.get_page(numero_pagina)
 
     linhas = []
+    BADGES_STATUS = {
+    'active': ('status-ativo', 'fa-circle-check'),
+    'paused': ('status-pausado', 'fa-pause'),
+    'closed': ('status-encerrado', 'fa-circle-xmark'),
+    'under_review': ('status-em-revisao', 'fa-magnifying-glass'),
+    'payment_required': ('status-debito-pendente', 'fa-triangle-exclamation'),
+    'not_yet_active': ('status-aguardando-ativacao', 'fa-hourglass-half'),
+    }
+    BADGES_TIPO_ANUNCIO = {
+        'gold_special': ('badge-classico', None),
+        'gold_pro': ('badge-premium', 'fa-coins'),
+    }
+    BADGES_LOGISTICA = {
+        'fulfillment': ('badge-full', 'fa-bolt'),
+        'cross_docking': ('badge-coleta', 'fa-truck'),
+        'xd_drop_off': ('badge-agencia', 'fa-building'),
+        'self_service': ('badge-flex-puro', 'fa-motorcycle'),
+        'not_specified': ('badge-legado', 'fa-clock-rotate-left'),
+        'drop_off': ('badge-correios', 'fa-envelope'),
+        'custom': ('badge-conta-propria', 'fa-hand-holding-dollar'),
+    }
+    BADGES_CATALOGO = {
+        'simples': ('badge-papel', None),
+        'base': ('badge-papel', None),
+        'catalogo': ('badge-papel', 'fa-book-open'),
+    }
+    def _opcoes_com_badge(choices, mapa_badges):
+        return [
+            {
+                'valor': valor,
+                'label': label,
+                'classe': mapa_badges.get(valor, ('badge-papel', None))[0],
+                'icone': mapa_badges.get(valor, ('badge-papel', None))[1],
+            }
+            for valor, label in choices
+        ]
+
+    opcoes_status_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.Status.choices, BADGES_STATUS)
+    opcoes_tipo_anuncio_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.TipoAnuncio.choices, BADGES_TIPO_ANUNCIO)
+    opcoes_logistica_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.TipoLogistico.choices, BADGES_LOGISTICA)
+    opcoes_catalogo_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.choices, BADGES_CATALOGO)
     for variacao in pagina.object_list:
         anuncio = variacao.anuncio
         tipo = anuncio.tipo_de_anuncio
@@ -260,6 +301,12 @@ def view_resumo_criterios(request):
             }
             for c in criterios
         ]
+        classe_status, icone_status = BADGES_STATUS.get(tipo.status, ('badge-papel', None)) if tipo else ('badge-papel', None)
+        classe_tipo_anuncio, icone_tipo_anuncio = BADGES_TIPO_ANUNCIO.get(tipo.tipo_anuncio, ('badge-papel', None)) if tipo else ('badge-papel', None)
+        classe_logistica, icone_logistica = BADGES_LOGISTICA.get(tipo.tipo_logistico, ('badge-papel', None)) if tipo else ('badge-papel', None)
+        classe_catalogo, icone_catalogo = BADGES_CATALOGO.get(tipo.classificacao_catalogo, ('badge-papel', None)) if tipo else ('badge-papel', None)
+
+        tem_flex = bool(tipo and tipo.flex)
 
         linhas.append({
             'imagem_url': variacao.imagem_principal_url or variacao.thumbnail_url,
@@ -267,11 +314,27 @@ def view_resumo_criterios(request):
             'mlb': anuncio.mlb,
             'marca': variacao.produto.marca,
             'titulo': anuncio.titulo_anuncio,
+
             'status': tipo.get_status_display() if tipo else None,
+            'status_classe': classe_status,
+            'status_icone': icone_status,
+
             'tipo_anuncio': tipo.get_tipo_anuncio_display() if tipo else None,
+            'tipo_anuncio_classe': classe_tipo_anuncio,
+            'tipo_anuncio_icone': icone_tipo_anuncio,
+
             'tipo_logistico': tipo.get_tipo_logistico_display() if tipo else None,
-            'flex': 'Sim' if (tipo and tipo.flex) else 'Não',
+            'tipo_logistico_classe': classe_logistica,
+            'tipo_logistico_icone': icone_logistica,
+
+            'flex': 'Sim' if tem_flex else 'Não',
+            'flex_classe': 'badge-flex-ativo' if tem_flex else 'badge-flex-inativo',
+            'flex_icone': 'fa-bolt' if tem_flex else None,
+
             'classificacao_catalogo': tipo.get_classificacao_catalogo_display() if tipo else None,
+            'classificacao_catalogo_classe': classe_catalogo,
+            'classificacao_catalogo_icone': icone_catalogo,
+
             'sem_dado_qualidade': qualidade is None,
             'score': qualidade.score if qualidade else None,
             'nivel': qualidade.nivel if qualidade else None,
@@ -330,9 +393,9 @@ def view_resumo_criterios(request):
 
         'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True)
             .exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
-        'opcoes_status': TipoDeAnuncioMercadoLivre.Status.choices,
-        'opcoes_tipo_anuncio': TipoDeAnuncioMercadoLivre.TipoAnuncio.choices,
-        'opcoes_logistica': TipoDeAnuncioMercadoLivre.TipoLogistico.choices,
-        'opcoes_catalogo': TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.choices,
+        'opcoes_status': opcoes_status_badges,
+        'opcoes_tipo_anuncio': opcoes_tipo_anuncio_badges,
+        'opcoes_logistica': opcoes_logistica_badges,
+        'opcoes_catalogo': opcoes_catalogo_badges,
         'criterios_para_filtro': criterios_para_filtro,
     })

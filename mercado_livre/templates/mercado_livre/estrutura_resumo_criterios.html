@@ -52,7 +52,7 @@
         </summary>
 
         <div class="resumo-filtros-secao-titulo">Filtros gerais</div>
-        <div class="resumo-filtros-grid">
+       <div class="resumo-filtros-grid">
             <div class="filtro-grupo">
                 <span class="filtro-grupo-titulo">Marca</span>
                 <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
@@ -69,10 +69,10 @@
             <div class="filtro-grupo">
                 <span class="filtro-grupo-titulo">Situação</span>
                 <div class="filtro-opcoes-lista">
-                    {% for valor, label in opcoes_status %}
+                    {% for opcao in opcoes_status %}
                     <label class="filtro-opcao">
-                        <input type="checkbox" name="status" value="{{ valor }}" {% if valor in filtros.status %}checked{% endif %}>
-                        <span>{{ label }}</span>
+                        <input type="checkbox" name="status" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status %}checked{% endif %}>
+                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
                     </label>
                     {% endfor %}
                 </div>
@@ -81,10 +81,10 @@
             <div class="filtro-grupo">
                 <span class="filtro-grupo-titulo">Tipo de anúncio</span>
                 <div class="filtro-opcoes-lista">
-                    {% for valor, label in opcoes_tipo_anuncio %}
+                    {% for opcao in opcoes_tipo_anuncio %}
                     <label class="filtro-opcao">
-                        <input type="checkbox" name="tipo_anuncio" value="{{ valor }}" {% if valor in filtros.tipos_anuncio %}checked{% endif %}>
-                        <span>{{ label }}</span>
+                        <input type="checkbox" name="tipo_anuncio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_anuncio %}checked{% endif %}>
+                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
                     </label>
                     {% endfor %}
                 </div>
@@ -94,10 +94,10 @@
                 <span class="filtro-grupo-titulo">Logística</span>
                 <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
                 <div class="filtro-opcoes-lista">
-                    {% for valor, label in opcoes_logistica %}
+                    {% for opcao in opcoes_logistica %}
                     <label class="filtro-opcao">
-                        <input type="checkbox" name="logistica" value="{{ valor }}" {% if valor in filtros.tipos_logisticos %}checked{% endif %}>
-                        <span>{{ label }}</span>
+                        <input type="checkbox" name="logistica" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_logisticos %}checked{% endif %}>
+                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
                     </label>
                     {% endfor %}
                 </div>
@@ -108,11 +108,11 @@
                 <div class="filtro-opcoes-lista">
                     <label class="filtro-opcao">
                         <input type="checkbox" name="flex" value="sim" {% if 'sim' in filtros.flex %}checked{% endif %}>
-                        <span>Com Flex</span>
+                        <span class="badge-tabela badge-flex-ativo"><i class="fas fa-bolt"></i> Com Flex</span>
                     </label>
                     <label class="filtro-opcao">
                         <input type="checkbox" name="flex" value="nao" {% if 'nao' in filtros.flex %}checked{% endif %}>
-                        <span>Sem Flex</span>
+                        <span class="badge-tabela badge-flex-inativo">Sem Flex</span>
                     </label>
                 </div>
             </div>
@@ -120,10 +120,10 @@
             <div class="filtro-grupo">
                 <span class="filtro-grupo-titulo">Situação do catálogo</span>
                 <div class="filtro-opcoes-lista">
-                    {% for valor, label in opcoes_catalogo %}
+                    {% for opcao in opcoes_catalogo %}
                     <label class="filtro-opcao">
-                        <input type="checkbox" name="catalogo" value="{{ valor }}" {% if valor in filtros.catalogos %}checked{% endif %}>
-                        <span>{{ label }}</span>
+                        <input type="checkbox" name="catalogo" value="{{ opcao.valor }}" {% if opcao.valor in filtros.catalogos %}checked{% endif %}>
+                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
                     </label>
                     {% endfor %}
                 </div>
@@ -165,6 +165,10 @@
 
 <div class="resumo-tabela-wrapper">
     <table class="resumo-tabela">
+        <colgroup>
+            <col><col><col><col><col><col><col><col><col><col><col><col>
+            {% for coluna in colunas %}<col>{% endfor %}
+        </colgroup>
         <thead>
             <tr>
                 <th>Foto</th>
@@ -203,15 +207,15 @@
                 <td>{{ linha.mlb }}</td>
                 <td>{{ linha.marca|default:"—" }}</td>
                 <td>{{ linha.titulo }}</td>
-                <td>{{ linha.status|default:"—" }}</td>
-                <td>{{ linha.tipo_anuncio|default:"—" }}</td>
-                <td>{{ linha.tipo_logistico|default:"—" }}</td>
-                <td>{{ linha.flex }}</td>
-                <td>{{ linha.classificacao_catalogo|default:"—" }}</td>
+                <td><span class="badge-tabela {{ linha.status_classe }}">{% if linha.status_icone %}<i class="fas {{ linha.status_icone }}"></i>{% endif %} {{ linha.status|default:"—" }}</span></td>
+                <td><span class="badge-tabela {{ linha.tipo_anuncio_classe }}">{% if linha.tipo_anuncio_icone %}<i class="fas {{ linha.tipo_anuncio_icone }}"></i>{% endif %} {{ linha.tipo_anuncio|default:"—" }}</span></td>
+                <td><span class="badge-tabela {{ linha.tipo_logistico_classe }}">{% if linha.tipo_logistico_icone %}<i class="fas {{ linha.tipo_logistico_icone }}"></i>{% endif %} {{ linha.tipo_logistico|default:"—" }}</span></td>
+                <td><span class="badge-tabela {{ linha.flex_classe }}">{% if linha.flex_icone %}<i class="fas {{ linha.flex_icone }}"></i>{% endif %} {{ linha.flex }}</span></td>
+                <td><span class="badge-tabela {{ linha.classificacao_catalogo_classe }}">{% if linha.classificacao_catalogo_icone %}<i class="fas {{ linha.classificacao_catalogo_icone }}"></i>{% endif %} {{ linha.classificacao_catalogo|default:"—" }}</span></td>
 
                 {% if linha.sem_dado_qualidade %}
-                <td class="celula-nao-calculado">Não calculado</td>
-                <td class="celula-nao-calculado">Não calculado</td>
+                <td class="celula-nao-calculado">—</td>
+                <td class="celula-nao-calculado">—</td>
                 {% for coluna in colunas %}
                 <td class="celula-nao-calculado">Não calculado</td>
                 {% endfor %}
@@ -248,6 +252,6 @@
 
 {% endblock %}
 
-{% block scripts_extra %}
+{% block scripts %}
 <script src="{% static 'mercado_livre/js/script_resumo_criterios.js' %}"></script>
 {% endblock %}

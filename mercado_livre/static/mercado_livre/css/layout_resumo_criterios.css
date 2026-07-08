@@ -113,26 +113,6 @@
     cursor: pointer;
 }
 
-.resumo-filtro-criterio {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: center;
-    padding: 4px 0;
-}
-
-.filtro-criterio-select {
-    padding: 8px 12px;
-    border: 1px solid #ccd3de;
-    border-radius: 8px;
-    min-width: 260px;
-}
-
-.filtro-criterio-resultados {
-    display: flex;
-    gap: 16px;
-}
-
 .resumo-filtros-acoes {
     display: flex;
     gap: 12px;
@@ -149,205 +129,8 @@
 }
 
 /* ================================================
-   TABELA
+   GRADE DE FILTRO POR CRITÉRIO
    ================================================ */
-
-.resumo-tabela-wrapper {
-    overflow: auto;
-    max-height: 75vh;
-    background: #fff;
-    border: 1px solid #dde3ec;
-    border-radius: 10px;
-}
-
-.resumo-tabela {
-    border-collapse: collapse;
-    table-layout: fixed;
-    width: 100%;
-    font-size: 0.82rem;
-}
-
-.resumo-tabela th, .resumo-tabela td {
-    padding: 8px 12px;
-    border-bottom: 1px solid #eee;
-    white-space: nowrap;
-}
-
-.resumo-tabela thead th {
-    position: sticky;
-    top: 0;
-    background: #1e3a5f;
-    color: #fff;
-    text-align: left;
-    z-index: 1;
-}
-
-.th-criterio {
-    color: #fff;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    text-align: center;
-}
-
-.celula-sim {
-    background: #d4edda;
-    color: #1d6b3a;
-    font-weight: 700;
-    text-align: center;
-}
-
-.celula-nao {
-    background: #f8d7da;
-    color: #a31c2f;
-    font-weight: 700;
-    text-align: center;
-}
-
-.celula-na {
-    background: #f1f2f4;
-    color: #8a8f98;
-    font-weight: 600;
-    text-align: center;
-}
-
-.celula-nao-calculado {
-    background: #e9e9e9;
-    color: #999;
-    font-style: italic;
-    text-align: center;
-}
-
-/* ================================================
-   PAGINAÇÃO
-   ================================================ */
-
-.resumo-paginacao {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 16px;
-    margin-top: 16px;
-    font-size: 0.85rem;
-    color: #556;
-}
-
-.resumo-paginacao-link {
-    color: #1e3a5f;
-    font-weight: 600;
-    text-decoration: none;
-}
-
-.resumo-paginacao-link:hover {
-    text-decoration: underline;
-}
-
-.resumo-tabela thead th a {
-    color: #fff;
-    text-decoration: none;
-    display: block;
-}
-
-.resumo-tabela thead th a:hover {
-    text-decoration: underline;
-}
-
-.icone-ordenar {
-    font-size: 0.7rem;
-    opacity: 0.4;
-    margin-left: 4px;
-}
-
-.icone-ordenar-ativo {
-    opacity: 1;
-}
-
-.celula-foto {
-    width: 120px;
-    padding: 4px 8px !important;
-    text-align: center;
-}
-
-.miniatura-resumo {
-    width: 118px;
-    height: 118px;
-    object-fit: contain;
-    border-radius: 4px;
-    background: #f4f6f9;
-    border: 1px solid #e3e7ee;
-}
-
-.miniatura-vazia {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #aab;
-    font-size: 0.9rem;
-}
-
-/* ================================================
-   COLUNAS CONGELADAS (Foto, SKU, MLB)
-   ================================================ */
-
-.resumo-tabela th:nth-child(1),
-.resumo-tabela td:nth-child(1) {
-    position: sticky;
-    left: 0;
-    z-index: 2;
-    background: #fff;
-    width: 120px;
-}
-
-.resumo-tabela th:nth-child(2),
-.resumo-tabela td:nth-child(2) {
-    position: sticky;
-    left: 120px;
-    z-index: 2;
-    background: #fff;
-    width: 150px;
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.resumo-tabela th:nth-child(3),
-.resumo-tabela td:nth-child(3) {
-    position: sticky;
-    left: 270px;
-    z-index: 2;
-    background: #fff;
-    width: 130px;
-    max-width: 130px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    box-shadow: 2px 0 4px rgba(0,0,0,0.08);
-}
-
-/* * [EXPLICAÇÃO] → No cabeçalho, essas 3 colunas ficam congeladas em 2
-   eixos ao mesmo tempo (topo E esquerda) — por isso precisam do
-   z-index mais alto de todos, senão o conteúdo rolando por baixo
-   apareceria por cima delas no canto. */
-.resumo-tabela thead th:nth-child(1),
-.resumo-tabela thead th:nth-child(2),
-.resumo-tabela thead th:nth-child(3) {
-    z-index: 3;
-    background: #1e3a5f;
-}
-
-/* ADICIONAR (não substitui nada, só completa as larguras que faltavam) */
-.resumo-tabela th:nth-child(4), .resumo-tabela td:nth-child(4) { width: 130px; }  /* Marca */
-.resumo-tabela th:nth-child(5), .resumo-tabela td:nth-child(5) { width: 260px; white-space: normal; }  /* Título */
-.resumo-tabela th:nth-child(6), .resumo-tabela td:nth-child(6) { width: 100px; }  /* Situação */
-.resumo-tabela th:nth-child(7), .resumo-tabela td:nth-child(7) { width: 110px; }  /* Tipo de anúncio */
-.resumo-tabela th:nth-child(8), .resumo-tabela td:nth-child(8) { width: 100px; }  /* Logística */
-.resumo-tabela th:nth-child(9), .resumo-tabela td:nth-child(9) { width: 70px; }   /* Flex */
-.resumo-tabela th:nth-child(10), .resumo-tabela td:nth-child(10) { width: 140px; } /* Situação do catálogo */
-.resumo-tabela th:nth-child(11), .resumo-tabela td:nth-child(11) { width: 70px; }  /* Score */
-.resumo-tabela th:nth-child(12), .resumo-tabela td:nth-child(12) { width: 90px; }  /* Nível */
-
-.th-criterio {
-    width: 110px;
-}
 
 .grid-criterios-filtro-wrapper {
     max-height: 280px;
@@ -392,10 +175,232 @@
     background: #fafbfc;
 }
 
+/* ================================================
+   TABELA
+   ================================================ */
+
+.resumo-tabela-wrapper {
+    overflow: auto;
+    max-height: 75vh;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+}
+
+.resumo-tabela {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    font-size: 0.82rem;
+}
+
+/* * [EXPLICAÇÃO] → Única fonte de largura de coluna: o <colgroup> no
+   HTML (sem nenhum estilo inline — cada <col> é "vazio", a largura é
+   toda definida aqui por posição). Com table-layout: fixed, o navegador
+   usa a largura do <col> pra cabeçalho E linhas por igual — elimina de
+   vez o desalinhamento entre thead e tbody. */
+.resumo-tabela colgroup col:nth-child(1)  { width: 136px; } /* Foto */
+.resumo-tabela colgroup col:nth-child(2)  { width: 150px; } /* SKU */
+.resumo-tabela colgroup col:nth-child(3)  { width: 130px; } /* MLB */
+.resumo-tabela colgroup col:nth-child(4)  { width: 130px; } /* Marca */
+.resumo-tabela colgroup col:nth-child(5)  { width: 260px; } /* Título */
+.resumo-tabela colgroup col:nth-child(6)  { width: 100px; } /* Situação */
+.resumo-tabela colgroup col:nth-child(7)  { width: 120px; } /* Tipo de anúncio */
+.resumo-tabela colgroup col:nth-child(8)  { width: 100px; } /* Logística */
+.resumo-tabela colgroup col:nth-child(9)  { width: 70px; }  /* Flex */
+.resumo-tabela colgroup col:nth-child(10) { width: 170px; } /* Situação do catálogo */
+.resumo-tabela colgroup col:nth-child(11) { width: 70px; }  /* Score */
+.resumo-tabela colgroup col:nth-child(12) { width: 90px; }  /* Nível */
+.resumo-tabela colgroup col:nth-child(n+13) { width: 130px; } /* Critérios — todos iguais */
+
+.resumo-tabela th, .resumo-tabela td {
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+}
+
+.resumo-tabela td:nth-child(5) {
+    white-space: normal; /* Título: única coluna que pode quebrar linha */
+}
+
+.resumo-tabela thead th {
+    position: sticky;
+    top: 0;
+    background: #1e3a5f;
+    color: #fff;
+    text-align: left;
+    z-index: 1;
+}
+
+.resumo-tabela thead th a {
+    color: #fff;
+    text-decoration: none;
+    display: block;
+}
+
+.resumo-tabela thead th a:hover {
+    text-decoration: underline;
+}
+
+.icone-ordenar {
+    font-size: 0.7rem;
+    opacity: 0.4;
+    margin-left: 4px;
+}
+
+.icone-ordenar-ativo {
+    opacity: 1;
+}
+
+.resumo-tabela th.th-criterio {
+    height: 64px;
+    color: #fff;
+    font-size: 0.66rem;
+    line-height: 1.15;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-align: center;
+    vertical-align: middle;
+    white-space: normal;
+    overflow: hidden;
+}
+
+.celula-sim {
+    background: #d4edda;
+    color: #1d6b3a;
+    font-weight: 700;
+    text-align: center;
+}
+
+.celula-nao {
+    background: #f8d7da;
+    color: #a31c2f;
+    font-weight: 700;
+    text-align: center;
+}
+
+.celula-na {
+    background: #f1f2f4;
+    color: #8a8f98;
+    font-weight: 600;
+    text-align: center;
+}
+
+.celula-nao-calculado {
+    background: #e9e9e9;
+    color: #999;
+    font-style: italic;
+    text-align: center;
+}
+
 .resumo-tabela-vazia {
     text-align: center;
     padding: 32px !important;
     color: #99a;
     font-style: italic;
     position: static !important;
+}
+
+/* ================================================
+   FOTO
+   ================================================ */
+
+.celula-foto {
+    padding: 4px 8px !important;
+    text-align: center;
+}
+
+.miniatura-resumo {
+    width: 118px;
+    height: 118px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: #f4f6f9;
+    border: 1px solid #e3e7ee;
+}
+
+.miniatura-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aab;
+    font-size: 0.9rem;
+}
+
+/* ================================================
+   COLUNAS CONGELADAS (Foto, SKU, MLB)
+   ================================================ */
+
+.resumo-tabela th:nth-child(1),
+.resumo-tabela td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #fff;
+}
+
+.resumo-tabela th:nth-child(2),
+.resumo-tabela td:nth-child(2) {
+    position: sticky;
+    left: 136px;
+    z-index: 2;
+    background: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.resumo-tabela th:nth-child(3),
+.resumo-tabela td:nth-child(3) {
+    position: sticky;
+    left: 286px;
+    z-index: 2;
+    background: #fff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+}
+
+.resumo-tabela thead th:nth-child(1),
+.resumo-tabela thead th:nth-child(2),
+.resumo-tabela thead th:nth-child(3) {
+    z-index: 3;
+    background: #1e3a5f;
+}
+
+/* ================================================
+   PAGINAÇÃO
+   ================================================ */
+
+.resumo-paginacao {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    font-size: 0.85rem;
+    color: #556;
+}
+
+.resumo-paginacao-link {
+    color: #1e3a5f;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.resumo-paginacao-link:hover {
+    text-decoration: underline;
+}
+
+.badge-tabela {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
 }
