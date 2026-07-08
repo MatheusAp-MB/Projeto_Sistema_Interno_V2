@@ -667,8 +667,8 @@
 }
 
 .filtro-grupo {
-    width: 190px;
-    height: 220px;
+    width: 240px;
+    height: 270px;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -708,8 +708,17 @@
     align-items: center;
     gap: 6px;
     font-size: 0.85rem;
-    color: #333;
+    color: #333333;
     cursor: pointer;
+    border: 1px solid #000000;
+    border-radius: 4px;
+    padding: 3px;
+    margin: 2px;
+}
+
+.filtro-opcao:hover{
+    background-color: #dff5ffbd;
+    color: #05004f;
 }
 
 .hub-filtros-acoes {
@@ -760,4 +769,14 @@
     border-radius: 6px;
     padding: 8px 12px;
     margin: 8px 0;
+}
+
+
+
+
+.filtro-grupo-titulo{
+    background-color: rgba(47, 47, 118, 0.811);
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #fff;
 }
