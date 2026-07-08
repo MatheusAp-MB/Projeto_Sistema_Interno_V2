@@ -174,6 +174,11 @@ def view_resumo_criterios(request):
     from mercado_livre.funcoes_auxiliares.resumo_criterios import (
         listar_variacoes_resumo_filtradas, CAMPOS_ORDENACAO,
     )
+    from mercado_livre.funcoes_auxiliares.badges import (
+        BADGES_STATUS, BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, BADGES_CATALOGO,
+        BADGE_FLEX_ATIVO, BADGE_FLEX_INATIVO,
+        badge_de, badge_flex, opcoes_com_badge,
+    )
 
     busca = request.GET.get('busca', '').strip()
     por_pagina = request.GET.get('por_pagina', '25')
@@ -242,48 +247,18 @@ def view_resumo_criterios(request):
     numero_pagina = request.GET.get('pagina', 1)
     pagina = paginator.get_page(numero_pagina)
 
-    linhas = []
-    BADGES_STATUS = {
-    'active': ('status-ativo', 'fa-circle-check'),
-    'paused': ('status-pausado', 'fa-pause'),
-    'closed': ('status-encerrado', 'fa-circle-xmark'),
-    'under_review': ('status-em-revisao', 'fa-magnifying-glass'),
-    'payment_required': ('status-debito-pendente', 'fa-triangle-exclamation'),
-    'not_yet_active': ('status-aguardando-ativacao', 'fa-hourglass-half'),
-    }
-    BADGES_TIPO_ANUNCIO = {
-        'gold_special': ('badge-classico', None),
-        'gold_pro': ('badge-premium', 'fa-coins'),
-    }
-    BADGES_LOGISTICA = {
-        'fulfillment': ('badge-full', 'fa-bolt'),
-        'cross_docking': ('badge-coleta', 'fa-truck'),
-        'xd_drop_off': ('badge-agencia', 'fa-building'),
-        'self_service': ('badge-flex-puro', 'fa-motorcycle'),
-        'not_specified': ('badge-legado', 'fa-clock-rotate-left'),
-        'drop_off': ('badge-correios', 'fa-envelope'),
-        'custom': ('badge-conta-propria', 'fa-hand-holding-dollar'),
-    }
-    BADGES_CATALOGO = {
-        'simples': ('badge-papel', None),
-        'base': ('badge-papel', None),
-        'catalogo': ('badge-papel', 'fa-book-open'),
-    }
-    def _opcoes_com_badge(choices, mapa_badges):
-        return [
-            {
-                'valor': valor,
-                'label': label,
-                'classe': mapa_badges.get(valor, ('badge-papel', None))[0],
-                'icone': mapa_badges.get(valor, ('badge-papel', None))[1],
-            }
-            for valor, label in choices
-        ]
+    opcoes_status_badges = opcoes_com_badge(BADGES_STATUS)
+    opcoes_tipo_anuncio_badges = opcoes_com_badge(BADGES_TIPO_ANUNCIO)
+    opcoes_logistica_badges = opcoes_com_badge(BADGES_LOGISTICA)
+    # * [EXPLICAÇÃO] → "Anúncio de Catálogo" nunca aparece nessa tela
+    #                  (a query já exclui isso na base), então oferecer
+    #                  esse filtro aqui seria uma opção que sempre dá 0
+    #                  resultado — removido só pra essa tela.
+    opcoes_catalogo_badges = [
+        opcao for opcao in opcoes_com_badge(BADGES_CATALOGO) if opcao['valor'] != 'catalogo'
+    ]
 
-    opcoes_status_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.Status.choices, BADGES_STATUS)
-    opcoes_tipo_anuncio_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.TipoAnuncio.choices, BADGES_TIPO_ANUNCIO)
-    opcoes_logistica_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.TipoLogistico.choices, BADGES_LOGISTICA)
-    opcoes_catalogo_badges = _opcoes_com_badge(TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.choices, BADGES_CATALOGO)
+    linhas = []
     for variacao in pagina.object_list:
         anuncio = variacao.anuncio
         tipo = anuncio.tipo_de_anuncio
@@ -301,12 +276,6 @@ def view_resumo_criterios(request):
             }
             for c in criterios
         ]
-        classe_status, icone_status = BADGES_STATUS.get(tipo.status, ('badge-papel', None)) if tipo else ('badge-papel', None)
-        classe_tipo_anuncio, icone_tipo_anuncio = BADGES_TIPO_ANUNCIO.get(tipo.tipo_anuncio, ('badge-papel', None)) if tipo else ('badge-papel', None)
-        classe_logistica, icone_logistica = BADGES_LOGISTICA.get(tipo.tipo_logistico, ('badge-papel', None)) if tipo else ('badge-papel', None)
-        classe_catalogo, icone_catalogo = BADGES_CATALOGO.get(tipo.classificacao_catalogo, ('badge-papel', None)) if tipo else ('badge-papel', None)
-
-        tem_flex = bool(tipo and tipo.flex)
 
         linhas.append({
             'imagem_url': variacao.imagem_principal_url or variacao.thumbnail_url,
@@ -315,25 +284,11 @@ def view_resumo_criterios(request):
             'marca': variacao.produto.marca,
             'titulo': anuncio.titulo_anuncio,
 
-            'status': tipo.get_status_display() if tipo else None,
-            'status_classe': classe_status,
-            'status_icone': icone_status,
-
-            'tipo_anuncio': tipo.get_tipo_anuncio_display() if tipo else None,
-            'tipo_anuncio_classe': classe_tipo_anuncio,
-            'tipo_anuncio_icone': icone_tipo_anuncio,
-
-            'tipo_logistico': tipo.get_tipo_logistico_display() if tipo else None,
-            'tipo_logistico_classe': classe_logistica,
-            'tipo_logistico_icone': icone_logistica,
-
-            'flex': 'Sim' if tem_flex else 'Não',
-            'flex_classe': 'badge-flex-ativo' if tem_flex else 'badge-flex-inativo',
-            'flex_icone': 'fa-bolt' if tem_flex else None,
-
-            'classificacao_catalogo': tipo.get_classificacao_catalogo_display() if tipo else None,
-            'classificacao_catalogo_classe': classe_catalogo,
-            'classificacao_catalogo_icone': icone_catalogo,
+            'badge_status': badge_de(BADGES_STATUS, tipo.status) if tipo else None,
+            'badge_tipo_anuncio': badge_de(BADGES_TIPO_ANUNCIO, tipo.tipo_anuncio) if tipo else None,
+            'badge_logistica': badge_de(BADGES_LOGISTICA, tipo.tipo_logistico) if tipo else None,
+            'badge_flex': badge_flex(bool(tipo and tipo.flex)),
+            'badge_catalogo': badge_de(BADGES_CATALOGO, tipo.classificacao_catalogo) if tipo else None,
 
             'sem_dado_qualidade': qualidade is None,
             'score': qualidade.score if qualidade else None,
@@ -377,6 +332,14 @@ def view_resumo_criterios(request):
         'score': cabecalho('score', 'Score'),
         'nivel': cabecalho('nivel', 'Nível'),
     }
+    chips_ativos = (
+        [{'label': marca, 'classe': None, 'icone': None} for marca in filtros['marcas']] +
+        [badge_de(BADGES_STATUS, v) for v in filtros['status']] +
+        [badge_de(BADGES_TIPO_ANUNCIO, v) for v in filtros['tipos_anuncio']] +
+        [badge_de(BADGES_LOGISTICA, v) for v in filtros['tipos_logisticos']] +
+        [badge_de(BADGES_CATALOGO, v) for v in filtros['catalogos']] +
+        [badge_flex(v == 'sim') for v in filtros['flex']]
+    )
 
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
@@ -397,5 +360,9 @@ def view_resumo_criterios(request):
         'opcoes_tipo_anuncio': opcoes_tipo_anuncio_badges,
         'opcoes_logistica': opcoes_logistica_badges,
         'opcoes_catalogo': opcoes_catalogo_badges,
+        'badge_flex_ativo': BADGE_FLEX_ATIVO,
+        'badge_flex_inativo': BADGE_FLEX_INATIVO,
         'criterios_para_filtro': criterios_para_filtro,
+
+        'chips_ativos': chips_ativos,
     })

@@ -699,8 +699,11 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     font-weight: 700;
-    color: #99a;
     margin-bottom: 4px;
+    background-color: rgba(47, 47, 118, 0.811);
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #fff;
 }
 
 .filtro-opcao {
@@ -773,10 +776,3 @@
 
 
 
-
-.filtro-grupo-titulo{
-    background-color: rgba(47, 47, 118, 0.811);
-    padding: 4px 8px;
-    border-radius: 4px;
-    color: #fff;
-}

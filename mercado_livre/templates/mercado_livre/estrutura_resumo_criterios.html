@@ -33,15 +33,16 @@
 
     <button type="submit" class="btn-acao">Buscar</button>
 
-    
-    {% if filtros.marcas or filtros.status or filtros.tipos_anuncio or filtros.tipos_logisticos or filtros.catalogos or filtros.flex or filtros.criterios_grid %}
+    {% if chips_ativos or filtros.criterios_grid %}
     <div class="resumo-chips-filtros">
-        {% for marca in filtros.marcas %}<span class="chip-filtro">{{ marca }}</span>{% endfor %}
-        {% for v in filtros.status %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
-        {% for v in filtros.tipos_anuncio %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
-        {% for v in filtros.tipos_logisticos %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
-        {% for v in filtros.catalogos %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
-        {% for v in filtros.flex %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
+        <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
+        {% for chip in chips_ativos %}
+            {% if chip.classe %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=chip %}
+            {% else %}
+            <span class="chip-filtro">{{ chip.label }}</span>
+            {% endif %}
+        {% endfor %}
         {% if filtros.criterios_grid %}<span class="chip-filtro">{{ filtros.criterios_grid|length }} critério(s) filtrado(s)</span>{% endif %}
     </div>
     {% endif %}
@@ -52,7 +53,7 @@
         </summary>
 
         <div class="resumo-filtros-secao-titulo">Filtros gerais</div>
-       <div class="resumo-filtros-grid">
+        <div class="resumo-filtros-grid">
             <div class="filtro-grupo">
                 <span class="filtro-grupo-titulo">Marca</span>
                 <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
@@ -72,7 +73,7 @@
                     {% for opcao in opcoes_status %}
                     <label class="filtro-opcao">
                         <input type="checkbox" name="status" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status %}checked{% endif %}>
-                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                     </label>
                     {% endfor %}
                 </div>
@@ -84,7 +85,7 @@
                     {% for opcao in opcoes_tipo_anuncio %}
                     <label class="filtro-opcao">
                         <input type="checkbox" name="tipo_anuncio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_anuncio %}checked{% endif %}>
-                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                     </label>
                     {% endfor %}
                 </div>
@@ -97,7 +98,7 @@
                     {% for opcao in opcoes_logistica %}
                     <label class="filtro-opcao">
                         <input type="checkbox" name="logistica" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_logisticos %}checked{% endif %}>
-                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                     </label>
                     {% endfor %}
                 </div>
@@ -108,11 +109,11 @@
                 <div class="filtro-opcoes-lista">
                     <label class="filtro-opcao">
                         <input type="checkbox" name="flex" value="sim" {% if 'sim' in filtros.flex %}checked{% endif %}>
-                        <span class="badge-tabela badge-flex-ativo"><i class="fas fa-bolt"></i> Com Flex</span>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_flex_ativo %}
                     </label>
                     <label class="filtro-opcao">
                         <input type="checkbox" name="flex" value="nao" {% if 'nao' in filtros.flex %}checked{% endif %}>
-                        <span class="badge-tabela badge-flex-inativo">Sem Flex</span>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_flex_inativo %}
                     </label>
                 </div>
             </div>
@@ -123,7 +124,7 @@
                     {% for opcao in opcoes_catalogo %}
                     <label class="filtro-opcao">
                         <input type="checkbox" name="catalogo" value="{{ opcao.valor }}" {% if opcao.valor in filtros.catalogos %}checked{% endif %}>
-                        <span class="badge-tabela {{ opcao.classe }}">{% if opcao.icone %}<i class="fas {{ opcao.icone }}"></i>{% endif %} {{ opcao.label }}</span>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                     </label>
                     {% endfor %}
                 </div>
@@ -207,11 +208,11 @@
                 <td>{{ linha.mlb }}</td>
                 <td>{{ linha.marca|default:"—" }}</td>
                 <td>{{ linha.titulo }}</td>
-                <td><span class="badge-tabela {{ linha.status_classe }}">{% if linha.status_icone %}<i class="fas {{ linha.status_icone }}"></i>{% endif %} {{ linha.status|default:"—" }}</span></td>
-                <td><span class="badge-tabela {{ linha.tipo_anuncio_classe }}">{% if linha.tipo_anuncio_icone %}<i class="fas {{ linha.tipo_anuncio_icone }}"></i>{% endif %} {{ linha.tipo_anuncio|default:"—" }}</span></td>
-                <td><span class="badge-tabela {{ linha.tipo_logistico_classe }}">{% if linha.tipo_logistico_icone %}<i class="fas {{ linha.tipo_logistico_icone }}"></i>{% endif %} {{ linha.tipo_logistico|default:"—" }}</span></td>
-                <td><span class="badge-tabela {{ linha.flex_classe }}">{% if linha.flex_icone %}<i class="fas {{ linha.flex_icone }}"></i>{% endif %} {{ linha.flex }}</span></td>
-                <td><span class="badge-tabela {{ linha.classificacao_catalogo_classe }}">{% if linha.classificacao_catalogo_icone %}<i class="fas {{ linha.classificacao_catalogo_icone }}"></i>{% endif %} {{ linha.classificacao_catalogo|default:"—" }}</span></td>
+                <td>{% if linha.badge_status %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=linha.badge_status %}{% else %}—{% endif %}</td>
+                <td>{% if linha.badge_tipo_anuncio %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=linha.badge_tipo_anuncio %}{% else %}—{% endif %}</td>
+                <td>{% if linha.badge_logistica %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=linha.badge_logistica %}{% else %}—{% endif %}</td>
+                <td>{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=linha.badge_flex %}</td>
+                <td>{% if linha.badge_catalogo %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=linha.badge_catalogo %}{% else %}—{% endif %}</td>
 
                 {% if linha.sem_dado_qualidade %}
                 <td class="celula-nao-calculado">—</td>

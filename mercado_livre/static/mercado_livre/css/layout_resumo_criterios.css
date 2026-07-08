@@ -76,8 +76,8 @@
 }
 
 .filtro-grupo {
-    width: 190px;
-    height: 220px;
+    width: 30vw;
+    height: 250px;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -85,8 +85,14 @@
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 10px;
+    text-align: center;
 }
-
+.filtro-grupo-titulo{
+    background-color: rgba(47, 47, 118, 0.811);
+    color: #FFFFFF;
+    padding: 2px;
+    border-radius: 4px;
+}
 .filtro-busca-interna {
     font-size: 0.78rem;
     padding: 5px 8px;
@@ -106,13 +112,22 @@
 
 .filtro-opcao {
     display: flex;
-    align-items: center;
+    align-items: center; 
     gap: 6px;
     font-size: 0.85rem;
-    color: #333;
+    color: #333333;
     cursor: pointer;
+    border: 1px solid #000000;
+    border-radius: 4px;
+    padding: 3px;
+    margin: 2px;
+    
 }
 
+.filtro-opcao:hover{
+    background-color: #dff5ffbd;
+    color: #05004f;
+}
 .resumo-filtros-acoes {
     display: flex;
     gap: 12px;
@@ -164,6 +179,7 @@
 .grid-criterio-nome {
     padding: 6px 10px;
     white-space: nowrap;
+    font-size: 1rem;
 }
 
 .grid-criterio-check {
@@ -200,18 +216,18 @@
    usa a largura do <col> pra cabeçalho E linhas por igual — elimina de
    vez o desalinhamento entre thead e tbody. */
 .resumo-tabela colgroup col:nth-child(1)  { width: 136px; } /* Foto */
-.resumo-tabela colgroup col:nth-child(2)  { width: 150px; } /* SKU */
+.resumo-tabela colgroup col:nth-child(2)  { width: 160px; } /* SKU */
 .resumo-tabela colgroup col:nth-child(3)  { width: 130px; } /* MLB */
-.resumo-tabela colgroup col:nth-child(4)  { width: 130px; } /* Marca */
-.resumo-tabela colgroup col:nth-child(5)  { width: 260px; } /* Título */
-.resumo-tabela colgroup col:nth-child(6)  { width: 100px; } /* Situação */
+.resumo-tabela colgroup col:nth-child(4)  { width: 200px; } /* Marca */
+.resumo-tabela colgroup col:nth-child(5)  { width: 300px; } /* Título */
+.resumo-tabela colgroup col:nth-child(6)  { width: 120px; } /* Situação */
 .resumo-tabela colgroup col:nth-child(7)  { width: 120px; } /* Tipo de anúncio */
-.resumo-tabela colgroup col:nth-child(8)  { width: 100px; } /* Logística */
-.resumo-tabela colgroup col:nth-child(9)  { width: 70px; }  /* Flex */
+.resumo-tabela colgroup col:nth-child(8)  { width: 120px; } /* Logística */
+.resumo-tabela colgroup col:nth-child(9)  { width: 120px; }  /* Flex */
 .resumo-tabela colgroup col:nth-child(10) { width: 170px; } /* Situação do catálogo */
-.resumo-tabela colgroup col:nth-child(11) { width: 70px; }  /* Score */
+.resumo-tabela colgroup col:nth-child(11) { width: 90px; }  /* Score */
 .resumo-tabela colgroup col:nth-child(12) { width: 90px; }  /* Nível */
-.resumo-tabela colgroup col:nth-child(n+13) { width: 130px; } /* Critérios — todos iguais */
+.resumo-tabela colgroup col:nth-child(n+13) { width: 160px; } /* Critérios — todos iguais */
 
 .resumo-tabela th, .resumo-tabela td {
     box-sizing: border-box;
@@ -392,15 +408,10 @@
     text-decoration: underline;
 }
 
-.badge-tabela {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
+.chips-filtros-rotulo {
+    font-size: 0.78rem;
+    color: #556;
+    margin-right: 2px;
 }
+
+
