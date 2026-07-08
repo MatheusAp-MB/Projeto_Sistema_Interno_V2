@@ -1,4 +1,4 @@
-<div class="card-anuncio card-anuncio-{{ anuncio.tipo_anuncio_classe|default:'padrao' }} logistica-{{ anuncio.badge_logistica|default:'padrao' }}">
+<div class="card-anuncio card-anuncio-{{ anuncio.badge_tipo_anuncio.classe|cut:'badge-'|default:'padrao' }}">
 
     {% if anuncio.imagem_principal_url %}
     <img src="{{ anuncio.imagem_principal_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
@@ -12,14 +12,12 @@
 
     <div class="card-anuncio-corpo">
 
-        <div class="card-anuncio-badges">
-            <span class="badge-anuncio badge-{{ anuncio.badge_tipo }}">{{ anuncio.badge_tipo_label }}</span>
-            <span class="badge-logistica badge-{{ anuncio.badge_logistica }}">{{ anuncio.badge_logistica_label }}</span>
-            {% if anuncio.tem_flex %}
-            <span class="badge-flex-ativo">FLEX</span>
-            {% endif %}
-            <span class="badge-papel">{{ tag_papel }}</span>
-        </div>
+    <div class="card-anuncio-badges">
+        {% if anuncio.badge_tipo_anuncio %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_tipo_anuncio %}{% endif %}
+        {% if anuncio.badge_logistica %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_logistica %}{% endif %}
+        {% if anuncio.badge_flex %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_flex %}{% endif %}
+        <span class="badge-papel">{{ tag_papel }}</span>
+    </div>
 
 <div class="card-anuncio-linha-titulo">
             <span class="card-copiavel card-copiavel-titulo">
@@ -48,8 +46,8 @@
     </div>
 
     <div class="card-anuncio-situacao">
-        <span class="status-dot status-{{ anuncio.status_classe|default:'default' }}"></span>
-        {{ anuncio.status_label|default:"—" }}
+        <span class="status-dot {{ anuncio.badge_status.classe|default:'status-default' }}"></span>
+        {{ anuncio.badge_status.label|default:"—" }}
     </div>
 
     <div class="card-reputacao">

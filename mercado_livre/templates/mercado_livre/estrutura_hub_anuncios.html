@@ -29,10 +29,15 @@
 
     <button type="submit" class="btn-acao">Buscar</button>
 
-    {% if chips_filtros_ativos %}
+    {% if chips_ativos %}
     <div class="hub-chips-filtros">
-        {% for chip in chips_filtros_ativos %}
-        <span class="chip-filtro">{{ chip.label }}</span>
+        <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
+        {% for chip in chips_ativos %}
+            {% if chip.classe %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=chip %}
+            {% else %}
+            <span class="chip-filtro">{{ chip.label }}</span>
+            {% endif %}
         {% endfor %}
     </div>
     {% endif %}
@@ -63,10 +68,10 @@
             <span class="filtro-grupo-titulo">Situação do anúncio</span>
             <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
             <div class="filtro-opcoes-lista">
-                {% for valor, label in opcoes_status %}
+                {% for opcao in opcoes_status %}
                 <label class="filtro-opcao">
-                    <input type="checkbox" name="status" value="{{ valor }}" {% if valor in filtros.status %}checked{% endif %}>
-                    <span>{{ label }}</span>
+                    <input type="checkbox" name="status" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status %}checked{% endif %}>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                 </label>
                 {% endfor %}
             </div>
@@ -76,10 +81,10 @@
             <span class="filtro-grupo-titulo">Tipo de anúncio</span>
             <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
             <div class="filtro-opcoes-lista">
-                {% for valor, label in opcoes_tipo_anuncio %}
+                {% for opcao in opcoes_tipo_anuncio %}
                 <label class="filtro-opcao">
-                    <input type="checkbox" name="tipo_anuncio" value="{{ valor }}" {% if valor in filtros.tipos_anuncio %}checked{% endif %}>
-                    <span>{{ label }}</span>
+                    <input type="checkbox" name="tipo_anuncio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_anuncio %}checked{% endif %}>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                 </label>
                 {% endfor %}
             </div>
@@ -89,10 +94,10 @@
             <span class="filtro-grupo-titulo">Logística</span>
             <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
             <div class="filtro-opcoes-lista">
-                {% for valor, label in opcoes_logistica %}
+                {% for opcao in opcoes_logistica %}
                 <label class="filtro-opcao">
-                    <input type="checkbox" name="logistica" value="{{ valor }}" {% if valor in filtros.tipos_logisticos %}checked{% endif %}>
-                    <span>{{ label }}</span>
+                    <input type="checkbox" name="logistica" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_logisticos %}checked{% endif %}>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                 </label>
                 {% endfor %}
             </div>
@@ -103,11 +108,11 @@
             <div class="filtro-opcoes-lista">
                 <label class="filtro-opcao">
                     <input type="checkbox" name="flex" value="sim" {% if 'sim' in filtros.flex %}checked{% endif %}>
-                    <span>Com Flex</span>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_flex_ativo %}
                 </label>
                 <label class="filtro-opcao">
                     <input type="checkbox" name="flex" value="nao" {% if 'nao' in filtros.flex %}checked{% endif %}>
-                    <span>Sem Flex</span>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_flex_inativo %}
                 </label>
             </div>
         </div>
@@ -115,10 +120,10 @@
         <div class="filtro-grupo">
             <span class="filtro-grupo-titulo">Situação do catálogo</span>
             <div class="filtro-opcoes-lista">
-                {% for valor, label in opcoes_catalogo %}
+                {% for opcao in opcoes_catalogo %}
                 <label class="filtro-opcao">
-                    <input type="checkbox" name="catalogo" value="{{ valor }}" {% if valor in filtros.catalogos %}checked{% endif %}>
-                    <span>{{ label }}</span>
+                    <input type="checkbox" name="catalogo" value="{{ opcao.valor }}" {% if opcao.valor in filtros.catalogos %}checked{% endif %}>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
                 </label>
                 {% endfor %}
             </div>

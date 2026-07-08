@@ -62,6 +62,10 @@ def montar_arcos_termometro():
     }
 
 def info_variacao(variacao, imagem_url=None, titulo_produto=None):
+    from mercado_livre.funcoes_auxiliares.badges import (
+        BADGES_STATUS, BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, badge_de, badge_flex,
+    )
+
     anuncio = variacao.anuncio
     tipo = anuncio.tipo_de_anuncio if anuncio else None
 
@@ -86,25 +90,6 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         score_numerico = qualidade.score if qualidade and qualidade.score is not None else 0
         ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
 
-
-    Status = TipoDeAnuncioMercadoLivre.Status
-    TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
-    TipoLogistico = TipoDeAnuncioMercadoLivre.TipoLogistico
-
-    status_classe_map = {
-        Status.ATIVO: 'ativo',
-        Status.PAUSADO: 'pausado',
-        Status.FECHADO: 'encerrado',
-        Status.EM_REVISAO: 'revisao',
-        Status.DEBITO_PENDENTE: 'debito',
-        Status.AGUARDANDO_ATIVACAO: 'aguardando',
-    }
-
-    status = tipo.status if tipo else None
-    
-    tipo_anuncio_valor = tipo.tipo_anuncio if tipo else None
-    tipo_logistico_valor = tipo.tipo_logistico if tipo else None
-
     return {
         'mlb': anuncio.mlb if anuncio else None,
         'variacao_id': variacao.variacao_id,
@@ -117,7 +102,7 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'titulo_produto': titulo_produto,
 
         'estoque': variacao.estoque,
-    
+
         'score': score_numerico,
         'ponteiro_x': ponteiro_x,
         'ponteiro_y': ponteiro_y,
@@ -126,20 +111,19 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'arco_verde': arcos['verde'] if arcos else None,
         'eh_catalogo': eh_catalogo,
 
-        'status_classe': status_classe_map.get(status, 'default'),
-        'status_label': dict(Status.choices).get(status, '—'),
+        # * [EXPLICAÇÃO] → Badges vindas do registro único (badges.py) —
+        #                  corrige de brinde o bug em que Logística só
+        #                  distinguia FULL/Coleta (as outras 5 modalidades
+        #                  caíam erradas como "Coleta").
+        'badge_status': badge_de(BADGES_STATUS, tipo.status) if tipo else None,
+        'badge_tipo_anuncio': badge_de(BADGES_TIPO_ANUNCIO, tipo.tipo_anuncio) if tipo else None,
+        'badge_logistica': badge_de(BADGES_LOGISTICA, tipo.tipo_logistico) if tipo else None,
+        'badge_flex': badge_flex(True) if (tipo and tipo.flex) else None,
 
-        'tipo_anuncio_classe': 'premium' if tipo_anuncio_valor == TipoAnuncio.PREMIUM else 'classico',
-        'badge_tipo': 'premium' if tipo_anuncio_valor == TipoAnuncio.PREMIUM else 'classico',
-        'badge_tipo_label': dict(TipoAnuncio.choices).get(tipo_anuncio_valor, '—'),
-
-        'badge_logistica': 'full' if tipo_logistico_valor == TipoLogistico.FULL else 'coleta',
-        'badge_logistica_label': dict(TipoLogistico.choices).get(tipo_logistico_valor, '—'),
-
-        'tem_flex': tipo.flex if tipo else False,
         'status_competicao': status_competicao,
         'status_competicao_label': status_competicao_label,
     }
+
 
 def faixa_do_score(score):
     if score is None:

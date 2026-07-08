@@ -10,6 +10,11 @@ from mercado_livre.funcoes_auxiliares.classificacao_catalogo import (
 def view_hub_anuncios(request):
     from produtos.models import Produto
     from mercado_livre.models import TipoDeAnuncioMercadoLivre, CompeticaoCatalogo
+    from mercado_livre.funcoes_auxiliares.badges import (
+        BADGES_STATUS, BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, BADGES_CATALOGO,
+        BADGE_FLEX_ATIVO, BADGE_FLEX_INATIVO,
+        badge_de, badge_flex, opcoes_com_badge,
+    )
 
     busca = request.GET.get('busca', '').strip()
     por_pagina = request.GET.get('por_pagina', '25')
@@ -42,25 +47,25 @@ def view_hub_anuncios(request):
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
 
-    mapa_status = dict(TipoDeAnuncioMercadoLivre.Status.choices)
-    mapa_tipo_anuncio = dict(TipoDeAnuncioMercadoLivre.TipoAnuncio.choices)
-    mapa_logistica = dict(TipoDeAnuncioMercadoLivre.TipoLogistico.choices)
-    mapa_catalogo = dict(TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.choices)
     mapa_competicao = dict(CompeticaoCatalogo.StatusCompeticao.choices)
-    mapa_flex = {'sim': 'Com Flex', 'nao': 'Sem Flex'}
     mapa_estoque = {'com': 'Com estoque', 'sem': 'Sem estoque'}
     mapa_score = {'ruim': 'Ruim', 'medio': 'Médio', 'bom': 'Bom', 'sem_dados': 'Sem dados'}
 
-    chips_filtros_ativos = (
-        [{'label': v} for v in filtros['marcas']] +
-        [{'label': mapa_status.get(v, v)} for v in filtros['status']] +
-        [{'label': mapa_tipo_anuncio.get(v, v)} for v in filtros['tipos_anuncio']] +
-        [{'label': mapa_logistica.get(v, v)} for v in filtros['tipos_logisticos']] +
-        [{'label': mapa_catalogo.get(v, v)} for v in filtros['catalogos']] +
-        [{'label': mapa_flex.get(v, v)} for v in filtros['flex']] +
-        [{'label': mapa_estoque.get(v, v)} for v in filtros['estoque']] +
-        [{'label': mapa_score.get(v, v)} for v in filtros['faixas_score']] +
-        [{'label': mapa_competicao.get(v, v)} for v in filtros['situacoes_competicao']]
+    # * [EXPLICAÇÃO] → Status/Tipo/Logística/Flex/Catálogo usam o mesmo
+    #                  registro de badges do Resumo de Critérios agora
+    #                  (badges.py). Estoque/Score/Competição ficam de
+    #                  fora desse sistema — são conceitos diferentes,
+    #                  sem badge própria ainda.
+    chips_ativos = (
+        [{'label': marca, 'classe': None, 'icone': None} for marca in filtros['marcas']] +
+        [badge_de(BADGES_STATUS, v) for v in filtros['status']] +
+        [badge_de(BADGES_TIPO_ANUNCIO, v) for v in filtros['tipos_anuncio']] +
+        [badge_de(BADGES_LOGISTICA, v) for v in filtros['tipos_logisticos']] +
+        [badge_de(BADGES_CATALOGO, v) for v in filtros['catalogos']] +
+        [badge_flex(v == 'sim') for v in filtros['flex']] +
+        [{'label': mapa_estoque.get(v, v), 'classe': None, 'icone': None} for v in filtros['estoque']] +
+        [{'label': mapa_score.get(v, v), 'classe': None, 'icone': None} for v in filtros['faixas_score']] +
+        [{'label': mapa_competicao.get(v, v), 'classe': None, 'icone': None} for v in filtros['situacoes_competicao']]
     )
 
     return render(request, 'mercado_livre/estrutura_hub_anuncios.html', {
@@ -73,13 +78,15 @@ def view_hub_anuncios(request):
 
         'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True)
             .exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
-        'opcoes_status': TipoDeAnuncioMercadoLivre.Status.choices,
-        'opcoes_tipo_anuncio': TipoDeAnuncioMercadoLivre.TipoAnuncio.choices,
-        'opcoes_logistica': TipoDeAnuncioMercadoLivre.TipoLogistico.choices,
-        'opcoes_catalogo': TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.choices,
+        'opcoes_status': opcoes_com_badge(BADGES_STATUS),
+        'opcoes_tipo_anuncio': opcoes_com_badge(BADGES_TIPO_ANUNCIO),
+        'opcoes_logistica': opcoes_com_badge(BADGES_LOGISTICA),
+        'opcoes_catalogo': opcoes_com_badge(BADGES_CATALOGO),
         'opcoes_situacao_competicao': CompeticaoCatalogo.StatusCompeticao.choices,
+        'badge_flex_ativo': BADGE_FLEX_ATIVO,
+        'badge_flex_inativo': BADGE_FLEX_INATIVO,
 
-        'chips_filtros_ativos': chips_filtros_ativos,
+        'chips_ativos': chips_ativos,
     })
 
 from mercado_livre.funcoes_auxiliares.qualidade_anuncio import montar_qualidade_da_folha
