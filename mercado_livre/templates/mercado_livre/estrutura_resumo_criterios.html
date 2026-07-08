@@ -1,0 +1,253 @@
+<!--
+* [RESUMO] → Tela de Resumo de Critérios: visão tipo Excel, 1 linha por
+* Variação (Base/Simples). Filtros e paginação resolvidos no servidor
+* (mesma arquitetura do Hub de Anúncios) — sem DataTables client-side,
+* por causa da escala (milhares de linhas).
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Resumo de Critérios — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Resumo de Critérios{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'mercado_livre/css/layout_resumo_criterios.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="resumo-barra-busca">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por SKU, Marca, MLB ou Título..."
+        class="resumo-input-busca"
+    >
+
+    <select name="por_pagina" onchange="this.form.submit()" class="resumo-select-paginacao">
+        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
+    </select>
+
+    <button type="submit" class="btn-acao">Buscar</button>
+
+    
+    {% if filtros.marcas or filtros.status or filtros.tipos_anuncio or filtros.tipos_logisticos or filtros.catalogos or filtros.flex or filtros.criterios_grid %}
+    <div class="resumo-chips-filtros">
+        {% for marca in filtros.marcas %}<span class="chip-filtro">{{ marca }}</span>{% endfor %}
+        {% for v in filtros.status %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
+        {% for v in filtros.tipos_anuncio %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
+        {% for v in filtros.tipos_logisticos %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
+        {% for v in filtros.catalogos %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
+        {% for v in filtros.flex %}<span class="chip-filtro">{{ v }}</span>{% endfor %}
+        {% if filtros.criterios_grid %}<span class="chip-filtro">{{ filtros.criterios_grid|length }} critério(s) filtrado(s)</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <details class="resumo-filtros">
+        <summary class="resumo-filtros-titulo">
+            <i class="fas fa-filter"></i> Filtros
+        </summary>
+
+        <div class="resumo-filtros-secao-titulo">Filtros gerais</div>
+        <div class="resumo-filtros-grid">
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Marca</span>
+                <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                <div class="filtro-opcoes-lista">
+                    {% for marca in marcas_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
+                        <span>{{ marca }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Situação</span>
+                <div class="filtro-opcoes-lista">
+                    {% for valor, label in opcoes_status %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="status" value="{{ valor }}" {% if valor in filtros.status %}checked{% endif %}>
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Tipo de anúncio</span>
+                <div class="filtro-opcoes-lista">
+                    {% for valor, label in opcoes_tipo_anuncio %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="tipo_anuncio" value="{{ valor }}" {% if valor in filtros.tipos_anuncio %}checked{% endif %}>
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Logística</span>
+                <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+                <div class="filtro-opcoes-lista">
+                    {% for valor, label in opcoes_logistica %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="logistica" value="{{ valor }}" {% if valor in filtros.tipos_logisticos %}checked{% endif %}>
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Flex</span>
+                <div class="filtro-opcoes-lista">
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="flex" value="sim" {% if 'sim' in filtros.flex %}checked{% endif %}>
+                        <span>Com Flex</span>
+                    </label>
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="flex" value="nao" {% if 'nao' in filtros.flex %}checked{% endif %}>
+                        <span>Sem Flex</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Situação do catálogo</span>
+                <div class="filtro-opcoes-lista">
+                    {% for valor, label in opcoes_catalogo %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="catalogo" value="{{ valor }}" {% if valor in filtros.catalogos %}checked{% endif %}>
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="resumo-filtros-secao-titulo">Filtro por critério (marque quantos quiser, em quantos critérios quiser)</div>
+        <div class="grid-criterios-filtro-wrapper">
+            <table class="grid-criterios-filtro">
+                <thead>
+                    <tr>
+                        <th>Critério</th>
+                        <th>SIM</th>
+                        <th>NÃO</th>
+                        <th>N/A</th>
+                        <th>Não calc.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in criterios_para_filtro %}
+                    <tr>
+                        <td class="grid-criterio-nome" style="border-left: 4px solid #{{ c.cor }};">{{ c.pergunta }}</td>
+                        <td class="grid-criterio-check"><input type="checkbox" name="crit_{{ c.rule_key }}" value="aprovado" {% if 'aprovado' in c.selecionados %}checked{% endif %}></td>
+                        <td class="grid-criterio-check"><input type="checkbox" name="crit_{{ c.rule_key }}" value="nao_aprovado" {% if 'nao_aprovado' in c.selecionados %}checked{% endif %}></td>
+                        <td class="grid-criterio-check"><input type="checkbox" name="crit_{{ c.rule_key }}" value="nao_aplicavel" {% if 'nao_aplicavel' in c.selecionados %}checked{% endif %}></td>
+                        <td class="grid-criterio-check"><input type="checkbox" name="crit_{{ c.rule_key }}" value="nao_calculado" {% if 'nao_calculado' in c.selecionados %}checked{% endif %}></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="resumo-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
+            <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}" class="btn-limpar-filtros">Limpar filtros</a>
+        </div>
+    </details>
+</form>
+
+<div class="resumo-tabela-wrapper">
+    <table class="resumo-tabela">
+        <thead>
+            <tr>
+                <th>Foto</th>
+                <th><a href="{{ cabecalhos.sku.href }}">SKU <i class="fas {{ cabecalhos.sku.icone }} icone-ordenar {% if cabecalhos.sku.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.mlb.href }}">MLB <i class="fas {{ cabecalhos.mlb.icone }} icone-ordenar {% if cabecalhos.mlb.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.marca.href }}">Marca <i class="fas {{ cabecalhos.marca.icone }} icone-ordenar {% if cabecalhos.marca.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.titulo.href }}">Título do anúncio <i class="fas {{ cabecalhos.titulo.icone }} icone-ordenar {% if cabecalhos.titulo.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.status.href }}">Situação <i class="fas {{ cabecalhos.status.icone }} icone-ordenar {% if cabecalhos.status.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.tipo_anuncio.href }}">Tipo de anúncio <i class="fas {{ cabecalhos.tipo_anuncio.icone }} icone-ordenar {% if cabecalhos.tipo_anuncio.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.tipo_logistico.href }}">Logística <i class="fas {{ cabecalhos.tipo_logistico.icone }} icone-ordenar {% if cabecalhos.tipo_logistico.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.flex.href }}">Flex <i class="fas {{ cabecalhos.flex.icone }} icone-ordenar {% if cabecalhos.flex.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.catalogo.href }}">Situação do catálogo <i class="fas {{ cabecalhos.catalogo.icone }} icone-ordenar {% if cabecalhos.catalogo.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.score.href }}">Score <i class="fas {{ cabecalhos.score.icone }} icone-ordenar {% if cabecalhos.score.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.nivel.href }}">Nível <i class="fas {{ cabecalhos.nivel.icone }} icone-ordenar {% if cabecalhos.nivel.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                {% for coluna in colunas %}
+                <th style="background-color: #{{ coluna.cor }};" class="th-criterio">{{ coluna.pergunta }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if not linhas %}
+            <tr>
+                <td colspan="100%" class="resumo-tabela-vazia">Nenhum anúncio encontrado com esses filtros.</td>
+            </tr>
+            {% endif %}
+            {% for linha in linhas %}
+            <tr>
+                <td class="celula-foto">
+                    {% if linha.imagem_url %}
+                    <img src="{{ linha.imagem_url }}" class="miniatura-resumo" alt="{{ linha.titulo }}">
+                    {% else %}
+                    <div class="miniatura-resumo miniatura-vazia"><i class="fas fa-image"></i></div>
+                    {% endif %}
+                </td>
+                <td>{{ linha.sku }}</td>
+                <td>{{ linha.mlb }}</td>
+                <td>{{ linha.marca|default:"—" }}</td>
+                <td>{{ linha.titulo }}</td>
+                <td>{{ linha.status|default:"—" }}</td>
+                <td>{{ linha.tipo_anuncio|default:"—" }}</td>
+                <td>{{ linha.tipo_logistico|default:"—" }}</td>
+                <td>{{ linha.flex }}</td>
+                <td>{{ linha.classificacao_catalogo|default:"—" }}</td>
+
+                {% if linha.sem_dado_qualidade %}
+                <td class="celula-nao-calculado">Não calculado</td>
+                <td class="celula-nao-calculado">Não calculado</td>
+                {% for coluna in colunas %}
+                <td class="celula-nao-calculado">Não calculado</td>
+                {% endfor %}
+                {% else %}
+                <td>{{ linha.score|default:"—" }}</td>
+                <td>{{ linha.nivel|default:"—" }}</td>
+                {% for resultado in linha.resultados %}
+                    {% if resultado.status == 'aprovado' %}
+                    <td class="celula-sim">SIM</td>
+                    {% elif resultado.status == 'nao_aprovado' %}
+                    <td class="celula-nao">NÃO</td>
+                    {% elif resultado.status == 'nao_aplicavel' %}
+                    <td class="celula-na">N/A</td>
+                    {% else %}
+                    <td class="celula-nao-calculado">Não calculado</td>
+                    {% endif %}
+                {% endfor %}
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="resumo-paginacao">
+    {% if pagina.has_previous %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="resumo-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="resumo-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} anúncios encontrados)</span>
+    {% if pagina.has_next %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="resumo-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{% static 'mercado_livre/js/script_resumo_criterios.js' %}"></script>
+{% endblock %}

@@ -163,3 +163,176 @@ def view_competicao_catalogo(request, mlb):
 
         'atualizado_em': anuncio.competicao.atualizado_em,
     })
+
+def view_resumo_criterios(request):
+    from django.db.models import Prefetch
+    from mercado_livre.models import (
+        CriterioQualidade, QualidadeAnuncioCriterio, TipoDeAnuncioMercadoLivre,
+    )
+    from produtos.models import Produto
+    from mercado_livre.funcoes_auxiliares.qualidade_anuncio import GRUPO_CORES
+    from mercado_livre.funcoes_auxiliares.resumo_criterios import (
+        listar_variacoes_resumo_filtradas, CAMPOS_ORDENACAO,
+    )
+
+    busca = request.GET.get('busca', '').strip()
+    por_pagina = request.GET.get('por_pagina', '25')
+    try:
+        por_pagina = int(por_pagina)
+    except ValueError:
+        por_pagina = 25
+
+    ordenar = request.GET.get('ordenar', 'sku')
+    if ordenar.lstrip('-') not in CAMPOS_ORDENACAO:
+        ordenar = 'sku'
+
+    criterios = list(CriterioQualidade.objects.order_by('grupo', 'rule_key'))
+
+    # * [EXPLICAÇÃO] → Filtro em grade: 1 GET param por critério
+    #                  (crit_<rule_key>), cada um multi-select.
+    criterios_grid_filtro = {}
+    for c in criterios:
+        valores = request.GET.getlist(f'crit_{c.rule_key}')
+        if valores:
+            criterios_grid_filtro[c.rule_key] = valores
+
+    filtros = {
+        'marcas': request.GET.getlist('marca'),
+        'status': request.GET.getlist('status'),
+        'tipos_anuncio': request.GET.getlist('tipo_anuncio'),
+        'tipos_logisticos': request.GET.getlist('logistica'),
+        'catalogos': request.GET.getlist('catalogo'),
+        'flex': request.GET.getlist('flex'),
+        'criterios_grid': criterios_grid_filtro,
+    }
+
+    # * [EXPLICAÇÃO] → Versão "pronta pro template" dos critérios: já traz
+    #                  a cor do grupo e quais checkboxes devem vir marcados
+    #                  (Django template não faz lookup de dict por chave
+    #                  variável, então resolve isso aqui em vez de lá).
+    criterios_para_filtro = [
+        {
+            'rule_key': c.rule_key,
+            'pergunta': c.pergunta,
+            'cor': GRUPO_CORES.get(c.grupo, GRUPO_CORES['DESCONHECIDO']),
+            'selecionados': criterios_grid_filtro.get(c.rule_key, []),
+        }
+        for c in criterios
+    ]
+
+    colunas = [
+        {
+            'rule_key': c.rule_key,
+            'pergunta': c.pergunta,
+            'cor': GRUPO_CORES.get(c.grupo, GRUPO_CORES['DESCONHECIDO']),
+        }
+        for c in criterios
+    ]
+
+    variacoes = listar_variacoes_resumo_filtradas(
+        busca=busca or None, filtros=filtros, ordenar=ordenar,
+    ).prefetch_related(
+        Prefetch(
+            'qualidade__criterios',
+            queryset=QualidadeAnuncioCriterio.objects.select_related('criterio'),
+        )
+    )
+
+    paginator = Paginator(variacoes, por_pagina)
+    numero_pagina = request.GET.get('pagina', 1)
+    pagina = paginator.get_page(numero_pagina)
+
+    linhas = []
+    for variacao in pagina.object_list:
+        anuncio = variacao.anuncio
+        tipo = anuncio.tipo_de_anuncio
+        qualidade = getattr(variacao, 'qualidade', None)
+
+        resultado_por_rule_key = {}
+        if qualidade:
+            for avaliacao in qualidade.criterios.all():
+                resultado_por_rule_key[avaliacao.criterio.rule_key] = avaliacao.status
+
+        resultados = [
+            {
+                'status': resultado_por_rule_key.get(c.rule_key),
+                'cor': GRUPO_CORES.get(c.grupo, GRUPO_CORES['DESCONHECIDO']),
+            }
+            for c in criterios
+        ]
+
+        linhas.append({
+            'imagem_url': variacao.imagem_principal_url or variacao.thumbnail_url,
+            'sku': variacao.produto.sku,
+            'mlb': anuncio.mlb,
+            'marca': variacao.produto.marca,
+            'titulo': anuncio.titulo_anuncio,
+            'status': tipo.get_status_display() if tipo else None,
+            'tipo_anuncio': tipo.get_tipo_anuncio_display() if tipo else None,
+            'tipo_logistico': tipo.get_tipo_logistico_display() if tipo else None,
+            'flex': 'Sim' if (tipo and tipo.flex) else 'Não',
+            'classificacao_catalogo': tipo.get_classificacao_catalogo_display() if tipo else None,
+            'sem_dado_qualidade': qualidade is None,
+            'score': qualidade.score if qualidade else None,
+            'nivel': qualidade.nivel if qualidade else None,
+            'resultados': resultados,
+        })
+
+    # * [EXPLICAÇÃO] → Monta o link/seta de cada cabeçalho ordenável.
+    #                  Clicar de novo na mesma coluna inverte a direção;
+    #                  clicar numa coluna diferente começa em ascendente.
+    querystring_sem_ordenar_pagina = request.GET.copy()
+    querystring_sem_ordenar_pagina.pop('ordenar', None)
+    querystring_sem_ordenar_pagina.pop('pagina', None)
+    base_qs = querystring_sem_ordenar_pagina.urlencode()
+
+    def cabecalho(chave, label):
+        ativo = ordenar.lstrip('-') == chave
+        esta_asc = ativo and not ordenar.startswith('-')
+        proximo = f'-{chave}' if esta_asc else chave
+        if ativo:
+            icone = 'fa-sort-up' if esta_asc else 'fa-sort-down'
+        else:
+            icone = 'fa-sort'
+        return {
+            'label': label,
+            'href': f'?{base_qs}&ordenar={proximo}',
+            'icone': icone,
+            'ativo': ativo,
+        }
+
+    cabecalhos = {
+        'sku': cabecalho('sku', 'SKU'),
+        'mlb': cabecalho('mlb', 'MLB'),
+        'marca': cabecalho('marca', 'Marca'),
+        'titulo': cabecalho('titulo', 'Título do anúncio'),
+        'status': cabecalho('status', 'Situação'),
+        'tipo_anuncio': cabecalho('tipo_anuncio', 'Tipo de anúncio'),
+        'tipo_logistico': cabecalho('tipo_logistico', 'Logística'),
+        'flex': cabecalho('flex', 'Flex'),
+        'catalogo': cabecalho('catalogo', 'Situação do catálogo'),
+        'score': cabecalho('score', 'Score'),
+        'nivel': cabecalho('nivel', 'Nível'),
+    }
+
+    querystring_sem_pagina = request.GET.copy()
+    querystring_sem_pagina.pop('pagina', None)
+
+    return render(request, 'mercado_livre/estrutura_resumo_criterios.html', {
+        'pagina': pagina,
+        'linhas': linhas,
+        'colunas': colunas,
+        'busca': busca,
+        'por_pagina': por_pagina,
+        'filtros': filtros,
+        'cabecalhos': cabecalhos,
+        'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+
+        'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True)
+            .exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
+        'opcoes_status': TipoDeAnuncioMercadoLivre.Status.choices,
+        'opcoes_tipo_anuncio': TipoDeAnuncioMercadoLivre.TipoAnuncio.choices,
+        'opcoes_logistica': TipoDeAnuncioMercadoLivre.TipoLogistico.choices,
+        'opcoes_catalogo': TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.choices,
+        'criterios_para_filtro': criterios_para_filtro,
+    })
