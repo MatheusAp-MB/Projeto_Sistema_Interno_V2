@@ -324,3 +324,16 @@ a:hover {
     overflow-y: auto;
     overflow-x: auto;
 }
+
+.btn-voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1e3a5f;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+.btn-voltar:hover {
+    text-decoration: underline;
+}

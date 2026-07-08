@@ -223,7 +223,7 @@
                 {% for base in pagina_cat.anuncios_base %}
                 <div class="hub-grupo-base">
                     {% for folha in base.folhas %}
-                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Base" %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Base" voltar=querystring_atual %}
                     {% endfor %}
                     {% if base.sem_catalogo_no_filtro %}
                     <p class="hub-aviso-sem-catalogo-filtro">Nenhum catálogo atende ao filtro ativo.</p>

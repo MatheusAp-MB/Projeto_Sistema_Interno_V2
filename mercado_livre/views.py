@@ -93,8 +93,16 @@ from mercado_livre.funcoes_auxiliares.qualidade_anuncio import montar_qualidade_
 
 
 def view_qualidade_anuncio(request, mlb):
+    from django.urls import reverse
+
     dados = montar_qualidade_da_folha(mlb)
-    return render(request, 'mercado_livre/estrutura_qualidade_anuncio.html', {'dados': dados})
+    voltar = request.GET.get('voltar', '')
+    voltar_url = f"{reverse('mercado_livre_anuncios')}?{voltar}" if voltar else reverse('mercado_livre_anuncios')
+
+    return render(request, 'mercado_livre/estrutura_qualidade_anuncio.html', {
+        'dados': dados,
+        'voltar_url': voltar_url,
+    })
 
 
 VISIT_SHARE_LABELS = {
@@ -139,7 +147,8 @@ def view_competicao_catalogo(request, mlb):
     winner = competicao.winner or {}
     winner_eh_outro = winner.get('item_id') and winner.get('item_id') != anuncio.mlb
     winner_link = f"https://produto.mercadolivre.com.br/{winner['item_id']}" if winner_eh_outro else None
-
+    voltar_url = f"{reverse('mercado_livre_anuncios')}?{voltar}" if voltar else reverse('mercado_livre_anuncios')
+    
     return render(request, 'mercado_livre/estrutura_competicao_catalogo.html', {
         'encontrado': True,
         'mlb': anuncio.mlb,
@@ -169,6 +178,7 @@ def view_competicao_catalogo(request, mlb):
         'boosts_novos': boosts_novos,
 
         'atualizado_em': anuncio.competicao.atualizado_em,
+        'voltar_url': voltar_url,
     })
 
 def view_resumo_criterios(request):
@@ -351,6 +361,11 @@ def view_resumo_criterios(request):
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
 
+    # * [EXPLICAÇÃO] → Carimba o estado exato da tela (filtros + página
+    #                  atual) pra Qualidade/Competição conseguirem
+    #                  devolver a pessoa pro mesmo lugar de onde saiu.
+    querystring_atual = request.GET.urlencode()
+
     return render(request, 'mercado_livre/estrutura_resumo_criterios.html', {
         'pagina': pagina,
         'linhas': linhas,
@@ -372,4 +387,5 @@ def view_resumo_criterios(request):
         'criterios_para_filtro': criterios_para_filtro,
 
         'chips_ativos': chips_ativos,
+        'querystring_atual': querystring_atual,
     })

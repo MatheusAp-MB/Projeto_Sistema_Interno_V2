@@ -107,9 +107,12 @@
                         <span>Marketplaces</span>
                         <i class="fas fa-chevron-down sidebar-chevron"></i>
                     </a>
-                    <div class="sidebar-dropdown-menu">
-                        <a href="#" class="sidebar-subitem">
-                            <i class="fas fa-store"></i> Mercado Livre
+                   <div class="sidebar-dropdown-menu">
+                        <a href="{% url 'mercado_livre_anuncios' %}" class="sidebar-subitem">
+                            <i class="fas fa-store"></i> Mercado Livre — Hub de Anúncios
+                        </a>
+                        <a href="{% url 'mercado_livre_resumo_criterios' %}" class="sidebar-subitem">
+                            <i class="fas fa-table"></i> Mercado Livre — Resumo de Critérios
                         </a>
                     </div>
                 </div>

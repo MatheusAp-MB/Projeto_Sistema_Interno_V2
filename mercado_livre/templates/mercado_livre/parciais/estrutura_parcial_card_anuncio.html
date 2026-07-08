@@ -58,12 +58,12 @@
         <div class="card-termometro-coluna">
             {% if anuncio.eh_catalogo %}
             <span class="card-objetivos">Competição</span>
-            <a href="{% url 'mercado_livre_competicao' mlb=anuncio.mlb %}" class="card-badge-competicao" title="{{ anuncio.status_competicao_label|default:'Sem dado' }}">
+            <a href="{% url 'mercado_livre_competicao' mlb=anuncio.mlb %}?voltar={{ voltar|urlencode }}" class="card-badge-competicao" title="{{ anuncio.status_competicao_label|default:'Sem dado' }}">
                 <span class="badge-competicao badge-{{ anuncio.status_competicao|default:'sem-dado' }}">{{ anuncio.status_competicao_label|default:"Sem dado" }}</span>
             </a>
             {% else %}
             <span class="card-objetivos">— objetivos</span>
-            <a href="{% url 'mercado_livre_qualidade' mlb=anuncio.mlb %}" class="card-termometro card-termometro-grande" title="Score: {{ anuncio.score }}">
+            <a href="{% url 'mercado_livre_qualidade' mlb=anuncio.mlb %}?voltar={{ voltar|urlencode }}" class="card-termometro card-termometro-grande" title="Score: {{ anuncio.score }}">
                 <svg viewBox="0 0 60 34" class="termometro-svg">
                     <path d="{{ anuncio.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
                     <path d="{{ anuncio.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
