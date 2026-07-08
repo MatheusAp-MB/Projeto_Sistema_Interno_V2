@@ -28,6 +28,161 @@
     </select>
 
     <button type="submit" class="btn-acao">Buscar</button>
+
+    {% if chips_filtros_ativos %}
+    <div class="hub-chips-filtros">
+        {% for chip in chips_filtros_ativos %}
+        <span class="chip-filtro">{{ chip.label }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <details class="hub-filtros">
+    <summary class="hub-filtros-titulo">
+        <i class="fas fa-filter"></i> Filtros
+        {% if filtros.marcas or filtros.status or filtros.tipos_anuncio or filtros.tipos_logisticos or filtros.catalogos or filtros.flex or filtros.estoque or filtros.faixas_score %}
+        <span class="hub-filtros-ativo-indicador"></span>
+        {% endif %}
+    </summary>
+
+    <div class="hub-filtros-grid">
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Marca</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+            <div class="filtro-opcoes-lista">
+                {% for marca in marcas_disponiveis %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
+                    <span>{{ marca }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Situação do anúncio</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for valor, label in opcoes_status %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="status" value="{{ valor }}" {% if valor in filtros.status %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Tipo de anúncio</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for valor, label in opcoes_tipo_anuncio %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="tipo_anuncio" value="{{ valor }}" {% if valor in filtros.tipos_anuncio %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Logística</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for valor, label in opcoes_logistica %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="logistica" value="{{ valor }}" {% if valor in filtros.tipos_logisticos %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Flex</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="flex" value="sim" {% if 'sim' in filtros.flex %}checked{% endif %}>
+                    <span>Com Flex</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="flex" value="nao" {% if 'nao' in filtros.flex %}checked{% endif %}>
+                    <span>Sem Flex</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Situação do catálogo</span>
+            <div class="filtro-opcoes-lista">
+                {% for valor, label in opcoes_catalogo %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="catalogo" value="{{ valor }}" {% if valor in filtros.catalogos %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Estoque</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="estoque" value="com" {% if 'com' in filtros.estoque %}checked{% endif %}>
+                    <span>Com estoque</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="estoque" value="sem" {% if 'sem' in filtros.estoque %}checked{% endif %}>
+                    <span>Sem estoque</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Faixa de score</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="score" value="bom" {% if 'bom' in filtros.faixas_score %}checked{% endif %}>
+                    <span>Bom</span>
+                </label>
+                
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="score" value="medio" {% if 'medio' in filtros.faixas_score %}checked{% endif %}>
+                    <span>Médio</span>
+                </label>
+                
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="score" value="ruim" {% if 'ruim' in filtros.faixas_score %}checked{% endif %}>
+                    <span>Ruim</span>
+                </label>
+                
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="score" value="sem_dados" {% if 'sem_dados' in filtros.faixas_score %}checked{% endif %}>
+                    <span>Sem dados</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
+    <span class="filtro-grupo-titulo">Situação de competição</span>
+    <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+    <div class="filtro-opcoes-lista">
+        {% for valor, label in opcoes_situacao_competicao %}
+        <label class="filtro-opcao">
+            <input type="checkbox" name="competicao" value="{{ valor }}" {% if valor in filtros.situacoes_competicao %}checked{% endif %}>
+            <span>{{ label }}</span>
+        </label>
+        {% endfor %}
+    </div>
+        </div>
+    </div>
+
+    <div class="hub-filtros-acoes">
+        <button type="submit" class="btn-acao">Aplicar filtros</button>
+        <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}" class="btn-limpar-filtros">Limpar filtros</a>
+    </div>
+</details>
+    
 </form>
 
 <p class="hub-contador">{{ pagina.paginator.count }} SKUs encontrados — página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</p>
@@ -65,6 +220,9 @@
                     {% for folha in base.folhas %}
                         {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Base" %}
                     {% endfor %}
+                    {% if base.sem_catalogo_no_filtro %}
+                    <p class="hub-aviso-sem-catalogo-filtro">Nenhum catálogo atende ao filtro ativo.</p>
+                    {% endif %}
                     {% for cat in base.anuncios_catalogo %}
                         {% for folha in cat.folhas %}
                             {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo" %}
@@ -101,13 +259,13 @@
 
 <div class="hub-paginacao">
     {% if pagina.has_previous %}
-        <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}&pagina={{ pagina.previous_page_number }}" class="hub-paginacao-link">« Anterior</a>
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="hub-paginacao-link">« Anterior</a>
     {% endif %}
 
     <span class="hub-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
 
     {% if pagina.has_next %}
-        <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}&pagina={{ pagina.next_page_number }}" class="hub-paginacao-link">Próxima »</a>
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="hub-paginacao-link">Próxima »</a>
     {% endif %}
 </div>
 

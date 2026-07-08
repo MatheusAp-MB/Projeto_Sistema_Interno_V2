@@ -18,3 +18,16 @@ document.addEventListener('click', function (evento) {
         }, 1200);
     });
 });
+
+document.addEventListener('input', function (evento) {
+    var campo = evento.target.closest('.filtro-busca-interna');
+    if (!campo) return;
+
+    var termo = campo.value.trim().toLowerCase();
+    var lista = campo.closest('.filtro-grupo').querySelector('.filtro-opcoes-lista');
+
+    lista.querySelectorAll('.filtro-opcao').forEach(function (opcao) {
+        var texto = opcao.textContent.trim().toLowerCase();
+        opcao.style.display = texto.indexOf(termo) !== -1 ? '' : 'none';
+    });
+});

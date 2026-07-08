@@ -141,10 +141,118 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'status_competicao_label': status_competicao_label,
     }
 
+def faixa_do_score(score):
+    if score is None:
+        return None
+    if score < CORTE_SCORE_VERMELHO_AMARELO:
+        return 'ruim'
+    if score < CORTE_SCORE_AMARELO_VERDE:
+        return 'medio'
+    return 'bom'
+
+
+def _passa_filtros_compartilhados(tipo, filtros):
+    # * [EXPLICAÇÃO] → Critérios que vivem em TipoDeAnuncioMercadoLivre,
+    #                  compartilhados por todas as folhas do mesmo MLB.
+    if not tipo:
+        return not any([
+            filtros.get('status'), filtros.get('tipos_anuncio'),
+            filtros.get('tipos_logisticos'), filtros.get('catalogos'),
+            filtros.get('flex'),
+        ])
+
+    if filtros.get('status') and tipo.status not in filtros['status']:
+        return False
+    if filtros.get('tipos_anuncio') and tipo.tipo_anuncio not in filtros['tipos_anuncio']:
+        return False
+    if filtros.get('tipos_logisticos') and tipo.tipo_logistico not in filtros['tipos_logisticos']:
+        return False
+    if filtros.get('catalogos') and tipo.classificacao_catalogo not in filtros['catalogos']:
+        return False
+
+    valores_flex = filtros.get('flex') or []
+    if len(valores_flex) == 1 and tipo.flex != (valores_flex[0] == 'sim'):
+        return False
+
+    return True
+
+
+def _passa_estoque(variacao, filtros):
+    valores_estoque = filtros.get('estoque') or []
+    if len(valores_estoque) != 1:
+        return True
+    tem_estoque = (variacao.estoque or 0) > 0
+    return tem_estoque == (valores_estoque[0] == 'com')
+
+
+def _passa_score_direto(variacao, filtros):
+    faixas = filtros.get('faixas_score') or []
+    if not faixas:
+        return True
+    qualidade = getattr(variacao, 'qualidade', None)
+    score = qualidade.score if qualidade else None
+    if score is None:
+        return 'sem_dados' in faixas
+    return faixa_do_score(score) in faixas
+
+
+def _passa_competicao_direto(anuncio, filtros):
+    valores = filtros.get('situacoes_competicao') or []
+    if not valores:
+        return True
+    competicao = getattr(anuncio, 'competicao', None)
+    if not competicao or not competicao.status:
+        return False
+    return competicao.status in valores
+
+
+def _mlb_tem_folha_valida(variacoes_mlb, filtros):
+    return any(
+        _passa_estoque(v, filtros) and _passa_score_direto(v, filtros)
+        for v in variacoes_mlb
+    )
+
+
+def _base_passa_sozinha(tipo, variacoes_mlb, filtros):
+    return _passa_filtros_compartilhados(tipo, filtros) and _mlb_tem_folha_valida(variacoes_mlb, filtros)
+
+
+def _base_passa_score(variacoes_da_base, filtros):
+    # * [EXPLICAÇÃO] → Isola só o critério de score da base, pra herança
+    #                  do Catálogo (Opção B — Catálogo nunca usa o
+    #                  próprio score real).
+    faixas = filtros.get('faixas_score') or []
+    if not faixas:
+        return True
+    return any(_passa_score_direto(v, filtros) for v in variacoes_da_base)
+
+
+def _simples_passa(tipo, variacoes_mlb, filtros):
+    if filtros.get('situacoes_competicao'):
+        return False  # Simples não tem esse dado — exclusão automática
+    return _base_passa_sozinha(tipo, variacoes_mlb, filtros)
+
+
+def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_pareada):
+    if not _passa_filtros_compartilhados(tipo, filtros):
+        return False
+    if not any(_passa_estoque(v, filtros) for v in variacoes_mlb):
+        return False
+    if not _passa_competicao_direto(anuncio, filtros):
+        return False
+
+    faixas = filtros.get('faixas_score') or []
+    if faixas:
+        if variacoes_da_base_pareada is None:
+            return False  # órfão — sem Base pra herdar o veredito de score
+        if not _base_passa_score(variacoes_da_base_pareada, filtros):
+            return False
+
+    return True
 
 def carregar_variacoes_por_sku(skus=None):
     qs = VariacaoAnuncioMercadoLivre.objects.select_related(
-        'anuncio', 'anuncio__tipo_de_anuncio', 'produto'
+        'anuncio', 'anuncio__tipo_de_anuncio', 'anuncio__competicao', 'produto', 'qualidade'
     ).exclude(produto__isnull=True)
 
     if skus is not None:
@@ -156,15 +264,13 @@ def carregar_variacoes_por_sku(skus=None):
 
     return variacoes_por_sku
 
+def montar_estrutura_de_sku(sku, variacoes, filtros=None):
+    filtros = filtros or {}
 
-def montar_estrutura_de_sku(sku, variacoes):
     if not variacoes:
         return {'sku': sku, 'encontrado': False, 'paginas_catalogo': [], 'anuncios_simples': [], 'total_anuncios': 0}
 
-    # * [EXPLICAÇÃO] → Todas as variações do mesmo SKU compartilham o
-    #                  mesmo Produto — pega do primeiro item da lista.
     produto = variacoes[0].produto
-
     Classificacao = TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo
 
     variacoes_por_mlb = defaultdict(list)
@@ -192,7 +298,9 @@ def montar_estrutura_de_sku(sku, variacoes):
             for v in variacoes_por_mlb[mlb]
         ]
 
+    total_visiveis = 0
     paginas_saida = []
+
     for cpid, mlbs_membros in paginas.items():
         bases_mlbs = [
             m for m in mlbs_membros
@@ -209,30 +317,73 @@ def montar_estrutura_de_sku(sku, variacoes):
         catalogos_usados = set()
 
         for base_mlb in bases_mlbs:
-            relacoes = parsear_item_relations(anuncio_por_mlb[base_mlb].item_relations)
+            anuncio_base = anuncio_por_mlb[base_mlb]
+            tipo_base = anuncio_base.tipo_de_anuncio
+            variacoes_base = variacoes_por_mlb[base_mlb]
+
+            relacoes = parsear_item_relations(anuncio_base.item_relations)
             filhos_ids = {r.get('id') for r in relacoes if isinstance(r, dict)}
             filhos_mlbs = [c for c in catalogos_mlbs if c in filhos_ids]
             catalogos_usados.update(filhos_mlbs)
 
-            bases_saida.append({
-                'mlb': base_mlb,
-                'folhas': folhas_do_mlb(base_mlb),
-                'anuncios_catalogo': [
-                    {'mlb': c, 'folhas': folhas_do_mlb(c)}
-                    for c in filhos_mlbs
-                ],
-            })
+            catalogos_filhos_saida = []
+            for c in filhos_mlbs:
+                anuncio_c = anuncio_por_mlb[c]
+                tipo_c = anuncio_c.tipo_de_anuncio
+                variacoes_c = variacoes_por_mlb[c]
+
+                if _catalogo_passa(tipo_c, anuncio_c, variacoes_c, filtros, variacoes_base):
+                    catalogos_filhos_saida.append({'mlb': c, 'folhas': folhas_do_mlb(c)})
+                    total_visiveis += len(variacoes_c)
+
+            base_passa_sozinha = _base_passa_sozinha(tipo_base, variacoes_base, filtros)
+
+            if catalogos_filhos_saida:
+                bases_saida.append({
+                    'mlb': base_mlb,
+                    'folhas': folhas_do_mlb(base_mlb),
+                    'anuncios_catalogo': catalogos_filhos_saida,
+                    'sem_catalogo_no_filtro': False,
+                })
+                total_visiveis += len(variacoes_base)
+            elif base_passa_sozinha:
+                bases_saida.append({
+                    'mlb': base_mlb,
+                    'folhas': folhas_do_mlb(base_mlb),
+                    'anuncios_catalogo': [],
+                    'sem_catalogo_no_filtro': True,
+                })
+                total_visiveis += len(variacoes_base)
+            # * [EXPLICAÇÃO] → Nem base sozinha, nem catálogo algum passou:
+            #                  o grupo inteiro some, nada a adicionar.
 
         orfaos_mlbs = [c for c in catalogos_mlbs if c not in catalogos_usados]
+        orfaos_saida = []
+        for o in orfaos_mlbs:
+            anuncio_o = anuncio_por_mlb[o]
+            tipo_o = anuncio_o.tipo_de_anuncio
+            variacoes_o = variacoes_por_mlb[o]
 
-        paginas_saida.append({
-            'catalog_product_id': cpid,
-            'anuncios_base': bases_saida,
-            'anuncios_catalogo_orfaos': [
-                {'mlb': o, 'folhas': folhas_do_mlb(o)}
-                for o in orfaos_mlbs
-            ],
-        })
+            if _catalogo_passa(tipo_o, anuncio_o, variacoes_o, filtros, variacoes_da_base_pareada=None):
+                orfaos_saida.append({'mlb': o, 'folhas': folhas_do_mlb(o)})
+                total_visiveis += len(variacoes_o)
+
+        if bases_saida or orfaos_saida:
+            paginas_saida.append({
+                'catalog_product_id': cpid,
+                'anuncios_base': bases_saida,
+                'anuncios_catalogo_orfaos': orfaos_saida,
+            })
+
+    simples_saida = []
+    for m in simples_mlbs:
+        anuncio_s = anuncio_por_mlb[m]
+        tipo_s = anuncio_s.tipo_de_anuncio
+        variacoes_s = variacoes_por_mlb[m]
+
+        if _simples_passa(tipo_s, variacoes_s, filtros):
+            simples_saida.append({'mlb': m, 'folhas': folhas_do_mlb(m)})
+            total_visiveis += len(variacoes_s)
 
     return {
         'sku': sku,
@@ -240,32 +391,27 @@ def montar_estrutura_de_sku(sku, variacoes):
         'marca': produto.marca,
         'titulo_produto': produto.titulo,
         'imagem_url': produto.imagem_url,
-        'total_anuncios': len(variacoes),
+        'total_anuncios': total_visiveis,
         'paginas_catalogo': paginas_saida,
-        'anuncios_simples': [
-            {'mlb': m, 'folhas': folhas_do_mlb(m)}
-            for m in simples_mlbs
-        ],
+        'anuncios_simples': simples_saida,
     }
 
-
-def classificar_todos_os_skus():
+def classificar_todos_os_skus(filtros=None):
     variacoes_por_sku = carregar_variacoes_por_sku()
     return {
-        sku: montar_estrutura_de_sku(sku, variacoes)
+        sku: montar_estrutura_de_sku(sku, variacoes, filtros=filtros)
         for sku, variacoes in variacoes_por_sku.items()
     }
 
 
-def listar_skus_filtrados(busca=None):
+def listar_skus_filtrados(busca=None, filtros=None):
+    filtros = filtros or {}
+
     qs = VariacaoAnuncioMercadoLivre.objects.exclude(produto__isnull=True)
 
     if busca:
-        termos = busca.split()  # * [EXPLICAÇÃO] → separa por espaço: "6671 guarany" → ["6671", "guarany"]
-
+        termos = busca.split()
         for termo in termos:
-            # * [EXPLICAÇÃO] → CADA termo precisa aparecer em ALGUM dos campos —
-            #                  não precisam estar juntos, nem no mesmo campo.
             qs = qs.filter(
                 Q(produto__sku__icontains=termo) |
                 Q(produto__marca__icontains=termo) |
@@ -275,17 +421,47 @@ def listar_skus_filtrados(busca=None):
                 Q(anuncio__titulo_anuncio__icontains=termo)
             )
 
-    return list(
+    if filtros.get('marcas'):
+        qs = qs.filter(produto__marca__in=filtros['marcas'])
+
+    chaves_avancadas = [
+        'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
+        'flex', 'estoque', 'faixas_score', 'situacoes_competicao',
+    ]
+    tem_filtro_avancado = any(filtros.get(chave) for chave in chaves_avancadas)
+
+    if not tem_filtro_avancado:
+        # * [EXPLICAÇÃO] → Caminho rápido: sem filtro de folha ativo, não
+        #                  precisa montar a árvore completa.
+        return list(
+            qs.select_related('produto')
+            .values_list('produto__sku', flat=True)
+            .distinct()
+            .order_by('produto__sku')
+        )
+
+    # * [EXPLICAÇÃO] → Caminho completo: precisa montar a árvore de cada
+    #                  SKU candidato pra saber se sobrevive à cascata
+    #                  Base↔Catálogo — evita o contador de SKUs divergir
+    #                  do que aparece de fato na tela.
+    skus_candidatos = list(
         qs.select_related('produto')
         .values_list('produto__sku', flat=True)
         .distinct()
-        .order_by('produto__sku')
     )
+    variacoes_por_sku = carregar_variacoes_por_sku(skus=skus_candidatos)
+
+    skus_finais = [
+        sku for sku, variacoes in variacoes_por_sku.items()
+        if montar_estrutura_de_sku(sku, variacoes, filtros=filtros)['total_anuncios'] > 0
+    ]
+    skus_finais.sort()
+    return skus_finais
 
 
-def classificar_lote_de_skus(skus):
+def classificar_lote_de_skus(skus, filtros=None):
     variacoes_por_sku = carregar_variacoes_por_sku(skus=skus)
     return {
-        sku: montar_estrutura_de_sku(sku, variacoes)
+        sku: montar_estrutura_de_sku(sku, variacoes, filtros=filtros)
         for sku, variacoes in variacoes_por_sku.items()
     }

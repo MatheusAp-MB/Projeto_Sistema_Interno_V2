@@ -14,6 +14,7 @@
 
 .hub-barra-busca {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 16px;
     align-items: center;
@@ -625,3 +626,138 @@
     white-space: nowrap;
 }
 
+/* ================================================
+   FILTROS
+   ================================================ */
+
+.hub-filtros {
+    flex-basis: 100%;
+    margin-top: 12px;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+    padding: 4px 16px;
+}
+
+.hub-filtros-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    font-weight: 600;
+    color: #1e3a5f;
+    cursor: pointer;
+    list-style: none;
+}
+
+.hub-filtros-ativo-indicador {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1d6b5a;
+}
+
+
+.hub-filtros-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 0 16px 0;
+    border-top: 1px solid #eee;
+}
+
+.filtro-grupo {
+    width: 190px;
+    height: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.filtro-busca-interna {
+    font-size: 0.78rem;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.filtro-opcoes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 4px;
+}
+
+.filtro-grupo-titulo {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: #99a;
+    margin-bottom: 4px;
+}
+
+.filtro-opcao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #333;
+    cursor: pointer;
+}
+
+.hub-filtros-acoes {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0 12px 0;
+    border-top: 1px solid #eee;
+}
+
+.btn-limpar-filtros {
+    font-size: 0.85rem;
+    color: #99a;
+    text-decoration: underline;
+}
+
+/* ================================================
+   CHIPS DE FILTROS ATIVOS
+   ================================================ */
+
+.hub-chips-filtros {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.chip-filtro {
+    background: #eef2f7;
+    color: #1e3a5f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 14px;
+    border: 1px solid #d7e0ec;
+}
+
+/* ================================================
+   AVISO: BASE SEM CATÁLOGO NO FILTRO
+   ================================================ */
+
+.hub-aviso-sem-catalogo-filtro {
+    font-size: 0.8rem;
+    color: #92400e;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+}
