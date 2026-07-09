@@ -265,7 +265,6 @@
     gap: 5px;
     font-size: 0.72rem;
     color: #556;
-    width: 76px;
     flex-shrink: 0;
 }
 
@@ -273,7 +272,6 @@
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #999;
     flex-shrink: 0;
 }
 

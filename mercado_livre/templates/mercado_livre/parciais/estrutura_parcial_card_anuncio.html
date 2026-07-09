@@ -45,9 +45,8 @@
 
     </div>
 
-    <div class="card-anuncio-situacao">
-        <span class="status-dot {{ anuncio.badge_status.classe|default:'status-default' }}"></span>
-        {{ anuncio.badge_status.label|default:"—" }}
+   <div class="card-anuncio-situacao">
+        {% if anuncio.badge_status %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_status compacto=True %}{% else %}—{% endif %}
     </div>
 
     <div class="card-reputacao">

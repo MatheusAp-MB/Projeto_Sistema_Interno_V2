@@ -1,1 +1,1 @@
-<span class="badge-tabela {{ badge.classe }}">{% if badge.icone %}<i class="fas {{ badge.icone }}"></i>{% endif %} {{ badge.label }}</span>
+<span class="badge-tabela {{ badge.classe }} {% if compacto %}badge-compacto{% endif %}" {% if compacto %}title="{{ badge.label }}"{% endif %}>{% if badge.icone %}<i class="fas {{ badge.icone }}"></i>{% endif %}{% if not compacto %} {{ badge.label }}{% endif %}</span>

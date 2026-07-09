@@ -71,3 +71,11 @@
 .badge-listed               { background: #fef3c7; color: #92400e; }
 .badge-not_listed           { background: #e5e7eb; color: #4b5563; }
 .badge-sem-dado             { background: #e5e7eb; color: #6b7280; }
+
+
+
+
+.badge-compacto {
+    padding: 3px 6px;
+    gap: 0;
+}
