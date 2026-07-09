@@ -79,23 +79,9 @@
     border-top: 1px solid #eee;
 }
 
-.produtos-filtros-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-}
 
-.filtro-grupo {
-    width: 220px;
-    height: 220px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-}
+
+
 
 .filtro-busca-interna {
     font-size: 0.78rem;
@@ -127,23 +113,6 @@
    FILTROS DE FAIXA (mín/máx) — Dimensões, Financeiro,
    Fiscal, Controle DB, Controle ERP
    ================================================ */
-
-.produtos-filtros-grid-faixa {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-
-.filtro-faixa {
-    width: 160px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-}
 
 .filtro-faixa-campos {
     display: flex;
@@ -320,6 +289,9 @@
 /* ================================================
    MODAL DE DETALHES DO PRODUTO
    ================================================ */
+.modal-dialog{
+    min-width: 70vw;
+}
 
 #modal-conteudo {
     background-color: azure;
@@ -410,3 +382,107 @@
 .coluna-oculta {
     display: none;
 }
+
+
+.produtos-filtros-secoes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.filtro-secao-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.filtro-secao-titulo {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #fff;
+    background-color: rgba(47, 47, 118, 0.811);
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin-bottom: 2px;
+    text-align: center;
+}
+
+.filtro-subgrupo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 3px;
+}
+
+.filtro-subgrupo-titulo {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #FFFFFF;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    background-color: rgba(61, 70, 116, 0.811);
+    padding: 2px;
+    border-radius: 4px;
+    text-align: center;
+
+}
+
+.filtro-opcoes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 130px;
+    overflow-y: auto;
+}
+
+.filtro-opcoes-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.filtro-busca-interna {
+    font-size: 0.76rem;
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.filtro-opcao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: #333;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease;
+}
+
+.filtro-opcao:hover {
+    background-color: #dff5ffbd;
+    color: #05004f;
+}
+
+.filtro-faixa-campos {
+    display: flex;
+    gap: 6px;
+}
+
+.filtro-faixa-campos input {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+

@@ -53,68 +53,83 @@
             <i class="fas fa-filter"></i> Filtros
         </summary>
 
-        <div class="produtos-filtros-secao-titulo">Identificação</div>
-        <div class="produtos-filtros-grid">
-            <div class="filtro-grupo">
-                <span class="filtro-grupo-titulo">Marca</span>
-                <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
-                <div class="filtro-opcoes-lista">
-                    {% for marca in marcas_disponiveis %}
-                    <label class="filtro-opcao">
-                        <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
-                        <span>{{ marca }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
+       <div class="produtos-filtros-secoes">
 
-            <div class="filtro-grupo">
-                <span class="filtro-grupo-titulo">Curva</span>
-                <div class="filtro-opcoes-lista">
-                    {% for curva in curvas_disponiveis %}
-                    <label class="filtro-opcao">
-                        <input type="checkbox" name="curva" value="{{ curva }}" {% if curva in filtros.curvas %}checked{% endif %}>
-                        <span>{{ curva }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
+    <div class="filtro-secao-card">
+        <div class="filtro-secao-titulo">Identificação</div>
 
-            <div class="filtro-grupo">
-                <span class="filtro-grupo-titulo">Categoria</span>
-                <input type="text" class="filtro-busca-interna" placeholder="Buscar categoria...">
-                <div class="filtro-opcoes-lista">
-                    {% for categoria in categorias_disponiveis %}
-                    <label class="filtro-opcao">
-                        <input type="checkbox" name="categoria" value="{{ categoria }}" {% if categoria in filtros.categorias %}checked{% endif %}>
-                        <span>{{ categoria }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
+        <div class="filtro-subgrupo">
+            <span class="filtro-subgrupo-titulo">Marca</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+            <div class="filtro-opcoes-lista">
+                {% for marca in marcas_disponiveis %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
+                    <span>{{ marca }}</span>
+                </label>
+                {% endfor %}
             </div>
         </div>
 
-        {% for secao in secoes_filtro_faixa %}
-        <div class="produtos-filtros-secao-titulo">{{ secao.titulo }}</div>
-        <div class="produtos-filtros-grid-faixa">
-            {% for campo, label in secao.campos %}
-            {% with chave_min=campo|add:'_min' chave_max=campo|add:'_max' %}
-            <div class="filtro-faixa">
-                <span class="filtro-grupo-titulo">{{ label }}</span>
-                <div class="filtro-faixa-campos">
-                    {% if secao.titulo == 'Controle DB' or secao.titulo == 'Controle ERP' %}
-                    <input type="date" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}">
-                    <input type="date" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}">
-                    {% else %}
-                    <input type="number" step="any" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}" placeholder="De">
-                    <input type="number" step="any" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}" placeholder="Até">
-                    {% endif %}
-                </div>
+        <div class="filtro-subgrupo">
+            <span class="filtro-subgrupo-titulo">Categoria</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar categoria...">
+            <div class="filtro-opcoes-lista">
+                {% for categoria in categorias_disponiveis %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="categoria" value="{{ categoria }}" {% if categoria in filtros.categorias %}checked{% endif %}>
+                    <span>{{ categoria }}</span>
+                </label>
+                {% endfor %}
             </div>
-            {% endwith %}
-            {% endfor %}
         </div>
+
+        <div class="filtro-subgrupo filtro-subgrupo-compacto">
+            <span class="filtro-subgrupo-titulo">Curva</span>
+            <div class="filtro-opcoes-inline">
+                {% for curva in curvas_disponiveis %}
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="curva" value="{{ curva }}" {% if curva in filtros.curvas %}checked{% endif %}>
+                    <span>{{ curva }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="filtro-subgrupo filtro-subgrupo-compacto">
+            <span class="filtro-subgrupo-titulo">Estoque</span>
+            <div class="filtro-faixa-campos">
+                <input type="number" step="any" name="estoque_min" value="{{ filtros|get_item:'estoque_min' }}" placeholder="De">
+                <input type="number" step="any" name="estoque_max" value="{{ filtros|get_item:'estoque_max' }}" placeholder="Até">
+            </div>
+        </div>
+    </div>
+
+    {% for secao in secoes_filtro_faixa %}
+    {% if secao.titulo != 'Identificação' %}
+    <div class="filtro-secao-card">
+        <div class="filtro-secao-titulo">{{ secao.titulo }}</div>
+        {% for campo, label in secao.campos %}
+        {% with chave_min=campo|add:'_min' chave_max=campo|add:'_max' %}
+        <div class="filtro-subgrupo filtro-subgrupo-compacto">
+            <span class="filtro-subgrupo-titulo">{{ label }}</span>
+            <div class="filtro-faixa-campos">
+                {% if secao.titulo == 'Controle DB' or secao.titulo == 'Controle ERP' %}
+                <input type="date" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}">
+                <input type="date" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}">
+                {% else %}
+                <input type="number" step="any" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}" placeholder="De">
+                <input type="number" step="any" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}" placeholder="Até">
+                {% endif %}
+            </div>
+        </div>
+        {% endwith %}
         {% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+</div>
 
         <div class="produtos-filtros-acoes">
             <button type="submit" class="btn-acao">Aplicar filtros</button>
@@ -302,7 +317,7 @@
 </div>
 
 <div class="modal fade" id="modal-produto" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header" id="modal-produto-header">
                 <h5 class="modal-title" id="modal-produto-titulo-header">Detalhes do Produto</h5>
