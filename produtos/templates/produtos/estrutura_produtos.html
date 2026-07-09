@@ -1,10 +1,14 @@
 <!--
-* [RESUMO] → Template da tela de produtos.
-* Herda de estrutura_base_global.html.
-* Exibe a listagem de produtos via DataTables com painel de detalhes em modal.
+* [RESUMO] → Tela de Produtos: busca, filtros (checkbox + faixa
+* min/máx), paginação e ordenação resolvidos no servidor — mesma
+* arquitetura já validada no Hub de Anúncios e na Resumo de Critérios.
+* Colunas reordenadas pra bater com as 6 seções (Identificação,
+* Dimensões, Financeiro, Fiscal, Controle DB, Controle ERP). Painel de
+* colunas e modal de detalhe preservados da versão anterior.
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
+{% load filtros %}
 
 {% block titulo %}Produtos — Sistema Interno MB/SV{% endblock %}
 {% block toolbar_titulo %}Produtos{% endblock %}
@@ -15,11 +19,109 @@
 
 {% block conteudo %}
 
-<div class="barra-acoes">
-    <button class="btn-acao" onclick="opcoes_exibicao()">
+<form method="get" class="produtos-barra-busca">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por Nome, SKU, EAN, Cód. Fabricante ou Marca..."
+        class="produtos-input-busca"
+    >
+
+    <select name="por_pagina" onchange="this.form.submit()" class="produtos-select-paginacao">
+        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
+    </select>
+
+    <button type="submit" class="btn-acao">Buscar</button>
+    <button type="button" class="btn-acao" onclick="opcoes_exibicao()">
         <i class="fas fa-columns"></i> Opções de exibição
     </button>
-</div>
+
+    {% if chips_ativos %}
+    <div class="produtos-chips-filtros">
+        <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
+        {% for chip in chips_ativos %}
+        <span class="chip-filtro">{{ chip.label }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <details class="produtos-filtros">
+        <summary class="produtos-filtros-titulo">
+            <i class="fas fa-filter"></i> Filtros
+        </summary>
+
+        <div class="produtos-filtros-secao-titulo">Identificação</div>
+        <div class="produtos-filtros-grid">
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Marca</span>
+                <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                <div class="filtro-opcoes-lista">
+                    {% for marca in marcas_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
+                        <span>{{ marca }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Curva</span>
+                <div class="filtro-opcoes-lista">
+                    {% for curva in curvas_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="curva" value="{{ curva }}" {% if curva in filtros.curvas %}checked{% endif %}>
+                        <span>{{ curva }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="filtro-grupo">
+                <span class="filtro-grupo-titulo">Categoria</span>
+                <input type="text" class="filtro-busca-interna" placeholder="Buscar categoria...">
+                <div class="filtro-opcoes-lista">
+                    {% for categoria in categorias_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="categoria" value="{{ categoria }}" {% if categoria in filtros.categorias %}checked{% endif %}>
+                        <span>{{ categoria }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        {% for secao in secoes_filtro_faixa %}
+        <div class="produtos-filtros-secao-titulo">{{ secao.titulo }}</div>
+        <div class="produtos-filtros-grid-faixa">
+            {% for campo, label in secao.campos %}
+            {% with chave_min=campo|add:'_min' chave_max=campo|add:'_max' %}
+            <div class="filtro-faixa">
+                <span class="filtro-grupo-titulo">{{ label }}</span>
+                <div class="filtro-faixa-campos">
+                    {% if secao.titulo == 'Controle DB' or secao.titulo == 'Controle ERP' %}
+                    <input type="date" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}">
+                    <input type="date" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}">
+                    {% else %}
+                    <input type="number" step="any" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}" placeholder="De">
+                    <input type="number" step="any" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}" placeholder="Até">
+                    {% endif %}
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <div class="produtos-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
+            <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}" class="btn-limpar-filtros">Limpar filtros</a>
+        </div>
+    </details>
+</form>
 
 <div id="painel-colunas">
     <h6>Colunas visíveis</h6>
@@ -29,15 +131,15 @@
             <div class="painel-card">
                 <div class="painel-card-titulo">Identificação</div>
                 <div class="painel-card-botoes">
-                    <button id="1" class="btn-ativo" onclick="mudar(this)">Foto</button>
-                    <button id="2" class="btn-ativo" onclick="mudar(this)">EAN</button>
-                    <button id="3" class="btn-ativo" onclick="mudar(this)">SKU</button>
-                    <button id="4" class="btn-ativo" onclick="mudar(this)">Cód. Fabricante</button>
-                    <button id="5" class="btn-ativo" onclick="mudar(this)">Nome</button>
-                    <button id="6" class="btn-ativo" onclick="mudar(this)">Marca</button>
-                    <button id="7" class="btn-ativo" onclick="mudar(this)">Estoque</button>
-                    <button id="8" class="btn-inativo not_active" onclick="mudar(this)">Curva</button>
-                    <button id="27" class="btn-inativo not_active" onclick="mudar(this)">Categoria</button>
+                    <button id="1" class="btn-ativo" onclick="alternar_coluna_produtos(this)">Foto</button>
+                    <button id="2" class="btn-ativo" onclick="alternar_coluna_produtos(this)">EAN</button>
+                    <button id="3" class="btn-ativo" onclick="alternar_coluna_produtos(this)">SKU</button>
+                    <button id="4" class="btn-ativo" onclick="alternar_coluna_produtos(this)">Cód. Fabricante</button>
+                    <button id="5" class="btn-ativo" onclick="alternar_coluna_produtos(this)">Nome</button>
+                    <button id="6" class="btn-ativo" onclick="alternar_coluna_produtos(this)">Marca</button>
+                    <button id="7" class="btn-ativo" onclick="alternar_coluna_produtos(this)">Estoque</button>
+                    <button id="8" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Curva</button>
+                    <button id="9" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Categoria</button>
                 </div>
             </div>
         </div>
@@ -46,11 +148,11 @@
             <div class="painel-card">
                 <div class="painel-card-titulo">Dimensões</div>
                 <div class="painel-card-botoes">
-                    <button id="11" class="btn-inativo not_active" onclick="mudar(this)">Peso</button>
-                    <button id="12" class="btn-inativo not_active" onclick="mudar(this)">Peso Cubado</button>
-                    <button id="13" class="btn-inativo not_active" onclick="mudar(this)">Altura</button>
-                    <button id="14" class="btn-inativo not_active" onclick="mudar(this)">Largura</button>
-                    <button id="15" class="btn-inativo not_active" onclick="mudar(this)">Profundidade</button>
+                    <button id="10" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Peso</button>
+                    <button id="11" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Peso Cubado</button>
+                    <button id="12" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Altura</button>
+                    <button id="13" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Largura</button>
+                    <button id="14" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Profundidade</button>
                 </div>
             </div>
         </div>
@@ -59,8 +161,8 @@
             <div class="painel-card">
                 <div class="painel-card-titulo">Financeiro</div>
                 <div class="painel-card-botoes">
-                    <button id="9" class="btn-inativo not_active" onclick="mudar(this)">Custo</button>
-                    <button id="10" class="btn-inativo not_active" onclick="mudar(this)">Custo c/ Boni</button>
+                    <button id="15" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Custo</button>
+                    <button id="16" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Custo c/ Boni</button>
                 </div>
             </div>
         </div>
@@ -69,15 +171,15 @@
             <div class="painel-card">
                 <div class="painel-card-titulo">Fiscal</div>
                 <div class="painel-card-botoes">
-                    <button id="16" class="btn-inativo not_active" onclick="mudar(this)">NCM</button>
-                    <button id="17" class="btn-inativo not_active" onclick="mudar(this)">IPI</button>
-                    <button id="18" class="btn-inativo not_active" onclick="mudar(this)">ICMS Entrada</button>
-                    <button id="19" class="btn-inativo not_active" onclick="mudar(this)">ICMS Saída SP</button>
-                    <button id="20" class="btn-inativo not_active" onclick="mudar(this)">ICMS Saída Média</button>
-                    <button id="21" class="btn-inativo not_active" onclick="mudar(this)">PIS/COFINS</button>
-                    <button id="22" class="btn-inativo not_active" onclick="mudar(this)">MVA</button>
-                    <button id="23" class="btn-inativo not_active" onclick="mudar(this)">ST Valor</button>
-                    <button id="24" class="btn-inativo not_active" onclick="mudar(this)">Frete CIF/FOB</button>
+                    <button id="17" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">NCM</button>
+                    <button id="18" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">IPI</button>
+                    <button id="19" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">ICMS Entrada</button>
+                    <button id="20" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">ICMS Saída SP</button>
+                    <button id="21" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">ICMS Saída Média</button>
+                    <button id="22" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">PIS/COFINS</button>
+                    <button id="23" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">MVA</button>
+                    <button id="24" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">ST Valor</button>
+                    <button id="25" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Frete CIF/FOB</button>
                 </div>
             </div>
         </div>
@@ -86,8 +188,8 @@
             <div class="painel-card">
                 <div class="painel-card-titulo">Controle DB</div>
                 <div class="painel-card-botoes">
-                    <button id="25" class="btn-inativo not_active" onclick="mudar(this)">Entrada no DB</button>
-                    <button id="26" class="btn-inativo not_active" onclick="mudar(this)">Atualização no DB</button>
+                    <button id="26" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Entrada no DB</button>
+                    <button id="27" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Atualização no DB</button>
                 </div>
             </div>
         </div>
@@ -96,8 +198,8 @@
             <div class="painel-card">
                 <div class="painel-card-titulo">Controle ERP</div>
                 <div class="painel-card-botoes">
-                    <button id="28" class="btn-inativo not_active" onclick="mudar(this)">Última Compra</button>
-                    <button id="29" class="btn-inativo not_active" onclick="mudar(this)">Cadastro no ERP</button>
+                    <button id="28" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Última Compra</button>
+                    <button id="29" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Cadastro no ERP</button>
                 </div>
             </div>
         </div>
@@ -105,89 +207,99 @@
     </div>
 </div>
 
-<div id="linha-filtros">
-    <div id="filtros-ativos-texto">Nenhum filtro ativo</div>
-    <button id="btn-toggle-filtros" onclick="toggle_filtros()">
-        <i class="fas fa-filter"></i> Filtros <span id="btn-filtros-caret">▼</span>
-    </button>
+<div class="produtos-tabela-wrapper">
+    <table class="produtos-tabela">
+        <thead>
+            <tr>
+                <th>Foto</th>
+                <th><a href="{{ cabecalhos.ean.href }}">EAN <i class="fas {{ cabecalhos.ean.icone }} icone-ordenar {% if cabecalhos.ean.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.sku.href }}">SKU <i class="fas {{ cabecalhos.sku.icone }} icone-ordenar {% if cabecalhos.sku.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.cod_fabricante.href }}">Cód. Fabricante <i class="fas {{ cabecalhos.cod_fabricante.icone }} icone-ordenar {% if cabecalhos.cod_fabricante.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.titulo.href }}">Nome <i class="fas {{ cabecalhos.titulo.icone }} icone-ordenar {% if cabecalhos.titulo.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.marca.href }}">Marca <i class="fas {{ cabecalhos.marca.icone }} icone-ordenar {% if cabecalhos.marca.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.estoque.href }}">Estoque <i class="fas {{ cabecalhos.estoque.icone }} icone-ordenar {% if cabecalhos.estoque.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.curva.href }}">Curva <i class="fas {{ cabecalhos.curva.icone }} icone-ordenar {% if cabecalhos.curva.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.categoria.href }}">Categoria <i class="fas {{ cabecalhos.categoria.icone }} icone-ordenar {% if cabecalhos.categoria.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.peso.href }}">Peso <i class="fas {{ cabecalhos.peso.icone }} icone-ordenar {% if cabecalhos.peso.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.peso_cubado.href }}">Peso Cubado <i class="fas {{ cabecalhos.peso_cubado.icone }} icone-ordenar {% if cabecalhos.peso_cubado.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.altura.href }}">Altura <i class="fas {{ cabecalhos.altura.icone }} icone-ordenar {% if cabecalhos.altura.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.largura.href }}">Largura <i class="fas {{ cabecalhos.largura.icone }} icone-ordenar {% if cabecalhos.largura.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.profundidade.href }}">Profundidade <i class="fas {{ cabecalhos.profundidade.icone }} icone-ordenar {% if cabecalhos.profundidade.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.custo.href }}">Custo <i class="fas {{ cabecalhos.custo.icone }} icone-ordenar {% if cabecalhos.custo.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.custo_com_boni.href }}">Custo c/ Boni <i class="fas {{ cabecalhos.custo_com_boni.icone }} icone-ordenar {% if cabecalhos.custo_com_boni.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.ncm.href }}">NCM <i class="fas {{ cabecalhos.ncm.icone }} icone-ordenar {% if cabecalhos.ncm.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.ipi.href }}">IPI <i class="fas {{ cabecalhos.ipi.icone }} icone-ordenar {% if cabecalhos.ipi.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.icms_entrada.href }}">ICMS Entrada <i class="fas {{ cabecalhos.icms_entrada.icone }} icone-ordenar {% if cabecalhos.icms_entrada.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.icms_saida_sp.href }}">ICMS Saída SP <i class="fas {{ cabecalhos.icms_saida_sp.icone }} icone-ordenar {% if cabecalhos.icms_saida_sp.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.icms_saida_media.href }}">ICMS Saída Média <i class="fas {{ cabecalhos.icms_saida_media.icone }} icone-ordenar {% if cabecalhos.icms_saida_media.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.pis_cofins.href }}">PIS/COFINS <i class="fas {{ cabecalhos.pis_cofins.icone }} icone-ordenar {% if cabecalhos.pis_cofins.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.mva.href }}">MVA <i class="fas {{ cabecalhos.mva.icone }} icone-ordenar {% if cabecalhos.mva.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.st_valor.href }}">ST Valor <i class="fas {{ cabecalhos.st_valor.icone }} icone-ordenar {% if cabecalhos.st_valor.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.frete_cif_fob.href }}">Frete CIF/FOB <i class="fas {{ cabecalhos.frete_cif_fob.icone }} icone-ordenar {% if cabecalhos.frete_cif_fob.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.criado_em.href }}">Entrada no DB <i class="fas {{ cabecalhos.criado_em.icone }} icone-ordenar {% if cabecalhos.criado_em.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.atualizado_em.href }}">Atualização no DB <i class="fas {{ cabecalhos.atualizado_em.icone }} icone-ordenar {% if cabecalhos.atualizado_em.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.ultima_compra.href }}">Última Compra <i class="fas {{ cabecalhos.ultima_compra.icone }} icone-ordenar {% if cabecalhos.ultima_compra.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.cadastrado_erp_em.href }}">Cadastro no ERP <i class="fas {{ cabecalhos.cadastrado_erp_em.icone }} icone-ordenar {% if cabecalhos.cadastrado_erp_em.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if not pagina.object_list %}
+            <tr>
+                <td colspan="100%" class="produtos-tabela-vazia">Nenhum produto encontrado com esses filtros.</td>
+            </tr>
+            {% endif %}
+            {% for produto in pagina.object_list %}
+            <tr hx-get="{% url 'painel_produto' produto.id %}" hx-target="#modal-conteudo" hx-swap="innerHTML" onclick="abrirModal()" style="cursor: pointer;">
+                <td>
+                    {% if produto.imagem_url %}
+                    <img src="{{ produto.imagem_url }}" class="miniatura-produto" alt="{{ produto.titulo }}" loading="lazy">
+                    {% else %}
+                    <div class="miniatura-produto miniatura-vazia"><i class="fas fa-image"></i></div>
+                    {% endif %}
+                </td>
+                <td>{{ produto.ean|default:"" }}</td>
+                <td>{{ produto.sku|default:"" }}</td>
+                <td>{{ produto.cod_fabricante|default:"" }}</td>
+                <td>{{ produto.titulo|default:"" }}</td>
+                <td>{{ produto.marca|default:"" }}</td>
+                <td>{{ produto.estoque|default:"" }}</td>
+                <td>{{ produto.curva|default:"" }}</td>
+                <td>{{ produto.categoria|default:"" }}</td>
+                <td>{{ produto.peso|floatformat:3|default:"" }} kg</td>
+                <td>{{ produto.peso_cubado|floatformat:3|default:"" }} kg</td>
+                <td>{{ produto.altura|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.largura|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.profundidade|floatformat:2|default:"" }} cm</td>
+                <td>R$ {{ produto.custo|floatformat:2|default:"" }}</td>
+                <td>R$ {{ produto.custo_com_boni|floatformat:2|default:"" }}</td>
+                <td>{{ produto.ncm|default:"" }}</td>
+                <td>{{ produto.ipi|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.icms_entrada|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.icms_saida_sp|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.icms_saida_media|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.pis_cofins|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.mva|default:"" }}</td>
+                <td>{{ produto.st_valor|default:"" }}</td>
+                <td>{{ produto.frete_cif_fob|default:"" }}</td>
+                <td>{{ produto.criado_em|date:"d/m/Y H:i"|default:"" }}</td>
+                <td>{{ produto.atualizado_em|date:"d/m/Y H:i"|default:"" }}</td>
+                <td>{{ produto.ultima_compra|date:"d/m/Y"|default:"" }}</td>
+                <td>{{ produto.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 
-<table id="tabela-produtos" class="display" style="width:100%">
-    <thead>
-        <tr>
-            <th>Foto</th>
-            <th>EAN</th>
-            <th>SKU</th>
-            <th>Cód. Fabricante</th>
-            <th>Nome</th>
-            <th>Marca</th>
-            <th>Estoque</th>
-            <th>Curva</th>
-            <th>Custo</th>
-            <th>Custo c/ Boni</th>
-            <th>Peso</th>
-            <th>Peso Cubado</th>
-            <th>Altura</th>
-            <th>Largura</th>
-            <th>Profundidade</th>
-            <th>NCM</th>
-            <th>IPI</th>
-            <th>ICMS Entrada</th>
-            <th>ICMS Saída SP</th>
-            <th>ICMS Saída Média</th>
-            <th>PIS/COFINS</th>
-            <th>MVA</th>
-            <th>ST Valor</th>
-            <th>Frete CIF/FOB</th>
-            <th>Criado em</th>
-            <th>Atualizado em</th>
-            <th>Categoria</th>
-            <th>Última Compra</th>
-            <th>Cadastro no ERP</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for produto in produtos %}
-        <tr hx-get="{% url 'painel_produto' produto.id %}" hx-target="#modal-conteudo" hx-swap="innerHTML" onclick="abrirModal()" style="cursor: pointer;">
-            <td>
-                {% if produto.imagem_url %}
-                <img src="{{ produto.imagem_url }}" class="miniatura-produto" alt="{{ produto.titulo }}" loading="lazy">
-                {% else %}
-                <div class="miniatura-produto miniatura-vazia"><i class="fas fa-image"></i></div>
-                {% endif %}
-            </td>
-            <td>{{ produto.ean|default:"" }}</td>
-            <td>{{ produto.sku|default:"" }}</td>
-            <td>{{ produto.cod_fabricante|default:"" }}</td>
-            <td>{{ produto.titulo|default:"" }}</td>
-            <td>{{ produto.marca|default:"" }}</td>
-            <td data-order="{{ produto.estoque|default:0 }}">{{ produto.estoque|default:"" }}</td>
-            <td>{{ produto.curva|default:"" }}</td>
-            <td data-order="{{ produto.custo|default:0 }}">R$ {{ produto.custo|floatformat:2|default:"" }}</td>
-            <td data-order="{{ produto.custo_com_boni|default:0 }}">{{ produto.custo_com_boni|floatformat:2|default:"" }}</td>
-            <td data-order="{{ produto.peso|default:0 }}">{{ produto.peso|floatformat:3|default:"" }} kg</td>
-            <td data-order="{{ produto.peso_cubado|default:0 }}">{{ produto.peso_cubado|floatformat:3|default:"" }} kg</td>
-            <td data-order="{{ produto.altura|default:0 }}">{{ produto.altura|floatformat:2|default:"" }} cm</td>
-            <td data-order="{{ produto.largura|default:0 }}">{{ produto.largura|floatformat:2|default:"" }} cm</td>
-            <td data-order="{{ produto.profundidade|default:0 }}">{{ produto.profundidade|floatformat:2|default:"" }} cm</td>
-            <td>{{ produto.ncm|default:"" }}</td>
-            <td data-order="{{ produto.ipi|default:0 }}">{{ produto.ipi|floatformat:2|default:"" }}%</td>
-            <td data-order="{{ produto.icms_entrada|default:0 }}">{{ produto.icms_entrada|floatformat:2|default:"" }}%</td>
-            <td data-order="{{ produto.icms_saida_sp|default:0 }}">{{ produto.icms_saida_sp|floatformat:2|default:"" }}%</td>
-            <td data-order="{{ produto.icms_saida_media|default:0 }}">{{ produto.icms_saida_media|floatformat:2|default:"" }}%</td>
-            <td data-order="{{ produto.pis_cofins|default:0 }}">{{ produto.pis_cofins|floatformat:2|default:"" }}%</td>
-            <td data-order="{{ produto.mva|default:0 }}">{{ produto.mva|default:"" }}</td>
-            <td data-order="{{ produto.st_valor|default:0 }}">{{ produto.st_valor|default:"" }}</td>
-            <td data-order="{{ produto.frete_cif_fob|default:0 }}">{{ produto.frete_cif_fob|default:"" }}</td>
-            <td data-order="{{ produto.criado_em|date:'Y-m-d H:i'|default:'' }}">{{ produto.criado_em|date:"d/m/Y H:i"|default:"" }}</td>
-            <td data-order="{{ produto.atualizado_em|date:'Y-m-d H:i'|default:'' }}">{{ produto.atualizado_em|date:"d/m/Y H:i"|default:"" }}</td>
-            <td>{{ produto.categoria|default:"" }}</td>
-            <td data-order="{{ produto.ultima_compra|date:'Y-m-d'|default:'' }}">{{ produto.ultima_compra|date:"d/m/Y"|default:"" }}</td>
-            <td data-order="{{ produto.cadastrado_erp_em|date:'Y-m-d'|default:'' }}">{{ produto.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="produtos-paginacao">
+    {% if pagina.has_previous %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="produtos-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="produtos-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    {% if pagina.has_next %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="produtos-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
 
 <div class="modal fade" id="modal-produto" tabindex="-1">
     <div class="modal-dialog modal-xl">
@@ -207,4 +319,4 @@
 
 {% block scripts %}
 <script src="{% static 'produtos/js/script_produtos.js' %}"></script>
-{% endblock %}
+{% endblock %} 

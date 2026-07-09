@@ -4,6 +4,10 @@
 {% block titulo %}Competição de Catálogo — {{ mlb }}{% endblock %}
 {% block toolbar_titulo %}Competição de Catálogo{% endblock %}
 
+{% block toolbar_acoes %}
+<a href="{{ voltar_url }}" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Hub</a>
+{% endblock %}
+
 {% block head_extra %}
 
 <link rel="stylesheet" href="{% static 'mercado_livre/css/layout_competicao_catalogo.css' %}">

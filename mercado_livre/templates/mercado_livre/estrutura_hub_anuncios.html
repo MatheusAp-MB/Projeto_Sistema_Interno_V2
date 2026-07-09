@@ -230,7 +230,7 @@
                     {% endif %}
                     {% for cat in base.anuncios_catalogo %}
                         {% for folha in cat.folhas %}
-                            {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo" %}
+                            {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo" voltar=querystring_atual %}
                         {% endfor %}
                     {% endfor %}
                 </div>
@@ -238,7 +238,7 @@
 
                 {% for orfao in pagina_cat.anuncios_catalogo_orfaos %}
                     {% for folha in orfao.folhas %}
-                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo órfão" %}
+                      {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Catálogo órfão" voltar=querystring_atual %}
                     {% endfor %}
                 {% endfor %}
             </div>
@@ -251,7 +251,7 @@
             <div class="hub-lista-cards">
                 {% for simples in arvore.anuncios_simples %}
                     {% for folha in simples.folhas %}
-                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Simples" %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_card_anuncio.html' with anuncio=folha tag_papel="Simples" voltar=querystring_atual %}
                     {% endfor %}
                 {% endfor %}
             </div>

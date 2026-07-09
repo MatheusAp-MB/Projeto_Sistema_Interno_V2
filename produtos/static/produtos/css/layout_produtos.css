@@ -3,22 +3,181 @@
 */
 
 /* ================================================
-   TABELA
+   BARRA DE BUSCA E FILTROS
    ================================================ */
 
-#tabela-produtos td,
-#tabela-produtos th {
-    height: 44px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.produtos-barra-busca {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: center;
+}
+
+.produtos-input-busca {
+    flex: 1;
+    padding: 9px 14px;
+    border: 1px solid #ccd3de;
+    border-radius: 8px;
+}
+
+.produtos-select-paginacao {
+    padding: 9px 12px;
+    border: 1px solid #ccd3de;
+    border-radius: 8px;
+}
+
+.produtos-chips-filtros {
+    flex-basis: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chips-filtros-rotulo {
+    font-size: 0.78rem;
+    color: #556;
+    margin-right: 2px;
+}
+
+.chip-filtro {
+    background: #eef2f7;
+    color: #1e3a5f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 14px;
+    border: 1px solid #d7e0ec;
+}
+
+.produtos-filtros {
+    flex-basis: 100%;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+    padding: 4px 16px;
+}
+
+.produtos-filtros-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    font-weight: 600;
+    color: #1e3a5f;
+    cursor: pointer;
+    list-style: none;
+}
+
+.produtos-filtros-secao-titulo {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #99a;
+    margin: 12px 0 8px 0;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+}
+
+.produtos-filtros-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.filtro-grupo {
+    width: 220px;
+    height: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.filtro-busca-interna {
+    font-size: 0.78rem;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.filtro-opcoes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 4px;
+}
+
+.filtro-opcao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #333;
+    cursor: pointer;
+}
+
+/* ================================================
+   FILTROS DE FAIXA (mín/máx) — Dimensões, Financeiro,
+   Fiscal, Controle DB, Controle ERP
+   ================================================ */
+
+.produtos-filtros-grid-faixa {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.filtro-faixa {
+    width: 160px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.filtro-faixa-campos {
+    display: flex;
+    gap: 6px;
+}
+
+.filtro-faixa-campos input {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+
+.produtos-filtros-acoes {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 0;
+    border-top: 1px solid #eee;
+    margin-top: 12px;
+}
+
+.btn-limpar-filtros {
+    font-size: 0.85rem;
+    color: #99a;
+    text-decoration: underline;
 }
 
 /* ================================================
    PAINEL DE COLUNAS — CARDS
    ================================================ */
 
-/* * [EXPLICAÇÃO] → Títulos dos cards centralizados e em destaque. */
 .painel-card-titulo {
     font-size: 0.85rem;
     font-weight: 700;
@@ -27,37 +186,35 @@
     color: rgba(255, 255, 255, 0.8);
     margin-bottom: 10px;
     text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    padding-bottom: 8px;
 }
 
-/* * [EXPLICAÇÃO] → Botões internos dos cards em flex wrap. */
 .painel-card-botoes {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
     justify-content: center;
-   
 }
 
 .painel-card-botoes > button {
     min-width: 110px;
     max-width: 110px;
-
     max-height: 50px;
     min-height: 50px;
     text-wrap: inherit;
-    /* background-color: red; */
 }
 
-/* * [EXPLICAÇÃO] → Larguras individuais por card. */
 @media (min-width: 768px) {
-    .painel-col-identificacao { flex: 0 0 auto; width: 480px;  }
-    .painel-col-financeiro    { flex: 0 0 auto; width: 400px;  }
-    .painel-col-controle      { flex: 0 0 auto; width: 400px;  }
-    .painel-col-fiscal        { flex: 0 0 auto; width: 480px;}
+    .painel-col-identificacao { flex: 0 0 auto; width: 480px; }
+    .painel-col-financeiro    { flex: 0 0 auto; width: 400px; }
+    .painel-col-controle      { flex: 0 0 auto; width: 400px; }
+    .painel-col-fiscal        { flex: 0 0 auto; width: 480px; }
     .painel-col-dimensoes     { flex: 0 0 auto; width: 480px; }
+    .painel-col-controle-db   { flex: 0 0 auto; width: 300px; }
+    .painel-col-controle-erp  { flex: 0 0 auto; width: 300px; }
 }
 
-/* * [EXPLICAÇÃO] → Estilo visual dos cards do painel de colunas. */
 .painel-card {
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -66,31 +223,112 @@
     height: 100%;
 }
 
-.painel-card-titulo {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-    padding-bottom: 8px;
-    margin-bottom: 10px;
-}
-
-#painel-colunas > div, #painel-colunas > h6{
+#painel-colunas > div, #painel-colunas > h6 {
     justify-content: center;
     text-align: center;
+}
 
+/* ================================================
+   TABELA
+   ================================================ */
+
+.produtos-tabela-wrapper {
+    overflow: auto;
+    max-height: 75vh;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+}
+
+.produtos-tabela {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.82rem;
+}
+
+.produtos-tabela th, .produtos-tabela td {
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border-bottom: 1px solid #d2d2d2;
+    white-space: nowrap;
+    height: 44px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-right: 1px solid #d2d2d2;
+}
+
+.produtos-tabela thead th {
+    position: sticky;
+    top: 0;
+    background: #1e3a5f;
+    color: #fff;
+    text-align: left;
+    z-index: 1;
+}
+
+.produtos-tabela thead th a {
+    color: #fff;
+    text-decoration: none;
+    display: block;
+}
+
+.produtos-tabela thead th a:hover {
+    text-decoration: underline;
+}
+
+.icone-ordenar {
+    font-size: 0.7rem;
+    opacity: 0.4;
+    margin-left: 4px;
+}
+
+.icone-ordenar-ativo {
+    opacity: 1;
+}
+
+.produtos-tabela-vazia {
+    text-align: center;
+    padding: 32px !important;
+    color: #99a;
+    font-style: italic;
+}
+
+/* ================================================
+   PAGINAÇÃO
+   ================================================ */
+
+.produtos-paginacao {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    font-size: 0.85rem;
+    color: #556;
+}
+
+.produtos-paginacao-link {
+    color: #1e3a5f;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.produtos-paginacao-link:hover {
+    text-decoration: underline;
 }
 
 /* ================================================
    MODAL DE DETALHES DO PRODUTO
    ================================================ */
 
-#modal-conteudo{
+#modal-conteudo {
     background-color: azure;
 }
 
-.card-body{
+.card-body {
     padding: 0px;
 }
 
-/* * [EXPLICAÇÃO] → Cabeçalho do modal — fundo escuro com título centralizado. */
 #modal-produto-header {
     background-color: var(--cor-primaria);
     color: var(--cor-texto-claro);
@@ -101,7 +339,6 @@
     text-align: center;
 }
 
-/* * [EXPLICAÇÃO] → Botão de fechar customizado — substitui o btn-close padrão do Bootstrap. */
 #modal-produto-btn-fechar {
     background: none;
     border: none;
@@ -117,7 +354,6 @@
     background: rgba(255, 255, 255, 0.15);
 }
 
-/* * [EXPLICAÇÃO] → Título do produto no corpo do modal. */
 .modal-produto-titulo {
     text-align: center;
     font-weight: 700;
@@ -126,17 +362,10 @@
     font-size: 1rem;
 }
 
-
-.painel-col-controle-db  { flex: 0 0 auto; width: 300px; }
-.painel-col-controle-erp { flex: 0 0 auto; width: 300px; }
-
 /* ================================================
    IMAGEM DO PRODUTO — TABELA E MODAL
    ================================================ */
 
-/* * [EXPLICAÇÃO] → Miniatura na tabela: tamanho fixo, object-fit garante
-                     que qualquer proporção de imagem original preencha
-                     o quadrado sem distorcer. */
 .miniatura-produto {
     width: 120px;
     height: 120px;
@@ -155,8 +384,6 @@
     font-size: 1rem;
 }
 
-/* * [EXPLICAÇÃO] → Imagem grande no modal: mesma lógica, tamanho maior,
-                     sempre centralizada acima do título. */
 .modal-produto-imagem-wrap {
     display: flex;
     justify-content: center;
@@ -178,4 +405,8 @@
     background-color: #f1f3f5;
     color: #adb5bd;
     font-size: 2.5rem;
+}
+
+.coluna-oculta {
+    display: none;
 }
