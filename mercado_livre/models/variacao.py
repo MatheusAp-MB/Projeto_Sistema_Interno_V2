@@ -43,6 +43,14 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     thumbnail_url = models.URLField(max_length=500, blank=True, null=True)
     imagem_principal_url = models.URLField(max_length=500, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → preco_original só vem preenchido quando existe
+    #                  desconto ativo (é o preço "de", riscado). Quando
+    #                  não há promoção, a API não retorna esse campo —
+    #                  por isso é opcional, nunca 0 (0 seria um preço
+    #                  real, não "sem dado").
+    preco_atual    = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    preco_original = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'

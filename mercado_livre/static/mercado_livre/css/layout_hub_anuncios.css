@@ -779,3 +779,20 @@
     color: #556;
     margin-right: 2px;
 }
+
+
+
+.card-anuncio-preco-de {
+    font-size: 0.68rem;
+    color: #99a;
+    text-decoration: line-through;
+}
+
+.card-anuncio-desconto {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #fff;
+    background: #d63447;
+    padding: 1px 5px;
+    border-radius: 3px;
+}

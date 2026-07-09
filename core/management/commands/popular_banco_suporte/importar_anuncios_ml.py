@@ -190,6 +190,12 @@ def importar_anuncios_ml(stdout, style, caminho_json):
                 num_fotos=linha.get('variacao_num_fotos') or 0,
                 thumbnail_url=linha.get('thumbnail'),
                 imagem_principal_url=linha.get('imagem_principal'),
+                # * [EXPLICAÇÃO] → sem "or 0" de propósito — preço ausente
+                #                  deve virar None (sem dado), nunca 0
+                #                  (0 seria um preço real, diferente de
+                #                  "não sabemos").
+                preco_atual=linha.get('price'),
+                preco_original=linha.get('original_price'),
             )
 
             chave = (anuncio.pk, variacao_id)
@@ -207,7 +213,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
         VariacaoAnuncioMercadoLivre.objects.bulk_create(variacoes_para_criar, batch_size=1000)
 
     if variacoes_para_atualizar:
-        campos_variacao = ['sku_ml', 'produto', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url']
+        campos_variacao = ['sku_ml', 'produto', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url', 'preco_atual', 'preco_original']
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
             variacoes_para_atualizar, campos_variacao, batch_size=1000
         )

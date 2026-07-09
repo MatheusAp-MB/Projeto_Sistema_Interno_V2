@@ -90,6 +90,20 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         score_numerico = qualidade.score if qualidade and qualidade.score is not None else 0
         ponteiro_x, ponteiro_y = calcular_ponteiro_termometro(score_numerico)
 
+    # * [EXPLICAÇÃO] → Desconto só existe quando preco_original vier
+    #                  preenchido E for maior que o preço atual (a API
+    #                  só manda preco_original quando há promoção ativa
+    #                  — confirmado com dado real antes de implementar).
+    tem_desconto = bool(
+        variacao.preco_original and variacao.preco_atual
+        and variacao.preco_original > variacao.preco_atual
+    )
+    desconto_percentual = None
+    if tem_desconto:
+        desconto_percentual = round(
+            (variacao.preco_original - variacao.preco_atual) / variacao.preco_original * 100
+        )
+
     return {
         'mlb': anuncio.mlb if anuncio else None,
         'variacao_id': variacao.variacao_id,
@@ -102,6 +116,11 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'titulo_produto': titulo_produto,
 
         'estoque': variacao.estoque,
+
+        'preco_atual': variacao.preco_atual,
+        'preco_original': variacao.preco_original,
+        'tem_desconto': tem_desconto,
+        'desconto_percentual': desconto_percentual,
 
         'score': score_numerico,
         'ponteiro_x': ponteiro_x,
@@ -169,6 +188,17 @@ def _passa_estoque(variacao, filtros):
     return tem_estoque == (valores_estoque[0] == 'com')
 
 
+def _passa_desconto(variacao, filtros):
+    valores_desconto = filtros.get('desconto') or []
+    if len(valores_desconto) != 1:
+        return True
+    tem_desconto = bool(
+        variacao.preco_original and variacao.preco_atual
+        and variacao.preco_original > variacao.preco_atual
+    )
+    return tem_desconto == (valores_desconto[0] == 'com')
+
+
 def _passa_score_direto(variacao, filtros):
     faixas = filtros.get('faixas_score') or []
     if not faixas:
@@ -192,7 +222,7 @@ def _passa_competicao_direto(anuncio, filtros):
 
 def _mlb_tem_folha_valida(variacoes_mlb, filtros):
     return any(
-        _passa_estoque(v, filtros) and _passa_score_direto(v, filtros)
+        _passa_estoque(v, filtros) and _passa_desconto(v, filtros) and _passa_score_direto(v, filtros)
         for v in variacoes_mlb
     )
 
@@ -221,6 +251,8 @@ def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_par
     if not _passa_filtros_compartilhados(tipo, filtros):
         return False
     if not any(_passa_estoque(v, filtros) for v in variacoes_mlb):
+        return False
+    if not any(_passa_desconto(v, filtros) for v in variacoes_mlb):
         return False
     if not _passa_competicao_direto(anuncio, filtros):
         return False
@@ -418,7 +450,7 @@ def listar_skus_filtrados(busca=None, filtros=None):
 
     chaves_avancadas = [
         'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
-        'flex', 'estoque', 'faixas_score', 'situacoes_competicao',
+        'flex', 'estoque', 'desconto', 'faixas_score', 'situacoes_competicao',
     ]
     tem_filtro_avancado = any(filtros.get(chave) for chave in chaves_avancadas)
 

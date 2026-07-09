@@ -32,6 +32,7 @@ def view_hub_anuncios(request):
         'catalogos': request.GET.getlist('catalogo'),
         'flex': request.GET.getlist('flex'),
         'estoque': request.GET.getlist('estoque'),
+        'desconto': request.GET.getlist('desconto'),
         'faixas_score': request.GET.getlist('score'),
         'situacoes_competicao': request.GET.getlist('competicao'),
     }
@@ -51,6 +52,7 @@ def view_hub_anuncios(request):
 
     mapa_competicao = dict(CompeticaoCatalogo.StatusCompeticao.choices)
     mapa_estoque = {'com': 'Com estoque', 'sem': 'Sem estoque'}
+    mapa_desconto = {'com': 'Com desconto', 'sem': 'Sem desconto'}
     mapa_score = {'ruim': 'Ruim', 'medio': 'Médio', 'bom': 'Bom', 'sem_dados': 'Sem dados'}
 
     # * [EXPLICAÇÃO] → Status/Tipo/Logística/Flex/Catálogo usam o mesmo
@@ -66,6 +68,7 @@ def view_hub_anuncios(request):
         [badge_de(BADGES_CATALOGO, v) for v in filtros['catalogos']] +
         [badge_flex(v == 'sim') for v in filtros['flex']] +
         [{'label': mapa_estoque.get(v, v), 'classe': None, 'icone': None} for v in filtros['estoque']] +
+        [{'label': mapa_desconto.get(v, v), 'classe': None, 'icone': None} for v in filtros['desconto']] +
         [{'label': mapa_score.get(v, v), 'classe': None, 'icone': None} for v in filtros['faixas_score']] +
         [{'label': mapa_competicao.get(v, v), 'classe': None, 'icone': None} for v in filtros['situacoes_competicao']]
     )

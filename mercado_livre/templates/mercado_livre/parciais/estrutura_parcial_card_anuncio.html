@@ -39,7 +39,13 @@
 
             <span class="card-anuncio-preco">
                 <span class="card-anuncio-preco-label">Preço</span>
-                <span class="card-anuncio-preco-valor">—</span>
+                {% if anuncio.tem_desconto %}
+                <span class="card-anuncio-preco-de">R$ {{ anuncio.preco_original|floatformat:2 }}</span>
+                <span class="card-anuncio-preco-valor">R$ {{ anuncio.preco_atual|floatformat:2 }}</span>
+                <span class="card-anuncio-desconto">-{{ anuncio.desconto_percentual }}%</span>
+                {% else %}
+                <span class="card-anuncio-preco-valor">{% if anuncio.preco_atual %}R$ {{ anuncio.preco_atual|floatformat:2 }}{% else %}—{% endif %}</span>
+                {% endif %}
             </span>
         </div>
 

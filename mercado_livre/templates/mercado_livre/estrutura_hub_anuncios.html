@@ -144,6 +144,20 @@
         </div>
 
         <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Desconto</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="desconto" value="com" {% if 'com' in filtros.desconto %}checked{% endif %}>
+                    <span>Com desconto ativo</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox" name="desconto" value="sem" {% if 'sem' in filtros.desconto %}checked{% endif %}>
+                    <span>Sem desconto</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filtro-grupo">
             <span class="filtro-grupo-titulo">Faixa de score</span>
             <div class="filtro-opcoes-lista">
                 <label class="filtro-opcao">
