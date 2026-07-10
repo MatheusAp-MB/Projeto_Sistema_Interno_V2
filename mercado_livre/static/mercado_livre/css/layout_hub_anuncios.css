@@ -796,3 +796,19 @@
     padding: 1px 5px;
     border-radius: 3px;
 }
+
+
+.hub-sku-imagem-alerta {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+}
+
+.hub-sku-sem-erp {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    background: #fbbf24;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}

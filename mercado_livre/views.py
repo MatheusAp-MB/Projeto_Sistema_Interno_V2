@@ -33,11 +33,12 @@ def view_hub_anuncios(request):
         'flex': request.GET.getlist('flex'),
         'estoque': request.GET.getlist('estoque'),
         'desconto': request.GET.getlist('desconto'),
+        'conexao_erp': request.GET.getlist('conexao_erp'),
         'faixas_score': request.GET.getlist('score'),
         'situacoes_competicao': request.GET.getlist('competicao'),
     }
 
-    skus = listar_skus_filtrados(busca=busca or None, filtros=filtros)
+    skus, total_anuncios_filtrados = listar_skus_filtrados(busca=busca or None, filtros=filtros)
 
     paginator = Paginator(skus, por_pagina)
     numero_pagina = request.GET.get('pagina', 1)
@@ -53,6 +54,7 @@ def view_hub_anuncios(request):
     mapa_competicao = dict(CompeticaoCatalogo.StatusCompeticao.choices)
     mapa_estoque = {'com': 'Com estoque', 'sem': 'Sem estoque'}
     mapa_desconto = {'com': 'Com desconto', 'sem': 'Sem desconto'}
+    mapa_conexao_erp = {'com': 'Com conexão ERP', 'sem': 'Sem conexão ERP'}
     mapa_score = {'ruim': 'Ruim', 'medio': 'Médio', 'bom': 'Bom', 'sem_dados': 'Sem dados'}
 
     # * [EXPLICAÇÃO] → Status/Tipo/Logística/Flex/Catálogo usam o mesmo
@@ -69,6 +71,7 @@ def view_hub_anuncios(request):
         [badge_flex(v == 'sim') for v in filtros['flex']] +
         [{'label': mapa_estoque.get(v, v), 'classe': None, 'icone': None} for v in filtros['estoque']] +
         [{'label': mapa_desconto.get(v, v), 'classe': None, 'icone': None} for v in filtros['desconto']] +
+        [{'label': mapa_conexao_erp.get(v, v), 'classe': None, 'icone': None} for v in filtros['conexao_erp']] +
         [{'label': mapa_score.get(v, v), 'classe': None, 'icone': None} for v in filtros['faixas_score']] +
         [{'label': mapa_competicao.get(v, v), 'classe': None, 'icone': None} for v in filtros['situacoes_competicao']]
     )
@@ -80,6 +83,7 @@ def view_hub_anuncios(request):
         'por_pagina': por_pagina,
         'filtros': filtros,
         'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+        'total_anuncios_filtrados': total_anuncios_filtrados,
 
         'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True)
             .exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),

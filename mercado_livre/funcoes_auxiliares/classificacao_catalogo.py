@@ -15,6 +15,7 @@
 import json as jsonlib
 from collections import defaultdict
 from django.db.models import Q
+from django.db.models.functions import Coalesce
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
 import math
 
@@ -199,6 +200,14 @@ def _passa_desconto(variacao, filtros):
     return tem_desconto == (valores_desconto[0] == 'com')
 
 
+def _passa_conexao_erp(variacao, filtros):
+    valores = filtros.get('conexao_erp') or []
+    if len(valores) != 1:
+        return True
+    tem_conexao = variacao.produto_id is not None
+    return tem_conexao == (valores[0] == 'com')
+
+
 def _passa_score_direto(variacao, filtros):
     faixas = filtros.get('faixas_score') or []
     if not faixas:
@@ -222,7 +231,8 @@ def _passa_competicao_direto(anuncio, filtros):
 
 def _mlb_tem_folha_valida(variacoes_mlb, filtros):
     return any(
-        _passa_estoque(v, filtros) and _passa_desconto(v, filtros) and _passa_score_direto(v, filtros)
+        _passa_estoque(v, filtros) and _passa_desconto(v, filtros)
+        and _passa_conexao_erp(v, filtros) and _passa_score_direto(v, filtros)
         for v in variacoes_mlb
     )
 
@@ -254,6 +264,8 @@ def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_par
         return False
     if not any(_passa_desconto(v, filtros) for v in variacoes_mlb):
         return False
+    if not any(_passa_conexao_erp(v, filtros) for v in variacoes_mlb):
+        return False
     if not _passa_competicao_direto(anuncio, filtros):
         return False
 
@@ -269,14 +281,28 @@ def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_par
 def carregar_variacoes_por_sku(skus=None):
     qs = VariacaoAnuncioMercadoLivre.objects.select_related(
         'anuncio', 'anuncio__tipo_de_anuncio', 'anuncio__competicao', 'produto', 'qualidade'
-    ).exclude(produto__isnull=True)
+    )
 
     if skus is not None:
-        qs = qs.filter(produto__sku__in=skus)
+        # * [EXPLICAÇÃO] → "skus" agora pode conter 3 tipos de chave
+        #                  (SKU do Produto, SKU do ML, ou o próprio MLB),
+        #                  dependendo de qual delas foi usada como
+        #                  fallback pra cada Variação — bate com a mesma
+        #                  ordem de prioridade usada no agrupamento abaixo.
+        qs = qs.filter(
+            Q(produto__sku__in=skus) |
+            Q(produto__isnull=True, sku_ml__in=skus) |
+            Q(produto__isnull=True, sku_ml__isnull=True, anuncio__mlb__in=skus)
+        )
 
     variacoes_por_sku = defaultdict(list)
     for v in qs:
-        variacoes_por_sku[v.produto.sku].append(v)
+        # * [EXPLICAÇÃO] → Sem Produto vinculado (ERP não conectado ainda),
+        #                  agrupa pelo SKU que o próprio ML mandou; se nem
+        #                  isso existir, agrupa pelo MLB (nunca deixa a
+        #                  variação "sem lar").
+        chave = v.produto.sku if v.produto else (v.sku_ml or v.anuncio.mlb)
+        variacoes_por_sku[chave].append(v)
 
     return variacoes_por_sku
 
@@ -311,7 +337,11 @@ def montar_estrutura_de_sku(sku, variacoes, filtros=None):
 
     def folhas_do_mlb(mlb):
         return [
-            info_variacao(v, imagem_url=produto.imagem_url, titulo_produto=produto.titulo)
+            info_variacao(
+                v,
+                imagem_url=produto.imagem_url if produto else None,
+                titulo_produto=produto.titulo if produto else None,
+            )
             for v in variacoes_por_mlb[mlb]
         ]
 
@@ -412,9 +442,10 @@ def montar_estrutura_de_sku(sku, variacoes, filtros=None):
     return {
         'sku': sku,
         'encontrado': True,
-        'marca': produto.marca,
-        'titulo_produto': produto.titulo,
-        'imagem_url': produto.imagem_url,
+        'marca': produto.marca if produto else None,
+        'titulo_produto': produto.titulo if produto else None,
+        'imagem_url': produto.imagem_url if produto else None,
+        'sem_conexao_erp': produto is None,
         'total_anuncios': total_visiveis,
         'paginas_catalogo': paginas_saida,
         'anuncios_simples': simples_saida,
@@ -431,7 +462,9 @@ def classificar_todos_os_skus(filtros=None):
 def listar_skus_filtrados(busca=None, filtros=None):
     filtros = filtros or {}
 
-    qs = VariacaoAnuncioMercadoLivre.objects.exclude(produto__isnull=True)
+    qs = VariacaoAnuncioMercadoLivre.objects.annotate(
+        chave_sku=Coalesce('produto__sku', 'sku_ml', 'anuncio__mlb')
+    )
 
     if busca:
         termos = busca.split()
@@ -450,37 +483,44 @@ def listar_skus_filtrados(busca=None, filtros=None):
 
     chaves_avancadas = [
         'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
-        'flex', 'estoque', 'desconto', 'faixas_score', 'situacoes_competicao',
+        'flex', 'estoque', 'desconto', 'conexao_erp', 'faixas_score', 'situacoes_competicao',
     ]
     tem_filtro_avancado = any(filtros.get(chave) for chave in chaves_avancadas)
 
     if not tem_filtro_avancado:
         # * [EXPLICAÇÃO] → Caminho rápido: sem filtro de folha ativo, não
-        #                  precisa montar a árvore completa.
-        return list(
-            qs.select_related('produto')
-            .values_list('produto__sku', flat=True)
+        #                  precisa montar a árvore completa. Total de
+        #                  anúncios aqui é só contar MLBs distintos.
+        qs_final = qs
+        skus = list(
+            qs_final.values_list('chave_sku', flat=True)
             .distinct()
-            .order_by('produto__sku')
+            .order_by('chave_sku')
         )
+        total_anuncios = qs_final.values('anuncio_id').distinct().count()
+        return skus, total_anuncios
 
     # * [EXPLICAÇÃO] → Caminho completo: precisa montar a árvore de cada
     #                  SKU candidato pra saber se sobrevive à cascata
     #                  Base↔Catálogo — evita o contador de SKUs divergir
-    #                  do que aparece de fato na tela.
+    #                  do que aparece de fato na tela. Aproveita esse
+    #                  mesmo cálculo pra somar o total real de anúncios.
     skus_candidatos = list(
-        qs.select_related('produto')
-        .values_list('produto__sku', flat=True)
+        qs.values_list('chave_sku', flat=True)
         .distinct()
     )
     variacoes_por_sku = carregar_variacoes_por_sku(skus=skus_candidatos)
 
-    skus_finais = [
-        sku for sku, variacoes in variacoes_por_sku.items()
-        if montar_estrutura_de_sku(sku, variacoes, filtros=filtros)['total_anuncios'] > 0
-    ]
+    skus_finais = []
+    total_anuncios = 0
+    for sku, variacoes in variacoes_por_sku.items():
+        estrutura = montar_estrutura_de_sku(sku, variacoes, filtros=filtros)
+        if estrutura['total_anuncios'] > 0:
+            skus_finais.append(sku)
+            total_anuncios += estrutura['total_anuncios']
+
     skus_finais.sort()
-    return skus_finais
+    return skus_finais, total_anuncios
 
 
 def classificar_lote_de_skus(skus, filtros=None):
