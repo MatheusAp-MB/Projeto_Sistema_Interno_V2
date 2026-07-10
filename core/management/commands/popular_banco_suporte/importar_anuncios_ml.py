@@ -19,6 +19,21 @@ def classificar_catalogo(registro):
     return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.BASE
 
 
+def eh_fossil_de_migracao(registro):
+    # * [EXPLICAÇÃO] → Tag oficial do ML indicando que esse MLB é a
+    #                  origem histórica de uma migração antiga de
+    #                  variações — confirmado com dado real que 100%
+    #                  dos casos vêm com status=closed.
+    tags_raw = registro.get('tags')
+    if not tags_raw:
+        return False
+    try:
+        tags = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
+    except Exception:
+        return False
+    return 'variations_migration_source' in tags
+
+
 def parsear_data(valor):
     if not valor:
         return None
@@ -129,6 +144,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
             permalink=primeira.get('permalink'),
             data_criacao_ml=parsear_data(primeira.get('date_created')),
             ultima_atualizacao_ml=parsear_data(primeira.get('last_updated')),
+            eh_fossil_migracao=eh_fossil_de_migracao(primeira),
         )
 
         existente = anuncios_existentes.get(mlb)

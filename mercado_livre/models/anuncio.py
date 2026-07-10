@@ -26,6 +26,17 @@ class AnuncioMercadoLivre(models.Model):
     data_criacao_ml       = models.DateTimeField(blank=True, null=True)
     ultima_atualizacao_ml = models.DateTimeField(blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Identifica MLBs "fósseis" de uma migração antiga de
+    #                  variações do próprio Mercado Livre (tag oficial
+    #                  "variations_migration_source" no item bruto).
+    #                  Confirmado com dado real: 100% dos casos com essa
+    #                  tag estão com status=closed — são anúncios
+    #                  encerrados carregando histórico de variações que
+    #                  não representam nada vendável hoje. Excluídos do
+    #                  Hub sempre, sem opção de exibir (não é dado
+    #                  "acionável" como conexão com ERP, é só ruído).
+    eh_fossil_migracao = models.BooleanField(default=False)
+
     class Meta:
         verbose_name        = 'Anúncio Mercado Livre'
         verbose_name_plural = 'Anúncios Mercado Livre'

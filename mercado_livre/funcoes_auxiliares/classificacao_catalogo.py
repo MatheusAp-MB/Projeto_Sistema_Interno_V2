@@ -279,9 +279,12 @@ def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_par
     return True
 
 def carregar_variacoes_por_sku(skus=None):
+    # * [EXPLICAÇÃO] → Exclui MLBs "fósseis" de migração antiga de
+    #                  variações (regra de negócio fixa, sempre ativa —
+    #                  não é filtro opcional, é ruído sem ação possível).
     qs = VariacaoAnuncioMercadoLivre.objects.select_related(
         'anuncio', 'anuncio__tipo_de_anuncio', 'anuncio__competicao', 'produto', 'qualidade'
-    )
+    ).exclude(anuncio__eh_fossil_migracao=True)
 
     if skus is not None:
         # * [EXPLICAÇÃO] → "skus" agora pode conter 3 tipos de chave
@@ -462,7 +465,9 @@ def classificar_todos_os_skus(filtros=None):
 def listar_skus_filtrados(busca=None, filtros=None):
     filtros = filtros or {}
 
-    qs = VariacaoAnuncioMercadoLivre.objects.annotate(
+    qs = VariacaoAnuncioMercadoLivre.objects.exclude(
+        anuncio__eh_fossil_migracao=True
+    ).annotate(
         chave_sku=Coalesce('produto__sku', 'sku_ml', 'anuncio__mlb')
     )
 
