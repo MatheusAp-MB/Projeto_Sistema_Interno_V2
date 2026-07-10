@@ -48,7 +48,7 @@ document.addEventListener('input', function (evento) {
     if (!campo) return;
 
     var termo = campo.value.trim().toLowerCase();
-    var lista = campo.closest('.filtro-grupo').querySelector('.filtro-opcoes-lista');
+    var lista = campo.closest('.filtro-subgrupo').querySelector('.filtro-opcoes-lista');
 
     lista.querySelectorAll('.filtro-opcao').forEach(function (opcao) {
         var texto = opcao.textContent.trim().toLowerCase();

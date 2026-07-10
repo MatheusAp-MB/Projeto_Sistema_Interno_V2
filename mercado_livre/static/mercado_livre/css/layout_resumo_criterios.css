@@ -415,3 +415,16 @@
 }
 
 
+
+
+
+.grid-criterios-filtro-wrapper > table > thead > tr > th{
+    background-color: rgb(47, 47, 118);
+    color: #FFFFFF;
+    padding: 8px;
+    text-align:center;   
+}
+.grid-criterios-filtro-wrapper > table > tbody > tr:hover{
+    background-color: #dff5ffbd;
+    color: #05004f;
+}
