@@ -14,6 +14,7 @@ from core.management.commands.popular_banco_suporte.importar_anuncios_ml import 
 from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
 from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml import importar_tabela_frete_ml
+from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
@@ -33,6 +34,12 @@ class Command(BaseCommand):
             ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
             ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
             ('FRETE ML', importar_tabela_frete_ml, ()),
+            # * [EXPLICAÇÃO] → Roda por ÚLTIMO de propósito — precisa
+            #                  "vencer" a disputa de campos compartilhados
+            #                  com PRODUTOS ERP COMPLETO (custo, fiscais,
+            #                  dimensões). Essa é a fonte validada
+            #                  especificamente para precificação.
+            ('PRECIFICAÇÃO — PLANILHA VALIDADA', importar_planilha_precificacao, ()),
         ]
 
         for nome, funcao, argumentos in etapas:

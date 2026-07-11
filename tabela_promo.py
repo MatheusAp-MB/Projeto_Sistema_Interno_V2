@@ -18,7 +18,7 @@ from rich.panel import Panel
 from rich import box
 
 ARQUIVO = Path("Arquivos_API/amostra_promocoes.json")
-MLB_ALVO = "MLB2690742181"  # troque aqui para ver outro MLB
+MLB_ALVO = "MLB4145293634"  # troque aqui para ver outro MLB
 
 console = Console()
 

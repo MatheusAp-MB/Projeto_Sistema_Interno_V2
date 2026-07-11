@@ -47,6 +47,20 @@ class Produto(models.Model):
     frete_cif_fob = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
 
+    # * [EXPLICAÇÃO] → Valor mensal de armazenagem importado direto da
+    #                  coluna BH da planilha validada de precificação —
+    #                  não é calculado por faixa/dimensão, porque a
+    #                  planilha usa uma regra de atribuição inconsistente
+    #                  (documentado: calcanheiras pequenas usam faixa
+    #                  "grande", palmilhas longas usam faixa "pequena" —
+    #                  parece depender de dimensão de embalagem ou
+    #                  atribuição manual, nunca totalmente esclarecido).
+    #                  Usar esse valor real é a única forma de bater
+    #                  com o número validado, em vez de recalcular
+    #                  por regra própria.
+    armazenagem_planilha = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True)
+
     ultima_compra = models.DateTimeField(blank=True, null=True)
     cadastrado_erp_em = models.DateTimeField(blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
