@@ -1,0 +1,22 @@
+<!--
+* [RESUMO] → Resultado da calculadora de frete ML.
+* Retornado pelo HTMX após o cálculo — injetado em #resultado-calculadora.
+* Chama destacar_celula() para iluminar a célula correspondente na matriz.
+-->
+{% if erro %}
+    <div class="resultado-frete">
+        <span class="descricao">Erro ao calcular o frete: {{ erro }}</span>
+    </div>
+
+{% elif valor %}
+    <div class="resultado-frete">
+        <span class="valor">R$ {{ valor|floatformat:2 }}</span>
+        <span class="descricao">Frete para os parâmetros informados.</span>
+    </div>
+    <script>destacar_celula('{{ peso_min }}', '{{ preco_min }}');</script>
+
+{% else %}
+    <div class="resultado-frete">
+        <span class="descricao">Nenhuma faixa encontrada para os valores informados.</span>
+    </div>
+{% endif %}

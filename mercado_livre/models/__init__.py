@@ -5,3 +5,4 @@ from .criterio_qualidade import CriterioQualidade
 from .qualidade_anuncio import QualidadeAnuncio
 from .qualidade_anuncio_criterio import QualidadeAnuncioCriterio
 from .competicao_catalogo import CompeticaoCatalogo
+from .frete_ml import FreteML

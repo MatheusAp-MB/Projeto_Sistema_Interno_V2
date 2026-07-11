@@ -1,0 +1,106 @@
+<!--
+* [RESUMO] → Tela da tabela de frete do Mercado Livre.
+* Exibe a calculadora de frete e a matriz de peso × preço com dados do banco.
+* Portado do projeto antigo (Projeto-Precificacao-MB), já validado.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Tabela de Frete ML — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Tabela de Frete — Mercado Livre{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'mercado_livre/css/layout_tabela_frete_ml.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+    <!-- Calculadora -->
+    <div class="calculadora-container" id="form-calcular">
+        <h6 class="mb-3">Calcular Frete</h6>
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+                <label>Peso do produto (kg)</label>
+                <input type="number" name="peso" id="input-peso" step="0.001" min="0" placeholder="Ex: 0.340">
+            </div>
+
+            <div class="col-md-4">
+                <label>Preço do produto (R$)</label>
+                <input type="number" name="preco" id="input-preco" step="0.01" min="0" placeholder="Ex: 192.90">
+            </div>
+
+            <div class="col-md-4">
+               <button class="btn-calcular"
+                    hx-post="{% url 'mercado_livre_calcular_frete' %}"
+                    hx-target="#resultado-calculadora"
+                    hx-include="#form-calcular">
+                    <i class="fas fa-calculator"></i> Calcular
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Resultado -->
+    <div id="resultado-calculadora" class="resultado-container">
+        <div class="resultado-frete">
+            <span class="descricao">Informe o peso e o preço para calcular o frete.</span>
+        </div>
+    </div>
+
+    <!-- Matriz de frete -->
+    <div class="grade-container">
+        <table class="grade-tabela">
+            <thead>
+                <tr>
+                    <th class="col-peso">De (kg)</th>
+                    <th class="col-peso">Até (kg)</th>
+                    {% for faixa in faixas_preco %}
+                        <th>
+                            R$ {{ faixa.preco_min|floatformat:2 }}
+                            {% if faixa.preco_max %}
+                                — R$ {{ faixa.preco_max|floatformat:2 }}
+                            {% else %}
+                                +
+                            {% endif %}
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhas %}
+                <tr>
+                    <td class="col-peso">{{ linha.peso_min|floatformat:3 }}</td>
+                    <td class="col-peso">
+                        {% if linha.peso_max %}
+                            {{ linha.peso_max|floatformat:3 }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    {% for item in linha.valores %}
+                        <td
+                            data-peso-min="{{ linha.peso_min }}"
+                            data-peso-max="{{ linha.peso_max|default:'' }}"
+                            data-preco-min="{{ item.preco_min }}"
+                            data-preco-max="{{ item.preco_max|default:'' }}"
+                            data-valor="{{ item.valor }}">
+                            {% if item.valor %}
+                                R$ {{ item.valor|floatformat:2 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'mercado_livre/js/script_tabela_frete_ml.js' %}"></script>
+{% endblock %}

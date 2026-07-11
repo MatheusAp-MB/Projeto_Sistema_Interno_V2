@@ -48,7 +48,6 @@ def extrair_regras_do_bucket(buckets):
                 }
     return resultado
 
-
 def importar_qualidade_anuncio(stdout, style, caminho_json):
     if not caminho_json.exists():
         stdout.write(style.WARNING(
@@ -66,18 +65,31 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
 
     criterios_por_key = {c.rule_key: c for c in CriterioQualidade.objects.all()}
 
-    qualidades_criadas = 0
-    qualidades_atualizadas = 0
-    criterios_novos_catalogados_como_desconhecido = 0
+    # * [EXPLICAÇÃO] → Pré-carrega tudo de uma vez (2 queries), em vez de
+    #                  buscar Anúncio/Variação um por um dentro do loop.
+    anuncios_por_mlb = {
+        a.mlb: a
+        for a in AnuncioMercadoLivre.objects.prefetch_related('variacoes').all()
+    }
+    qualidades_existentes = {qa.variacao_id: qa for qa in QualidadeAnuncio.objects.all()}
+
+    qualidades_para_criar = []
+    qualidades_para_atualizar = []
+    # * [EXPLICAÇÃO] → Guarda as regras (critérios) de cada variação pra
+    #                  processar DEPOIS que soubermos o ID de cada
+    #                  QualidadeAnuncio (só existe depois do bulk_create).
+    regras_por_variacao_id = {}
+
     sem_anuncio_correspondente = 0
     total_mlbs = 0
+    criterios_novos_catalogados_como_desconhecido = 0
 
     for bloco in blocos_sku:
         for mlb_dados in bloco.get('mlbs', []):
             total_mlbs += 1
             mlb = mlb_dados.get('mlb')
 
-            anuncio = AnuncioMercadoLivre.objects.filter(mlb=mlb).first()
+            anuncio = anuncios_por_mlb.get(mlb)
             if not anuncio:
                 sem_anuncio_correspondente += 1
                 stdout.write(f'    [SEM ANÚNCIO] {mlb} não encontrado no banco — pulado')
@@ -94,56 +106,107 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
             regras = extrair_regras_do_bucket(perf_dados.get('buckets')) if perf_dados else {}
 
             for variacao_alvo in variacoes_do_mlb:
-                qualidade, criado = QualidadeAnuncio.objects.update_or_create(
-                    variacao=variacao_alvo,
-                    defaults={
-                        'score': perf_dados.get('score') if perf_dados else None,
-                        'nivel': perf_dados.get('level_wording') if perf_dados else None,
-                        'calculado_em': parsear_data(perf_dados.get('calculated_at')) if perf_dados else None,
-                        'http_status': performance.get('http'),
-                        'erro': performance.get('erro'),
-                    }
+                dados_qualidade = dict(
+                    score=perf_dados.get('score') if perf_dados else None,
+                    nivel=perf_dados.get('level_wording') if perf_dados else None,
+                    calculado_em=parsear_data(perf_dados.get('calculated_at')) if perf_dados else None,
+                    http_status=performance.get('http'),
+                    erro=performance.get('erro'),
                 )
 
-                if criado:
-                    qualidades_criadas += 1
+                existente = qualidades_existentes.get(variacao_alvo.id)
+                if existente:
+                    for campo, valor in dados_qualidade.items():
+                        setattr(existente, campo, valor)
+                    qualidades_para_atualizar.append(existente)
                 else:
-                    qualidades_atualizadas += 1
+                    nova = QualidadeAnuncio(variacao=variacao_alvo, **dados_qualidade)
+                    qualidades_para_criar.append(nova)
+                    # * evita duplicar se a mesma variação aparecer 2x no arquivo
+                    qualidades_existentes[variacao_alvo.id] = nova
 
-                if not perf_dados:
-                    continue
+                if regras:
+                    regras_por_variacao_id[variacao_alvo.id] = regras
 
-                for rule_key, info in regras.items():
-                    criterio = criterios_por_key.get(rule_key)
+    campos_qualidade = ['score', 'nivel', 'calculado_em', 'http_status', 'erro']
 
-                    if not criterio:
-                        criterio = CriterioQualidade.objects.create(
-                            rule_key=rule_key,
-                            grupo=CriterioQualidade.Grupo.DESCONHECIDO,
-                            nome=info.get('api_title') or rule_key,
-                            pergunta=info.get('api_title') or rule_key,
-                            catalogado=False,
-                        )
-                        criterios_por_key[rule_key] = criterio
-                        criterios_novos_catalogados_como_desconhecido += 1
-                        stdout.write(style.WARNING(f'    [CRITÉRIO NOVO] {rule_key} não catalogado — criado como Desconhecido'))
+    if qualidades_para_criar:
+        QualidadeAnuncio.objects.bulk_create(qualidades_para_criar, batch_size=1000)
+    if qualidades_para_atualizar:
+        QualidadeAnuncio.objects.bulk_update(qualidades_para_atualizar, campos_qualidade, batch_size=1000)
 
-                    status_valor = (
-                        QualidadeAnuncioCriterio.Status.APROVADO
-                        if info['status'] == 'COMPLETED'
-                        else QualidadeAnuncioCriterio.Status.NAO_APROVADO
-                    )
+    qualidades_criadas = len(qualidades_para_criar)
+    qualidades_atualizadas = len(qualidades_para_atualizar)
 
-                    QualidadeAnuncioCriterio.objects.update_or_create(
-                        qualidade=qualidade,
-                        criterio=criterio,
-                        defaults={
-                            'status': status_valor,
-                            'score': info.get('score'),
-                            'calculado_em': parsear_data(info.get('calculated_at')),
-                            'link_correcao': info.get('link'),
-                        }
-                    )
+    # * [EXPLICAÇÃO] → Rebusca os IDs direto do banco (1 query), em vez de
+    #                  confiar que bulk_create preencheu .id sozinho —
+    #                  mais simples e 100% seguro, independente de
+    #                  particularidade do MySQL nesse ponto.
+    ids_variacao_com_regras = list(regras_por_variacao_id.keys())
+    qualidade_id_por_variacao_id = dict(
+        QualidadeAnuncio.objects.filter(variacao_id__in=ids_variacao_com_regras)
+        .values_list('variacao_id', 'id')
+    )
+
+    criterios_existentes = {
+        (qac.qualidade_id, qac.criterio_id): qac
+        for qac in QualidadeAnuncioCriterio.objects.filter(
+            qualidade_id__in=qualidade_id_por_variacao_id.values()
+        )
+    }
+
+    criterios_para_criar = []
+    criterios_para_atualizar = []
+
+    for variacao_id, regras in regras_por_variacao_id.items():
+        qualidade_id = qualidade_id_por_variacao_id.get(variacao_id)
+        if not qualidade_id:
+            continue
+
+        for rule_key, info in regras.items():
+            criterio = criterios_por_key.get(rule_key)
+
+            if not criterio:
+                criterio = CriterioQualidade.objects.create(
+                    rule_key=rule_key,
+                    grupo=CriterioQualidade.Grupo.DESCONHECIDO,
+                    nome=info.get('api_title') or rule_key,
+                    pergunta=info.get('api_title') or rule_key,
+                    catalogado=False,
+                )
+                criterios_por_key[rule_key] = criterio
+                criterios_novos_catalogados_como_desconhecido += 1
+                stdout.write(style.WARNING(f'    [CRITÉRIO NOVO] {rule_key} não catalogado — criado como Desconhecido'))
+
+            status_valor = (
+                QualidadeAnuncioCriterio.Status.APROVADO
+                if info['status'] == 'COMPLETED'
+                else QualidadeAnuncioCriterio.Status.NAO_APROVADO
+            )
+            dados_criterio = dict(
+                status=status_valor,
+                score=info.get('score'),
+                calculado_em=parsear_data(info.get('calculated_at')),
+                link_correcao=info.get('link'),
+            )
+
+            chave = (qualidade_id, criterio.id)
+            existente_crit = criterios_existentes.get(chave)
+            if existente_crit:
+                for campo, valor in dados_criterio.items():
+                    setattr(existente_crit, campo, valor)
+                criterios_para_atualizar.append(existente_crit)
+            else:
+                novo = QualidadeAnuncioCriterio(qualidade_id=qualidade_id, criterio=criterio, **dados_criterio)
+                criterios_para_criar.append(novo)
+                criterios_existentes[chave] = novo
+
+    campos_criterio = ['status', 'score', 'calculado_em', 'link_correcao']
+
+    if criterios_para_criar:
+        QualidadeAnuncioCriterio.objects.bulk_create(criterios_para_criar, batch_size=1000)
+    if criterios_para_atualizar:
+        QualidadeAnuncioCriterio.objects.bulk_update(criterios_para_atualizar, campos_criterio, batch_size=1000)
 
     stdout.write('')
     stdout.write(style.SUCCESS(

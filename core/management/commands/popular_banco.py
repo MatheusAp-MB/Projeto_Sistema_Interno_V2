@@ -5,6 +5,7 @@
 #              cada import vive em popular_banco_suporte/, agrupado por
 #              ser exclusivo deste comando.
 
+import time
 from pathlib import Path
 from django.core.management.base import BaseCommand
 from core.management.commands.popular_banco_suporte.importar_produtos_ml import importar_produtos_ml
@@ -12,6 +13,7 @@ from core.management.commands.popular_banco_suporte.importar_produtos_erp_comple
 from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
 from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
 from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
+from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml import importar_tabela_frete_ml
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
@@ -23,14 +25,21 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write('Iniciando importação de dados reais...\n')
-        importar_produtos_ml(self.stdout, self.style, CAMINHO_DETALHES_MLBS)
-        self.stdout.write('')
-        importar_produtos_erp_completo(self.stdout, self.style)
-        self.stdout.write('')
-        importar_anuncios_ml(self.stdout, self.style, CAMINHO_DETALHES_MLBS)
-        self.stdout.write('')
-        importar_qualidade_anuncio(self.stdout, self.style, CAMINHO_QUALIDADE)
-        self.stdout.write('')
-        importar_competicao_catalogo(self.stdout, self.style, CAMINHO_QUALIDADE)
-        self.stdout.write(self.style.SUCCESS('\nImportação concluída!'))
+
+        etapas = [
+            ('PRODUTOS ML', importar_produtos_ml, (CAMINHO_DETALHES_MLBS,)),
+            ('PRODUTOS ERP COMPLETO', importar_produtos_erp_completo, ()),
+            ('ANUNCIOS ML', importar_anuncios_ml, (CAMINHO_DETALHES_MLBS,)),
+            ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
+            ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
+            ('FRETE ML', importar_tabela_frete_ml, ()),
+        ]
+
+        for nome, funcao, argumentos in etapas:
+            inicio = time.time()
+            funcao(self.stdout, self.style, *argumentos)
+            duracao = time.time() - inicio
+            self.stdout.write(self.style.WARNING(f'  ⏱ {nome}: {duracao:.1f}s\n'))
+
+        self.stdout.write(self.style.SUCCESS('Importação concluída!'))
 

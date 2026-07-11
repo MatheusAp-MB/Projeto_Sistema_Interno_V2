@@ -1,0 +1,159 @@
+/*
+* [RESUMO] → CSS da tela de tabela de frete do Mercado Livre.
+* Contém os estilos da calculadora, resultado e matriz de frete.
+* Portado do projeto antigo, usando as mesmas variáveis de cor do V2.
+*/
+
+/* ================================================
+   CALCULADORA
+   ================================================ */
+
+.calculadora-container {
+    background-color: var(--cor-primaria);
+    border-radius: 10px;
+    padding: 24px;
+    color: var(--cor-texto-claro);
+    margin-bottom: 16px;
+}
+
+.calculadora-container label {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.calculadora-container input {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.calculadora-container input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.3);
+}
+
+.btn-calcular {
+    background-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 24px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.btn-calcular:hover {
+    background-color: var(--cor-primaria);
+}
+
+/* ================================================
+   RESULTADO
+   ================================================ */
+
+.resultado-container {
+    margin-bottom: 16px;
+    min-height: 60px;
+}
+
+.resultado-frete {
+    background-color: var(--cor-fundo-card);
+    border: 2px solid var(--cor-primaria-clara);
+    border-radius: 10px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.resultado-frete .valor {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.resultado-frete .descricao {
+    font-size: 0.9rem;
+    color: var(--cor-texto-muted);
+}
+
+/* ================================================
+   MATRIZ DE FRETE
+   ================================================ */
+
+.grade-container {
+    overflow-x: auto;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid var(--cor-borda);
+}
+
+.grade-tabela {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.85rem;
+}
+
+.grade-tabela th {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    padding: 10px 12px;
+    text-align: center;
+    white-space: nowrap;
+    border-right: 1px solid var(--cor-primaria-clara);
+    border-bottom: 1px solid var(--cor-primaria-clara);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.grade-tabela th.col-peso {
+    background-color: var(--cor-primaria-escura);
+    text-align: left;
+}
+
+.grade-tabela td {
+    padding: 8px 12px;
+    text-align: center;
+    border: 1px solid var(--cor-borda);
+    white-space: nowrap;
+    color: #333;
+}
+
+.grade-tabela td.col-peso {
+    background-color: #f0f4f8;
+    color: var(--cor-primaria);
+    font-weight: 600;
+    text-align: left;
+}
+
+.grade-tabela tbody tr:hover td {
+    background-color: rgba(46, 123, 181, 0.08);
+}
+
+.grade-tabela tbody tr:hover td.col-peso {
+    background-color: #dce8f0;
+}
+
+.grade-tabela td.destaque {
+    background-color: var(--cor-primaria-clara) !important;
+    color: var(--cor-texto-claro) !important;
+    font-weight: 700;
+}
+
+.grade-tabela th.destaque {
+    background-color: var(--cor-primaria-clara) !important;
+    color: var(--cor-texto-claro) !important;
+    font-weight: 700;
+}
+
+.destaque-linha  { background-color: rgba(46, 123, 181, 0.12) !important; }
+.destaque-coluna { background-color: rgba(46, 123, 181, 0.12) !important; }
