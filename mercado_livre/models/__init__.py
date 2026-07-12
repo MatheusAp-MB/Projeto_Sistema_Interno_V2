@@ -9,3 +9,5 @@ from .frete_ml import FreteML
 from .configuracao_mercado_livre import (
     ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre, FaixaArmazenagemMercadoLivre,
 )
+from .promocao_mercado_livre import PromocaoMercadoLivre
+from .recomendacao_precificacao import RecomendacaoPrecificacao

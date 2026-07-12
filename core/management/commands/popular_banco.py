@@ -15,6 +15,8 @@ from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio i
 from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml import importar_tabela_frete_ml
 from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
+from core.management.commands.popular_banco_suporte.importar_promocoes_ml import importar_promocoes_ml
+from core.management.commands.popular_banco_suporte.calcular_recomendacoes_precificacao import calcular_recomendacoes_precificacao
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
@@ -40,6 +42,8 @@ class Command(BaseCommand):
             #                  dimensões). Essa é a fonte validada
             #                  especificamente para precificação.
             ('PRECIFICAÇÃO — PLANILHA VALIDADA', importar_planilha_precificacao, ()),
+            ('PROMOÇÕES ML', importar_promocoes_ml, ()),
+            ('RECOMENDAÇÃO PRECIFICAÇÃO', calcular_recomendacoes_precificacao, ()),
         ]
 
         for nome, funcao, argumentos in etapas:

@@ -344,3 +344,36 @@
     font-weight: 400;
     opacity: 0.85;
 }
+
+
+
+.recpreco-decisao-status {
+    padding: 10px 20px;
+    border-bottom: 1px solid #eee;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.recpreco-decisao-salva-ok,
+.recpreco-decisao-ja-ativo {
+    color: var(--recpreco-verde);
+    font-weight: 600;
+}
+
+.recpreco-decisao-diferente {
+    color: #556;
+}
+
+.recpreco-form-salvar-decisao {
+    margin: 0;
+}
+
+.recpreco-decisao-diferenca {
+    font-size: 0.85rem;
+    color: #556;
+    margin-top: 4px;
+}

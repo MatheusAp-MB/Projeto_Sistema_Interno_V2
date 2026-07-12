@@ -145,6 +145,25 @@
         </form>
     </div>
 
+    <div class="recpreco-decisao-status">
+        {% if decisao_salva %}
+        <span class="recpreco-decisao-salva-ok">✓ Decisão salva — esse é o comportamento ativo agora pra esse MLB.</span>
+        {% elif comportamento_atual == comportamento_ativo_hoje %}
+        <span class="recpreco-decisao-ja-ativo">✓ Você está vendo o comportamento ativo hoje pra esse MLB.</span>
+        {% else %}
+        <span class="recpreco-decisao-diferente">
+            Comportamento ativo hoje: <strong>{{ opcoes_comportamento|get_item:comportamento_ativo_hoje }}</strong> — você está só visualizando "{{ opcoes_comportamento|get_item:comportamento_atual }}".
+        </span>
+        <form method="post" class="recpreco-form-salvar-decisao" onsubmit="return confirm('Definir {{ opcoes_comportamento|get_item:comportamento_atual }} como o comportamento ativo pra esse MLB?');">
+            {% csrf_token %}
+            <input type="hidden" name="mlb" value="{{ busca }}">
+            <input type="hidden" name="comportamento" value="{{ comportamento_atual }}">
+            <input type="hidden" name="acao" value="salvar_decisao">
+            <button type="submit" class="btn-acao">Salvar decisão</button>
+        </form>
+        {% endif %}
+    </div>
+
     <div class="recpreco-card-corpo">
         {% if recomendacao.escolhida %}
         <div class="recpreco-decisao-grid">
@@ -164,6 +183,14 @@
             </div>
         </div>
         <div class="recpreco-decisao-bucket">{{ recomendacao.bucket_nome }}</div>
+        {% if diferenca_recomendacao is not None %}
+        <div class="recpreco-decisao-diferenca">
+            Variação de margem vs hoje:
+            <span class="{% if diferenca_recomendacao > 0 %}recpreco-positivo{% elif diferenca_recomendacao < 0 %}recpreco-negativo{% endif %}">
+                {% if diferenca_recomendacao > 0 %}▲ +{% elif diferenca_recomendacao < 0 %}▼ {% else %}{% endif %}{{ diferenca_recomendacao|floatformat:2 }} p.p.
+            </span>
+        </div>
+        {% endif %}
         {% if recomendacao.exige_aprovacao %}
         <div class="recpreco-decisao-aviso">🔒 Exige aprovação manual — abaixo da margem mínima, não ativável automaticamente</div>
         {% endif %}

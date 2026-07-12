@@ -20,5 +20,10 @@ urlpatterns = [
     path('precificar/recomendacao/', views.view_recomendacao_precificacao, name='mercado_livre_recomendacao_precificacao'),
 
     path('precificar/configuracoes/', views.view_configuracoes_mercado_livre, name='mercado_livre_configuracoes'),
-]
 
+    # * [EXPLICAÇÃO] → Visão agregada de promoções, mesma árvore do Hub
+    #                  de Anúncios — o comentário acima (Recomendação de
+    #                  Precificação) que dizia "visão agregada ainda não
+    #                  desenhada" já não vale mais, essa é ela.
+    path('precificar/hub-promocoes/', views.view_hub_promocoes, name='mercado_livre_hub_promocoes'),
+]

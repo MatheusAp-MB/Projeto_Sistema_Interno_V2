@@ -50,7 +50,21 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     #                  real, não "sem dado").
     preco_atual    = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     preco_original = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    
+
+    # * [EXPLICAÇÃO] → Decide qual dos 3 comportamentos vale pra ESSE
+    #                  MLB específico (Padrão/Busca-Lucro/Disputa) — é
+    #                  o campo que vai permitir automação por anúncio no
+    #                  futuro. Cada comportamento já vem pré-calculado
+    #                  e salvo em RecomendacaoPrecificacao; esse campo
+    #                  só decide qual das 3 linhas salvas "vale" hoje.
+    comportamento_ativo = models.CharField(
+        max_length=20,
+        choices=[('padrao', 'Padrão (equilíbrio)'),
+                 ('busca_lucro', 'Busca-Lucro (maior margem)'),
+                 ('disputa', 'Disputa (ganha catálogo a qualquer custo seguro)')],
+        default='padrao',
+    )
+
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'

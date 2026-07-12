@@ -1,0 +1,328 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Hub de Promoções — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Hub de Promoções — Mercado Livre{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'mercado_livre/css/layout_hub_anuncios.css' %}">
+    <link rel="stylesheet" href="{% static 'mercado_livre/css/layout_hub_promocoes.css' %}">
+{% endblock %}
+{% block conteudo %}
+    <form method="get" class="hub-barra-busca">
+        <input type="text"
+               name="busca"
+               value="{{ busca }}"
+               placeholder="Buscar por SKU, Marca, MLB ou Título..."
+               class="hub-input-busca">
+        <select name="por_pagina"
+                onchange="this.form.submit()"
+                class="hub-select-paginacao">
+            <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
+            <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+            <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+            <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
+        </select>
+        <button type="submit" class="btn-acao">Buscar</button>
+        {% if chips_ativos %}
+            <div class="hub-chips-filtros">
+                <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
+                {% for chip in chips_ativos %}
+                    {% if chip.classe %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=chip %}
+                    {% else %}
+                        <span class="chip-filtro">{{ chip.label }}</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+        <details class="hub-filtros">
+            <summary class="hub-filtros-titulo">
+                <i class="fas fa-filter"></i> Filtros
+            </summary>
+            <div class="hub-filtros-grid">
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Marca</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                    <div class="filtro-opcoes-lista">
+                        {% for marca in marcas_disponiveis %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
+                                <span>{{ marca }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Situação do anúncio</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+                    <div class="filtro-opcoes-lista">
+                        {% for opcao in opcoes_status %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="status" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status %}checked{% endif %}>
+                                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Tipo de anúncio</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+                    <div class="filtro-opcoes-lista">
+                        {% for opcao in opcoes_tipo_anuncio %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="tipo_anuncio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_anuncio %}checked{% endif %}>
+                                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Logística</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+                    <div class="filtro-opcoes-lista">
+                        {% for opcao in opcoes_logistica %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="logistica" value="{{ opcao.valor }}" {% if opcao.valor in filtros.tipos_logisticos %}checked{% endif %}>
+                                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Flex</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="flex" value="sim" {% if 'sim' in filtros.flex %}checked{% endif %}>
+                            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_flex_ativo %}
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="flex" value="nao" {% if 'nao' in filtros.flex %}checked{% endif %}>
+                            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_flex_inativo %}
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Situação do catálogo</span>
+                    <div class="filtro-opcoes-lista">
+                        {% for opcao in opcoes_catalogo %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="catalogo" value="{{ opcao.valor }}" {% if opcao.valor in filtros.catalogos %}checked{% endif %}>
+                                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Estoque</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="estoque" value="com" {% if 'com' in filtros.estoque %}checked{% endif %}>
+                            <span>Com estoque</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="estoque" value="sem" {% if 'sem' in filtros.estoque %}checked{% endif %}>
+                            <span>Sem estoque</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Desconto</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="desconto" value="com" {% if 'com' in filtros.desconto %}checked{% endif %}>
+                            <span>Com desconto ativo</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="desconto" value="sem" {% if 'sem' in filtros.desconto %}checked{% endif %}>
+                            <span>Sem desconto</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Faixa de score</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="score" value="bom" {% if 'bom' in filtros.faixas_score %}checked{% endif %}>
+                            <span>Bom</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="score" value="medio" {% if 'medio' in filtros.faixas_score %}checked{% endif %}>
+                            <span>Médio</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="score" value="ruim" {% if 'ruim' in filtros.faixas_score %}checked{% endif %}>
+                            <span>Ruim</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="score" value="sem_dados" {% if 'sem_dados' in filtros.faixas_score %}checked{% endif %}>
+                            <span>Sem dados</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Situação de competição</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+                    <div class="filtro-opcoes-lista">
+                        {% for valor, label in opcoes_situacao_competicao %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="competicao" value="{{ valor }}" {% if valor in filtros.situacoes_competicao %}checked{% endif %}>
+                                <span>{{ label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Conexão com ERP</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="conexao_erp" value="com" {% if 'com' in filtros.conexao_erp %}checked{% endif %}>
+                            <span>Com conexão ERP</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="conexao_erp" value="sem" {% if 'sem' in filtros.conexao_erp %}checked{% endif %}>
+                            <span>Sem conexão ERP</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Promoção ativa</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="promocao_ativa" value="com" {% if 'com' in filtros.promocao_ativa %}checked{% endif %}>
+                            <span>Com promoção ativa</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="promocao_ativa" value="sem" {% if 'sem' in filtros.promocao_ativa %}checked{% endif %}>
+                            <span>Sem promoção ativa</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Candidata a promoção</span>
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="promocao_candidata" value="com" {% if 'com' in filtros.promocao_candidata %}checked{% endif %}>
+                            <span>Com candidata</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="promocao_candidata" value="sem" {% if 'sem' in filtros.promocao_candidata %}checked{% endif %}>
+                            <span>Sem candidata</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <span class="filtro-grupo-titulo">Comportamento</span>
+                    <div class="filtro-opcoes-lista">
+                        {% for chave, nome in opcoes_comportamento.items %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="comportamento" value="{{ chave }}" {% if chave in filtros.comportamentos %}checked{% endif %}>
+                                <span>{{ nome }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="hub-filtros-acoes">
+                <button type="submit" class="btn-acao">Aplicar filtros</button>
+                <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}" class="btn-limpar-filtros">Limpar filtros</a>
+            </div>
+        </details>
+    </form>
+
+    <div class="hubpromo-contadores">
+        <div class="hubpromo-contador">
+            <span class="hubpromo-contador-valor">{{ contadores.com_promocao_ativa }}</span>
+            <span class="hubpromo-contador-label">MLBs com promoção ativa</span>
+        </div>
+        <div class="hubpromo-contador">
+            <span class="hubpromo-contador-valor">{{ contadores.candidatos }}</span>
+            <span class="hubpromo-contador-label">MLBs candidatos a promoção</span>
+        </div>
+        <div class="hubpromo-contador">
+            <span class="hubpromo-contador-valor">{{ contadores.com_recomendacao }}</span>
+            <span class="hubpromo-contador-label">Recomendações encontradas</span>
+        </div>
+    </div>
+
+    <p class="hub-contador">{{ pagina.paginator.count }} SKUs ({{ total_anuncios_filtrados }} anúncios) encontrados — página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</p>
+    {% for sku, arvore in arvores.items %}
+        <details class="hub-sku-bloco" open>
+            <summary class="hub-sku-header">
+                <div class="hub-sku-info">
+                    {% if arvore.sem_conexao_erp %}
+                        <div class="hub-sku-imagem hub-sku-imagem-vazia hub-sku-imagem-alerta">
+                            <i class="fas fa-triangle-exclamation"></i>
+                        </div>
+                        <span class="hub-sku-sem-erp">SEM CONEXÃO COM O ERP</span>
+                        <span class="hub-sku-codigo">{{ sku }}</span>
+                    {% else %}
+                        {% if arvore.imagem_url %}
+                            <img src="{{ arvore.imagem_url }}" class="hub-sku-imagem" alt="{{ arvore.titulo_produto }}">
+                        {% else %}
+                            <div class="hub-sku-imagem hub-sku-imagem-vazia"><i class="fas fa-image"></i></div>
+                        {% endif %}
+                        <span class="hub-sku-marca">{{ arvore.marca|default:"—" }}</span>
+                        <span class="card-copiavel">
+                            <span class="hub-sku-titulo">{{ arvore.titulo_produto|default:sku }}</span>
+                            <i class="fas fa-copy icone-copiar icone-copiar-header" data-copiar="{{ arvore.titulo_produto }}"></i>
+                        </span>
+                        <span class="hub-sku-codigo">{{ sku }}</span>
+                    {% endif %}
+                </div>
+                <span class="hub-sku-contagem">{{ arvore.total_anuncios }} anúncio{{ arvore.total_anuncios|pluralize }}</span>
+            </summary>
+            <div class="hub-sku-conteudo">
+                {% for pagina_cat in arvore.paginas_catalogo %}
+                    <details class="hub-pagina-catalogo" open>
+                        <summary class="hub-pagina-catalogo-titulo">📦 Página de Catálogo {{ pagina_cat.catalog_product_id }}</summary>
+                        <div class="hub-lista-cards">
+                            {% for base in pagina_cat.anuncios_base %}
+                                <div class="hub-grupo-base">
+                                    {% for folha in base.folhas %}
+                                        {% include 'mercado_livre/parciais/estrutura_parcial_card_promocao.html' with anuncio=folha tag_papel="Base" voltar=querystring_atual %}
+                                    {% endfor %}
+                                    {% if base.sem_catalogo_no_filtro %}
+                                        <p class="hub-aviso-sem-catalogo-filtro">Nenhum catálogo atende ao filtro ativo.</p>
+                                    {% endif %}
+                                    {% for cat in base.anuncios_catalogo %}
+                                        {% for folha in cat.folhas %}
+                                            {% include 'mercado_livre/parciais/estrutura_parcial_card_promocao.html' with anuncio=folha tag_papel="Catálogo" voltar=querystring_atual %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                            {% for orfao in pagina_cat.anuncios_catalogo_orfaos %}
+                                {% for folha in orfao.folhas %}
+                                    {% include 'mercado_livre/parciais/estrutura_parcial_card_promocao.html' with anuncio=folha tag_papel="Catálogo órfão" voltar=querystring_atual %}
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </details>
+                {% endfor %}
+                {% if arvore.anuncios_simples %}
+                    <details class="hub-anuncios-simples" open>
+                        <summary class="hub-pagina-catalogo-titulo">🔹 Anúncios Simples</summary>
+                        <div class="hub-lista-cards">
+                            {% for simples in arvore.anuncios_simples %}
+                                {% for folha in simples.folhas %}
+                                    {% include 'mercado_livre/parciais/estrutura_parcial_card_promocao.html' with anuncio=folha tag_papel="Simples" voltar=querystring_atual %}
+                                {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </details>
+                {% endif %}
+            </div>
+        </details>
+    {% endfor %}
+    <div class="hub-paginacao">
+        {% if pagina.has_previous %}
+            <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="hub-paginacao-link">« Anterior</a>
+        {% endif %}
+        <span class="hub-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+        {% if pagina.has_next %}
+            <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="hub-paginacao-link">Próxima »</a>
+        {% endif %}
+    </div>
+    {% block scripts %}
+        <script src="{% static 'mercado_livre/js/script_hub_anuncios.js' %}"></script>
+    {% endblock %}
+{% endblock %}

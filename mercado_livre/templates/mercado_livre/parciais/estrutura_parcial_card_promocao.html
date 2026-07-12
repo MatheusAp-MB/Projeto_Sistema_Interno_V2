@@ -1,0 +1,69 @@
+<!--
+* [RESUMO] → Card de folha do Hub de Promoções — reaproveita a mesma
+* estrutura visual do card do Hub de Anúncios (badges, título, MLB),
+* mas troca o rodapé (termômetro/situação) pelo veredito de
+* precificação já calculado em lote (RecomendacaoPrecificacao).
+-->
+<div class="card-anuncio card-anuncio-{{ anuncio.badge_tipo_anuncio.classe|cut:'badge-'|default:'padrao' }}">
+
+    {% if anuncio.imagem_principal_url %}
+    <img src="{{ anuncio.imagem_principal_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
+    {% elif anuncio.thumbnail_url %}
+    <img src="{{ anuncio.thumbnail_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
+    {% elif anuncio.imagem_url %}
+    <img src="{{ anuncio.imagem_url }}" class="card-anuncio-imagem" alt="{{ anuncio.titulo }}">
+    {% else %}
+    <div class="card-anuncio-imagem card-anuncio-imagem-vazia"><i class="fas fa-image"></i></div>
+    {% endif %}
+
+    <div class="card-anuncio-corpo">
+
+        <div class="card-anuncio-badges">
+            {% if anuncio.badge_tipo_anuncio %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_tipo_anuncio %}{% endif %}
+            {% if anuncio.badge_logistica %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_logistica %}{% endif %}
+            <span class="badge-papel">{{ tag_papel }}</span>
+        </div>
+
+        <div class="card-anuncio-linha-titulo">
+            <span class="card-copiavel card-copiavel-titulo">
+                <span class="card-anuncio-titulo">{{ anuncio.titulo }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.titulo }}"></i>
+            </span>
+        </div>
+
+        <div class="card-anuncio-linha-secundaria">
+            <span class="card-copiavel">
+                <span class="card-anuncio-mlb">{{ anuncio.mlb }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.mlb }}"></i>
+            </span>
+        </div>
+
+        <!-- VEREDITO -->
+        <div class="card-promocao-veredito
+            {% if anuncio.veredito.exige_aprovacao %}card-promocao-veredito--risco
+            {% elif anuncio.veredito.tem_escolha %}card-promocao-veredito--seguro
+            {% else %}card-promocao-veredito--vazio{% endif %}">
+            {% if anuncio.veredito and anuncio.veredito.tem_escolha %}
+            <span class="card-promocao-cenario">{{ anuncio.veredito.cenario_nome }}</span>
+            <span class="card-promocao-preco">R$ {{ anuncio.veredito.preco_recomendado|floatformat:2 }}</span>
+            <span class="card-promocao-margem {% if anuncio.veredito.margem_recomendada >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
+                {% if anuncio.veredito.margem_recomendada >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.veredito.margem_recomendada|floatformat:2 }}%
+            </span>
+            {% if anuncio.veredito.exige_aprovacao %}<span class="card-promocao-aprovacao" title="Exige aprovação manual">🔒</span>{% endif %}
+            {% else %}
+            <span class="card-promocao-vazio">Nenhuma recomendação encontrada</span>
+            {% endif %}
+        </div>
+
+        <div class="card-promocao-acoes">
+            <a href="{% url 'mercado_livre_recomendacao_precificacao' %}?mlb={{ anuncio.mlb }}&voltar={{ voltar|urlencode }}" class="card-btn-promocoes">
+                <i class="fas fa-tags"></i> Ver detalhes
+            </a>
+            <a href="#" class="card-btn-participar">
+                <i class="fas fa-check"></i> Participar
+            </a>
+        </div>
+
+    </div>
+
+</div>

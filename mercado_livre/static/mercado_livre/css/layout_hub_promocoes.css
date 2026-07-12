@@ -1,0 +1,126 @@
+/*
+* [RESUMO] → CSS específico do Hub de Promoções — só o que é NOVO
+* (contadores do topo, veredito no card). O resto (badges, cards,
+* filtros, paginação) já vem de layout_hub_anuncios.css, carregado
+* junto no head_extra.
+*/
+
+/* ================================================
+   CONTADORES DO TOPO
+   ================================================ */
+
+.hubpromo-contadores {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.hubpromo-contador {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+    padding: 14px 20px;
+    text-align: center;
+}
+
+.hubpromo-contador-valor {
+    display: block;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--cor-primaria, #1e3a5f);
+}
+
+.hubpromo-contador-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #667;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+}
+
+/* ================================================
+   VEREDITO NO CARD
+   ================================================ */
+
+.card-promocao-veredito {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin: 6px 0;
+    font-size: 0.78rem;
+}
+
+.card-promocao-veredito--seguro {
+    background: #ecfdf5;
+    border: 1px solid #1a8a5f;
+}
+
+.card-promocao-veredito--risco {
+    background: #fff7ed;
+    border: 1px solid #c2410c;
+}
+
+.card-promocao-veredito--vazio {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+}
+
+.card-promocao-cenario {
+    font-weight: 700;
+    color: #333;
+}
+
+.card-promocao-preco {
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+.card-promocao-margem.recpreco-positivo {
+    color: #1a8a5f;
+}
+
+.card-promocao-margem.recpreco-negativo {
+    color: #b91c1c;
+}
+
+.card-promocao-aprovacao {
+    font-size: 0.9rem;
+}
+
+.card-promocao-vazio {
+    color: #99a;
+    font-style: italic;
+}
+
+/* ================================================
+   AÇÕES DO CARD
+   ================================================ */
+
+.card-promocao-acoes {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.card-btn-participar {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #1a8a5f;
+    background: #ecfdf5;
+    border: 1px solid #1a8a5f;
+    border-radius: 12px;
+    padding: 3px 10px;
+    text-decoration: none;
+}
+
+.card-btn-participar:hover {
+    background: #d1fae5;
+}

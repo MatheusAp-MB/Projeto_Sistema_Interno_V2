@@ -108,6 +108,8 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
     return {
         'mlb': anuncio.mlb if anuncio else None,
         'variacao_id': variacao.variacao_id,
+        'id': variacao.id,
+        'comportamento_ativo': variacao.comportamento_ativo,
         'sku_ml': variacao.sku_ml,
         'titulo': anuncio.titulo_anuncio if anuncio else None,
         'permalink': anuncio.permalink if anuncio else None,
@@ -208,6 +210,34 @@ def _passa_conexao_erp(variacao, filtros):
     return tem_conexao == (valores[0] == 'com')
 
 
+def _passa_promocao_ativa(variacao, filtros):
+    valores = filtros.get('promocao_ativa') or []
+    if len(valores) != 1:
+        return True
+    # * [EXPLICAÇÃO] → "Ativa" = existe pelo menos 1 promoção com
+    #                  status started pra essa variação. Um MLB pode
+    #                  ter ativa E candidata ao mesmo tempo (já
+    #                  confirmado com dado real) — os 2 filtros não
+    #                  são mutuamente exclusivos de propósito.
+    tem_ativa = variacao.promocoes.filter(status='started').exists()
+    return tem_ativa == (valores[0] == 'com')
+
+
+def _passa_promocao_candidata(variacao, filtros):
+    valores = filtros.get('promocao_candidata') or []
+    if len(valores) != 1:
+        return True
+    tem_candidata = variacao.promocoes.filter(status='candidate').exists()
+    return tem_candidata == (valores[0] == 'com')
+
+
+def _passa_comportamento(variacao, filtros):
+    valores = filtros.get('comportamentos') or []
+    if not valores:
+        return True
+    return variacao.comportamento_ativo in valores
+
+
 def _passa_score_direto(variacao, filtros):
     faixas = filtros.get('faixas_score') or []
     if not faixas:
@@ -232,7 +262,9 @@ def _passa_competicao_direto(anuncio, filtros):
 def _mlb_tem_folha_valida(variacoes_mlb, filtros):
     return any(
         _passa_estoque(v, filtros) and _passa_desconto(v, filtros)
-        and _passa_conexao_erp(v, filtros) and _passa_score_direto(v, filtros)
+        and _passa_conexao_erp(v, filtros) and _passa_promocao_ativa(v, filtros)
+        and _passa_promocao_candidata(v, filtros) and _passa_comportamento(v, filtros)
+        and _passa_score_direto(v, filtros)
         for v in variacoes_mlb
     )
 
@@ -266,6 +298,12 @@ def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_par
         return False
     if not any(_passa_conexao_erp(v, filtros) for v in variacoes_mlb):
         return False
+    if not any(_passa_promocao_ativa(v, filtros) for v in variacoes_mlb):
+        return False
+    if not any(_passa_promocao_candidata(v, filtros) for v in variacoes_mlb):
+        return False
+    if not any(_passa_comportamento(v, filtros) for v in variacoes_mlb):
+        return False
     if not _passa_competicao_direto(anuncio, filtros):
         return False
 
@@ -282,9 +320,12 @@ def carregar_variacoes_por_sku(skus=None):
     # * [EXPLICAÇÃO] → Exclui MLBs "fósseis" de migração antiga de
     #                  variações (regra de negócio fixa, sempre ativa —
     #                  não é filtro opcional, é ruído sem ação possível).
+    #                  prefetch_related('promocoes') evita N+1 nos
+    #                  filtros de promoção (_passa_promocao_ativa/
+    #                  _passa_promocao_candidata rodam por variação).
     qs = VariacaoAnuncioMercadoLivre.objects.select_related(
         'anuncio', 'anuncio__tipo_de_anuncio', 'anuncio__competicao', 'produto', 'qualidade'
-    ).exclude(anuncio__eh_fossil_migracao=True)
+    ).prefetch_related('promocoes').exclude(anuncio__eh_fossil_migracao=True)
 
     if skus is not None:
         # * [EXPLICAÇÃO] → "skus" agora pode conter 3 tipos de chave
@@ -488,8 +529,11 @@ def listar_skus_filtrados(busca=None, filtros=None):
 
     chaves_avancadas = [
         'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
-        'flex', 'estoque', 'desconto', 'conexao_erp', 'faixas_score', 'situacoes_competicao',
+        'flex', 'estoque', 'desconto', 'conexao_erp',
+        'promocao_ativa', 'promocao_candidata', 'comportamentos',
+        'faixas_score', 'situacoes_competicao',
     ]
+
     tem_filtro_avancado = any(filtros.get(chave) for chave in chaves_avancadas)
 
     if not tem_filtro_avancado:
