@@ -16,12 +16,50 @@
 }
 
 .hubpromo-contador {
+    position: relative;
     flex: 1;
     background: #fff;
     border: 1px solid #dde3ec;
     border-radius: 10px;
     padding: 14px 20px;
     text-align: center;
+    cursor: default;
+}
+
+.hubpromo-contador[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 10px;
+    width: 220px;
+    background: var(--cor-primaria-escura, #0f2744);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.45;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    z-index: 30;
+    pointer-events: none;
+}
+
+.hubpromo-contador[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 3px;
+    border: 6px solid transparent;
+    border-top-color: var(--cor-primaria-escura, #0f2744);
+    z-index: 30;
+    pointer-events: none;
 }
 
 .hubpromo-contador-valor {
@@ -38,6 +76,22 @@
     text-transform: uppercase;
     letter-spacing: 0.02em;
     margin-top: 2px;
+}
+
+.hubpromo-contador--risco {
+    border-color: #d97706;
+}
+
+.hubpromo-contador--risco .hubpromo-contador-valor {
+    color: #d97706;
+}
+
+.hubpromo-contador--conflito {
+    border-color: #dc2626;
+}
+
+.hubpromo-contador--conflito .hubpromo-contador-valor {
+    color: #dc2626;
 }
 
 /* ================================================
@@ -78,6 +132,11 @@
 .card-promocao-veredito--conflito {
     background: #fef2f2;
     border: 1px solid #dc2626;
+}
+
+.card-promocao-veredito--risco {
+    background: #fffbeb;
+    border: 1px solid #d97706;
 }
 
 .card-promocao-veredito--vazio {
@@ -176,4 +235,14 @@
 
 .card-btn-trocar:hover {
     background: #dbeafe;
+}
+
+.card-btn-risco {
+    color: #d97706;
+    background: #fffbeb;
+    border-color: #d97706;
+}
+
+.card-btn-risco:hover {
+    background: #fef3c7;
 }

@@ -38,30 +38,27 @@
             </span>
         </div>
 
-        {% with categoria=anuncio.veredito.categoria_estado %}
+{% with categoria=anuncio.veredito.categoria_estado %}
         <!-- VEREDITO -->
         <div class="card-promocao-veredito
             {% if categoria == 'conflito_multiplas_ativas' %}card-promocao-veredito--conflito
             {% elif categoria == 'candidato' %}card-promocao-veredito--candidato
+            {% elif categoria == 'sugestao_risco' %}card-promocao-veredito--risco
             {% elif categoria == 'oportunidade_troca' %}card-promocao-veredito--troca
             {% elif categoria == 'otimizado' %}card-promocao-veredito--otimizado
+            {% elif categoria == 'operando_em_risco' %}card-promocao-veredito--risco
             {% elif categoria == 'sem_oportunidade' %}card-promocao-veredito--sem-oportunidade
             {% else %}card-promocao-veredito--vazio{% endif %}">
 
             {% if categoria == 'conflito_multiplas_ativas' %}
             <span class="card-promocao-alerta">⚠️ Múltiplas promoções ativas — requer verificação</span>
 
-            {% elif categoria == 'candidato' %}
-            <span class="card-promocao-rotulo">Candidato a participar</span>
-            <span class="card-promocao-cenario">{{ anuncio.veredito.cenario_nome }}</span>
-            <span class="card-promocao-preco">R$ {{ anuncio.veredito.preco_recomendado|floatformat:2 }}</span>
-            <span class="card-promocao-margem {% if anuncio.veredito.margem_recomendada >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
-                {% if anuncio.veredito.margem_recomendada >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.veredito.margem_recomendada|floatformat:2 }}%
+            {% elif categoria == 'candidato' or categoria == 'sugestao_risco' or categoria == 'oportunidade_troca' %}
+            <span class="card-promocao-rotulo">
+                {% if categoria == 'sugestao_risco' %}⚠️ Sugestão de risco
+                {% elif categoria == 'candidato' %}Candidato a participar
+                {% else %}Oportunidade de troca{% endif %}
             </span>
-            {% if anuncio.veredito.exige_aprovacao %}<span class="card-promocao-aprovacao" title="Exige aprovação manual">🔒</span>{% endif %}
-
-            {% elif categoria == 'oportunidade_troca' %}
-            <span class="card-promocao-rotulo">Oportunidade de troca</span>
             {% if anuncio.promocao_ativa %}
             <span class="card-promocao-estado-atual">Hoje: {{ anuncio.promocao_ativa.nome }}</span>
             <span class="card-promocao-seta">→</span>
@@ -71,10 +68,17 @@
             <span class="card-promocao-margem {% if anuncio.veredito.margem_recomendada >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
                 {% if anuncio.veredito.margem_recomendada >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.veredito.margem_recomendada|floatformat:2 }}%
             </span>
-            {% if anuncio.veredito.exige_aprovacao %}<span class="card-promocao-aprovacao" title="Exige aprovação manual">🔒</span>{% endif %}
 
             {% elif categoria == 'otimizado' %}
             <span class="card-promocao-confirmacao">✓ Otimizado — já é o melhor cenário hoje</span>
+
+            {% elif categoria == 'operando_em_risco' %}
+            <span class="card-promocao-rotulo">⚠️ Operando em risco</span>
+            <span class="card-promocao-cenario">{{ anuncio.veredito.cenario_nome }}</span>
+            <span class="card-promocao-margem recpreco-negativo">
+                ▼ {{ anuncio.veredito.margem_recomendada|floatformat:2 }}%
+            </span>
+            <span class="card-promocao-confirmacao">Sem alternativa segura disponível no momento</span>
 
             {% elif categoria == 'sem_oportunidade' %}
             <span class="card-promocao-confirmacao">— Sem oportunidade no momento</span>
@@ -95,6 +99,12 @@
             {% elif categoria == 'oportunidade_troca' %}
             <a href="#" class="card-btn-participar card-btn-trocar">
                 <i class="fas fa-right-left"></i> Trocar
+            </a>
+            {% elif categoria == 'sugestao_risco' %}
+            <a href="#" class="card-btn-participar card-btn-risco {% if anuncio.promocao_ativa %}card-btn-trocar{% endif %}"
+                data-confirmar-risco="true" data-margem="{{ anuncio.veredito.margem_recomendada|floatformat:2 }}">
+                <i class="fas {% if anuncio.promocao_ativa %}fa-right-left{% else %}fa-check{% endif %}"></i>
+                {% if anuncio.promocao_ativa %}Trocar{% else %}Participar{% endif %}
             </a>
             {% endif %}
         </div>

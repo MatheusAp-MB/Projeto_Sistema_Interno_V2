@@ -39,12 +39,25 @@ class RecomendacaoPrecificacao(models.Model):
     class CategoriaEstado(models.TextChoices):
         SEM_OPORTUNIDADE = 'sem_oportunidade', 'Sem oportunidade'
         CANDIDATO = 'candidato', 'Candidato a participar'
+        SUGESTAO_RISCO = 'sugestao_risco', 'Sugestão de risco'
         OPORTUNIDADE_TROCA = 'oportunidade_troca', 'Oportunidade de troca'
         OTIMIZADO = 'otimizado', 'Otimizado — nada a fazer'
+        OPERANDO_EM_RISCO = 'operando_em_risco', 'Operando em risco'
         CONFLITO_MULTIPLAS_ATIVAS = 'conflito_multiplas_ativas', 'Conflito — múltiplas promoções ativas'
-
+    
     categoria_estado = models.CharField(
         max_length=30, choices=CategoriaEstado.choices, blank=True, null=True
+    )
+
+    # * [EXPLICAÇÃO] → Margem SUGERIDA menos margem ATUAL, em pontos
+    #                  percentuais (o mesmo cálculo que já existe em
+    #                  cada linha candidata como 'diferenca', só que
+    #                  persistido pra não precisar recalcular no Hub).
+    #                  Varia por comportamento (por isso mora aqui, não
+    #                  na Variação) — Padrão/Busca-Lucro/Disputa podem
+    #                  sugerir cenários diferentes.
+    variacao_margem_pp = models.DecimalField(
+        max_digits=6, decimal_places=2, blank=True, null=True
     )
 
     calculado_em = models.DateTimeField(auto_now=True)

@@ -214,20 +214,36 @@
     </form>
 
     <div class="hubpromo-contadores">
-        <div class="hubpromo-contador">
-            <span class="hubpromo-contador-valor">{{ contadores.com_promocao_ativa }}</span>
-            <span class="hubpromo-contador-label">MLBs com promoção ativa</span>
+        <div class="hubpromo-contador" data-tooltip="Sem promoção ativa hoje, com uma opção segura (dentro da margem mínima) disponível para participar.">
+            <span class="hubpromo-contador-valor">{{ contadores.candidato }}</span>
+            <span class="hubpromo-contador-label">Candidatos a participar</span>
         </div>
-        <div class="hubpromo-contador">
-            <span class="hubpromo-contador-valor">{{ contadores.candidatos }}</span>
-            <span class="hubpromo-contador-label">MLBs candidatos a promoção</span>
+        <div class="hubpromo-contador hubpromo-contador--risco" data-tooltip="Existe uma opção de promoção (nova ou de troca) com margem abaixo do mínimo seguro — só recomendável em casos específicos, como ganhar catálogo a qualquer custo ou queima de estoque.">
+            <span class="hubpromo-contador-valor">{{ contadores.sugestao_risco }}</span>
+            <span class="hubpromo-contador-label">Sugestões de risco</span>
         </div>
-        <div class="hubpromo-contador">
-            <span class="hubpromo-contador-valor">{{ contadores.com_recomendacao }}</span>
-            <span class="hubpromo-contador-label">Recomendações encontradas</span>
+        <div class="hubpromo-contador" data-tooltip="Já está em uma promoção ativa, mas existe outra opção segura (dentro da margem) mais vantajosa disponível.">
+            <span class="hubpromo-contador-valor">{{ contadores.oportunidade_troca }}</span>
+            <span class="hubpromo-contador-label">Oportunidades de troca</span>
+        </div>
+        <div class="hubpromo-contador" data-tooltip="Já está na melhor opção segura disponível hoje — nenhuma ação necessária.">
+            <span class="hubpromo-contador-valor">{{ contadores.otimizado }}</span>
+            <span class="hubpromo-contador-label">Otimizados</span>
+        </div>
+        <div class="hubpromo-contador hubpromo-contador--risco" data-tooltip="Está rodando uma promoção ativa com margem abaixo do mínimo, e não há opção segura melhor disponível no momento — recalculado a cada atualização.">
+            <span class="hubpromo-contador-valor">{{ contadores.operando_em_risco }}</span>
+            <span class="hubpromo-contador-label">Operando em risco</span>
+        </div>
+        <div class="hubpromo-contador" data-tooltip="Sem promoção ativa e sem nenhuma opção segura disponível — nada a fazer no momento.">
+            <span class="hubpromo-contador-valor">{{ contadores.sem_oportunidade }}</span>
+            <span class="hubpromo-contador-label">Sem oportunidade</span>
+        </div>
+        <div class="hubpromo-contador hubpromo-contador--conflito" data-tooltip="2 ou mais promoções ativas ao mesmo tempo no mesmo MLB — situação inesperada que precisa de verificação manual.">
+            <span class="hubpromo-contador-valor">{{ contadores.conflito_multiplas_ativas }}</span>
+            <span class="hubpromo-contador-label">Conflitos (múltiplas ativas)</span>
         </div>
     </div>
-
+    
     <p class="hub-contador">{{ pagina.paginator.count }} SKUs ({{ total_anuncios_filtrados }} anúncios) encontrados — página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</p>
     {% for sku, arvore in arvores.items %}
         <details class="hub-sku-bloco" open>
@@ -309,5 +325,6 @@
     </div>
     {% block scripts %}
         <script src="{% static 'mercado_livre/js/script_hub_anuncios.js' %}"></script>
+        <script src="{% static 'mercado_livre/js/script_hub_promocoes.js' %}"></script>
     {% endblock %}
 {% endblock %}

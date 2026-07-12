@@ -49,19 +49,41 @@ def calcular_recomendacoes_precificacao(stdout, style):
             )
             escolhida = resultado['escolhida']
 
+            # * [EXPLICAÇÃO] → 'risco' só pode ser True em Catálogo —
+            #                  Simples/Base nunca escolhe algo abaixo da
+            #                  margem mínima (recomendar_precificacao já
+            #                  garante isso). exige_aprovacao aqui é o
+            #                  MESMO campo que já persiste no registro,
+            #                  não é recalculado — só é reaproveitado
+            #                  pra decidir a categoria.
+            risco = bool(escolhida) and resultado['exige_aprovacao'] and eh_catalogo
+
+            Categoria = RecomendacaoPrecificacao.CategoriaEstado
+
             if len(promocoes_ativas) >= 2:
-                categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.CONFLITO_MULTIPLAS_ATIVAS
+                categoria_estado = Categoria.CONFLITO_MULTIPLAS_ATIVAS
             elif escolhida:
                 if len(promocoes_ativas) == 1:
                     ativa_chave = promocoes_ativas[0].chave_externa
                     if escolhida['chave_externa'] == ativa_chave:
-                        categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.OTIMIZADO
+                        # * [EXPLICAÇÃO] → Vencedora É a mesma promoção
+                        #                  que já está ativa — nada de
+                        #                  novo a fazer. Mas se essa
+                        #                  ativa já é arriscada (margem
+                        #                  abaixo do mínimo), não é
+                        #                  "Otimizado" — é um estado que
+                        #                  merece atenção contínua, e é
+                        #                  recalculado do zero a cada
+                        #                  rodada (se surgir opção
+                        #                  segura melhor depois, sai
+                        #                  daqui automaticamente).
+                        categoria_estado = Categoria.OPERANDO_EM_RISCO if risco else Categoria.OTIMIZADO
                     else:
-                        categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.OPORTUNIDADE_TROCA
+                        categoria_estado = Categoria.SUGESTAO_RISCO if risco else Categoria.OPORTUNIDADE_TROCA
                 elif escolhida['tipo'] in TIPOS_SEM_PROMOCAO:
-                    categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.SEM_OPORTUNIDADE
+                    categoria_estado = Categoria.SEM_OPORTUNIDADE
                 else:
-                    categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.CANDIDATO
+                    categoria_estado = Categoria.SUGESTAO_RISCO if risco else Categoria.CANDIDATO
             else:
                 # * [EXPLICAÇÃO] → Nenhum cenário passou nos filtros (ex:
                 #                  Simples/Base sem nenhuma opção dentro
@@ -69,7 +91,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
                 #                  não ausência de informação. É o mesmo
                 #                  "nada a fazer com segurança" que
                 #                  SEM_OPORTUNIDADE já representa.
-                categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.SEM_OPORTUNIDADE
+                categoria_estado = Categoria.SEM_OPORTUNIDADE
 
             dados = dict(
                 tem_escolha=escolhida is not None,

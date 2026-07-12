@@ -71,43 +71,40 @@ def enriquecer_arvores_com_veredito(arvores):
 
 def calcular_contadores_promocao(skus):
     """Contadores agregados sobre TODO o resultado filtrado (não só a
-    página atual).
+    página atual) — 1 contador por categoria_estado (os 7 estados),
+    contando cada MLB só pelo comportamento que está ATIVO nele (igual
+    ao veredito exibido no card, nunca os 3 comportamentos juntos).
 
-    * [EXPLICAÇÃO] → É uma aproximação por query direta — não repete a
-    cascata Base↔Catálogo completa (que só roda por SKU individual).
-    Conta variações que batem os critérios dentro dos SKUs filtrados,
-    não necessariamente idêntico folha-a-folha ao que aparece renderizado
-    na árvore. Suficiente pra um contador de dashboard; exatidão perfeita
-    exigiria rodar a cascata pra cada SKU, igual já fazemos pra
-    'total_anuncios' no Hub de Anúncios — fica como refinamento futuro
-    se a diferença incomodar na prática."""
+    * [EXPLICAÇÃO] → Continua sendo uma aproximação (não repete a
+    cascata Base↔Catálogo completa por SKU) — suficiente pra um
+    contador de dashboard, igual já era antes."""
     from mercado_livre.funcoes_auxiliares.classificacao_catalogo import carregar_variacoes_por_sku
 
     variacoes_por_sku = carregar_variacoes_por_sku(skus=skus)
     todas_variacoes = [v for lista in variacoes_por_sku.values() for v in lista]
     ids_variacao = [v.id for v in todas_variacoes]
 
-    com_ativa = VariacaoAnuncioMercadoLivre.objects.filter(
-        id__in=ids_variacao, promocoes__status='started'
-    ).distinct().count()
+    categoria_por_variacao_comportamento = {
+        (variacao_id, comportamento): categoria
+        for variacao_id, comportamento, categoria in RecomendacaoPrecificacao.objects.filter(
+            variacao_id__in=ids_variacao
+        ).values_list('variacao_id', 'comportamento', 'categoria_estado')
+    }
 
-    candidatos = VariacaoAnuncioMercadoLivre.objects.filter(
-        id__in=ids_variacao, promocoes__status='candidate'
-    ).distinct().count()
+    Categoria = RecomendacaoPrecificacao.CategoriaEstado
+    contagem = {chave: 0 for chave, _ in Categoria.choices}
 
-    recomendacoes_validas = set(
-        RecomendacaoPrecificacao.objects.filter(
-            variacao_id__in=ids_variacao, tem_escolha=True
-        ).values_list('variacao_id', 'comportamento')
-    )
-
-    com_recomendacao = sum(
-        1 for v in todas_variacoes
-        if (v.id, v.comportamento_ativo) in recomendacoes_validas
-    )
+    for v in todas_variacoes:
+        categoria = categoria_por_variacao_comportamento.get((v.id, v.comportamento_ativo))
+        if categoria:
+            contagem[categoria] += 1
 
     return {
-        'com_promocao_ativa': com_ativa,
-        'candidatos': candidatos,
-        'com_recomendacao': com_recomendacao,
+        'sem_oportunidade': contagem[Categoria.SEM_OPORTUNIDADE],
+        'candidato': contagem[Categoria.CANDIDATO],
+        'sugestao_risco': contagem[Categoria.SUGESTAO_RISCO],
+        'oportunidade_troca': contagem[Categoria.OPORTUNIDADE_TROCA],
+        'otimizado': contagem[Categoria.OTIMIZADO],
+        'operando_em_risco': contagem[Categoria.OPERANDO_EM_RISCO],
+        'conflito_multiplas_ativas': contagem[Categoria.CONFLITO_MULTIPLAS_ATIVAS],
     }

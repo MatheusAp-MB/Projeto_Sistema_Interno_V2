@@ -65,6 +65,19 @@ class VariacaoAnuncioMercadoLivre(models.Model):
         default='padrao',
     )
 
+    # * [EXPLICAÇÃO] → Margem ATUAL (com preco_atual, que já embute
+    #                  qualquer promoção rodando) MENOS margem ORIGINAL
+    #                  (com preco_original, sem nenhuma promoção) — em
+    #                  pontos percentuais. Só calculável quando existe
+    #                  preco_original (ou seja, quando há promoção ativa
+    #                  agora); fica None caso contrário. Não varia por
+    #                  comportamento — por isso mora aqui na Variação,
+    #                  não em RecomendacaoPrecificacao (evita persistir
+    #                  o mesmo valor 3 vezes por MLB).
+    margem_atual_vs_original_pp = models.DecimalField(
+        max_digits=6, decimal_places=2, blank=True, null=True
+    )
+
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'
