@@ -488,16 +488,22 @@ def view_recomendacao_precificacao(request):
         recomendar_precificacao, melhor_margem, COMPORTAMENTOS,
     )
 
+    from django.urls import reverse
+
     mlb = request.GET.get('mlb', '').strip().upper()
     comportamento = request.GET.get('comportamento', 'padrao')
     if comportamento not in COMPORTAMENTOS:
         comportamento = 'padrao'
+
+    voltar = request.GET.get('voltar', '')
+    voltar_url = f"{reverse('mercado_livre_anuncios')}?{voltar}" if voltar else reverse('mercado_livre_anuncios')
 
     contexto = {
         'busca': mlb,
         'margem_minima': MARGEM_MINIMA_PADRAO,
         'comportamento_atual': comportamento,
         'opcoes_comportamento': COMPORTAMENTOS,
+        'voltar_url': voltar_url,
     }
 
     if not mlb:
@@ -516,6 +522,17 @@ def view_recomendacao_precificacao(request):
     produto = variacao.produto
     tipo_anuncio_obj = anuncio.tipo_de_anuncio
     tipo_key = 'premium' if tipo_anuncio_obj and tipo_anuncio_obj.tipo_anuncio == 'gold_pro' else 'classico'
+
+    from mercado_livre.funcoes_auxiliares.classificacao_catalogo import info_variacao
+    from mercado_livre.funcoes_auxiliares.badges import BADGES_CATALOGO, badge_de
+
+    # * [EXPLICAÇÃO] → Reaproveita a mesma função que já monta o card do
+    #                  Hub (termômetro, badges de Status/Tipo/Logística/
+    #                  Flex, preço/desconto) — nunca duplicar essa lógica.
+    info = info_variacao(variacao, imagem_url=produto.imagem_url, titulo_produto=produto.titulo)
+    contexto['info'] = info
+    contexto['marca'] = produto.marca
+    contexto['badge_catalogo'] = badge_de(BADGES_CATALOGO, tipo_anuncio_obj.classificacao_catalogo) if tipo_anuncio_obj else None
 
     contexto['titulo'] = anuncio.titulo_anuncio
     contexto['sku'] = produto.sku
@@ -561,6 +578,13 @@ def view_recomendacao_precificacao(request):
 
     resultado_promocoes = buscar_promocoes_do_mlb(mlb)
     contexto['erro_promocoes'] = resultado_promocoes.get('erro')
+
+    # * [EXPLICAÇÃO] → "Promoção ativa" = existe pelo menos 1 com
+    #                  status=started (candidate não conta, ainda não
+    #                  foi de fato ativada).
+    promocoes_ativas = [p for p in resultado_promocoes.get('promocoes', []) if p.get('status') == 'started']
+    contexto['promocao_ativa'] = promocoes_ativas[0] if promocoes_ativas else None
+    contexto['preco_base'] = variacao.preco_original or variacao.preco_atual
 
     for promo in resultado_promocoes.get('promocoes', []):
         meli_percentage = promo.get('meli_percentage')

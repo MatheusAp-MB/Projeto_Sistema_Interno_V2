@@ -1,10 +1,9 @@
 /*
 * [RESUMO] → CSS da tela de Recomendação de Precificação.
-* Reaproveita a paleta global (--cor-primaria etc.) e formaliza um
-* sistema de 4 cores semânticas pras categorias (verde/âmbar/laranja/
-* vermelho), já usado informalmente antes — aqui vira sistema de verdade.
-* O card de veredito é o elemento central da tela — todo o resto fica
-* discreto ao redor dele.
+* Reaproveita a paleta global (--cor-primaria etc.) e o termômetro/
+* badges do layout_hub_anuncios.css (carregado junto no head_extra).
+* Sistema de 4 cores semânticas pras categorias, aplicado em cards de
+* verdade (header colorido + corpo), não número solto em círculo.
 */
 
 :root {
@@ -16,6 +15,8 @@
     --recpreco-laranja-bg: #fff7ed;
     --recpreco-vermelho: #b91c1c;
     --recpreco-vermelho-bg: #fee2e2;
+    --recpreco-cinza: #6b7280;
+    --recpreco-cinza-bg: #f3f4f6;
 }
 
 /* ================================================
@@ -44,198 +45,218 @@
 }
 
 /* ================================================
-   CABEÇALHO DO PRODUTO
+   HEADER DO PRODUTO
    ================================================ */
 
-.recpreco-cabecalho {
+.recpreco-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
     border-radius: 10px;
     padding: 16px 20px;
-    margin-bottom: 20px;
-}
-
-.recpreco-cabecalho-titulo {
-    font-size: 1rem;
-    color: var(--cor-primaria);
-}
-
-.recpreco-cabecalho-meta {
-    color: #667;
-    font-size: 0.85rem;
-    margin-top: 2px;
-}
-
-.recpreco-margem-atual {
-    margin-top: 10px;
-    font-size: 0.9rem;
-}
-
-.recpreco-catalogo-status {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #eee;
-    font-size: 0.9rem;
-}
-
-.recpreco-detalhe-discreto {
-    color: #99a;
-    font-size: 0.85rem;
-}
-
-/* ================================================
-   SELETOR DE COMPORTAMENTO
-   ================================================ */
-
-.recpreco-comportamento-seletor {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     margin-bottom: 16px;
 }
 
-.recpreco-comportamento-seletor label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #556;
-}
-
-.recpreco-comportamento-seletor select {
-    padding: 8px 12px;
-    border: 1px solid var(--cor-borda);
+.recpreco-header-imagem {
+    width: 84px;
+    height: 84px;
+    object-fit: cover;
     border-radius: 8px;
-    font-size: 0.9rem;
-    background: #fff;
-}
-
-/* ================================================
-   CARD DE VEREDITO — elemento central da tela
-   ================================================ */
-
-.recpreco-veredito {
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 28px;
-    border: 2px solid transparent;
-}
-
-.recpreco-veredito--seguro {
-    background: var(--recpreco-verde-bg);
-    border-color: var(--recpreco-verde);
-}
-
-.recpreco-veredito--risco {
-    background: var(--recpreco-laranja-bg);
-    border-color: var(--recpreco-laranja);
-}
-
-.recpreco-veredito--vazio {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-}
-
-.recpreco-veredito-rotulo {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: #556;
-}
-
-.recpreco-veredito-resposta {
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-}
-
-.recpreco-veredito-resposta--vazia {
-    color: #667;
-    font-size: 0.95rem;
-    font-style: italic;
-}
-
-.recpreco-veredito-nome {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--cor-primaria);
-}
-
-.recpreco-veredito-preco {
-    font-size: 1.4rem;
-    font-weight: 800;
-    color: #1a1a2e;
-}
-
-.recpreco-veredito-margem {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--recpreco-verde);
-}
-
-.recpreco-veredito--risco .recpreco-veredito-margem {
-    color: var(--recpreco-laranja);
-}
-
-.recpreco-veredito-bucket {
-    margin-top: 6px;
-    font-size: 0.82rem;
-    color: #667;
-}
-
-.recpreco-veredito-aviso {
-    margin-top: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--recpreco-laranja);
-}
-
-/* ================================================
-   SEÇÕES NUMERADAS (categorias)
-   ================================================ */
-
-.recpreco-secao {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 24px 0 8px;
-}
-
-.recpreco-secao:first-of-type {
-    margin-top: 0;
-}
-
-.recpreco-secao-numero {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    color: #fff;
-    font-size: 0.78rem;
-    font-weight: 700;
     flex-shrink: 0;
 }
 
-.recpreco-secao-numero--1 { background: var(--recpreco-verde); }
-.recpreco-secao-numero--2 { background: var(--recpreco-ambar); }
-.recpreco-secao-numero--3 { background: var(--recpreco-laranja); }
-
-.recpreco-secao-titulo {
-    margin: 0;
-    font-size: 0.95rem;
-    color: #333;
+.recpreco-header-imagem-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f3f5;
+    color: #adb5bd;
+    font-size: 1.5rem;
 }
 
+.recpreco-header-corpo {
+    flex: 1;
+    min-width: 0;
+}
+
+.recpreco-header-linha-topo {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 0.78rem;
+    color: #667;
+    margin-bottom: 2px;
+}
+
+.recpreco-header-marca {
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--cor-primaria);
+}
+
+.recpreco-header-titulo {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-bottom: 8px;
+}
+
+.recpreco-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.recpreco-header-estoque {
+    font-size: 0.82rem;
+    color: #556;
+    margin-left: 4px;
+}
+
+.recpreco-header-termometro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* ================================================
+   CARD GENÉRICO (Estado Atual, Decisão)
+   ================================================ */
+
+.recpreco-card {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.recpreco-card-header {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.recpreco-card-corpo {
+    padding: 16px 20px;
+}
+
+.recpreco-card-rodape {
+    padding: 10px 20px;
+    border-top: 1px solid #eee;
+    font-size: 0.85rem;
+    background: #f9fafb;
+}
+
+.recpreco-dado {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.recpreco-dado-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #99a;
+}
+
+.recpreco-dado-valor {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+.recpreco-dado-extra {
+    font-size: 0.78rem;
+    color: #556;
+}
+
+.recpreco-estado-atual-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+
+/* ================================================
+   CARD DE DECISÃO (seletor + veredito)
+   ================================================ */
+
+.recpreco-comportamento-seletor select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--cor-primaria-clara);
+    font-size: 0.82rem;
+    background: #fff;
+}
+
+.recpreco-decisao-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
+.recpreco-decisao-bucket {
+    font-size: 0.82rem;
+    color: #556;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
+.recpreco-decisao-aviso {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--recpreco-laranja);
+}
+
+/* ================================================
+   CARDS DE CATEGORIA
+   ================================================ */
+
+.recpreco-categoria {
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 1px solid var(--cor-borda);
+}
+
+.recpreco-categoria-header {
+    padding: 10px 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #fff;
+}
+
+.recpreco-categoria-corpo {
+    background: var(--cor-fundo-card);
+    padding: 14px;
+}
+
+.recpreco-categoria--1 .recpreco-categoria-header { background: var(--recpreco-verde); }
+.recpreco-categoria--2 .recpreco-categoria-header { background: var(--recpreco-ambar); }
+.recpreco-categoria--3 .recpreco-categoria-header { background: var(--recpreco-laranja); }
+.recpreco-categoria--4 .recpreco-categoria-header { background: var(--recpreco-cinza); }
+
 .recpreco-outros-cenarios {
-    margin-top: 24px;
+    margin-top: 8px;
 }
 
 .recpreco-outros-cenarios summary {
     cursor: pointer;
     color: #99a;
     font-size: 0.85rem;
+    padding: 6px 0;
 }
 
 .recpreco-outros-cenarios-conteudo {
@@ -249,8 +270,7 @@
 .recpreco-tabela-wrapper {
     overflow-x: auto;
     background: var(--cor-fundo-card);
-    border: 1px solid var(--cor-borda);
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 .recpreco-tabela {
@@ -265,6 +285,31 @@
     text-align: left;
     padding: 10px 14px;
     white-space: nowrap;
+}
+
+.recpreco-th-ordenavel {
+    cursor: pointer;
+    user-select: none;
+}
+
+.recpreco-th-ordenavel:hover {
+    background: var(--cor-primaria-clara);
+}
+
+.recpreco-th-ordenavel::after {
+    content: ' ⇅';
+    opacity: 0.5;
+    font-size: 0.75rem;
+}
+
+.recpreco-th-ordenavel.recpreco-ordenado-asc::after {
+    content: ' ▲';
+    opacity: 1;
+}
+
+.recpreco-th-ordenavel.recpreco-ordenado-desc::after {
+    content: ' ▼';
+    opacity: 1;
 }
 
 .recpreco-tabela td {
@@ -288,6 +333,7 @@
 
 .recpreco-positivo { color: var(--recpreco-verde); }
 .recpreco-negativo { color: var(--recpreco-vermelho); }
+.recpreco-detalhe-discreto { color: #99a; }
 
 .recpreco-sem-opcoes {
     padding: 16px;

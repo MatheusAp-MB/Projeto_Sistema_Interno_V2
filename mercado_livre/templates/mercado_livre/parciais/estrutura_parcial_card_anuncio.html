@@ -37,7 +37,7 @@
                 <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.sku_ml }}"></i>
             </span>
 
-            <span class="card-anuncio-preco">
+        <span class="card-anuncio-preco">
                 <span class="card-anuncio-preco-label">Preço</span>
                 {% if anuncio.tem_desconto %}
                 <span class="card-anuncio-preco-de">R$ {{ anuncio.preco_original|floatformat:2 }}</span>
@@ -47,6 +47,10 @@
                 <span class="card-anuncio-preco-valor">{% if anuncio.preco_atual %}R$ {{ anuncio.preco_atual|floatformat:2 }}{% else %}—{% endif %}</span>
                 {% endif %}
             </span>
+
+            <a href="{% url 'mercado_livre_recomendacao_precificacao' %}?mlb={{ anuncio.mlb }}&voltar={{ voltar|urlencode }}" class="card-btn-promocoes">
+                <i class="fas fa-tags"></i> Ver promoções
+            </a>
         </div>
 
     </div>

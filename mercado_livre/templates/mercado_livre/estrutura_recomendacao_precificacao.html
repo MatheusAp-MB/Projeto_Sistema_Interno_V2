@@ -1,8 +1,9 @@
 <!--
 * [RESUMO] → Tela de detalhe por MLB (igual Qualidade/Competição) —
 * recomenda o melhor preço/promoção pra ganhar o catálogo com segurança,
-* seguindo 1 de 3 comportamentos. O card de veredito é o elemento
-* central da tela — toda a análise converge numa resposta só.
+* seguindo 1 de 3 comportamentos. Header reaproveita a mesma
+* info_variacao() do card do Hub (badges, termômetro, preço/desconto) —
+* nunca duplicar essa lógica.
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
@@ -11,23 +12,20 @@
 {% block titulo %}Recomendação de Precificação — Sistema Interno MB/SV{% endblock %}
 {% block toolbar_titulo %}Recomendação de Precificação{% endblock %}
 
+{% block toolbar_acoes %}
+<a href="{{ voltar_url }}" class="btn-voltar"><i class="fas fa-arrow-left"></i> Voltar para o Hub</a>
+{% endblock %}
+
 {% block head_extra %}
+<link rel="stylesheet" href="{% static 'mercado_livre/css/layout_hub_anuncios.css' %}">
 <link rel="stylesheet" href="{% static 'mercado_livre/css/layout_recomendacao_precificacao.css' %}">
 {% endblock %}
 
 {% block conteudo %}
 
 <form method="get" class="recpreco-form-busca">
-    <input
-        type="text"
-        name="mlb"
-        value="{{ busca }}"
-        placeholder="Digite o MLB (ex: MLB2690742181)"
-        class="recpreco-input-busca"
-    >
-    {% if comportamento_atual %}
-    <input type="hidden" name="comportamento" value="{{ comportamento_atual }}">
-    {% endif %}
+    <input type="text" name="mlb" value="{{ busca }}" placeholder="Digite o MLB (ex: MLB2690742181)" class="recpreco-input-busca">
+    {% if comportamento_atual %}<input type="hidden" name="comportamento" value="{{ comportamento_atual }}">{% endif %}
     <button type="submit" class="btn-acao">Buscar</button>
 </form>
 
@@ -37,27 +35,86 @@
 
 {% if titulo %}
 
-<div class="recpreco-cabecalho">
-    <strong class="recpreco-cabecalho-titulo">{{ titulo }}</strong>
-    <div class="recpreco-cabecalho-meta">
-        SKU: {{ sku }} · Tipo: {{ tipo_anuncio_label }} · Preço atual: R$ {{ preco_atual|floatformat:2 }}
-        {% if eh_catalogo %}· Margem mínima considerada: {{ margem_minima|floatformat:0 }}%{% endif %}
-    </div>
-
-    {% if margem_atual %}
-    <div class="recpreco-margem-atual">
-        Margem hoje (sem promoção): <strong>{{ margem_atual.margem_percentual|floatformat:2 }}%</strong>
-        <span class="recpreco-detalhe-discreto">(frete R$ {{ margem_atual.frete|floatformat:2 }})</span>
-    </div>
+<!-- ============ HEADER DO PRODUTO ============ -->
+<div class="recpreco-header">
+    {% if info.imagem_principal_url %}
+    <img src="{{ info.imagem_principal_url }}" class="recpreco-header-imagem" alt="{{ info.titulo }}">
+    {% elif info.thumbnail_url %}
+    <img src="{{ info.thumbnail_url }}" class="recpreco-header-imagem" alt="{{ info.titulo }}">
+    {% else %}
+    <div class="recpreco-header-imagem recpreco-header-imagem-vazia"><i class="fas fa-image"></i></div>
     {% endif %}
 
+    <div class="recpreco-header-corpo">
+        <div class="recpreco-header-linha-topo">
+            <span class="recpreco-header-marca">{{ marca|default:"—" }}</span>
+            <span class="recpreco-header-sku">SKU: {{ sku }}</span>
+            <span class="recpreco-header-mlb">{{ info.mlb }}</span>
+        </div>
+        <div class="recpreco-header-titulo">{{ info.titulo }}</div>
+        <div class="recpreco-header-badges">
+            {% if info.badge_status %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=info.badge_status %}{% endif %}
+            {% if info.badge_tipo_anuncio %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=info.badge_tipo_anuncio %}{% endif %}
+            {% if info.badge_logistica %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=info.badge_logistica %}{% endif %}
+            {% if badge_catalogo %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_catalogo %}{% endif %}
+            <span class="recpreco-header-estoque">Estoque: <strong>{{ info.estoque|default:"0" }}</strong></span>
+        </div>
+    </div>
+
+    {% if not eh_catalogo %}
+    <div class="recpreco-header-termometro">
+        <svg viewBox="0 0 60 34" class="termometro-svg">
+            <path d="{{ info.arco_vermelho }}" fill="none" stroke="#e24b4a" stroke-width="6" stroke-linecap="round"/>
+            <path d="{{ info.arco_amarelo }}" fill="none" stroke="#facc15" stroke-width="6" stroke-linecap="round"/>
+            <path d="{{ info.arco_verde }}" fill="none" stroke="#15803d" stroke-width="6" stroke-linecap="round"/>
+            <line x1="30" y1="30" x2="{{ info.ponteiro_x }}" y2="{{ info.ponteiro_y }}" stroke="#1e3a5f" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="30" cy="30" r="2.5" fill="#1e3a5f"/>
+        </svg>
+        <span class="termometro-valor">{{ info.score }}</span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ============ ESTADO ATUAL ============ -->
+<div class="recpreco-card">
+    <div class="recpreco-card-header">Estado Atual</div>
+    <div class="recpreco-card-corpo recpreco-estado-atual-grid">
+        <div class="recpreco-dado">
+            <span class="recpreco-dado-label">Promoção ativa</span>
+            {% if promocao_ativa %}
+            <span class="recpreco-dado-valor recpreco-positivo">SIM</span>
+            <span class="recpreco-dado-extra">{{ promocao_ativa.name|default:promocao_ativa.type }}</span>
+            {% else %}
+            <span class="recpreco-dado-valor recpreco-detalhe-discreto">NÃO</span>
+            {% endif %}
+        </div>
+        <div class="recpreco-dado">
+            <span class="recpreco-dado-label">Preço base</span>
+            <span class="recpreco-dado-valor">R$ {{ preco_base|floatformat:2 }}</span>
+        </div>
+        <div class="recpreco-dado">
+            <span class="recpreco-dado-label">Preço atual</span>
+            <span class="recpreco-dado-valor">R$ {{ preco_atual|floatformat:2 }}</span>
+        </div>
+        <div class="recpreco-dado">
+            <span class="recpreco-dado-label">Margem atual</span>
+            {% if margem_atual %}
+            <span class="recpreco-dado-valor {% if margem_atual.margem_percentual >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
+                {% if margem_atual.margem_percentual >= 0 %}▲{% else %}▼{% endif %} {{ margem_atual.margem_percentual|floatformat:2 }}%
+            </span>
+            {% else %}
+            <span class="recpreco-dado-valor recpreco-detalhe-discreto">—</span>
+            {% endif %}
+        </div>
+    </div>
+
     {% if eh_catalogo %}
-    <div class="recpreco-catalogo-status">
+    <div class="recpreco-card-rodape">
         <strong>Situação de Catálogo:</strong> {{ competicao_status|default:"—" }}
         {% if competicao_price_to_win %}
-        <div>Preço para ganhar o catálogo: <strong>R$ {{ competicao_price_to_win|floatformat:2 }}</strong></div>
+        · Preço para ganhar: <strong>R$ {{ competicao_price_to_win|floatformat:2 }}</strong>
         {% else %}
-        <div class="recpreco-detalhe-discreto">Sem preço-alvo disponível no momento.</div>
+        · <span class="recpreco-detalhe-discreto">sem preço-alvo disponível</span>
         {% endif %}
     </div>
     {% endif %}
@@ -67,83 +124,95 @@
 <p class="recpreco-detalhe-discreto">{{ erro_promocoes }}</p>
 {% endif %}
 
-{% if not erro_promocoes %}
+{% if not erro_promocoes and eh_catalogo %}
 
-{% if eh_catalogo %}
-
-<form method="get" class="recpreco-comportamento-seletor" id="form-comportamento">
-    <input type="hidden" name="mlb" value="{{ busca }}">
-    <label for="select-comportamento">Comportamento de precificação</label>
-    <select name="comportamento" id="select-comportamento">
-        {% for chave, nome in opcoes_comportamento.items %}
-        <option value="{{ chave }}" {% if chave == comportamento_atual %}selected{% endif %}>{{ nome }}</option>
-        {% endfor %}
-    </select>
-</form>
-
-<!-- CARD DE VEREDITO — elemento central da tela -->
-<div class="recpreco-veredito
-    {% if recomendacao.escolhida %}
-        {% if recomendacao.exige_aprovacao %}recpreco-veredito--risco{% else %}recpreco-veredito--seguro{% endif %}
-    {% else %}recpreco-veredito--vazio{% endif %}">
-
-    <div class="recpreco-veredito-rotulo">
-        O comportamento <strong>{{ opcoes_comportamento|get_item:comportamento_atual }}</strong> escolheria:
+<!-- ============ COMPORTAMENTO + DECISÃO ============ -->
+<div class="recpreco-card recpreco-card-decisao">
+    <div class="recpreco-card-header">
+        Comportamento e Decisão
+        <form method="get" id="form-comportamento" class="recpreco-comportamento-seletor">
+            <input type="hidden" name="mlb" value="{{ busca }}">
+            <select name="comportamento" id="select-comportamento">
+                {% for chave, nome in opcoes_comportamento.items %}
+                <option value="{{ chave }}" {% if chave == comportamento_atual %}selected{% endif %}>{{ nome }}</option>
+                {% endfor %}
+            </select>
+        </form>
     </div>
 
-    {% if recomendacao.escolhida %}
-    <div class="recpreco-veredito-resposta">
-        <span class="recpreco-veredito-nome">{{ recomendacao.escolhida.nome }}</span>
-        <span class="recpreco-veredito-preco">R$ {{ recomendacao.escolhida.preco_promocional|floatformat:2 }}</span>
-        <span class="recpreco-veredito-margem">margem {{ recomendacao.escolhida.margem_real.margem_percentual|floatformat:2 }}%</span>
+    <div class="recpreco-card-corpo">
+        {% if recomendacao.escolhida %}
+        <div class="recpreco-decisao-grid">
+            <div class="recpreco-dado">
+                <span class="recpreco-dado-label">Cenário escolhido</span>
+                <span class="recpreco-dado-valor">{{ recomendacao.escolhida.nome }}</span>
+            </div>
+            <div class="recpreco-dado">
+                <span class="recpreco-dado-label">Preço final</span>
+                <span class="recpreco-dado-valor">R$ {{ recomendacao.escolhida.preco_promocional|floatformat:2 }}</span>
+            </div>
+            <div class="recpreco-dado">
+                <span class="recpreco-dado-label">Margem final</span>
+                <span class="recpreco-dado-valor {% if recomendacao.escolhida.margem_real.margem_percentual >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
+                    {% if recomendacao.escolhida.margem_real.margem_percentual >= 0 %}▲{% else %}▼{% endif %} {{ recomendacao.escolhida.margem_real.margem_percentual|floatformat:2 }}%
+                </span>
+            </div>
+        </div>
+        <div class="recpreco-decisao-bucket">{{ recomendacao.bucket_nome }}</div>
+        {% if recomendacao.exige_aprovacao %}
+        <div class="recpreco-decisao-aviso">🔒 Exige aprovação manual — abaixo da margem mínima, não ativável automaticamente</div>
+        {% endif %}
+        {% else %}
+        <div class="recpreco-detalhe-discreto">Nenhuma opção ganha o catálogo dentro dos critérios desse comportamento.</div>
+        {% endif %}
     </div>
-    <div class="recpreco-veredito-bucket">{{ recomendacao.bucket_nome }}</div>
-    {% if recomendacao.exige_aprovacao %}
-    <div class="recpreco-veredito-aviso">🔒 Exige aprovação manual — abaixo da margem mínima, não ativável automaticamente</div>
-    {% endif %}
-    {% else %}
-    <div class="recpreco-veredito-resposta recpreco-veredito-resposta--vazia">Nenhuma opção ganha o catálogo dentro dos critérios desse comportamento.</div>
-    {% endif %}
 </div>
 
-<div class="recpreco-secao">
-    <span class="recpreco-secao-numero recpreco-secao-numero--1">1</span>
-    <h6 class="recpreco-secao-titulo">Ganha catálogo, dentro da margem</h6>
+<!-- ============ CATEGORIAS ============ -->
+<div class="recpreco-categoria recpreco-categoria--1">
+    <div class="recpreco-categoria-header">① Ganha catálogo, dentro da margem</div>
+    <div class="recpreco-categoria-corpo">
+        {% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_1 eh_catalogo=eh_catalogo %}
+    </div>
 </div>
-{% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_1 eh_catalogo=eh_catalogo %}
 
-<div class="recpreco-secao">
-    <span class="recpreco-secao-numero recpreco-secao-numero--2">2</span>
-    <h6 class="recpreco-secao-titulo">Perde catálogo, dentro da margem</h6>
+<div class="recpreco-categoria recpreco-categoria--2">
+    <div class="recpreco-categoria-header">② Perde catálogo, dentro da margem</div>
+    <div class="recpreco-categoria-corpo">
+        {% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_2 eh_catalogo=eh_catalogo %}
+    </div>
 </div>
-{% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_2 eh_catalogo=eh_catalogo %}
 
-<div class="recpreco-secao">
-    <span class="recpreco-secao-numero recpreco-secao-numero--3">3</span>
-    <h6 class="recpreco-secao-titulo">Ganha catálogo, abaixo da margem</h6>
+<div class="recpreco-categoria recpreco-categoria--3">
+    <div class="recpreco-categoria-header">③ Ganha catálogo, abaixo da margem</div>
+    <div class="recpreco-categoria-corpo">
+        {% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_3 eh_catalogo=eh_catalogo %}
+    </div>
 </div>
-{% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_3 eh_catalogo=eh_catalogo %}
 
 <details class="recpreco-outros-cenarios">
-    <summary>🔴 Outros cenários (perde catálogo, abaixo da margem)</summary>
+    <summary>Outros cenários (perde catálogo, abaixo da margem)</summary>
     <div class="recpreco-outros-cenarios-conteudo">
         {% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=categoria_4 eh_catalogo=eh_catalogo %}
     </div>
 </details>
 
-{% else %}
+{% elif not erro_promocoes %}
 
-<div class="recpreco-secao">
-    <h6 class="recpreco-secao-titulo">Dentro da margem</h6>
+<div class="recpreco-categoria recpreco-categoria--1">
+    <div class="recpreco-categoria-header">Dentro da margem</div>
+    <div class="recpreco-categoria-corpo">
+        {% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=dentro_margem eh_catalogo=eh_catalogo %}
+    </div>
 </div>
-{% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=dentro_margem eh_catalogo=eh_catalogo %}
 
-<div class="recpreco-secao">
-    <h6 class="recpreco-secao-titulo">Abaixo da margem</h6>
+<div class="recpreco-categoria recpreco-categoria--4">
+    <div class="recpreco-categoria-header">Abaixo da margem</div>
+    <div class="recpreco-categoria-corpo">
+        {% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=abaixo_margem eh_catalogo=eh_catalogo %}
+    </div>
 </div>
-{% include 'mercado_livre/parciais/estrutura_parcial_tabela_promocoes.html' with linhas=abaixo_margem eh_catalogo=eh_catalogo %}
 
-{% endif %}
 {% endif %}
 {% endif %}
 
