@@ -46,6 +46,7 @@ def montar_linhas_candidatas(variacao):
             linhas.append({
                 'nome': 'Preço direto para ganhar',
                 'tipo': 'PRECO_DIRETO',
+                'chave_externa': 'PRECO_DIRETO',
                 'status': None,
                 'vigencia': None,
                 'preco_original': variacao.preco_atual,
@@ -65,6 +66,7 @@ def montar_linhas_candidatas(variacao):
         linhas.append({
             'nome': 'Preço atual (sem promoção)',
             'tipo': 'PRECO_ATUAL',
+            'chave_externa': 'PRECO_ATUAL',
             'status': None,
             'vigencia': None,
             'preco_original': variacao.preco_atual,
@@ -112,6 +114,7 @@ def montar_linhas_candidatas(variacao):
         linhas.append({
             'nome': promo.nome or promo.tipo,
             'tipo': promo.tipo,
+            'chave_externa': promo.chave_externa,
             'status': promo.status,
             'vigencia': vigencia,
             'preco_original': promo.preco_original,

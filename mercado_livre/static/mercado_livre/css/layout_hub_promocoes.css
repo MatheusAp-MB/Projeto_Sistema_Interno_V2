@@ -55,19 +55,62 @@
     font-size: 0.78rem;
 }
 
-.card-promocao-veredito--seguro {
+.card-promocao-veredito--candidato {
     background: #ecfdf5;
     border: 1px solid #1a8a5f;
 }
 
-.card-promocao-veredito--risco {
-    background: #fff7ed;
-    border: 1px solid #c2410c;
+.card-promocao-veredito--troca {
+    background: #eff6ff;
+    border: 1px solid #2563eb;
+}
+
+.card-promocao-veredito--otimizado {
+    background: #f3f4f6;
+    border: 1px solid #9ca3af;
+}
+
+.card-promocao-veredito--sem-oportunidade {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+}
+
+.card-promocao-veredito--conflito {
+    background: #fef2f2;
+    border: 1px solid #dc2626;
 }
 
 .card-promocao-veredito--vazio {
     background: #f3f4f6;
     border: 1px solid #d1d5db;
+}
+
+.card-promocao-rotulo {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #556;
+    width: 100%;
+}
+
+.card-promocao-alerta {
+    font-weight: 700;
+    color: #b91c1c;
+}
+
+.card-promocao-confirmacao {
+    color: #556;
+    font-style: italic;
+}
+
+.card-promocao-estado-atual {
+    color: #667;
+    font-size: 0.75rem;
+}
+
+.card-promocao-seta {
+    color: #99a;
 }
 
 .card-promocao-cenario {
@@ -123,4 +166,14 @@
 
 .card-btn-participar:hover {
     background: #d1fae5;
+}
+
+.card-btn-trocar {
+    color: #2563eb;
+    background: #eff6ff;
+    border-color: #2563eb;
+}
+
+.card-btn-trocar:hover {
+    background: #dbeafe;
 }

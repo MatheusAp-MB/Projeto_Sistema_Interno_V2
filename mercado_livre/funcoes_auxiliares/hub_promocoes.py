@@ -5,7 +5,7 @@
 #              Também calcula os 3 contadores do topo da tela, sobre
 #              TODO o resultado filtrado, não só a página atual.
 
-from mercado_livre.models import RecomendacaoPrecificacao, VariacaoAnuncioMercadoLivre
+from mercado_livre.models import RecomendacaoPrecificacao, VariacaoAnuncioMercadoLivre, PromocaoMercadoLivre
 
 
 def _coletar_folhas(arvore):
@@ -42,10 +42,31 @@ def enriquecer_arvores_com_veredito(arvores):
     for r in RecomendacaoPrecificacao.objects.filter(variacao_id__in=ids_variacao):
         recomendacoes_por_variacao.setdefault(r.variacao_id, {})[r.comportamento] = r
 
+    # * [EXPLICAÇÃO] → Só anexa 'promocao_ativa' quando existe EXATAMENTE
+    #                  1 promoção 'started' pra variação — é o caso normal
+    #                  (estado atual bem definido). Quando há 0 ou 2+,
+    #                  fica None; o card decide o que mostrar olhando
+    #                  pra 'categoria_estado' (que já cobre esses casos).
+    promocoes_ativas_por_variacao = {}
+    for p in PromocaoMercadoLivre.objects.filter(variacao_id__in=ids_variacao, status='started'):
+        promocoes_ativas_por_variacao.setdefault(p.variacao_id, []).append(p)
+
     for folha in todas_folhas:
         recomendacoes_da_variacao = recomendacoes_por_variacao.get(folha['id'], {})
         comportamento_ativo = folha.get('comportamento_ativo', 'padrao')
         folha['veredito'] = recomendacoes_da_variacao.get(comportamento_ativo)
+
+        ativas = promocoes_ativas_por_variacao.get(folha['id'], [])
+        if len(ativas) == 1:
+            ativa = ativas[0]
+            folha['promocao_ativa'] = {
+                'nome': ativa.nome or ativa.tipo,
+                'preco_avaliado': ativa.preco_avaliado,
+                'meli_percentage': ativa.meli_percentage,
+                'chave_externa': ativa.chave_externa,
+            }
+        else:
+            folha['promocao_ativa'] = None
 
 
 def calcular_contadores_promocao(skus):

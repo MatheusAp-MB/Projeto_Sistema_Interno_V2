@@ -7,7 +7,7 @@
 
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao
 from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
-from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import recomendar_precificacao, COMPORTAMENTOS
+from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import recomendar_precificacao, COMPORTAMENTOS, TIPOS_SEM_PROMOCAO
 
 
 def calcular_recomendacoes_precificacao(stdout, style):
@@ -41,11 +41,35 @@ def calcular_recomendacoes_precificacao(stdout, style):
             sem_calculo += 1
             continue
 
+        promocoes_ativas = [p for p in variacao.promocoes.all() if p.status == 'started']
+
         for comportamento in COMPORTAMENTOS:
             resultado = recomendar_precificacao(
                 linhas, margem_minima, comportamento=comportamento, exigir_ganha_catalogo=eh_catalogo,
             )
             escolhida = resultado['escolhida']
+
+            if len(promocoes_ativas) >= 2:
+                categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.CONFLITO_MULTIPLAS_ATIVAS
+            elif escolhida:
+                if len(promocoes_ativas) == 1:
+                    ativa_chave = promocoes_ativas[0].chave_externa
+                    if escolhida['chave_externa'] == ativa_chave:
+                        categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.OTIMIZADO
+                    else:
+                        categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.OPORTUNIDADE_TROCA
+                elif escolhida['tipo'] in TIPOS_SEM_PROMOCAO:
+                    categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.SEM_OPORTUNIDADE
+                else:
+                    categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.CANDIDATO
+            else:
+                # * [EXPLICAÇÃO] → Nenhum cenário passou nos filtros (ex:
+                #                  Simples/Base sem nenhuma opção dentro
+                #                  da margem) — isso é informação real,
+                #                  não ausência de informação. É o mesmo
+                #                  "nada a fazer com segurança" que
+                #                  SEM_OPORTUNIDADE já representa.
+                categoria_estado = RecomendacaoPrecificacao.CategoriaEstado.SEM_OPORTUNIDADE
 
             dados = dict(
                 tem_escolha=escolhida is not None,
@@ -55,6 +79,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
                 margem_recomendada=escolhida['margem_real']['margem_percentual'] if escolhida else None,
                 bucket_nome=resultado['bucket_nome'],
                 exige_aprovacao=resultado['exige_aprovacao'],
+                categoria_estado=categoria_estado,
             )
 
             chave = (variacao.id, comportamento)
@@ -71,6 +96,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
     campos = [
         'tem_escolha', 'cenario_nome', 'cenario_tipo',
         'preco_recomendado', 'margem_recomendada', 'bucket_nome', 'exige_aprovacao',
+        'categoria_estado',
     ]
 
     if para_criar:

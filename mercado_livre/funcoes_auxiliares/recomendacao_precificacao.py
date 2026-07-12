@@ -69,11 +69,17 @@ def recomendar_precificacao(linhas, margem_minima, comportamento='padrao', exigi
             ('sem_promocao_abaixo', 'Ganha catálogo, abaixo da margem, sem promoção'),
         ]
     else:
+        # * [EXPLICAÇÃO] → Simples/Base NUNCA recomenda algo abaixo da
+        #                  margem mínima — não existe catálogo pra
+        #                  justificar o risco. Se nada estiver dentro
+        #                  da margem, a função não escolhe nada (cai no
+        #                  'return' vazio no fim), em vez de escolher a
+        #                  "menos ruim" entre opções ruins. Corrige bug
+        #                  real: promoção com margem -2,47% vencendo o
+        #                  Preço Atual, que tinha margem +2,06%.
         ordem = [
             ('com_promocao_dentro', 'Dentro da margem, com promoção'),
             ('sem_promocao_dentro', 'Dentro da margem, sem promoção'),
-            ('com_promocao_abaixo', 'Abaixo da margem, com promoção'),
-            ('sem_promocao_abaixo', 'Abaixo da margem, sem promoção'),
         ]
 
     for chave, nome in ordem:

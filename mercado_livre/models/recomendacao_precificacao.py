@@ -36,6 +36,17 @@ class RecomendacaoPrecificacao(models.Model):
     bucket_nome = models.CharField(max_length=200, blank=True, null=True)
     exige_aprovacao = models.BooleanField(default=False)
 
+    class CategoriaEstado(models.TextChoices):
+        SEM_OPORTUNIDADE = 'sem_oportunidade', 'Sem oportunidade'
+        CANDIDATO = 'candidato', 'Candidato a participar'
+        OPORTUNIDADE_TROCA = 'oportunidade_troca', 'Oportunidade de troca'
+        OTIMIZADO = 'otimizado', 'Otimizado — nada a fazer'
+        CONFLITO_MULTIPLAS_ATIVAS = 'conflito_multiplas_ativas', 'Conflito — múltiplas promoções ativas'
+
+    categoria_estado = models.CharField(
+        max_length=30, choices=CategoriaEstado.choices, blank=True, null=True
+    )
+
     calculado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

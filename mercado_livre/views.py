@@ -665,6 +665,7 @@ def view_hub_promocoes(request):
         enriquecer_arvores_com_veredito, calcular_contadores_promocao,
     )
     from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import COMPORTAMENTOS
+    from mercado_livre.models import RecomendacaoPrecificacao
     from mercado_livre.funcoes_auxiliares.badges import (
         BADGES_STATUS, BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, BADGES_CATALOGO,
         BADGE_FLEX_ATIVO, BADGE_FLEX_INATIVO,
@@ -691,8 +692,7 @@ def view_hub_promocoes(request):
         'conexao_erp': request.GET.getlist('conexao_erp'),
         'faixas_score': request.GET.getlist('score'),
         'situacoes_competicao': request.GET.getlist('competicao'),
-        'promocao_ativa': request.GET.getlist('promocao_ativa'),
-        'promocao_candidata': request.GET.getlist('promocao_candidata'),
+        'categorias_estado': request.GET.getlist('categoria_estado'),
         'comportamentos': request.GET.getlist('comportamento'),
     }
 
@@ -717,8 +717,7 @@ def view_hub_promocoes(request):
     mapa_desconto = {'com': 'Com desconto', 'sem': 'Sem desconto'}
     mapa_conexao_erp = {'com': 'Com conexão ERP', 'sem': 'Sem conexão ERP'}
     mapa_score = {'ruim': 'Ruim', 'medio': 'Médio', 'bom': 'Bom', 'sem_dados': 'Sem dados'}
-    mapa_promocao_ativa = {'com': 'Com promoção ativa', 'sem': 'Sem promoção ativa'}
-    mapa_promocao_candidata = {'com': 'Com candidata', 'sem': 'Sem candidata'}
+    mapa_categoria_estado = dict(RecomendacaoPrecificacao.CategoriaEstado.choices)  
 
     chips_ativos = (
         [{'label': marca, 'classe': None, 'icone': None} for marca in filtros['marcas']] +
@@ -732,8 +731,7 @@ def view_hub_promocoes(request):
         [{'label': mapa_conexao_erp.get(v, v), 'classe': None, 'icone': None} for v in filtros['conexao_erp']] +
         [{'label': mapa_score.get(v, v), 'classe': None, 'icone': None} for v in filtros['faixas_score']] +
         [{'label': mapa_competicao.get(v, v), 'classe': None, 'icone': None} for v in filtros['situacoes_competicao']] +
-        [{'label': mapa_promocao_ativa.get(v, v), 'classe': None, 'icone': None} for v in filtros['promocao_ativa']] +
-        [{'label': mapa_promocao_candidata.get(v, v), 'classe': None, 'icone': None} for v in filtros['promocao_candidata']] +
+        [{'label': mapa_categoria_estado.get(v, v), 'classe': None, 'icone': None} for v in filtros['categorias_estado']] +
         [{'label': COMPORTAMENTOS.get(v, v), 'classe': None, 'icone': None} for v in filtros['comportamentos']]
     )
 
@@ -755,6 +753,7 @@ def view_hub_promocoes(request):
         'opcoes_catalogo': opcoes_com_badge(BADGES_CATALOGO),
         'opcoes_situacao_competicao': CompeticaoCatalogo.StatusCompeticao.choices,
         'opcoes_comportamento': COMPORTAMENTOS,
+        'opcoes_categoria_estado': RecomendacaoPrecificacao.CategoriaEstado.choices,
         'badge_flex_ativo': BADGE_FLEX_ATIVO,
         'badge_flex_inativo': BADGE_FLEX_INATIVO,
 

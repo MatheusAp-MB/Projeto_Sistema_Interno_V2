@@ -184,29 +184,14 @@
                     </div>
                 </div>
                 <div class="filtro-grupo">
-                    <span class="filtro-grupo-titulo">Promoção ativa</span>
+                    <span class="filtro-grupo-titulo">Estado da promoção</span>
                     <div class="filtro-opcoes-lista">
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="promocao_ativa" value="com" {% if 'com' in filtros.promocao_ativa %}checked{% endif %}>
-                            <span>Com promoção ativa</span>
-                        </label>
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="promocao_ativa" value="sem" {% if 'sem' in filtros.promocao_ativa %}checked{% endif %}>
-                            <span>Sem promoção ativa</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="filtro-grupo">
-                    <span class="filtro-grupo-titulo">Candidata a promoção</span>
-                    <div class="filtro-opcoes-lista">
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="promocao_candidata" value="com" {% if 'com' in filtros.promocao_candidata %}checked{% endif %}>
-                            <span>Com candidata</span>
-                        </label>
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="promocao_candidata" value="sem" {% if 'sem' in filtros.promocao_candidata %}checked{% endif %}>
-                            <span>Sem candidata</span>
-                        </label>
+                        {% for chave, nome in opcoes_categoria_estado %}
+                            <label class="filtro-opcao">
+                                <input type="checkbox" name="categoria_estado" value="{{ chave }}" {% if chave in filtros.categorias_estado %}checked{% endif %}>
+                                <span>{{ nome }}</span>
+                            </label>
+                        {% endfor %}
                     </div>
                 </div>
                 <div class="filtro-grupo">

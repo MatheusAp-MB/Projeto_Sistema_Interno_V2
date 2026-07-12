@@ -210,25 +210,24 @@ def _passa_conexao_erp(variacao, filtros):
     return tem_conexao == (valores[0] == 'com')
 
 
-def _passa_promocao_ativa(variacao, filtros):
-    valores = filtros.get('promocao_ativa') or []
-    if len(valores) != 1:
+def _passa_categoria_estado(variacao, filtros):
+    # * [EXPLICAÇÃO] → Substitui os antigos _passa_promocao_ativa/
+    #                  _passa_promocao_candidata (modelo de 2 eixos
+    #                  soltos, anterior aos 5 estados unificados).
+    #                  categoria_estado já vem calculado em lote em
+    #                  RecomendacaoPrecificacao, pro comportamento
+    #                  ATIVO daquela variação — filtra sobre o prefetch
+    #                  ('recomendacoes'), sem query nova por variação.
+    valores = filtros.get('categorias_estado') or []
+    if not valores:
         return True
-    # * [EXPLICAÇÃO] → "Ativa" = existe pelo menos 1 promoção com
-    #                  status started pra essa variação. Um MLB pode
-    #                  ter ativa E candidata ao mesmo tempo (já
-    #                  confirmado com dado real) — os 2 filtros não
-    #                  são mutuamente exclusivos de propósito.
-    tem_ativa = variacao.promocoes.filter(status='started').exists()
-    return tem_ativa == (valores[0] == 'com')
-
-
-def _passa_promocao_candidata(variacao, filtros):
-    valores = filtros.get('promocao_candidata') or []
-    if len(valores) != 1:
-        return True
-    tem_candidata = variacao.promocoes.filter(status='candidate').exists()
-    return tem_candidata == (valores[0] == 'com')
+    comportamento_ativo = variacao.comportamento_ativo
+    recomendacao = next(
+        (r for r in variacao.recomendacoes.all() if r.comportamento == comportamento_ativo),
+        None
+    )
+    categoria = recomendacao.categoria_estado if recomendacao else None
+    return categoria in valores
 
 
 def _passa_comportamento(variacao, filtros):
@@ -262,8 +261,8 @@ def _passa_competicao_direto(anuncio, filtros):
 def _mlb_tem_folha_valida(variacoes_mlb, filtros):
     return any(
         _passa_estoque(v, filtros) and _passa_desconto(v, filtros)
-        and _passa_conexao_erp(v, filtros) and _passa_promocao_ativa(v, filtros)
-        and _passa_promocao_candidata(v, filtros) and _passa_comportamento(v, filtros)
+        and _passa_conexao_erp(v, filtros) and _passa_categoria_estado(v, filtros)
+        and _passa_comportamento(v, filtros)
         and _passa_score_direto(v, filtros)
         for v in variacoes_mlb
     )
@@ -298,9 +297,7 @@ def _catalogo_passa(tipo, anuncio, variacoes_mlb, filtros, variacoes_da_base_par
         return False
     if not any(_passa_conexao_erp(v, filtros) for v in variacoes_mlb):
         return False
-    if not any(_passa_promocao_ativa(v, filtros) for v in variacoes_mlb):
-        return False
-    if not any(_passa_promocao_candidata(v, filtros) for v in variacoes_mlb):
+    if not any(_passa_categoria_estado(v, filtros) for v in variacoes_mlb):
         return False
     if not any(_passa_comportamento(v, filtros) for v in variacoes_mlb):
         return False
@@ -320,12 +317,12 @@ def carregar_variacoes_por_sku(skus=None):
     # * [EXPLICAÇÃO] → Exclui MLBs "fósseis" de migração antiga de
     #                  variações (regra de negócio fixa, sempre ativa —
     #                  não é filtro opcional, é ruído sem ação possível).
-    #                  prefetch_related('promocoes') evita N+1 nos
-    #                  filtros de promoção (_passa_promocao_ativa/
-    #                  _passa_promocao_candidata rodam por variação).
+    #                  prefetch_related('promocoes', 'recomendacoes')
+    #                  evita N+1 nos filtros (_passa_categoria_estado
+    #                  roda por variação, sobre o prefetch).
     qs = VariacaoAnuncioMercadoLivre.objects.select_related(
         'anuncio', 'anuncio__tipo_de_anuncio', 'anuncio__competicao', 'produto', 'qualidade'
-    ).prefetch_related('promocoes').exclude(anuncio__eh_fossil_migracao=True)
+    ).prefetch_related('promocoes', 'recomendacoes').exclude(anuncio__eh_fossil_migracao=True)
 
     if skus is not None:
         # * [EXPLICAÇÃO] → "skus" agora pode conter 3 tipos de chave
@@ -530,7 +527,7 @@ def listar_skus_filtrados(busca=None, filtros=None):
     chaves_avancadas = [
         'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
         'flex', 'estoque', 'desconto', 'conexao_erp',
-        'promocao_ativa', 'promocao_candidata', 'comportamentos',
+        'categorias_estado', 'comportamentos',
         'faixas_score', 'situacoes_competicao',
     ]
 
