@@ -478,27 +478,40 @@ def view_calcular_frete_ml(request):
             'erro': str(e),
         })
     
-def view_teste_margem_promocao(request):
+
+def view_recomendacao_precificacao(request):
     from decimal import Decimal
     from mercado_livre.models import AnuncioMercadoLivre
     from mercado_livre.funcoes_auxiliares.promocoes_json import buscar_promocoes_do_mlb
-    from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem
+    from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, MARGEM_MINIMA_PADRAO
+    from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import (
+        recomendar_precificacao, melhor_margem, COMPORTAMENTOS,
+    )
 
     mlb = request.GET.get('mlb', '').strip().upper()
-    contexto = {'busca': mlb}
+    comportamento = request.GET.get('comportamento', 'padrao')
+    if comportamento not in COMPORTAMENTOS:
+        comportamento = 'padrao'
+
+    contexto = {
+        'busca': mlb,
+        'margem_minima': MARGEM_MINIMA_PADRAO,
+        'comportamento_atual': comportamento,
+        'opcoes_comportamento': COMPORTAMENTOS,
+    }
 
     if not mlb:
-        return render(request, 'mercado_livre/estrutura_teste_margem_promocao.html', contexto)
+        return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)
 
-    anuncio = AnuncioMercadoLivre.objects.select_related('tipo_de_anuncio').filter(mlb=mlb).first()
+    anuncio = AnuncioMercadoLivre.objects.select_related('tipo_de_anuncio', 'competicao').filter(mlb=mlb).first()
     if not anuncio:
         contexto['erro'] = f'MLB {mlb} não encontrado no banco Django.'
-        return render(request, 'mercado_livre/estrutura_teste_margem_promocao.html', contexto)
+        return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)
 
     variacao = anuncio.variacoes.select_related('produto').first()
     if not variacao or not variacao.produto:
         contexto['erro'] = f'MLB {mlb} não tem Produto vinculado — sem custo/dimensões, não dá pra calcular margem.'
-        return render(request, 'mercado_livre/estrutura_teste_margem_promocao.html', contexto)
+        return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)
 
     produto = variacao.produto
     tipo_anuncio_obj = anuncio.tipo_de_anuncio
@@ -514,10 +527,41 @@ def view_teste_margem_promocao(request):
         margem_atual = calcular_margem(produto, variacao.preco_atual, tipo_anuncio=tipo_key)
         contexto['margem_atual'] = margem_atual
 
+    price_to_win = None
+    eh_catalogo = hasattr(anuncio, 'competicao')
+    contexto['eh_catalogo'] = eh_catalogo
+    if eh_catalogo:
+        competicao = anuncio.competicao
+        price_to_win = competicao.price_to_win
+        contexto['competicao_status'] = competicao.get_status_display() if competicao.status else None
+        contexto['competicao_price_to_win'] = price_to_win
+        contexto['competicao_current_price'] = competicao.current_price
+
+    linhas = []
+
+    if eh_catalogo and price_to_win:
+        margem_preco_direto = calcular_margem(produto, price_to_win, tipo_anuncio=tipo_key)
+        linhas.append({
+            'nome': 'Preço direto para ganhar',
+            'tipo': 'PRECO_DIRETO',
+            'status': None,
+            'vigencia': None,
+            'preco_original': variacao.preco_atual,
+            'preco_promocional': price_to_win,
+            'tem_rebate': False,
+            'meli_percentage': None,
+            'seller_percentage': None,
+            'rebate_valor_reais': Decimal('0'),
+            'margem_com_rebate': margem_preco_direto,
+            'margem_sem_rebate': margem_preco_direto,
+            'margem_real': margem_preco_direto,
+            'diferenca': (margem_preco_direto['margem_percentual'] - margem_atual['margem_percentual']) if margem_preco_direto and margem_atual else None,
+            'ganha_catalogo': True,
+        })
+
     resultado_promocoes = buscar_promocoes_do_mlb(mlb)
     contexto['erro_promocoes'] = resultado_promocoes.get('erro')
 
-    linhas = []
     for promo in resultado_promocoes.get('promocoes', []):
         meli_percentage = promo.get('meli_percentage')
         seller_percentage = promo.get('seller_percentage')
@@ -535,31 +579,22 @@ def view_teste_margem_promocao(request):
         )
         margem_sem_rebate = calcular_margem(produto, preco_avaliado, tipo_anuncio=tipo_key)
 
-        # * [EXPLICAÇÃO] → Diferença = margem final (com rebate, se
-        #                  houver) menos a margem de hoje (preço
-        #                  publicado, sem nenhuma promoção). Negativo
-        #                  significa que a promoção piora a margem
-        #                  atual; positivo significa que melhora.
-        diferenca_com_rebate = None
-        if margem_com_rebate and margem_atual:
-            diferenca_com_rebate = margem_com_rebate['margem_percentual'] - margem_atual['margem_percentual']
+        if not margem_com_rebate:
+            continue
 
-        diferenca_sem_rebate = None
-        if margem_sem_rebate and margem_atual:
-            diferenca_sem_rebate = margem_sem_rebate['margem_percentual'] - margem_atual['margem_percentual']
+        diferenca = (margem_com_rebate['margem_percentual'] - margem_atual['margem_percentual']) if margem_atual else None
 
-        # * [EXPLICAÇÃO] → Vigência só existe em alguns tipos (DEAL);
-        #                  SMART/LIGHTNING/PRICE_DISCOUNT não têm.
+        ganha_catalogo = None
+        if eh_catalogo and price_to_win:
+            ganha_catalogo = Decimal(str(preco_avaliado)) <= price_to_win
+
         vigencia = None
         if promo.get('start_date'):
-            vigencia = {
-                'inicio': promo['start_date'][:10],
-                'fim': (promo.get('finish_date') or '?')[:10],
-            }
+            vigencia = {'inicio': promo['start_date'][:10], 'fim': (promo.get('finish_date') or '?')[:10]}
 
         linhas.append({
-            'tipo': promo.get('type'),
             'nome': promo.get('name') or '—',
+            'tipo': promo.get('type'),
             'status': promo.get('status'),
             'vigencia': vigencia,
             'preco_original': original_price,
@@ -567,12 +602,31 @@ def view_teste_margem_promocao(request):
             'tem_rebate': tem_rebate,
             'meli_percentage': meli_percentage,
             'seller_percentage': seller_percentage,
-            'rebate_valor_reais': margem_com_rebate['rebate_valor'] if margem_com_rebate else None,
+            'rebate_valor_reais': margem_com_rebate['rebate_valor'],
             'margem_com_rebate': margem_com_rebate,
             'margem_sem_rebate': margem_sem_rebate,
-            'diferenca_sem_rebate': diferenca_sem_rebate,
-            'diferenca_com_rebate': diferenca_com_rebate,
+            'margem_real': margem_com_rebate,
+            'diferenca': diferenca,
+            'ganha_catalogo': ganha_catalogo,
         })
 
     contexto['linhas'] = linhas
-    return render(request, 'mercado_livre/estrutura_teste_margem_promocao.html', contexto)
+
+    if eh_catalogo:
+        contexto['categoria_1'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= MARGEM_MINIMA_PADRAO]
+        contexto['categoria_2'] = [l for l in linhas if not l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= MARGEM_MINIMA_PADRAO]
+        contexto['categoria_3'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] < MARGEM_MINIMA_PADRAO]
+        contexto['categoria_4'] = [l for l in linhas if not l['ganha_catalogo'] and l['margem_real']['margem_percentual'] < MARGEM_MINIMA_PADRAO]
+
+        # * [EXPLICAÇÃO] → O "veredito" — a única resposta que os 3
+        #                  comportamentos produzem, cada um com sua
+        #                  própria regra de prioridade.
+        contexto['recomendacao'] = recomendar_precificacao(linhas, comportamento=comportamento)
+    else:
+        dentro_margem = [l for l in linhas if l['margem_real']['margem_percentual'] >= MARGEM_MINIMA_PADRAO]
+        abaixo_margem = [l for l in linhas if l['margem_real']['margem_percentual'] < MARGEM_MINIMA_PADRAO]
+        contexto['dentro_margem'] = dentro_margem
+        contexto['abaixo_margem'] = abaixo_margem
+        contexto['sugestao_segura'] = melhor_margem(dentro_margem)
+
+    return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)

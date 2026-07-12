@@ -39,6 +39,11 @@ COMISSAO_POR_TIPO = {
     'premium': Decimal('0.17'),
 }
 
+# * [EXPLICAÇÃO] → Margem mínima aceitável antes de considerar uma
+#                  opção "segura". Fixa por enquanto — vira configurável
+#                  (por produto/categoria) no futuro.
+MARGEM_MINIMA_PADRAO = Decimal('15')
+
 
 def calcular_metro_cubico(produto):
     return (produto.altura / 100) * (produto.largura / 100) * (produto.profundidade / 100)

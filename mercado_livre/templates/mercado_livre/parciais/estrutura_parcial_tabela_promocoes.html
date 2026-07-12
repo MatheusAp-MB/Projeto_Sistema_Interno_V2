@@ -1,0 +1,77 @@
+<!--
+* [RESUMO] → Tabela reutilizável de linhas candidatas (promoções ou
+* "Preço direto para ganhar"). Recebe "linhas" (lista) e "eh_catalogo"
+* (bool, decide se mostra a coluna "Ganha catálogo?"). Reaproveitada
+* pelas 4 categorias (ou 2, quando não é Catálogo) da tela de
+* Recomendação de Precificação.
+-->
+{% if linhas %}
+<div class="recpreco-tabela-wrapper">
+<table class="recpreco-tabela">
+    <thead>
+        <tr>
+            <th>Tipo</th>
+            <th>Nome</th>
+            <th>Vigência</th>
+            <th>Status</th>
+            <th class="recpreco-col-numero">Preço original</th>
+            <th class="recpreco-col-numero">Preço promocional</th>
+            <th>Rebate ML/Você</th>
+            <th class="recpreco-col-numero">Margem COM rebate</th>
+            <th class="recpreco-col-numero">Margem desconto puro</th>
+            <th class="recpreco-col-numero">Diferença vs hoje</th>
+            {% if eh_catalogo %}
+            <th class="recpreco-col-centro">Ganha catálogo?</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for linha in linhas %}
+        <tr>
+            <td>{{ linha.tipo }}</td>
+            <td>{{ linha.nome }}</td>
+            <td class="recpreco-nowrap">
+                {% if linha.vigencia %}{{ linha.vigencia.inicio }} → {{ linha.vigencia.fim }}{% else %}<span class="recpreco-detalhe-discreto">—</span>{% endif %}
+            </td>
+            <td>
+                {% if linha.status == 'started' %}<span class="recpreco-status-ativo">started</span>
+                {% elif linha.status %}<span class="recpreco-status-candidato">{{ linha.status }}</span>
+                {% else %}<span class="recpreco-detalhe-discreto">—</span>{% endif %}
+            </td>
+            <td class="recpreco-col-numero">
+                {% if linha.preco_original %}R$ {{ linha.preco_original|floatformat:2 }}{% else %}—{% endif %}
+            </td>
+            <td class="recpreco-col-numero recpreco-destaque">R$ {{ linha.preco_promocional|floatformat:2 }}</td>
+            <td class="recpreco-nowrap">
+                {% if linha.tem_rebate %}
+                <div>ML: {{ linha.meli_percentage }}% / Você: {{ linha.seller_percentage }}%</div>
+                <div class="recpreco-rebate-valor">R$ {{ linha.rebate_valor_reais|floatformat:2 }} pagos pelo ML</div>
+                {% else %}
+                <span class="recpreco-detalhe-discreto">— sem rebate —</span>
+                {% endif %}
+            </td>
+            <td class="recpreco-col-numero recpreco-destaque">
+                {% if linha.margem_com_rebate %}{{ linha.margem_com_rebate.margem_percentual|floatformat:2 }}%{% else %}—{% endif %}
+            </td>
+            <td class="recpreco-col-numero recpreco-detalhe-discreto">
+                {% if linha.margem_sem_rebate %}{{ linha.margem_sem_rebate.margem_percentual|floatformat:2 }}%{% else %}—{% endif %}
+            </td>
+            <td class="recpreco-col-numero recpreco-destaque
+                {% if linha.diferenca %}{% if linha.diferenca >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}{% endif %}">
+                {% if linha.diferenca %}{% if linha.diferenca >= 0 %}+{% endif %}{{ linha.diferenca|floatformat:2 }} p.p.{% else %}—{% endif %}
+            </td>
+            {% if eh_catalogo %}
+            <td class="recpreco-col-centro">
+                {% if linha.ganha_catalogo is None %}<span class="recpreco-detalhe-discreto">—</span>
+                {% elif linha.ganha_catalogo %}<span class="recpreco-positivo recpreco-negrito">SIM</span>
+                {% else %}<span class="recpreco-negativo recpreco-negrito">NÃO</span>{% endif %}
+            </td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="recpreco-detalhe-discreto recpreco-sem-opcoes">Nenhuma opção nessa categoria.</p>
+{% endif %}

@@ -10,10 +10,14 @@ urlpatterns = [
     path('precificar/tabela-de-frete/', views.view_tabela_frete_ml, name='mercado_livre_tabela_frete'),
     path('precificar/tabela-de-frete/calcular/', views.view_calcular_frete_ml, name='mercado_livre_calcular_frete'),
 
-    # * [EXPLICAÇÃO] → Tela de TESTE — cálculo de margem com/sem rebate
-    #                  de promoção, por MLB pesquisado. Experimental,
-    #                  não uma tela de produto definitiva ainda.
-    path('teste-margem-promocao/', views.view_teste_margem_promocao, name='mercado_livre_teste_margem_promocao'),
+    # * [EXPLICAÇÃO] → Recomendação de precificação por MLB — mostra
+    #                  todas as opções de preço/promoção pra ganhar o
+    #                  catálogo com segurança, seguindo 1 de 3
+    #                  comportamentos possíveis. Tela de detalhe (1 MLB
+    #                  por vez), igual Qualidade/Competição — a visão
+    #                  agregada (tipo a Resumo de Critérios) é pendência
+    #                  futura, não desenhada ainda.
+    path('precificar/recomendacao/', views.view_recomendacao_precificacao, name='mercado_livre_recomendacao_precificacao'),
 ]
 
 
