@@ -481,14 +481,13 @@ def view_calcular_frete_ml(request):
 
 def view_recomendacao_precificacao(request):
     from decimal import Decimal
+    from django.urls import reverse
     from mercado_livre.models import AnuncioMercadoLivre
     from mercado_livre.funcoes_auxiliares.promocoes_json import buscar_promocoes_do_mlb
-    from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, MARGEM_MINIMA_PADRAO
+    from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, buscar_configuracao_tipo_anuncio
     from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import (
         recomendar_precificacao, melhor_margem, COMPORTAMENTOS,
     )
-
-    from django.urls import reverse
 
     mlb = request.GET.get('mlb', '').strip().upper()
     comportamento = request.GET.get('comportamento', 'padrao')
@@ -500,7 +499,6 @@ def view_recomendacao_precificacao(request):
 
     contexto = {
         'busca': mlb,
-        'margem_minima': MARGEM_MINIMA_PADRAO,
         'comportamento_atual': comportamento,
         'opcoes_comportamento': COMPORTAMENTOS,
         'voltar_url': voltar_url,
@@ -521,7 +519,27 @@ def view_recomendacao_precificacao(request):
 
     produto = variacao.produto
     tipo_anuncio_obj = anuncio.tipo_de_anuncio
-    tipo_key = 'premium' if tipo_anuncio_obj and tipo_anuncio_obj.tipo_anuncio == 'gold_pro' else 'classico'
+    if not tipo_anuncio_obj:
+        contexto['erro'] = f'MLB {mlb} não tem Tipo de Anúncio vinculado — não dá pra saber comissão/margem.'
+        return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)
+
+    # * [EXPLICAÇÃO] → Configuração real (comissão, margens) pra essa
+    #                  combinação exata de tipo/logística/catálogo —
+    #                  buscada 1 vez aqui, reaproveitada no resto da view.
+    config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
+    if not config_tipo:
+        contexto['erro'] = f'Nenhuma configuração encontrada pra esse tipo de anúncio (isso não deveria acontecer — as 8 combinações já foram seedadas).'
+        return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)
+
+    # * [EXPLICAÇÃO] → Hoje o corte de segurança é sempre margem_padrao
+    #                  (regra de negócio atual: "tudo que vendemos tem
+    #                  que estar acima de 15%"). margem_minima/maxima/
+    #                  competicao já existem na configuração, esperando
+    #                  uma tela futura onde o usuário escolhe qual delas
+    #                  usar como corte — não fixar isso além do padrão
+    #                  sem essa decisão de UI existir ainda.
+    margem_minima = config_tipo.margem_padrao
+    contexto['margem_minima'] = margem_minima
 
     from mercado_livre.funcoes_auxiliares.classificacao_catalogo import info_variacao
     from mercado_livre.funcoes_auxiliares.badges import BADGES_CATALOGO, badge_de
@@ -532,16 +550,16 @@ def view_recomendacao_precificacao(request):
     info = info_variacao(variacao, imagem_url=produto.imagem_url, titulo_produto=produto.titulo)
     contexto['info'] = info
     contexto['marca'] = produto.marca
-    contexto['badge_catalogo'] = badge_de(BADGES_CATALOGO, tipo_anuncio_obj.classificacao_catalogo) if tipo_anuncio_obj else None
+    contexto['badge_catalogo'] = badge_de(BADGES_CATALOGO, tipo_anuncio_obj.classificacao_catalogo)
 
     contexto['titulo'] = anuncio.titulo_anuncio
     contexto['sku'] = produto.sku
-    contexto['tipo_anuncio_label'] = 'Premium' if tipo_key == 'premium' else 'Clássico'
+    contexto['tipo_anuncio_label'] = tipo_anuncio_obj.get_tipo_anuncio_display()
     contexto['preco_atual'] = variacao.preco_atual
 
     margem_atual = None
     if variacao.preco_atual:
-        margem_atual = calcular_margem(produto, variacao.preco_atual, tipo_anuncio=tipo_key)
+        margem_atual = calcular_margem(produto, variacao.preco_atual, tipo_anuncio_obj)
         contexto['margem_atual'] = margem_atual
 
     price_to_win = None
@@ -557,7 +575,7 @@ def view_recomendacao_precificacao(request):
     linhas = []
 
     if eh_catalogo and price_to_win:
-        margem_preco_direto = calcular_margem(produto, price_to_win, tipo_anuncio=tipo_key)
+        margem_preco_direto = calcular_margem(produto, price_to_win, tipo_anuncio_obj)
         linhas.append({
             'nome': 'Preço direto para ganhar',
             'tipo': 'PRECO_DIRETO',
@@ -579,12 +597,28 @@ def view_recomendacao_precificacao(request):
     resultado_promocoes = buscar_promocoes_do_mlb(mlb)
     contexto['erro_promocoes'] = resultado_promocoes.get('erro')
 
-    # * [EXPLICAÇÃO] → "Promoção ativa" = existe pelo menos 1 com
-    #                  status=started (candidate não conta, ainda não
-    #                  foi de fato ativada).
     promocoes_ativas = [p for p in resultado_promocoes.get('promocoes', []) if p.get('status') == 'started']
     contexto['promocao_ativa'] = promocoes_ativas[0] if promocoes_ativas else None
     contexto['preco_base'] = variacao.preco_original or variacao.preco_atual
+
+    if not eh_catalogo and margem_atual:
+        linhas.append({
+            'nome': 'Preço atual (sem promoção)',
+            'tipo': 'PRECO_ATUAL',
+            'status': None,
+            'vigencia': None,
+            'preco_original': variacao.preco_atual,
+            'preco_promocional': variacao.preco_atual,
+            'tem_rebate': False,
+            'meli_percentage': None,
+            'seller_percentage': None,
+            'rebate_valor_reais': Decimal('0'),
+            'margem_com_rebate': margem_atual,
+            'margem_sem_rebate': margem_atual,
+            'margem_real': margem_atual,
+            'diferenca': Decimal('0'),
+            'ganha_catalogo': None,
+        })
 
     for promo in resultado_promocoes.get('promocoes', []):
         meli_percentage = promo.get('meli_percentage')
@@ -597,11 +631,11 @@ def view_recomendacao_precificacao(request):
             continue
 
         margem_com_rebate = calcular_margem(
-            produto, preco_avaliado, tipo_anuncio=tipo_key,
+            produto, preco_avaliado, tipo_anuncio_obj,
             rebate_percentual=meli_percentage if tem_rebate else None,
             preco_original=original_price if tem_rebate else None,
         )
-        margem_sem_rebate = calcular_margem(produto, preco_avaliado, tipo_anuncio=tipo_key)
+        margem_sem_rebate = calcular_margem(produto, preco_avaliado, tipo_anuncio_obj)
 
         if not margem_com_rebate:
             continue
@@ -636,21 +670,46 @@ def view_recomendacao_precificacao(request):
 
     contexto['linhas'] = linhas
 
-    if eh_catalogo:
-        contexto['categoria_1'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= MARGEM_MINIMA_PADRAO]
-        contexto['categoria_2'] = [l for l in linhas if not l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= MARGEM_MINIMA_PADRAO]
-        contexto['categoria_3'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] < MARGEM_MINIMA_PADRAO]
-        contexto['categoria_4'] = [l for l in linhas if not l['ganha_catalogo'] and l['margem_real']['margem_percentual'] < MARGEM_MINIMA_PADRAO]
+    contexto['recomendacao'] = recomendar_precificacao(
+        linhas, margem_minima, comportamento=comportamento, exigir_ganha_catalogo=eh_catalogo,
+    )
 
-        # * [EXPLICAÇÃO] → O "veredito" — a única resposta que os 3
-        #                  comportamentos produzem, cada um com sua
-        #                  própria regra de prioridade.
-        contexto['recomendacao'] = recomendar_precificacao(linhas, comportamento=comportamento)
+    if eh_catalogo:
+        contexto['categoria_1'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= margem_minima]
+        contexto['categoria_2'] = [l for l in linhas if not l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= margem_minima]
+        contexto['categoria_3'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] < margem_minima]
+        contexto['categoria_4'] = [l for l in linhas if not l['ganha_catalogo'] and l['margem_real']['margem_percentual'] < margem_minima]
     else:
-        dentro_margem = [l for l in linhas if l['margem_real']['margem_percentual'] >= MARGEM_MINIMA_PADRAO]
-        abaixo_margem = [l for l in linhas if l['margem_real']['margem_percentual'] < MARGEM_MINIMA_PADRAO]
-        contexto['dentro_margem'] = dentro_margem
-        contexto['abaixo_margem'] = abaixo_margem
-        contexto['sugestao_segura'] = melhor_margem(dentro_margem)
+        contexto['dentro_margem'] = [l for l in linhas if l['margem_real']['margem_percentual'] >= margem_minima]
+        contexto['abaixo_margem'] = [l for l in linhas if l['margem_real']['margem_percentual'] < margem_minima]
 
     return render(request, 'mercado_livre/estrutura_recomendacao_precificacao.html', contexto)
+
+def view_configuracoes_mercado_livre(request):
+    from mercado_livre.models import (
+        ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre, FaixaArmazenagemMercadoLivre,
+    )
+    from mercado_livre.funcoes_auxiliares.badges import BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, badge_de
+
+    config_geral = ConfiguracaoMercadoLivre.obter()
+    faixas = FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem')
+
+    tipos = []
+    for tipo in ConfiguracaoTipoAnuncioMercadoLivre.objects.all():
+        tipos.append({
+            'badge_tipo_anuncio': badge_de(BADGES_TIPO_ANUNCIO, tipo.tipo_anuncio),
+            'badge_logistica': badge_de(BADGES_LOGISTICA, tipo.tipo_logistico),
+            'catalogo': tipo.catalogo,
+            'comissao': tipo.comissao,
+            'acrescimo_preco': tipo.acrescimo_preco,
+            'margem_minima': tipo.margem_minima,
+            'margem_padrao': tipo.margem_padrao,
+            'margem_maxima': tipo.margem_maxima,
+            'margem_competicao': tipo.margem_competicao,
+        })
+
+    return render(request, 'mercado_livre/estrutura_configuracoes_mercado_livre.html', {
+        'config_geral': config_geral,
+        'faixas': faixas,
+        'tipos': tipos,
+    })

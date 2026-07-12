@@ -1,0 +1,96 @@
+/*
+* [RESUMO] → CSS da tela de leitura "Configurações Mercado Livre".
+* Reaproveita a paleta global (--cor-primaria etc.) — mesma linguagem
+* visual das outras telas de Mercado Livre.
+*/
+
+.config-ml-grid-topo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.config-ml-card {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.config-ml-card-header {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 20px;
+}
+
+.config-ml-tabela-simples {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.config-ml-tabela-simples td {
+    padding: 10px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.config-ml-tabela-simples td:first-child {
+    color: #667;
+}
+
+.config-ml-tabela-simples td:last-child {
+    font-weight: 700;
+    text-align: right;
+}
+
+.config-ml-tabela-simples tr:last-child td {
+    border-bottom: none;
+}
+
+.config-ml-tabela-wrapper {
+    overflow-x: auto;
+}
+
+.config-ml-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.config-ml-tabela th {
+    background: #f9fafb;
+    color: #556;
+    text-align: left;
+    padding: 10px 16px;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--cor-borda);
+}
+
+.config-ml-tabela td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+}
+
+.config-ml-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.config-ml-margem-padrao {
+    background: #eef2f7;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+@media (max-width: 768px) {
+    .config-ml-grid-topo {
+        grid-template-columns: 1fr;
+    }
+}

@@ -13,225 +13,207 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="pt-br">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- * [EXPLICAÇÃO] → Título da aba do navegador.
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- * [EXPLICAÇÃO] → Título da aba do navegador.
          * Páginas filhas substituem o block titulo. -->
-    <title>{% block titulo %}Sistema Interno MB/SV{% endblock %}</title>
-
-    <!-- Google Fonts -->
-    <link
-        href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap"
-        rel="stylesheet">
-
-    <!-- Bootstrap 5 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-    <!-- DataTables CSS -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-
-    <!-- DataTables JS -->
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-
-    <!-- SearchPanes -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/searchpanes/2.2.0/css/searchPanes.dataTables.min.css">
-    <script src="https://cdn.datatables.net/searchpanes/2.2.0/js/dataTables.searchPanes.min.js"></script>
-
-    <!-- Select -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
-    <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
-
-    <!-- Layout global do sistema -->
-    <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_global.css' %}">
-
-    <!-- DataTables — estilos compartilhados -->
-    <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_datatables.css' %}">
-
-    <!-- Tipos de anúncio — badges e cores de linha compartilhados -->
-    <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_tipos_anuncio.css' %}">
-<link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_badges.css' %}">
-
-    <!-- Modal — estilos compartilhados -->
-    <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_modal.css' %}">
-    <!--
+        <title>{% block titulo %}Sistema Interno MB/SV{% endblock %}</title>
+        <!-- Google Fonts -->
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap"
+              rel="stylesheet">
+        <!-- Bootstrap 5 -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+              rel="stylesheet">
+        <!-- Font Awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+              rel="stylesheet">
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+        <!-- DataTables CSS -->
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+        <!-- DataTables JS -->
+        <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+        <!-- SearchPanes -->
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/searchpanes/2.2.0/css/searchPanes.dataTables.min.css">
+        <script src="https://cdn.datatables.net/searchpanes/2.2.0/js/dataTables.searchPanes.min.js"></script>
+        <!-- Select -->
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
+        <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
+        <!-- Layout global do sistema -->
+        <link rel="stylesheet"
+              href="{% static 'base_compartilhada/css/layout_global.css' %}">
+        <!-- DataTables — estilos compartilhados -->
+        <link rel="stylesheet"
+              href="{% static 'base_compartilhada/css/layout_datatables.css' %}">
+        <!-- Tipos de anúncio — badges e cores de linha compartilhados -->
+        <link rel="stylesheet"
+              href="{% static 'base_compartilhada/css/layout_tipos_anuncio.css' %}">
+        <link rel="stylesheet"
+              href="{% static 'base_compartilhada/css/layout_badges.css' %}">
+        <!-- Modal — estilos compartilhados -->
+        <link rel="stylesheet"
+              href="{% static 'base_compartilhada/css/layout_modal.css' %}">
+        <!--
     * [EXPLICAÇÃO] → Block para CSS específico de cada página.
     * Páginas filhas adicionam seus próprios arquivos CSS aqui.
     -->
-    {% block head_extra %}{% endblock %}
-</head>
-
-<body>
-
-    <!--
+        {% block head_extra %}{% endblock %}
+    </head>
+    <body>
+        <!--
     * [EXPLICAÇÃO] → Container principal do layout.
     * Usa flexbox para colocar sidebar e conteúdo lado a lado.
     -->
-    <div class="layout-container">
-
-        <!-- ================================================
+        <div class="layout-container">
+            <!-- ================================================
              SIDEBAR — navegação lateral fixa
              ================================================ -->
-        <aside class="sidebar" id="sidebar">
-
-            <!-- Logo -->
-            <a href="{% url 'home' %}" class="text-decoration-none">
-                <div class="sidebar-logo">
-
-                    <img src="{% static 'base_compartilhada/img/logo.jpg' %}" alt="Logo MB/SV">
-                    <span>Sistema MB/SV</span>
-                </div>
-            </a>
-
-            <!-- Navegação -->
-            <nav class="sidebar-nav">
-
-                <!-- Produtos -->
-                <a href="{% url 'produtos' %}" class="sidebar-item">
-                    <i class="fas fa-box"></i>
-                    <span>Produtos</span>
+            <aside class="sidebar" id="sidebar">
+                <!-- Logo -->
+                <a href="{% url 'home' %}" class="text-decoration-none">
+                    <div class="sidebar-logo">
+                        <img src="{% static 'base_compartilhada/img/logo.jpg' %}" alt="Logo MB/SV">
+                        <span>Sistema MB/SV</span>
+                    </div>
                 </a>
-
-                <!-- Marketplaces -->
-                <div class="sidebar-dropdown">
-                    <a href="{% url 'marketplaces' %}" class="sidebar-item sidebar-dropdown-toggle">
-                        <i class="fas fa-tags"></i>
-                        <span>Marketplaces</span>
-                        <i class="fas fa-chevron-down sidebar-chevron"></i>
+                <!-- Navegação -->
+                <nav class="sidebar-nav">
+                    <!-- Produtos -->
+                    <a href="{% url 'produtos' %}" class="sidebar-item">
+                        <i class="fas fa-box"></i>
+                        <span>Produtos</span>
                     </a>
-                    <div class="sidebar-dropdown-menu">
-                        <a href="{% url 'mercado_livre_anuncios' %}" class="sidebar-subitem">
-                            <i class="fas fa-store"></i> Mercado Livre — Hub de Anúncios
+                    <!-- Marketplaces -->
+                    <div class="sidebar-dropdown">
+                        <a href="{% url 'marketplaces' %}"
+                           class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-tags"></i>
+                            <span>Marketplaces</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
                         </a>
-                        <a href="{% url 'mercado_livre_resumo_criterios' %}" class="sidebar-subitem">
-                            <i class="fas fa-table"></i> Mercado Livre — Resumo de Critérios
-                        </a>
-                        <a href="{% url 'mercado_livre_tabela_frete' %}" class="sidebar-subitem">
-                            <i class="fas fa-truck"></i> Mercado Livre — Tabela de Frete
-                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Mercado Livre</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'mercado_livre_anuncios' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-store"></i> Hub de Anúncios
+                                    </a>
+                                    <a href="{% url 'mercado_livre_resumo_criterios' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-table"></i> Resumo de Critérios
+                                    </a>
+                                    <a href="{% url 'mercado_livre_tabela_frete' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="{% url 'mercado_livre_configuracoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Configurações -->
-                <div class="sidebar-dropdown">
-                    <a href="#" class="sidebar-item sidebar-dropdown-toggle">
-                        <i class="fas fa-sliders-h"></i>
-                        <span>Configurações</span>
-                        <i class="fas fa-chevron-down sidebar-chevron"></i>
-                    </a>
-                    <div class="sidebar-dropdown-menu">
-                        <a href="#" class="sidebar-subitem">
-                            <i class="fas fa-users"></i> Controle de Usuários
+                    <!-- Configurações -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-sliders-h"></i>
+                            <span>Configurações</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
                         </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="#" class="sidebar-subitem">
+                                <i class="fas fa-users"></i> Controle de Usuários
+                            </a>
+                        </div>
                     </div>
-                </div>
-
-            </nav>
-
-
-        </aside>
-        <!-- Fim sidebar -->
-
-        <!-- ================================================
+                </nav>
+            </aside>
+            <!-- Fim sidebar -->
+            <!-- ================================================
              ÁREA PRINCIPAL — toolbar + conteúdo
              ================================================ -->
-        <div class="main-wrapper">
-
-            <!-- TOOLBAR -->
-            <header class="toolbar">
-
-                <!-- Botão para ocultar/exibir a sidebar -->
-                <button class="toolbar-toggle" id="btn-toggle-sidebar">
-                    <i class="fas fa-bars"></i>
-                </button>
-
-                <!-- Título da página -->
-                <h1 class="toolbar-titulo">
-                    {% block toolbar_titulo %}{% endblock %}
-                </h1>
-
-                <!--
+            <div class="main-wrapper">
+                <!-- TOOLBAR -->
+                <header class="toolbar">
+                    <!-- Botão para ocultar/exibir a sidebar -->
+                    <button class="toolbar-toggle" id="btn-toggle-sidebar">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <!-- Título da página -->
+                    <h1 class="toolbar-titulo">
+                        {% block toolbar_titulo %}{% endblock %}
+                    </h1>
+                    <!--
                 * [EXPLICAÇÃO] → Block para botões de ação na toolbar.
                 * Algumas páginas colocam botões aqui (ex: Salvar, Recalcular).
                 -->
-                <div class="toolbar-acoes">
-                    {% block toolbar_acoes %}{% endblock %}
-                </div>
-
-                <!-- Perfil do usuário -->
-                <div class="toolbar-perfil dropdown">
-                    <button class="btn-perfil dropdown-toggle" data-bs-toggle="dropdown">
-                        <i class="fas fa-user-circle"></i>
-                        <!--
+                    <div class="toolbar-acoes">
+                        {% block toolbar_acoes %}{% endblock %}
+                    </div>
+                    <!-- Perfil do usuário -->
+                    <div class="toolbar-perfil dropdown">
+                        <button class="btn-perfil dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle"></i>
+                            <!--
                         * [EXPLICAÇÃO] → request.user.username exibe o nome
                         * do usuário logado. Vem automaticamente do sistema
                         * de autenticação do Django.
                         -->
-                        <span>{{ request.user.username }}</span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="{% url 'logout' %}">
-                                <i class="fas fa-sign-out-alt"></i> Sair
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-
-            </header>
-            <!-- Fim toolbar -->
-
-            <!-- CONTEÚDO PRINCIPAL -->
-            <main class="conteudo-principal">
-                <!--
+                            <span>{{ request.user.username }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'logout' %}">
+                                    <i class="fas fa-sign-out-alt"></i> Sair
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </header>
+                <!-- Fim toolbar -->
+                <!-- CONTEÚDO PRINCIPAL -->
+                <main class="conteudo-principal">
+                    <!--
                 * [EXPLICAÇÃO] → Block principal onde cada página
                 * insere seu conteúdo específico.
                 -->
-                {% block conteudo %}{% endblock %}
-            </main>
-
+                    {% block conteudo %}{% endblock %}
+                </main>
+            </div>
+            <!-- Fim área principal -->
         </div>
-        <!-- Fim área principal -->
-
-    </div>
-    <!-- Fim layout-container -->
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- HTMX -->
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-
-    <!--
+        <!-- Fim layout-container -->
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- HTMX -->
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        <!--
     * [EXPLICAÇÃO] → Injeta o CSRF token do Django em todas as
     * requisições POST feitas pelo HTMX. Obrigatório para segurança.
     -->
-    <script>
+        <script>
         document.body.addEventListener('htmx:configRequest', function (evt) {
             evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
         });
-    </script>
-
-    <!-- Script global do sistema -->
-    <script src="{% static 'base_compartilhada/js/script_global.js' %}"></script>
-
-    <!-- DataTables — funções compartilhadas -->
-    <script src="{% static 'base_compartilhada/js/script_datatables.js' %}"></script>
-
-    <!--
+        </script>
+        <!-- Script global do sistema -->
+        <script src="{% static 'base_compartilhada/js/script_global.js' %}"></script>
+        <!-- DataTables — funções compartilhadas -->
+        <script src="{% static 'base_compartilhada/js/script_datatables.js' %}"></script>
+        <!--
     * [EXPLICAÇÃO] → Block para JS específico de cada página.
     * Páginas filhas adicionam seus próprios scripts aqui.
     -->
-    {% block scripts %}{% endblock %}
-
-</body>
-
+        {% block scripts %}{% endblock %}
+    </body>
 </html>

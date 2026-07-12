@@ -190,7 +190,7 @@ a:hover {
     transition: transform 0.2s;
 }
 
-.sidebar-dropdown.aberto .sidebar-chevron {
+.sidebar-dropdown.aberto > .sidebar-dropdown-toggle .sidebar-chevron {
     transform: rotate(180deg);
 }
 
@@ -199,7 +199,7 @@ a:hover {
     background: rgba(0, 0, 0, 0.15);
 }
 
-.sidebar-dropdown.aberto .sidebar-dropdown-menu {
+.sidebar-dropdown.aberto > .sidebar-dropdown-menu {
     display: block;
 }
 
@@ -342,3 +342,11 @@ a:hover {
     color: #ffffff;
 }
 
+
+.sidebar-dropdown-nivel2 > .sidebar-dropdown-toggle {
+    padding-left: 48px;
+}
+
+.sidebar-subitem-nivel2 {
+    padding-left: 76px;
+}

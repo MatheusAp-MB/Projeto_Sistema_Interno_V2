@@ -4,6 +4,12 @@
 #              preço já é conhecido, então o frete é uma consulta
 #              direta na FreteML, sem busca por faixa/circularidade.
 #
+#              Comissão, acréscimo Premium e as 4 margens (mínima/
+#              padrão/máxima/competição) vêm de
+#              ConfiguracaoTipoAnuncioMercadoLivre, por combinação real
+#              do anúncio (tipo_anuncio × tipo_logistico × catálogo) —
+#              não mais fixas em código.
+#
 #              Fórmula (mesma derivação do Goal Seek Analítico):
 #                  taxa  = comissão% + icms_saída% + pis%
 #                  FIXO  = coleta + armazenagem + custo_final
@@ -13,43 +19,63 @@
 #
 #              Rebate: o ML abate parte da comissão que cobraria —
 #              rebate_valor = preço_original × (meli_percentage/100).
-#              Isso soma direto na margem (é dinheiro que deixa de sair
-#              do seu bolso em comissão).
-#
-#              TESTE — 2 constantes ainda não modeladas em tabela:
-#              coleta (R$/m³) e armazenagem (R$/dia) são fixas por
-#              enquanto, confirmadas com o usuário. Formalizar como
-#              model/tabela de faixas é pendência futura, se isso virar
-#              produção.
 
 from decimal import Decimal
 from django.db.models import Q
-
-TAXA_COLETA_POR_METRO_CUBICO = Decimal('72')
-
-# * [EXPLICAÇÃO] → Fallback só usado se o produto não tiver
-#                  armazenagem_planilha (ainda não passou pela
-#                  importação da planilha validada). Nesse caso o
-#                  resultado é uma aproximação, não o número oficial.
-VALOR_ARMAZENAGEM_DIARIA_FALLBACK = Decimal('0.015')
-DIAS_ARMAZENAGEM = 30
-
-COMISSAO_POR_TIPO = {
-    'classico': Decimal('0.12'),
-    'premium': Decimal('0.17'),
-}
-
-# * [EXPLICAÇÃO] → Margem mínima aceitável antes de considerar uma
-#                  opção "segura". Fixa por enquanto — vira configurável
-#                  (por produto/categoria) no futuro.
-MARGEM_MINIMA_PADRAO = Decimal('15')
 
 
 def calcular_metro_cubico(produto):
     return (produto.altura / 100) * (produto.largura / 100) * (produto.profundidade / 100)
 
 
+def selecionar_faixa_armazenagem(produto):
+    """Acha a primeira faixa (em ordem crescente) onde TODAS as
+    dimensões do produto cabem; se nenhuma comportar, usa a maior
+    (fallback). Só usada quando o produto ainda não tem
+    armazenagem_planilha (sem histórico na planilha validada)."""
+    from mercado_livre.models import FaixaArmazenagemMercadoLivre
+
+    faixas = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+    if not faixas:
+        return None
+
+    for faixa in faixas:
+        if (produto.altura <= faixa.max_altura
+                and produto.largura <= faixa.max_largura
+                and produto.profundidade <= faixa.max_profundidade):
+            return faixa
+
+    return faixas[-1]
+
+
+def buscar_configuracao_tipo_anuncio(tipo_anuncio_obj):
+    """Busca a linha de configuração (comissão, acréscimo, margens) que
+    bate com a combinação real do anúncio. Logística é simplificada pra
+    FULL-ou-Coleta na busca — confirmado com o usuário que Agência se
+    comporta igual Coleta, e as duas nunca coexistem na mesma conta."""
+    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
+
+    TipoLogistico = TipoDeAnuncioMercadoLivre.TipoLogistico
+    ClassificacaoCatalogo = TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo
+
+    logistico_efetivo = (
+        TipoLogistico.FULL if tipo_anuncio_obj.tipo_logistico == TipoLogistico.FULL
+        else TipoLogistico.COLETA
+    )
+    eh_catalogo = tipo_anuncio_obj.classificacao_catalogo == ClassificacaoCatalogo.CATALOGO
+
+    return ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(
+        tipo_anuncio=tipo_anuncio_obj.tipo_anuncio,
+        tipo_logistico=logistico_efetivo,
+        catalogo=eh_catalogo,
+    ).first()
+
+
 def calcular_fixo(produto):
+    from mercado_livre.models import ConfiguracaoMercadoLivre
+
+    config = ConfiguracaoMercadoLivre.obter()
+
     custo_com_boni = produto.custo_com_boni or produto.custo
     ipi = (produto.ipi or Decimal('0')) / 100
     frete_cif_fob = (produto.frete_cif_fob or Decimal('0')) / 100
@@ -63,16 +89,20 @@ def calcular_fixo(produto):
         + (custo_com_boni * frete_cif_fob)
         + st_valor
     )
-    coleta = calcular_metro_cubico(produto) * TAXA_COLETA_POR_METRO_CUBICO
+    coleta = calcular_metro_cubico(produto) * config.fator_coleta
 
     # * [EXPLICAÇÃO] → armazenagem_planilha já é o valor MENSAL real
-    #                  (vem pronto da coluna BH), não precisa multiplicar
-    #                  por dias. Só cai no fallback fixo se o produto
-    #                  ainda não tiver passado pela planilha validada.
+    #                  (vem pronto da planilha validada) — só cai na
+    #                  faixa dinâmica (por dimensão) se o produto ainda
+    #                  não tiver passado por essa importação. Esse é o
+    #                  caminho que vai permitir abandonar a planilha no
+    #                  futuro (objetivo de longo prazo confirmado com o
+    #                  usuário).
     if produto.armazenagem_planilha is not None:
         armazenagem = produto.armazenagem_planilha
     else:
-        armazenagem = VALOR_ARMAZENAGEM_DIARIA_FALLBACK * DIAS_ARMAZENAGEM
+        faixa = selecionar_faixa_armazenagem(produto)
+        armazenagem = (faixa.valor_diario * config.periodo_armazenagem) if faixa else Decimal('0')
 
     return coleta + armazenagem + custo_final - (produto.custo * (icms_entrada + pis))
 
@@ -80,9 +110,6 @@ def calcular_fixo(produto):
 def buscar_frete(produto, preco):
     from mercado_livre.models import FreteML
 
-    # * [EXPLICAÇÃO] → peso_cubado pode vir vazio (nem todo produto tem
-    #                  dado do relatório completo do ERP ainda) — trata
-    #                  como 0 nesse caso, em vez de quebrar o max().
     peso_cubado = produto.peso_cubado or Decimal('0')
     peso_normal = produto.peso or Decimal('0')
     peso = max(peso_normal, peso_cubado)
@@ -99,16 +126,22 @@ def buscar_frete(produto, preco):
     return frete.valor if frete else None
 
 
-def calcular_margem(produto, preco, tipo_anuncio='classico', rebate_percentual=None, preco_original=None):
-    """Dado um preço de venda, calcula a margem resultante. Se
-    rebate_percentual + preco_original forem informados, soma o abatimento
-    do ML na comissão. Retorna None se não achar faixa de frete pro
-    preço/peso (situação rara, mas possível fora do range da tabela)."""
+def calcular_margem(produto, preco, tipo_anuncio_obj, rebate_percentual=None, preco_original=None):
+    """Dado um preço de venda, calcula a margem resultante.
+    tipo_anuncio_obj é o TipoDeAnuncioMercadoLivre REAL do anúncio (não
+    mais uma string 'classico'/'premium') — decide a comissão certa pela
+    combinação completa (tipo × logística × catálogo). Retorna None se
+    não achar faixa de frete, ou se não existir configuração pra essa
+    combinação (não deveria acontecer, as 8 já estão seedadas)."""
     preco = Decimal(str(preco))
     if preco <= 0:
         return None
 
-    comissao = COMISSAO_POR_TIPO.get(tipo_anuncio, COMISSAO_POR_TIPO['classico'])
+    config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
+    if not config_tipo:
+        return None
+
+    comissao = config_tipo.comissao / 100
     icms_saida = (produto.icms_saida_media or Decimal('0')) / 100
     pis = (produto.pis_cofins or Decimal('0')) / 100
     taxa = comissao + icms_saida + pis
@@ -132,4 +165,8 @@ def calcular_margem(produto, preco, tipo_anuncio='classico', rebate_percentual=N
         'rebate_valor': rebate_valor,
         'margem_valor': margem_valor,
         'margem_percentual': margem_percentual,
+        # * [EXPLICAÇÃO] → Devolve a config usada nesse cálculo — evita
+        #                  o chamador (recomendação de preço) ter que
+        #                  buscar de novo só pra ler margem_minima etc.
+        'config_tipo': config_tipo,
     }

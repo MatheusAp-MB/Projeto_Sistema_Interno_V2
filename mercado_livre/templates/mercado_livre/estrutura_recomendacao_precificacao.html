@@ -77,7 +77,10 @@
 
 <!-- ============ ESTADO ATUAL ============ -->
 <div class="recpreco-card">
-    <div class="recpreco-card-header">Estado Atual</div>
+    <div class="recpreco-card-header">
+        Estado Atual
+        <span class="recpreco-margem-minima-nota">Margem mínima considerada: {{ margem_minima|floatformat:0 }}%</span>
+    </div>
     <div class="recpreco-card-corpo recpreco-estado-atual-grid">
         <div class="recpreco-dado">
             <span class="recpreco-dado-label">Promoção ativa</span>
@@ -120,13 +123,15 @@
     {% endif %}
 </div>
 
+
+
 {% if erro_promocoes %}
 <p class="recpreco-detalhe-discreto">{{ erro_promocoes }}</p>
 {% endif %}
 
-{% if not erro_promocoes and eh_catalogo %}
+{% if not erro_promocoes %}
 
-<!-- ============ COMPORTAMENTO + DECISÃO ============ -->
+<!-- ============ COMPORTAMENTO + DECISÃO (sempre aparece, Catálogo ou não) ============ -->
 <div class="recpreco-card recpreco-card-decisao">
     <div class="recpreco-card-header">
         Comportamento e Decisão
@@ -163,12 +168,16 @@
         <div class="recpreco-decisao-aviso">🔒 Exige aprovação manual — abaixo da margem mínima, não ativável automaticamente</div>
         {% endif %}
         {% else %}
-        <div class="recpreco-detalhe-discreto">Nenhuma opção ganha o catálogo dentro dos critérios desse comportamento.</div>
+        <div class="recpreco-detalhe-discreto">
+            {% if eh_catalogo %}Nenhuma opção ganha o catálogo dentro dos critérios desse comportamento.{% else %}Nenhuma opção dentro dos critérios desse comportamento.{% endif %}
+        </div>
         {% endif %}
     </div>
 </div>
 
-<!-- ============ CATEGORIAS ============ -->
+{% if eh_catalogo %}
+
+<!-- ============ CATEGORIAS (Catálogo) ============ -->
 <div class="recpreco-categoria recpreco-categoria--1">
     <div class="recpreco-categoria-header">① Ganha catálogo, dentro da margem</div>
     <div class="recpreco-categoria-corpo">
@@ -197,8 +206,9 @@
     </div>
 </details>
 
-{% elif not erro_promocoes %}
+{% else %}
 
+<!-- ============ CATEGORIAS (Simples/Base) ============ -->
 <div class="recpreco-categoria recpreco-categoria--1">
     <div class="recpreco-categoria-header">Dentro da margem</div>
     <div class="recpreco-categoria-corpo">
@@ -214,6 +224,9 @@
 </div>
 
 {% endif %}
+{% endif %}
+
+
 {% endif %}
 
 {% endblock %}

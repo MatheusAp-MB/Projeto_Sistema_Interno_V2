@@ -18,6 +18,7 @@ urlpatterns = [
     #                  agregada (tipo a Resumo de Critérios) é pendência
     #                  futura, não desenhada ainda.
     path('precificar/recomendacao/', views.view_recomendacao_precificacao, name='mercado_livre_recomendacao_precificacao'),
-]
 
+    path('precificar/configuracoes/', views.view_configuracoes_mercado_livre, name='mercado_livre_configuracoes'),
+]
 

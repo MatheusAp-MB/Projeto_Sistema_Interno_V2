@@ -1,17 +1,23 @@
-# * [RESUMO] → Lógica de recomendação de precificação para Catálogo —
-#              decide qual preço/promoção usar, seguindo 1 de 3
-#              comportamentos possíveis. Sempre parte da mesma pergunta:
-#              "qual a melhor forma de ganhar o catálogo com segurança?"
-#              Separado da view de propósito — é lógica de negócio pura,
-#              testável sozinha, sem nenhuma dependência de HTTP/Django.
-
-from mercado_livre.funcoes_auxiliares.calculo_margem import MARGEM_MINIMA_PADRAO
+# * [RESUMO] → Lógica de recomendação de precificação — decide qual
+#              preço/promoção usar, seguindo 1 de 3 comportamentos.
+#              Funciona pra Catálogo (eixo extra: ganha/perde catálogo)
+#              e pra Simples/Base (só margem × com-ou-sem promoção) —
+#              mesma lógica generalizada, não duas implementações
+#              separadas. margem_minima vem sempre de fora agora (da
+#              configuração real do tipo de anúncio, não mais de uma
+#              constante fixa).
 
 COMPORTAMENTOS = {
     'padrao': 'Padrão (equilíbrio)',
     'busca_lucro': 'Busca-Lucro (maior margem)',
     'disputa': 'Disputa (ganha catálogo a qualquer custo seguro)',
 }
+
+# * [EXPLICAÇÃO] → Marca quem é "linha de base" (preço sem nenhuma
+#                  promoção envolvida) — Preço Direto pra Ganhar
+#                  (Catálogo) ou Preço Atual (Simples/Base). Qualquer
+#                  outro "tipo" veio de uma promoção real da API.
+TIPOS_SEM_PROMOCAO = ('PRECO_DIRETO', 'PRECO_ATUAL')
 
 
 def melhor_margem(lista):
@@ -21,37 +27,31 @@ def melhor_margem(lista):
     return max(lista, key=lambda l: l['margem_real']['margem_percentual'])
 
 
-def _classificar_buckets(linhas, margem_minima):
-    """Separa as linhas que GANHAM catálogo em 4 grupos, cruzando margem
-    (dentro/abaixo do mínimo) com origem (promoção real / Preço Direto).
-    Linhas que perdem catálogo não entram aqui — essa função alimenta só
-    a recomendação, não a visão geral por categoria (que continua tendo
-    suas próprias 4 categorias, incluindo as que perdem catálogo)."""
-    ganham = [l for l in linhas if l['ganha_catalogo']]
+def _classificar_buckets(linhas, margem_minima, exigir_ganha_catalogo):
+    """Separa as linhas em 4 grupos, cruzando margem (dentro/abaixo do
+    mínimo) com origem (promoção real / sem promoção)."""
+    candidatas = [l for l in linhas if l['ganha_catalogo']] if exigir_ganha_catalogo else linhas
 
-    dentro = [l for l in ganham if l['margem_real']['margem_percentual'] >= margem_minima]
-    abaixo = [l for l in ganham if l['margem_real']['margem_percentual'] < margem_minima]
+    dentro = [l for l in candidatas if l['margem_real']['margem_percentual'] >= margem_minima]
+    abaixo = [l for l in candidatas if l['margem_real']['margem_percentual'] < margem_minima]
+
+    eh_sem_promocao = lambda l: l['tipo'] in TIPOS_SEM_PROMOCAO
 
     return {
-        'com_promocao_dentro': [l for l in dentro if l['tipo'] != 'PRECO_DIRETO'],
-        'sem_promocao_dentro': [l for l in dentro if l['tipo'] == 'PRECO_DIRETO'],
-        'com_promocao_abaixo': [l for l in abaixo if l['tipo'] != 'PRECO_DIRETO'],
-        'sem_promocao_abaixo': [l for l in abaixo if l['tipo'] == 'PRECO_DIRETO'],
+        'com_promocao_dentro': [l for l in dentro if not eh_sem_promocao(l)],
+        'sem_promocao_dentro': [l for l in dentro if eh_sem_promocao(l)],
+        'com_promocao_abaixo': [l for l in abaixo if not eh_sem_promocao(l)],
+        'sem_promocao_abaixo': [l for l in abaixo if eh_sem_promocao(l)],
     }
 
 
-def recomendar_precificacao(linhas, comportamento='padrao', margem_minima=None):
-    """Aplica 1 dos 3 comportamentos sobre as linhas já calculadas
-    (promoções + Preço Direto). Retorna a linha escolhida (ou None),
-    o nome do bucket de onde veio, e se essa escolha exige aprovação
-    manual (fica abaixo da margem mínima)."""
-    margem_minima = margem_minima if margem_minima is not None else MARGEM_MINIMA_PADRAO
-    buckets = _classificar_buckets(linhas, margem_minima)
+def recomendar_precificacao(linhas, margem_minima, comportamento='padrao', exigir_ganha_catalogo=True):
+    """Aplica 1 dos 3 comportamentos sobre as linhas já calculadas.
+    margem_minima é sempre passada pelo chamador — vem da configuração
+    real do tipo de anúncio (ConfiguracaoTipoAnuncioMercadoLivre),
+    nunca mais uma constante fixa."""
+    buckets = _classificar_buckets(linhas, margem_minima, exigir_ganha_catalogo)
 
-    # * [EXPLICAÇÃO] → Busca-Lucro: só considera as 2 opções seguras
-    #                  (dentro da margem mínima), com ou sem promoção, e
-    #                  pega a de maior margem entre as duas — nunca cai
-    #                  pra abaixo do mínimo, mesmo que nada seja achado.
     if comportamento == 'busca_lucro':
         candidatos = buckets['com_promocao_dentro'] + buckets['sem_promocao_dentro']
         escolhida = melhor_margem(candidatos)
@@ -61,21 +61,20 @@ def recomendar_precificacao(linhas, comportamento='padrao', margem_minima=None):
             'exige_aprovacao': False,
         }
 
-    # * [EXPLICAÇÃO] → Padrão e Disputa seguem a MESMA hierarquia hoje —
-    #                  a diferença entre os dois só existirá quando
-    #                  houver automação de verdade (Disputa teria
-    #                  permissão de executar sozinho o que cai abaixo da
-    #                  margem; Padrão sempre pediria aprovação manual
-    #                  nesse caso). Mantidos como comportamentos
-    #                  distintos de propósito, mesmo calculando igual
-    #                  hoje, pra já existir esse contrato pronto quando
-    #                  a automação chegar.
-    ordem = [
-        ('com_promocao_dentro', 'Ganha catálogo, dentro da margem, com promoção'),
-        ('sem_promocao_dentro', 'Ganha catálogo, dentro da margem, sem promoção'),
-        ('com_promocao_abaixo', 'Ganha catálogo, abaixo da margem, com promoção'),
-        ('sem_promocao_abaixo', 'Ganha catálogo, abaixo da margem, sem promoção'),
-    ]
+    if exigir_ganha_catalogo:
+        ordem = [
+            ('com_promocao_dentro', 'Ganha catálogo, dentro da margem, com promoção'),
+            ('sem_promocao_dentro', 'Ganha catálogo, dentro da margem, sem promoção'),
+            ('com_promocao_abaixo', 'Ganha catálogo, abaixo da margem, com promoção'),
+            ('sem_promocao_abaixo', 'Ganha catálogo, abaixo da margem, sem promoção'),
+        ]
+    else:
+        ordem = [
+            ('com_promocao_dentro', 'Dentro da margem, com promoção'),
+            ('sem_promocao_dentro', 'Dentro da margem, sem promoção'),
+            ('com_promocao_abaixo', 'Abaixo da margem, com promoção'),
+            ('sem_promocao_abaixo', 'Abaixo da margem, sem promoção'),
+        ]
 
     for chave, nome in ordem:
         escolhida = melhor_margem(buckets[chave])

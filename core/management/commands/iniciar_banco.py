@@ -6,7 +6,7 @@
 from django.core.management.base import BaseCommand
 from core.management.commands.iniciar_banco_suporte.popular_marketplaces import popular_marketplaces
 from core.management.commands.iniciar_banco_suporte.popular_criterios_qualidade import popular_criterios_qualidade
-
+from core.management.commands.iniciar_banco_suporte.popular_configuracao_mercado_livre import popular_configuracao_mercado_livre
 
 class Command(BaseCommand):
     help = 'Popula dados iniciais do sistema (seed)'
@@ -16,4 +16,6 @@ class Command(BaseCommand):
         popular_marketplaces(self.stdout, self.style)
         self.stdout.write('')
         popular_criterios_qualidade(self.stdout, self.style)
+        self.stdout.write('')
+        popular_configuracao_mercado_livre(self.stdout, self.style)
         self.stdout.write(self.style.SUCCESS('\nSeed concluído!'))

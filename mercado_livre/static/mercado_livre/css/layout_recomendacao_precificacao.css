@@ -338,3 +338,9 @@
 .recpreco-sem-opcoes {
     padding: 16px;
 }
+
+.recpreco-margem-minima-nota {
+    font-size: 0.72rem;
+    font-weight: 400;
+    opacity: 0.85;
+}
