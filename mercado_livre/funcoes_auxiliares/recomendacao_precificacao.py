@@ -56,8 +56,8 @@ def montar_motivo(bucket_nome, preco, margem, margem_minima):
             f'Preço de R$ {preco_fmt} mantém margem de {margem_fmt}%, ficando acima do mínimo de segurança de '
             f'{minimo_fmt}%, sem necessidade de promoção.',
         'Maior margem possível (dentro do mínimo)':
-            f'Preço de R$ {preco_fmt} garante a maior margem possível hoje ({margem_fmt}%), acima do '
-            f'mínimo de segurança de {minimo_fmt}%.',
+            f'Preço de R$ {preco_fmt} garante a maior margem possível disponível hoje ({margem_fmt}%), '
+            f'ficando acima do mínimo de segurança de {minimo_fmt}%.',
     }
     return modelos.get(bucket_nome)
 
