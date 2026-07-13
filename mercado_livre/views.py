@@ -515,7 +515,7 @@ def view_recomendacao_precificacao(request):
     from django.shortcuts import redirect
     from urllib.parse import quote
     from mercado_livre.models import AnuncioMercadoLivre, RecomendacaoPrecificacao
-    from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import COMPORTAMENTOS
+    from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import COMPORTAMENTOS, montar_motivo
     from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
 
     mlb = request.GET.get('mlb', '').strip().upper() or request.POST.get('mlb', '').strip().upper()
@@ -629,9 +629,14 @@ def view_recomendacao_precificacao(request):
             } if recomendacao_salva.tem_escolha else None,
             'bucket_nome': recomendacao_salva.bucket_nome,
             'exige_aprovacao': recomendacao_salva.exige_aprovacao,
+            'categoria_estado': recomendacao_salva.categoria_estado,
+            'categoria_estado_label': recomendacao_salva.get_categoria_estado_display(),
         }
     else:
-        contexto['recomendacao'] = {'escolhida': None, 'bucket_nome': None, 'exige_aprovacao': False}
+        contexto['recomendacao'] = {
+            'escolhida': None, 'bucket_nome': None, 'exige_aprovacao': False,
+            'categoria_estado': None, 'categoria_estado_label': None,
+        }
 
     # * [EXPLICAÇÃO] → Quanto a margem muda se a recomendação for
     #                  aceita, comparado com a margem de hoje —
@@ -643,6 +648,18 @@ def view_recomendacao_precificacao(request):
         contexto['diferenca_recomendacao'] = round(
             contexto['recomendacao']['escolhida']['margem_real']['margem_percentual'] - margem_atual['margem_percentual'], 2
         )
+
+    contexto['margem_atual_vs_original_pp'] = variacao.margem_atual_vs_original_pp
+    contexto['sugestao_vs_original_pp'] = None
+    if contexto['diferenca_recomendacao'] is not None and contexto['margem_atual_vs_original_pp'] is not None:
+        contexto['sugestao_vs_original_pp'] = contexto['diferenca_recomendacao'] + contexto['margem_atual_vs_original_pp']
+
+    contexto['motivo'] = montar_motivo(
+        contexto['recomendacao']['bucket_nome'],
+        contexto['recomendacao']['escolhida']['preco_promocional'] if contexto['recomendacao']['escolhida'] else None,
+        contexto['recomendacao']['escolhida']['margem_real']['margem_percentual'] if contexto['recomendacao']['escolhida'] else None,
+        margem_minima,
+    )
 
     if eh_catalogo:
         contexto['categoria_1'] = [l for l in linhas if l['ganha_catalogo'] and l['margem_real']['margem_percentual'] >= margem_minima]

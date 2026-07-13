@@ -17,6 +17,8 @@
     --recpreco-vermelho-bg: #fee2e2;
     --recpreco-cinza: #6b7280;
     --recpreco-cinza-bg: #f3f4f6;
+    --recpreco-azul: #2563eb;
+    --recpreco-azul-bg: #eff6ff;
 }
 
 /* ================================================
@@ -213,12 +215,40 @@
     border-top: 1px solid #eee;
 }
 
+.recpreco-decisao-conflito {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--recpreco-vermelho);
+    background: var(--recpreco-vermelho-bg);
+}
+
+.recpreco-decisao-categoria {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.recpreco-decisao-categoria--candidato { color: var(--recpreco-verde); background: var(--recpreco-verde-bg); }
+.recpreco-decisao-categoria--otimizado { color: var(--recpreco-cinza); background: var(--recpreco-cinza-bg); }
+.recpreco-decisao-categoria--sem_oportunidade { color: var(--recpreco-cinza); background: var(--recpreco-cinza-bg); }
+.recpreco-decisao-categoria--oportunidade_troca { color: var(--recpreco-azul); background: var(--recpreco-azul-bg); }
+.recpreco-decisao-categoria--sugestao_risco { color: var(--recpreco-ambar); background: var(--recpreco-ambar-bg); }
+.recpreco-decisao-categoria--operando_em_risco { color: var(--recpreco-ambar); background: var(--recpreco-ambar-bg); }
+.recpreco-decisao-categoria--conflito_multiplas_ativas { color: var(--recpreco-vermelho); background: var(--recpreco-vermelho-bg); }
+
 .recpreco-decisao-aviso {
     margin-top: 8px;
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--recpreco-laranja);
-}
 
 /* ================================================
    CARDS DE CATEGORIA
