@@ -8,6 +8,7 @@
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao
 from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
 from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import recomendar_precificacao, COMPORTAMENTOS, TIPOS_SEM_PROMOCAO
+from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem
 
 
 def calcular_recomendacoes_precificacao(stdout, style):
@@ -32,6 +33,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
 
     para_criar = []
     para_atualizar = []
+    para_atualizar_variacoes = []
     sem_calculo = 0
 
     for variacao in variacoes:
@@ -42,6 +44,23 @@ def calcular_recomendacoes_precificacao(stdout, style):
             continue
 
         promocoes_ativas = [p for p in variacao.promocoes.all() if p.status == 'started']
+
+        # * [EXPLICAÇÃO] → Não varia por comportamento — calculado 1x
+        #                  por variação, salvo na própria Variação (não
+        #                  em RecomendacaoPrecificacao, pra não persistir
+        #                  o mesmo valor 3 vezes). Só existe quando há
+        #                  preco_original (ou seja, quando há promoção
+        #                  ativa agora); fica None caso contrário.
+        margem_original = None
+        if variacao.preco_original:
+            margem_original = calcular_margem(variacao.produto, variacao.preco_original, variacao.anuncio.tipo_de_anuncio)
+
+        variacao.margem_atual_vs_original_pp = None
+        if margem_atual and margem_original:
+            variacao.margem_atual_vs_original_pp = round(
+                margem_atual['margem_percentual'] - margem_original['margem_percentual'], 2
+            )
+        para_atualizar_variacoes.append(variacao)
 
         for comportamento in COMPORTAMENTOS:
             resultado = recomendar_precificacao(
@@ -102,6 +121,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
                 bucket_nome=resultado['bucket_nome'],
                 exige_aprovacao=resultado['exige_aprovacao'],
                 categoria_estado=categoria_estado,
+                variacao_margem_pp=escolhida['diferenca'] if escolhida else None,
             )
 
             chave = (variacao.id, comportamento)
@@ -114,17 +134,20 @@ def calcular_recomendacoes_precificacao(stdout, style):
                 nova = RecomendacaoPrecificacao(variacao=variacao, comportamento=comportamento, **dados)
                 para_criar.append(nova)
                 existentes[chave] = nova
-
     campos = [
         'tem_escolha', 'cenario_nome', 'cenario_tipo',
         'preco_recomendado', 'margem_recomendada', 'bucket_nome', 'exige_aprovacao',
-        'categoria_estado',
+        'categoria_estado', 'variacao_margem_pp',
     ]
 
     if para_criar:
         RecomendacaoPrecificacao.objects.bulk_create(para_criar, batch_size=1000)
     if para_atualizar:
         RecomendacaoPrecificacao.objects.bulk_update(para_atualizar, campos, batch_size=1000)
+    if para_atualizar_variacoes:
+        VariacaoAnuncioMercadoLivre.objects.bulk_update(
+            para_atualizar_variacoes, ['margem_atual_vs_original_pp'], batch_size=1000
+        )
 
     stdout.write(style.SUCCESS(
         f'[RECOMENDAÇÃO PRECIFICAÇÃO] Concluído!\n'

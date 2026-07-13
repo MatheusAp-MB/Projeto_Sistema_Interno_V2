@@ -53,24 +53,56 @@
             {% if categoria == 'conflito_multiplas_ativas' %}
             <span class="card-promocao-alerta">⚠️ Múltiplas promoções ativas — requer verificação</span>
 
-            {% elif categoria == 'candidato' or categoria == 'sugestao_risco' or categoria == 'oportunidade_troca' %}
-            <span class="card-promocao-rotulo">
+{% elif categoria == 'candidato' or categoria == 'sugestao_risco' or categoria == 'oportunidade_troca' %}
+            <span class="card-promocao-secao-titulo">Estado atual</span>
+            {% if anuncio.promocao_ativa %}
+            <span class="card-promocao-estado-atual">{{ anuncio.promocao_ativa.nome }}</span>
+            {% if anuncio.tem_desconto %}<span class="card-promocao-preco-riscado">R$ {{ anuncio.preco_original|floatformat:2 }}</span>{% endif %}
+            <span class="card-promocao-preco">R$ {{ anuncio.preco_atual|floatformat:2 }}</span>
+            {% else %}
+            <span class="card-promocao-estado-atual">Sem promoção ativa</span>
+            <span class="card-promocao-preco">R$ {{ anuncio.preco_atual|floatformat:2 }}</span>
+            {% endif %}
+            {% if anuncio.margem_atual_exibicao is not None %}
+            <span class="card-promocao-margem {% if anuncio.margem_atual_exibicao >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
+                {% if anuncio.margem_atual_exibicao >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.margem_atual_exibicao|floatformat:2 }}%
+            </span>
+            {% endif %}
+            {% if anuncio.margem_atual_vs_original_pp is not None %}
+            <span class="card-promocao-vs-original">vs original: {% if anuncio.margem_atual_vs_original_pp >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.margem_atual_vs_original_pp|floatformat:2 }} p.p.</span>
+            {% endif %}
+
+            <span class="card-promocao-setinha">↓</span>
+
+            <span class="card-promocao-secao-titulo">
                 {% if categoria == 'sugestao_risco' %}⚠️ Sugestão de risco
                 {% elif categoria == 'candidato' %}Candidato a participar
                 {% else %}Oportunidade de troca{% endif %}
             </span>
-            {% if anuncio.promocao_ativa %}
-            <span class="card-promocao-estado-atual">Hoje: {{ anuncio.promocao_ativa.nome }}</span>
-            <span class="card-promocao-seta">→</span>
-            {% endif %}
             <span class="card-promocao-cenario">{{ anuncio.veredito.cenario_nome }}</span>
             <span class="card-promocao-preco">R$ {{ anuncio.veredito.preco_recomendado|floatformat:2 }}</span>
             <span class="card-promocao-margem {% if anuncio.veredito.margem_recomendada >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
                 {% if anuncio.veredito.margem_recomendada >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.veredito.margem_recomendada|floatformat:2 }}%
             </span>
+            {% if anuncio.veredito.variacao_margem_pp is not None %}
+            <span class="card-promocao-vs-original">vs hoje: {% if anuncio.veredito.variacao_margem_pp >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.veredito.variacao_margem_pp|floatformat:2 }} p.p.</span>
+            {% endif %}
+            {% if anuncio.sugestao_vs_original_pp is not None %}
+            <span class="card-promocao-vs-original">vs original: {% if anuncio.sugestao_vs_original_pp >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.sugestao_vs_original_pp|floatformat:2 }} p.p.</span>
+            {% endif %}
+            {% if anuncio.motivo %}<span class="card-promocao-motivo">{{ anuncio.motivo }}</span>{% endif %}
 
             {% elif categoria == 'otimizado' %}
             <span class="card-promocao-confirmacao">✓ Otimizado — já é o melhor cenário hoje</span>
+            {% if anuncio.margem_atual_exibicao is not None %}
+            <span class="card-promocao-margem {% if anuncio.margem_atual_exibicao >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
+                {% if anuncio.margem_atual_exibicao >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.margem_atual_exibicao|floatformat:2 }}%
+            </span>
+            {% endif %}
+            {% if anuncio.margem_atual_vs_original_pp is not None %}
+            <span class="card-promocao-vs-original">vs original: {% if anuncio.margem_atual_vs_original_pp >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.margem_atual_vs_original_pp|floatformat:2 }} p.p.</span>
+            {% endif %}
+            {% if anuncio.motivo %}<span class="card-promocao-motivo">{{ anuncio.motivo }}</span>{% endif %}
 
             {% elif categoria == 'operando_em_risco' %}
             <span class="card-promocao-rotulo">⚠️ Operando em risco</span>
@@ -78,10 +110,20 @@
             <span class="card-promocao-margem recpreco-negativo">
                 ▼ {{ anuncio.veredito.margem_recomendada|floatformat:2 }}%
             </span>
+            {% if anuncio.margem_atual_vs_original_pp is not None %}
+            <span class="card-promocao-vs-original">vs original: {% if anuncio.margem_atual_vs_original_pp >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.margem_atual_vs_original_pp|floatformat:2 }} p.p.</span>
+            {% endif %}
             <span class="card-promocao-confirmacao">Sem alternativa segura disponível no momento</span>
+            {% if anuncio.motivo %}<span class="card-promocao-motivo">{{ anuncio.motivo }}</span>{% endif %}
 
             {% elif categoria == 'sem_oportunidade' %}
             <span class="card-promocao-confirmacao">— Sem oportunidade no momento</span>
+            {% if anuncio.margem_atual_exibicao is not None %}
+            <span class="card-promocao-margem {% if anuncio.margem_atual_exibicao >= 0 %}recpreco-positivo{% else %}recpreco-negativo{% endif %}">
+                {% if anuncio.margem_atual_exibicao >= 0 %}▲{% else %}▼{% endif %} {{ anuncio.margem_atual_exibicao|floatformat:2 }}%
+            </span>
+            {% endif %}
+            {% if anuncio.motivo %}<span class="card-promocao-motivo">{{ anuncio.motivo }}</span>{% endif %}
 
             {% else %}
             <span class="card-promocao-vazio">Nenhuma recomendação encontrada</span>

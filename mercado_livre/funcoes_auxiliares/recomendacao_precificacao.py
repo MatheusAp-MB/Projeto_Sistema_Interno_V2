@@ -19,6 +19,48 @@ COMPORTAMENTOS = {
 #                  outro "tipo" veio de uma promoção real da API.
 TIPOS_SEM_PROMOCAO = ('PRECO_DIRETO', 'PRECO_ATUAL')
 
+# * [EXPLICAÇÃO] → Traduz bucket_nome (já persistido, técnico) numa
+#                  frase de negócio com os números reais embutidos —
+#                  reaproveitável pelo Hub e pela tela individual, sem
+#                  duplicar a lógica de decisão em cada lugar que
+#                  precisa explicar "o motivo" pro usuário.
+def montar_motivo(bucket_nome, preco, margem, margem_minima):
+    if margem_minima is None:
+        return None
+
+    minimo_fmt = f'{margem_minima:.2f}'
+
+    if bucket_nome is None:
+        return f'Nenhuma opção atingiu a margem mínima de segurança de {minimo_fmt}% hoje.'
+
+    preco_fmt = f'{preco:.2f}' if preco is not None else '?'
+    margem_fmt = f'{margem:.2f}' if margem is not None else '?'
+
+    modelos = {
+        'Ganha catálogo, dentro da margem, com promoção':
+            f'Garante o catálogo com o preço de R$ {preco_fmt}, mantendo a margem de {margem_fmt}%, '
+            f'ficando acima do mínimo de segurança de {minimo_fmt}%, usando esta promoção.',
+        'Ganha catálogo, dentro da margem, sem promoção':
+            f'Garante o catálogo com o preço de R$ {preco_fmt}, mantendo a margem de {margem_fmt}%, '
+            f'ficando acima do mínimo de segurança de {minimo_fmt}%, sem precisar de promoção.',
+        'Ganha catálogo, abaixo da margem, com promoção':
+            f'Única forma encontrada de ganhar o catálogo hoje: preço de R$ {preco_fmt}, com margem de '
+            f'{margem_fmt}% — abaixo do mínimo de segurança de {minimo_fmt}%, usando esta promoção.',
+        'Ganha catálogo, abaixo da margem, sem promoção':
+            f'Única forma encontrada de ganhar o catálogo hoje: preço de R$ {preco_fmt}, com margem de '
+            f'{margem_fmt}% — abaixo do mínimo de segurança de {minimo_fmt}%, baixando o preço direto.',
+        'Dentro da margem, com promoção':
+            f'Preço de R$ {preco_fmt} traz margem de {margem_fmt}%, ficando acima do mínimo de segurança de '
+            f'{minimo_fmt}%, usando esta promoção.',
+        'Dentro da margem, sem promoção':
+            f'Preço de R$ {preco_fmt} mantém margem de {margem_fmt}%, ficando acima do mínimo de segurança de '
+            f'{minimo_fmt}%, sem necessidade de promoção.',
+        'Maior margem possível (dentro do mínimo)':
+            f'Preço de R$ {preco_fmt} garante a maior margem possível hoje ({margem_fmt}%), acima do '
+            f'mínimo de segurança de {minimo_fmt}%.',
+    }
+    return modelos.get(bucket_nome)
+
 
 def melhor_margem(lista):
     """Escolhe, dentro de uma lista de linhas candidatas, a de maior margem."""

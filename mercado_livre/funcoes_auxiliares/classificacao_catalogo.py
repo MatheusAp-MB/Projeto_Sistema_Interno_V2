@@ -124,6 +124,7 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'preco_original': variacao.preco_original,
         'tem_desconto': tem_desconto,
         'desconto_percentual': desconto_percentual,
+        'margem_atual_vs_original_pp': variacao.margem_atual_vs_original_pp,
 
         'score': score_numerico,
         'ponteiro_x': ponteiro_x,

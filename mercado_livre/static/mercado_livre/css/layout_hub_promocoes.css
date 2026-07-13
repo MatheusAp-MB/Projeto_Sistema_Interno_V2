@@ -168,6 +168,50 @@
     font-size: 0.75rem;
 }
 
+.card-promocao-secao-titulo {
+    width: 100%;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #99a;
+    margin-top: 4px;
+}
+
+.card-promocao-secao-titulo:first-child {
+    margin-top: 0;
+}
+
+.card-promocao-preco-riscado {
+    text-decoration: line-through;
+    color: #99a;
+    font-size: 0.72rem;
+}
+
+.card-promocao-vs-original {
+    width: 100%;
+    font-size: 0.68rem;
+    color: #778;
+}
+
+.card-promocao-motivo {
+    width: 100%;
+    font-size: 0.7rem;
+    color: #556;
+    line-height: 1.4;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed #e2e6ed;
+}
+
+.card-promocao-setinha {
+    width: 100%;
+    text-align: center;
+    color: #bbc;
+    font-size: 0.7rem;
+    margin: -2px 0;
+}
+
 .card-promocao-seta {
     color: #99a;
 }

@@ -6,6 +6,8 @@
 #              TODO o resultado filtrado, não só a página atual.
 
 from mercado_livre.models import RecomendacaoPrecificacao, VariacaoAnuncioMercadoLivre, PromocaoMercadoLivre
+from mercado_livre.funcoes_auxiliares.calculo_margem import buscar_configuracao_tipo_anuncio
+from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import montar_motivo
 
 
 def _coletar_folhas(arvore):
@@ -51,10 +53,52 @@ def enriquecer_arvores_com_veredito(arvores):
     for p in PromocaoMercadoLivre.objects.filter(variacao_id__in=ids_variacao, status='started'):
         promocoes_ativas_por_variacao.setdefault(p.variacao_id, []).append(p)
 
+    # * [EXPLICAÇÃO] → margem_minima não é persistida em
+    #                  RecomendacaoPrecificacao (não varia por
+    #                  comportamento) — busca na config real (tabela
+    #                  com só 8 linhas), com cache local pra nunca
+    #                  repetir a mesma busca 2x na mesma página.
+    config_cache = {}
+    margem_minima_por_variacao = {}
+    for v in VariacaoAnuncioMercadoLivre.objects.filter(
+        id__in=ids_variacao
+    ).select_related('anuncio__tipo_de_anuncio'):
+        tipo_obj = v.anuncio.tipo_de_anuncio if v.anuncio else None
+        if not tipo_obj:
+            continue
+        if tipo_obj.pk not in config_cache:
+            config_cache[tipo_obj.pk] = buscar_configuracao_tipo_anuncio(tipo_obj)
+        config = config_cache[tipo_obj.pk]
+        margem_minima_por_variacao[v.id] = config.margem_padrao if config else None
+
     for folha in todas_folhas:
         recomendacoes_da_variacao = recomendacoes_por_variacao.get(folha['id'], {})
         comportamento_ativo = folha.get('comportamento_ativo', 'padrao')
-        folha['veredito'] = recomendacoes_da_variacao.get(comportamento_ativo)
+        veredito = recomendacoes_da_variacao.get(comportamento_ativo)
+        folha['veredito'] = veredito
+
+        # * [EXPLICAÇÃO] → margem_atual (em %) não é persistida em
+        #                  lugar nenhum — é sempre derivada aqui:
+        #                  margem_recomendada - variacao_margem_pp (o
+        #                  mesmo cálculo inverso que a tela individual
+        #                  já faz em 'diferenca'). "Sugestão vs Original"
+        #                  é só a soma das 2 diferenças já persistidas —
+        #                  nenhuma margem nova é calculada, só aritmética
+        #                  de exibição sobre o que já está no banco.
+        folha['margem_atual_exibicao'] = None
+        folha['sugestao_vs_original_pp'] = None
+        if veredito and veredito.margem_recomendada is not None and veredito.variacao_margem_pp is not None:
+            folha['margem_atual_exibicao'] = veredito.margem_recomendada - veredito.variacao_margem_pp
+            if folha.get('margem_atual_vs_original_pp') is not None:
+                folha['sugestao_vs_original_pp'] = veredito.variacao_margem_pp + folha['margem_atual_vs_original_pp']
+
+        margem_minima = margem_minima_por_variacao.get(folha['id'])
+        folha['motivo'] = montar_motivo(
+            veredito.bucket_nome if veredito else None,
+            veredito.preco_recomendado if veredito else None,
+            veredito.margem_recomendada if veredito else None,
+            margem_minima,
+        )
 
         ativas = promocoes_ativas_por_variacao.get(folha['id'], [])
         if len(ativas) == 1:
