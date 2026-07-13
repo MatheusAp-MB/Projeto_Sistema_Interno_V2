@@ -582,10 +582,11 @@ def view_recomendacao_precificacao(request):
     contexto['comportamento_ativo_hoje'] = variacao.comportamento_ativo
     contexto['decisao_salva'] = request.GET.get('decisao_salva') == '1'
 
-    linhas, eh_catalogo, margem_minima, margem_atual, config_tipo = montar_linhas_candidatas(variacao)
+    linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao)
 
     contexto['margem_minima'] = margem_minima
     contexto['margem_atual'] = margem_atual
+    contexto['margem_original'] = margem_original
     contexto['eh_catalogo'] = eh_catalogo
     contexto['preco_atual'] = variacao.preco_atual
     contexto['preco_base'] = variacao.preco_original or variacao.preco_atual

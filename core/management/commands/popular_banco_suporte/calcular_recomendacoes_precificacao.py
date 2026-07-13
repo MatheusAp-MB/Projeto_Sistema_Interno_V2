@@ -8,8 +8,6 @@
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao
 from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
 from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import recomendar_precificacao, COMPORTAMENTOS, TIPOS_SEM_PROMOCAO
-from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem
-
 
 def calcular_recomendacoes_precificacao(stdout, style):
     stdout.write('[RECOMENDAÇÃO PRECIFICAÇÃO] Calculando os 3 comportamentos por variação...')
@@ -37,7 +35,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
     sem_calculo = 0
 
     for variacao in variacoes:
-        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo = montar_linhas_candidatas(variacao)
+        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao)
 
         if margem_minima is None:
             sem_calculo += 1
@@ -45,16 +43,10 @@ def calcular_recomendacoes_precificacao(stdout, style):
 
         promocoes_ativas = [p for p in variacao.promocoes.all() if p.status == 'started']
 
-        # * [EXPLICAÇÃO] → Não varia por comportamento — calculado 1x
-        #                  por variação, salvo na própria Variação (não
-        #                  em RecomendacaoPrecificacao, pra não persistir
-        #                  o mesmo valor 3 vezes). Só existe quando há
-        #                  preco_original (ou seja, quando há promoção
-        #                  ativa agora); fica None caso contrário.
-        margem_original = None
-        if variacao.preco_original:
-            margem_original = calcular_margem(variacao.produto, variacao.preco_original, variacao.anuncio.tipo_de_anuncio)
-
+        # * [EXPLICAÇÃO] → margem_original agora vem PRONTA de
+        #                  montar_linhas_candidatas (escopo ORIGINAL,
+        #                  nunca com rebate) — não recalcula mais aqui,
+        #                  elimina a duplicação que existia antes.
         variacao.margem_atual_vs_original_pp = None
         if margem_atual and margem_original:
             variacao.margem_atual_vs_original_pp = round(
@@ -84,7 +76,17 @@ def calcular_recomendacoes_precificacao(stdout, style):
             elif escolhida:
                 if len(promocoes_ativas) == 1:
                     ativa_chave = promocoes_ativas[0].chave_externa
-                    if escolhida['chave_externa'] == ativa_chave:
+                    # * [EXPLICAÇÃO] → "Mesma chave" OU "diferença real
+                    #                  não é positiva" (zero ou negativa)
+                    #                  = nada de novo vale a pena — trata
+                    #                  como OTIMIZADO/OPERANDO_EM_RISCO,
+                    #                  mesmo que a chave seja tecnicamente
+                    #                  diferente (ex: sugestão = "Preço
+                    #                  Original", que é sempre diferente
+                    #                  da chave de qualquer promoção real,
+                    #                  mas só é MELHOR se a conta bater).
+                    diferenca_real = escolhida.get('diferenca')
+                    if escolhida['chave_externa'] == ativa_chave or (diferenca_real is not None and diferenca_real <= 0):
                         # * [EXPLICAÇÃO] → Vencedora É a mesma promoção
                         #                  que já está ativa — nada de
                         #                  novo a fazer. Mas se essa

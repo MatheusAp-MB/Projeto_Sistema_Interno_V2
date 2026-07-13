@@ -12,26 +12,67 @@ from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, bus
 
 def montar_linhas_candidatas(variacao):
     """Retorna (linhas, eh_catalogo, margem_minima, margem_atual,
-    config_tipo) pra uma variação. linhas é a lista pronta pra passar
-    em recomendar_precificacao() OU pra exibir na tabela da tela
-    individual. Retorna ([], False, None, None, None) se faltar dado
-    essencial (produto ou configuração de tipo)."""
+    config_tipo, margem_original) pra uma variação. linhas é a lista
+    pronta pra passar em recomendar_precificacao() OU pra exibir na
+    tabela da tela individual. Retorna ([], False, None, None, None,
+    None) se faltar dado essencial (produto ou configuração de tipo).
+
+    * [EXPLICAÇÃO] → 3 escopos de margem, cada um com seu próprio
+    preço e seu próprio rebate — NUNCA misturados entre si:
+      - ATUAL: variacao.preco_atual + rebate da promoção REALMENTE
+        ativa agora (só quando existe exatamente 1 'started' — com 0
+        ou 2+, sem rebate, pra não supor qual contar; o caso de
+        2+ já é sinalizado à parte como conflito).
+      - ORIGINAL: preco_original (ou preco_atual quando não há
+        nenhuma promoção ativa hoje — nesse caso os dois são o
+        mesmo preço) — NUNCA tem rebate, por definição.
+      - SUGERIDO: cada linha candidata (cada promoção avaliada) já
+        calcula o rebate DELA MESMA, isolado — isso não muda aqui.
+    Bug corrigido: antes, margem_atual nunca incluía rebate nenhum, e
+    a linha "sem promoção" reaproveitava essa margem_atual sem rebate
+    como se fosse a margem "de hoje" também — os dois escopos
+    ficavam contaminados um pelo outro."""
     anuncio = variacao.anuncio
     produto = variacao.produto
     tipo_anuncio_obj = anuncio.tipo_de_anuncio
 
     if not produto or not tipo_anuncio_obj:
-        return [], False, None, None, None
+        return [], False, None, None, None, None
 
     config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
     if not config_tipo:
-        return [], False, None, None, None
+        return [], False, None, None, None, None
 
     margem_minima = config_tipo.margem_padrao
 
+    # * [EXPLICAÇÃO] → Só 1 promoção ativa dá um rebate inequívoco pra
+    #                  somar na margem ATUAL. Com 0, não tem rebate
+    #                  mesmo. Com 2+ (conflito), não dá pra saber qual
+    #                  rebate é o "de verdade" sem ambiguidade — fica
+    #                  sem rebate aqui, mas o estado de conflito já
+    #                  avisa isso separadamente, então não é dado
+    #                  escondido, é uma limitação conhecida e visível.
+    ativas = [p for p in variacao.promocoes.all() if p.status == 'started']
+    ativa_unica = ativas[0] if len(ativas) == 1 else None
+
     margem_atual = None
     if variacao.preco_atual:
-        margem_atual = calcular_margem(produto, variacao.preco_atual, tipo_anuncio_obj)
+        rebate_pct = ativa_unica.meli_percentage if (ativa_unica and ativa_unica.meli_percentage is not None) else None
+        rebate_preco_original = ativa_unica.preco_original if (ativa_unica and ativa_unica.meli_percentage is not None) else None
+        margem_atual = calcular_margem(
+            produto, variacao.preco_atual, tipo_anuncio_obj,
+            rebate_percentual=rebate_pct, preco_original=rebate_preco_original,
+        )
+
+    # * [EXPLICAÇÃO] → Preço ORIGINAL: se existe preco_original (há
+    #                  promoção ativa que também baixa preço), usa
+    #                  ele. Se não existe (preço não mudou, ou não há
+    #                  promoção), preco_original == preco_atual — o
+    #                  preço de hoje JÁ É o original. NUNCA tem rebate.
+    preco_sem_promocao = variacao.preco_original or variacao.preco_atual
+    margem_original = None
+    if preco_sem_promocao:
+        margem_original = calcular_margem(produto, preco_sem_promocao, tipo_anuncio_obj)
 
     eh_catalogo = hasattr(anuncio, 'competicao')
     price_to_win = None
@@ -49,7 +90,7 @@ def montar_linhas_candidatas(variacao):
                 'chave_externa': 'PRECO_DIRETO',
                 'status': None,
                 'vigencia': None,
-                'preco_original': variacao.preco_atual,
+                'preco_original': preco_sem_promocao,
                 'preco_promocional': price_to_win,
                 'tem_rebate': False,
                 'meli_percentage': None,
@@ -62,23 +103,23 @@ def montar_linhas_candidatas(variacao):
                 'ganha_catalogo': True,
             })
 
-    if not eh_catalogo and margem_atual:
+    if not eh_catalogo and margem_original:
         linhas.append({
-            'nome': 'Preço atual (sem promoção)',
+            'nome': 'Preço original (sem promoção)',
             'tipo': 'PRECO_ATUAL',
             'chave_externa': 'PRECO_ATUAL',
             'status': None,
             'vigencia': None,
-            'preco_original': variacao.preco_atual,
-            'preco_promocional': variacao.preco_atual,
+            'preco_original': preco_sem_promocao,
+            'preco_promocional': preco_sem_promocao,
             'tem_rebate': False,
             'meli_percentage': None,
             'seller_percentage': None,
             'rebate_valor_reais': Decimal('0'),
-            'margem_com_rebate': margem_atual,
-            'margem_sem_rebate': margem_atual,
-            'margem_real': margem_atual,
-            'diferenca': Decimal('0'),
+            'margem_com_rebate': margem_original,
+            'margem_sem_rebate': margem_original,
+            'margem_real': margem_original,
+            'diferenca': round(margem_original['margem_percentual'] - margem_atual['margem_percentual'], 2) if margem_atual else None,
             'ganha_catalogo': None,
         })
 
@@ -130,4 +171,4 @@ def montar_linhas_candidatas(variacao):
             'ganha_catalogo': ganha_catalogo,
         })
 
-    return linhas, eh_catalogo, margem_minima, margem_atual, config_tipo
+    return linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original
