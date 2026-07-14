@@ -104,7 +104,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
                     else:
                         categoria_estado = Categoria.SUGESTAO_RISCO if risco else Categoria.OPORTUNIDADE_TROCA
                 elif escolhida['tipo'] in TIPOS_SEM_PROMOCAO:
-                    categoria_estado = Categoria.SEM_OPORTUNIDADE
+                    categoria_estado = Categoria.SUGESTAO_RISCO if risco else Categoria.SEM_OPORTUNIDADE
                 else:
                     categoria_estado = Categoria.SUGESTAO_RISCO if risco else Categoria.CANDIDATO
             else:

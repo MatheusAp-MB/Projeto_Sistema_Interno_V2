@@ -17,7 +17,7 @@ from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml imp
 from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
 from core.management.commands.popular_banco_suporte.importar_promocoes_ml import importar_promocoes_ml
 from core.management.commands.popular_banco_suporte.calcular_recomendacoes_precificacao import calcular_recomendacoes_precificacao
-
+from precificacao.funcoes_auxiliares.mercado_livre.calcular_grade_precificacao_ml import calcular_grade_precificacao_ml
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
 
@@ -42,6 +42,15 @@ class Command(BaseCommand):
             #                  dimensões). Essa é a fonte validada
             #                  especificamente para precificação.
             ('PRECIFICAÇÃO — PLANILHA VALIDADA', importar_planilha_precificacao, ()),
+            # * [EXPLICAÇÃO] → Roda logo depois da Planilha Validada —
+            #                  precisa de Produto com custo/dimensões/
+            #                  peso_cubado já corretos (a fonte validada
+            #                  acabou de rodar). Não depende de
+            #                  Promoções nem de Qualidade/Competição —
+            #                  poderia rodar em qualquer ponto depois
+            #                  daqui, mas fica agrupada perto do resto
+            #                  de precificação por clareza.
+            ('GRADE DE PRECIFICAÇÃO ML', calcular_grade_precificacao_ml, ()),
             ('PROMOÇÕES ML', importar_promocoes_ml, ()),
             ('RECOMENDAÇÃO PRECIFICAÇÃO', calcular_recomendacoes_precificacao, ()),
         ]

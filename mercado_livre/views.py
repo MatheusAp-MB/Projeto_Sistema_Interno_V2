@@ -598,10 +598,22 @@ def view_recomendacao_precificacao(request):
         contexto['competicao_price_to_win'] = competicao.price_to_win
         contexto['competicao_current_price'] = competicao.current_price
 
-    promocao_ativa_obj = variacao.promocoes.filter(status='started').first()
-    contexto['promocao_ativa'] = {
-        'name': promocao_ativa_obj.nome, 'type': promocao_ativa_obj.tipo,
-    } if promocao_ativa_obj else None
+    # * [EXPLICAÇÃO] → Só mostra a promoção ativa quando existe
+    #                  EXATAMENTE 1 — com 2+ (conflito), não escolhe
+    #                  uma arbitrariamente (era o que .first() fazia
+    #                  antes, escondendo a ambiguidade nesse campo
+    #                  específico, mesmo já existindo o alerta de
+    #                  conflito em outro lugar da mesma tela).
+    promocoes_ativas_lista = list(variacao.promocoes.filter(status='started'))
+    if len(promocoes_ativas_lista) == 1:
+        promocao_ativa_obj = promocoes_ativas_lista[0]
+        contexto['promocao_ativa'] = {'name': promocao_ativa_obj.nome, 'type': promocao_ativa_obj.tipo}
+    elif len(promocoes_ativas_lista) >= 2:
+        contexto['promocao_ativa'] = {
+            'name': f'{len(promocoes_ativas_lista)} promoções ativas ao mesmo tempo (conflito)', 'type': None,
+        }
+    else:
+        contexto['promocao_ativa'] = None
 
     from mercado_livre.funcoes_auxiliares.classificacao_catalogo import info_variacao
     from mercado_livre.funcoes_auxiliares.badges import BADGES_CATALOGO, badge_de
