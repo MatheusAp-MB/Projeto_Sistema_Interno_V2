@@ -107,7 +107,17 @@ def calcular_fixo(produto):
     return coleta + armazenagem + custo_final - (produto.custo * (icms_entrada + pis))
 
 
-def buscar_frete(produto, preco):
+def buscar_frete(produto, preco, faixas_candidatas=None):
+    """Se faixas_candidatas for passado (já filtradas por peso, em
+    memória — sem query nova), busca o frete em Python. Sem isso,
+    cai no comportamento original (1 query por chamada) — mantém
+    compatibilidade com quem já chama sem esse parâmetro."""
+    if faixas_candidatas is not None:
+        for faixa in faixas_candidatas:
+            if faixa.preco_min <= preco and (faixa.preco_max is None or faixa.preco_max >= preco):
+                return faixa.valor
+        return None
+
     from mercado_livre.models import FreteML
 
     peso_cubado = produto.peso_cubado or Decimal('0')
@@ -125,19 +135,27 @@ def buscar_frete(produto, preco):
 
     return frete.valor if frete else None
 
-
-def calcular_margem(produto, preco, tipo_anuncio_obj, rebate_percentual=None, preco_original=None):
+def calcular_margem(produto, preco, tipo_anuncio_obj=None, rebate_percentual=None, preco_original=None, config_tipo=None, fixo=None, faixas_frete=None):
     """Dado um preço de venda, calcula a margem resultante.
     tipo_anuncio_obj é o TipoDeAnuncioMercadoLivre REAL do anúncio (não
     mais uma string 'classico'/'premium') — decide a comissão certa pela
     combinação completa (tipo × logística × catálogo). Retorna None se
     não achar faixa de frete, ou se não existir configuração pra essa
-    combinação (não deveria acontecer, as 8 já estão seedadas)."""
+    combinação (não deveria acontecer, as 8 já estão seedadas).
+
+    * [EXPLICAÇÃO] → config_tipo: passe a ConfiguracaoTipoAnuncioMercadoLivre
+    já pronta quando não existir um anúncio real por trás (ex: Grade de
+    Precificação, que calcula direto por combinação, sem MLB nenhum) —
+    pula a busca via tipo_anuncio_obj. Se os dois vierem None, retorna
+    None (precisa de pelo menos 1 dos 2)."""
     preco = Decimal(str(preco))
     if preco <= 0:
         return None
 
-    config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
+    if config_tipo is None:
+        if tipo_anuncio_obj is None:
+            return None
+        config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
     if not config_tipo:
         return None
 
@@ -146,8 +164,9 @@ def calcular_margem(produto, preco, tipo_anuncio_obj, rebate_percentual=None, pr
     pis = (produto.pis_cofins or Decimal('0')) / 100
     taxa = comissao + icms_saida + pis
 
-    fixo = calcular_fixo(produto)
-    frete = buscar_frete(produto, preco)
+    if fixo is None:
+        fixo = calcular_fixo(produto)
+    frete = buscar_frete(produto, preco, faixas_candidatas=faixas_frete)
     if frete is None:
         return None
 
