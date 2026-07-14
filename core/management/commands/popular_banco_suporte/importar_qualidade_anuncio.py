@@ -84,9 +84,14 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
     total_mlbs = 0
     criterios_novos_catalogados_como_desconhecido = 0
 
+    total_mlbs_esperado = sum(len(bloco.get('mlbs', [])) for bloco in blocos_sku)
+
     for bloco in blocos_sku:
         for mlb_dados in bloco.get('mlbs', []):
             total_mlbs += 1
+            if total_mlbs % 500 == 0 or total_mlbs == total_mlbs_esperado:
+                stdout.write(f'    ... {total_mlbs}/{total_mlbs_esperado} MLBs processados')
+
             mlb = mlb_dados.get('mlb')
 
             anuncio = anuncios_por_mlb.get(mlb)

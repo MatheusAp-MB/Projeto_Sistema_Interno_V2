@@ -34,9 +34,11 @@ def calcular_recomendacoes_precificacao(stdout, style):
     para_atualizar_variacoes = []
     sem_calculo = 0
 
-    for variacao in variacoes:
-        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao)
+    for indice, variacao in enumerate(variacoes, start=1):
+        if indice % 500 == 0 or indice == total_variacoes:
+            stdout.write(f'    ... {indice}/{total_variacoes} variações processadas')
 
+        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao)
         if margem_minima is None:
             sem_calculo += 1
             continue

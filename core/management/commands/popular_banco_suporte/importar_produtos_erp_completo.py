@@ -21,9 +21,18 @@ CAMINHO_ERP_COMPLETO = 'Arquivos_de_Importação/Relatorio_Completo_ERP.xlsx'
 COLUNAS_NECESSARIAS = [
     'Codigo Auxiliar', 'Codigo de Barras', 'Codigo do Fabricante',
     'Detalhes do Produto', 'Categoria', 'Estoque', 'Marca',
-    'Peso Bruto', 'Altura', 'Largura', 'Comprimento', 'cubicagem',
+    'Peso Bruto', 'Altura', 'Largura', 'Comprimento',
     'Custo', 'ncm', 'URL 1', 'Ultima Compra', 'dt_cadastro',
 ]
+
+# * [EXPLICAÇÃO] → 'cubicagem' foi REMOVIDA das colunas usadas — em
+#                  ~60% do catálogo ela guardava o VOLUME em m³ (não
+#                  peso cubado em kg), causando faixa de frete errada
+#                  no Goal Seek (achado real, validado em 26/07 via
+#                  comparação com a planilha oficial). peso_cubado
+#                  agora é SEMPRE calculado aqui, nunca mais confiado
+#                  do ERP: (altura × largura × profundidade) ÷ 6000.
+FATOR_PESO_CUBADO = 6000
 
 
 def _texto(valor, padrao=None):
@@ -70,10 +79,19 @@ def importar_produtos_erp_completo(stdout, style, caminho=CAMINHO_ERP_COMPLETO):
     ignorados_ean_duplicado = 0
     eans_ja_enfileirados = set()
 
-    for _, linha in df.iterrows():
+    total_linhas = len(df)
+
+    for indice, (_, linha) in enumerate(df.iterrows(), start=1):
+        if indice % 300 == 0 or indice == total_linhas:
+            stdout.write(f'    ... {indice}/{total_linhas} linhas processadas')
+
         sku = _texto(linha.get('Codigo Auxiliar'))
         if not sku:
             continue
+
+        altura = _numero(linha.get('Altura'), 0)
+        largura = _numero(linha.get('Largura'), 0)
+        profundidade = _numero(linha.get('Comprimento'), 0)
 
         dados = dict(
             titulo=_texto(linha.get('Detalhes do Produto'), sku),
@@ -84,10 +102,10 @@ def importar_produtos_erp_completo(stdout, style, caminho=CAMINHO_ERP_COMPLETO):
             estoque=int(_numero(linha.get('Estoque'), 0)),
             custo=_numero(linha.get('Custo'), 0),
             peso=_numero(linha.get('Peso Bruto'), 0),
-            altura=_numero(linha.get('Altura'), 0),
-            largura=_numero(linha.get('Largura'), 0),
-            profundidade=_numero(linha.get('Comprimento'), 0),
-            peso_cubado=_numero(linha.get('cubicagem'), None),
+            altura=altura,
+            largura=largura,
+            profundidade=profundidade,
+            peso_cubado=(altura * largura * profundidade) / FATOR_PESO_CUBADO,
             imagem_url=_texto(linha.get('URL 1')),
             ultima_compra=_data(linha.get('Ultima Compra')),
             cadastrado_erp_em=_data(linha.get('dt_cadastro')),

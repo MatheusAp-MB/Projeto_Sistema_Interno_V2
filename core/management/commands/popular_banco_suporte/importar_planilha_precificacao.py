@@ -16,6 +16,15 @@ from produtos.models import Produto
 
 CAMINHO_PLANILHA_PRECIFICACAO = Path('Arquivos_de_Importação/Planilha_Importar_Pos_Macro.xlsm')
 
+# * [EXPLICAÇÃO] → peso_cubado é calculado AQUI, junto com as
+#                  dimensões finais (fonte validada) — nunca mais
+#                  confiado do ERP, que roda antes e fica desatualizado
+#                  assim que essa planilha sobrescreve altura/largura/
+#                  profundidade. Achado real: peso_cubado zerado ou
+#                  errado em ~87-97% do catálogo, causando faixa de
+#                  frete errada no Goal Seek.
+FATOR_PESO_CUBADO = 6000
+
 
 def _pct(val):
     # * [EXPLICAÇÃO] → Converte decimal para percentual (0.04 → 4.00) —
@@ -67,7 +76,12 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
     erros = 0
     total_linhas = 0
 
+    linhas_totais_planilha = sum(1 for _ in ws.iter_rows(min_row=2))
+
     for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True)):
+        if (i + 1) % 200 == 0 or (i + 1) == linhas_totais_planilha:
+            stdout.write(f'    ... {i + 1}/{linhas_totais_planilha} linhas processadas')
+
         if not any(v is not None for v in row[:10]):
             ignorados += 1
             continue
@@ -95,11 +109,14 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
             produto.pis_cofins = _pct(_seguro(row[14]))
             produto.icms_saida_sp = _pct(_seguro(row[15]))
             produto.icms_saida_media = _pct(_seguro(row[16]))
-            produto.peso = _dec3(_seguro(row[19]))
+            produto.peso = _dec3(_seguro(row[19]), Decimal('0'))
             produto.altura = _dec(_seguro(row[21]), Decimal('0'))
             produto.profundidade = _dec(_seguro(row[22]), Decimal('0'))
             produto.largura = _dec(_seguro(row[23]), Decimal('0'))
             produto.armazenagem_planilha = _dec(_seguro(row[59]))
+            produto.peso_cubado = (
+                produto.altura * produto.largura * produto.profundidade / FATOR_PESO_CUBADO
+            )
 
             para_atualizar.append(produto)
 
@@ -110,7 +127,7 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
     campos = [
         'custo', 'custo_com_boni', 'frete_cif_fob', 'mva', 'st_valor',
         'icms_entrada', 'ipi', 'pis_cofins', 'icms_saida_sp', 'icms_saida_media',
-        'peso', 'altura', 'profundidade', 'largura', 'armazenagem_planilha',
+        'peso', 'altura', 'profundidade', 'largura', 'armazenagem_planilha', 'peso_cubado',
     ]
 
     if para_atualizar:

@@ -45,7 +45,12 @@ def importar_produtos_ml(stdout, style, caminho_json):
     para_atualizar = {}
     sem_ean = 0
 
-    for sku in skus_unicos:
+    skus_unicos = list(skus_unicos)
+    total_skus = len(skus_unicos)
+
+    for indice, sku in enumerate(skus_unicos, start=1):
+        if indice % 500 == 0 or indice == total_skus:
+            stdout.write(f'    ... {indice}/{total_skus} SKUs processados')
         linha_erp = erp_por_sku.get(sku)
 
         if linha_erp is None or pd.isna(linha_erp.get('Código de Barras')):

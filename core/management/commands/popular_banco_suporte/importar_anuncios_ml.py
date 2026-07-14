@@ -123,7 +123,12 @@ def importar_anuncios_ml(stdout, style, caminho_json):
     anuncios_para_criar = {}
     anuncios_para_atualizar = {}
 
-    for mlb, linhas in por_mlb.items():
+    total_mlbs = len(por_mlb)
+
+    for indice, (mlb, linhas) in enumerate(por_mlb.items(), start=1):
+        if indice % 500 == 0 or indice == total_mlbs:
+            stdout.write(f'    ... {indice}/{total_mlbs} anúncios processados')
+
         primeira = linhas[0]
 
         chave_tipo = (
@@ -179,7 +184,10 @@ def importar_anuncios_ml(stdout, style, caminho_json):
     variacoes_para_atualizar = []
     sem_produto = 0
 
-    for mlb, linhas in por_mlb.items():
+    for indice, (mlb, linhas) in enumerate(por_mlb.items(), start=1):
+        if indice % 500 == 0 or indice == total_mlbs:
+            stdout.write(f'    ... {indice}/{total_mlbs} MLBs processados (variações)')
+
         anuncio = anuncios_por_mlb.get(mlb)
         if not anuncio:
             continue

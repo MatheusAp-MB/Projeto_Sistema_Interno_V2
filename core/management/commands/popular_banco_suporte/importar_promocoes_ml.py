@@ -68,7 +68,12 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
     sem_variacao = 0
     dados_promo = {}
 
-    for mlb_dados in mlbs_no_arquivo:
+    total_mlbs_promo = len(mlbs_no_arquivo)
+
+    for indice, mlb_dados in enumerate(mlbs_no_arquivo, start=1):
+        if indice % 50 == 0 or indice == total_mlbs_promo:
+            stdout.write(f'    ... {indice}/{total_mlbs_promo} MLBs processados')
+
         mlb = mlb_dados.get('mlb')
         anuncio = anuncios_por_mlb.get(mlb)
         if not anuncio:

@@ -48,7 +48,12 @@ def importar_tabela_frete_ml(stdout, style, caminho=CAMINHO_TABELA_FRETE):
 
     faixas_preco = [_parse_faixa_preco(str(header[col_idx])) for col_idx in range(1, 9)]
 
-    for row in rows[1:]:
+    total_linhas_frete = len(rows) - 1
+
+    for indice, row in enumerate(rows[1:], start=1):
+        if indice % 10 == 0 or indice == total_linhas_frete:
+            stdout.write(f'    ... {indice}/{total_linhas_frete} linhas processadas')
+
         if not any(v is not None for v in row[:9]):
             continue
 

@@ -28,8 +28,15 @@ def importar_competicao_catalogo(stdout, style, caminho_json):
     sem_anuncio = 0
     nao_catalogo = 0
 
+    total_mlbs_esperado = sum(len(bloco.get('mlbs', [])) for bloco in blocos_sku)
+    processados = 0
+
     for bloco in blocos_sku:
         for mlb_dados in bloco.get('mlbs', []):
+            processados += 1
+            if processados % 300 == 0 or processados == total_mlbs_esperado:
+                stdout.write(f'    ... {processados}/{total_mlbs_esperado} MLBs processados')
+
             if mlb_dados.get('classificacao') != 'catalogo':
                 nao_catalogo += 1
                 continue
