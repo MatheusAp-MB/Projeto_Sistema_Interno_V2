@@ -1,0 +1,129 @@
+<!--
+* [RESUMO] → Grade de Precificação ML — 1 card por produto, com 2
+* mini-tabelas dentro (Simples/Base e Catálogo). Tela temporária,
+* enquanto a integração definitiva com o resto do sistema não é
+* desenhada com o gestor.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Grade de Precificação ML — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Grade de Precificação ML{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_grade_precificacao_ml.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="grade-barra-busca">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por Nome ou EAN..."
+        class="grade-input-busca"
+    >
+    <select name="por_pagina" onchange="this.form.submit()" class="grade-select">
+        <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
+        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+    </select>
+    <button type="submit" class="btn-acao">Buscar</button>
+</form>
+
+{% if not produtos_com_grade %}
+<div class="grade-vazio">Nenhum produto encontrado com esses filtros.</div>
+{% endif %}
+
+{% for item in produtos_com_grade %}
+<div class="grade-card">
+    <div class="grade-card-cabecalho">
+        {% if item.produto.imagem_url %}
+        <img src="{{ item.produto.imagem_url }}" class="grade-card-imagem" alt="{{ item.produto.titulo }}">
+        {% else %}
+        <div class="grade-card-imagem grade-card-imagem-vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+        <div>
+            <div class="grade-card-titulo">{{ item.produto.titulo }}</div>
+            <div class="grade-card-subtitulo">EAN {{ item.produto.ean }} · Custo R$ {{ item.produto.custo|floatformat:2 }}</div>
+        </div>
+    </div>
+
+    <div class="grade-card-corpo">
+        <div class="grade-secao-titulo">Simples / Base</div>
+        <table class="grade-mini-tabela grade-mini-tabela-simples">
+            <thead>
+                <tr>
+                    <th>Combinação</th>
+                    {% for label in labels_margem_simples %}
+                    <th>{{ label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in item.tabela_simples %}
+                <tr>
+                    <td>
+                        <span class="grade-badge {% if linha.eh_premium %}grade-badge-premium{% else %}grade-badge-classico{% endif %}">
+                            {{ linha.tipo_label }}
+                        </span> {{ linha.logistico_label }}
+                    </td>
+                    {% for celula in linha.celulas %}
+                    <td>
+                        {% if celula %}
+                        R$ {{ celula.preco_calculado|floatformat:2 }}
+                        <span class="grade-margem-obtida">{{ celula.margem_percentual_obtida|floatformat:2 }}%</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="grade-secao-titulo">Catálogo</div>
+        <table class="grade-mini-tabela grade-mini-tabela-catalogo">
+            <thead>
+                <tr>
+                    <th>Combinação</th>
+                    {% for label in labels_margem_catalogo %}
+                    <th>{{ label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in item.tabela_catalogo %}
+                <tr>
+                    <td>
+                        <span class="grade-badge {% if linha.eh_premium %}grade-badge-premium{% else %}grade-badge-classico{% endif %}">
+                            {{ linha.tipo_label }}
+                        </span> {{ linha.logistico_label }}
+                    </td>
+                    {% for celula in linha.celulas %}
+                    <td>
+                        {% if celula %}
+                        R$ {{ celula.preco_calculado|floatformat:2 }}
+                        <span class="grade-margem-obtida">{{ celula.margem_percentual_obtida|floatformat:2 }}%</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+
+<div class="grade-paginacao">
+    {% if pagina.has_previous %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="grade-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="grade-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    {% if pagina.has_next %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="grade-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+
+{% endblock %}

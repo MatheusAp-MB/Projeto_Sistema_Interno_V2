@@ -8,5 +8,5 @@ urlpatterns = [
     path('produtos/', include('produtos.urls')),
     path('marketplaces/', include('marketplaces.urls')),
     path('mercado-livre/', include('mercado_livre.urls')),
-    # path('precificacao/', include('precificacao.urls')),
+    path('precificacao/', include('precificacao.urls')),
 ]
