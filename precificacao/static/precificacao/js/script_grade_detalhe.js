@@ -8,6 +8,58 @@
 * controle de destaque, por isso essa função pequena.
 */
 
+// ================================================
+// COPIAR TEXTO (título, EAN) — mesmo padrão já usado no
+// Hub de Anúncios, auto-contido aqui.
+// ================================================
+
+function copiar_texto(texto) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(texto);
+    }
+    return new Promise(function (resolve, reject) {
+        var campo = document.createElement('textarea');
+        campo.value = texto;
+        campo.style.position = 'fixed';
+        campo.style.opacity = '0';
+        document.body.appendChild(campo);
+        campo.focus();
+        campo.select();
+        try {
+            document.execCommand('copy');
+            resolve();
+        } catch (erro) {
+            reject(erro);
+        } finally {
+            document.body.removeChild(campo);
+        }
+    });
+}
+
+document.addEventListener('click', function (evento) {
+    var icone = evento.target.closest('.icone-copiar');
+    if (!icone) return;
+
+    // * [EXPLICAÇÃO] → O ícone fica dentro de um <summary> (o
+    //                  cabeçalho do card é clicável pra colapsar) —
+    //                  sem isso, clicar em "copiar" também
+    //                  abriria/fecharia o card sem querer.
+    evento.preventDefault();
+    evento.stopPropagation();
+
+    var valor = icone.getAttribute('data-copiar');
+    if (!valor) return;
+
+    copiar_texto(valor).then(function () {
+        icone.classList.remove('fa-copy');
+        icone.classList.add('fa-check', 'copiado');
+        setTimeout(function () {
+            icone.classList.remove('fa-check', 'copiado');
+            icone.classList.add('fa-copy');
+        }, 1200);
+    });
+});
+
 function limparDestaque(grid) {
     if (!grid) return;
     grid.querySelectorAll('.grade-margem-card--ativa').forEach(el => el.classList.remove('grade-margem-card--ativa'));
@@ -52,3 +104,22 @@ function fecharDetalheMargem(produtoId, tipo) {
         limparDestaque(bloco.querySelector('.grade-margens-grid'));
     }
 }
+
+// ================================================
+// BUSCA INTERNA DOS FILTROS (Marca, Categoria) — mesmo
+// comportamento já usado em script_produtos.js, auto-contido
+// aqui pra não depender de outro app carregar o script dele.
+// ================================================
+
+document.addEventListener('input', function (evento) {
+    var campo = evento.target.closest('.filtro-busca-interna');
+    if (!campo) return;
+
+    var termo = campo.value.trim().toLowerCase();
+    var lista = campo.closest('.filtro-subgrupo').querySelector('.filtro-opcoes-lista');
+
+    lista.querySelectorAll('.filtro-opcao').forEach(function (opcao) {
+        var texto = opcao.textContent.trim().toLowerCase();
+        opcao.style.display = texto.indexOf(termo) !== -1 ? '' : 'none';
+    });
+});

@@ -1,6 +1,95 @@
 from django.shortcuts import render
 from django.core.paginator import Paginator
 from django.db.models import Q
+from produtos.funcoes_auxiliares.filtros_produtos import listar_produtos_filtrados
+
+# * [EXPLICAÇÃO] → As 8 combinações possíveis de filtro de faixa de
+#                  preço — cada uma vira 2 campos na URL
+#                  (preco_<chave>_min / preco_<chave>_max). Única
+#                  fonte de verdade da combinação (tipo_anuncio real +
+#                  margem_alvo real) por trás de cada chave amigável.
+FAIXAS_PRECO_GRADE = {
+    'classico_competicao': ('gold_special', 'competicao'),
+    'classico_minima':     ('gold_special', 'minima'),
+    'classico_padrao':     ('gold_special', 'padrao'),
+    'classico_maxima':     ('gold_special', 'maxima'),
+    'premium_competicao':  ('gold_pro', 'competicao'),
+    'premium_minima':      ('gold_pro', 'minima'),
+    'premium_padrao':      ('gold_pro', 'padrao'),
+    'premium_maxima':      ('gold_pro', 'maxima'),
+}
+
+
+LABELS_MARGEM_FILTRO = {
+    'competicao': 'Competição (5%)', 'minima': 'Mínima (10%)',
+    'padrao': 'Padrão (15%)', 'maxima': 'Máxima (20%)',
+}
+
+
+def montar_filtros_preco(request, prefixo_tipo):
+    """Monta a lista de 4 faixas de preço (uma por margem) já com
+    nome do campo e valor atual prontos — o template só percorre e
+    exibe, sem precisar calcular nome de campo dinamicamente."""
+    resultado = []
+    for margem in ['competicao', 'minima', 'padrao', 'maxima']:
+        campo_min = f'preco_{prefixo_tipo}_{margem}_min'
+        campo_max = f'preco_{prefixo_tipo}_{margem}_max'
+        resultado.append({
+            'label': LABELS_MARGEM_FILTRO[margem],
+            'campo_min': campo_min,
+            'campo_max': campo_max,
+            'valor_min': request.GET.get(campo_min, ''),
+            'valor_max': request.GET.get(campo_max, ''),
+        })
+    return resultado
+
+
+LABELS_MARGEM_FILTRO = {
+    'competicao': 'Competição (5%)', 'minima': 'Mínima (10%)',
+    'padrao': 'Padrão (15%)', 'maxima': 'Máxima (20%)',
+}
+
+
+def montar_filtros_preco(request, prefixo_tipo):
+    """Monta a lista de 4 faixas de preço (uma por margem) já com
+    nome do campo e valor atual prontos — o template só percorre e
+    exibe, sem precisar calcular nome de campo dinamicamente."""
+    resultado = []
+    for margem in ['competicao', 'minima', 'padrao', 'maxima']:
+        campo_min = f'preco_{prefixo_tipo}_{margem}_min'
+        campo_max = f'preco_{prefixo_tipo}_{margem}_max'
+        resultado.append({
+            'label': LABELS_MARGEM_FILTRO[margem],
+            'campo_min': campo_min,
+            'campo_max': campo_max,
+            'valor_min': request.GET.get(campo_min, ''),
+            'valor_max': request.GET.get(campo_max, ''),
+        })
+    return resultado
+
+
+LABELS_MARGEM_FILTRO = {
+    'competicao': 'Competição (5%)', 'minima': 'Mínima (10%)',
+    'padrao': 'Padrão (15%)', 'maxima': 'Máxima (20%)',
+}
+
+
+def montar_filtros_preco(request, prefixo_tipo):
+    """Monta a lista de 4 faixas de preço (uma por margem) já com
+    nome do campo e valor atual prontos — o template só percorre e
+    exibe, sem precisar calcular nome de campo dinamicamente."""
+    resultado = []
+    for margem in ['competicao', 'minima', 'padrao', 'maxima']:
+        campo_min = f'preco_{prefixo_tipo}_{margem}_min'
+        campo_max = f'preco_{prefixo_tipo}_{margem}_max'
+        resultado.append({
+            'label': LABELS_MARGEM_FILTRO[margem],
+            'campo_min': campo_min,
+            'campo_max': campo_max,
+            'valor_min': request.GET.get(campo_min, ''),
+            'valor_max': request.GET.get(campo_max, ''),
+        })
+    return resultado
 
 
 def view_grade_precificacao_ml(request):
@@ -15,13 +104,43 @@ def view_grade_precificacao_ml(request):
     except ValueError:
         por_pagina = 25
 
-    # * [EXPLICAÇÃO] → Paginação é por PRODUTO, não por linha — cada
-    #                  produto vira 1 card com 8 preços dentro (2
-    #                  tipos × 4 margens).
-    produtos_qs = Produto.objects.filter(grade_precificacao_ml__isnull=False).distinct()
-    if busca:
-        produtos_qs = produtos_qs.filter(Q(ean__icontains=busca) | Q(titulo__icontains=busca))
-    produtos_qs = produtos_qs.order_by('titulo')
+    # * [EXPLICAÇÃO] → Reaproveita a busca/filtros já validados da
+    #                  tela de Produtos (multi-palavra em Título/SKU/
+    #                  EAN/Cód. Fabricante/Marca + Marca/Categoria/
+    #                  Curva/Estoque/Custo) — não duplica essa lógica.
+    filtros_produto = {
+        'marcas': request.GET.getlist('marca'),
+        'categorias': request.GET.getlist('categoria'),
+        'curvas': request.GET.getlist('curva'),
+        'estoque_min': request.GET.get('estoque_min', ''),
+        'estoque_max': request.GET.get('estoque_max', ''),
+        'custo_min': request.GET.get('custo_min', ''),
+        'custo_max': request.GET.get('custo_max', ''),
+    }
+    produtos_qs = listar_produtos_filtrados(busca=busca or None, filtros=filtros_produto, ordenar='titulo')
+    produtos_qs = produtos_qs.filter(grade_precificacao_ml__isnull=False).distinct()
+
+    # * [EXPLICAÇÃO] → As 8 faixas de preço — cada uma filtra pela
+    #                  linha ESPECÍFICA da Grade daquela combinação
+    #                  (tipo × margem). unique_together garante só 1
+    #                  linha por combinação, então min/max no MESMO
+    #                  filter() sempre olham pra essa mesma linha —
+    #                  nunca 2 linhas diferentes por engano.
+    for chave, (tipo, margem) in FAIXAS_PRECO_GRADE.items():
+        minimo = request.GET.get(f'preco_{chave}_min', '')
+        maximo = request.GET.get(f'preco_{chave}_max', '')
+        if minimo or maximo:
+            condicoes = {
+                'grade_precificacao_ml__tipo_anuncio__tipo_anuncio': tipo,
+                'grade_precificacao_ml__margem_alvo': margem,
+            }
+            if minimo:
+                condicoes['grade_precificacao_ml__preco_calculado__gte'] = minimo
+            if maximo:
+                condicoes['grade_precificacao_ml__preco_calculado__lte'] = maximo
+            produtos_qs = produtos_qs.filter(**condicoes)
+
+    produtos_qs = produtos_qs.distinct()
 
     paginator = Paginator(produtos_qs, por_pagina)
     pagina = paginator.get_page(request.GET.get('pagina', 1))
@@ -104,6 +223,17 @@ def view_grade_precificacao_ml(request):
         'badge_premium': badge_premium,
         'tipo_classico': TipoAnuncio.CLASSICO,
         'tipo_premium': TipoAnuncio.PREMIUM,
+        'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True).exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
+        'categorias_disponiveis': Produto.objects.exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria'),
+        'curvas_disponiveis': Produto.objects.exclude(curva__isnull=True).exclude(curva='').values_list('curva', flat=True).distinct().order_by('curva'),
+        'filtros_selecionados': {
+            'marca': filtros_produto['marcas'],
+            'categoria': filtros_produto['categorias'],
+            'curva': filtros_produto['curvas'],
+        },
+        'get_params': request.GET,
+        'filtros_preco_classico': montar_filtros_preco(request, 'classico'),
+        'filtros_preco_premium': montar_filtros_preco(request, 'premium'),
     })
 
 

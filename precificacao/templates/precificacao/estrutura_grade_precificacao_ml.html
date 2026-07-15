@@ -19,20 +19,123 @@
 
 {% block conteudo %}
 
-<form method="get" class="grade-barra-busca">
-    <input
-        type="text"
-        name="busca"
-        value="{{ busca }}"
-        placeholder="Buscar por Nome ou EAN..."
-        class="grade-input-busca"
-    >
-    <select name="por_pagina" onchange="this.form.submit()" class="grade-select">
-        <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
-        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
-        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
-    </select>
-    <button type="submit" class="btn-acao">Buscar</button>
+<form method="get" class="grade-form-filtros">
+    <div class="grade-barra-busca">
+        <input
+            type="text"
+            name="busca"
+            value="{{ busca }}"
+            placeholder="Buscar por Nome ou EAN..."
+            class="grade-input-busca"
+        >
+        <select name="por_pagina" onchange="this.form.submit()" class="grade-select">
+            <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
+            <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+            <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        </select>
+        <button type="submit" class="btn-acao">Buscar</button>
+    </div>
+
+<details class="grade-filtros-painel">
+        <summary class="grade-filtros-titulo">Filtros avançados</summary>
+
+        <div class="grade-filtros-secoes">
+
+            <div class="grade-filtro-secao-card">
+                <div class="grade-filtro-secao-titulo">Identificação</div>
+
+                <div class="filtro-subgrupo">
+                    <span class="filtro-subgrupo-titulo">Marca</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                    <div class="filtro-opcoes-lista">
+                        {% for marca in marcas_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros_selecionados.marca %}checked{% endif %}>
+                            {{ marca }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo">
+                    <span class="filtro-subgrupo-titulo">Categoria</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar categoria...">
+                    <div class="filtro-opcoes-lista">
+                        {% for categoria in categorias_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="categoria" value="{{ categoria }}" {% if categoria in filtros_selecionados.categoria %}checked{% endif %}>
+                            {{ categoria }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Curva</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for curva in curvas_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="curva" value="{{ curva }}" {% if curva in filtros_selecionados.curva %}checked{% endif %}>
+                            {{ curva }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="grade-filtro-secao-card">
+                <div class="grade-filtro-secao-titulo">Estoque / Custo</div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Estoque</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="number" name="estoque_min" value="{{ get_params.estoque_min }}" placeholder="De">
+                        <input type="number" name="estoque_max" value="{{ get_params.estoque_max }}" placeholder="Até">
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Custo</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="text" name="custo_min" value="{{ get_params.custo_min }}" placeholder="De">
+                        <input type="text" name="custo_max" value="{{ get_params.custo_max }}" placeholder="Até">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grade-filtro-secao-card grade-filtro-secao-card--classico">
+                <div class="grade-filtro-secao-titulo">Preço — Clássico</div>
+                {% for faixa in filtros_preco_classico %}
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">{{ faixa.label }}</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="text" name="{{ faixa.campo_min }}" value="{{ faixa.valor_min }}" placeholder="De">
+                        <input type="text" name="{{ faixa.campo_max }}" value="{{ faixa.valor_max }}" placeholder="Até">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="grade-filtro-secao-card grade-filtro-secao-card--premium">
+                <div class="grade-filtro-secao-titulo">Preço — Premium</div>
+                {% for faixa in filtros_preco_premium %}
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">{{ faixa.label }}</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="text" name="{{ faixa.campo_min }}" value="{{ faixa.valor_min }}" placeholder="De">
+                        <input type="text" name="{{ faixa.campo_max }}" value="{{ faixa.valor_max }}" placeholder="Até">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+        </div>
+
+        <div class="grade-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
+            <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}" class="btn-limpar-filtros">Limpar filtros</a>
+        </div>
+    </details>
 </form>
 
 {% if not produtos_com_grade %}
@@ -47,9 +150,33 @@
         {% else %}
         <div class="grade-card-imagem grade-card-imagem-vazia"><i class="fas fa-image"></i></div>
         {% endif %}
-        <div>
-            <div class="grade-card-titulo">{{ item.produto.titulo }}</div>
-            <div class="grade-card-subtitulo">EAN {{ item.produto.ean }} · Custo R$ {{ item.produto.custo|floatformat:2 }}</div>
+        <div class="grade-card-info">
+            <div class="grade-card-badges">
+                {% if item.produto.marca %}<span class="grade-card-chip">{{ item.produto.marca }}</span>{% endif %}
+                {% if item.produto.categoria %}<span class="grade-card-chip">{{ item.produto.categoria }}</span>{% endif %}
+                {% if item.produto.curva %}<span class="grade-card-chip grade-card-chip--curva">Curva {{ item.produto.curva }}</span>{% endif %}
+            </div>
+            <div class="grade-card-titulo-linha">
+                <span class="card-copiavel card-copiavel-titulo">
+                    <span class="grade-card-titulo">{{ item.produto.titulo }}</span>
+                    <i class="fas fa-copy icone-copiar icone-copiar-header" data-copiar="{{ item.produto.titulo }}"></i>
+                </span>
+            </div>
+            <div class="grade-card-subtitulo">
+                <span class="card-copiavel">
+                    <span>EAN {{ item.produto.ean }}</span>
+                    <i class="fas fa-copy icone-copiar icone-copiar-header" data-copiar="{{ item.produto.ean }}"></i>
+                </span>
+                {% if item.produto.sku %}
+                ·
+                <span class="card-copiavel">
+                    <span>SKU {{ item.produto.sku }}</span>
+                    <i class="fas fa-copy icone-copiar icone-copiar-header" data-copiar="{{ item.produto.sku }}"></i>
+                </span>
+                {% endif %}
+                · Estoque {{ item.produto.estoque }}
+                · Custo R$ {{ item.produto.custo|floatformat:2 }}
+            </div>
         </div>
     </summary>
 
