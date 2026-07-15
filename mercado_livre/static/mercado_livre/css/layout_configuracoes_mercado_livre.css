@@ -1,7 +1,11 @@
 /*
-* [RESUMO] → CSS da tela de leitura "Configurações Mercado Livre".
+* [RESUMO] → CSS da tela EDITÁVEL "Configurações Mercado Livre".
 * Reaproveita a paleta global (--cor-primaria etc.) — mesma linguagem
-* visual das outras telas de Mercado Livre.
+* visual das outras telas de Mercado Livre. Cor nas linhas carrega
+* informação real: Tipos de Anúncio usa a mesma cor do badge
+* (Clássico/Premium); Faixas de Armazenagem usa a progressão
+* verde→âmbar→laranja→vermelho já usada em outras telas do sistema
+* pra "barato/tranquilo" até "caro/atenção".
 */
 
 .config-ml-grid-topo {
@@ -17,6 +21,11 @@
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 16px;
+}
+
+.config-ml-card form,
+form.config-ml-card {
+    margin: 0;
 }
 
 .config-ml-card-header {
@@ -88,6 +97,75 @@
     font-weight: 700;
     color: var(--cor-primaria);
 }
+
+.config-ml-input {
+    width: 100%;
+    max-width: 90px;
+    padding: 5px 8px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    text-align: right;
+    font-family: inherit;
+}
+
+.config-ml-input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.15);
+}
+
+.config-ml-input-pequeno {
+    max-width: 64px;
+}
+
+.config-ml-btn-salvar {
+    display: block;
+    margin: 12px 20px 16px;
+}
+
+.config-ml-aviso-salvo {
+    background: #ecfdf5;
+    color: #1a8a5f;
+    border: 1px solid #1a8a5f;
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+/* ================================================
+   Configuração Geral — acento na cor da marca
+   ================================================ */
+
+.config-ml-card--geral {
+    border-left: 4px solid var(--cor-primaria);
+}
+
+/* ================================================
+   Tipos de Anúncio — cor igual ao badge (reconhecimento
+   imediato, mesma cor em toda tela)
+   ================================================ */
+
+.config-ml-linha-tipo--gold_special {
+    background: #dbeafe33;
+    border-left: 4px solid #1d4ed8;
+}
+
+.config-ml-linha-tipo--gold_pro {
+    background: #f5edfc55;
+    border-left: 4px solid #8b4fc7;
+}
+
+/* ================================================
+   Faixas de Armazenagem — progressão de custo
+   ================================================ */
+
+.config-ml-linha-faixa--1 { border-left: 4px solid #1a8a5f; background: #ecfdf533; }
+.config-ml-linha-faixa--2 { border-left: 4px solid #2563eb; background: #eff6ff33; }
+.config-ml-linha-faixa--3 { border-left: 4px solid #b45309; background: #fffbeb33; }
+.config-ml-linha-faixa--4 { border-left: 4px solid #b91c1c; background: #fee2e233; }
 
 @media (max-width: 768px) {
     .config-ml-grid-topo {

@@ -95,6 +95,28 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
                 'frete_usado': frete,
                 'margem_percentual_obtida': margem_percentual_obtida,
                 'faixa_frete': faixa,
+                # * [EXPLICAÇÃO] → Passo a passo completo, só pra
+                #                  exibição/auditoria (modal "como
+                #                  chegamos nesse preço") — nunca usado
+                #                  em nenhuma decisão de cálculo daqui
+                #                  pra frente. Quem chama essa função
+                #                  pode complementar com o que só ELE
+                #                  sabe (comissão/ICMS/PIS separados,
+                #                  peso, etc.) antes de persistir.
+                'detalhamento': {
+                    'custo_produto': custo_produto,
+                    'fixo': fixo,
+                    'taxa_percentual': taxa_percentual * 100,
+                    'margem_alvo_percentual': margem_alvo_percentual,
+                    'faixa_preco_min': faixa.preco_min,
+                    'faixa_preco_max': faixa.preco_max,
+                    'frete_usado': frete,
+                    'denominador': denominador,
+                    'preco_exato_antes_arredondar': preco_exato,
+                    'preco_calculado': preco_90,
+                    'margem_valor': margem_valor,
+                    'margem_percentual_obtida': margem_percentual_obtida,
+                },
             }
 
     return None

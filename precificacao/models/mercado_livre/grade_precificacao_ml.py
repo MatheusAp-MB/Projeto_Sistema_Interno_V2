@@ -9,6 +9,7 @@
 #              12/07, resolvida aqui).
 
 from django.db import models
+from django.core.serializers.json import DjangoJSONEncoder
 
 
 class GradePrecificacaoML(models.Model):
@@ -40,7 +41,16 @@ class GradePrecificacaoML(models.Model):
     margem_percentual_obtida = models.DecimalField(max_digits=6, decimal_places=2)
 
     calculado_em = models.DateTimeField(auto_now=True)
-    
+
+    # * [EXPLICAÇÃO] → Guarda o passo a passo completo do Goal Seek
+    #                  (custo, peso, faixa de frete usada, FIXO, taxa,
+    #                  denominador, preço exato antes do RoundUp90) —
+    #                  pro modal de "como chegamos nesse preço" LER,
+    #                  nunca recalcular ao vivo (regra do projeto:
+    #                  tudo vem do banco). Nulo até rodar o cálculo em
+    #                  lote de novo depois dessa migração.
+    detalhamento = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
+
     class Meta:
         unique_together = ['produto', 'tipo_anuncio', 'margem_alvo']
 

@@ -6,6 +6,7 @@ from django.db.models import Q
 def view_grade_precificacao_ml(request):
     from precificacao.models import GradePrecificacaoML
     from produtos.models import Produto
+    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
 
     busca = request.GET.get('busca', '').strip()
     por_pagina = request.GET.get('por_pagina', '25')
@@ -15,7 +16,8 @@ def view_grade_precificacao_ml(request):
         por_pagina = 25
 
     # * [EXPLICAÇÃO] → Paginação é por PRODUTO, não por linha — cada
-    #                  produto vira 1 card com até 28 preços dentro.
+    #                  produto vira 1 card com 8 preços dentro (2
+    #                  tipos × 4 margens).
     produtos_qs = Produto.objects.filter(grade_precificacao_ml__isnull=False).distinct()
     if busca:
         produtos_qs = produtos_qs.filter(Q(ean__icontains=busca) | Q(titulo__icontains=busca))
@@ -33,67 +35,60 @@ def view_grade_precificacao_ml(request):
     for linha in linhas:
         grade_por_produto.setdefault(linha.produto_id, []).append(linha)
 
-    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre
-
     MargemAlvo = GradePrecificacaoML.MargemAlvo
-    ORDEM_MARGEM_SIMPLES = [MargemAlvo.MINIMA, MargemAlvo.PADRAO, MargemAlvo.MAXIMA]
-    ORDEM_MARGEM_CATALOGO = [MargemAlvo.COMPETICAO, MargemAlvo.MINIMA, MargemAlvo.PADRAO, MargemAlvo.MAXIMA]
+    TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
+    ORDEM_MARGENS = [MargemAlvo.COMPETICAO, MargemAlvo.MINIMA, MargemAlvo.PADRAO, MargemAlvo.MAXIMA]
 
-    # * [EXPLICAÇÃO] → Os percentuais de cada margem-alvo vêm da
-    #                  configuração global (mesmos pra todo o catálogo,
-    #                  não variam por produto) — busca 1 vez só, fora
-    #                  do loop de produtos, pra montar o cabeçalho tipo
-    #                  "Mínima (10%)".
     CAMPO_POR_MARGEM = {
         MargemAlvo.MINIMA: 'margem_minima',
         MargemAlvo.PADRAO: 'margem_padrao',
         MargemAlvo.MAXIMA: 'margem_maxima',
         MargemAlvo.COMPETICAO: 'margem_competicao',
     }
-    config_referencia = ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(
-        tipo_anuncio='gold_special', tipo_logistico='cross_docking'
-    ).first()
 
-    def label_com_percentual(margem):
-        if config_referencia:
-            valor = getattr(config_referencia, CAMPO_POR_MARGEM[margem], None)
-            if valor is not None:
-                return f'{margem.label} ({valor:.0f}%)'
-        return margem.label
+    # * [EXPLICAÇÃO] → Config buscada 1 vez, fora do loop de produtos
+    #                  (só 2 linhas no banco, mesma pra todo o
+    #                  catálogo). Clássico e Premium têm CABEÇALHOS
+    #                  SEPARADOS agora — cada um mostra o percentual
+    #                  da SUA PRÓPRIA config, nunca assumindo que os
+    #                  dois tipos compartilham o mesmo valor (deixou
+    #                  de ser garantido: são editáveis de forma
+    #                  independente na tela de Configurações).
+    configs = {c.tipo_anuncio: c for c in ConfiguracaoTipoAnuncioMercadoLivre.objects.all()}
 
+    def labels_do_tipo(tipo):
+        config = configs.get(tipo)
+        labels = []
+        for margem in ORDEM_MARGENS:
+            valor = getattr(config, CAMPO_POR_MARGEM[margem], None) if config else None
+            labels.append(f'{margem.label} ({valor:.0f}%)' if valor is not None else margem.label)
+        return labels
 
-    # * [EXPLICAÇÃO] → Ordem fixa das 4 combinações de tipo×logística —
-    #                  a mesma pras 2 sub-tabelas (Simples/Base e Catálogo).
-    COMBINACOES = [
-        ('gold_special', 'cross_docking', 'Clássico', 'Coleta'),
-        ('gold_pro', 'cross_docking', 'Premium', 'Coleta'),
-        ('gold_special', 'fulfillment', 'Clássico', 'FULL'),
-        ('gold_pro', 'fulfillment', 'Premium', 'FULL'),
-    ]
+    labels_classico = labels_do_tipo(TipoAnuncio.CLASSICO)
+    labels_premium = labels_do_tipo(TipoAnuncio.PREMIUM)
 
-    def montar_tabela(mapa, catalogo_bool, ordem_margens):
-        linhas_tabela = []
-        for tipo, logistico, tipo_label, logistico_label in COMBINACOES:
-            celulas = [mapa.get((tipo, logistico, catalogo_bool, margem)) for margem in ordem_margens]
-            linhas_tabela.append({
-                'tipo_label': tipo_label,
-                'logistico_label': logistico_label,
-                'eh_premium': tipo == 'gold_pro',
-                'celulas': celulas,
-            })
-        return linhas_tabela
+    from mercado_livre.funcoes_auxiliares.badges import BADGES_TIPO_ANUNCIO, badge_de
+    badge_classico = badge_de(BADGES_TIPO_ANUNCIO, TipoAnuncio.CLASSICO)
+    badge_premium = badge_de(BADGES_TIPO_ANUNCIO, TipoAnuncio.PREMIUM)
+
+    def montar_linhas(mapa, tipo):
+        return [
+            {
+                'label': label, 'celula': mapa.get((tipo, margem)),
+                'eh_padrao': margem == MargemAlvo.PADRAO, 'margem_chave': margem,
+            }
+            for margem, label in zip(ORDEM_MARGENS, labels_do_tipo(tipo))
+        ]
 
     produtos_com_grade = []
     for produto in pagina.object_list:
         linhas_produto = grade_por_produto.get(produto.id, [])
-        mapa = {
-            (l.tipo_anuncio.tipo_anuncio, l.tipo_anuncio.tipo_logistico, l.tipo_anuncio.catalogo, l.margem_alvo): l
-            for l in linhas_produto
-        }
+        mapa = {(l.tipo_anuncio.tipo_anuncio, l.margem_alvo): l for l in linhas_produto}
+
         produtos_com_grade.append({
             'produto': produto,
-            'tabela_simples': montar_tabela(mapa, False, ORDEM_MARGEM_SIMPLES),
-            'tabela_catalogo': montar_tabela(mapa, True, ORDEM_MARGEM_CATALOGO),
+            'linhas_classico': montar_linhas(mapa, TipoAnuncio.CLASSICO),
+            'linhas_premium': montar_linhas(mapa, TipoAnuncio.PREMIUM),
         })
 
     querystring_sem_pagina = request.GET.copy()
@@ -105,6 +100,29 @@ def view_grade_precificacao_ml(request):
         'por_pagina': por_pagina,
         'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
         'produtos_com_grade': produtos_com_grade,
-        'labels_margem_simples': [label_com_percentual(m) for m in ORDEM_MARGEM_SIMPLES],
-        'labels_margem_catalogo': [label_com_percentual(m) for m in ORDEM_MARGEM_CATALOGO],
+        'badge_classico': badge_classico,
+        'badge_premium': badge_premium,
+        'tipo_classico': TipoAnuncio.CLASSICO,
+        'tipo_premium': TipoAnuncio.PREMIUM,
+    })
+
+
+def view_grade_detalhe(request, produto_id, tipo, margem):
+    from precificacao.models import GradePrecificacaoML
+
+    linha = GradePrecificacaoML.objects.select_related('produto', 'tipo_anuncio').filter(
+        produto_id=produto_id, tipo_anuncio__tipo_anuncio=tipo, margem_alvo=margem,
+    ).first()
+
+    if not linha or not linha.detalhamento:
+        return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe.html', {
+            'sem_detalhamento': True,
+        })
+
+    return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe.html', {
+        'det': linha.detalhamento,
+        'tipo_label': linha.tipo_anuncio.get_tipo_anuncio_display(),
+        'margem_label': linha.get_margem_alvo_display(),
+        'produto_id': produto_id,
+        'tipo': tipo,
     })

@@ -1,0 +1,57 @@
+<!--
+* [RESUMO] → Fragmento HTMX — conteúdo do painel "como chegamos nesse
+* preço". Só LÊ o detalhamento já persistido (GradePrecificacaoML.
+* detalhamento) — nunca recalcula nada ao vivo.
+-->
+{% if sem_detalhamento %}
+<div class="grade-detalhe-painel">
+    <div class="grade-detalhe-vazio">
+        Detalhamento não disponível — rode <code>calcular_grade_precificacao_ml</code> de novo.
+    </div>
+</div>
+{% else %}
+<div class="grade-detalhe-painel">
+    <button type="button" class="grade-detalhe-fechar" onclick="fecharDetalheMargem('{{ produto_id }}', '{{ tipo }}')">
+        <i class="fas fa-times"></i> Fechar
+    </button>
+
+    <div class="grade-detalhe-titulo">{{ tipo_label }} — {{ margem_label }}</div>
+
+    <div class="grade-detalhe-secao">
+        <div class="grade-detalhe-secao-titulo">Dados de entrada</div>
+        <table class="grade-detalhe-tabela">
+            <tr><td>Custo do produto</td><td>R$ {{ det.custo_produto|floatformat:2 }}</td></tr>
+            <tr><td>Peso usado (maior entre físico/cubado)</td><td>{{ det.peso_usado|floatformat:3 }} kg</td></tr>
+            <tr><td>Comissão ({{ tipo_label }})</td><td>{{ det.comissao_percentual|floatformat:2 }}%</td></tr>
+            <tr><td>ICMS Saída</td><td>{{ det.icms_saida_percentual|floatformat:2 }}%</td></tr>
+            <tr><td>PIS/COFINS</td><td>{{ det.pis_cofins_percentual|floatformat:2 }}%</td></tr>
+            <tr><td>Custos fixos (custo + coleta + armazenagem)</td><td>R$ {{ det.fixo|floatformat:2 }}</td></tr>
+            <tr>
+                <td>Faixa de frete usada</td>
+                <td>
+                    R$ {{ det.faixa_preco_min|floatformat:2 }} –
+                    {% if det.faixa_preco_max %}R$ {{ det.faixa_preco_max|floatformat:2 }}{% else %}sem teto{% endif %}
+                    → frete R$ {{ det.frete_usado|floatformat:2 }}
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="grade-detalhe-secao">
+        <div class="grade-detalhe-secao-titulo">Fórmula</div>
+        <div class="grade-detalhe-formula">
+            denominador = 1 − taxa ({{ det.taxa_percentual|floatformat:2 }}%) − margem-alvo ({{ det.margem_alvo_percentual|floatformat:2 }}%)
+            = <strong>{{ det.denominador|floatformat:4 }}</strong><br>
+            preço exato = (frete + custos fixos) ÷ denominador
+            = (R$ {{ det.frete_usado|floatformat:2 }} + R$ {{ det.fixo|floatformat:2 }}) ÷ {{ det.denominador|floatformat:4 }}
+            = <strong>R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}</strong><br>
+            RoundUp90 (sempre arredonda pra cima, nunca pra baixo) → <strong>R$ {{ det.preco_calculado|floatformat:2 }}</strong>
+        </div>
+    </div>
+
+    <div class="grade-detalhe-secao grade-detalhe-resultado">
+        <span class="grade-detalhe-resultado-preco">R$ {{ det.preco_calculado|floatformat:2 }}</span>
+        <span class="grade-detalhe-resultado-margem">{{ det.margem_percentual_obtida|floatformat:2 }}% de margem</span>
+    </div>
+</div>
+{% endif %}

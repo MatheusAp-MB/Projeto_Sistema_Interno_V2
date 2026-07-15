@@ -61,7 +61,7 @@ def calcular_grade_precificacao_ml(stdout, style):
             decorrido = time.perf_counter() - inicio_calculo
             stdout.write(f'    ... {indice_produto}/{total_produtos} produtos processados ({decorrido:.1f}s)')
 
-        fixo_produto, faixas_produto = preparar_fixo_e_faixas(produto, frete_todas)
+        fixo_produto, faixas_produto, peso_produto = preparar_fixo_e_faixas(produto, frete_todas)
 
         # * [EXPLICAÇÃO] → (taxa, margem) que já deu resultado nesse
         #                  produto não roda de novo — mas agora
@@ -94,7 +94,7 @@ def calcular_grade_precificacao_ml(stdout, style):
                         resultado = cache_goal_seek[chave_cache]
                     else:
                         resultado = calcular_preco_grade_ml(
-                            produto, config, margem_valor, fixo_produto, faixas_produto
+                            produto, config, margem_valor, fixo_produto, faixas_produto, peso_produto
                         )
                         cache_goal_seek[chave_cache] = resultado
                     tempo_goal_seek += time.perf_counter() - t0
@@ -108,7 +108,10 @@ def calcular_grade_precificacao_ml(stdout, style):
                     margem_obtida = resultado['margem_percentual_obtida']
 
                     chave = (produto.id, config.id, margem_chave)
-                    dados = dict(preco_calculado=preco, margem_percentual_obtida=margem_obtida)
+                    dados = dict(
+                        preco_calculado=preco, margem_percentual_obtida=margem_obtida,
+                        detalhamento=resultado.get('detalhamento'),
+                    )
                     existente = existentes.get(chave)
                     if existente:
                         for campo, valor in dados.items():
@@ -130,7 +133,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     stdout.write(f'      ↳ Goal Seek: {tempo_goal_seek:.1f}s ({qtd_calculos} cálculo(s))')
 
     inicio_salvar = time.perf_counter()
-    campos = ['preco_calculado', 'margem_percentual_obtida']
+    campos = ['preco_calculado', 'margem_percentual_obtida', 'detalhamento']
 
     if para_criar:
         GradePrecificacaoML.objects.bulk_create(para_criar, batch_size=1000)

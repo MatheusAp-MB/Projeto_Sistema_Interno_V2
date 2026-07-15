@@ -1,6 +1,10 @@
 /*
-* [RESUMO] → CSS da Grade de Precificação ML — 1 card por produto,
-* com 2 mini-tabelas dentro (Simples/Base e Catálogo).
+* [RESUMO] → CSS da Grade de Precificação ML — 1 card colapsável por
+* produto (details/summary nativo, mesmo padrão já usado em "Outros
+* cenários" na tela de Recomendação), com 2 blocos dentro (Clássico e
+* Premium), cada um com 4 mini-cards de margem. Badges reais (não
+* inventadas) — vêm de estrutura_parcial_badge.html + badges.py,
+* estilizadas por layout_badges.css (carregado globalmente).
 */
 
 .grade-barra-busca {
@@ -43,6 +47,9 @@
     overflow: hidden;
 }
 
+/* * [EXPLICAÇÃO] → <summary> é o "cabeçalho clicável" do <details> —
+   precisa remover o marcador padrão do navegador (a seta/triângulo)
+   e virar cursor de mão, já que o card inteiro colapsa/expande nele. */
 .grade-card-cabecalho {
     display: flex;
     align-items: center;
@@ -50,6 +57,12 @@
     padding: 12px 16px;
     background: #1e3a5f;
     color: #fff;
+    cursor: pointer;
+    list-style: none;
+}
+
+.grade-card-cabecalho::-webkit-details-marker {
+    display: none;
 }
 
 .grade-card-imagem {
@@ -82,76 +95,101 @@
     padding: 14px 16px;
 }
 
-.grade-secao-titulo {
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #7a8699;
-    letter-spacing: .04em;
-    margin-bottom: 6px;
+.grade-tipo-bloco {
+    border: 1px solid #e5e8ec;
+    border-radius: 10px;
+    padding: 3px 14px;
+    margin-bottom: 12px;
 }
 
-.grade-mini-tabela {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.8rem;
-    margin-bottom: 16px;
-}
-
-.grade-mini-tabela:last-child {
+.grade-tipo-bloco:last-child {
     margin-bottom: 0;
 }
 
-.grade-mini-tabela th {
-    text-align: right;
-    padding: 6px 8px;
-    color: #556;
-    background: #f3f5f8;
+/* * [EXPLICAÇÃO] → Mesma cor exata dos badges reais (layout_badges.css:
+   .badge-classico / .badge-premium) — fundo tingido + borda esquerda,
+   pra distinção clara entre os 2 tipos sem inventar paleta nova. */
+.grade-tipo-bloco--classico {
+    border-left: 4px solid #1d4ed8;
+    background: #1d4ed829;
+}
+
+.grade-tipo-bloco--premium {
+    border-left: 4px solid #8b4fc7;
+    background: #8b4fc733;
+}
+
+.grade-tipo-header {
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.grade-margens-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.grade-margem-card {
+    background: #ffffffb0;
+    border: 1px solid #e5e8ec;
+    border-radius: 8px;
+    padding: 6px 10px;
+    text-align: center;
+}
+
+/* * [EXPLICAÇÃO] → Só o "Padrão" ganha destaque (borda mais grossa) —
+   de propósito NÃO tem cor própria: 1 cor a mais por margem, além do
+   Clássico/Premium, seria informação demais competindo entre si. */
+.grade-margem-card--padrao {
+    background: #ffffff;
+    border-color: #1e3a5f;
+    border-width: 2px;
+}
+
+.grade-margem-label {
+    font-size: 0.8rem;
     font-weight: 700;
+    color: #667;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    margin-bottom: 3px;
 }
 
-.grade-mini-tabela th:first-child {
-    text-align: left;
+.grade-margem-linha {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
 }
 
-.grade-mini-tabela td {
-    text-align: right;
-    padding: 7px 8px;
-    border-top: 1px solid #e5e8ec;
+.grade-margem-preco {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1a1a2e;
 }
 
-.grade-mini-tabela td:first-child {
-    text-align: left;
-}
-
-.grade-mini-tabela-catalogo th:nth-child(2),
-.grade-mini-tabela-catalogo td:nth-child(2) {
-    color: #b91c1c;
+.grade-margem-separador {
+    color: #d1d5db;
+    font-size: 0.75rem;
 }
 
 .grade-margem-obtida {
-    display: block;
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     color: #7a8699;
     font-weight: 400;
 }
 
-.grade-badge {
-    display: inline-block;
-    font-size: 0.68rem;
-    font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 10px;
+.grade-margem-vazia {
+    font-size: 1rem;
+    color: #adb5bd;
 }
 
-.grade-badge-classico {
-    background: #eff6ff;
-    color: #2563eb;
-}
-
-.grade-badge-premium {
-    background: #fffbeb;
-    color: #b45309;
+@media (max-width: 768px) {
+    .grade-margens-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 .grade-paginacao {

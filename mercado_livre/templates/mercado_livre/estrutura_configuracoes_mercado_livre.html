@@ -1,8 +1,11 @@
 <!--
-* [RESUMO] → Tela de leitura das configurações de precificação do
-* Mercado Livre — configuração geral, faixas de armazenagem, e os 8
-* tipos de anúncio (comissão, acréscimo, margens). Edição é feita pelo
-* Django Admin, não por essa tela — ela só existe pra consulta rápida.
+* [RESUMO] → Tela EDITÁVEL das configurações de precificação do
+* Mercado Livre — configuração geral, faixas de armazenagem, e os 2
+* tipos de anúncio (Clássico/Premium: comissão + 4 margens).
+* Django Admin foi removido do projeto — toda edição acontece aqui,
+* na superfície do sistema. 3 formulários independentes, cada um com
+* seu próprio botão "Salvar" — evita que salvar uma seção mexa sem
+* querer nas outras.
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
@@ -16,39 +19,58 @@
 
 {% block conteudo %}
 
+{% if salvo %}
+<div class="config-ml-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
 <div class="config-ml-grid-topo">
 
-    <div class="config-ml-card">
+    <form method="post" class="config-ml-card">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="salvar_geral">
         <div class="config-ml-card-header">Configuração Geral</div>
         <table class="config-ml-tabela-simples">
-            <tr><td>Fator de Coleta</td><td>R$ {{ config_geral.fator_coleta|floatformat:2 }}/m³</td></tr>
-            <tr><td>Período de Armazenagem</td><td>{{ config_geral.periodo_armazenagem }} dias</td></tr>
+            <tr>
+                <td>Fator de Coleta (R$/m³)</td>
+                <td><input type="text" name="fator_coleta" value="{{ config_geral.fator_coleta }}" class="config-ml-input"></td>
+            </tr>
+            <tr>
+                <td>Período de Armazenagem (dias)</td>
+                <td><input type="number" name="periodo_armazenagem" value="{{ config_geral.periodo_armazenagem }}" class="config-ml-input"></td>
+            </tr>
         </table>
-    </div>
+        <button type="submit" class="btn-acao config-ml-btn-salvar">Salvar</button>
+    </form>
 
-    <div class="config-ml-card">
+    <form method="post" class="config-ml-card">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="salvar_faixas">
         <div class="config-ml-card-header">Faixas de Armazenagem</div>
         <table class="config-ml-tabela-simples">
             {% for faixa in faixas %}
-            <tr>
+            <tr class="config-ml-linha-faixa config-ml-linha-faixa--{{ forloop.counter }}">
                 <td>{{ faixa.nome }}</td>
-                <td>R$ {{ faixa.valor_diario }}/dia</td>
+                <td>
+                    R$ <input type="text" name="faixa_{{ faixa.id }}_valor_diario" value="{{ faixa.valor_diario }}" class="config-ml-input config-ml-input-pequeno">/dia
+                </td>
             </tr>
             {% endfor %}
         </table>
-    </div>
+        <button type="submit" class="btn-acao config-ml-btn-salvar">Salvar</button>
+    </form>
 
 </div>
 
-<div class="config-ml-card">
-    <div class="config-ml-card-header">Tipos de Anúncio</div>
+<form method="post" class="config-ml-card">
+    {% csrf_token %}
+    <input type="hidden" name="acao" value="salvar_tipos">
+    <div class="config-ml-card-header">Tipos de Anúncio (Clássico / Premium)</div>
     <div class="config-ml-tabela-wrapper">
         <table class="config-ml-tabela">
             <thead>
                 <tr>
                     <th>Tipo</th>
                     <th>Comissão</th>
-                    <th>Acréscimo Premium</th>
                     <th>Margem Mínima</th>
                     <th>Margem Padrão</th>
                     <th>Margem Máxima</th>
@@ -57,23 +79,21 @@
             </thead>
             <tbody>
                 {% for tipo in tipos %}
-                <tr>
+                <tr class="config-ml-linha-tipo config-ml-linha-tipo--{{ tipo.valor }}">
                     <td class="config-ml-badges">
                         {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=tipo.badge_tipo_anuncio %}
-                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=tipo.badge_logistica %}
-                        {% if tipo.catalogo %}<span class="badge-papel"><i class="fas fa-book-open"></i> Catálogo</span>{% endif %}
                     </td>
-                    <td>{{ tipo.comissao }}%</td>
-                    <td>{{ tipo.acrescimo_preco }}%</td>
-                    <td>{{ tipo.margem_minima }}%</td>
-                    <td class="config-ml-margem-padrao">{{ tipo.margem_padrao }}%</td>
-                    <td>{{ tipo.margem_maxima }}%</td>
-                    <td>{{ tipo.margem_competicao }}%</td>
+                    <td><input type="text" name="{{ tipo.valor }}_comissao" value="{{ tipo.comissao }}" class="config-ml-input config-ml-input-pequeno">%</td>
+                    <td><input type="text" name="{{ tipo.valor }}_margem_minima" value="{{ tipo.margem_minima }}" class="config-ml-input config-ml-input-pequeno">%</td>
+                    <td class="config-ml-margem-padrao"><input type="text" name="{{ tipo.valor }}_margem_padrao" value="{{ tipo.margem_padrao }}" class="config-ml-input config-ml-input-pequeno">%</td>
+                    <td><input type="text" name="{{ tipo.valor }}_margem_maxima" value="{{ tipo.margem_maxima }}" class="config-ml-input config-ml-input-pequeno">%</td>
+                    <td><input type="text" name="{{ tipo.valor }}_margem_competicao" value="{{ tipo.margem_competicao }}" class="config-ml-input config-ml-input-pequeno">%</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
+    <button type="submit" class="btn-acao config-ml-btn-salvar">Salvar</button>
+</form>
 
 {% endblock %}

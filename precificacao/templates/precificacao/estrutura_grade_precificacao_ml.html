@@ -1,8 +1,10 @@
 <!--
 * [RESUMO] → Grade de Precificação ML — 1 card por produto, com 2
-* mini-tabelas dentro (Simples/Base e Catálogo). Tela temporária,
-* enquanto a integração definitiva com o resto do sistema não é
-* desenhada com o gestor.
+* mini-tabelas dentro (Clássico e Premium — cabeçalhos SEPARADOS,
+* já que os 2 tipos são editáveis de forma independente agora e
+* podem ter margens diferentes). Tela temporária, enquanto a
+* integração definitiva com o resto do sistema não é desenhada com
+* o gestor.
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
@@ -37,8 +39,8 @@
 {% endif %}
 
 {% for item in produtos_com_grade %}
-<div class="grade-card">
-    <div class="grade-card-cabecalho">
+<details class="grade-card" open>
+    <summary class="grade-card-cabecalho">
         {% if item.produto.imagem_url %}
         <img src="{{ item.produto.imagem_url }}" class="grade-card-imagem" alt="{{ item.produto.titulo }}">
         {% else %}
@@ -48,72 +50,54 @@
             <div class="grade-card-titulo">{{ item.produto.titulo }}</div>
             <div class="grade-card-subtitulo">EAN {{ item.produto.ean }} · Custo R$ {{ item.produto.custo|floatformat:2 }}</div>
         </div>
-    </div>
+    </summary>
 
     <div class="grade-card-corpo">
-        <div class="grade-secao-titulo">Simples / Base</div>
-        <table class="grade-mini-tabela grade-mini-tabela-simples">
-            <thead>
-                <tr>
-                    <th>Combinação</th>
-                    {% for label in labels_margem_simples %}
-                    <th>{{ label }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for linha in item.tabela_simples %}
-                <tr>
-                    <td>
-                        <span class="grade-badge {% if linha.eh_premium %}grade-badge-premium{% else %}grade-badge-classico{% endif %}">
-                            {{ linha.tipo_label }}
-                        </span> {{ linha.logistico_label }}
-                    </td>
-                    {% for celula in linha.celulas %}
-                    <td>
-                        {% if celula %}
-                        R$ {{ celula.preco_calculado|floatformat:2 }}
-                        <span class="grade-margem-obtida">{{ celula.margem_percentual_obtida|floatformat:2 }}%</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    {% endfor %}
-                </tr>
+        <div class="grade-tipo-bloco grade-tipo-bloco--classico">
+            <div class="grade-tipo-header">
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_classico %}
+            </div>
+            <div class="grade-margens-grid">
+                {% for linha in item.linhas_classico %}
+                <div class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %}">
+                    <div class="grade-margem-label">{{ linha.label }}</div>
+                    {% if linha.celula %}
+                    <div class="grade-margem-linha">
+                        <span class="grade-margem-preco">R$ {{ linha.celula.preco_calculado|floatformat:2 }}</span>
+                        <span class="grade-margem-separador">|</span>
+                        <span class="grade-margem-obtida">{{ linha.celula.margem_percentual_obtida|floatformat:2 }}%</span>
+                    </div>
+                    {% else %}
+                    <div class="grade-margem-vazia">—</div>
+                    {% endif %}
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
 
-        <div class="grade-secao-titulo">Catálogo</div>
-        <table class="grade-mini-tabela grade-mini-tabela-catalogo">
-            <thead>
-                <tr>
-                    <th>Combinação</th>
-                    {% for label in labels_margem_catalogo %}
-                    <th>{{ label }}</th>
-                    {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for linha in item.tabela_catalogo %}
-                <tr>
-                    <td>
-                        <span class="grade-badge {% if linha.eh_premium %}grade-badge-premium{% else %}grade-badge-classico{% endif %}">
-                            {{ linha.tipo_label }}
-                        </span> {{ linha.logistico_label }}
-                    </td>
-                    {% for celula in linha.celulas %}
-                    <td>
-                        {% if celula %}
-                        R$ {{ celula.preco_calculado|floatformat:2 }}
-                        <span class="grade-margem-obtida">{{ celula.margem_percentual_obtida|floatformat:2 }}%</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    {% endfor %}
-                </tr>
+        <div class="grade-tipo-bloco grade-tipo-bloco--premium">
+            <div class="grade-tipo-header">
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_premium %}
+            </div>
+            <div class="grade-margens-grid">
+                {% for linha in item.linhas_premium %}
+                <div class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %}">
+                    <div class="grade-margem-label">{{ linha.label }}</div>
+                    {% if linha.celula %}
+                    <div class="grade-margem-linha">
+                        <span class="grade-margem-preco">R$ {{ linha.celula.preco_calculado|floatformat:2 }}</span>
+                        <span class="grade-margem-separador">|</span>
+                        <span class="grade-margem-obtida">{{ linha.celula.margem_percentual_obtida|floatformat:2 }}%</span>
+                    </div>
+                    {% else %}
+                    <div class="grade-margem-vazia">—</div>
+                    {% endif %}
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
     </div>
-</div>
+</details>
 {% endfor %}
 
 <div class="grade-paginacao">

@@ -481,22 +481,78 @@ def view_calcular_frete_ml(request):
     
 
 def view_configuracoes_mercado_livre(request):
+    from decimal import Decimal, InvalidOperation
+    from django.urls import reverse
+    from django.shortcuts import redirect
     from mercado_livre.models import (
-        ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre, FaixaArmazenagemMercadoLivre,
+        ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre,
+        FaixaArmazenagemMercadoLivre, TipoDeAnuncioMercadoLivre,
     )
-    from mercado_livre.funcoes_auxiliares.badges import BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, badge_de
+    from mercado_livre.funcoes_auxiliares.badges import BADGES_TIPO_ANUNCIO, badge_de
+
+    TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
+
+    def _dec(valor, atual):
+        # * [EXPLICAÇÃO] → Aceita vírgula ou ponto decimal (formulário
+        #                  HTML pode mandar qualquer um dependendo do
+        #                  navegador/locale). Se vier vazio ou inválido,
+        #                  mantém o valor atual — nunca zera um campo
+        #                  por engano.
+        try:
+            return Decimal(str(valor).replace(',', '.'))
+        except (InvalidOperation, TypeError, ValueError, AttributeError):
+            return atual
+
+    # * [EXPLICAÇÃO] → Tela editável — decisão do usuário: Django Admin
+    #                  removido do projeto inteiro, toda edição
+    #                  acontece na superfície do sistema. 3 formulários
+    #                  separados (Geral / Tipos / Faixas), cada um com
+    #                  seu próprio botão — evita que salvar uma seção
+    #                  mexa sem querer nas outras. Post-Redirect-Get
+    #                  depois de salvar, mesmo padrão já usado em
+    #                  "Salvar decisão" na tela de Recomendação.
+    if request.method == 'POST':
+        acao = request.POST.get('acao')
+
+        if acao == 'salvar_geral':
+            config_geral = ConfiguracaoMercadoLivre.obter()
+            config_geral.fator_coleta = _dec(request.POST.get('fator_coleta'), config_geral.fator_coleta)
+            try:
+                config_geral.periodo_armazenagem = int(request.POST.get('periodo_armazenagem'))
+            except (TypeError, ValueError):
+                pass
+            config_geral.save()
+
+        elif acao == 'salvar_tipos':
+            for tipo_valor in [TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM]:
+                config = ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(tipo_anuncio=tipo_valor).first()
+                if not config:
+                    continue
+                config.comissao = _dec(request.POST.get(f'{tipo_valor}_comissao'), config.comissao)
+                config.margem_minima = _dec(request.POST.get(f'{tipo_valor}_margem_minima'), config.margem_minima)
+                config.margem_padrao = _dec(request.POST.get(f'{tipo_valor}_margem_padrao'), config.margem_padrao)
+                config.margem_maxima = _dec(request.POST.get(f'{tipo_valor}_margem_maxima'), config.margem_maxima)
+                config.margem_competicao = _dec(request.POST.get(f'{tipo_valor}_margem_competicao'), config.margem_competicao)
+                config.save()
+
+        elif acao == 'salvar_faixas':
+            for faixa in FaixaArmazenagemMercadoLivre.objects.filter(ativo=True):
+                valor = request.POST.get(f'faixa_{faixa.id}_valor_diario')
+                if valor is not None:
+                    faixa.valor_diario = _dec(valor, faixa.valor_diario)
+                    faixa.save()
+
+        return redirect(f"{reverse('mercado_livre_configuracoes')}?salvo=1")
 
     config_geral = ConfiguracaoMercadoLivre.obter()
     faixas = FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem')
 
     tipos = []
-    for tipo in ConfiguracaoTipoAnuncioMercadoLivre.objects.all():
+    for tipo in ConfiguracaoTipoAnuncioMercadoLivre.objects.all().order_by('tipo_anuncio'):
         tipos.append({
+            'valor': tipo.tipo_anuncio,
             'badge_tipo_anuncio': badge_de(BADGES_TIPO_ANUNCIO, tipo.tipo_anuncio),
-            'badge_logistica': badge_de(BADGES_LOGISTICA, tipo.tipo_logistico),
-            'catalogo': tipo.catalogo,
             'comissao': tipo.comissao,
-            'acrescimo_preco': tipo.acrescimo_preco,
             'margem_minima': tipo.margem_minima,
             'margem_padrao': tipo.margem_padrao,
             'margem_maxima': tipo.margem_maxima,
@@ -507,6 +563,7 @@ def view_configuracoes_mercado_livre(request):
         'config_geral': config_geral,
         'faixas': faixas,
         'tipos': tipos,
+        'salvo': request.GET.get('salvo') == '1',
     })
 
 
