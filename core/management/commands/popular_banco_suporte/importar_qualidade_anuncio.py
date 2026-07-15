@@ -123,7 +123,15 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
                 if existente:
                     for campo, valor in dados_qualidade.items():
                         setattr(existente, campo, valor)
-                    qualidades_para_atualizar.append(existente)
+                    # * [EXPLICAÇÃO] → Se 'existente' ainda não tem PK,
+                    #                  é um objeto NOVO criado nesta
+                    #                  mesma rodada (a mesma variação
+                    #                  apareceu 2x no arquivo) — já vai
+                    #                  ser salvo pelo bulk_create com os
+                    #                  valores atualizados, não precisa
+                    #                  (e não pode) ir pro bulk_update.
+                    if existente.pk and existente not in qualidades_para_atualizar:
+                        qualidades_para_atualizar.append(existente)
                 else:
                     nova = QualidadeAnuncio(variacao=variacao_alvo, **dados_qualidade)
                     qualidades_para_criar.append(nova)

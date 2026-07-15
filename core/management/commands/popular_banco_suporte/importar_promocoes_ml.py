@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from mercado_livre.models import AnuncioMercadoLivre, PromocaoMercadoLivre
 
-CAMINHO_PROMOCOES = Path('Arquivos_API/amostra_promocoes.json')
+CAMINHO_PROMOCOES = Path('Arquivos_API/promocoes_completo.json')
 
 
 def _parsear_data(valor):
@@ -46,13 +46,18 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
     with open(caminho, encoding='utf-8') as f:
         dados = json.load(f)
 
-    mlbs_no_arquivo = []
-    for grupo in dados.get('fase2_grupos', []):
-        mlbs_no_arquivo.extend(grupo.get('mlbs', []))
+    # * [EXPLICAÇÃO] → Formato novo (coleta completa, 5.615 MLBs):
+    #                  dicionário direto {mlb: {chamado, http, erro,
+    #                  dados}}, não mais listas de grupos. Só
+    #                  'fase2_promocoes_por_item' é usado —
+    #                  'fase3_rosters_completos' é IGNORADO de
+    #                  propósito (investigado e confirmado não
+    #                  confiável: traz duplicatas e omite itens reais).
+    promocoes_por_item = dados.get('fase2_promocoes_por_item', {})
 
-    stdout.write(f'    {len(mlbs_no_arquivo)} MLB(s) no arquivo')
+    stdout.write(f'    {len(promocoes_por_item)} MLB(s) no arquivo')
 
-    mlbs_texto = [m.get('mlb') for m in mlbs_no_arquivo if m.get('mlb')]
+    mlbs_texto = list(promocoes_por_item.keys())
     anuncios_por_mlb = {
         a.mlb: a for a in AnuncioMercadoLivre.objects.filter(mlb__in=mlbs_texto).prefetch_related('variacoes')
     }
@@ -68,13 +73,12 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
     sem_variacao = 0
     dados_promo = {}
 
-    total_mlbs_promo = len(mlbs_no_arquivo)
+    total_mlbs_promo = len(promocoes_por_item)
 
-    for indice, mlb_dados in enumerate(mlbs_no_arquivo, start=1):
-        if indice % 50 == 0 or indice == total_mlbs_promo:
+    for indice, (mlb, resultado) in enumerate(promocoes_por_item.items(), start=1):
+        if indice % 500 == 0 or indice == total_mlbs_promo:
             stdout.write(f'    ... {indice}/{total_mlbs_promo} MLBs processados')
 
-        mlb = mlb_dados.get('mlb')
         anuncio = anuncios_por_mlb.get(mlb)
         if not anuncio:
             sem_anuncio += 1
@@ -85,7 +89,6 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
             sem_variacao += 1
             continue
 
-        resultado = mlb_dados.get('promocoes', {})
         if not resultado.get('chamado') or resultado.get('http') != 200:
             continue
 
@@ -110,7 +113,17 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
             if existente:
                 for campo, valor in dados_promo.items():
                     setattr(existente, campo, valor)
-                para_atualizar.append(existente)
+                # * [EXPLICAÇÃO] → Se ainda não tem PK, é um objeto NOVO
+                #                  criado nesta mesma rodada (mesma
+                #                  chave_externa apareceu 2x pro mesmo
+                #                  MLB — cenário real, já documentado:
+                #                  "múltiplas ofertas concorrentes pro
+                #                  mesmo item") — vai ser salvo pelo
+                #                  bulk_create com os valores já
+                #                  atualizados, não pode ir pro
+                #                  bulk_update.
+                if existente.pk and existente not in para_atualizar:
+                    para_atualizar.append(existente)
             else:
                 nova = PromocaoMercadoLivre(variacao=variacao, chave_externa=chave, **dados_promo)
                 para_criar.append(nova)

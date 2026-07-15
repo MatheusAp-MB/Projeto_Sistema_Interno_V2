@@ -49,25 +49,14 @@ def selecionar_faixa_armazenagem(produto):
 
 
 def buscar_configuracao_tipo_anuncio(tipo_anuncio_obj):
-    """Busca a linha de configuração (comissão, acréscimo, margens) que
-    bate com a combinação real do anúncio. Logística é simplificada pra
-    FULL-ou-Coleta na busca — confirmado com o usuário que Agência se
-    comporta igual Coleta, e as duas nunca coexistem na mesma conta."""
-    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
-
-    TipoLogistico = TipoDeAnuncioMercadoLivre.TipoLogistico
-    ClassificacaoCatalogo = TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo
-
-    logistico_efetivo = (
-        TipoLogistico.FULL if tipo_anuncio_obj.tipo_logistico == TipoLogistico.FULL
-        else TipoLogistico.COLETA
-    )
-    eh_catalogo = tipo_anuncio_obj.classificacao_catalogo == ClassificacaoCatalogo.CATALOGO
+    """Busca a configuração (comissão, margens) só pelo tipo de anúncio
+    (Clássico/Premium) — simplificado em 27/07: logística e catálogo
+    não afetam mais comissão/margem (confirmado com o usuário/superior),
+    só essa distinção importa pra precificação agora."""
+    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre
 
     return ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(
         tipo_anuncio=tipo_anuncio_obj.tipo_anuncio,
-        tipo_logistico=logistico_efetivo,
-        catalogo=eh_catalogo,
     ).first()
 
 

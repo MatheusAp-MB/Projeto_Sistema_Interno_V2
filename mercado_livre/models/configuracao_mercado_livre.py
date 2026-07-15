@@ -43,29 +43,20 @@ class ConfiguracaoMercadoLivre(models.Model):
 # ================================================
 
 class ConfiguracaoTipoAnuncioMercadoLivre(models.Model):
-    # * [EXPLICAÇÃO] → 1 linha por combinação de (tipo_anuncio ×
-    #                  tipo_logistico × catálogo) — 8 no total. Reaproveita
-    #                  as mesmas TextChoices de TipoDeAnuncioMercadoLivre,
-    #                  nunca duplicar essa lista em outro lugar.
-    #                  Na prática (confirmado com o usuário), comissão só
-    #                  varia por tipo_anuncio — as 8 linhas existem pra dar
-    #                  controle fino no futuro, não porque a diferença já
-    #                  seja usada hoje.
+    # * [EXPLICAÇÃO] → 1 linha por tipo_anuncio (Clássico/Premium) — 2
+    #                  no total. Simplificado em 27/07: confirmado com
+    #                  o usuário/superior que logística (FULL/Coleta)
+    #                  e classificação (Simples/Base/Catálogo) NÃO
+    #                  afetam comissão nem margem — só o tipo de
+    #                  anúncio importa pra precificação. As 8 linhas
+    #                  antigas (mantidas "pra controle fino futuro")
+    #                  foram abandonadas de propósito, não são mais
+    #                  necessárias.
 
     tipo_anuncio = models.CharField(
-        max_length=20, choices=TipoDeAnuncioMercadoLivre.TipoAnuncio.choices)
-    tipo_logistico = models.CharField(
-        max_length=20, choices=TipoDeAnuncioMercadoLivre.TipoLogistico.choices)
-    catalogo = models.BooleanField(default=False)
+        max_length=20, choices=TipoDeAnuncioMercadoLivre.TipoAnuncio.choices, unique=True)
 
     comissao = models.DecimalField(max_digits=5, decimal_places=2)
-
-    # * [EXPLICAÇÃO] → % somado ao preço Clássico pra gerar o preço
-    #                  Premium (Premium = RoundUpTo90(Clássico × (1 +
-    #                  acrescimo_preco/100))) — regra de GERAÇÃO de
-    #                  preço, não meta de margem. Hoje 8%, mas precisa
-    #                  ser editável, não fixo em código.
-    acrescimo_preco = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     margem_minima = models.DecimalField(max_digits=5, decimal_places=2)
     margem_padrao = models.DecimalField(max_digits=5, decimal_places=2)
@@ -73,7 +64,11 @@ class ConfiguracaoTipoAnuncioMercadoLivre(models.Model):
 
     # * [EXPLICAÇÃO] → Piso de margem quando o objetivo é "ganhar a
     #                  todo custo" (ex: vencer catálogo) — mais baixo
-    #                  que margem_minima de propósito.
+    #                  que margem_minima de propósito. Continua existindo
+    #                  aqui (usado pela Grade, que gera o preço pra essa
+    #                  meta também) — mas QUAL margem usar como piso em
+    #                  cada situação (Catálogo vs Simples/Base) é decidido
+    #                  na Recomendação/Hub, não aqui.
     margem_competicao = models.DecimalField(max_digits=5, decimal_places=2)
 
     atualizado_em = models.DateTimeField(auto_now=True)
@@ -81,15 +76,10 @@ class ConfiguracaoTipoAnuncioMercadoLivre(models.Model):
     class Meta:
         verbose_name = 'Configuração de Tipo de Anúncio ML'
         verbose_name_plural = 'Configurações de Tipo de Anúncio ML'
-        unique_together = ['tipo_anuncio', 'tipo_logistico', 'catalogo']
-        ordering = ['tipo_anuncio', 'tipo_logistico', 'catalogo']
+        ordering = ['tipo_anuncio']
 
     def __str__(self):
-        nome_tipo = self.get_tipo_anuncio_display()
-        nome_logistico = self.get_tipo_logistico_display()
-        sufixo_catalogo = ' — Catálogo' if self.catalogo else ''
-        return f'{nome_tipo} {nome_logistico}{sufixo_catalogo}'
-
+        return self.get_tipo_anuncio_display()
 
 # ================================================
 # FAIXA DE ARMAZENAGEM (4 linhas, modo avançado)

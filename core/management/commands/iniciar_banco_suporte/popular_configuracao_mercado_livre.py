@@ -11,7 +11,6 @@ from mercado_livre.models import (
 )
 
 TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
-TipoLogistico = TipoDeAnuncioMercadoLivre.TipoLogistico
 
 
 def popular_configuracao_mercado_livre(stdout, style):
@@ -25,34 +24,27 @@ def popular_configuracao_mercado_livre(stdout, style):
     )
     stdout.write(f'       {"criada" if criado else "já existe"}')
 
-    # * [EXPLICAÇÃO] → Na prática, comissão/margens só variam por
-    #                  tipo_anuncio (confirmado com o usuário) — as 8
-    #                  linhas existem pra dar controle fino no futuro,
-    #                  mesmo com os 4 valores de cada grupo idênticos
-    #                  hoje.
+    # * [EXPLICAÇÃO] → Simplificado em 27/07: só tipo_anuncio importa
+    #                  pra precificação agora (confirmado com o
+    #                  usuário/superior) — logística e catálogo não
+    #                  afetam mais comissão/margem. 2 linhas, não 8.
+    #                  margem_maxima corrigida de 25 pra 20 — 25 era
+    #                  inconsistente com todo o resto já validado nessa
+    #                  sessão (sempre 20% em exemplos reais conferidos).
     stdout.write('  [CONFIG ML] Tipos de anúncio...')
     tipos = [
-        ('Clássico Coleta',          TipoAnuncio.CLASSICO, TipoLogistico.COLETA, False, 12, 0),
-        ('Clássico Coleta Catálogo', TipoAnuncio.CLASSICO, TipoLogistico.COLETA, True,  12, 0),
-        ('Clássico FULL',            TipoAnuncio.CLASSICO, TipoLogistico.FULL,   False, 12, 0),
-        ('Clássico FULL Catálogo',   TipoAnuncio.CLASSICO, TipoLogistico.FULL,   True,  12, 0),
-        ('Premium Coleta',           TipoAnuncio.PREMIUM,  TipoLogistico.COLETA, False, 17, 8),
-        ('Premium Coleta Catálogo',  TipoAnuncio.PREMIUM,  TipoLogistico.COLETA, True,  17, 8),
-        ('Premium FULL',             TipoAnuncio.PREMIUM,  TipoLogistico.FULL,   False, 17, 8),
-        ('Premium FULL Catálogo',    TipoAnuncio.PREMIUM,  TipoLogistico.FULL,   True,  17, 8),
+        ('Clássico', TipoAnuncio.CLASSICO, 12),
+        ('Premium',  TipoAnuncio.PREMIUM,  17),
     ]
 
-    for nome, tipo_anuncio, tipo_logistico, catalogo, comissao, acrescimo in tipos:
+    for nome, tipo_anuncio, comissao in tipos:
         _, criado = ConfiguracaoTipoAnuncioMercadoLivre.objects.get_or_create(
             tipo_anuncio=tipo_anuncio,
-            tipo_logistico=tipo_logistico,
-            catalogo=catalogo,
             defaults={
                 'comissao': Decimal(str(comissao)),
-                'acrescimo_preco': Decimal(str(acrescimo)),
                 'margem_padrao': Decimal('15'),
                 'margem_minima': Decimal('10'),
-                'margem_maxima': Decimal('25'),
+                'margem_maxima': Decimal('20'),
                 'margem_competicao': Decimal('5'),
             }
         )

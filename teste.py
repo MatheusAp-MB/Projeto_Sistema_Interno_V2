@@ -1,78 +1,70 @@
 """
-teste.py — Diagnóstico dos 2 casos genuínos de divergência Clássico,
-testando TODAS as faixas de frete candidatas (não só a que o sistema
-escolheu), pra ver se existe ambiguidade de múltiplas faixas
-consistentes, e se a planilha "escolheu" outra.
+CONFIRMAÇÃO EM ESCALA — Pausados trazem dado de promoção de verdade?
+==========================================================================
+Usa o dataset completo (5.615 MLBs) para responder com precisão: pausados
+têm HTTP 200? Têm promoção de verdade (lista não vazia)? Têm rebate?
+Compara contra ativos para decidir se vale manter pausados no escopo.
+
+Só leitura — nenhuma chamada de API.
 """
 
-import os
-import django
+import json
+from pathlib import Path
+from collections import Counter
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
-django.setup()
+ARQUIVO_DETALHES = Path("Arquivos_API/detalhes_mlbs.json")
+ARQUIVO_PROMOCOES = Path("Arquivos_API/promocoes_completo.json")
 
-from decimal import Decimal
-from produtos.models import Produto
-from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre, FreteML
-from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_fixo
-from precificacao.funcoes_auxiliares.goal_seek import arredondar_para_90
-from precificacao.models import GradePrecificacaoML
 
-EANS = {
-    '7899947304547': 'LOCALIZADOR ACHA VEIA — planilha=420.90 vs sistema=426.90',
-    '7898415012137': 'ALMOFADA ORTOPÉDICA LOMBAR — planilha=194.90 vs sistema=195.90',
-}
+def main():
+    with open(ARQUIVO_DETALHES, encoding="utf-8") as f:
+        detalhes = json.load(f)
+    status_por_mlb = {r["mlb"]: r.get("status") for r in detalhes["registros"]}
 
-TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
-TipoLogistico = TipoDeAnuncioMercadoLivre.TipoLogistico
-MARGEM_ALVO = Decimal('15.00')
-TAXA_ICMS_PIS = Decimal('0')  # ajustado abaixo por produto
+    with open(ARQUIVO_PROMOCOES, encoding="utf-8") as f:
+        promocoes = json.load(f)
+    fase2 = promocoes["fase2_promocoes_por_item"]
 
-for ean, descricao in EANS.items():
-    p = Produto.objects.get(ean=ean)
-    print('=' * 70)
-    print(f'{ean} — {descricao}')
-    print('=' * 70)
+    stats = {
+        "active": {"total": 0, "http_ok": 0, "com_promo": 0, "com_rebate": 0, "total_promocoes": 0, "total_rebates": 0},
+        "paused": {"total": 0, "http_ok": 0, "com_promo": 0, "com_rebate": 0, "total_promocoes": 0, "total_rebates": 0},
+    }
 
-    print('--- Dados do produto ---')
-    for campo in ['custo', 'custo_com_boni', 'peso', 'peso_cubado', 'icms_entrada',
-                  'ipi', 'pis_cofins', 'icms_saida_media', 'frete_cif_fob', 'altura', 'largura', 'profundidade']:
-        print(f'  {campo} = {getattr(p, campo, None)!r}')
-
-    fixo = calcular_fixo(p)
-    print(f'\nFIXO = {fixo}')
-
-    config = ConfiguracaoTipoAnuncioMercadoLivre.objects.get(
-        tipo_anuncio=TipoAnuncio.CLASSICO, tipo_logistico=TipoLogistico.COLETA, catalogo=True
-    )
-    comissao = config.comissao / 100
-    icms_pis = (p.icms_saida_media or Decimal('0')) / 100 + (p.pis_cofins or Decimal('0')) / 100
-    taxa = comissao + icms_pis
-    denominador = 1 - taxa - (MARGEM_ALVO / 100)
-    print(f'comissão={config.comissao}% taxa_total={taxa} denominador={denominador}')
-
-    peso = max(p.peso or Decimal('0'), p.peso_cubado or Decimal('0'))
-    print(f'peso usado = {peso}')
-
-    faixas = FreteML.objects.filter(peso_min__lte=peso).filter(peso_max__gte=peso).order_by('preco_min')
-
-    print('\n--- Testando TODAS as faixas (não só a primeira que bate) ---')
-    custo_produto = p.custo_com_boni or p.custo
-    consistentes = []
-    for faixa in faixas:
-        if faixa.preco_max is not None and faixa.preco_max < custo_produto:
-            print(f'  [pulada, abaixo do custo] {faixa.preco_min}-{faixa.preco_max} frete={faixa.valor}')
+    for mlb, resultado in fase2.items():
+        status = status_por_mlb.get(mlb)
+        if status not in stats:
             continue
-        preco_exato = (faixa.valor + fixo) / denominador
-        preco_90 = arredondar_para_90(preco_exato)
-        cabe = faixa.preco_min <= preco_90 and (faixa.preco_max is None or preco_90 <= faixa.preco_max)
-        marca = '✓ CONSISTENTE' if cabe else ''
-        print(f'  {faixa.preco_min}-{faixa.preco_max} frete={faixa.valor} → preco_exato={preco_exato:.2f} → RoundUp90={preco_90} {marca}')
-        if cabe:
-            consistentes.append(preco_90)
 
-    print(f'\nFaixas consistentes encontradas: {consistentes}')
+        stats[status]["total"] += 1
 
-    g = GradePrecificacaoML.objects.get(produto=p, tipo_anuncio=config, margem_alvo='padrao')
-    print(f'Preço que o SISTEMA escolheu (primeira consistente): {g.preco_calculado} (margem {g.margem_percentual_obtida}%)')
-    print()
+        if resultado.get("http") != 200:
+            continue
+        stats[status]["http_ok"] += 1
+
+        promos = resultado.get("dados") or []
+        if promos:
+            stats[status]["com_promo"] += 1
+            stats[status]["total_promocoes"] += len(promos)
+
+        tem_rebate = any(p.get("meli_percentage") is not None for p in promos)
+        if tem_rebate:
+            stats[status]["com_rebate"] += 1
+            stats[status]["total_rebates"] += sum(1 for p in promos if p.get("meli_percentage") is not None)
+
+    print(f"{'Status':<10} {'Total':<8} {'HTTP 200':<10} {'Com promoção':<14} {'Com rebate':<12} {'Média promo/item':<18} {'Média rebates/item'}")
+    print("-" * 100)
+
+    for status, s in stats.items():
+        media_promo = s["total_promocoes"] / s["http_ok"] if s["http_ok"] else 0
+        media_rebate = s["total_rebates"] / s["http_ok"] if s["http_ok"] else 0
+        pct_com_promo = s["com_promo"] / s["http_ok"] * 100 if s["http_ok"] else 0
+        pct_com_rebate = s["com_rebate"] / s["http_ok"] * 100 if s["http_ok"] else 0
+
+        print(f"{status:<10} {s['total']:<8} {s['http_ok']:<10} "
+              f"{s['com_promo']} ({pct_com_promo:.1f}%){'':<3} "
+              f"{s['com_rebate']} ({pct_com_rebate:.1f}%){'':<3} "
+              f"{media_promo:.2f}{'':<12} {media_rebate:.2f}")
+
+
+if __name__ == "__main__":
+    main()
