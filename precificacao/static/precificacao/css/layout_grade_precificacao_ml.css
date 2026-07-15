@@ -138,6 +138,30 @@
     text-align: center;
 }
 
+.grade-margem-clicavel {
+    cursor: pointer;
+    transition: border-color .12s, box-shadow .12s;
+}
+
+.grade-margem-clicavel:hover {
+    border-color: #1e3a5f;
+    box-shadow: 0 0 0 2px #1e3a5f22;
+}
+
+/* * [EXPLICAÇÃO] → Destaque do card cujo painel está aberto — mesma
+   cor do bloco (Clássico azul / Premium roxo), não é cor nova. */
+.grade-tipo-bloco--classico .grade-margem-card--ativa {
+    border-color: #1d4ed8;
+    background: #dbeafe;
+    box-shadow: 0 0 0 2px #1d4ed8;
+}
+
+.grade-tipo-bloco--premium .grade-margem-card--ativa {
+    border-color: #8b4fc7;
+    background: #f5edfc;
+    box-shadow: 0 0 0 2px #8b4fc7;
+}
+
 /* * [EXPLICAÇÃO] → Só o "Padrão" ganha destaque (borda mais grossa) —
    de propósito NÃO tem cor própria: 1 cor a mais por margem, além do
    Clássico/Premium, seria informação demais competindo entre si. */
@@ -190,6 +214,159 @@
     .grade-margens-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+}
+
+/* ================================================
+   Painel "como chegamos nesse preço" — carregado sob
+   demanda via HTMX, dentro do slot posicionado entre
+   os blocos (Clássico/Premium).
+   ================================================ */
+
+.grade-detalhe-slot:empty {
+    display: none;
+}
+
+.grade-detalhe-painel {
+    position: relative;
+    background: #fff;
+    border: 1px solid #d8dee6;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 4px 0 12px;
+}
+
+/* * [EXPLICAÇÃO] → Mesma cor exata dos blocos Clássico/Premium
+   (grade-tipo-bloco--classico/premium) — o painel de detalhe "herda"
+   a cor de quem ele explica, reforço visual de qual bloco ele
+   pertence, sem inventar cor nova. */
+.grade-detalhe-painel--classico {
+    border-left: 4px solid #1d4ed8;
+}
+
+.grade-detalhe-painel--premium {
+    border-left: 4px solid #8b4fc7;
+}
+
+.grade-detalhe-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.grade-detalhe-titulo {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #1a1a2e;
+}
+
+.grade-detalhe-fechar {
+    background: none;
+    border: none;
+    color: #7a8699;
+    font-size: 0.76rem;
+    cursor: pointer;
+    padding: 3px 7px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.grade-detalhe-fechar:hover {
+    background: #e5e8ec;
+    color: #1a1a2e;
+}
+
+/* * [EXPLICAÇÃO] → Dados de entrada em grid de chips compactos —
+   mesmo estilo visual dos cards de margem (grade-margem-card), lado
+   a lado em vez de tabela vertical. Economiza espaço, consistente
+   com o resto da tela. */
+.grade-detalhe-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.grade-detalhe-chip {
+    background: #f8f9fb;
+    border: 1px solid #e5e8ec;
+    border-radius: 6px;
+    padding: 5px 8px;
+    text-align: center;
+}
+
+.grade-detalhe-chip--larga {
+    grid-column: span 2;
+}
+
+.grade-detalhe-chip-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #99a;
+    letter-spacing: .02em;
+    margin-bottom: 2px;
+}
+
+.grade-detalhe-chip-valor {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    white-space: nowrap;
+}
+
+/* * [EXPLICAÇÃO] → As 3 linhas da fórmula viram 1 bloco corrido,
+   separado por "·", em vez de 3 linhas empilhadas com <br> — reduz
+   altura sem perder legibilidade (ainda é monoespaçado, ainda mostra
+   o passo a passo completo). */
+.grade-detalhe-formula-referencia {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    color: #99a;
+    font-style: italic;
+    padding: 2px 10px;
+    margin-bottom: 2px;
+}
+
+.grade-detalhe-formula {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    background: #f8f9fb;
+    border: 1px solid #e5e8ec;
+    border-radius: 6px;
+    padding: 7px 10px;
+    line-height: 1.5;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.grade-detalhe-resultado {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    background: #eef2f7;
+    border-radius: 6px;
+    padding: 6px;
+}
+
+.grade-detalhe-resultado-preco {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1e3a5f;
+}
+
+.grade-detalhe-resultado-margem {
+    font-size: 0.8rem;
+    color: #1a8a5f;
+    font-weight: 700;
+}
+
+.grade-detalhe-vazio {
+    color: #99a;
+    font-style: italic;
+    text-align: center;
+    padding: 12px;
 }
 
 .grade-paginacao {

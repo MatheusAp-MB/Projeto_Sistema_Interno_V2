@@ -1,7 +1,10 @@
 <!--
 * [RESUMO] → Fragmento HTMX — conteúdo do painel "como chegamos nesse
 * preço". Só LÊ o detalhamento já persistido (GradePrecificacaoML.
-* detalhamento) — nunca recalcula nada ao vivo.
+* detalhamento) — nunca recalcula nada ao vivo. Layout compacto:
+* dados de entrada em grid de chips (mesmo estilo dos cards de
+* margem), não tabela vertical — economiza espaço, consistente com o
+* resto da tela.
 -->
 {% if sem_detalhamento %}
 <div class="grade-detalhe-painel">
@@ -10,46 +13,60 @@
     </div>
 </div>
 {% else %}
-<div class="grade-detalhe-painel">
-    <button type="button" class="grade-detalhe-fechar" onclick="fecharDetalheMargem('{{ produto_id }}', '{{ tipo }}')">
-        <i class="fas fa-times"></i> Fechar
-    </button>
-
-    <div class="grade-detalhe-titulo">{{ tipo_label }} — {{ margem_label }}</div>
-
-    <div class="grade-detalhe-secao">
-        <div class="grade-detalhe-secao-titulo">Dados de entrada</div>
-        <table class="grade-detalhe-tabela">
-            <tr><td>Custo do produto</td><td>R$ {{ det.custo_produto|floatformat:2 }}</td></tr>
-            <tr><td>Peso usado (maior entre físico/cubado)</td><td>{{ det.peso_usado|floatformat:3 }} kg</td></tr>
-            <tr><td>Comissão ({{ tipo_label }})</td><td>{{ det.comissao_percentual|floatformat:2 }}%</td></tr>
-            <tr><td>ICMS Saída</td><td>{{ det.icms_saida_percentual|floatformat:2 }}%</td></tr>
-            <tr><td>PIS/COFINS</td><td>{{ det.pis_cofins_percentual|floatformat:2 }}%</td></tr>
-            <tr><td>Custos fixos (custo + coleta + armazenagem)</td><td>R$ {{ det.fixo|floatformat:2 }}</td></tr>
-            <tr>
-                <td>Faixa de frete usada</td>
-                <td>
-                    R$ {{ det.faixa_preco_min|floatformat:2 }} –
-                    {% if det.faixa_preco_max %}R$ {{ det.faixa_preco_max|floatformat:2 }}{% else %}sem teto{% endif %}
-                    → frete R$ {{ det.frete_usado|floatformat:2 }}
-                </td>
-            </tr>
-        </table>
+<div class="grade-detalhe-painel {% if tipo == 'gold_pro' %}grade-detalhe-painel--premium{% else %}grade-detalhe-painel--classico{% endif %}">
+    <div class="grade-detalhe-cabecalho">
+        <div class="grade-detalhe-titulo">{{ tipo_label }} — {{ margem_label }}</div>
+        <button type="button" class="grade-detalhe-fechar" onclick="fecharDetalheMargem('{{ produto_id }}', '{{ tipo }}')">
+            <i class="fas fa-times"></i> Fechar
+        </button>
     </div>
 
-    <div class="grade-detalhe-secao">
-        <div class="grade-detalhe-secao-titulo">Fórmula</div>
-        <div class="grade-detalhe-formula">
-            denominador = 1 − taxa ({{ det.taxa_percentual|floatformat:2 }}%) − margem-alvo ({{ det.margem_alvo_percentual|floatformat:2 }}%)
-            = <strong>{{ det.denominador|floatformat:4 }}</strong><br>
-            preço exato = (frete + custos fixos) ÷ denominador
-            = (R$ {{ det.frete_usado|floatformat:2 }} + R$ {{ det.fixo|floatformat:2 }}) ÷ {{ det.denominador|floatformat:4 }}
-            = <strong>R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}</strong><br>
-            RoundUp90 (sempre arredonda pra cima, nunca pra baixo) → <strong>R$ {{ det.preco_calculado|floatformat:2 }}</strong>
+    <div class="grade-detalhe-chips">
+        <div class="grade-detalhe-chip">
+            <div class="grade-detalhe-chip-label">Custo</div>
+            <div class="grade-detalhe-chip-valor">R$ {{ det.custo_produto|floatformat:2 }}</div>
+        </div>
+        <div class="grade-detalhe-chip">
+            <div class="grade-detalhe-chip-label">Peso usado</div>
+            <div class="grade-detalhe-chip-valor">{{ det.peso_usado|floatformat:3 }} kg</div>
+        </div>
+        <div class="grade-detalhe-chip">
+            <div class="grade-detalhe-chip-label">Comissão</div>
+            <div class="grade-detalhe-chip-valor">{{ det.comissao_percentual|floatformat:2 }}%</div>
+        </div>
+        <div class="grade-detalhe-chip">
+            <div class="grade-detalhe-chip-label">ICMS Saída</div>
+            <div class="grade-detalhe-chip-valor">{{ det.icms_saida_percentual|floatformat:2 }}%</div>
+        </div>
+        <div class="grade-detalhe-chip">
+            <div class="grade-detalhe-chip-label">PIS/COFINS</div>
+            <div class="grade-detalhe-chip-valor">{{ det.pis_cofins_percentual|floatformat:2 }}%</div>
+        </div>
+        <div class="grade-detalhe-chip">
+            <div class="grade-detalhe-chip-label">Custos fixos</div>
+            <div class="grade-detalhe-chip-valor">R$ {{ det.fixo|floatformat:2 }}</div>
+        </div>
+        <div class="grade-detalhe-chip grade-detalhe-chip--larga">
+            <div class="grade-detalhe-chip-label">Faixa de frete</div>
+            <div class="grade-detalhe-chip-valor">
+                R$ {{ det.faixa_preco_min|floatformat:2 }}–{% if det.faixa_preco_max %}{{ det.faixa_preco_max|floatformat:2 }}{% else %}∞{% endif %}
+                → R$ {{ det.frete_usado|floatformat:2 }}
+            </div>
         </div>
     </div>
 
-    <div class="grade-detalhe-secao grade-detalhe-resultado">
+    <div class="grade-detalhe-formula-referencia">
+        denominador = 1 − taxa − margem-alvo &nbsp;·&nbsp; preço exato = (frete + FIXO) ÷ denominador &nbsp;·&nbsp; preço final = RoundUp90(preço exato)
+    </div>
+    <div class="grade-detalhe-formula">
+        denominador = 1 − {{ det.taxa_percentual|floatformat:2 }}% − {{ det.margem_alvo_percentual|floatformat:2 }}% = <strong>{{ det.denominador|floatformat:4 }}</strong>
+        &nbsp;·&nbsp;
+        preço exato = (R$ {{ det.frete_usado|floatformat:2 }} + R$ {{ det.fixo|floatformat:2 }}) ÷ {{ det.denominador|floatformat:4 }} = <strong>R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}</strong>
+        &nbsp;·&nbsp;
+        RoundUp90 → <strong>R$ {{ det.preco_calculado|floatformat:2 }}</strong>
+    </div>
+
+    <div class="grade-detalhe-resultado">
         <span class="grade-detalhe-resultado-preco">R$ {{ det.preco_calculado|floatformat:2 }}</span>
         <span class="grade-detalhe-resultado-margem">{{ det.margem_percentual_obtida|floatformat:2 }}% de margem</span>
     </div>

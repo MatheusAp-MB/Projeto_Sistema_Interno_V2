@@ -14,6 +14,7 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'precificacao/css/layout_grade_precificacao_ml.css' %}">
+<script src="{% static 'precificacao/js/script_grade_detalhe.js' %}" defer></script>
 {% endblock %}
 
 {% block conteudo %}
@@ -59,7 +60,10 @@
             </div>
             <div class="grade-margens-grid">
                 {% for linha in item.linhas_classico %}
-                <div class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %}">
+                <div
+                    class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.celula %}grade-margem-clicavel{% endif %}"
+                    {% if linha.celula %}onclick="alternarDetalheMargem(this, {{ item.produto.id }}, '{{ tipo_classico }}', '{{ linha.margem_chave }}')"{% endif %}
+                >
                     <div class="grade-margem-label">{{ linha.label }}</div>
                     {% if linha.celula %}
                     <div class="grade-margem-linha">
@@ -75,13 +79,18 @@
             </div>
         </div>
 
+        <div id="detalhe-{{ item.produto.id }}-{{ tipo_classico }}" class="grade-detalhe-slot"></div>
+
         <div class="grade-tipo-bloco grade-tipo-bloco--premium">
             <div class="grade-tipo-header">
                 {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_premium %}
             </div>
             <div class="grade-margens-grid">
                 {% for linha in item.linhas_premium %}
-                <div class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %}">
+                <div
+                    class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.celula %}grade-margem-clicavel{% endif %}"
+                    {% if linha.celula %}onclick="alternarDetalheMargem(this, {{ item.produto.id }}, '{{ tipo_premium }}', '{{ linha.margem_chave }}')"{% endif %}
+                >
                     <div class="grade-margem-label">{{ linha.label }}</div>
                     {% if linha.celula %}
                     <div class="grade-margem-linha">
@@ -96,6 +105,8 @@
                 {% endfor %}
             </div>
         </div>
+
+        <div id="detalhe-{{ item.produto.id }}-{{ tipo_premium }}" class="grade-detalhe-slot"></div>
     </div>
 </details>
 {% endfor %}
