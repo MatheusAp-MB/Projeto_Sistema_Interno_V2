@@ -78,6 +78,16 @@ class VariacaoAnuncioMercadoLivre(models.Model):
         max_digits=6, decimal_places=2, blank=True, null=True
     )
 
+    # * [EXPLICAÇÃO] → Frete REAL vindo da medição física do Mercado
+    #                  Livre (peso/dimensão no envio) — diferente do
+    #                  frete da tabela, que é só uma estimativa por
+    #                  faixa de peso declarado. Quando existir (API
+    #                  ainda não integrada em 15/07), substitui o
+    #                  frete da tabela no Goal Seek. None = ainda não
+    #                  temos essa medição, usa a tabela normalmente.
+    frete_real = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    frete_real_atualizado_em = models.DateTimeField(blank=True, null=True)
+
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'

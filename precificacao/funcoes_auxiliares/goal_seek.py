@@ -120,3 +120,51 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
             }
 
     return None
+
+
+def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, frete):
+    """Mesma fórmula de resolver_preco_por_margem, mas SEM busca de
+    faixa — usado quando o frete já é um número fechado (frete REAL,
+    vindo de medição física do Mercado Livre), não uma faixa de
+    tabela. Sem circularidade preço↔faixa aqui: o frete não depende
+    do preço final, então não tem o que buscar."""
+    denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
+    if denominador <= 0:
+        return None
+
+    fixo = Decimal(str(fixo))
+    frete = Decimal(str(frete))
+    margem_alvo_percentual = margem_alvo_fracao * 100
+
+    preco_exato = (frete + fixo) / denominador
+    preco_90 = arredondar_para_90(preco_exato)
+
+    margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete
+    margem_percentual_obtida = (margem_valor / preco_90) * 100
+
+    assert margem_percentual_obtida >= margem_alvo_percentual, (
+        f'Margem obtida ({margem_percentual_obtida}%) ficou ABAIXO da margem-alvo '
+        f'({margem_alvo_percentual}%) com frete real fixo — RoundUp90 deveria garantir '
+        f'margem sempre >= meta. Verificar a fórmula.'
+    )
+
+    return {
+        'preco_calculado': preco_90,
+        'frete_usado': frete,
+        'margem_percentual_obtida': margem_percentual_obtida,
+        'detalhamento': {
+            'custo_produto': None,  # preenchido por quem chama (só ele sabe)
+            'fixo': fixo,
+            'taxa_percentual': taxa_percentual * 100,
+            'margem_alvo_percentual': margem_alvo_percentual,
+            'faixa_preco_min': None,
+            'faixa_preco_max': None,
+            'frete_usado': frete,
+            'frete_origem': 'real',
+            'denominador': denominador,
+            'preco_exato_antes_arredondar': preco_exato,
+            'preco_calculado': preco_90,
+            'margem_valor': margem_valor,
+            'margem_percentual_obtida': margem_percentual_obtida,
+        },
+    }

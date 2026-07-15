@@ -28,14 +28,23 @@ def calcular_metro_cubico(produto):
     return (produto.altura / 100) * (produto.largura / 100) * (produto.profundidade / 100)
 
 
-def selecionar_faixa_armazenagem(produto):
+def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
     """Acha a primeira faixa (em ordem crescente) onde TODAS as
     dimensões do produto cabem; se nenhuma comportar, usa a maior
     (fallback). Só usada quando o produto ainda não tem
-    armazenagem_planilha (sem histórico na planilha validada)."""
-    from mercado_livre.models import FaixaArmazenagemMercadoLivre
+    armazenagem_planilha (sem histórico na planilha validada).
 
-    faixas = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+    faixas_armazenagem: opcional — lista já carregada em memória (só
+    4 linhas no total, tabela pequena) por quem processa MUITOS
+    produtos em lote, evitando 1 query nova por produto. Sem esse
+    parâmetro, busca no banco normalmente (comportamento antigo,
+    preservado pra quem chama 1 vez só, tipo a tela individual)."""
+    if faixas_armazenagem is not None:
+        faixas = faixas_armazenagem
+    else:
+        from mercado_livre.models import FaixaArmazenagemMercadoLivre
+        faixas = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+
     if not faixas:
         return None
 
@@ -60,10 +69,16 @@ def buscar_configuracao_tipo_anuncio(tipo_anuncio_obj):
     ).first()
 
 
-def calcular_fixo(produto):
+def calcular_fixo(produto, config_geral=None, faixas_armazenagem=None):
+    """config_geral, faixas_armazenagem: opcionais — já carregados em
+    memória por quem processa MUITOS produtos em lote (a config geral
+    é 1 linha só, nunca muda dentro da mesma execução do comando).
+    Sem esses parâmetros, busca no banco normalmente (comportamento
+    antigo, preservado — a tela individual continua chamando sem
+    eles, sem nenhuma mudança de comportamento)."""
     from mercado_livre.models import ConfiguracaoMercadoLivre
 
-    config = ConfiguracaoMercadoLivre.obter()
+    config = config_geral if config_geral is not None else ConfiguracaoMercadoLivre.obter()
 
     custo_com_boni = produto.custo_com_boni or produto.custo
     ipi = (produto.ipi or Decimal('0')) / 100
@@ -90,7 +105,7 @@ def calcular_fixo(produto):
     if produto.armazenagem_planilha is not None:
         armazenagem = produto.armazenagem_planilha
     else:
-        faixa = selecionar_faixa_armazenagem(produto)
+        faixa = selecionar_faixa_armazenagem(produto, faixas_armazenagem=faixas_armazenagem)
         armazenagem = (faixa.valor_diario * config.periodo_armazenagem) if faixa else Decimal('0')
 
     return coleta + armazenagem + custo_final - (produto.custo * (icms_entrada + pis))
