@@ -300,11 +300,12 @@ def view_resumo_criterios(request):
         resultado_por_rule_key = {}
         if qualidade:
             for avaliacao in qualidade.criterios.all():
-                resultado_por_rule_key[avaliacao.criterio.rule_key] = avaliacao.status
+                resultado_por_rule_key[avaliacao.criterio.rule_key] = avaliacao
 
         resultados = [
             {
-                'status': resultado_por_rule_key.get(c.rule_key),
+                'status': resultado_por_rule_key[c.rule_key].status if c.rule_key in resultado_por_rule_key else None,
+                'link_correcao': resultado_por_rule_key[c.rule_key].link_correcao if c.rule_key in resultado_por_rule_key else None,
                 'cor': GRUPO_CORES.get(c.grupo, GRUPO_CORES['DESCONHECIDO']),
             }
             for c in criterios

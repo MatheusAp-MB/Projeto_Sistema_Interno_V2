@@ -296,6 +296,26 @@
     text-align: center;
 }
 
+.btn-corrigir-agora {
+    display: block;
+    margin: 4px auto 0;
+    width: fit-content;
+    background: #a31c2f;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-decoration: none;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.btn-corrigir-agora:hover {
+    background: #7f1524;
+    color: #fff;
+}
+
 .celula-na {
     background: #f1f2f4;
     color: #8a8f98;

@@ -227,7 +227,12 @@
                     {% if resultado.status == 'aprovado' %}
                     <td class="celula-sim">SIM</td>
                     {% elif resultado.status == 'nao_aprovado' %}
-                    <td class="celula-nao">NÃO</td>
+                    <td class="celula-nao">
+                        NÃO
+                        {% if resultado.link_correcao %}
+                        <a href="{{ resultado.link_correcao }}" target="_blank" rel="noopener" class="btn-corrigir-agora">Corrigir agora</a>
+                        {% endif %}
+                    </td>
                     {% elif resultado.status == 'nao_aplicavel' %}
                     <td class="celula-na">N/A</td>
                     {% else %}
