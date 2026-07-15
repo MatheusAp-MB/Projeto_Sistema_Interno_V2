@@ -105,21 +105,3 @@ function fecharDetalheMargem(produtoId, tipo) {
     }
 }
 
-// ================================================
-// BUSCA INTERNA DOS FILTROS (Marca, Categoria) — mesmo
-// comportamento já usado em script_produtos.js, auto-contido
-// aqui pra não depender de outro app carregar o script dele.
-// ================================================
-
-document.addEventListener('input', function (evento) {
-    var campo = evento.target.closest('.filtro-busca-interna');
-    if (!campo) return;
-
-    var termo = campo.value.trim().toLowerCase();
-    var lista = campo.closest('.filtro-subgrupo').querySelector('.filtro-opcoes-lista');
-
-    lista.querySelectorAll('.filtro-opcao').forEach(function (opcao) {
-        var texto = opcao.textContent.trim().toLowerCase();
-        opcao.style.display = texto.indexOf(termo) !== -1 ? '' : 'none';
-    });
-});

@@ -14,7 +14,10 @@
 {% block toolbar_titulo %}Resumo por Marketplace{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_grade_precificacao_ml.css' %}">
 <link rel="stylesheet" href="{% static 'precificacao/css/layout_resumo_marketplaces.css' %}">
+<script src="{% static 'precificacao/js/script_filtros_compartilhado.js' %}" defer></script>
+<script src="{% static 'precificacao/js/script_resumo_tabela.js' %}" defer></script>
 {% endblock %}
 
 {% block conteudo %}

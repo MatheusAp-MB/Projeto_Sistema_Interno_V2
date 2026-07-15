@@ -56,7 +56,11 @@
 }
 
 .resumo-linha-subcolunas th {
-    top: 30px;
+    /* * [EXPLICAÇÃO] → top real é definido via JS
+       (script_resumo_tabela.js), medindo a altura de verdade da
+       primeira linha — esse valor aqui é só um fallback antes do
+       JS rodar. */
+    top: 34px;
     font-size: 0.7rem;
     font-weight: 600;
     background: #2c4d75;
@@ -97,15 +101,15 @@ thead .resumo-col-margem {
 }
 
 .resumo-foto {
-    width: 26px;
-    height: 26px;
+    width: 100px;
+    height: 100px;
     object-fit: cover;
     border-radius: 4px;
 }
 
 .resumo-foto-vazia {
-    width: 26px;
-    height: 26px;
+    width: 100px;
+    height: 100px;
     background: #eef1f6;
     color: #b8c0cc;
     border-radius: 4px;
