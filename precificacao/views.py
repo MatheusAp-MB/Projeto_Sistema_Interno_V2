@@ -256,3 +256,115 @@ def view_grade_detalhe(request, produto_id, tipo, margem):
         'produto_id': produto_id,
         'tipo': tipo,
     })
+
+
+def _montar_linha_resumo(produto, margem_alvo):
+    """Monta o dict de 1 linha da tabela de resumo — produto +
+    Clássico/Premium na margem pedida. Reaproveitado pela tabela
+    inteira (várias linhas) e pelo endpoint HTMX de 1 linha só."""
+    from precificacao.models import GradePrecificacaoML
+    from mercado_livre.models import TipoDeAnuncioMercadoLivre
+
+    TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
+
+    grade = {
+        g.tipo_anuncio.tipo_anuncio: g
+        for g in GradePrecificacaoML.objects.filter(
+            produto=produto, margem_alvo=margem_alvo
+        ).select_related('tipo_anuncio')
+    }
+
+    def frete_de(linha_grade):
+        if linha_grade and linha_grade.detalhamento:
+            return linha_grade.detalhamento.get('frete_usado')
+        return None
+
+    classico = grade.get(TipoAnuncio.CLASSICO)
+    premium = grade.get(TipoAnuncio.PREMIUM)
+
+    return {
+        'produto': produto,
+        'margem_atual': margem_alvo,
+        'classico': classico,
+        'classico_frete': frete_de(classico),
+        'premium': premium,
+        'premium_frete': frete_de(premium),
+    }
+
+
+def view_resumo_marketplaces(request):
+    from produtos.models import Produto
+    from precificacao.models import GradePrecificacaoML
+    from produtos.funcoes_auxiliares.filtros_produtos import listar_produtos_filtrados
+
+    MargemAlvo = GradePrecificacaoML.MargemAlvo
+    margens_validas = [c[0] for c in MargemAlvo.choices]
+
+    margem_geral = request.GET.get('margem', 'padrao')
+    if margem_geral not in margens_validas:
+        margem_geral = 'padrao'
+
+    busca = request.GET.get('busca', '').strip()
+    por_pagina = request.GET.get('por_pagina', '25')
+    try:
+        por_pagina = int(por_pagina)
+    except ValueError:
+        por_pagina = 25
+
+    filtros_produto = {
+        'marcas': request.GET.getlist('marca'),
+        'categorias': request.GET.getlist('categoria'),
+        'curvas': request.GET.getlist('curva'),
+        'estoque_min': request.GET.get('estoque_min', ''),
+        'estoque_max': request.GET.get('estoque_max', ''),
+        'custo_min': request.GET.get('custo_min', ''),
+        'custo_max': request.GET.get('custo_max', ''),
+    }
+    produtos_qs = listar_produtos_filtrados(busca=busca or None, filtros=filtros_produto, ordenar='titulo')
+    produtos_qs = produtos_qs.filter(grade_precificacao_ml__isnull=False).distinct()
+
+    paginator = Paginator(produtos_qs, por_pagina)
+    pagina = paginator.get_page(request.GET.get('pagina', 1))
+
+    linhas_tabela = [_montar_linha_resumo(produto, margem_geral) for produto in pagina.object_list]
+
+    querystring_sem_pagina = request.GET.copy()
+    querystring_sem_pagina.pop('pagina', None)
+
+    return render(request, 'precificacao/estrutura_resumo_marketplaces.html', {
+        'pagina': pagina,
+        'busca': busca,
+        'por_pagina': por_pagina,
+        'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+        'margem_geral': margem_geral,
+        'opcoes_margem': MargemAlvo.choices,
+        'linhas_tabela': linhas_tabela,
+        'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True).exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
+        'categorias_disponiveis': Produto.objects.exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria'),
+        'curvas_disponiveis': Produto.objects.exclude(curva__isnull=True).exclude(curva='').values_list('curva', flat=True).distinct().order_by('curva'),
+        'filtros_selecionados': {
+            'marca': filtros_produto['marcas'],
+            'categoria': filtros_produto['categorias'],
+            'curva': filtros_produto['curvas'],
+        },
+        'get_params': request.GET,
+    })
+
+
+def view_resumo_linha(request, produto_id):
+    from django.shortcuts import get_object_or_404
+    from produtos.models import Produto
+    from precificacao.models import GradePrecificacaoML
+
+    MargemAlvo = GradePrecificacaoML.MargemAlvo
+    margem = request.GET.get('margem', 'padrao')
+    if margem not in [c[0] for c in MargemAlvo.choices]:
+        margem = 'padrao'
+
+    produto = get_object_or_404(Produto, id=produto_id)
+    linha = _montar_linha_resumo(produto, margem)
+
+    return render(request, 'precificacao/parciais/estrutura_parcial_resumo_linha.html', {
+        'linha': linha,
+        'opcoes_margem': MargemAlvo.choices,
+    })

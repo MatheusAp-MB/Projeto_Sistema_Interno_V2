@@ -1,0 +1,178 @@
+<!--
+* [RESUMO] → Resumo por Marketplace — visão "tipo Excel", 1 linha por
+* produto, 1 bloco de colunas por marketplace (Preço | Margem real |
+* Frete). Hoje só Mercado Livre (Clássico/Premium) tem dado real — os
+* outros aparecem como placeholder ("—"), reservando o layout final.
+* Seletor de margem GERAL (fora da tabela) define o carregamento
+* inicial; cada linha tem seu PRÓPRIO seletor, que troca só aquela
+* linha via HTMX, sem afetar as outras.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Resumo por Marketplace — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Resumo por Marketplace{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_resumo_marketplaces.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="resumo-form-filtros">
+    <div class="resumo-barra-topo">
+        <input
+            type="text"
+            name="busca"
+            value="{{ busca }}"
+            placeholder="Buscar por Nome ou EAN..."
+            class="grade-input-busca"
+        >
+
+        <div class="resumo-margem-geral">
+            <label>Margem geral</label>
+            <select name="margem" onchange="this.form.submit()" class="grade-select">
+                {% for valor, label in opcoes_margem %}
+                <option value="{{ valor }}" {% if valor == margem_geral %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <select name="por_pagina" onchange="this.form.submit()" class="grade-select">
+            <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
+            <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+            <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        </select>
+        <button type="submit" class="btn-acao">Buscar</button>
+    </div>
+
+    <details class="grade-filtros-painel">
+        <summary class="grade-filtros-titulo">Filtros avançados</summary>
+
+        <div class="grade-filtros-secoes">
+            <div class="grade-filtro-secao-card">
+                <div class="grade-filtro-secao-titulo">Identificação</div>
+
+                <div class="filtro-subgrupo">
+                    <span class="filtro-subgrupo-titulo">Marca</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                    <div class="filtro-opcoes-lista">
+                        {% for marca in marcas_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros_selecionados.marca %}checked{% endif %}>
+                            {{ marca }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo">
+                    <span class="filtro-subgrupo-titulo">Categoria</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar categoria...">
+                    <div class="filtro-opcoes-lista">
+                        {% for categoria in categorias_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="categoria" value="{{ categoria }}" {% if categoria in filtros_selecionados.categoria %}checked{% endif %}>
+                            {{ categoria }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Curva</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for curva in curvas_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="curva" value="{{ curva }}" {% if curva in filtros_selecionados.curva %}checked{% endif %}>
+                            {{ curva }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="grade-filtro-secao-card">
+                <div class="grade-filtro-secao-titulo">Estoque / Custo</div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Estoque</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="number" name="estoque_min" value="{{ get_params.estoque_min }}" placeholder="De">
+                        <input type="number" name="estoque_max" value="{{ get_params.estoque_max }}" placeholder="Até">
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Custo</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="text" name="custo_min" value="{{ get_params.custo_min }}" placeholder="De">
+                        <input type="text" name="custo_max" value="{{ get_params.custo_max }}" placeholder="Até">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grade-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
+            <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}&margem={{ margem_geral }}" class="btn-limpar-filtros">Limpar filtros</a>
+        </div>
+    </details>
+</form>
+
+{% if not linhas_tabela %}
+<div class="grade-vazio">Nenhum produto encontrado com esses filtros.</div>
+{% endif %}
+
+<div class="resumo-tabela-wrapper">
+    <table class="resumo-tabela">
+        <thead>
+            <tr class="resumo-linha-grupos">
+                <th class="resumo-col-margem" rowspan="2"></th>
+                <th rowspan="2">Curva</th>
+                <th rowspan="2">Cód Fab.</th>
+                <th rowspan="2">Cód Barras</th>
+                <th rowspan="2">SKU</th>
+                <th rowspan="2">Descrição</th>
+                <th rowspan="2">Foto</th>
+                <th rowspan="2">Custo</th>
+                <th rowspan="2">Custo c/Boni</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--classico">Mercado Livre — Clássico</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--premium">Mercado Livre — Premium</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Shopee</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Amazon</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Magalu</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">B2W / Site</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Raia</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">TikTok Shop</th>
+            </tr>
+            <tr class="resumo-linha-subcolunas">
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+                <th>Preço</th><th>Margem</th><th>Frete</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in linhas_tabela %}
+            {% include 'precificacao/parciais/estrutura_parcial_resumo_linha.html' %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="grade-paginacao">
+    {% if pagina.has_previous %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="grade-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="grade-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    {% if pagina.has_next %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="grade-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+
+{% endblock %}

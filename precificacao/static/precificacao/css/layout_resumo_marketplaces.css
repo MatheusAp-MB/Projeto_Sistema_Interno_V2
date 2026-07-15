@@ -1,0 +1,149 @@
+/*
+* [RESUMO] → CSS específico do Resumo por Marketplace — a tabela
+* "Excel-like" em si. Reaproveita .grade-* (busca, filtros, paginação)
+* do CSS da Grade, já carregado nessa mesma família de telas.
+*/
+
+.resumo-barra-topo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.resumo-margem-geral {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.resumo-margem-geral label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #556;
+}
+
+.resumo-tabela-wrapper {
+    overflow: auto;
+    max-height: 78vh;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.resumo-tabela {
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.resumo-tabela th,
+.resumo-tabela td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #e5e8ec;
+    border-right: 1px solid #eef0f3;
+}
+
+.resumo-tabela thead th {
+    position: sticky;
+    top: 0;
+    background: #1e3a5f;
+    color: #fff;
+    z-index: 2;
+    font-weight: 700;
+}
+
+.resumo-linha-subcolunas th {
+    top: 30px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #2c4d75;
+}
+
+.resumo-grupo-header--classico { background: #1d4ed8; }
+.resumo-grupo-header--premium { background: #8b4fc7; }
+.resumo-grupo-header--placeholder { background: #6b7280; }
+
+.resumo-col-margem {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 3;
+}
+
+thead .resumo-col-margem {
+    z-index: 4;
+    background: #1e3a5f;
+}
+
+.resumo-select-margem {
+    font-size: 0.72rem;
+    padding: 3px 4px;
+    border: 1px solid #ccd3de;
+    border-radius: 4px;
+}
+
+.resumo-col-descricao {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.resumo-col-foto {
+    text-align: center;
+}
+
+.resumo-foto {
+    width: 26px;
+    height: 26px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.resumo-foto-vazia {
+    width: 26px;
+    height: 26px;
+    background: #eef1f6;
+    color: #b8c0cc;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+}
+
+.resumo-col-numero {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.resumo-grupo-classico {
+    background: #1d4ed80a;
+}
+
+.resumo-grupo-premium {
+    background: #8b4fc70a;
+}
+
+.resumo-placeholder {
+    color: #b8bec7;
+}
+
+.resumo-tabela tbody tr:nth-child(even) .resumo-col-margem {
+    background: #fafbfc;
+}
+
+.resumo-tabela tbody tr:nth-child(even) td:not(.resumo-col-margem) {
+    background: #fafbfc;
+}
+
+.resumo-tabela tbody tr:nth-child(even) .resumo-grupo-classico {
+    background: #1d4ed814;
+}
+
+.resumo-tabela tbody tr:nth-child(even) .resumo-grupo-premium {
+    background: #8b4fc714;
+}

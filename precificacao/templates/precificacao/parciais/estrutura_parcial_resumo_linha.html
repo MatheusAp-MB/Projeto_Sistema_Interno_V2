@@ -1,0 +1,51 @@
+<!--
+* [RESUMO] → Fragmento de 1 linha da tabela de Resumo por
+* Marketplace — usado tanto no carregamento inicial da tabela quanto
+* na resposta HTMX quando o seletor de margem DESSA linha muda (sem
+* afetar as outras linhas).
+-->
+<tr id="linha-produto-{{ linha.produto.id }}">
+    <td class="resumo-col-margem">
+        <select
+            name="margem"
+            hx-get="{% url 'precificacao_resumo_linha' linha.produto.id %}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            hx-trigger="change"
+            class="resumo-select-margem"
+        >
+            {% for valor, label in opcoes_margem %}
+            <option value="{{ valor }}" {% if valor == linha.margem_atual %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>{{ linha.produto.curva|default:"—" }}</td>
+    <td>{{ linha.produto.cod_fabricante|default:"—" }}</td>
+    <td>{{ linha.produto.ean }}</td>
+    <td>{{ linha.produto.sku|default:"—" }}</td>
+    <td class="resumo-col-descricao">{{ linha.produto.titulo }}</td>
+    <td class="resumo-col-foto">
+        {% if linha.produto.imagem_url %}
+        <img src="{{ linha.produto.imagem_url }}" class="resumo-foto" alt="{{ linha.produto.titulo }}">
+        {% else %}
+        <div class="resumo-foto resumo-foto-vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+    </td>
+    <td class="resumo-col-numero">R$ {{ linha.produto.custo|floatformat:2 }}</td>
+    <td class="resumo-col-numero">R$ {{ linha.produto.custo_com_boni|default:linha.produto.custo|floatformat:2 }}</td>
+
+    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}R$ {{ linha.classico.preco_calculado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}{{ linha.classico.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico_frete %}R$ {{ linha.classico_frete|floatformat:2 }}{% else %}—{% endif %}</td>
+
+    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.preco_calculado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}{{ linha.premium.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium_frete %}R$ {{ linha.premium_frete|floatformat:2 }}{% else %}—{% endif %}</td>
+
+    <td class="resumo-col-numero resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-placeholder">—</td>
+</tr>

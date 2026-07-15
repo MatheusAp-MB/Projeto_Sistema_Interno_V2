@@ -7,4 +7,9 @@ urlpatterns = [
         'grade-mercado-livre/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',
         views.view_grade_detalhe, name='precificacao_grade_detalhe',
     ),
+    path('resumo-marketplaces/', views.view_resumo_marketplaces, name='precificacao_resumo_marketplaces'),
+    path(
+        'resumo-marketplaces/linha/<int:produto_id>/',
+        views.view_resumo_linha, name='precificacao_resumo_linha',
+    ),
 ]
