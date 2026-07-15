@@ -5,7 +5,7 @@
 #              e Configuração de Tipo de Anúncio já estarem no banco.
 #              Nunca calculado ao vivo por nenhuma tela depois disso.
 
-from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao
+from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao, FreteML
 from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
 from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import recomendar_precificacao, COMPORTAMENTOS, TIPOS_SEM_PROMOCAO
 
@@ -24,6 +24,13 @@ def calcular_recomendacoes_precificacao(stdout, style):
     total_variacoes = variacoes.count()
     stdout.write(f'    {total_variacoes} variação(ões) elegível(is)')
 
+    # * [EXPLICAÇÃO] → FreteML é pequena (~232 linhas) — carrega TUDO
+    #                  em memória 1 vez pro comando inteiro, mesma
+    #                  otimização já aplicada na Grade de Precificação.
+    #                  Elimina dezenas de milhares de queries repetidas
+    #                  (1 por linha candidata × variação).
+    frete_todas = list(FreteML.objects.all())
+
     existentes = {
         (r.variacao_id, r.comportamento): r
         for r in RecomendacaoPrecificacao.objects.all()
@@ -38,7 +45,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
         if indice % 500 == 0 or indice == total_variacoes:
             stdout.write(f'    ... {indice}/{total_variacoes} variações processadas')
 
-        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao)
+        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao, frete_todas=frete_todas)
         if margem_minima is None:
             sem_calculo += 1
             continue

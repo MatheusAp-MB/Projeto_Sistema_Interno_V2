@@ -7,15 +7,27 @@
 #              o mínimo que o cálculo em lote precisaria.
 
 from decimal import Decimal
-from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, buscar_configuracao_tipo_anuncio
+from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, calcular_fixo, buscar_configuracao_tipo_anuncio
 
 
-def montar_linhas_candidatas(variacao):
+def montar_linhas_candidatas(variacao, frete_todas=None):
     """Retorna (linhas, eh_catalogo, margem_minima, margem_atual,
     config_tipo, margem_original) pra uma variação. linhas é a lista
     pronta pra passar em recomendar_precificacao() OU pra exibir na
     tabela da tela individual. Retorna ([], False, None, None, None,
     None) se faltar dado essencial (produto ou configuração de tipo).
+
+    frete_todas: opcional — TODA a tabela FreteML já carregada em
+    memória (pelo comando em lote, 1 vez só, fora do loop de
+    variações). Quando passado, FIXO e as faixas de frete são
+    calculados 1 VEZ aqui e reaproveitados em TODAS as chamadas de
+    calcular_margem desta função (preço atual, preço original, preço
+    direto, e cada promoção) — elimina dezenas de queries repetidas
+    por variação (mesmo padrão já corrigido na Grade de Precificação:
+    ~62 mil queries de frete evitadas em 5.672 variações × ~11
+    chamadas cada). Sem esse parâmetro (ex: tela individual, só 1 MLB
+    por vez), cada calcular_margem busca frete no banco por conta
+    própria — comportamento antigo, preservado.
 
     * [EXPLICAÇÃO] → 3 escopos de margem, cada um com seu próprio
     preço e seu próprio rebate — NUNCA misturados entre si:
@@ -45,6 +57,22 @@ def montar_linhas_candidatas(variacao):
 
     margem_minima = config_tipo.margem_padrao
 
+    # * [EXPLICAÇÃO] → FIXO não depende de tipo de anúncio nem de
+    #                  preço — calculado 1 vez aqui, reaproveitado em
+    #                  todas as chamadas de calcular_margem abaixo
+    #                  (nunca recalculado por linha candidata).
+    fixo = calcular_fixo(produto)
+
+    faixas_produto = None
+    if frete_todas is not None:
+        peso_cubado = produto.peso_cubado or Decimal('0')
+        peso_normal = produto.peso or Decimal('0')
+        peso = max(peso_normal, peso_cubado)
+        faixas_produto = sorted(
+            (f for f in frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
+            key=lambda f: f.preco_min,
+        )
+
     # * [EXPLICAÇÃO] → Só 1 promoção ativa dá um rebate inequívoco pra
     #                  somar na margem ATUAL. Com 0, não tem rebate
     #                  mesmo. Com 2+ (conflito), não dá pra saber qual
@@ -62,6 +90,7 @@ def montar_linhas_candidatas(variacao):
         margem_atual = calcular_margem(
             produto, variacao.preco_atual, tipo_anuncio_obj,
             rebate_percentual=rebate_pct, preco_original=rebate_preco_original,
+            fixo=fixo, faixas_frete=faixas_produto,
         )
 
     # * [EXPLICAÇÃO] → Preço ORIGINAL: se existe preco_original (há
@@ -72,7 +101,10 @@ def montar_linhas_candidatas(variacao):
     preco_sem_promocao = variacao.preco_original or variacao.preco_atual
     margem_original = None
     if preco_sem_promocao:
-        margem_original = calcular_margem(produto, preco_sem_promocao, tipo_anuncio_obj)
+        margem_original = calcular_margem(
+            produto, preco_sem_promocao, tipo_anuncio_obj,
+            fixo=fixo, faixas_frete=faixas_produto,
+        )
 
     eh_catalogo = hasattr(anuncio, 'competicao')
     price_to_win = None
@@ -82,7 +114,10 @@ def montar_linhas_candidatas(variacao):
     linhas = []
 
     if eh_catalogo and price_to_win:
-        margem_preco_direto = calcular_margem(produto, price_to_win, tipo_anuncio_obj)
+        margem_preco_direto = calcular_margem(
+            produto, price_to_win, tipo_anuncio_obj,
+            fixo=fixo, faixas_frete=faixas_produto,
+        )
         if margem_preco_direto:
             linhas.append({
                 'nome': 'Preço direto para ganhar',
@@ -133,11 +168,15 @@ def montar_linhas_candidatas(variacao):
             produto, preco_avaliado, tipo_anuncio_obj,
             rebate_percentual=promo.meli_percentage if tem_rebate else None,
             preco_original=promo.preco_original if tem_rebate else None,
+            fixo=fixo, faixas_frete=faixas_produto,
         )
         if not margem_com_rebate:
             continue
 
-        margem_sem_rebate = calcular_margem(produto, preco_avaliado, tipo_anuncio_obj)
+        margem_sem_rebate = calcular_margem(
+            produto, preco_avaliado, tipo_anuncio_obj,
+            fixo=fixo, faixas_frete=faixas_produto,
+        )
 
         diferenca = round(margem_com_rebate['margem_percentual'] - margem_atual['margem_percentual'], 2) if margem_atual else None
 
