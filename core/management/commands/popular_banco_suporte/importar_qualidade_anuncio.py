@@ -49,6 +49,7 @@ def extrair_regras_do_bucket(buckets):
                 }
     return resultado
 
+
 def importar_qualidade_anuncio(stdout, style, caminho_json):
     if not caminho_json.exists():
         stdout.write(style.WARNING(
@@ -76,6 +77,13 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
 
     qualidades_para_criar = []
     qualidades_para_atualizar = []
+    # * [EXPLICAÇÃO] → set() de id() dos objetos já enfileirados pra
+    #                  atualizar — substitui "not in qualidades_para_
+    #                  atualizar" (checagem numa LISTA, O(n) — mesmo
+    #                  bug confirmado e corrigido em importar_promocoes_
+    #                  ml.py, aqui o volume é menor mas é a mesma classe
+    #                  de problema). set() é O(1).
+    ids_ja_na_lista_atualizar = set()
     # * [EXPLICAÇÃO] → Guarda as regras (critérios) de cada variação pra
     #                  processar DEPOIS que soubermos o ID de cada
     #                  QualidadeAnuncio (só existe depois do bulk_create).
@@ -124,15 +132,16 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
                 if existente:
                     for campo, valor in dados_qualidade.items():
                         setattr(existente, campo, valor)
-                    # * [EXPLICAÇÃO] → Se 'existente' ainda não tem PK,
-                    #                  é um objeto NOVO criado nesta
-                    #                  mesma rodada (a mesma variação
-                    #                  apareceu 2x no arquivo) — já vai
-                    #                  ser salvo pelo bulk_create com os
-                    #                  valores atualizados, não precisa
-                    #                  (e não pode) ir pro bulk_update.
-                    if existente.pk and existente not in qualidades_para_atualizar:
+                    # * [EXPLICAÇÃO] → Se ainda não tem PK, é um objeto
+                    #                  NOVO criado nesta mesma rodada (a
+                    #                  mesma variação apareceu 2x no
+                    #                  arquivo) — já vai ser salvo pelo
+                    #                  bulk_create com os valores
+                    #                  atualizados, não precisa (e não
+                    #                  pode) ir pro bulk_update.
+                    if existente.pk and id(existente) not in ids_ja_na_lista_atualizar:
                         qualidades_para_atualizar.append(existente)
+                        ids_ja_na_lista_atualizar.add(id(existente))
                 else:
                     nova = QualidadeAnuncio(variacao=variacao_alvo, **dados_qualidade)
                     qualidades_para_criar.append(nova)

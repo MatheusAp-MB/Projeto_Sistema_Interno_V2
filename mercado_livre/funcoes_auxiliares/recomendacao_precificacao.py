@@ -6,6 +6,15 @@
 #              separadas. margem_minima vem sempre de fora agora (da
 #              configuração real do tipo de anúncio, não mais de uma
 #              constante fixa).
+#
+#              Auditoria de otimização (15/07): classificar_buckets
+#              (antes _classificar_buckets, privada) agora é pública —
+#              linhas/margem_minima/exigir_ganha_catalogo são sempre os
+#              MESMOS pros 3 comportamentos de 1 variação, então o
+#              chamador (calcular_recomendacoes_precificacao.py) calcula
+#              1 vez só e passa pronto via buckets_precalculados. Antes,
+#              recomendar_precificacao recalculava do zero 3x por
+#              variação (2 de cada 3 chamadas eram desperdício).
 
 COMPORTAMENTOS = {
     'padrao': 'Padrão (equilíbrio)',
@@ -69,9 +78,14 @@ def melhor_margem(lista):
     return max(lista, key=lambda l: l['margem_real']['margem_percentual'])
 
 
-def _classificar_buckets(linhas, margem_minima, exigir_ganha_catalogo):
+def classificar_buckets(linhas, margem_minima, exigir_ganha_catalogo):
     """Separa as linhas em 4 grupos, cruzando margem (dentro/abaixo do
-    mínimo) com origem (promoção real / sem promoção)."""
+    mínimo) com origem (promoção real / sem promoção).
+
+    Pública de propósito — linhas/margem_minima/exigir_ganha_catalogo
+    são os MESMOS pros 3 comportamentos de 1 variação, então o
+    chamador pode classificar 1 vez só e reaproveitar (ver
+    buckets_precalculados em recomendar_precificacao)."""
     candidatas = [l for l in linhas if l['ganha_catalogo']] if exigir_ganha_catalogo else linhas
 
     dentro = [l for l in candidatas if l['margem_real']['margem_percentual'] >= margem_minima]
@@ -87,12 +101,21 @@ def _classificar_buckets(linhas, margem_minima, exigir_ganha_catalogo):
     }
 
 
-def recomendar_precificacao(linhas, margem_minima, comportamento='padrao', exigir_ganha_catalogo=True):
+def recomendar_precificacao(linhas, margem_minima, comportamento='padrao', exigir_ganha_catalogo=True, buckets_precalculados=None):
     """Aplica 1 dos 3 comportamentos sobre as linhas já calculadas.
     margem_minima é sempre passada pelo chamador — vem da configuração
     real do tipo de anúncio (ConfiguracaoTipoAnuncioMercadoLivre),
-    nunca mais uma constante fixa."""
-    buckets = _classificar_buckets(linhas, margem_minima, exigir_ganha_catalogo)
+    nunca mais uma constante fixa.
+
+    buckets_precalculados: opcional — se o chamador já classificou os
+    buckets (via classificar_buckets) fora do loop de comportamentos,
+    passa pronto aqui e evita recalcular (linhas/margem_minima/
+    exigir_ganha_catalogo são os MESMOS pros 3 comportamentos de 1
+    variação — recalcular 3x era puro desperdício). Sem esse
+    parâmetro, calcula na hora (comportamento antigo, preservado)."""
+    buckets = buckets_precalculados if buckets_precalculados is not None else classificar_buckets(
+        linhas, margem_minima, exigir_ganha_catalogo
+    )
 
     if comportamento == 'busca_lucro':
         candidatos = buckets['com_promocao_dentro'] + buckets['sem_promocao_dentro']

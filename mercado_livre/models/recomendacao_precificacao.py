@@ -44,7 +44,7 @@ class RecomendacaoPrecificacao(models.Model):
         OTIMIZADO = 'otimizado', 'Otimizado — nada a fazer'
         OPERANDO_EM_RISCO = 'operando_em_risco', 'Operando em risco'
         CONFLITO_MULTIPLAS_ATIVAS = 'conflito_multiplas_ativas', 'Conflito — múltiplas promoções ativas'
-    
+
     categoria_estado = models.CharField(
         max_length=30, choices=CategoriaEstado.choices, blank=True, null=True
     )

@@ -5,12 +5,23 @@
 #              individual (que exibe a tabela completa) — por isso cada
 #              linha carrega TODOS os campos que a tabela usa, não só
 #              o mínimo que o cálculo em lote precisaria.
+#
+#              Auditoria de otimização (15/07): config_tipo (já
+#              calculado 1 vez no início desta função) agora é
+#              REPASSADO explicitamente pra TODAS as chamadas de
+#              calcular_margem — antes, cada chamada passava
+#              tipo_anuncio_obj e deixava calcular_margem buscar
+#              config_tipo de novo, sozinha, internamente. Só foi
+#              descoberto porque a medição de consultas (antes capada
+#              em 9.000 pelo Django) foi corrigida — revelou 67.363
+#              consultas reais numa única rodada, a maioria vindo
+#              exatamente daqui.
 
 from decimal import Decimal
 from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, calcular_fixo, buscar_configuracao_tipo_anuncio
 
 
-def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faixas_armazenagem=None):
+def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faixas_armazenagem=None, configs_por_tipo=None):
     """Retorna (linhas, eh_catalogo, margem_minima, margem_atual,
     config_tipo, margem_original) pra uma variação. linhas é a lista
     pronta pra passar em recomendar_precificacao() OU pra exibir na
@@ -23,18 +34,20 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
     calculados 1 VEZ aqui e reaproveitados em TODAS as chamadas de
     calcular_margem desta função (preço atual, preço original, preço
     direto, e cada promoção) — elimina dezenas de queries repetidas
-    por variação (mesmo padrão já corrigido na Grade de Precificação:
-    ~62 mil queries de frete evitadas em 5.672 variações × ~11
-    chamadas cada). Sem esse parâmetro (ex: tela individual, só 1 MLB),
+    por variação. Sem esse parâmetro (ex: tela individual, só 1 MLB),
     cada calcular_margem busca frete no banco por conta própria —
     comportamento antigo, preservado.
 
     config_geral, faixas_armazenagem: opcionais — repassados direto
     pra calcular_fixo (mesmo padrão da Grade). Sem eles,
-    ConfiguracaoMercadoLivre.obter() bate no banco 1 vez POR VARIAÇÃO
-    — achado real: 5.672 consultas evitáveis na Recomendação de
-    Precificação, mesma classe de bug já corrigida na Grade, nunca
-    propagada pra cá.
+    ConfiguracaoMercadoLivre.obter() bate no banco 1 vez POR VARIAÇÃO.
+
+    configs_por_tipo: opcional — dict {tipo_anuncio: config} já
+    carregado (só 2 linhas no total, Clássico/Premium). Achado real
+    (só visível depois de corrigir a medição de consultas, antes
+    capada em 9.000 pelo Django): sem esse parâmetro,
+    buscar_configuracao_tipo_anuncio bate no banco 1 vez POR VARIAÇÃO
+    (~5.672 consultas evitáveis, confirmado).
 
     * [EXPLICAÇÃO] → 3 escopos de margem, cada um com seu próprio
     preço e seu próprio rebate — NUNCA misturados entre si:
@@ -58,7 +71,10 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
     if not produto or not tipo_anuncio_obj:
         return [], False, None, None, None, None
 
-    config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
+    if configs_por_tipo is not None:
+        config_tipo = configs_por_tipo.get(tipo_anuncio_obj.tipo_anuncio)
+    else:
+        config_tipo = buscar_configuracao_tipo_anuncio(tipo_anuncio_obj)
     if not config_tipo:
         return [], False, None, None, None, None
 
@@ -95,9 +111,9 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
         rebate_pct = ativa_unica.meli_percentage if (ativa_unica and ativa_unica.meli_percentage is not None) else None
         rebate_preco_original = ativa_unica.preco_original if (ativa_unica and ativa_unica.meli_percentage is not None) else None
         margem_atual = calcular_margem(
-            produto, variacao.preco_atual, tipo_anuncio_obj,
+            produto, variacao.preco_atual,
             rebate_percentual=rebate_pct, preco_original=rebate_preco_original,
-            fixo=fixo, faixas_frete=faixas_produto,
+            config_tipo=config_tipo, fixo=fixo, faixas_frete=faixas_produto,
         )
 
     # * [EXPLICAÇÃO] → Preço ORIGINAL: se existe preco_original (há
@@ -109,8 +125,8 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
     margem_original = None
     if preco_sem_promocao:
         margem_original = calcular_margem(
-            produto, preco_sem_promocao, tipo_anuncio_obj,
-            fixo=fixo, faixas_frete=faixas_produto,
+            produto, preco_sem_promocao,
+            config_tipo=config_tipo, fixo=fixo, faixas_frete=faixas_produto,
         )
 
     eh_catalogo = hasattr(anuncio, 'competicao')
@@ -122,8 +138,8 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
 
     if eh_catalogo and price_to_win:
         margem_preco_direto = calcular_margem(
-            produto, price_to_win, tipo_anuncio_obj,
-            fixo=fixo, faixas_frete=faixas_produto,
+            produto, price_to_win,
+            config_tipo=config_tipo, fixo=fixo, faixas_frete=faixas_produto,
         )
         if margem_preco_direto:
             linhas.append({
@@ -172,17 +188,17 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
 
         tem_rebate = promo.meli_percentage is not None
         margem_com_rebate = calcular_margem(
-            produto, preco_avaliado, tipo_anuncio_obj,
+            produto, preco_avaliado,
             rebate_percentual=promo.meli_percentage if tem_rebate else None,
             preco_original=promo.preco_original if tem_rebate else None,
-            fixo=fixo, faixas_frete=faixas_produto,
+            config_tipo=config_tipo, fixo=fixo, faixas_frete=faixas_produto,
         )
         if not margem_com_rebate:
             continue
 
         margem_sem_rebate = calcular_margem(
-            produto, preco_avaliado, tipo_anuncio_obj,
-            fixo=fixo, faixas_frete=faixas_produto,
+            produto, preco_avaliado,
+            config_tipo=config_tipo, fixo=fixo, faixas_frete=faixas_produto,
         )
 
         diferenca = round(margem_com_rebate['margem_percentual'] - margem_atual['margem_percentual'], 2) if margem_atual else None
