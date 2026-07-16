@@ -24,13 +24,32 @@ class Produto(models.Model):
     custo_com_boni = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True)
 
-    peso = models.DecimalField(max_digits=8, decimal_places=3, default=0)
+    # * [EXPLICAÇÃO] → Renomeado (16/07) pra separar EXPLICITAMENTE
+    #                  produto sem embalar (dimensão/peso do item
+    #                  puro, sem caixa) de produto após embalado
+    #                  (dimensão/peso da caixa REALMENTE enviada) —
+    #                  descoberta real: o ERP tem os 2 conjuntos de
+    #                  campos, e o cálculo de frete estava usando o
+    #                  errado (produto puro, não a caixa). Frete
+    #                  DEVE usar sempre "apos_embalado" — nunca
+    #                  "sem_embalar" (regra confirmada com o usuário).
+    peso_produto_sem_embalar = models.DecimalField(max_digits=8, decimal_places=3, default=0)
+    altura_produto_sem_embalar = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    largura_produto_sem_embalar = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    comprimento_produto_sem_embalar = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    peso_produto_apos_embalado = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
+    altura_produto_apos_embalado = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    largura_produto_apos_embalado = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    comprimento_produto_apos_embalado = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Peso cúbico (volumétrico) — agora SEMPRE
+    #                  calculado a partir do produto APÓS EMBALADO
+    #                  (a caixa real enviada), nunca do produto puro.
+    #                  Fórmula muda de arquivo (importadores), não
+    #                  daqui — este campo só guarda o resultado.
     peso_cubado = models.DecimalField(
         max_digits=8, decimal_places=3, blank=True, null=True)
-    altura = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    largura = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    profundidade = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0)
 
     mva = models.DecimalField(
         max_digits=6, decimal_places=2, blank=True, null=True)

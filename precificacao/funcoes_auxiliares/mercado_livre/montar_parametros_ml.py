@@ -8,7 +8,6 @@
 from decimal import Decimal
 from django.db.models import Q
 
-
 def preparar_fixo_e_faixas(produto, frete_todas, config_geral=None, faixas_armazenagem=None):
     """FIXO e as faixas de frete candidatas NÃO dependem de tipo de
     anúncio nem de margem-alvo — só do produto. Calcule 1 VEZ por
@@ -23,6 +22,10 @@ def preparar_fixo_e_faixas(produto, frete_todas, config_geral=None, faixas_armaz
     pra calcular_fixo_detalhado, mesma lógica (evita 1 query nova por
     produto).
 
+    Peso usado pra achar a faixa de frete é da EMBALAGEM (confirmado
+    com o usuário — mesma regra usada dentro de buscar_frete) — nunca
+    do produto sem embalar.
+
     Retorna (fixo, faixas, peso, componentes_fixo) — peso e
     componentes_fixo devolvidos pra quem chama poder guardar no
     detalhamento sem recalcular a mesma conta de novo."""
@@ -33,15 +36,14 @@ def preparar_fixo_e_faixas(produto, frete_todas, config_geral=None, faixas_armaz
     )
 
     peso_cubado = produto.peso_cubado or Decimal('0')
-    peso_normal = produto.peso or Decimal('0')
-    peso = max(peso_normal, peso_cubado)
+    peso_embalagem = produto.peso_produto_apos_embalado or Decimal('0')
+    peso = max(peso_embalagem, peso_cubado)
 
     faixas = sorted(
         (f for f in frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
         key=lambda f: f.preco_min,
     )
     return fixo, faixas, peso, componentes_fixo
-
 
 def _montar_taxa_e_custo(produto, config_tipo):
     """Peça comum reaproveitada pelos 2 caminhos (frete de tabela e

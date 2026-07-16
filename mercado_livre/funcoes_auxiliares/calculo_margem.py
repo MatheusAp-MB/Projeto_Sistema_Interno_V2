@@ -19,13 +19,35 @@
 #
 #              Rebate: o ML abate parte da comissão que cobraria —
 #              rebate_valor = preço_original × (meli_percentage/100).
+#
+#              Renomeado (15/07) — Produto agora separa EXPLICITAMENTE
+#              "produto sem embalar" (peso/dimensão do item puro) de
+#              "produto após embalado" (a caixa REAL enviada/coletada).
+#              Confirmado com o usuário: Coleta e Frete DEVEM usar
+#              EMBALAGEM (nunca o produto puro, que sistematicamente
+#              subestimaria os dois). Faixa de Armazenagem (fallback,
+#              quando não há armazenagem_planilha) continua usando
+#              produto SEM EMBALAR por enquanto — não foi confirmado
+#              se deveria virar embalagem também; ver comentário na
+#              função selecionar_faixa_armazenagem.
 
 from decimal import Decimal
 from django.db.models import Q
 
 
 def calcular_metro_cubico(produto):
-    return (produto.altura / 100) * (produto.largura / 100) * (produto.profundidade / 100)
+    """Custo de Coleta usa a EMBALAGEM (a caixa real coletada/
+    despachada) — confirmado com o usuário. Se a embalagem ainda não
+    foi cadastrada pra esse produto (campos None), retorna 0 — nunca
+    finge um cálculo sem dado real."""
+    altura = produto.altura_produto_apos_embalado
+    largura = produto.largura_produto_apos_embalado
+    comprimento = produto.comprimento_produto_apos_embalado
+
+    if altura is None or largura is None or comprimento is None:
+        return Decimal('0')
+
+    return (altura / 100) * (largura / 100) * (comprimento / 100)
 
 
 def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
@@ -33,6 +55,12 @@ def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
     dimensões do produto cabem; se nenhuma comportar, usa a maior
     (fallback). Só usada quando o produto ainda não tem
     armazenagem_planilha (sem histórico na planilha validada).
+
+    Usa EMBALAGEM (confirmado com o usuário — mesma regra de Coleta/
+    Frete: é a caixa real que ocupa espaço físico no estoque, não o
+    produto puro). Se a embalagem ainda não tiver dimensão cadastrada,
+    trata como 0 (mesma consistência de Coleta/Frete: nunca finge
+    dado que não existe, nunca cai de volta pro produto sem embalar).
 
     faixas_armazenagem: opcional — lista já carregada em memória (só
     4 linhas no total, tabela pequena) por quem processa MUITOS
@@ -48,10 +76,14 @@ def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
     if not faixas:
         return None
 
+    altura = produto.altura_produto_apos_embalado or Decimal('0')
+    largura = produto.largura_produto_apos_embalado or Decimal('0')
+    comprimento = produto.comprimento_produto_apos_embalado or Decimal('0')
+
     for faixa in faixas:
-        if (produto.altura <= faixa.max_altura
-                and produto.largura <= faixa.max_largura
-                and produto.profundidade <= faixa.max_profundidade):
+        if (altura <= faixa.max_altura
+                and largura <= faixa.max_largura
+                and comprimento <= faixa.max_profundidade):
             return faixa
 
     return faixas[-1]
@@ -75,7 +107,11 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
     nesse preço", que precisa mostrar cada parte do FIXO separada
     (custo, coleta, armazenagem, os 2 créditos), não só o número final
     já somado. calcular_fixo() continua igual pra todo mundo — só
-    chama esta função por dentro e descarta os componentes."""
+    chama esta função por dentro e descarta os componentes.
+
+    Coleta e Armazenagem (quando cai no fallback por dimensão) usam
+    EMBALAGEM (confirmado com o usuário) — calcular_metro_cubico e
+    selecionar_faixa_armazenagem já fazem isso internamente."""
     from mercado_livre.models import ConfiguracaoMercadoLivre
 
     config = config_geral if config_geral is not None else ConfiguracaoMercadoLivre.obter()
@@ -101,11 +137,9 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
 
     # * [EXPLICAÇÃO] → armazenagem_planilha já é o valor MENSAL real
     #                  (vem pronto da planilha validada) — só cai na
-    #                  faixa dinâmica (por dimensão) se o produto ainda
-    #                  não tiver passado por essa importação. Esse é o
-    #                  caminho que vai permitir abandonar a planilha no
-    #                  futuro (objetivo de longo prazo confirmado com o
-    #                  usuário).
+    #                  faixa dinâmica (por dimensão, via embalagem) se
+    #                  o produto ainda não tiver passado por essa
+    #                  importação.
     faixa_usada = None
     if produto.armazenagem_planilha is not None:
         armazenagem = produto.armazenagem_planilha
@@ -157,7 +191,12 @@ def buscar_frete(produto, preco, faixas_candidatas=None):
     """Se faixas_candidatas for passado (já filtradas por peso, em
     memória — sem query nova), busca o frete em Python. Sem isso,
     cai no comportamento original (1 query por chamada) — mantém
-    compatibilidade com quem já chama sem esse parâmetro."""
+    compatibilidade com quem já chama sem esse parâmetro.
+
+    Frete usa EMBALAGEM (peso físico E peso cúbico, ambos da caixa
+    real) — confirmado com o usuário. Se a embalagem não tiver peso
+    cadastrado, usa 0 (nunca cai pro peso do produto puro, que
+    subestimaria o frete real)."""
     if faixas_candidatas is not None:
         for faixa in faixas_candidatas:
             if faixa.preco_min <= preco and (faixa.preco_max is None or faixa.preco_max >= preco):
@@ -167,8 +206,8 @@ def buscar_frete(produto, preco, faixas_candidatas=None):
     from mercado_livre.models import FreteML
 
     peso_cubado = produto.peso_cubado or Decimal('0')
-    peso_normal = produto.peso or Decimal('0')
-    peso = max(peso_normal, peso_cubado)
+    peso_embalagem = produto.peso_produto_apos_embalado or Decimal('0')
+    peso = max(peso_embalagem, peso_cubado)
 
     frete = FreteML.objects.filter(
         peso_min__lte=peso,

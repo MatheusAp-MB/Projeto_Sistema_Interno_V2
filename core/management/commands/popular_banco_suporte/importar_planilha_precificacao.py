@@ -17,12 +17,12 @@ from produtos.models import Produto
 CAMINHO_PLANILHA_PRECIFICACAO = Path('Arquivos_de_Importação/Planilha_Importar_Pos_Macro.xlsm')
 
 # * [EXPLICAÇÃO] → peso_cubado é calculado AQUI, junto com as
-#                  dimensões finais (fonte validada) — nunca mais
-#                  confiado do ERP, que roda antes e fica desatualizado
-#                  assim que essa planilha sobrescreve altura/largura/
-#                  profundidade. Achado real: peso_cubado zerado ou
-#                  errado em ~87-97% do catálogo, causando faixa de
-#                  frete errada no Goal Seek.
+#                  dimensões de EMBALAGEM (confirmado com o usuário:
+#                  as colunas desta planilha representam o produto JÁ
+#                  EMBALADO, a caixa real usada pro frete — não o
+#                  produto puro, que vem só do ERP Completo). Essa
+#                  planilha, quando roda, SOBRESCREVE só o conjunto
+#                  "apos_embalado" — nunca mexe em "sem_embalar".
 FATOR_PESO_CUBADO = 6000
 
 
@@ -109,13 +109,16 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
             produto.pis_cofins = _pct(_seguro(row[14]))
             produto.icms_saida_sp = _pct(_seguro(row[15]))
             produto.icms_saida_media = _pct(_seguro(row[16]))
-            produto.peso = _dec3(_seguro(row[19]), Decimal('0'))
-            produto.altura = _dec(_seguro(row[21]), Decimal('0'))
-            produto.profundidade = _dec(_seguro(row[22]), Decimal('0'))
-            produto.largura = _dec(_seguro(row[23]), Decimal('0'))
+            produto.peso_produto_apos_embalado = _dec3(_seguro(row[19]), Decimal('0'))
+            produto.altura_produto_apos_embalado = _dec(_seguro(row[21]), Decimal('0'))
+            produto.comprimento_produto_apos_embalado = _dec(_seguro(row[22]), Decimal('0'))
+            produto.largura_produto_apos_embalado = _dec(_seguro(row[23]), Decimal('0'))
             produto.armazenagem_planilha = _dec(_seguro(row[59]))
             produto.peso_cubado = (
-                produto.altura * produto.largura * produto.profundidade / FATOR_PESO_CUBADO
+                produto.altura_produto_apos_embalado
+                * produto.largura_produto_apos_embalado
+                * produto.comprimento_produto_apos_embalado
+                / FATOR_PESO_CUBADO
             )
 
             para_atualizar.append(produto)
@@ -127,7 +130,9 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
     campos = [
         'custo', 'custo_com_boni', 'frete_cif_fob', 'mva', 'st_valor',
         'icms_entrada', 'ipi', 'pis_cofins', 'icms_saida_sp', 'icms_saida_media',
-        'peso', 'altura', 'profundidade', 'largura', 'armazenagem_planilha', 'peso_cubado',
+        'peso_produto_apos_embalado', 'altura_produto_apos_embalado',
+        'comprimento_produto_apos_embalado', 'largura_produto_apos_embalado',
+        'armazenagem_planilha', 'peso_cubado',
     ]
 
     if para_atualizar:

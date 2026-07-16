@@ -76,13 +76,15 @@ def importar_produtos_ml(stdout, style, caminho_json):
                 setattr(existente, campo, valor)
             para_atualizar[ean] = existente
         else:
-            # * [EXPLICAÇÃO] → custo/peso/altura/largura/profundidade são
-            #                  obrigatórios no model e ainda não são
-            #                  conhecidos nesta etapa — ficam como
+            # * [EXPLICAÇÃO] → custo/peso/altura/largura/comprimento (sem
+            #                  embalar) são obrigatórios no model e ainda
+            #                  não são conhecidos nesta etapa — ficam como
             #                  placeholder até um comando futuro (ERP
             #                  completo) preencher com dado real.
             para_criar[ean] = Produto(
-                ean=ean, custo=0, peso=0, altura=0, largura=0, profundidade=0,
+                ean=ean, custo=0,
+                peso_produto_sem_embalar=0, altura_produto_sem_embalar=0,
+                largura_produto_sem_embalar=0, comprimento_produto_sem_embalar=0,
                 **dados_produto
             )
 

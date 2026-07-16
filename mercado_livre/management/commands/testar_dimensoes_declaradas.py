@@ -8,11 +8,13 @@
 #              altura×largura×comprimento÷6000, só que por MLB REAL,
 #              não por produto), pega o maior entre físico e
 #              volumétrico, busca a faixa de frete certa (peso + preço
-#              atual real da variação) e grava em frete_real. No
-#              final, monta uma tabela comparando o frete REAL (por
-#              MLB, dimensão declarada) com o frete esperado a partir
-#              do PRODUTO (dimensão do ERP) — pra comparação manual
-#              com o Mercado Livre.
+#              atual real da variação) e grava em frete_real.
+#
+#              Relatório final: compara, pra TODO o catálogo (não só
+#              amostra), o frete "Real" (MLB, dimensão declarada) com
+#              o frete "Produto" (ERP) — quantos batem, quantos o ML
+#              cobra mais, quantos cobra menos, e as 3 maiores
+#              diferenças de cada lado.
 
 import json
 from decimal import Decimal, InvalidOperation
@@ -48,20 +50,18 @@ def _buscar_frete_por_peso_e_preco(peso, preco, frete_todas):
 class Command(BaseCommand):
     help = (
         'TESTE — calcula frete_real a partir das dimensões declaradas pelo '
-        'vendedor no ML (atributos SELLER_PACKAGE_*), e compara com o frete '
-        'esperado pelas dimensões do PRODUTO (ERP). Isolado, não roda dentro '
-        'do popular_banco ainda.'
+        'vendedor no ML, e compara com o frete esperado pelas dimensões do '
+        'PRODUTO (ERP) — relatório agregado pro catálogo inteiro.'
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--exemplos', type=int, default=15,
-            help='Quantos MLBs mostrar na tabela final, pra comparação manual (padrão: 15).'
+            '--top', type=int, default=3,
+            help='Quantas maiores diferenças mostrar em cada categoria (padrão: 3).'
         )
 
     def handle(self, *args, **options):
         from mercado_livre.models import AnuncioMercadoLivre, VariacaoAnuncioMercadoLivre, FreteML
-        from mercado_livre.funcoes_auxiliares.calculo_margem import buscar_frete
         from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
         if not CAMINHO_DETALHES_MLBS.exists():
@@ -86,8 +86,11 @@ class Command(BaseCommand):
         sem_dimensao = 0
         com_dimensao_completa = 0
         com_so_peso_legado = 0
-        linhas_tabela = []
-        limite_exemplos = options['exemplos']
+
+        # * [EXPLICAÇÃO] → 1 registro por variação com AMBOS os fretes
+        #                  calculáveis (real e produto) — usado pro
+        #                  relatório agregado do catálogo inteiro.
+        comparacoes = []
 
         for reg in registros:
             mlb = reg.get('mlb')
@@ -109,7 +112,6 @@ class Command(BaseCommand):
             peso_declarado_kg = (peso_g / 1000) if peso_g is not None else None
 
             if altura is None and largura is None and comprimento is None and peso_declarado_kg is None:
-                # * fallback pro campo legado — só peso, sem dimensão
                 peso_legado_g = _parsear_numero(reg.get('attr_weight'))
                 if peso_legado_g is not None:
                     peso_declarado_kg = peso_legado_g / 1000
@@ -132,39 +134,33 @@ class Command(BaseCommand):
             candidatos_peso = [p for p in (peso_declarado_kg, peso_volumetrico) if p is not None]
             peso_real = max(candidatos_peso) if candidatos_peso else None
 
-            frete_calculado = None
+            frete_real = None
             if peso_real is not None and variacao.preco_atual:
-                frete_calculado = _buscar_frete_por_peso_e_preco(peso_real, variacao.preco_atual, frete_todas)
+                frete_real = _buscar_frete_por_peso_e_preco(peso_real, variacao.preco_atual, frete_todas)
 
-            variacao.frete_real = frete_calculado
-            variacao.frete_real_atualizado_em = timezone.now() if frete_calculado is not None else None
-
+            variacao.frete_real = frete_real
+            variacao.frete_real_atualizado_em = timezone.now() if frete_real is not None else None
             variacoes_para_atualizar.append(variacao)
 
-            if len(linhas_tabela) < limite_exemplos and frete_calculado is not None and variacao.produto:
-                produto = variacao.produto
-                # * [EXPLICAÇÃO] → buscar_frete já existente — reaproveita
-                #                  a mesma regra (maior entre peso/
-                #                  peso_cubado do PRODUTO) que a Grade
-                #                  de Precificação usa hoje como fallback.
-                frete_produto = buscar_frete(produto, variacao.preco_atual)
-
-                dimensoes_reais = f'{altura}×{largura}×{comprimento} cm\n{peso_declarado_kg} kg'
-                dimensoes_produto = f'{produto.altura}×{produto.largura}×{produto.profundidade} cm\n{produto.peso} kg (cubado: {produto.peso_cubado})'
-
-                diferenca = None
+            # * [EXPLICAÇÃO] → Frete "Produto" — mesma regra de sempre
+            #                  (maior entre peso físico e peso_cubado
+            #                  do PRODUTO, já corrigido pra cm),
+            #                  calculado em memória (frete_todas já
+            #                  carregado), sem query nova por item.
+            produto = variacao.produto
+            if produto and frete_real is not None and variacao.preco_atual:
+                peso_produto = max(produto.peso or Decimal('0'), produto.peso_cubado or Decimal('0'))
+                frete_produto = _buscar_frete_por_peso_e_preco(peso_produto, variacao.preco_atual, frete_todas)
                 if frete_produto is not None:
-                    diferenca = frete_calculado - frete_produto
-
-                linhas_tabela.append([
-                    mlb,
-                    produto.sku,
-                    dimensoes_reais,
-                    f'R$ {frete_calculado:.2f}',
-                    dimensoes_produto,
-                    f'R$ {frete_produto:.2f}' if frete_produto is not None else '—',
-                    f'R$ {diferenca:+.2f}' if diferenca is not None else '—',
-                ])
+                    comparacoes.append({
+                        'mlb': mlb,
+                        'sku': produto.sku,
+                        'dimensoes_reais': f'{altura}×{largura}×{comprimento} cm, {peso_declarado_kg} kg',
+                        'dimensoes_produto': f'{produto.altura}×{produto.largura}×{produto.profundidade} cm, {peso_produto} kg',
+                        'frete_real': frete_real,
+                        'frete_produto': frete_produto,
+                        'diferenca': frete_real - frete_produto,
+                    })
 
         if variacoes_para_atualizar:
             VariacaoAnuncioMercadoLivre.objects.bulk_update(
@@ -181,12 +177,44 @@ class Command(BaseCommand):
             f'    Só peso legado (WEIGHT, sem dimensão): {com_so_peso_legado}\n'
             f'    Sem nenhum dado declarado: {sem_dimensao}\n'
             f'    Sem anúncio correspondente: {sem_anuncio}\n'
-            f'    Sem variação correspondente: {sem_variacao}'
+            f'    Sem variação correspondente: {sem_variacao}\n'
+            f'    Comparáveis (frete Real E Produto disponíveis): {len(comparacoes)}'
         ))
 
-        self.stdout.write('\n--- COMPARAÇÃO: FRETE "REAL" (MLB) vs FRETE "PRODUTO" (ERP) ---\n')
-        self.stdout.write(tabulate(
-            linhas_tabela,
-            headers=['MLB', 'SKU', 'Dimensões "Reais"', 'Frete "Real"', 'Dimensões "Produto"', 'Frete "Produto"', 'Diferença'],
-            tablefmt='grid',
+        maiores = [c for c in comparacoes if c['diferenca'] > 0]
+        iguais = [c for c in comparacoes if c['diferenca'] == 0]
+        menores = [c for c in comparacoes if c['diferenca'] < 0]
+
+        top = options['top']
+        maiores_ordenados = sorted(maiores, key=lambda c: c['diferenca'], reverse=True)[:top]
+        menores_ordenados = sorted(menores, key=lambda c: c['diferenca'])[:top]
+
+        self.stdout.write('\n' + '=' * 70)
+        self.stdout.write(self.style.SUCCESS(
+            f'RELATÓRIO — Frete "Real" (MLB) vs Frete "Produto" (ERP)\n'
+            f'    ML cobra MAIS que o esperado:  {len(maiores)}\n'
+            f'    Preços IGUAIS:                 {len(iguais)}\n'
+            f'    ML cobra MENOS que o esperado: {len(menores)}'
         ))
+        self.stdout.write('=' * 70)
+
+        def montar_linhas(lista):
+            return [
+                [c['mlb'], c['sku'], c['dimensoes_reais'], f"R$ {c['frete_real']:.2f}",
+                 c['dimensoes_produto'], f"R$ {c['frete_produto']:.2f}", f"R$ {c['diferenca']:+.2f}"]
+                for c in lista
+            ]
+
+        colunas = ['MLB', 'SKU', 'Dimensões "Reais"', 'Frete "Real"', 'Dimensões "Produto"', 'Frete "Produto"', 'Diferença']
+
+        self.stdout.write(f'\n--- TOP {top} — ML COBRA MAIS QUE O ESPERADO ---\n')
+        if maiores_ordenados:
+            self.stdout.write(tabulate(montar_linhas(maiores_ordenados), headers=colunas, tablefmt='grid'))
+        else:
+            self.stdout.write('(nenhum caso)')
+
+        self.stdout.write(f'\n--- TOP {top} — ML COBRA MENOS QUE O ESPERADO ---\n')
+        if menores_ordenados:
+            self.stdout.write(tabulate(montar_linhas(menores_ordenados), headers=colunas, tablefmt='grid'))
+        else:
+            self.stdout.write('(nenhum caso)')
