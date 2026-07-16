@@ -90,9 +90,19 @@ def importar_produtos_erp_completo(stdout, style, caminho=CAMINHO_ERP_COMPLETO):
         if not sku:
             continue
 
-        altura = _numero(linha.get('Altura'), 0)
-        largura = _numero(linha.get('Largura'), 0)
-        profundidade = _numero(linha.get('Comprimento'), 0)
+        # * [EXPLICAÇÃO] → O ERP entrega dimensões em METROS (unidade
+        #                  oficial confirmada dos campos do ERP) — mas
+        #                  o sistema inteiro usa CENTÍMETROS como
+        #                  padrão único (a fórmula de peso cúbico
+        #                  ÷6000 é o padrão internacional de
+        #                  transportadoras, sempre em cm; validada
+        #                  antes com exemplo real: 4928÷6000=0,8213kg,
+        #                  só faz sentido físico em cm). Converte aqui,
+        #                  na entrada — nenhum outro lugar do sistema
+        #                  faz ou deveria fazer essa conversão.
+        altura = _numero(linha.get('Altura'), 0) * 100
+        largura = _numero(linha.get('Largura'), 0) * 100
+        profundidade = _numero(linha.get('Comprimento'), 0) * 100
 
         dados = dict(
             titulo=_texto(linha.get('Detalhes do Produto'), sku),

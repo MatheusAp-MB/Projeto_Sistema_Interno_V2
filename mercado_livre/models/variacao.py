@@ -88,6 +88,19 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     frete_real = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     frete_real_atualizado_em = models.DateTimeField(blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Dimensões/peso DECLARADOS pelo vendedor no
+    #                  Mercado Livre (atributos SELLER_PACKAGE_* da
+    #                  API) — usados pra CALCULAR frete_real (peso
+    #                  volumétrico declarado vs físico declarado,
+    #                  mesma fórmula do peso_cubado do ERP, só que por
+    #                  MLB real, não por produto). Preenchimento
+    #                  parcial esperado (~85,6% da base, confirmado) —
+    #                  API ainda não exige em todas categorias.
+    altura_declarada_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    largura_declarada_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    comprimento_declarado_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    peso_declarado_kg = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
+
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'

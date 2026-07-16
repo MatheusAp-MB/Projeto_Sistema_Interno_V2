@@ -109,13 +109,19 @@ def importar_competicao_catalogo(stdout, style, caminho_json):
             if existente:
                 for campo, valor in dados_competicao.items():
                     setattr(existente, campo, valor)
-                para_atualizar.append(existente)
+                # * [EXPLICAÇÃO] → Se ainda não tem PK, é um objeto NOVO
+                #                  criado nesta mesma rodada (o mesmo MLB
+                #                  apareceu 2x no arquivo) — já vai ser
+                #                  salvo pelo bulk_create com os valores
+                #                  já atualizados, não pode ir pro
+                #                  bulk_update (mesmo bug já corrigido em
+                #                  importar_promocoes_ml.py e importar_
+                #                  qualidade_anuncio.py, esquecido aqui).
+                if existente.pk and existente not in para_atualizar:
+                    para_atualizar.append(existente)
             else:
                 nova = CompeticaoCatalogo(anuncio=anuncio, **dados_competicao)
                 para_criar.append(nova)
-                # * [EXPLICAÇÃO] → evita duplicar se o mesmo MLB aparecer
-                #                  2x no arquivo (mesmo padrão de segurança
-                #                  já usado nos outros importadores).
                 competicoes_existentes[anuncio.id] = nova
 
         tempo_loop = time.perf_counter() - inicio_loop

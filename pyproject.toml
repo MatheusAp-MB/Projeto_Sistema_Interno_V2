@@ -17,6 +17,7 @@ dependencies = [
     "python-dotenv (>=1.2.2,<2.0.0)",
     "mkdocs-material (>=9.7.6,<10.0.0)",
     "pymysql (>=1.2.0,<2.0.0)",
+    "tabulate (>=0.10.0,<0.11.0)",
 ]
 
 [build-system]
