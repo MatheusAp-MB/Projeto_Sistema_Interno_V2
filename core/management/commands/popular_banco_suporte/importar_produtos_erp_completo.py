@@ -15,6 +15,7 @@
 import pandas as pd
 from django.utils import timezone
 from produtos.models import Produto
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 CAMINHO_ERP_COMPLETO = 'Arquivos_de_Importação/Relatorio_Completo_ERP.xlsx'
 
@@ -138,7 +139,6 @@ def importar_produtos_erp_completo(stdout, style, caminho=CAMINHO_ERP_COMPLETO):
             para_criar.append(Produto(sku=sku, ean=ean, **dados))
 
     if para_criar:
-        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
         Produto.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
 
     if para_atualizar:

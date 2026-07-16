@@ -10,7 +10,7 @@ from decimal import Decimal
 from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, calcular_fixo, buscar_configuracao_tipo_anuncio
 
 
-def montar_linhas_candidatas(variacao, frete_todas=None):
+def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faixas_armazenagem=None):
     """Retorna (linhas, eh_catalogo, margem_minima, margem_atual,
     config_tipo, margem_original) pra uma variação. linhas é a lista
     pronta pra passar em recomendar_precificacao() OU pra exibir na
@@ -25,9 +25,16 @@ def montar_linhas_candidatas(variacao, frete_todas=None):
     direto, e cada promoção) — elimina dezenas de queries repetidas
     por variação (mesmo padrão já corrigido na Grade de Precificação:
     ~62 mil queries de frete evitadas em 5.672 variações × ~11
-    chamadas cada). Sem esse parâmetro (ex: tela individual, só 1 MLB
-    por vez), cada calcular_margem busca frete no banco por conta
-    própria — comportamento antigo, preservado.
+    chamadas cada). Sem esse parâmetro (ex: tela individual, só 1 MLB),
+    cada calcular_margem busca frete no banco por conta própria —
+    comportamento antigo, preservado.
+
+    config_geral, faixas_armazenagem: opcionais — repassados direto
+    pra calcular_fixo (mesmo padrão da Grade). Sem eles,
+    ConfiguracaoMercadoLivre.obter() bate no banco 1 vez POR VARIAÇÃO
+    — achado real: 5.672 consultas evitáveis na Recomendação de
+    Precificação, mesma classe de bug já corrigida na Grade, nunca
+    propagada pra cá.
 
     * [EXPLICAÇÃO] → 3 escopos de margem, cada um com seu próprio
     preço e seu próprio rebate — NUNCA misturados entre si:
@@ -61,7 +68,7 @@ def montar_linhas_candidatas(variacao, frete_todas=None):
     #                  preço — calculado 1 vez aqui, reaproveitado em
     #                  todas as chamadas de calcular_margem abaixo
     #                  (nunca recalculado por linha candidata).
-    fixo = calcular_fixo(produto)
+    fixo = calcular_fixo(produto, config_geral=config_geral, faixas_armazenagem=faixas_armazenagem)
 
     faixas_produto = None
     if frete_todas is not None:

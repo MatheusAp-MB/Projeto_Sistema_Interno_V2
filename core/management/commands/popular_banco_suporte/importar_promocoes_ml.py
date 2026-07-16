@@ -6,11 +6,14 @@
 #              ausente → pula" dos outros importadores.
 
 import json
+import time
 from datetime import datetime
 from pathlib import Path
+from django.db import connection
 from django.utils import timezone
 
 from mercado_livre.models import AnuncioMercadoLivre, PromocaoMercadoLivre
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 CAMINHO_PROMOCOES = Path('Arquivos_API/promocoes_completo.json')
 
@@ -43,6 +46,11 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
 
     stdout.write(f'[PROMOÇÕES ML] Lendo {caminho}...')
 
+    connection.force_debug_cursor = True
+    connection.queries_log.clear()
+    inicio_total = time.perf_counter()
+
+    inicio_leitura = time.perf_counter()
     with open(caminho, encoding='utf-8') as f:
         dados = json.load(f)
 
@@ -56,7 +64,10 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
     promocoes_por_item = dados.get('fase2_promocoes_por_item', {})
 
     stdout.write(f'    {len(promocoes_por_item)} MLB(s) no arquivo')
+    tempo_leitura = time.perf_counter() - inicio_leitura
+    stdout.write(f'  ⏱ Ler o JSON: {tempo_leitura:.1f}s')
 
+    inicio_carga_banco = time.perf_counter()
     mlbs_texto = list(promocoes_por_item.keys())
     anuncios_por_mlb = {
         a.mlb: a for a in AnuncioMercadoLivre.objects.filter(mlb__in=mlbs_texto).prefetch_related('variacoes')
@@ -66,6 +77,8 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
         (p.variacao_id, p.chave_externa): p
         for p in PromocaoMercadoLivre.objects.all()
     }
+    tempo_carga_banco = time.perf_counter() - inicio_carga_banco
+    stdout.write(f'  ⏱ Carregar anúncios/promoções existentes do banco: {tempo_carga_banco:.1f}s')
 
     para_criar = []
     para_atualizar = []
@@ -75,16 +88,25 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
 
     total_mlbs_promo = len(promocoes_por_item)
 
+    inicio_loop = time.perf_counter()
     for indice, (mlb, resultado) in enumerate(promocoes_por_item.items(), start=1):
         if indice % 500 == 0 or indice == total_mlbs_promo:
-            stdout.write(f'    ... {indice}/{total_mlbs_promo} MLBs processados')
+            decorrido = time.perf_counter() - inicio_loop
+            stdout.write(f'    ... {indice}/{total_mlbs_promo} MLBs processados ({decorrido:.1f}s)')
 
         anuncio = anuncios_por_mlb.get(mlb)
         if not anuncio:
             sem_anuncio += 1
             continue
 
-        variacao = anuncio.variacoes.first()
+        # * [EXPLICAÇÃO] → .first() NÃO usa o cache do prefetch_related
+        #                  (é um comportamento conhecido do Django —
+        #                  só .all() usa) — sempre dispararia 1 query
+        #                  nova por MLB, mesmo com tudo pré-carregado.
+        #                  list(anuncio.variacoes.all())[0] usa o cache
+        #                  de verdade, sem consulta nova.
+        variacoes_do_anuncio = list(anuncio.variacoes.all())
+        variacao = variacoes_do_anuncio[0] if variacoes_do_anuncio else None
         if not variacao:
             sem_variacao += 1
             continue
@@ -129,17 +151,24 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
                 para_criar.append(nova)
                 promocoes_existentes[(variacao.id, chave)] = nova
 
+    tempo_loop = time.perf_counter() - inicio_loop
+    stdout.write(f'  ⏱ Loop de processamento (todos os MLBs): {tempo_loop:.1f}s')
+
     campos = list(dados_promo.keys())
 
+    inicio_salvar = time.perf_counter()
     if para_criar:
-        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
         PromocaoMercadoLivre.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar and campos:
-        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
         PromocaoMercadoLivre.objects.bulk_update(para_atualizar, campos, batch_size=BATCH_SIZE_PADRAO)
+    tempo_salvar = time.perf_counter() - inicio_salvar
+    stdout.write(f'  ⏱ Salvar no banco (bulk_create/bulk_update): {tempo_salvar:.1f}s')
+
+    tempo_total = time.perf_counter() - inicio_total
+    stdout.write(f'  📊 Consultas ao banco (SQL) no total: {len(connection.queries_log)}')
 
     stdout.write(style.SUCCESS(
-        f'[PROMOÇÕES ML] Concluído!\n'
+        f'[PROMOÇÕES ML] Concluído em {tempo_total:.1f}s!\n'
         f'    Promoções criadas: {len(para_criar)}\n'
         f'    Promoções atualizadas: {len(para_atualizar)}\n'
         f'    Sem anúncio correspondente: {sem_anuncio}\n'

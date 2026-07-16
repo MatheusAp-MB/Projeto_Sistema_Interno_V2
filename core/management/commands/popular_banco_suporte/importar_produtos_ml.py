@@ -12,6 +12,7 @@
 import json
 import pandas as pd
 from produtos.models import Produto
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 CAMINHO_ERP = 'Arquivos_de_Importação/Produtos_do_ML_Sysemp.xlsx'
 
@@ -86,7 +87,7 @@ def importar_produtos_ml(stdout, style, caminho_json):
             )
 
     if para_criar:
-        Produto.objects.bulk_create(list(para_criar.values()), batch_size=1000)
+        Produto.objects.bulk_create(list(para_criar.values()), batch_size=BATCH_SIZE_PADRAO)
 
     if para_atualizar:
         campos = list(dados_produto.keys())

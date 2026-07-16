@@ -5,12 +5,20 @@
 #              e Configuração de Tipo de Anúncio já estarem no banco.
 #              Nunca calculado ao vivo por nenhuma tela depois disso.
 
+import time
+from django.db import connection
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao, FreteML
 from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
 from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import recomendar_precificacao, COMPORTAMENTOS, TIPOS_SEM_PROMOCAO
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+
 
 def calcular_recomendacoes_precificacao(stdout, style):
     stdout.write('[RECOMENDAÇÃO PRECIFICAÇÃO] Calculando os 3 comportamentos por variação...')
+
+    connection.force_debug_cursor = True
+    connection.queries_log.clear()
+    inicio_total = time.perf_counter()
 
     variacoes = (
         VariacaoAnuncioMercadoLivre.objects
@@ -29,7 +37,11 @@ def calcular_recomendacoes_precificacao(stdout, style):
     #                  otimização já aplicada na Grade de Precificação.
     #                  Elimina dezenas de milhares de queries repetidas
     #                  (1 por linha candidata × variação).
+    from mercado_livre.models import ConfiguracaoMercadoLivre, FaixaArmazenagemMercadoLivre
+
     frete_todas = list(FreteML.objects.all())
+    config_geral = ConfiguracaoMercadoLivre.obter()
+    faixas_armazenagem = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
 
     existentes = {
         (r.variacao_id, r.comportamento): r
@@ -41,11 +53,15 @@ def calcular_recomendacoes_precificacao(stdout, style):
     para_atualizar_variacoes = []
     sem_calculo = 0
 
+    inicio_loop = time.perf_counter()
     for indice, variacao in enumerate(variacoes, start=1):
         if indice % 500 == 0 or indice == total_variacoes:
-            stdout.write(f'    ... {indice}/{total_variacoes} variações processadas')
+            decorrido = time.perf_counter() - inicio_loop
+            stdout.write(f'    ... {indice}/{total_variacoes} variações processadas ({decorrido:.1f}s)')
 
-        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(variacao, frete_todas=frete_todas)
+        linhas, eh_catalogo, margem_minima, margem_atual, config_tipo, margem_original = montar_linhas_candidatas(
+            variacao, frete_todas=frete_todas, config_geral=config_geral, faixas_armazenagem=faixas_armazenagem
+        )
         if margem_minima is None:
             sem_calculo += 1
             continue
@@ -145,14 +161,18 @@ def calcular_recomendacoes_precificacao(stdout, style):
                 nova = RecomendacaoPrecificacao(variacao=variacao, comportamento=comportamento, **dados)
                 para_criar.append(nova)
                 existentes[chave] = nova
+
+    tempo_loop = time.perf_counter() - inicio_loop
+    stdout.write(f'  ⏱ Loop de cálculo (todas as variações): {tempo_loop:.1f}s')
+
     campos = [
         'tem_escolha', 'cenario_nome', 'cenario_tipo',
         'preco_recomendado', 'margem_recomendada', 'bucket_nome', 'exige_aprovacao',
         'categoria_estado', 'variacao_margem_pp',
     ]
 
+    inicio_salvar = time.perf_counter()
     if para_criar:
-        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
         RecomendacaoPrecificacao.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar:
         RecomendacaoPrecificacao.objects.bulk_update(para_atualizar, campos, batch_size=BATCH_SIZE_PADRAO)
@@ -160,9 +180,14 @@ def calcular_recomendacoes_precificacao(stdout, style):
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
             para_atualizar_variacoes, ['margem_atual_vs_original_pp'], batch_size=BATCH_SIZE_PADRAO
         )
+    tempo_salvar = time.perf_counter() - inicio_salvar
+    stdout.write(f'  ⏱ Salvar no banco (bulk_create/bulk_update): {tempo_salvar:.1f}s')
+
+    tempo_total = time.perf_counter() - inicio_total
+    stdout.write(f'  📊 Consultas ao banco (SQL) no total: {len(connection.queries_log)}')
 
     stdout.write(style.SUCCESS(
-        f'[RECOMENDAÇÃO PRECIFICAÇÃO] Concluído!\n'
+        f'[RECOMENDAÇÃO PRECIFICAÇÃO] Concluído em {tempo_total:.1f}s!\n'
         f'    Recomendações criadas: {len(para_criar)}\n'
         f'    Recomendações atualizadas: {len(para_atualizar)}\n'
         f'    Sem cálculo possível (sem produto/config): {sem_calculo}'

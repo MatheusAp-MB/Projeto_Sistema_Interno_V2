@@ -162,7 +162,6 @@ def importar_anuncios_ml(stdout, style, caminho_json):
             anuncios_para_criar[mlb] = AnuncioMercadoLivre(mlb=mlb, **dados_anuncio)
 
     if anuncios_para_criar:
-        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
         AnuncioMercadoLivre.objects.bulk_create(list(anuncios_para_criar.values()), batch_size=BATCH_SIZE_PADRAO)
 
     if anuncios_para_atualizar:

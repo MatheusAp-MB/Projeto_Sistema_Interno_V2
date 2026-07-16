@@ -27,6 +27,7 @@
 
 import time
 from collections import defaultdict
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 
 def _margens_do_tipo(config):
@@ -270,7 +271,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     ]
 
     if para_criar:
-        GradePrecificacaoML.objects.bulk_create(para_criar, batch_size=1000)
+        GradePrecificacaoML.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar:
         GradePrecificacaoML.objects.bulk_update(para_atualizar, campos_atualizaveis, batch_size=BATCH_SIZE_PADRAO)
 

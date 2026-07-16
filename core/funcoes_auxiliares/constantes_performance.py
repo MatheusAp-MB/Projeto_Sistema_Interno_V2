@@ -4,4 +4,4 @@
 #              trocando 1 número aqui, em vez de editar 20 linhas
 #              espalhadas em 8 arquivos toda vez que quiser comparar.
 
-BATCH_SIZE_PADRAO = 5000
+BATCH_SIZE_PADRAO = 100

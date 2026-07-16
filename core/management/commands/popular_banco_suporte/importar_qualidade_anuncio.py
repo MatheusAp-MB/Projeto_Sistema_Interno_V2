@@ -14,6 +14,7 @@
 import json
 from datetime import datetime
 from mercado_livre.models import AnuncioMercadoLivre, CriterioQualidade, QualidadeAnuncio, QualidadeAnuncioCriterio
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 
 def parsear_data(valor):
@@ -144,7 +145,6 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
     campos_qualidade = ['score', 'nivel', 'calculado_em', 'http_status', 'erro']
 
     if qualidades_para_criar:
-        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
         QualidadeAnuncio.objects.bulk_create(qualidades_para_criar, batch_size=BATCH_SIZE_PADRAO)
     if qualidades_para_atualizar:
         QualidadeAnuncio.objects.bulk_update(qualidades_para_atualizar, campos_qualidade, batch_size=BATCH_SIZE_PADRAO)
