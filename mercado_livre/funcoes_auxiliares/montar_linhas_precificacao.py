@@ -88,9 +88,13 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
 
     faixas_produto = None
     if frete_todas is not None:
+        # * [EXPLICAÇÃO] → Peso da EMBALAGEM (confirmado com o usuário
+        #                  — mesma regra usada em buscar_frete e
+        #                  preparar_fixo_e_faixas) — nunca do produto
+        #                  sem embalar.
         peso_cubado = produto.peso_cubado or Decimal('0')
-        peso_normal = produto.peso or Decimal('0')
-        peso = max(peso_normal, peso_cubado)
+        peso_embalagem = produto.peso_produto_apos_embalado or Decimal('0')
+        peso = max(peso_embalagem, peso_cubado)
         faixas_produto = sorted(
             (f for f in frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
             key=lambda f: f.preco_min,

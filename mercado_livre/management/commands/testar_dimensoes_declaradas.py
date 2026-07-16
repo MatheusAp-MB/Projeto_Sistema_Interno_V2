@@ -12,9 +12,15 @@
 #
 #              Relatório final: compara, pra TODO o catálogo (não só
 #              amostra), o frete "Real" (MLB, dimensão declarada) com
-#              o frete "Produto" (ERP) — quantos batem, quantos o ML
-#              cobra mais, quantos cobra menos, e as 3 maiores
-#              diferenças de cada lado.
+#              o frete "Produto" (ERP, embalagem) — quantos batem,
+#              quantos o ML cobra mais, quantos cobra menos, e as N
+#              maiores diferenças de cada lado.
+#
+#              Comparação só é JUSTA quando os 2 lados têm dado real —
+#              excluídos: produto sem embalagem cadastrada no ERP
+#              (inflava "ML cobra mais" artificialmente) E MLB sem
+#              dimensão declarada no ML, só peso legado residual
+#              (inflava "ML cobra menos" artificialmente).
 
 import json
 from decimal import Decimal, InvalidOperation
@@ -50,8 +56,8 @@ def _buscar_frete_por_peso_e_preco(peso, preco, frete_todas):
 class Command(BaseCommand):
     help = (
         'TESTE — calcula frete_real a partir das dimensões declaradas pelo '
-        'vendedor no ML, e compara com o frete esperado pelas dimensões do '
-        'PRODUTO (ERP) — relatório agregado pro catálogo inteiro.'
+        'vendedor no ML, e compara com o frete esperado pelas dimensões da '
+        'EMBALAGEM do PRODUTO (ERP) — relatório agregado pro catálogo inteiro.'
     )
 
     def add_arguments(self, parser):
@@ -88,15 +94,27 @@ class Command(BaseCommand):
         com_so_peso_legado = 0
 
         # * [EXPLICAÇÃO] → 1 registro por variação com AMBOS os fretes
-        #                  calculáveis (real e produto) — usado pro
-        #                  relatório agregado do catálogo inteiro.
+        #                  calculáveis (real e produto, e os 2 com dado
+        #                  real de verdade) — usado pro relatório
+        #                  agregado do catálogo inteiro.
         comparacoes = []
+        sem_dado_produto = [0]  # * lista de 1 item = contador mutável dentro do loop
+        sem_dado_ml = [0]
+        nao_ativo = [0]
 
         for reg in registros:
             mlb = reg.get('mlb')
             anuncio = anuncios_por_mlb.get(mlb)
             if not anuncio:
                 sem_anuncio += 1
+                continue
+
+            # * [EXPLICAÇÃO] → Só anúncios ATIVOS entram no relatório —
+            #                  anúncio pausado/encerrado pode ter dado
+            #                  de preço/frete desatualizado, não
+            #                  reflete o que o ML está cobrando agora.
+            if not anuncio.tipo_de_anuncio or anuncio.tipo_de_anuncio.status != 'active':
+                nao_ativo[0] += 1
                 continue
 
             variacao_id = str(reg.get('variacao_id') or mlb)
@@ -143,24 +161,52 @@ class Command(BaseCommand):
             variacoes_para_atualizar.append(variacao)
 
             # * [EXPLICAÇÃO] → Frete "Produto" — mesma regra de sempre
-            #                  (maior entre peso físico e peso_cubado
-            #                  do PRODUTO, já corrigido pra cm),
-            #                  calculado em memória (frete_todas já
-            #                  carregado), sem query nova por item.
+            #                  (maior entre peso da EMBALAGEM e
+            #                  peso_cubado do PRODUTO), calculado em
+            #                  memória (frete_todas já carregado), sem
+            #                  query nova por item.
             produto = variacao.produto
             if produto and frete_real is not None and variacao.preco_atual:
-                peso_produto = max(produto.peso or Decimal('0'), produto.peso_cubado or Decimal('0'))
-                frete_produto = _buscar_frete_por_peso_e_preco(peso_produto, variacao.preco_atual, frete_todas)
-                if frete_produto is not None:
-                    comparacoes.append({
-                        'mlb': mlb,
-                        'sku': produto.sku,
-                        'dimensoes_reais': f'{altura}×{largura}×{comprimento} cm, {peso_declarado_kg} kg',
-                        'dimensoes_produto': f'{produto.altura}×{produto.largura}×{produto.profundidade} cm, {peso_produto} kg',
-                        'frete_real': frete_real,
-                        'frete_produto': frete_produto,
-                        'diferenca': frete_real - frete_produto,
-                    })
+                peso_produto = max(
+                    produto.peso_produto_apos_embalado or Decimal('0'),
+                    produto.peso_cubado or Decimal('0'),
+                )
+
+                # * [EXPLICAÇÃO] → Comparação só é JUSTA quando os 2
+                #                  LADOS têm dado real de verdade —
+                #                  achado real (2 tipos de lacuna, dos
+                #                  2 lados opostos):
+                #                  (1) Produto sem embalagem cadastrada
+                #                      no ERP (peso_produto=0) faz o
+                #                      "esperado" cair artificialmente
+                #                      barato — inflava "ML cobra mais".
+                #                  (2) ML sem dimensão declarada (só
+                #                      peso legado, tipo 0,01kg) faz o
+                #                      frete "Real" cair artificialmente
+                #                      barato — inflava "ML cobra menos".
+                #                  Exclui os 2 casos da comparação —
+                #                  ainda soma nas contagens de "sem
+                #                  dado", nunca finge comparação sem
+                #                  base real.
+                sem_dado_produto_ok = peso_produto > 0
+                sem_dado_ml_ok = altura is not None and largura is not None and comprimento is not None
+
+                if not sem_dado_produto_ok:
+                    sem_dado_produto[0] += 1
+                elif not sem_dado_ml_ok:
+                    sem_dado_ml[0] += 1
+                else:
+                    frete_produto = _buscar_frete_por_peso_e_preco(peso_produto, variacao.preco_atual, frete_todas)
+                    if frete_produto is not None:
+                        comparacoes.append({
+                            'mlb': mlb,
+                            'sku': produto.sku,
+                            'dimensoes_reais': f'{altura}×{largura}×{comprimento} cm, {peso_declarado_kg} kg',
+                            'dimensoes_produto': f'{produto.altura_produto_apos_embalado}×{produto.largura_produto_apos_embalado}×{produto.comprimento_produto_apos_embalado} cm, {peso_produto} kg',
+                            'frete_real': frete_real,
+                            'frete_produto': frete_produto,
+                            'diferenca': frete_real - frete_produto,
+                        })
 
         if variacoes_para_atualizar:
             VariacaoAnuncioMercadoLivre.objects.bulk_update(
@@ -177,8 +223,11 @@ class Command(BaseCommand):
             f'    Só peso legado (WEIGHT, sem dimensão): {com_so_peso_legado}\n'
             f'    Sem nenhum dado declarado: {sem_dimensao}\n'
             f'    Sem anúncio correspondente: {sem_anuncio}\n'
+            f'    Anúncio não ativo (pausado/encerrado — excluído): {nao_ativo[0]}\n'
             f'    Sem variação correspondente: {sem_variacao}\n'
-            f'    Comparáveis (frete Real E Produto disponíveis): {len(comparacoes)}'
+            f'    Sem dado de embalagem no ERP (excluído): {sem_dado_produto[0]}\n'
+            f'    Sem dimensão declarada no ML — só peso legado (excluído): {sem_dado_ml[0]}\n'
+            f'    Comparáveis (dado real dos 2 lados): {len(comparacoes)}'
         ))
 
         maiores = [c for c in comparacoes if c['diferenca'] > 0]
