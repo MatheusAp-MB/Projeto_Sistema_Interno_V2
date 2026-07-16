@@ -1,0 +1,40 @@
+<!--
+* [RESUMO] → Mini-card de 1 MLB dentro da árvore da Grade — só as 4
+* margens do tipo REAL daquele anúncio (nunca 8, já que um MLB é
+* Clássico OU Premium, nunca os dois). Badge de origem do frete
+* (Tabela/Real) mostra se aquele MLB já tem frete real da API.
+-->
+<div class="grade-card-mlb grade-tipo-bloco--{{ card.prefixo }}">
+    <div class="grade-card-mlb-cabecalho">
+        <span class="card-copiavel">
+            <span class="grade-card-mlb-numero">{{ card.mlb }}</span>
+            <i class="fas fa-copy icone-copiar" data-copiar="{{ card.mlb }}"></i>
+        </span>
+        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=card.badge %}
+        {% if card.frete_origem == 'real' %}
+        <span class="grade-badge-frete grade-badge-frete--real">Frete: Real (API)</span>
+        {% else %}
+        <span class="grade-badge-frete grade-badge-frete--tabela">Frete: Tabela</span>
+        {% endif %}
+    </div>
+    <div class="grade-margens-grid">
+        {% for linha in card.linhas %}
+        <div
+            class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.preco %}grade-margem-clicavel{% endif %}"
+            {% if linha.preco %}onclick="alternarDetalheMargem(this, {{ produto_id }}, '{{ card.tipo_valor }}', '{{ linha.margem_chave }}', '{{ card.variacao_id }}')"{% endif %}
+        >
+            <div class="grade-margem-label">{{ linha.label }}</div>
+            {% if linha.preco %}
+            <div class="grade-margem-linha">
+                <span class="grade-margem-preco">R$ {{ linha.preco|floatformat:2 }}</span>
+                <span class="grade-margem-separador">|</span>
+                <span class="grade-margem-obtida">{{ linha.margem|floatformat:2 }}%</span>
+            </div>
+            {% else %}
+            <div class="grade-margem-vazia">—</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div id="detalhe-{{ produto_id }}-{{ card.tipo_valor }}-{{ card.variacao_id }}" class="grade-detalhe-slot"></div>
+</div>

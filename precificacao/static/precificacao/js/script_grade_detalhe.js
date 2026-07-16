@@ -65,8 +65,13 @@ function limparDestaque(grid) {
     grid.querySelectorAll('.grade-margem-card--ativa').forEach(el => el.classList.remove('grade-margem-card--ativa'));
 }
 
-function alternarDetalheMargem(elCard, produtoId, tipo, margemChave) {
-    const slot = document.getElementById(`detalhe-${produtoId}-${tipo}`);
+function alternarDetalheMargem(elCard, produtoId, tipo, margemChave, variacaoId) {
+    // * [EXPLICAÇÃO] → variacaoId vazio = fallback do produto (usa
+    //                  '0' como sufixo do slot, nunca é um PK real).
+    //                  Com variacaoId real, é 1 MLB específico — cada
+    //                  um tem seu PRÓPRIO slot, independente dos outros.
+    const sufixoSlot = variacaoId || '0';
+    const slot = document.getElementById(`detalhe-${produtoId}-${tipo}-${sufixoSlot}`);
     if (!slot) return;
 
     const grid = elCard.closest('.grade-margens-grid');
@@ -82,23 +87,28 @@ function alternarDetalheMargem(elCard, produtoId, tipo, margemChave) {
     limparDestaque(grid);
     elCard.classList.add('grade-margem-card--ativa');
 
-    const url = `/precificacao/grade-mercado-livre/detalhe/${produtoId}/${tipo}/${margemChave}/`;
+    let url = `/precificacao/grade-mercado-livre/detalhe/${produtoId}/${tipo}/${margemChave}/`;
+    if (variacaoId) {
+        url += `?variacao=${variacaoId}`;
+    }
     htmx.ajax('GET', url, { target: slot, swap: 'innerHTML' }).then(() => {
         slot.dataset.margemAtual = margemChave;
     });
 }
 
-function fecharDetalheMargem(produtoId, tipo) {
-    const slot = document.getElementById(`detalhe-${produtoId}-${tipo}`);
+function fecharDetalheMargem(produtoId, tipo, variacaoId) {
+    const sufixoSlot = variacaoId || '0';
+    const slot = document.getElementById(`detalhe-${produtoId}-${tipo}-${sufixoSlot}`);
     if (!slot) return;
     slot.innerHTML = '';
     delete slot.dataset.margemAtual;
 
     // * [EXPLICAÇÃO] → O slot é sempre o irmão logo depois do bloco
-    //                  (.grade-tipo-bloco) que contém o grid de
-    //                  cards — usa isso pra achar e limpar o destaque
-    //                  quando fecha pelo botão "Fechar" do painel
-    //                  (que não tem referência direta ao card).
+    //                  (.grade-tipo-bloco ou .grade-card-mlb) que
+    //                  contém o grid de cards — usa isso pra achar e
+    //                  limpar o destaque quando fecha pelo botão
+    //                  "Fechar" do painel (que não tem referência
+    //                  direta ao card).
     const bloco = slot.previousElementSibling;
     if (bloco) {
         limparDestaque(bloco.querySelector('.grade-margens-grid'));

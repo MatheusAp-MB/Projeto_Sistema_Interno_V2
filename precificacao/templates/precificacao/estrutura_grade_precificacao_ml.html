@@ -1,10 +1,11 @@
 <!--
-* [RESUMO] → Grade de Precificação ML — 1 card por produto, com 2
-* mini-tabelas dentro (Clássico e Premium — cabeçalhos SEPARADOS,
-* já que os 2 tipos são editáveis de forma independente agora e
-* podem ter margens diferentes). Tela temporária, enquanto a
-* integração definitiva com o resto do sistema não é desenhada com
-* o gestor.
+* [RESUMO] → Grade de Precificação ML — árvore no mesmo padrão do Hub
+* de Anúncios: 1 <details> por produto (cabeçalho igual), contendo o
+* card de fallback (Clássico/Premium, 8 margens) + 2 sub-grupos
+* aninhados (Simples/Base e Catálogo — só distinção visual, não muda
+* precificação), cada um com 1 mini-card por MLB publicado (só as 4
+* margens do SEU tipo real, já que um MLB nunca é Clássico E Premium
+* ao mesmo tempo).
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
@@ -179,9 +180,12 @@
                 · Custo R$ {{ item.produto.custo|floatformat:2 }}
             </div>
         </div>
+        <span class="grade-card-contagem">{{ item.total_mlbs }} MLB{{ item.total_mlbs|pluralize }} publicado{{ item.total_mlbs|pluralize }}</span>
     </summary>
 
     <div class="grade-card-corpo">
+        <div class="grade-secao-titulo">Grade base (fallback do produto)</div>
+
         <div class="grade-tipo-bloco grade-tipo-bloco--classico">
             <div class="grade-tipo-header">
                 {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_classico %}
@@ -189,15 +193,15 @@
             <div class="grade-margens-grid">
                 {% for linha in item.linhas_classico %}
                 <div
-                    class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.celula %}grade-margem-clicavel{% endif %}"
-                    {% if linha.celula %}onclick="alternarDetalheMargem(this, {{ item.produto.id }}, '{{ tipo_classico }}', '{{ linha.margem_chave }}')"{% endif %}
+                    class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.preco %}grade-margem-clicavel{% endif %}"
+                    {% if linha.preco %}onclick="alternarDetalheMargem(this, {{ item.produto.id }}, '{{ tipo_classico }}', '{{ linha.margem_chave }}', '')"{% endif %}
                 >
                     <div class="grade-margem-label">{{ linha.label }}</div>
-                    {% if linha.celula %}
+                    {% if linha.preco %}
                     <div class="grade-margem-linha">
-                        <span class="grade-margem-preco">R$ {{ linha.celula.preco_calculado|floatformat:2 }}</span>
+                        <span class="grade-margem-preco">R$ {{ linha.preco|floatformat:2 }}</span>
                         <span class="grade-margem-separador">|</span>
-                        <span class="grade-margem-obtida">{{ linha.celula.margem_percentual_obtida|floatformat:2 }}%</span>
+                        <span class="grade-margem-obtida">{{ linha.margem|floatformat:2 }}%</span>
                     </div>
                     {% else %}
                     <div class="grade-margem-vazia">—</div>
@@ -207,7 +211,7 @@
             </div>
         </div>
 
-        <div id="detalhe-{{ item.produto.id }}-{{ tipo_classico }}" class="grade-detalhe-slot"></div>
+        <div id="detalhe-{{ item.produto.id }}-{{ tipo_classico }}-0" class="grade-detalhe-slot"></div>
 
         <div class="grade-tipo-bloco grade-tipo-bloco--premium">
             <div class="grade-tipo-header">
@@ -216,15 +220,15 @@
             <div class="grade-margens-grid">
                 {% for linha in item.linhas_premium %}
                 <div
-                    class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.celula %}grade-margem-clicavel{% endif %}"
-                    {% if linha.celula %}onclick="alternarDetalheMargem(this, {{ item.produto.id }}, '{{ tipo_premium }}', '{{ linha.margem_chave }}')"{% endif %}
+                    class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.preco %}grade-margem-clicavel{% endif %}"
+                    {% if linha.preco %}onclick="alternarDetalheMargem(this, {{ item.produto.id }}, '{{ tipo_premium }}', '{{ linha.margem_chave }}', '')"{% endif %}
                 >
                     <div class="grade-margem-label">{{ linha.label }}</div>
-                    {% if linha.celula %}
+                    {% if linha.preco %}
                     <div class="grade-margem-linha">
-                        <span class="grade-margem-preco">R$ {{ linha.celula.preco_calculado|floatformat:2 }}</span>
+                        <span class="grade-margem-preco">R$ {{ linha.preco|floatformat:2 }}</span>
                         <span class="grade-margem-separador">|</span>
-                        <span class="grade-margem-obtida">{{ linha.celula.margem_percentual_obtida|floatformat:2 }}%</span>
+                        <span class="grade-margem-obtida">{{ linha.margem|floatformat:2 }}%</span>
                     </div>
                     {% else %}
                     <div class="grade-margem-vazia">—</div>
@@ -234,7 +238,33 @@
             </div>
         </div>
 
-        <div id="detalhe-{{ item.produto.id }}-{{ tipo_premium }}" class="grade-detalhe-slot"></div>
+        <div id="detalhe-{{ item.produto.id }}-{{ tipo_premium }}-0" class="grade-detalhe-slot"></div>
+
+        {% if item.cards_simples_base or item.cards_catalogo %}
+        <div class="grade-mlbs-wrapper">
+            {% if item.cards_simples_base %}
+            <details class="grade-subgrupo-mlb" open>
+                <summary class="grade-subgrupo-titulo">Simples / Base ({{ item.cards_simples_base|length }})</summary>
+                <div class="grade-lista-mlbs">
+                    {% for card in item.cards_simples_base %}
+                    {% include 'precificacao/parciais/estrutura_parcial_card_mlb.html' with card=card produto_id=item.produto.id %}
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if item.cards_catalogo %}
+            <details class="grade-subgrupo-mlb" open>
+                <summary class="grade-subgrupo-titulo">Catálogo ({{ item.cards_catalogo|length }})</summary>
+                <div class="grade-lista-mlbs">
+                    {% for card in item.cards_catalogo %}
+                    {% include 'precificacao/parciais/estrutura_parcial_card_mlb.html' with card=card produto_id=item.produto.id %}
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </details>
 {% endfor %}

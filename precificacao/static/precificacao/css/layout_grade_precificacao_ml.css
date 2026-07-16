@@ -417,7 +417,10 @@
 /* ================================================
    Painel "como chegamos nesse preço" — carregado sob
    demanda via HTMX, dentro do slot posicionado entre
-   os blocos (Clássico/Premium).
+   os blocos (Clássico/Premium). Ferramenta de AUDITORIA
+   (não consulta rápida) — tipografia maior, contraste
+   forte, hierarquia visual clara entre dado normal,
+   subtotal e resultado final.
    ================================================ */
 
 .grade-detalhe-slot:empty {
@@ -429,8 +432,8 @@
     background: #fff;
     border: 1px solid #d8dee6;
     border-radius: 10px;
-    padding: 10px 14px;
-    margin: 4px 0 12px;
+    padding: 16px 20px;
+    margin: 6px 0 14px;
 }
 
 /* * [EXPLICAÇÃO] → Mesma cor exata dos blocos Clássico/Premium
@@ -449,22 +452,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .grade-detalhe-titulo {
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 1.15rem;
     color: #1a1a2e;
 }
 
 .grade-detalhe-fechar {
     background: none;
     border: none;
-    color: #7a8699;
-    font-size: 0.76rem;
+    color: #445;
+    font-size: 0.88rem;
+    font-weight: 600;
     cursor: pointer;
-    padding: 3px 7px;
+    padding: 5px 10px;
     border-radius: 6px;
     flex-shrink: 0;
 }
@@ -474,97 +478,178 @@
     color: #1a1a2e;
 }
 
-/* * [EXPLICAÇÃO] → Dados de entrada em grid de chips compactos —
-   mesmo estilo visual dos cards de margem (grade-margem-card), lado
-   a lado em vez de tabela vertical. Economiza espaço, consistente
-   com o resto da tela. */
-.grade-detalhe-chips {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-    gap: 6px;
+/* * [EXPLICAÇÃO] → Título de cada seção (Composição / Fórmula
+   abstrata / Fórmula preenchida / Passo a passo) — maior, com linha
+   divisória visível, pra cada bloco se separar claramente ao rolar
+   a tela (o problema original: as 4 seções se misturavam). */
+.grade-detalhe-secao-titulo {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    letter-spacing: .01em;
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e5e8ec;
+}
+
+.grade-detalhe-secao-titulo:first-of-type {
+    margin-top: 2px;
+}
+
+/* ================================================
+   Tabela Composição/Percentual/Valor
+   ================================================ */
+
+.grade-detalhe-tabela-composicao {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
     margin-bottom: 8px;
 }
 
-.grade-detalhe-chip {
-    background: #f8f9fb;
-    border: 1px solid #e5e8ec;
-    border-radius: 6px;
-    padding: 5px 8px;
-    text-align: center;
-}
-
-.grade-detalhe-chip--larga {
-    grid-column: span 2;
-}
-
-.grade-detalhe-chip-label {
-    font-size: 0.6rem;
+.grade-detalhe-tabela-composicao th {
+    text-align: left;
+    font-size: 0.76rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: #99a;
-    letter-spacing: .02em;
-    margin-bottom: 2px;
+    letter-spacing: .03em;
+    color: #445;
+    padding: 8px 12px;
+    border-bottom: 2px solid #d8dee6;
 }
 
-.grade-detalhe-chip-valor {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #1a1a2e;
+.grade-detalhe-tabela-composicao th:not(:first-child),
+.grade-detalhe-tabela-composicao td:not(:first-child) {
+    text-align: right;
+}
+
+.grade-detalhe-tabela-composicao td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #eef0f3;
     white-space: nowrap;
+    color: #1a1a2e;
 }
 
-/* * [EXPLICAÇÃO] → As 3 linhas da fórmula viram 1 bloco corrido,
-   separado por "·", em vez de 3 linhas empilhadas com <br> — reduz
-   altura sem perder legibilidade (ainda é monoespaçado, ainda mostra
-   o passo a passo completo). */
-.grade-detalhe-formula-referencia {
-    font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-    color: #99a;
-    font-style: italic;
-    padding: 2px 10px;
-    margin-bottom: 2px;
+.grade-detalhe-tabela-composicao tr.linha-subtotal td {
+    background: #f3f5f8;
+    font-weight: 700;
+    font-size: 0.98rem;
 }
 
-.grade-detalhe-formula {
+.grade-detalhe-tabela-composicao tr.linha-destaque td {
+    background: #dbeafe4d;
+    font-weight: 700;
+    font-size: 1.08rem;
+    color: #0c447c;
+    border-bottom: 2px solid #1e3a5f;
+    padding: 12px;
+}
+
+/* ================================================
+   Fórmula abstrata / preenchida
+   ================================================ */
+
+.grade-detalhe-formula-bloco {
     font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
+    font-size: 1rem;
     background: #f8f9fb;
-    border: 1px solid #e5e8ec;
-    border-radius: 6px;
-    padding: 7px 10px;
-    line-height: 1.5;
-    color: #333;
-    margin-bottom: 8px;
+    border: 1px solid #d8dee6;
+    border-radius: 8px;
+    padding: 14px 16px;
+    line-height: 2;
+    color: #1a1a2e;
+    margin-bottom: 10px;
 }
+
+/* ================================================
+   Passo a passo — texto explicativo e conta em
+   destaques diferentes, número maior e mais legível.
+   ================================================ */
+
+.grade-detalhe-passos {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.grade-detalhe-passo {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 4px 14px;
+    background: #f8f9fb;
+    border: 1px solid #d8dee6;
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.grade-detalhe-passo-numero {
+    grid-row: span 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #1e3a5f;
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+}
+
+.grade-detalhe-passo-texto {
+    font-size: 0.9rem;
+    color: #334;
+    line-height: 1.5;
+}
+
+.grade-detalhe-passo-conta {
+    font-family: 'Courier New', monospace;
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: #1a1a2e;
+}
+
+.grade-detalhe-nota {
+    font-size: 0.82rem;
+    color: #667;
+    font-style: italic;
+    padding: 6px 4px 10px;
+}
+
+/* ================================================
+   Resultado final
+   ================================================ */
 
 .grade-detalhe-resultado {
     display: flex;
     align-items: baseline;
     justify-content: center;
-    gap: 10px;
+    gap: 14px;
     background: #eef2f7;
-    border-radius: 6px;
-    padding: 6px;
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 8px;
 }
 
 .grade-detalhe-resultado-preco {
-    font-size: 1.05rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: #1e3a5f;
 }
 
 .grade-detalhe-resultado-margem {
-    font-size: 0.8rem;
+    font-size: 1rem;
     color: #1a8a5f;
     font-weight: 700;
 }
 
 .grade-detalhe-vazio {
-    color: #99a;
+    color: #667;
     font-style: italic;
     text-align: center;
-    padding: 12px;
+    padding: 16px;
+    font-size: 0.95rem;
 }
 
 .grade-paginacao {
@@ -585,4 +670,103 @@
 
 .grade-paginacao-link:hover {
     text-decoration: underline;
+}
+
+/* ================================================
+   Contagem de MLBs no cabeçalho do produto
+   ================================================ */
+
+.grade-card-contagem {
+    font-size: 0.72rem;
+    color: #b8c8dc;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.grade-secao-titulo {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #99a;
+    letter-spacing: .04em;
+    margin: 4px 0 8px;
+}
+
+/* ================================================
+   Sub-grupos aninhados de MLB (Simples/Base, Catálogo)
+   — mesmo padrão de <details> aninhado do Hub de
+   Anúncios (SKU → Página de Catálogo → cards).
+   ================================================ */
+
+.grade-mlbs-wrapper {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.grade-subgrupo-mlb {
+    border: 1px solid #e5e8ec;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.grade-subgrupo-titulo {
+    background: #f3f5f8;
+    color: #1e3a5f;
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 8px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.grade-subgrupo-titulo::-webkit-details-marker {
+    display: none;
+}
+
+.grade-lista-mlbs {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* * [EXPLICAÇÃO] → Reaproveita grade-tipo-bloco--classico/premium
+   (aplicada via template, card.prefixo) pra cor de fundo/borda —
+   só ajusta o padding/gap internos, específicos do card de MLB. */
+.grade-card-mlb {
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.grade-card-mlb-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.grade-card-mlb-numero {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+.grade-badge-frete {
+    font-size: 0.66rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 8px;
+}
+
+.grade-badge-frete--tabela {
+    background: #eef2f7;
+    color: #556;
+}
+
+.grade-badge-frete--real {
+    background: #fffbeb;
+    color: #b45309;
 }

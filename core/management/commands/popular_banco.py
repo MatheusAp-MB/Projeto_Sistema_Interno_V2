@@ -6,6 +6,10 @@
 #              ser exclusivo deste comando.
 
 import time
+
+inicio_geral = time.time()
+
+from rich import print
 from pathlib import Path
 from django.core.management.base import BaseCommand
 from core.management.commands.popular_banco_suporte.importar_produtos_ml import importar_produtos_ml
@@ -63,3 +67,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS('Importação concluída!'))
 
+        final_geral = time.time()
+
+        duração_geral = final_geral - inicio_geral
+        print(f'[red]  ⏱ Duração TOTAL GERAL: {duração_geral:.1f}s\n[/]')

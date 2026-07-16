@@ -69,31 +69,35 @@ def buscar_configuracao_tipo_anuncio(tipo_anuncio_obj):
     ).first()
 
 
-def calcular_fixo(produto, config_geral=None, faixas_armazenagem=None):
-    """config_geral, faixas_armazenagem: opcionais — já carregados em
-    memória por quem processa MUITOS produtos em lote (a config geral
-    é 1 linha só, nunca muda dentro da mesma execução do comando).
-    Sem esses parâmetros, busca no banco normalmente (comportamento
-    antigo, preservado — a tela individual continua chamando sem
-    eles, sem nenhuma mudança de comportamento)."""
+def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None):
+    """Mesma conta de calcular_fixo(), mas devolve TAMBÉM cada pedaço
+    isolado (dict 'componentes') — usado pelo modal "como chegamos
+    nesse preço", que precisa mostrar cada parte do FIXO separada
+    (custo, coleta, armazenagem, os 2 créditos), não só o número final
+    já somado. calcular_fixo() continua igual pra todo mundo — só
+    chama esta função por dentro e descarta os componentes."""
     from mercado_livre.models import ConfiguracaoMercadoLivre
 
     config = config_geral if config_geral is not None else ConfiguracaoMercadoLivre.obter()
 
     custo_com_boni = produto.custo_com_boni or produto.custo
-    ipi = (produto.ipi or Decimal('0')) / 100
-    frete_cif_fob = (produto.frete_cif_fob or Decimal('0')) / 100
+    ipi_percentual = produto.ipi or Decimal('0')
+    frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
     st_valor = produto.st_valor or Decimal('0')
-    icms_entrada = (produto.icms_entrada or Decimal('0')) / 100
-    pis = (produto.pis_cofins or Decimal('0')) / 100
+    icms_entrada_percentual = produto.icms_entrada or Decimal('0')
+    pis_percentual = produto.pis_cofins or Decimal('0')
 
-    custo_final = (
-        custo_com_boni
-        + (custo_com_boni * ipi)
-        + (custo_com_boni * frete_cif_fob)
-        + st_valor
-    )
-    coleta = calcular_metro_cubico(produto) * config.fator_coleta
+    ipi = ipi_percentual / 100
+    frete_cif_fob = frete_cif_fob_percentual / 100
+    icms_entrada = icms_entrada_percentual / 100
+    pis = pis_percentual / 100
+
+    ipi_valor = custo_com_boni * ipi
+    frete_cif_fob_valor = custo_com_boni * frete_cif_fob
+    custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor + st_valor
+
+    metro_cubico = calcular_metro_cubico(produto)
+    coleta = metro_cubico * config.fator_coleta
 
     # * [EXPLICAÇÃO] → armazenagem_planilha já é o valor MENSAL real
     #                  (vem pronto da planilha validada) — só cai na
@@ -102,13 +106,51 @@ def calcular_fixo(produto, config_geral=None, faixas_armazenagem=None):
     #                  caminho que vai permitir abandonar a planilha no
     #                  futuro (objetivo de longo prazo confirmado com o
     #                  usuário).
+    faixa_usada = None
     if produto.armazenagem_planilha is not None:
         armazenagem = produto.armazenagem_planilha
     else:
-        faixa = selecionar_faixa_armazenagem(produto, faixas_armazenagem=faixas_armazenagem)
-        armazenagem = (faixa.valor_diario * config.periodo_armazenagem) if faixa else Decimal('0')
+        faixa_usada = selecionar_faixa_armazenagem(produto, faixas_armazenagem=faixas_armazenagem)
+        armazenagem = (faixa_usada.valor_diario * config.periodo_armazenagem) if faixa_usada else Decimal('0')
 
-    return coleta + armazenagem + custo_final - (produto.custo * (icms_entrada + pis))
+    credito_icms_entrada = produto.custo * icms_entrada
+    credito_pis = produto.custo * pis
+
+    fixo = coleta + armazenagem + custo_final - (credito_icms_entrada + credito_pis)
+
+    componentes = {
+        'custo': produto.custo,
+        'custo_com_boni': custo_com_boni,
+        'ipi_percentual': ipi_percentual,
+        'ipi_valor': ipi_valor,
+        'frete_cif_fob_percentual': frete_cif_fob_percentual,
+        'frete_cif_fob_valor': frete_cif_fob_valor,
+        'st_valor': st_valor,
+        'custo_final': custo_final,
+        'metro_cubico': metro_cubico,
+        'fator_coleta': config.fator_coleta,
+        'coleta': coleta,
+        'armazenagem_origem': 'planilha' if produto.armazenagem_planilha is not None else 'faixa_dimensao',
+        'armazenagem': armazenagem,
+        'icms_entrada_percentual': icms_entrada_percentual,
+        'credito_icms_entrada': credito_icms_entrada,
+        'pis_percentual': pis_percentual,
+        'credito_pis': credito_pis,
+        'fixo': fixo,
+    }
+
+    return fixo, componentes
+
+
+def calcular_fixo(produto, config_geral=None, faixas_armazenagem=None):
+    """config_geral, faixas_armazenagem: opcionais — já carregados em
+    memória por quem processa MUITOS produtos em lote (a config geral
+    é 1 linha só, nunca muda dentro da mesma execução do comando).
+    Sem esses parâmetros, busca no banco normalmente (comportamento
+    antigo, preservado — a tela individual continua chamando sem
+    eles, sem nenhuma mudança de comportamento)."""
+    fixo, _ = calcular_fixo_detalhado(produto, config_geral=config_geral, faixas_armazenagem=faixas_armazenagem)
+    return fixo
 
 
 def buscar_frete(produto, preco, faixas_candidatas=None):

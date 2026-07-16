@@ -123,7 +123,7 @@ def calcular_grade_precificacao_ml(stdout, style):
 
         qtd_calculos_antes_deste_produto = qtd_calculos_tabela + qtd_calculos_frete_real
 
-        fixo_produto, faixas_produto, peso_produto = preparar_fixo_e_faixas(
+        fixo_produto, faixas_produto, peso_produto, componentes_fixo_produto = preparar_fixo_e_faixas(
             produto, frete_todas, config_geral=config_geral, faixas_armazenagem=faixas_armazenagem
         )
 
@@ -136,7 +136,8 @@ def calcular_grade_precificacao_ml(stdout, style):
             for margem_chave, margem_valor in _margens_do_tipo(config):
                 try:
                     resultado = calcular_preco_grade_ml(
-                        produto, config, margem_valor, fixo_produto, faixas_produto, peso_produto
+                        produto, config, margem_valor, fixo_produto, faixas_produto, peso_produto,
+                        componentes_fixo=componentes_fixo_produto,
                     )
                     qtd_calculos_tabela += 1
                     resultado_tabela[(tipo, margem_chave)] = resultado
@@ -197,7 +198,8 @@ def calcular_grade_precificacao_ml(stdout, style):
                 for margem_chave, margem_valor in _margens_do_tipo(config):
                     try:
                         resultado = calcular_preco_com_frete_real(
-                            produto, config, margem_valor, fixo_produto, peso_produto, frete_valor
+                            produto, config, margem_valor, fixo_produto, peso_produto, frete_valor,
+                            componentes_fixo=componentes_fixo_produto,
                         )
                         qtd_calculos_frete_real += 1
                         cache_frete_real[(frete_valor, margem_chave)] = resultado
