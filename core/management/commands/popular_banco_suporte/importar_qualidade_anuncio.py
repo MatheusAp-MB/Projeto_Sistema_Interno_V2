@@ -144,9 +144,10 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
     campos_qualidade = ['score', 'nivel', 'calculado_em', 'http_status', 'erro']
 
     if qualidades_para_criar:
-        QualidadeAnuncio.objects.bulk_create(qualidades_para_criar, batch_size=1000)
+        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+        QualidadeAnuncio.objects.bulk_create(qualidades_para_criar, batch_size=BATCH_SIZE_PADRAO)
     if qualidades_para_atualizar:
-        QualidadeAnuncio.objects.bulk_update(qualidades_para_atualizar, campos_qualidade, batch_size=1000)
+        QualidadeAnuncio.objects.bulk_update(qualidades_para_atualizar, campos_qualidade, batch_size=BATCH_SIZE_PADRAO)
 
     qualidades_criadas = len(qualidades_para_criar)
     qualidades_atualizadas = len(qualidades_para_atualizar)
@@ -217,9 +218,9 @@ def importar_qualidade_anuncio(stdout, style, caminho_json):
     campos_criterio = ['status', 'score', 'calculado_em', 'link_correcao']
 
     if criterios_para_criar:
-        QualidadeAnuncioCriterio.objects.bulk_create(criterios_para_criar, batch_size=1000)
+        QualidadeAnuncioCriterio.objects.bulk_create(criterios_para_criar, batch_size=BATCH_SIZE_PADRAO)
     if criterios_para_atualizar:
-        QualidadeAnuncioCriterio.objects.bulk_update(criterios_para_atualizar, campos_criterio, batch_size=1000)
+        QualidadeAnuncioCriterio.objects.bulk_update(criterios_para_atualizar, campos_criterio, batch_size=BATCH_SIZE_PADRAO)
 
     stdout.write('')
     stdout.write(style.SUCCESS(

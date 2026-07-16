@@ -132,9 +132,11 @@ def importar_promocoes_ml(stdout, style, caminho=CAMINHO_PROMOCOES):
     campos = list(dados_promo.keys())
 
     if para_criar:
-        PromocaoMercadoLivre.objects.bulk_create(para_criar, batch_size=1000)
+        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+        PromocaoMercadoLivre.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar and campos:
-        PromocaoMercadoLivre.objects.bulk_update(para_atualizar, campos, batch_size=1000)
+        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+        PromocaoMercadoLivre.objects.bulk_update(para_atualizar, campos, batch_size=BATCH_SIZE_PADRAO)
 
     stdout.write(style.SUCCESS(
         f'[PROMOÇÕES ML] Concluído!\n'

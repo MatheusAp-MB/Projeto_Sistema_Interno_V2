@@ -90,7 +90,7 @@ def importar_produtos_ml(stdout, style, caminho_json):
 
     if para_atualizar:
         campos = list(dados_produto.keys())
-        Produto.objects.bulk_update(list(para_atualizar.values()), campos, batch_size=1000)
+        Produto.objects.bulk_update(list(para_atualizar.values()), campos, batch_size=BATCH_SIZE_PADRAO)
 
     stdout.write('')
     stdout.write(style.SUCCESS(

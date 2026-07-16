@@ -152,12 +152,13 @@ def calcular_recomendacoes_precificacao(stdout, style):
     ]
 
     if para_criar:
-        RecomendacaoPrecificacao.objects.bulk_create(para_criar, batch_size=1000)
+        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+        RecomendacaoPrecificacao.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar:
-        RecomendacaoPrecificacao.objects.bulk_update(para_atualizar, campos, batch_size=1000)
+        RecomendacaoPrecificacao.objects.bulk_update(para_atualizar, campos, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar_variacoes:
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
-            para_atualizar_variacoes, ['margem_atual_vs_original_pp'], batch_size=1000
+            para_atualizar_variacoes, ['margem_atual_vs_original_pp'], batch_size=BATCH_SIZE_PADRAO
         )
 
     stdout.write(style.SUCCESS(

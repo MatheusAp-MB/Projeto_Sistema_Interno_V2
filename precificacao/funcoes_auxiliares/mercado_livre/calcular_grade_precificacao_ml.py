@@ -272,7 +272,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     if para_criar:
         GradePrecificacaoML.objects.bulk_create(para_criar, batch_size=1000)
     if para_atualizar:
-        GradePrecificacaoML.objects.bulk_update(para_atualizar, campos_atualizaveis, batch_size=1000)
+        GradePrecificacaoML.objects.bulk_update(para_atualizar, campos_atualizaveis, batch_size=BATCH_SIZE_PADRAO)
 
     tempo_salvar = time.perf_counter() - inicio_salvar
     stdout.write(f'  ⏱ Salvar no banco (bulk_create/bulk_update): {tempo_salvar:.1f}s')

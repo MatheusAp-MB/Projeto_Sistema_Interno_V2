@@ -9,6 +9,7 @@ from mercado_livre.models import (
     AnuncioMercadoLivre,
     VariacaoAnuncioMercadoLivre,
 )
+from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 
 def classificar_catalogo(registro):
@@ -161,12 +162,13 @@ def importar_anuncios_ml(stdout, style, caminho_json):
             anuncios_para_criar[mlb] = AnuncioMercadoLivre(mlb=mlb, **dados_anuncio)
 
     if anuncios_para_criar:
-        AnuncioMercadoLivre.objects.bulk_create(list(anuncios_para_criar.values()), batch_size=1000)
+        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+        AnuncioMercadoLivre.objects.bulk_create(list(anuncios_para_criar.values()), batch_size=BATCH_SIZE_PADRAO)
 
     if anuncios_para_atualizar:
         campos_anuncio = list(dados_anuncio.keys())
         AnuncioMercadoLivre.objects.bulk_update(
-            list(anuncios_para_atualizar.values()), campos_anuncio, batch_size=1000
+            list(anuncios_para_atualizar.values()), campos_anuncio, batch_size=BATCH_SIZE_PADRAO
         )
 
     # Recarrega todos os anúncios (criados + atualizados) por MLB
@@ -234,12 +236,12 @@ def importar_anuncios_ml(stdout, style, caminho_json):
                 )
 
     if variacoes_para_criar:
-        VariacaoAnuncioMercadoLivre.objects.bulk_create(variacoes_para_criar, batch_size=1000)
+        VariacaoAnuncioMercadoLivre.objects.bulk_create(variacoes_para_criar, batch_size=BATCH_SIZE_PADRAO)
 
     if variacoes_para_atualizar:
         campos_variacao = ['sku_ml', 'produto', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url', 'preco_atual', 'preco_original']
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
-            variacoes_para_atualizar, campos_variacao, batch_size=1000
+            variacoes_para_atualizar, campos_variacao, batch_size=BATCH_SIZE_PADRAO
         )
 
     stdout.write('')

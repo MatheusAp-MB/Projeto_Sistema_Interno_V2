@@ -131,7 +131,8 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
     ]
 
     if para_atualizar:
-        Produto.objects.bulk_update(para_atualizar, campos, batch_size=1000)
+        from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+        Produto.objects.bulk_update(para_atualizar, campos, batch_size=BATCH_SIZE_PADRAO)
 
     stdout.write(style.SUCCESS(
         f'[PRECIFICAÇÃO — PLANILHA VALIDADA] Concluído!\n'
