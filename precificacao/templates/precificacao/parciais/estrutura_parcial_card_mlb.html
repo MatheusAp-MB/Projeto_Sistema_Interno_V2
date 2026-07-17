@@ -5,11 +5,40 @@
 * (Tabela/Real) mostra se aquele MLB já tem frete real da API.
 -->
 <div class="grade-card-mlb grade-tipo-bloco--{{ card.prefixo }}">
+    <div class="grade-card-mlb-identificacao">
+        {% if card.imagem_url %}
+        <img src="{{ card.imagem_url }}" class="grade-card-mlb-foto" alt="{{ card.titulo_anuncio }}">
+        {% else %}
+        <div class="grade-card-mlb-foto grade-card-mlb-foto--vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+        <div class="grade-card-mlb-info">
+            <span class="card-copiavel">
+                <span class="grade-card-mlb-titulo">{{ card.titulo_anuncio }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ card.titulo_anuncio }}"></i>
+            </span>
+            <div class="grade-card-mlb-subinfo">
+                <span class="card-copiavel">
+                    <span>MLB {{ card.mlb }}</span>
+                    <i class="fas fa-copy icone-copiar" data-copiar="{{ card.mlb }}"></i>
+                </span>
+                {% if card.sku_ml %}
+                ·
+                <span class="card-copiavel">
+                    <span>SKU ML {{ card.sku_ml }}</span>
+                    <i class="fas fa-copy icone-copiar" data-copiar="{{ card.sku_ml }}"></i>
+                </span>
+                {% endif %}
+                {% if card.sku_produto %}
+                ·
+                <span class="card-copiavel">
+                    <span>SKU produto {{ card.sku_produto }}</span>
+                    <i class="fas fa-copy icone-copiar" data-copiar="{{ card.sku_produto }}"></i>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
     <div class="grade-card-mlb-cabecalho">
-        <span class="card-copiavel">
-            <span class="grade-card-mlb-numero">{{ card.mlb }}</span>
-            <i class="fas fa-copy icone-copiar" data-copiar="{{ card.mlb }}"></i>
-        </span>
         {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=card.badge %}
         {% if card.origem_dimensao == 'variacao_ml' %}
         <span class="grade-badge-frete grade-badge-frete--real">Dimensão: {{ card.origem_dimensao_label }}</span>

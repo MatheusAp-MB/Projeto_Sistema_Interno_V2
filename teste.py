@@ -1,254 +1,119 @@
-"""
-teste.py — Varredura COMPLETA de qualidade de dado, VERSÃO 2 (corrige
-o defeito achado na V1: "embalagem = 0 explícito" estava sendo tratado
-como se fosse uma medida real na checagem de coerência física).
-
-Cobre:
-A) Consistência de unidade — Produto sem embalar
-B) Consistência de unidade — Produto embalado
-C) Coerência física — embalagem vs produto puro (agora separando
-   "zero explícito na planilha" de "incoerência de valor real")
-D) peso_cubado salvo vs recalculado agora
-E) Custo/Custo com Bônis
-F) Taxas percentuais (ICMS/IPI/PIS/MVA)
-G) Preço atual das variações
-H) FreteML — faixas
-
-Lista os SKUs de cada achado suspeito, não só a contagem — pra dar
-pra investigar direto, sem precisar pedir de novo depois.
-
-Só LEITURA — não grava, não corrige nada.
-"""
-
 import os
 import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
-from decimal import Decimal
-from django.db.models import Q, F
 from produtos.models import Produto
-from mercado_livre.models import VariacaoAnuncioMercadoLivre, FreteML
-
-FATOR_PESO_CUBADO = Decimal('6000')
-
-
-def secao(titulo):
-    print('\n' + '=' * 80)
-    print(titulo)
-    print('=' * 80)
-
-
-def listar_skus(queryset, limite=20):
-    for p in queryset[:limite]:
-        print(f'    {p.sku}')
-    total = queryset.count()
-    if total > limite:
-        print(f'    ... e mais {total - limite} SKU(s).')
-
-
-# ======================================================================
-# A) UNIDADE — Produto sem embalar
-# ======================================================================
-secao('A) UNIDADE — Produto SEM embalar (dimensões)')
-
-for campo in ['altura_produto_sem_embalar', 'largura_produto_sem_embalar', 'comprimento_produto_sem_embalar']:
-    suspeitos = Produto.objects.filter(**{f'{campo}__gt': 0, f'{campo}__lt': 1})
-    plausiveis = Produto.objects.filter(**{f'{campo}__gte': 1, f'{campo}__lte': 200}).count()
-    absurdos = Produto.objects.filter(**{f'{campo}__gt': 200}).count()
-    zerados = Produto.objects.filter(**{campo: 0}).count()
-    print(f'\n  {campo}:')
-    print(f'    Suspeito de estar em METRO ainda (0 < x < 1): {suspeitos.count()}')
-    if suspeitos.exists():
-        listar_skus(suspeitos)
-    print(f'    Plausível em cm (1 a 200): {plausiveis}')
-    print(f'    Suspeito de absurdo (> 200cm): {absurdos}')
-    print(f'    Zerado (provável: nunca passou pelo ERP Completo): {zerados}')
-
-peso = 'peso_produto_sem_embalar'
-print(f'\n  {peso}:')
-print(f'    Zerado: {Produto.objects.filter(**{peso: 0}).count()}')
-print(f'    Negativo: {Produto.objects.filter(**{f"{peso}__lt": 0}).count()}')
-print(f'    Suspeito de absurdo (> 200kg): {Produto.objects.filter(**{f"{peso}__gt": 200}).count()}')
-
-
-# ======================================================================
-# B) UNIDADE — Produto embalado
-# ======================================================================
-secao('B) UNIDADE — Produto APÓS embalado (dimensões)')
-
-for campo in ['altura_produto_apos_embalado', 'largura_produto_apos_embalado', 'comprimento_produto_apos_embalado']:
-    com_dado = Produto.objects.filter(**{f'{campo}__isnull': False})
-    # * [EXPLICAÇÃO] → "suspeito de metro" só faz sentido pra quem tem
-    #                  valor > 0 — 0 explícito é outra categoria
-    #                  (achado da V1), tratada separadamente abaixo.
-    suspeitos = com_dado.filter(**{f'{campo}__gt': 0, f'{campo}__lt': 1})
-    plausiveis = com_dado.filter(**{f'{campo}__gte': 1, f'{campo}__lte': 200}).count()
-    absurdos = com_dado.filter(**{f'{campo}__gt': 200})
-    zero_explicito = com_dado.filter(**{campo: 0}).count()
-    sem_dado = Produto.objects.filter(**{f'{campo}__isnull': True}).count()
-    print(f'\n  {campo}:')
-    print(f'    Suspeito de estar em METRO ainda (0 < x < 1): {suspeitos.count()}')
-    if suspeitos.exists():
-        listar_skus(suspeitos)
-    print(f'    Plausível em cm (1 a 200): {plausiveis}')
-    print(f'    Suspeito de absurdo (> 200cm): {absurdos.count()}')
-    if absurdos.exists():
-        listar_skus(absurdos)
-    print(f'    ZERO EXPLÍCITO na planilha (achado: célula "0", não vazia): {zero_explicito}')
-    print(f'    Sem dado cadastrado (None — célula realmente vazia): {sem_dado}')
-
-peso_emb = 'peso_produto_apos_embalado'
-com_peso = Produto.objects.filter(**{f'{peso_emb}__isnull': False})
-print(f'\n  {peso_emb}:')
-print(f'    Zero explícito: {com_peso.filter(**{peso_emb: 0}).count()}')
-print(f'    Negativo: {com_peso.filter(**{f"{peso_emb}__lt": 0}).count()}')
-print(f'    Suspeito de absurdo (> 200kg): {com_peso.filter(**{f"{peso_emb}__gt": 200}).count()}')
-print(f'    Sem dado cadastrado (None): {Produto.objects.filter(**{f"{peso_emb}__isnull": True}).count()}')
-
-
-# ======================================================================
-# C) COERÊNCIA FÍSICA — embalagem vs produto puro
-#    CORRIGIDO: exclui explicitamente os casos onde a embalagem é 0
-#    (ausência disfarçada de zero, não uma medida real menor).
-# ======================================================================
-secao('C) COERÊNCIA FÍSICA — embalagem < produto puro')
-
-base_com_embalagem_real = Produto.objects.filter(
-    altura_produto_apos_embalado__gt=0,
-    largura_produto_apos_embalado__gt=0,
-    comprimento_produto_apos_embalado__gt=0,
+from mercado_livre.models import (
+    ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre,
+    FaixaArmazenagemMercadoLivre, FreteML, TipoDeAnuncioMercadoLivre,
 )
+from precificacao.models import GradePrecificacaoML
+from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
 
-incoerentes = base_com_embalagem_real.filter(
-    Q(altura_produto_apos_embalado__lt=F('altura_produto_sem_embalar')) |
-    Q(largura_produto_apos_embalado__lt=F('largura_produto_sem_embalar')) |
-    Q(comprimento_produto_apos_embalado__lt=F('comprimento_produto_sem_embalar'))
-)
+SKU = 'F7908050719121.001'
 
-print(f'  Produtos com embalagem REAL (>0 nos 3 eixos) E menor que o produto puro: {incoerentes.count()}')
-print('  (Suspeita mais provável: eixos trocados entre as 2 fontes — Altura/Largura/Comprimento')
-print('   medidos em ordem diferente — mesmo padrão de erro já visto antes na migração do Django.)')
+
+def linha(titulo):
+    print(f'\n{"=" * 70}\n{titulo}\n{"=" * 70}')
+
+
+produto = Produto.objects.get(sku=SKU)
+
+linha('PRODUTO — dado bruto')
+print(f'SKU: {produto.sku}')
+print(f'EAN: {produto.ean}')
+print(f'Título: {produto.titulo}')
+print(f'Custo: {produto.custo}')
+print(f'Custo com bonificação: {produto.custo_com_boni}')
+print(f'IPI: {produto.ipi}')
+print(f'Frete CIF/FOB: {produto.frete_cif_fob}')
+print(f'ST: {produto.st_valor}')
+print(f'ICMS entrada: {produto.icms_entrada}')
+print(f'PIS/COFINS: {produto.pis_cofins}')
+print(f'ICMS saída (média): {produto.icms_saida_media}')
+print(f'Armazenagem planilha: {produto.armazenagem_planilha}')
 print()
-for p in incoerentes[:20]:
-    print(
-        f'    {p.sku}: puro={p.altura_produto_sem_embalar}x{p.largura_produto_sem_embalar}x{p.comprimento_produto_sem_embalar}'
-        f'  embalado={p.altura_produto_apos_embalado}x{p.largura_produto_apos_embalado}x{p.comprimento_produto_apos_embalado}'
-    )
-total_incoerentes = incoerentes.count()
-if total_incoerentes > 20:
-    print(f'    ... e mais {total_incoerentes - 20} SKU(s).')
+print('--- Dimensão SEM embalar (produto puro) ---')
+print(f'Altura: {produto.altura_produto_sem_embalar} | Largura: {produto.largura_produto_sem_embalar} | '
+      f'Comprimento: {produto.comprimento_produto_sem_embalar} | Peso: {produto.peso_produto_sem_embalar}')
+print()
+print('--- Dimensão APÓS embalado (usada na Grade, via fallback ERP) ---')
+print(f'Altura: {produto.altura_produto_apos_embalado} | Largura: {produto.largura_produto_apos_embalado} | '
+      f'Comprimento: {produto.comprimento_produto_apos_embalado} | Peso: {produto.peso_produto_apos_embalado}')
+print(f'Peso cúbico (já calculado): {produto.peso_cubado}')
 
 
-# ======================================================================
-# D) peso_cubado salvo vs recalculado agora
-# ======================================================================
-secao('D) peso_cubado — SALVO vs RECALCULADO agora (mesma fórmula)')
+linha('VARIAÇÕES/MLBs — dado bruto de cada anúncio publicado')
+variacoes = list(produto.variacoes_mercado_livre.select_related('anuncio__tipo_de_anuncio').all())
+print(f'Total de variações vinculadas a este produto: {len(variacoes)}')
 
-divergentes = []
-produtos_com_embalagem = Produto.objects.filter(
-    altura_produto_apos_embalado__isnull=False,
-    largura_produto_apos_embalado__isnull=False,
-    comprimento_produto_apos_embalado__isnull=False,
+for v in variacoes:
+    anuncio = v.anuncio
+    tipo = anuncio.tipo_de_anuncio.tipo_anuncio if anuncio.tipo_de_anuncio else 'SEM TIPO'
+    print(f'\n  MLB {anuncio.mlb} | tipo: {tipo} | variação: {v.variacao_id}')
+    print(f'    sku_ml: {v.sku_ml} | título do anúncio: {anuncio.titulo_anuncio}')
+    print(f'    Dimensão declarada: altura={v.altura_declarada_cm} largura={v.largura_declarada_cm} '
+          f'comprimento={v.comprimento_declarado_cm} peso={v.peso_declarado_kg}')
+
+
+linha('DIMENSOES EFETIVAS — o que resolver_dimensoes_efetivas() decide de verdade')
+print('--- Fallback do produto (variacao=None) ---')
+dim_fallback = resolver_dimensoes_efetivas(produto, variacao=None)
+print(f'  origem: {dim_fallback.origem.value}')
+print(f'  altura={dim_fallback.altura} largura={dim_fallback.largura} '
+      f'comprimento={dim_fallback.comprimento} peso={dim_fallback.peso}')
+
+for v in variacoes:
+    dim = resolver_dimensoes_efetivas(produto, variacao=v)
+    print(f'\n--- MLB {v.anuncio.mlb} (variação {v.variacao_id}) ---')
+    print(f'  origem: {dim.origem.value}')
+    print(f'  altura={dim.altura} largura={dim.largura} comprimento={dim.comprimento} peso={dim.peso}')
+
+
+linha('CONFIGURAÇÃO — comissão e margens por tipo de anúncio')
+TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
+for tipo_valor, tipo_nome in [(TipoAnuncio.CLASSICO, 'Clássico'), (TipoAnuncio.PREMIUM, 'Premium')]:
+    config = ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(tipo_anuncio=tipo_valor).first()
+    if config:
+        print(f'\n{tipo_nome}:')
+        print(f'  Comissão: {config.comissao}%')
+        print(f'  Margem mínima: {config.margem_minima}% | padrão: {config.margem_padrao}% | '
+              f'máxima: {config.margem_maxima}% | competição: {config.margem_competicao}%')
+    else:
+        print(f'\n{tipo_nome}: SEM CONFIGURAÇÃO CADASTRADA')
+
+config_geral = ConfiguracaoMercadoLivre.obter()
+print(f'\nFator de coleta: {config_geral.fator_coleta}')
+print(f'Período de armazenagem: {config_geral.periodo_armazenagem} dias')
+
+
+linha('FAIXAS DE ARMAZENAGEM')
+for f in FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'):
+    print(f'  {f.nome}: até {f.max_altura}×{f.max_largura}×{f.max_profundidade}cm — R$ {f.valor_diario}/dia')
+
+
+linha('FAIXAS DE FRETE — só as relevantes pros pesos deste produto')
+pesos_relevantes = {dim_fallback.peso} | {resolver_dimensoes_efetivas(produto, v).peso for v in variacoes}
+for peso in sorted(pesos_relevantes):
+    print(f'\n--- Peso {peso}kg ---')
+    faixas = FreteML.objects.filter(peso_min__lte=peso).filter(
+        peso_max__gte=peso
+    ) | FreteML.objects.filter(peso_min__lte=peso, peso_max__isnull=True)
+    for f in faixas.order_by('preco_min'):
+        teto = f.preco_max if f.preco_max is not None else 'sem teto'
+        print(f'  peso {f.peso_min}-{f.peso_max or "sem teto"} | preço R$ {f.preco_min}-{teto} → R$ {f.valor}')
+
+
+linha('GRADE DE PRECIFICAÇÃO ML — resultado já persistido')
+linhas_grade = GradePrecificacaoML.objects.filter(produto=produto).select_related('variacao__anuncio').order_by(
+    'variacao_id', 'tipo_anuncio', 'margem'
 )
-total_checados = 0
-for p in produtos_com_embalagem.iterator():
-    total_checados += 1
-    recalculado = (p.altura_produto_apos_embalado * p.largura_produto_apos_embalado * p.comprimento_produto_apos_embalado) / FATOR_PESO_CUBADO
-    salvo = p.peso_cubado or Decimal('0')
-    if abs(recalculado - salvo) > Decimal('0.01'):
-        divergentes.append((p.sku, salvo, recalculado))
+print(f'Total de linhas: {linhas_grade.count()}')
 
-print(f'  Produtos checados: {total_checados}')
-print(f'  Divergentes (salvo != recalculado): {len(divergentes)}')
-for sku, salvo, recalculado in divergentes[:20]:
-    print(f'    {sku}: salvo={salvo}  recalculado_agora={recalculado:.3f}')
-
-
-# ======================================================================
-# E) CUSTO / CUSTO COM BÔNIS
-# ======================================================================
-secao('E) CUSTO / CUSTO COM BÔNIS')
-
-zerados = Produto.objects.filter(custo=0)
-absurdos = Produto.objects.filter(custo__gt=50000)
-print(f'  Custo zerado (não dá pra precificar sem isso): {zerados.count()}')
-if zerados.exists():
-    print('  Primeiros 10 SKUs com custo zerado:')
-    listar_skus(zerados, limite=10)
-print(f'  Custo negativo: {Produto.objects.filter(custo__lt=0).count()}')
-print(f'  Custo > R$50.000 (suspeito):')
-listar_skus(absurdos, limite=10)
-print(f'  Custo com Bônis negativo: {Produto.objects.filter(custo_com_boni__lt=0).count()}')
-print(f'  Custo com Bônis > R$50.000 (suspeito): {Produto.objects.filter(custo_com_boni__gt=50000).count()}')
-
-
-# ======================================================================
-# F) TAXAS PERCENTUAIS
-# ======================================================================
-secao('F) TAXAS PERCENTUAIS (ICMS/IPI/PIS/MVA) — devem estar entre 0 e 100')
-
-for campo in ['icms_entrada', 'icms_saida_media', 'icms_saida_sp', 'ipi', 'pis_cofins', 'mva']:
-    fora = Produto.objects.filter(**{f'{campo}__isnull': False}).exclude(
-        **{f'{campo}__gte': 0, f'{campo}__lte': 100}
-    )
-    print(f'  {campo}: fora da faixa 0-100: {fora.count()}')
-    if fora.exists():
-        listar_skus(fora, limite=5)
-
-
-# ======================================================================
-# G) PREÇO ATUAL DAS VARIAÇÕES
-# ======================================================================
-secao('G) PREÇO ATUAL DAS VARIAÇÕES')
-
-total_variacoes = VariacaoAnuncioMercadoLivre.objects.count()
-sem_preco = VariacaoAnuncioMercadoLivre.objects.filter(Q(preco_atual__isnull=True) | Q(preco_atual=0))
-preco_suspeito_baixo = VariacaoAnuncioMercadoLivre.objects.filter(preco_atual__gt=0, preco_atual__lt=1)
-print(f'  Total de variações: {total_variacoes}')
-print(f'  Sem preço (None ou 0): {sem_preco.count()}')
-print(f'  Preço suspeito (entre R$0 e R$1): {preco_suspeito_baixo.count()}')
-
-
-# ======================================================================
-# H) FRETEML
-# ======================================================================
-secao('H) FRETEML — checagem de faixas')
-
-faixas = list(FreteML.objects.order_by('peso_min', 'preco_min'))
-print(f'  Total de faixas cadastradas: {len(faixas)}')
-
-pesos_min = sorted(set(f.peso_min for f in faixas))
-print(f'  Faixas de peso distintas: {len(pesos_min)}')
-print(f'  Menor peso_min: {pesos_min[0] if pesos_min else "—"}')
-print(f'  Maior peso_min: {pesos_min[-1] if pesos_min else "—"}')
-
-
-# ======================================================================
-# RESUMO FINAL — respondendo direto as 4 perguntas originais
-# ======================================================================
-secao('RESUMO — RESPOSTAS ÀS 4 PERGUNTAS')
-print("""
-1) Erro de conversão (metro vs cm, kg vs kg)?
-   Ver seções A e B acima — "suspeito de estar em METRO ainda" deveria
-   ser 0 ou muito próximo disso. Qualquer SKU listado ali merece
-   conferência manual antes de confiar 100%.
-
-2) Fórmula do peso cúbico (cm×cm×cm)/6000, padrão internacional?
-   Ver seção D — "Divergentes: 0" confirma que a fórmula gravada bate
-   com a fórmula real, sem dado desatualizado.
-
-3) Dados de entrada prontos pra trabalhar?
-   Ver seção C (coerência física) e E (custo zerado) — esses são os
-   2 pontos que ainda precisam de atenção humana, não são mais
-   problema de conversão de unidade.
-
-4) Dados de entrada 100% confiáveis?
-   NÃO dá pra afirmar 100% — só dá pra afirmar "sem erro SISTEMÁTICO
-   de unidade" (o que este script já comprova). Erro pontual de
-   medida (SKU por SKU) só se descobre comparando contra a realidade
-   (relatório de frete ERP vs ML já construído antes).
-""")
-
-print('Varredura concluída.')
+for g in linhas_grade:
+    alvo = f'MLB {g.variacao.anuncio.mlb}' if g.variacao_id else 'FALLBACK (sem MLB)'
+    print(f'\n  {alvo} | {g.tipo_anuncio} | margem {g.margem}')
+    print(f'    Preço: R$ {g.preco} | Margem obtida: {g.margem_percentual_obtida}% | '
+          f'Frete usado: R$ {g.frete_usado} | Origem dimensão: {g.origem_dimensao}')

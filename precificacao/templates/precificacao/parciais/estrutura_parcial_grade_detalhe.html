@@ -72,29 +72,116 @@
     <div class="grade-detalhe-secao-titulo">2. Processamento, passo a passo</div>
 
     <div class="grade-detalhe-passos">
-        {% for passo in det.passos %}
         <div class="grade-detalhe-passo">
-            <span class="grade-detalhe-passo-numero">{{ passo.numero }}</span>
+            <span class="grade-detalhe-passo-numero">1</span>
             <div>
-                <div class="grade-detalhe-passo-texto">{{ passo.titulo }}</div>
-                <div class="grade-detalhe-passo-abstrata">{{ passo.formula_abstrata }}</div>
-                <div class="grade-detalhe-passo-conta">{{ passo.formula_preenchida }}</div>
-                {% if passo.sub_tabela %}
+                <div class="grade-detalhe-passo-texto">Calculando o custo final</div>
+                <div class="grade-detalhe-passo-abstrata">custo_com_boni + IPI + frete CIF/FOB + ST</div>
+                <div class="grade-detalhe-passo-conta">
+                    R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }}
+                    + R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }} + R$ {{ det.passo_1.st_valor|floatformat:2 }}
+                    = R$ {{ det.passo_1.resultado|floatformat:2 }}
+                </div>
+            </div>
+        </div>
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">2</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Calculando a coleta</div>
+                <div class="grade-detalhe-passo-abstrata">metro cúbico × fator de coleta</div>
+                <div class="grade-detalhe-passo-conta">
+                    {{ det.passo_2.metro_cubico|floatformat:5 }} m³ × {{ det.passo_2.fator_coleta|floatformat:3 }}
+                    = R$ {{ det.passo_2.resultado|floatformat:2 }}
+                </div>
+            </div>
+        </div>
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">3</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Calculando a armazenagem</div>
+                {% if det.passo_3.origem == 'planilha' %}
+                <div class="grade-detalhe-passo-abstrata">Valor já validado na planilha de precificação</div>
+                <div class="grade-detalhe-passo-conta">R$ {{ det.passo_3.resultado|floatformat:2 }} (direto da planilha)</div>
+                {% else %}
+                <div class="grade-detalhe-passo-abstrata">Faixa por dimensão × período de armazenagem</div>
+                <div class="grade-detalhe-passo-conta">
+                    faixa × {{ det.passo_3.periodo_dias|floatformat:0 }} dias = R$ {{ det.passo_3.resultado|floatformat:2 }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">4</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Calculando o FIXO</div>
+                <div class="grade-detalhe-passo-abstrata">coleta + armazenagem + custo final − crédito ICMS − crédito PIS</div>
+                <div class="grade-detalhe-passo-conta">
+                    R$ {{ det.passo_4.coleta|floatformat:2 }} + R$ {{ det.passo_4.armazenagem|floatformat:2 }}
+                    + R$ {{ det.passo_4.custo_final|floatformat:2 }} − R$ {{ det.passo_4.credito_icms|floatformat:2 }}
+                    − R$ {{ det.passo_4.credito_pis|floatformat:2 }} = R$ {{ det.passo_4.resultado|floatformat:2 }}
+                </div>
+            </div>
+        </div>
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">5</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Calculando a taxa</div>
+                <div class="grade-detalhe-passo-abstrata">comissão + ICMS saída + PIS/COFINS saída</div>
                 <table class="grade-detalhe-tabela-composicao grade-detalhe-sub-tabela">
                     <tbody>
-                        {% for sub in passo.sub_tabela %}
+                        {% for item in det.passo_5.itens %}
                         <tr>
-                            <td>{{ sub.label }}</td>
-                            <td>{{ sub.percentual|floatformat:2 }}%</td>
-                            <td>R$ {{ sub.valor|floatformat:2 }}</td>
+                            <td>{{ item.label }}</td>
+                            <td>{{ item.percentual|floatformat:2 }}%</td>
+                            <td>R$ {{ item.valor|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                {% endif %}
+                <div class="grade-detalhe-passo-conta">Taxa total = {{ det.passo_5.resultado|floatformat:2 }}%</div>
             </div>
         </div>
-        {% endfor %}
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">6</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Calculando o denominador</div>
+                <div class="grade-detalhe-passo-abstrata">1 − taxa − margem-alvo</div>
+                <div class="grade-detalhe-passo-conta">
+                    1 − {{ det.passo_6.taxa_percentual|floatformat:2 }}% − {{ det.passo_6.margem_alvo_percentual|floatformat:2 }}%
+                    = {{ det.passo_6.resultado|floatformat:4 }}
+                </div>
+            </div>
+        </div>
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">7</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Escolhendo a faixa de frete</div>
+                <div class="grade-detalhe-passo-abstrata">peso → faixa de peso × preço na tabela FreteML</div>
+                <div class="grade-detalhe-passo-conta">
+                    peso {{ det.passo_7.peso|floatformat:3 }}kg → faixa R$ {{ det.passo_7.faixa_min|floatformat:2 }}–{% if det.passo_7.faixa_max %}R$ {{ det.passo_7.faixa_max|floatformat:2 }}{% else %}sem teto{% endif %}
+                    = R$ {{ det.passo_7.resultado|floatformat:2 }}
+                </div>
+            </div>
+        </div>
+
+        <div class="grade-detalhe-passo">
+            <span class="grade-detalhe-passo-numero">8</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">Calculando o preço exato</div>
+                <div class="grade-detalhe-passo-abstrata">(frete + FIXO − rebate) ÷ denominador</div>
+                <div class="grade-detalhe-passo-conta">
+                    (R$ {{ det.passo_8.frete|floatformat:2 }} + R$ {{ det.passo_8.fixo|floatformat:2 }}
+                    − R$ {{ det.passo_8.rebate|floatformat:2 }}) ÷ {{ det.passo_8.denominador|floatformat:4 }}
+                    = R$ {{ det.passo_8.resultado|floatformat:2 }}
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="grade-detalhe-secao-titulo">3. O que a fórmula gerou</div>

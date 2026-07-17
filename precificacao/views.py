@@ -187,15 +187,20 @@ class CardMLB:
     origem_dimensao: str
     origem_dimensao_label: str
     eh_catalogo: bool
+    titulo_anuncio: str
+    imagem_url: str
+    sku_ml: str
+    sku_produto: str
     linhas: list = field(default_factory=list)
 
     # Função Objetivo: Monta 1 card a partir de 1 grupo de linhas (1 variação × 1 tipo).
     @classmethod
-    def montar(cls, real_entry, badge_classico, badge_premium, labels_classico, labels_premium, classificacao_catalogo):
+    def montar(cls, real_entry, produto, badge_classico, badge_premium, labels_classico, labels_premium, classificacao_catalogo):
         linhas_por_margem = real_entry['linhas_por_margem']
         tipo_grade = real_entry['tipo_anuncio']
         alguma_linha = next(iter(linhas_por_margem.values()))
-        anuncio = alguma_linha.variacao.anuncio
+        variacao = alguma_linha.variacao
+        anuncio = variacao.anuncio
         eh_classico = tipo_grade == 'classico'
         labels = labels_classico if eh_classico else labels_premium
         tipo_de_anuncio = anuncio.tipo_de_anuncio
@@ -209,6 +214,19 @@ class CardMLB:
             origem_dimensao=alguma_linha.origem_dimensao,
             origem_dimensao_label='Declarada no ML' if alguma_linha.origem_dimensao == 'variacao_ml' else 'Embalagem ERP',
             eh_catalogo=bool(tipo_de_anuncio and tipo_de_anuncio.classificacao_catalogo == classificacao_catalogo),
+            # * [EXPLICAÇÃO] → título/foto do ANÚNCIO/VARIAÇÃO real (podem
+            #                  divergir do produto — é o mesmo MLB, mas
+            #                  o vendedor pode ter escrito outro título
+            #                  ou usado outra foto na hora de publicar).
+            #                  sku_ml é o SKU do PRÓPRIO anúncio no ML,
+            #                  separado do sku_produto (ERP) — os 2
+            #                  aparecem juntos de propósito, divergirem
+            #                  é justamente o tipo de coisa que uma
+            #                  auditoria precisa pegar.
+            titulo_anuncio=anuncio.titulo_anuncio or produto.titulo,
+            imagem_url=variacao.imagem_principal_url or variacao.thumbnail_url or produto.imagem_url,
+            sku_ml=variacao.sku_ml,
+            sku_produto=produto.sku,
             linhas=LinhaMargemExibida.montar_bloco(linhas_por_margem, labels),
         )
 
@@ -234,12 +252,20 @@ class ItemGradeProduto:
         cards_catalogo = []
         for real_entry in reais:
             card = CardMLB.montar(
-                real_entry, badge_classico, badge_premium, labels_classico, labels_premium, classificacao_catalogo
+                real_entry, produto, badge_classico, badge_premium, labels_classico, labels_premium, classificacao_catalogo
             )
             if card.eh_catalogo:
                 cards_catalogo.append(card)
             else:
                 cards_simples_base.append(card)
+
+        # * [EXPLICAÇÃO] → Dentro de cada subgrupo (Simples/Base,
+        #                  Catálogo), Clássico sempre vem antes de
+        #                  Premium — sort é estável, então a ordem
+        #                  relativa entre MLBs do MESMO tipo não muda.
+        ORDEM_TIPO = {'classico': 0, 'premium': 1}
+        cards_simples_base.sort(key=lambda c: ORDEM_TIPO.get(c.prefixo, 2))
+        cards_catalogo.sort(key=lambda c: ORDEM_TIPO.get(c.prefixo, 2))
 
         return cls(
             produto=produto,
@@ -445,14 +471,75 @@ class DimensaoUsada:
     peso: object
 
 
-# Função Objetivo: Representa 1 passo do processamento — fórmula abstrata + valores reais.
+# Função Objetivo: Passo 1 — custo final (custo_com_boni + IPI + frete CIF/FOB + ST).
 @dataclass
-class PassoProcessamento:
-    numero: int
-    titulo: str
-    formula_abstrata: str
-    formula_preenchida: str
-    sub_tabela: list = field(default_factory=list)
+class PassoCustoFinal:
+    custo_com_boni: object
+    ipi_valor: object
+    frete_cif_fob_valor: object
+    st_valor: object
+    resultado: object
+
+
+# Função Objetivo: Passo 2 — coleta (metro cúbico × fator de coleta).
+@dataclass
+class PassoColeta:
+    metro_cubico: object
+    fator_coleta: object
+    resultado: object
+
+
+# Função Objetivo: Passo 3 — armazenagem (planilha, ou faixa × período).
+@dataclass
+class PassoArmazenagem:
+    origem: str
+    periodo_dias: object
+    resultado: object
+
+
+# Função Objetivo: Passo 4 — FIXO (coleta + armazenagem + custo final − créditos).
+@dataclass
+class PassoFixo:
+    coleta: object
+    armazenagem: object
+    custo_final: object
+    credito_icms: object
+    credito_pis: object
+    resultado: object
+
+
+# Função Objetivo: Passo 5 — taxa (comissão + ICMS saída + PIS/COFINS saída).
+@dataclass
+class PassoTaxa:
+    itens: list
+    resultado: object
+
+
+# Função Objetivo: Passo 6 — denominador (1 − taxa − margem-alvo).
+@dataclass
+class PassoDenominador:
+    taxa_percentual: object
+    margem_alvo_percentual: object
+    resultado: object
+
+
+# Função Objetivo: Passo 7 — faixa de frete escolhida (por peso).
+@dataclass
+class PassoFaixaFrete:
+    peso: object
+    faixa_min: object
+    faixa_max: object
+    resultado: object
+
+
+# Função Objetivo: Passo 8 — preço exato ((frete + FIXO − rebate) ÷ denominador).
+@dataclass
+class PassoPrecoExato:
+    frete: object
+    fixo: object
+    rebate: object
+    denominador: object
+    resultado: object
 
 
 # Função Objetivo: Representa 1 linha do resultado final (bloco 3).
@@ -475,7 +562,14 @@ class DetalheFormulaExibida:
     valores_soltos: list
     dimensao: object
 
-    passos: list
+    passo_1: object
+    passo_2: object
+    passo_3: object
+    passo_4: object
+    passo_5: object
+    passo_6: object
+    passo_7: object
+    passo_8: object
     saida: list
 
     # Função Objetivo: Lê o detalhamento já persistido e monta a exibição completa.
@@ -527,61 +621,44 @@ class DetalheFormulaExibida:
             comprimento=dec(e.get('comprimento')), peso=dec(e.get('peso')),
         )
 
-        if armazenagem_origem == 'planilha':
-            armazenagem_abstrata = 'Valor já validado na planilha de precificação'
-            armazenagem_preenchida = f"R$ {i.get('armazenagem')} (direto da planilha)"
-        else:
-            armazenagem_abstrata = 'Faixa por dimensão × período de armazenagem'
-            armazenagem_preenchida = f"R$ {i.get('armazenagem')} (faixa × {e.get('periodo_armazenagem')} dias)"
-
-        passos = [
-            PassoProcessamento(
-                1, 'Calculando o custo final',
-                'custo_com_boni + IPI + frete CIF/FOB + ST',
-                f"R$ {e.get('custo_com_boni')} + R$ {i.get('ipi_valor')} + R$ {i.get('frete_cif_fob_valor')} "
-                f"+ R$ {e.get('st_valor')} = R$ {i.get('custo_final')}",
-            ),
-            PassoProcessamento(
-                2, 'Calculando a coleta',
-                'metro cúbico × fator de coleta',
-                f"{i.get('metro_cubico')} m³ × {e.get('fator_coleta')} = R$ {i.get('coleta')}",
-            ),
-            PassoProcessamento(3, 'Calculando a armazenagem', armazenagem_abstrata, armazenagem_preenchida),
-            PassoProcessamento(
-                4, 'Calculando o FIXO',
-                'coleta + armazenagem + custo final − crédito ICMS − crédito PIS',
-                f"R$ {i.get('coleta')} + R$ {i.get('armazenagem')} + R$ {i.get('custo_final')} "
-                f"− R$ {i.get('credito_icms_entrada')} − R$ {i.get('credito_pis')} = R$ {i.get('fixo')}",
-            ),
-            PassoProcessamento(
-                5, 'Calculando a taxa',
-                'comissão + ICMS saída + PIS/COFINS saída',
-                f"{e.get('comissao_percentual')}% + {e.get('icms_saida_percentual')}% "
-                f"+ {e.get('pis_cofins_percentual')}% = {i.get('taxa_percentual')}%",
-                sub_tabela=[
-                    LinhaPercentualValor('Comissão', dec(e.get('comissao_percentual')), dec(i.get('comissao_valor'))),
-                    LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor'))),
-                    LinhaPercentualValor('PIS/COFINS (saída)', dec(e.get('pis_cofins_percentual')), dec(i.get('pis_cofins_valor'))),
-                ],
-            ),
-            PassoProcessamento(
-                6, 'Calculando o denominador',
-                '1 − taxa − margem-alvo',
-                f"1 − {i.get('taxa_percentual')}% − {e.get('margem_alvo_percentual')}% = {i.get('denominador')}",
-            ),
-            PassoProcessamento(
-                7, 'Escolhendo a faixa de frete',
-                'peso → faixa de peso × preço na tabela FreteML',
-                f"peso {e.get('peso')}kg → faixa R$ {i.get('faixa_frete_preco_min')}–{i.get('faixa_frete_preco_max')} "
-                f"= R$ {s.get('frete_usado')}",
-            ),
-            PassoProcessamento(
-                8, 'Calculando o preço exato',
-                '(frete + FIXO − rebate) ÷ denominador',
-                f"(R$ {s.get('frete_usado')} + R$ {i.get('fixo')} − R$ {i.get('rebate_valor')}) "
-                f"÷ {i.get('denominador')} = R$ {i.get('preco_exato_antes_arredondar')}",
-            ),
-        ]
+        passo_1 = PassoCustoFinal(
+            custo_com_boni=dec(e.get('custo_com_boni')), ipi_valor=dec(i.get('ipi_valor')),
+            frete_cif_fob_valor=dec(i.get('frete_cif_fob_valor')), st_valor=dec(e.get('st_valor')),
+            resultado=dec(i.get('custo_final')),
+        )
+        passo_2 = PassoColeta(
+            metro_cubico=dec(i.get('metro_cubico')), fator_coleta=dec(e.get('fator_coleta')),
+            resultado=dec(i.get('coleta')),
+        )
+        passo_3 = PassoArmazenagem(
+            origem=armazenagem_origem, periodo_dias=dec(e.get('periodo_armazenagem')),
+            resultado=dec(i.get('armazenagem')),
+        )
+        passo_4 = PassoFixo(
+            coleta=dec(i.get('coleta')), armazenagem=dec(i.get('armazenagem')),
+            custo_final=dec(i.get('custo_final')), credito_icms=dec(i.get('credito_icms_entrada')),
+            credito_pis=dec(i.get('credito_pis')), resultado=dec(i.get('fixo')),
+        )
+        passo_5 = PassoTaxa(
+            itens=[
+                LinhaPercentualValor('Comissão', dec(e.get('comissao_percentual')), dec(i.get('comissao_valor'))),
+                LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor'))),
+                LinhaPercentualValor('PIS/COFINS (saída)', dec(e.get('pis_cofins_percentual')), dec(i.get('pis_cofins_valor'))),
+            ],
+            resultado=dec(i.get('taxa_percentual')),
+        )
+        passo_6 = PassoDenominador(
+            taxa_percentual=dec(i.get('taxa_percentual')), margem_alvo_percentual=dec(e.get('margem_alvo_percentual')),
+            resultado=dec(i.get('denominador')),
+        )
+        passo_7 = PassoFaixaFrete(
+            peso=dec(e.get('peso')), faixa_min=dec(i.get('faixa_frete_preco_min')),
+            faixa_max=dec(i.get('faixa_frete_preco_max')), resultado=dec(s.get('frete_usado')),
+        )
+        passo_8 = PassoPrecoExato(
+            frete=dec(s.get('frete_usado')), fixo=dec(i.get('fixo')), rebate=dec(i.get('rebate_valor')),
+            denominador=dec(i.get('denominador')), resultado=dec(i.get('preco_exato_antes_arredondar')),
+        )
 
         saida = [
             LinhaSaida('Preço exato', dec(i.get('preco_exato_antes_arredondar')), 'reais'),
@@ -598,7 +675,8 @@ class DetalheFormulaExibida:
             pis_cofins=pis_cofins,
             valores_soltos=valores_soltos,
             dimensao=dimensao,
-            passos=passos,
+            passo_1=passo_1, passo_2=passo_2, passo_3=passo_3, passo_4=passo_4,
+            passo_5=passo_5, passo_6=passo_6, passo_7=passo_7, passo_8=passo_8,
             saida=saida,
         )
 
