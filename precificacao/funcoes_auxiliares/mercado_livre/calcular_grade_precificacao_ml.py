@@ -1,35 +1,24 @@
-# * [RESUMO] → Reformulado em 15/07 (mudança de base: Grade passa a
-#              viver por VARIAÇÃO/MLB real, não mais só por Produto —
-#              descoberta do "frete real" da API do ML, que pode
-#              divergir do frete de tabela e divergir ENTRE MLBs do
-#              MESMO produto).
-#
-#              Algoritmo (validado com o usuário, exemplo SS-20B/21
-#              MLBs):
-#              1. PASSADA TABELA — pros 2 tipos (Clássico/Premium) do
-#                 produto, calcula as 4 margens de cada usando busca
-#                 de faixa (motor de sempre, com a circularidade
-#                 preço↔faixa). Vira a linha de FALLBACK do produto
-#                 (variacao=None) — E é reaproveitada como valor
-#                 padrão pra qualquer MLB desse tipo SEM frete real.
-#              2. Por tipo (Clássico/Premium), separa as variações
-#                 (MLBs reais) publicadas desse produto.
-#              3. PASSADA FRETE REAL — dentro de cada tipo, agrupa os
-#                 MLBs por valor DISTINTO de frete_real (ignorando os
-#                 que não têm) — calcula 1 vez por valor distinto ×
-#                 4 margens (SEM busca de faixa, frete real já é
-#                 número fechado).
-#              4. Redistribui: cada MLB com frete_real usa o
-#                 resultado da Passada 3; cada MLB sem frete_real usa
-#                 o resultado da Passada 1 (mesmo do fallback).
-#
-#              Sem paralelismo, sem signal — só roda quando mandado.
+# precificacao/funcoes_auxiliares/mercado_livre/calcular_grade_precificacao_ml.py
+
+# Função Objetivo: Calcula a Grade de Precificação (Mínima/Padrão/Máxima/Competição) por MLB.
+# Explicação em detalhe: reescrito pra usar FormulaPrecificacao + DimensoesEfetivas — 1 caminho
+# só de cálculo (busca de faixa sempre), sem mais a distinção "tabela vs frete real fixo" (esse
+# conceito morreu — calcular_preco_com_frete_real/preparar_fixo_e_faixas/calcular_preco_grade_ml,
+# de montar_parametros_ml.py, ficam obsoletos). Cache por ASSINATURA de dimensão (altura,largura,
+# comprimento,peso,origem) — variações com a mesma assinatura reaproveitam o mesmo cálculo, sem
+# recalcular Coleta/Armazenagem/preço do zero pra cada MLB (a busca de faixa de frete em si já
+# é discreta por peso — isso é aproveitado dentro de FormulaPrecificacao.filtrar_faixas_frete()).
+# Salva no formato LONGO (1 linha por variação × tipo_anuncio × margem), igual
+# RecomendacaoPrecificacao — chega de campo prefixado.
 
 import time
 from collections import defaultdict
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
+from precificacao.funcoes_auxiliares.mercado_livre.formula_precificacao import FormulaPrecificacao
 
 
+# Função Objetivo: Devolve as 4 margens configuradas pro tipo de anúncio (nome, valor).
 def _margens_do_tipo(config):
     return [
         ('minima', config.margem_minima),
@@ -39,19 +28,80 @@ def _margens_do_tipo(config):
     ]
 
 
-def _campo_prefixo(tipo, tipo_classico):
-    return 'classico' if tipo == tipo_classico else 'premium'
+# Função Objetivo: Monta a chave de cache — mesma dimensão efetiva reaproveita o mesmo cálculo.
+def _assinatura(dim):
+    return (dim.altura, dim.largura, dim.comprimento, dim.peso, dim.origem)
 
 
+# Função Objetivo: Roda FormulaPrecificacao pras 4 margens dessa assinatura, ou reaproveita do cache.
+def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
+                               config_geral, cache_formulas, variacao, tipo, erros):
+    if assinatura in cache_formulas:
+        return {'formulas': cache_formulas[assinatura], 'novos': 0, 'reaproveitados': 4, 'sem_calculo': 0}
+
+    formulas = {}
+    novos = 0
+    sem_calculo = 0
+    for margem_chave, margem_valor in _margens_do_tipo(config):
+        try:
+            formula = FormulaPrecificacao(
+                produto=produto, dimensoes_efetivas=dim, config_tipo=config,
+                config_geral=config_geral, margem_alvo_percentual=margem_valor,
+                frete_todas=frete_todas, faixas_armazenagem=faixas_armazenagem,
+            ).calcular()
+            novos += 1
+            if not formula.resolvida:
+                sem_calculo += 1
+                formulas[margem_chave] = None
+            else:
+                formulas[margem_chave] = formula
+        except AssertionError as e:
+            alvo = f'MLB {variacao.anuncio.mlb}' if variacao else 'fallback'
+            erros.append(f'{produto} | {alvo} | {tipo} | {margem_chave} | {e}')
+            formulas[margem_chave] = None
+
+    cache_formulas[assinatura] = formulas
+    return {'formulas': formulas, 'novos': novos, 'reaproveitados': 0, 'sem_calculo': sem_calculo}
+
+
+# Função Objetivo: Cria ou atualiza as 4 linhas (1 por margem) de 1 (produto, variação, tipo).
+def _registrar_linhas(produto, variacao, tipo_grade, formulas, existentes, para_criar, para_atualizar):
+    from precificacao.models import GradePrecificacaoML
+
+    for margem_chave, formula in formulas.items():
+        if formula is None:
+            continue
+
+        dados = dict(
+            preco=formula.saida.preco_final,
+            margem_percentual_obtida=formula.saida.margem_percentual_obtida,
+            frete_usado=formula.saida.frete_usado,
+            origem_dimensao=formula.entrada.origem_dimensao,
+            detalhamento=formula.para_dict_auditoria(),
+        )
+
+        chave = (produto.id, variacao.id if variacao else None, tipo_grade, margem_chave)
+        existente = existentes.get(chave)
+        if existente:
+            for campo, valor in dados.items():
+                setattr(existente, campo, valor)
+            para_atualizar.append(existente)
+        else:
+            nova = GradePrecificacaoML(
+                produto=produto, variacao=variacao, tipo_anuncio=tipo_grade, margem=margem_chave, **dados
+            )
+            para_criar.append(nova)
+            existentes[chave] = nova
+
+
+# Função Objetivo: Ponto de entrada chamado pelo popular_banco.
 def calcular_grade_precificacao_ml(stdout, style):
     from django.db import connection
     from produtos.models import Produto
     from mercado_livre.models import (
         ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre,
+        ConfiguracaoMercadoLivre, FaixaArmazenagemMercadoLivre,
         FreteML, VariacaoAnuncioMercadoLivre,
-    )
-    from precificacao.funcoes_auxiliares.mercado_livre.montar_parametros_ml import (
-        calcular_preco_grade_ml, calcular_preco_com_frete_real, preparar_fixo_e_faixas,
     )
     from precificacao.models import GradePrecificacaoML
 
@@ -60,13 +110,6 @@ def calcular_grade_precificacao_ml(stdout, style):
     stdout.write('[GRADE DE PRECIFICAÇÃO ML] Calculando...')
     inicio_total = time.perf_counter()
 
-    # * [EXPLICAÇÃO] → Limpa o histórico ANTES de medir — as etapas
-    #                  anteriores do popular_banco já geram milhares
-    #                  de consultas, estourando o limite de 9.000 do
-    #                  Django e bagunçando qualquer contagem por
-    #                  posição. Começando do zero aqui, len() no final
-    #                  é exato (a menos que a própria Grade gere mais
-    #                  de 9.000 consultas sozinha — não é o caso).
     connection.force_debug_cursor = True
     connection.queries_log.clear()
 
@@ -74,20 +117,11 @@ def calcular_grade_precificacao_ml(stdout, style):
     produtos = list(Produto.objects.all())
     stdout.write(f'    {len(produtos)} produto(s) encontrados')
 
-    from mercado_livre.models import ConfiguracaoMercadoLivre, FaixaArmazenagemMercadoLivre
-
     configs = {c.tipo_anuncio: c for c in ConfiguracaoTipoAnuncioMercadoLivre.objects.all()}
     frete_todas = list(FreteML.objects.all())
     config_geral = ConfiguracaoMercadoLivre.obter()
     faixas_armazenagem = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
 
-    # * [EXPLICAÇÃO] → VariacaoAnuncioMercadoLivre.produto usa
-    #                  to_field='sku' — o atalho v.produto_id guarda
-    #                  o SKU (texto), NÃO o ID numérico do Produto.
-    #                  Precisa acessar v.produto.id (o objeto de
-    #                  verdade, via select_related pra não gerar 1
-    #                  query por variação) pra pegar o ID real,
-    #                  batendo com produto.id do loop principal.
     variacoes_por_produto = defaultdict(list)
     total_variacoes = 0
     for v in VariacaoAnuncioMercadoLivre.objects.filter(
@@ -98,7 +132,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     stdout.write(f'    {total_variacoes} variação(ões)/MLB(s) publicado(s) encontrado(s)')
 
     existentes = {
-        (r.produto_id, r.variacao_id): r
+        (r.produto_id, r.variacao_id, r.tipo_anuncio, r.margem): r
         for r in GradePrecificacaoML.objects.all()
     }
 
@@ -111,9 +145,8 @@ def calcular_grade_precificacao_ml(stdout, style):
     sem_calculo = 0
 
     inicio_calculo = time.perf_counter()
-    qtd_calculos_tabela = 0
-    qtd_calculos_frete_real = 0
-    calculos_por_produto = []  # * [EXPLICAÇÃO] → só curiosidade/log, não usado por nenhuma decisão do sistema
+    qtd_calculos = 0
+    qtd_reaproveitados = 0
     total_produtos = len(produtos)
 
     for indice_produto, produto in enumerate(produtos, start=1):
@@ -121,59 +154,6 @@ def calcular_grade_precificacao_ml(stdout, style):
             decorrido = time.perf_counter() - inicio_calculo
             stdout.write(f'    ... {indice_produto}/{total_produtos} produtos processados ({decorrido:.1f}s)')
 
-        qtd_calculos_antes_deste_produto = qtd_calculos_tabela + qtd_calculos_frete_real
-
-        fixo_produto, faixas_produto, peso_produto, componentes_fixo_produto = preparar_fixo_e_faixas(
-            produto, frete_todas, config_geral=config_geral, faixas_armazenagem=faixas_armazenagem
-        )
-
-        # * PASSADA 1 — TABELA, sempre, pros 2 tipos.
-        resultado_tabela = {}
-        for tipo in (TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM):
-            config = configs.get(tipo)
-            if not config:
-                continue
-            for margem_chave, margem_valor in _margens_do_tipo(config):
-                try:
-                    resultado = calcular_preco_grade_ml(
-                        produto, config, margem_valor, fixo_produto, faixas_produto, peso_produto,
-                        componentes_fixo=componentes_fixo_produto,
-                    )
-                    qtd_calculos_tabela += 1
-                    resultado_tabela[(tipo, margem_chave)] = resultado
-                    if resultado is None:
-                        sem_calculo += 1
-                except AssertionError as e:
-                    erros.append(f'{produto} | tabela | {tipo} | {margem_chave} | {e}')
-                    resultado_tabela[(tipo, margem_chave)] = None
-
-        # * Linha de FALLBACK do produto (variacao=None) — os 2 tipos inteiros.
-        dados_fallback = {}
-        for tipo in (TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM):
-            config = configs.get(tipo)
-            if not config:
-                continue
-            prefixo = _campo_prefixo(tipo, TipoAnuncio.CLASSICO)
-            algum_resultado = None
-            for margem_chave, _ in _margens_do_tipo(config):
-                r = resultado_tabela.get((tipo, margem_chave))
-                if r is None:
-                    continue
-                algum_resultado = r
-                dados_fallback[f'{prefixo}_{margem_chave}_preco'] = r['preco_calculado']
-                dados_fallback[f'{prefixo}_{margem_chave}_margem'] = r['margem_percentual_obtida']
-            if algum_resultado is not None:
-                dados_fallback[f'frete_{prefixo}_usado'] = algum_resultado['frete_usado']
-                dados_fallback[f'frete_{prefixo}_origem'] = 'tabela'
-                dados_fallback[f'{prefixo}_detalhamento'] = {
-                    m: (resultado_tabela.get((tipo, m)) or {}).get('detalhamento')
-                    for m, _ in _margens_do_tipo(config)
-                }
-
-        _registrar_linha(produto, None, dados_fallback, existentes, para_criar, para_atualizar)
-
-        # * PASSADA 2 e 3 — por tipo, separa as variações reais e
-        #                  agrupa por valor distinto de frete real.
         variacoes_do_produto = variacoes_por_produto.get(produto.id, [])
         grupos = {TipoAnuncio.CLASSICO: [], TipoAnuncio.PREMIUM: []}
         for v in variacoes_do_produto:
@@ -181,96 +161,45 @@ def calcular_grade_precificacao_ml(stdout, style):
             if tipo_v in grupos:
                 grupos[tipo_v].append(v)
 
-        for tipo, lista_variacoes in grupos.items():
-            if not lista_variacoes:
-                continue
+        for tipo in (TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM):
             config = configs.get(tipo)
             if not config:
                 continue
-            prefixo = _campo_prefixo(tipo, TipoAnuncio.CLASSICO)
+            tipo_grade = 'classico' if tipo == TipoAnuncio.CLASSICO else 'premium'
 
-            fretes_reais_distintos = sorted({
-                v.frete_real for v in lista_variacoes if v.frete_real is not None
-            })
+            cache_formulas = {}
 
-            cache_frete_real = {}
-            for frete_valor in fretes_reais_distintos:
-                for margem_chave, margem_valor in _margens_do_tipo(config):
-                    try:
-                        resultado = calcular_preco_com_frete_real(
-                            produto, config, margem_valor, fixo_produto, peso_produto, frete_valor,
-                            componentes_fixo=componentes_fixo_produto,
-                        )
-                        qtd_calculos_frete_real += 1
-                        cache_frete_real[(frete_valor, margem_chave)] = resultado
-                        if resultado is None:
-                            sem_calculo += 1
-                    except AssertionError as e:
-                        erros.append(f'{produto} | frete_real={frete_valor} | {tipo} | {margem_chave} | {e}')
-                        cache_frete_real[(frete_valor, margem_chave)] = None
+            # * Fallback do produto (variacao=None) — sempre calculado, mesmo sem MLB publicado.
+            dim_fallback = resolver_dimensoes_efetivas(produto, variacao=None)
+            resultado_fallback = _calcular_ou_reaproveitar(
+                _assinatura(dim_fallback), dim_fallback, produto, config, frete_todas,
+                faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros
+            )
+            qtd_calculos += resultado_fallback['novos']
+            qtd_reaproveitados += resultado_fallback['reaproveitados']
+            sem_calculo += resultado_fallback['sem_calculo']
+            _registrar_linhas(produto, None, tipo_grade, resultado_fallback['formulas'], existentes, para_criar, para_atualizar)
 
-            for v in lista_variacoes:
-                dados_variacao = {}
-                usa_frete_real = v.frete_real is not None
-                algum_resultado = None
-
-                for margem_chave, _ in _margens_do_tipo(config):
-                    if usa_frete_real:
-                        r = cache_frete_real.get((v.frete_real, margem_chave))
-                    else:
-                        r = resultado_tabela.get((tipo, margem_chave))
-                    if r is None:
-                        continue
-                    algum_resultado = r
-                    dados_variacao[f'{prefixo}_{margem_chave}_preco'] = r['preco_calculado']
-                    dados_variacao[f'{prefixo}_{margem_chave}_margem'] = r['margem_percentual_obtida']
-
-                if algum_resultado is not None:
-                    dados_variacao[f'frete_{prefixo}_usado'] = algum_resultado['frete_usado']
-                    dados_variacao[f'frete_{prefixo}_origem'] = 'real' if usa_frete_real else 'tabela'
-                    if usa_frete_real:
-                        dados_variacao[f'{prefixo}_detalhamento'] = {
-                            m: (cache_frete_real.get((v.frete_real, m)) or {}).get('detalhamento')
-                            for m, _ in _margens_do_tipo(config)
-                        }
-                    else:
-                        dados_variacao[f'{prefixo}_detalhamento'] = {
-                            m: (resultado_tabela.get((tipo, m)) or {}).get('detalhamento')
-                            for m, _ in _margens_do_tipo(config)
-                        }
-
-                _registrar_linha(produto, v, dados_variacao, existentes, para_criar, para_atualizar)
-
-        calculos_deste_produto = (qtd_calculos_tabela + qtd_calculos_frete_real) - qtd_calculos_antes_deste_produto
-        calculos_por_produto.append(calculos_deste_produto)
+            # * Variações reais do tipo.
+            for variacao in grupos[tipo]:
+                dim = resolver_dimensoes_efetivas(produto, variacao=variacao)
+                resultado = _calcular_ou_reaproveitar(
+                    _assinatura(dim), dim, produto, config, frete_todas,
+                    faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros
+                )
+                qtd_calculos += resultado['novos']
+                qtd_reaproveitados += resultado['reaproveitados']
+                sem_calculo += resultado['sem_calculo']
+                _registrar_linhas(produto, variacao, tipo_grade, resultado['formulas'], existentes, para_criar, para_atualizar)
 
     tempo_calculo_total = time.perf_counter() - inicio_calculo
     stdout.write(f'  ⏱ Loop de cálculo, total: {tempo_calculo_total:.1f}s')
-    stdout.write(f'      ↳ Cálculos com frete de tabela: {qtd_calculos_tabela}')
-    stdout.write(f'      ↳ Cálculos com frete real: {qtd_calculos_frete_real}')
-    if calculos_por_produto:
-        media = sum(calculos_por_produto) / len(calculos_por_produto)
-        stdout.write(
-            f'      ↳ Cálculos por produto — mín: {min(calculos_por_produto)}, '
-            f'média: {media:.1f}, máx: {max(calculos_por_produto)}'
-        )
+    stdout.write(f'      ↳ Cálculos novos: {qtd_calculos}')
+    stdout.write(f'      ↳ Reaproveitados (mesma assinatura): {qtd_reaproveitados}')
 
     inicio_salvar = time.perf_counter()
 
-    campos_atualizaveis = [
-        'frete_classico_usado', 'frete_classico_origem',
-        'classico_minima_preco', 'classico_minima_margem',
-        'classico_padrao_preco', 'classico_padrao_margem',
-        'classico_maxima_preco', 'classico_maxima_margem',
-        'classico_competicao_preco', 'classico_competicao_margem',
-        'classico_detalhamento',
-        'frete_premium_usado', 'frete_premium_origem',
-        'premium_minima_preco', 'premium_minima_margem',
-        'premium_padrao_preco', 'premium_padrao_margem',
-        'premium_maxima_preco', 'premium_maxima_margem',
-        'premium_competicao_preco', 'premium_competicao_margem',
-        'premium_detalhamento',
-    ]
+    campos_atualizaveis = ['preco', 'margem_percentual_obtida', 'frete_usado', 'origem_dimensao', 'detalhamento']
 
     if para_criar:
         GradePrecificacaoML.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
@@ -298,24 +227,3 @@ def calcular_grade_precificacao_ml(stdout, style):
             stdout.write(style.ERROR(f'      ... e mais {len(erros) - 20} erro(s)'))
 
     stdout.write(f'  📊 Consultas ao banco (SQL) no total: {len(connection.queries_log)}')
-
-
-def _registrar_linha(produto, variacao, dados, existentes, para_criar, para_atualizar):
-    """Cria ou atualiza 1 linha (fallback do produto ou de 1 variação
-    real) — mesmo padrão de sempre (dict de chave→instância em
-    memória, bulk no final, nunca 1 save() por linha)."""
-    from precificacao.models import GradePrecificacaoML
-
-    if not dados:
-        return
-
-    chave = (produto.id, variacao.id if variacao else None)
-    existente = existentes.get(chave)
-    if existente:
-        for campo, valor in dados.items():
-            setattr(existente, campo, valor)
-        para_atualizar.append(existente)
-    else:
-        nova = GradePrecificacaoML(produto=produto, variacao=variacao, **dados)
-        para_criar.append(nova)
-        existentes[chave] = nova

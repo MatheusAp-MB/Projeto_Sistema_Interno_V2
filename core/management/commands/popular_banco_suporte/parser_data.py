@@ -31,13 +31,19 @@ class ParserData:
                 raise ValueError(f'Origem de data desconhecida: {self.origem}')
 
     # Função Objetivo: Converte texto ISO da API (2026-07-16T09:14:04Z).
+    # Explicação em detalhe: quando vem só data, sem hora nem offset (ex:
+    # "2026-07-05"), fromisoformat devolve datetime NAIVE — corrigido aqui
+    # com o mesmo tratamento que _parsear_excel_br já tinha.
     def _parsear_iso(self, valor):
         if not valor:
             return None
         try:
-            return datetime.fromisoformat(str(valor).replace('Z', '+00:00'))
+            resultado = datetime.fromisoformat(str(valor).replace('Z', '+00:00'))
         except Exception:
             return None
+        if timezone.is_naive(resultado):
+            resultado = timezone.make_aware(resultado)
+        return resultado
 
     # Função Objetivo: Converte data do Excel, formato brasileiro (dd/mm/aaaa).
     # Explicação em detalhe: algumas linhas do ERP têm data "suja" (ex:

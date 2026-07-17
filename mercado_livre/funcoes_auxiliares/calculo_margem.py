@@ -35,19 +35,48 @@ from decimal import Decimal
 from django.db.models import Q
 
 
+def metro_cubico_de_dimensoes(altura, largura, comprimento):
+    """Conta pura — m³ a partir de altura/largura/comprimento em CM.
+    Reaproveitada tanto por calcular_metro_cubico (produto do ERP)
+    quanto por FormulaPrecificacao (DimensoesEfetivas, que pode vir da
+    Variação ML) — evita duplicar a mesma fórmula 2x."""
+    if altura is None or largura is None or comprimento is None:
+        return Decimal('0')
+    return (altura / 100) * (largura / 100) * (comprimento / 100)
+
+
 def calcular_metro_cubico(produto):
     """Custo de Coleta usa a EMBALAGEM (a caixa real coletada/
     despachada) — confirmado com o usuário. Se a embalagem ainda não
     foi cadastrada pra esse produto (campos None), retorna 0 — nunca
     finge um cálculo sem dado real."""
-    altura = produto.altura_produto_apos_embalado
-    largura = produto.largura_produto_apos_embalado
-    comprimento = produto.comprimento_produto_apos_embalado
+    return metro_cubico_de_dimensoes(
+        produto.altura_produto_apos_embalado,
+        produto.largura_produto_apos_embalado,
+        produto.comprimento_produto_apos_embalado,
+    )
 
-    if altura is None or largura is None or comprimento is None:
-        return Decimal('0')
 
-    return (altura / 100) * (largura / 100) * (comprimento / 100)
+def selecionar_faixa_por_dimensao(altura, largura, comprimento, faixas):
+    """Conta pura — acha a primeira faixa (ordem crescente) onde TODAS
+    as dimensões cabem; se nenhuma comportar, usa a maior (fallback).
+    Reaproveitada tanto por selecionar_faixa_armazenagem (produto do
+    ERP) quanto por FormulaPrecificacao (DimensoesEfetivas) — evita
+    duplicar a mesma busca 2x."""
+    if not faixas:
+        return None
+
+    altura = altura or Decimal('0')
+    largura = largura or Decimal('0')
+    comprimento = comprimento or Decimal('0')
+
+    for faixa in faixas:
+        if (altura <= faixa.max_altura
+                and largura <= faixa.max_largura
+                and comprimento <= faixa.max_profundidade):
+            return faixa
+
+    return faixas[-1]
 
 
 def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
@@ -73,20 +102,12 @@ def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
         from mercado_livre.models import FaixaArmazenagemMercadoLivre
         faixas = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
 
-    if not faixas:
-        return None
-
-    altura = produto.altura_produto_apos_embalado or Decimal('0')
-    largura = produto.largura_produto_apos_embalado or Decimal('0')
-    comprimento = produto.comprimento_produto_apos_embalado or Decimal('0')
-
-    for faixa in faixas:
-        if (altura <= faixa.max_altura
-                and largura <= faixa.max_largura
-                and comprimento <= faixa.max_profundidade):
-            return faixa
-
-    return faixas[-1]
+    return selecionar_faixa_por_dimensao(
+        produto.altura_produto_apos_embalado,
+        produto.largura_produto_apos_embalado,
+        produto.comprimento_produto_apos_embalado,
+        faixas,
+    )
 
 
 def buscar_configuracao_tipo_anuncio(tipo_anuncio_obj):

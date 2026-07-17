@@ -19,9 +19,10 @@
 import json
 import pandas as pd
 from decimal import Decimal
-from django.utils import timezone
 from produtos.models import Produto
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
+from core.management.commands.popular_banco_suporte.parser_data import ParserData
 
 CAMINHO_LISTA_ML = 'Arquivos_API/detalhes_mlbs.json'
 CAMINHO_ERP_SIMPLES = 'Arquivos_de_Importação/Produtos_do_ML_Sysemp.xlsx'
@@ -40,32 +41,7 @@ LIMITE_DIMENSAO_CM = Decimal('9999.99')
 LIMITE_PESO_CUBADO_KG = Decimal('99999.999')
 
 
-def _texto(valor, padrao=None):
-    return str(valor).strip() if pd.notna(valor) else padrao
 
-
-def _numero(valor, padrao=0):
-    if pd.isna(valor):
-        return Decimal(str(padrao))
-    return Decimal(str(valor))
-
-
-def _numero_opcional(valor):
-    if pd.isna(valor):
-        return None
-    return Decimal(str(valor))
-
-
-def _data(valor):
-    if pd.isna(valor):
-        return None
-    resultado = pd.to_datetime(valor, dayfirst=True, errors='coerce')
-    if pd.isna(resultado):
-        return None
-    resultado = resultado.to_pydatetime()
-    if timezone.is_naive(resultado):
-        resultado = timezone.make_aware(resultado)
-    return resultado
 
 
 # Função Objetivo: Representa 1 SKU do ML cruzado com a planilha simples.
@@ -77,10 +53,11 @@ class LinhaProdutoRascunho:
     #                  tentar ler dado real de um objeto sem dado nenhum).
     CAMPOS_PRODUTO = ['sku', 'cod_fabricante', 'titulo', 'categoria', 'estoque', 'marca', 'imagem_url']
 
-    # Função Objetivo: Recebe o SKU e a linha correspondente da planilha simples.
-    def __init__(self, sku, linha_erp_simples):
+    # Função Objetivo: Recebe o SKU, a linha da planilha simples, e o conversor compartilhado.
+    def __init__(self, sku, linha_erp_simples, conversor):
         self.sku = sku
         self.linha_erp_simples = linha_erp_simples
+        self.conversor = conversor
         self.ean = None
         self.tem_ean = False
 
@@ -107,12 +84,12 @@ class LinhaProdutoRascunho:
         linha = self.linha_erp_simples
         return dict(
             sku=self.sku,
-            cod_fabricante=_texto(linha.get('Código Fabricante')),
-            titulo=_texto(linha.get('Descrição do Produto'), self.sku),
-            categoria=_texto(linha.get('Categoria')),
-            estoque=int(_numero(linha.get('Estoque'), 0)),
-            marca=_texto(linha.get('Marca')),
-            imagem_url=_texto(linha.get('Imagem 1')),
+            cod_fabricante=self.conversor.para_texto(linha.get('Código Fabricante')),
+            titulo=self.conversor.para_texto(linha.get('Descrição do Produto'), self.sku),
+            categoria=self.conversor.para_texto(linha.get('Categoria')),
+            estoque=int(self.conversor.para_decimal(linha.get('Estoque'), padrao=0)),
+            marca=self.conversor.para_texto(linha.get('Marca')),
+            imagem_url=self.conversor.para_texto(linha.get('Imagem 1')),
         )
 
     # Função Objetivo: Devolve os campos placeholder obrigatórios na criação.
@@ -137,9 +114,11 @@ class LinhaProdutoCompleto:
         'imagem_url', 'ultima_compra', 'cadastrado_erp_em',
     ]
 
-    # Função Objetivo: Recebe a linha bruta do pandas e prepara os campos vazios.
-    def __init__(self, linha_bruta):
+    # Função Objetivo: Recebe a linha bruta do pandas, o conversor e o parser de data.
+    def __init__(self, linha_bruta, conversor, parser_data):
         self.linha_bruta = linha_bruta
+        self.conversor = conversor
+        self.parser_data = parser_data
 
         self.sku = None
         self.ean = None
@@ -169,27 +148,27 @@ class LinhaProdutoCompleto:
 
     # Função Objetivo: Extrai SKU, EAN, título e os demais campos simples.
     def extrair_campos_basicos(self):
-        self.sku = _texto(self.linha_bruta.get('Codigo Auxiliar'))
-        self.ean = _texto(self.linha_bruta.get('Codigo de Barras'))
-        self.titulo = _texto(self.linha_bruta.get('Detalhes do Produto'), self.sku)
-        self.cod_fabricante = _texto(self.linha_bruta.get('Codigo do Fabricante'))
-        self.categoria = _texto(self.linha_bruta.get('Categoria'))
-        self.marca = _texto(self.linha_bruta.get('Marca'))
-        self.ncm = _texto(self.linha_bruta.get('ncm'))
-        self.estoque = int(_numero(self.linha_bruta.get('Estoque'), 0))
-        self.custo = _numero(self.linha_bruta.get('Custo'), 0)
-        self.imagem_url = _texto(self.linha_bruta.get('URL 1'))
-        self.ultima_compra = _data(self.linha_bruta.get('Ultima Compra'))
-        self.cadastrado_erp_em = _data(self.linha_bruta.get('dt_cadastro'))
+        self.sku = self.conversor.para_texto(self.linha_bruta.get('Codigo Auxiliar'))
+        self.ean = self.conversor.para_texto(self.linha_bruta.get('Codigo de Barras'))
+        self.titulo = self.conversor.para_texto(self.linha_bruta.get('Detalhes do Produto'), self.sku)
+        self.cod_fabricante = self.conversor.para_texto(self.linha_bruta.get('Codigo do Fabricante'))
+        self.categoria = self.conversor.para_texto(self.linha_bruta.get('Categoria'))
+        self.marca = self.conversor.para_texto(self.linha_bruta.get('Marca'))
+        self.ncm = self.conversor.para_texto(self.linha_bruta.get('ncm'))
+        self.estoque = int(self.conversor.para_decimal(self.linha_bruta.get('Estoque'), padrao=0))
+        self.custo = self.conversor.para_decimal(self.linha_bruta.get('Custo'), padrao=0)
+        self.imagem_url = self.conversor.para_texto(self.linha_bruta.get('URL 1'))
+        self.ultima_compra = self.parser_data.parsear(self.linha_bruta.get('Ultima Compra'))
+        self.cadastrado_erp_em = self.parser_data.parsear(self.linha_bruta.get('dt_cadastro'))
 
     # Função Objetivo: Extrai altura/largura/comprimento/peso do produto puro.
     # Explicação em detalhe: o ERP entrega em metros (confirmado) — converte
     # aqui pra centímetros (×100), padrão único do sistema.
     def extrair_dimensoes_sem_embalar(self):
-        self.altura_sem_embalar = _numero(self.linha_bruta.get('Altura'), 0) * 100
-        self.largura_sem_embalar = _numero(self.linha_bruta.get('Largura'), 0) * 100
-        self.comprimento_sem_embalar = _numero(self.linha_bruta.get('Comprimento'), 0) * 100
-        self.peso_sem_embalar = _numero(self.linha_bruta.get('Peso Bruto'), 0)
+        self.altura_sem_embalar = self.conversor.para_decimal(self.linha_bruta.get('Altura'), padrao=0) * 100
+        self.largura_sem_embalar = self.conversor.para_decimal(self.linha_bruta.get('Largura'), padrao=0) * 100
+        self.comprimento_sem_embalar = self.conversor.para_decimal(self.linha_bruta.get('Comprimento'), padrao=0) * 100
+        self.peso_sem_embalar = self.conversor.para_decimal(self.linha_bruta.get('Peso Bruto'), padrao=0)
 
     # Função Objetivo: Extrai altura/largura/comprimento/peso da embalagem.
     # Explicação em detalhe: mesma conversão m→cm, nas colunas "Embalagem *"
@@ -197,10 +176,10 @@ class LinhaProdutoCompleto:
     # na própria planilha do ERP). None quando a embalagem não foi cadastrada
     # ainda pra esse produto — nunca vira 0 disfarçado.
     def extrair_dimensoes_embalagem(self):
-        altura = _numero_opcional(self.linha_bruta.get('Embalagem Altura'))
-        largura = _numero_opcional(self.linha_bruta.get('Embalagem Largura'))
-        comprimento = _numero_opcional(self.linha_bruta.get('Embalagem Comprimento'))
-        peso = _numero_opcional(self.linha_bruta.get('Emablagem Peso'))
+        altura = self.conversor.para_decimal(self.linha_bruta.get('Embalagem Altura'))
+        largura = self.conversor.para_decimal(self.linha_bruta.get('Embalagem Largura'))
+        comprimento = self.conversor.para_decimal(self.linha_bruta.get('Embalagem Comprimento'))
+        peso = self.conversor.para_decimal(self.linha_bruta.get('Emablagem Peso'))
 
         self.altura_embalagem = altura * 100 if altura is not None else None
         self.largura_embalagem = largura * 100 if largura is not None else None
@@ -341,6 +320,9 @@ class ImportadorProdutos:
         self.criados_completo = 0
         self.erros_dimensao = []
 
+        self.conversor = ConversorCelulaExcel(origem='pandas')
+        self.parser_data = ParserData(origem='excel_br')
+
     # Função Objetivo: Lê a lista real de SKUs existentes no Mercado Livre.
     def ler_lista_skus_ml(self):
         with open(self.caminho_lista_ml, encoding='utf-8') as f:
@@ -372,7 +354,9 @@ class ImportadorProdutos:
     # achar o EAN — sem EAN, não dá pra casar com nada, é só contado.
     def garantir_existencia_rascunho(self):
         for sku in self.skus_unicos_ml:
-            linha = LinhaProdutoRascunho(sku, self.erp_simples_por_sku.get(sku)).transformar_linha_em_produto()
+            linha = LinhaProdutoRascunho(
+                sku, self.erp_simples_por_sku.get(sku), self.conversor
+            ).transformar_linha_em_produto()
 
             if not linha.tem_ean:
                 self.sem_ean_rascunho += 1
@@ -382,7 +366,14 @@ class ImportadorProdutos:
             if existente:
                 for campo, valor in linha.para_dict_produto().items():
                     setattr(existente, campo, valor)
-                if id(existente) not in self.produtos_ja_atualizados:
+                # * [EXPLICAÇÃO] → Se ainda não tem PK, é um produto criado
+                #                  NESTA MESMA rodada (banco recém-criado,
+                #                  sem histórico) — já vai ser salvo pelo
+                #                  bulk_create no final, não pode ir pro
+                #                  bulk_update (mesmo bug já corrigido em
+                #                  Promoções/Qualidade/Competição, esquecido
+                #                  aqui na unificação).
+                if existente.pk and id(existente) not in self.produtos_ja_atualizados:
                     self.produtos_para_atualizar.append(existente)
                     self.produtos_ja_atualizados.add(id(existente))
                 self.atualizados_rascunho += 1
@@ -405,7 +396,9 @@ class ImportadorProdutos:
         produtos_por_sku = {p.sku: p for p in self.produtos_por_ean.values() if p.sku}
 
         for _, linha_bruta in self.dataframe_erp_completo.iterrows():
-            linha = LinhaProdutoCompleto(linha_bruta).transformar_linha_em_produto()
+            linha = LinhaProdutoCompleto(
+                linha_bruta, self.conversor, self.parser_data
+            ).transformar_linha_em_produto()
             if not linha.esta_valida():
                 continue
             if linha.erro_dimensao:
@@ -418,11 +411,14 @@ class ImportadorProdutos:
             if existente:
                 for campo, valor in linha.para_dict_produto().items():
                     setattr(existente, campo, valor)
-                if id(existente) not in self.produtos_ja_atualizados:
+                # * [EXPLICAÇÃO] → Mesma proteção da fase de Rascunho — o
+                #                  produto pode ter sido criado por ELA
+                #                  mesma, nesta mesma rodada, ainda sem PK.
+                if existente.pk and id(existente) not in self.produtos_ja_atualizados:
                     self.produtos_para_atualizar.append(existente)
                     self.produtos_ja_atualizados.add(id(existente))
                 self.atualizados_completo += 1
-                continue
+                continue    
 
             if not linha.ean or linha.ean in self.eans_ja_enfileirados_para_criar:
                 continue

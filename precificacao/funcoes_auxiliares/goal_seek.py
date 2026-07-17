@@ -36,7 +36,8 @@ def arredondar_para_90(preco_exato):
     return k + Decimal('0.90')
 
 
-def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_produto, faixas_frete_candidatas):
+def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_produto,
+                               faixas_frete_candidatas, rebate_valor=Decimal('0')):
     """Acha o preço que atinge (ou supera) a margem-alvo, resolvendo a
     circularidade do frete por busca finita entre as faixas candidatas.
 
@@ -48,6 +49,11 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
     faixas_frete_candidatas: lista de objetos com .preco_min/.preco_max/
                    .valor, JÁ FILTRADOS pelo peso do produto, ordenados
                    por preco_min crescente (quem chama monta essa lista)
+    rebate_valor: Decimal — opcional, valor em R$ que o marketplace abate
+                   (ex: rebate do ML) — entra como crédito no numerador,
+                   não cria circularidade nova porque depende do PREÇO
+                   ORIGINAL (já conhecido), nunca do preço que está sendo
+                   resolvido agora.
 
     Retorna dict com preco_calculado, frete_usado, margem_percentual_obtida,
     faixa_frete — ou None se a meta for matematicamente inatingível (
@@ -58,6 +64,7 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
 
     fixo = Decimal(str(fixo))
     custo_produto = Decimal(str(custo_produto))
+    rebate_valor = Decimal(str(rebate_valor))
     margem_alvo_percentual = margem_alvo_fracao * 100
 
     # * [EXPLICAÇÃO] → Pula faixas cujo teto é menor que o custo do
@@ -71,7 +78,7 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
 
     for faixa in faixas_validas:
         frete = Decimal(str(faixa.valor))
-        preco_exato = (frete + fixo) / denominador
+        preco_exato = (frete + fixo - rebate_valor) / denominador
         preco_90 = arredondar_para_90(preco_exato)
 
         dentro_do_piso = preco_90 >= faixa.preco_min
@@ -81,7 +88,7 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
             # * [EXPLICAÇÃO] → Recalcula "pra frente" com o preço já
             #                  arredondado — validação cruzada real,
             #                  não confia cegamente na fórmula inversa.
-            margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete
+            margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete + rebate_valor
             margem_percentual_obtida = (margem_valor / preco_90) * 100
 
             assert margem_percentual_obtida >= margem_alvo_percentual, (
@@ -106,6 +113,7 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
                 'detalhamento': {
                     'custo_produto': custo_produto,
                     'fixo': fixo,
+                    'rebate_valor': rebate_valor,
                     'taxa_percentual': taxa_percentual * 100,
                     'margem_alvo_percentual': margem_alvo_percentual,
                     'faixa_preco_min': faixa.preco_min,
@@ -122,24 +130,27 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
     return None
 
 
-def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, frete):
+def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, frete, rebate_valor=Decimal('0')):
     """Mesma fórmula de resolver_preco_por_margem, mas SEM busca de
-    faixa — usado quando o frete já é um número fechado (frete REAL,
-    vindo de medição física do Mercado Livre), não uma faixa de
-    tabela. Sem circularidade preço↔faixa aqui: o frete não depende
-    do preço final, então não tem o que buscar."""
+    faixa — usado quando o frete já é um número fechado, sem tabela
+    (ex: marketplace onde o comprador paga o frete — frete=0 — ou
+    frete fixo de verdade, sem faixa peso×preço). NÃO usado hoje pelo
+    Mercado Livre (lá o frete sempre passa por busca de faixa, mesmo
+    quando o peso vem da dimensão declarada do ML) — mantido genérico
+    pra outros marketplaces que vierem a usar esse motor."""
     denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
     if denominador <= 0:
         return None
 
     fixo = Decimal(str(fixo))
     frete = Decimal(str(frete))
+    rebate_valor = Decimal(str(rebate_valor))
     margem_alvo_percentual = margem_alvo_fracao * 100
 
-    preco_exato = (frete + fixo) / denominador
+    preco_exato = (frete + fixo - rebate_valor) / denominador
     preco_90 = arredondar_para_90(preco_exato)
 
-    margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete
+    margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete + rebate_valor
     margem_percentual_obtida = (margem_valor / preco_90) * 100
 
     assert margem_percentual_obtida >= margem_alvo_percentual, (
@@ -155,6 +166,7 @@ def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, fre
         'detalhamento': {
             'custo_produto': None,  # preenchido por quem chama (só ele sabe)
             'fixo': fixo,
+            'rebate_valor': rebate_valor,
             'taxa_percentual': taxa_percentual * 100,
             'margem_alvo_percentual': margem_alvo_percentual,
             'faixa_preco_min': None,
