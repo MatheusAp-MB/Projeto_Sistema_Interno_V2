@@ -110,9 +110,19 @@ def importar_planilha_precificacao(stdout, style, caminho=CAMINHO_PLANILHA_PRECI
             produto.icms_saida_sp = _pct(_seguro(row[15]))
             produto.icms_saida_media = _pct(_seguro(row[16]))
             produto.peso_produto_apos_embalado = _dec3(_seguro(row[19]), Decimal('0'))
-            produto.altura_produto_apos_embalado = _dec(_seguro(row[21]), Decimal('0'))
-            produto.comprimento_produto_apos_embalado = _dec(_seguro(row[22]), Decimal('0'))
-            produto.largura_produto_apos_embalado = _dec(_seguro(row[23]), Decimal('0'))
+            # * [EXPLICAÇÃO] → Mesma padronização aplicada no ERP
+            #                  Completo (confirmada com o usuário):
+            #                  ordem dos eixos nunca foi consistente
+            #                  entre fontes — padroniza sempre menor
+            #                  pro maior, altura ≤ comprimento ≤
+            #                  largura. Não muda o cálculo (produto é
+            #                  comutativo), só a legibilidade.
+            _altura_bruta = _dec(_seguro(row[21]), Decimal('0'))
+            _comprimento_bruto = _dec(_seguro(row[22]), Decimal('0'))
+            _largura_bruta = _dec(_seguro(row[23]), Decimal('0'))
+            produto.altura_produto_apos_embalado, produto.comprimento_produto_apos_embalado, produto.largura_produto_apos_embalado = sorted(
+                [_altura_bruta, _comprimento_bruto, _largura_bruta]
+            )
             produto.armazenagem_planilha = _dec(_seguro(row[59]))
             produto.peso_cubado = (
                 produto.altura_produto_apos_embalado

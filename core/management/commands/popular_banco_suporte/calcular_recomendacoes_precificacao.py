@@ -17,7 +17,26 @@
 #              idênticos nas 3 chamadas (2 de cada 3 eram desperdício).
 
 import time
+from decimal import Decimal
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, RecomendacaoPrecificacao, FreteML
+
+
+LIMITE_PERCENTUAL = Decimal('9999.99')
+
+
+def _percentual_seguro(valor, contexto, avisos):
+    """Protege contra margem calculada absurda (achado real: produto
+    com preço muito baixo + frete real/embalagem desproporcional pode
+    gerar margem% que estoura o campo, ex: -50000%). Nunca deixa 1
+    caso extremo quebrar o bulk_create inteiro — vira None (sem dado
+    confiável) e é LISTADO pro usuário investigar, mesmo princípio já
+    usado com peso_cubado/dimensão de embalagem."""
+    if valor is None:
+        return None
+    if abs(valor) > LIMITE_PERCENTUAL:
+        avisos.append(f'{contexto}: margem calculada ({valor:.2f}%) fora da faixa aceitável — ignorada.')
+        return None
+    return valor
 from mercado_livre.funcoes_auxiliares.montar_linhas_precificacao import montar_linhas_candidatas
 from mercado_livre.funcoes_auxiliares.recomendacao_precificacao import (
     recomendar_precificacao, classificar_buckets, COMPORTAMENTOS, TIPOS_SEM_PROMOCAO,
@@ -67,6 +86,7 @@ def calcular_recomendacoes_precificacao(stdout, style):
         para_atualizar = []
         para_atualizar_variacoes = []
         sem_calculo = 0
+        avisos_margem = []
 
         inicio_loop = time.perf_counter()
         for indice, variacao in enumerate(variacoes, start=1):
@@ -90,8 +110,9 @@ def calcular_recomendacoes_precificacao(stdout, style):
             #                  elimina a duplicação que existia antes.
             variacao.margem_atual_vs_original_pp = None
             if margem_atual and margem_original:
-                variacao.margem_atual_vs_original_pp = round(
-                    margem_atual['margem_percentual'] - margem_original['margem_percentual'], 2
+                variacao.margem_atual_vs_original_pp = _percentual_seguro(
+                    round(margem_atual['margem_percentual'] - margem_original['margem_percentual'], 2),
+                    f'{variacao.anuncio.mlb} (atual vs original)', avisos_margem,
                 )
             para_atualizar_variacoes.append(variacao)
 
@@ -168,11 +189,17 @@ def calcular_recomendacoes_precificacao(stdout, style):
                     cenario_nome=escolhida['nome'] if escolhida else None,
                     cenario_tipo=escolhida['tipo'] if escolhida else None,
                     preco_recomendado=escolhida['preco_promocional'] if escolhida else None,
-                    margem_recomendada=escolhida['margem_real']['margem_percentual'] if escolhida else None,
+                    margem_recomendada=_percentual_seguro(
+                        escolhida['margem_real']['margem_percentual'] if escolhida else None,
+                        f'{variacao.anuncio.mlb} ({comportamento})', avisos_margem,
+                    ),
                     bucket_nome=resultado['bucket_nome'],
                     exige_aprovacao=resultado['exige_aprovacao'],
                     categoria_estado=categoria_estado,
-                    variacao_margem_pp=escolhida['diferenca'] if escolhida else None,
+                    variacao_margem_pp=_percentual_seguro(
+                        escolhida['diferenca'] if escolhida else None,
+                        f'{variacao.anuncio.mlb} ({comportamento})', avisos_margem,
+                    ),
                 )
 
                 chave = (variacao.id, comportamento)
@@ -215,5 +242,13 @@ def calcular_recomendacoes_precificacao(stdout, style):
         f'[RECOMENDAÇÃO PRECIFICAÇÃO] Concluído em {tempo_total:.1f}s!\n'
         f'    Recomendações criadas: {len(para_criar)}\n'
         f'    Recomendações atualizadas: {len(para_atualizar)}\n'
-        f'    Sem cálculo possível (sem produto/config): {sem_calculo}'
+        f'    Sem cálculo possível (sem produto/config): {sem_calculo}\n'
+        f'    Margens fora da faixa aceitável (ignoradas): {len(avisos_margem)}'
     ))
+
+    if avisos_margem:
+        stdout.write(style.WARNING('\n[MARGENS CALCULADAS ABSURDAS — VERIFICAR PREÇO/FRETE]'))
+        for aviso in avisos_margem[:30]:
+            stdout.write(style.WARNING(f'    {aviso}'))
+        if len(avisos_margem) > 30:
+            stdout.write(style.WARNING(f'    ... e mais {len(avisos_margem) - 30} caso(s).'))

@@ -12,8 +12,7 @@ inicio_geral = time.time()
 from rich import print
 from pathlib import Path
 from django.core.management.base import BaseCommand
-from core.management.commands.popular_banco_suporte.importar_produtos_ml import importar_produtos_ml
-from core.management.commands.popular_banco_suporte.importar_produtos_erp_completo import importar_produtos_erp_completo
+from core.management.commands.popular_banco_suporte.importar_produtos_erp import importar_produtos_erp
 from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
 from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
 from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
@@ -34,8 +33,7 @@ class Command(BaseCommand):
         self.stdout.write('Iniciando importação de dados reais...\n')
 
         etapas = [
-            ('PRODUTOS ML', importar_produtos_ml, (CAMINHO_DETALHES_MLBS,)),
-            ('PRODUTOS ERP COMPLETO', importar_produtos_erp_completo, ()),
+            ('PRODUTOS ERP', importar_produtos_erp, (CAMINHO_DETALHES_MLBS,)),
             ('ANUNCIOS ML', importar_anuncios_ml, (CAMINHO_DETALHES_MLBS,)),
             ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
             ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
