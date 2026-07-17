@@ -11,10 +11,10 @@
             <i class="fas fa-copy icone-copiar" data-copiar="{{ card.mlb }}"></i>
         </span>
         {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=card.badge %}
-        {% if card.frete_origem == 'real' %}
-        <span class="grade-badge-frete grade-badge-frete--real">Frete: Real (API)</span>
+        {% if card.origem_dimensao == 'variacao_ml' %}
+        <span class="grade-badge-frete grade-badge-frete--real">Dimensão: {{ card.origem_dimensao_label }}</span>
         {% else %}
-        <span class="grade-badge-frete grade-badge-frete--tabela">Frete: Tabela</span>
+        <span class="grade-badge-frete grade-badge-frete--tabela">Dimensão: {{ card.origem_dimensao_label }}</span>
         {% endif %}
     </div>
     <div class="grade-margens-grid">

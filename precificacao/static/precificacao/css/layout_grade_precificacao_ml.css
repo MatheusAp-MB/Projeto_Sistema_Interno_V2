@@ -770,3 +770,96 @@
     background: #fffbeb;
     color: #b45309;
 }
+
+.grade-detalhe-subtitulo {
+    font-size: 0.8rem;
+    color: #667;
+    margin-bottom: 2px;
+}
+
+.grade-detalhe-tabela-pis-cofins {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    margin: 4px 0 10px;
+}
+
+.grade-detalhe-tabela-pis-cofins th {
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #445;
+    padding: 6px 12px;
+    background: #f3f5f8;
+    border-bottom: 1px solid #d8dee6;
+}
+
+.grade-detalhe-tabela-pis-cofins td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #eef0f3;
+}
+
+.grade-detalhe-tabela-pis-cofins td:last-child {
+    text-align: right;
+}
+
+.grade-detalhe-lista-valores {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0 14px;
+    font-size: 0.9rem;
+}
+
+.grade-detalhe-lista-valores-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 12px;
+    color: #445;
+}
+
+.grade-detalhe-lista-valores-item dd {
+    margin: 0;
+    color: #1a1a2e;
+    font-weight: 600;
+}
+
+.grade-detalhe-dimensao-titulo {
+    font-size: 0.85rem;
+    color: #445;
+    margin: 4px 0 6px;
+}
+
+.grade-detalhe-tabela-dimensao {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    margin-bottom: 16px;
+    border: 1px solid #d8dee6;
+}
+
+.grade-detalhe-tabela-dimensao th {
+    background: #f3f5f8;
+    font-weight: 700;
+    padding: 7px;
+    text-align: center;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #d8dee6;
+}
+
+.grade-detalhe-tabela-dimensao td {
+    text-align: center;
+    padding: 8px;
+}
+
+.grade-detalhe-passo-abstrata {
+    font-size: 0.82rem;
+    color: #667;
+    font-style: italic;
+    margin: 2px 0;
+}
+
+.grade-detalhe-sub-tabela {
+    margin-top: 8px;
+    font-size: 0.85rem;
+}

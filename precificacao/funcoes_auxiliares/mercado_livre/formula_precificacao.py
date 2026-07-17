@@ -101,6 +101,14 @@ class DadosSaida:
     frete_usado: Decimal
     margem_valor: Decimal
     margem_percentual_obtida: Decimal
+    # * [EXPLICAÇÃO] → Margem no PREÇO EXATO, antes do RoundUp90 —
+    #                  diferente de margem_percentual_obtida (que é no
+    #                  preço já arredondado). Pedido explícito de
+    #                  auditoria: mostrar os 2 lado a lado no modal de
+    #                  detalhe, pra deixar claro quanto o arredondamento
+    #                  pra ",90" mexeu na margem real.
+    margem_exata_percentual: Decimal
+    margem_exata_valor: Decimal
 
 
 # Função Objetivo: Representa 1 margem candidata, já resolvida — mesma classe,
@@ -236,6 +244,16 @@ class FormulaPrecificacao:
         self._margem_percentual_obtida = resultado['margem_percentual_obtida']
         self._preco_exato_antes_arredondar = detalhamento['preco_exato_antes_arredondar']
 
+        # * [EXPLICAÇÃO] → Mesma fórmula de margem, só que aplicada no
+        #                  preço EXATO (antes do RoundUp90) — nunca
+        #                  recalculada depois, sempre persistida junto
+        #                  com o resto (nunca ao vivo no modal).
+        self._margem_exata_valor = (
+            self._preco_exato_antes_arredondar * (1 - self._taxa_percentual)
+            - self._fixo - self._frete_usado + self._rebate_valor
+        )
+        self._margem_exata_percentual = (self._margem_exata_valor / self._preco_exato_antes_arredondar) * 100
+
         # * [EXPLICAÇÃO] → Snapshot dos limites da faixa escolhida — NUNCA
         #                  guarda o objeto FreteML em si (isso seria FK
         #                  disfarçada). Só os 4 números que ele tinha
@@ -337,6 +355,8 @@ class FormulaPrecificacao:
             frete_usado=self._frete_usado,
             margem_valor=self._margem_valor,
             margem_percentual_obtida=self._margem_percentual_obtida,
+            margem_exata_percentual=self._margem_exata_percentual,
+            margem_exata_valor=self._margem_exata_valor,
         )
 
     # Função Objetivo: Devolve a fórmula em forma abstrata, sem números.

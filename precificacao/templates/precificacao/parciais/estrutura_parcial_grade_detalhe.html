@@ -1,12 +1,3 @@
-<!--
-* [RESUMO] → Fragmento HTMX — conteúdo do painel "como chegamos nesse
-* preço". Só LÊ o detalhamento já persistido (GradePrecificacaoML.
-* classico_detalhamento/premium_detalhamento) — nunca recalcula nada
-* ao vivo. Reformulado (15/07): não é mais pra ser consultado o tempo
-* todo — é uma ferramenta de AUDITORIA (quando surge inconsistência ou
-* dúvida), então mostra TODOS os dados de entrada sem exceção (% e
-* R$), a fórmula em 3 formatos (abstrata, preenchida, passo a passo).
--->
 {% if sem_detalhamento %}
 <div class="grade-detalhe-painel">
     <div class="grade-detalhe-vazio">
@@ -16,146 +7,109 @@
 {% else %}
 <div class="grade-detalhe-painel {% if tipo == 'gold_pro' %}grade-detalhe-painel--premium{% else %}grade-detalhe-painel--classico{% endif %}">
     <div class="grade-detalhe-cabecalho">
-        <div class="grade-detalhe-titulo">{{ tipo_label }} — {{ margem_label }}</div>
+        <div>
+            <div class="grade-detalhe-subtitulo">
+                {% if mlb %}MLB {{ mlb }} · {% endif %}{{ det.tipo_label }} · Margem {{ det.margem_label }}
+            </div>
+            <div class="grade-detalhe-titulo">{{ titulo_anuncio }}</div>
+        </div>
         <button type="button" class="grade-detalhe-fechar" onclick="fecharDetalheMargem('{{ produto_id }}', '{{ tipo }}', '{{ variacao_id }}')">
             <i class="fas fa-times"></i> Fechar
         </button>
     </div>
 
-    <div class="grade-detalhe-secao-titulo">Composição — todos os dados de entrada</div>
+    <div class="grade-detalhe-secao-titulo grade-detalhe-secao-titulo--bloco1">1. Dados de entrada</div>
+
     <table class="grade-detalhe-tabela-composicao">
         <thead>
-            <tr><th>Composição</th><th>Percentual</th><th>Valor</th></tr>
+            <tr><th></th><th>Percentual</th><th>Valor</th></tr>
         </thead>
         <tbody>
-            <tr class="linha-destaque">
-                <td>Preço de Venda</td>
-                <td>—</td>
-                <td>R$ {{ det.preco_calculado|floatformat:2 }}</td>
-            </tr>
+            {% for linha in det.tabela_percentuais %}
             <tr>
-                <td>Frete ({% if det.frete_origem == 'real' %}Real, API{% else %}Tabela{% endif %})</td>
-                <td>{% if det.frete_percentual_do_preco %}{{ det.frete_percentual_do_preco|floatformat:2 }}%{% else %}—{% endif %}</td>
-                <td>- R$ {{ det.frete_usado|floatformat:2 }}</td>
+                <td>{{ linha.label }}</td>
+                <td>{{ linha.percentual|floatformat:2 }}%</td>
+                <td>R$ {{ linha.valor|floatformat:2 }}</td>
             </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <table class="grade-detalhe-tabela-pis-cofins">
+        <thead>
+            <tr><th colspan="2">PIS/COFINS ({{ det.pis_cofins.percentual|floatformat:2 }}%) — usado 2×, bases diferentes</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Crédito de entrada</td><td>R$ {{ det.pis_cofins.credito_entrada|floatformat:2 }}</td></tr>
+            <tr><td>Taxa de saída</td><td>R$ {{ det.pis_cofins.taxa_saida|floatformat:2 }}</td></tr>
+        </tbody>
+    </table>
+
+    <dl class="grade-detalhe-lista-valores">
+        {% for linha in det.valores_soltos %}
+        <div class="grade-detalhe-lista-valores-item">
+            <dt>{{ linha.label }}</dt>
+            <dd>{{ linha.valor|floatformat:2 }}</dd>
+        </div>
+        {% endfor %}
+    </dl>
+
+    <div class="grade-detalhe-dimensao-titulo">Dimensão usada (origem: {{ det.dimensao.origem_label }})</div>
+    <table class="grade-detalhe-tabela-dimensao">
+        <thead>
+            <tr><th>Altura</th><th>Largura</th><th>Comprimento</th><th>Peso</th></tr>
+        </thead>
+        <tbody>
             <tr>
-                <td>Comissão ({{ tipo_label }})</td>
-                <td>{{ det.comissao_percentual|floatformat:2 }}%</td>
-                <td>- R$ {{ det.comissao_valor|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>ICMS Saída</td>
-                <td>{{ det.icms_saida_percentual|floatformat:2 }}%</td>
-                <td>- R$ {{ det.icms_saida_valor|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>PIS/COFINS Saída</td>
-                <td>{{ det.pis_cofins_percentual|floatformat:2 }}%</td>
-                <td>- R$ {{ det.pis_cofins_valor|floatformat:2 }}</td>
-            </tr>
-            <tr class="linha-subtotal">
-                <td>Custo do Produto</td>
-                <td>—</td>
-                <td>R$ {{ det.componentes_fixo.custo|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>+ IPI</td>
-                <td>{{ det.componentes_fixo.ipi_percentual|floatformat:2 }}%</td>
-                <td>R$ {{ det.componentes_fixo.ipi_valor|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>+ Frete CIF/FOB</td>
-                <td>{{ det.componentes_fixo.frete_cif_fob_percentual|floatformat:2 }}%</td>
-                <td>R$ {{ det.componentes_fixo.frete_cif_fob_valor|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>+ Substituição Tributária (ST)</td>
-                <td>—</td>
-                <td>R$ {{ det.componentes_fixo.st_valor|floatformat:2 }}</td>
-            </tr>
-            <tr class="linha-subtotal">
-                <td>= Custo Final</td>
-                <td>—</td>
-                <td>R$ {{ det.componentes_fixo.custo_final|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>− Crédito ICMS Entrada</td>
-                <td>{{ det.componentes_fixo.icms_entrada_percentual|floatformat:2 }}%</td>
-                <td>- R$ {{ det.componentes_fixo.credito_icms_entrada|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>− Crédito PIS/COFINS Entrada</td>
-                <td>{{ det.componentes_fixo.pis_percentual|floatformat:2 }}%</td>
-                <td>- R$ {{ det.componentes_fixo.credito_pis|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>+ Coleta (m³ × fator)</td>
-                <td>—</td>
-                <td>R$ {{ det.componentes_fixo.coleta|floatformat:2 }}</td>
-            </tr>
-            <tr>
-                <td>+ Armazenagem ({% if det.componentes_fixo.armazenagem_origem == 'planilha' %}Planilha{% else %}Faixa por dimensão{% endif %})</td>
-                <td>—</td>
-                <td>R$ {{ det.componentes_fixo.armazenagem|floatformat:2 }}</td>
-            </tr>
-            <tr class="linha-subtotal">
-                <td>= Custo Fixo Total (FIXO)</td>
-                <td>—</td>
-                <td>R$ {{ det.fixo|floatformat:2 }}</td>
-            </tr>
-            <tr class="linha-destaque">
-                <td>Margem Obtida</td>
-                <td>{{ det.margem_percentual_obtida|floatformat:2 }}%</td>
-                <td>R$ {{ det.margem_valor|floatformat:2 }}</td>
+                <td>{{ det.dimensao.altura|floatformat:1 }} cm</td>
+                <td>{{ det.dimensao.largura|floatformat:1 }} cm</td>
+                <td>{{ det.dimensao.comprimento|floatformat:1 }} cm</td>
+                <td>{{ det.dimensao.peso|floatformat:3 }} kg</td>
             </tr>
         </tbody>
     </table>
 
-    <div class="grade-detalhe-secao-titulo">Fórmula — formato abstrato</div>
-    <div class="grade-detalhe-formula-bloco">
-        denominador = 1 − taxa − margem-alvo<br>
-        preço exato = (frete + FIXO) ÷ denominador<br>
-        preço final = RoundUp90(preço exato)
-    </div>
+    <div class="grade-detalhe-secao-titulo">2. Processamento, passo a passo</div>
 
-    <div class="grade-detalhe-secao-titulo">Fórmula — formato preenchido</div>
-    <div class="grade-detalhe-formula-bloco">
-        denominador = 1 − {{ det.taxa_percentual|floatformat:2 }}% − {{ det.margem_alvo_percentual|floatformat:2 }}% = {{ det.denominador|floatformat:4 }}<br>
-        preço exato = (R$ {{ det.frete_usado|floatformat:2 }} + R$ {{ det.fixo|floatformat:2 }}) ÷ {{ det.denominador|floatformat:4 }} = R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}<br>
-        preço final = RoundUp90(R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}) = R$ {{ det.preco_calculado|floatformat:2 }}
-    </div>
-
-    <div class="grade-detalhe-secao-titulo">Passo a passo</div>
     <div class="grade-detalhe-passos">
+        {% for passo in det.passos %}
         <div class="grade-detalhe-passo">
-            <span class="grade-detalhe-passo-numero">1</span>
-            <span class="grade-detalhe-passo-texto">Denominador = 1 − taxa (comissão + ICMS Saída + PIS/COFINS Saída) − margem-alvo</span>
-            <span class="grade-detalhe-passo-conta">1 − {{ det.taxa_percentual|floatformat:2 }}% − {{ det.margem_alvo_percentual|floatformat:2 }}% = <strong>{{ det.denominador|floatformat:4 }}</strong></span>
+            <span class="grade-detalhe-passo-numero">{{ passo.numero }}</span>
+            <div>
+                <div class="grade-detalhe-passo-texto">{{ passo.titulo }}</div>
+                <div class="grade-detalhe-passo-abstrata">{{ passo.formula_abstrata }}</div>
+                <div class="grade-detalhe-passo-conta">{{ passo.formula_preenchida }}</div>
+                {% if passo.sub_tabela %}
+                <table class="grade-detalhe-tabela-composicao grade-detalhe-sub-tabela">
+                    <tbody>
+                        {% for sub in passo.sub_tabela %}
+                        <tr>
+                            <td>{{ sub.label }}</td>
+                            <td>{{ sub.percentual|floatformat:2 }}%</td>
+                            <td>R$ {{ sub.valor|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
         </div>
-        <div class="grade-detalhe-passo">
-            <span class="grade-detalhe-passo-numero">2</span>
-            <span class="grade-detalhe-passo-texto">Preço exato = (Frete + Custo Fixo Total) ÷ Denominador</span>
-            <span class="grade-detalhe-passo-conta">(R$ {{ det.frete_usado|floatformat:2 }} + R$ {{ det.fixo|floatformat:2 }}) ÷ {{ det.denominador|floatformat:4 }} = <strong>R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}</strong></span>
-        </div>
-        <div class="grade-detalhe-passo">
-            <span class="grade-detalhe-passo-numero">3</span>
-            <span class="grade-detalhe-passo-texto">Preço final = RoundUp90(Preço exato) — sempre arredonda pra CIMA até terminar em ",90"</span>
-            <span class="grade-detalhe-passo-conta">RoundUp90(R$ {{ det.preco_exato_antes_arredondar|floatformat:2 }}) = <strong>R$ {{ det.preco_calculado|floatformat:2 }}</strong></span>
-        </div>
-        <div class="grade-detalhe-passo">
-            <span class="grade-detalhe-passo-numero">4</span>
-            <span class="grade-detalhe-passo-texto">Confirmação — Margem obtida = (Preço × (1 − taxa) − FIXO − Frete) ÷ Preço</span>
-            <span class="grade-detalhe-passo-conta">(R$ {{ det.preco_calculado|floatformat:2 }} × {{ det.denominador|floatformat:4 }} + margem-alvo) ÷ R$ {{ det.preco_calculado|floatformat:2 }} = <strong>{{ det.margem_percentual_obtida|floatformat:2 }}%</strong></span>
-        </div>
+        {% endfor %}
     </div>
 
-    <div class="grade-detalhe-nota">
-        Faixas de frete alternativas testadas não ficam registradas aqui — só o resultado final (frete já mostrado acima como dado de entrada).
-    </div>
+    <div class="grade-detalhe-secao-titulo">3. O que a fórmula gerou</div>
 
-    <div class="grade-detalhe-resultado">
-        <span class="grade-detalhe-resultado-preco">R$ {{ det.preco_calculado|floatformat:2 }}</span>
-        <span class="grade-detalhe-resultado-margem">{{ det.margem_percentual_obtida|floatformat:2 }}% de margem</span>
-    </div>
+    <table class="grade-detalhe-tabela-composicao grade-detalhe-tabela-saida">
+        <tbody>
+            {% for linha in det.saida %}
+            <tr class="{% if linha.destaque %}linha-destaque{% endif %}">
+                <td>{{ linha.label }}</td>
+                <td colspan="2">
+                    {% if linha.tipo == 'reais' %}R$ {{ linha.valor|floatformat:2 }}{% else %}{{ linha.valor|floatformat:2 }}%{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endif %}
