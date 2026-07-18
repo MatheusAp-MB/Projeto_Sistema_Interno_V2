@@ -34,18 +34,17 @@
     <td class="resumo-col-numero">R$ {{ linha.produto.custo|floatformat:2 }}</td>
     <td class="resumo-col-numero">R$ {{ linha.produto.custo_com_boni|default:linha.produto.custo|floatformat:2 }}</td>
 
-    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}R$ {{ linha.classico.preco_calculado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}R$ {{ linha.classico.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}R$ {{ linha.classico.preco|floatformat:2 }}{% else %}—{% endif %}</td>
     <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}{{ linha.classico.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico_frete %}R$ {{ linha.classico_frete|floatformat:2 }}{% else %}—{% endif %}</td>
 
-    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.preco_calculado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.preco|floatformat:2 }}{% else %}—{% endif %}</td>
     <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}{{ linha.premium.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium_frete %}R$ {{ linha.premium_frete|floatformat:2 }}{% else %}—{% endif %}</td>
 
+    {% for _ in "123456" %}
     <td class="resumo-col-numero resumo-placeholder">—</td>
     <td class="resumo-col-numero resumo-placeholder">—</td>
     <td class="resumo-col-numero resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-placeholder">—</td>
+    {% endfor %}
 </tr>

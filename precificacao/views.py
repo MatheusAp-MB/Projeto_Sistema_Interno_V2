@@ -737,69 +737,81 @@ def view_grade_detalhe(request, produto_id, tipo, margem):
 # GradePrecificacaoML continua quebrada, como já era esperado.)
 # ═══════════════════════════════════════════════════════════════════
 
-def _montar_linha_resumo(produto, margem_alvo):
-    """Monta o dict de 1 linha da tabela de resumo — SEMPRE a partir
-    do FALLBACK do produto (variacao=None), a referência de
-    planejamento. AINDA NÃO MIGRADO pro formato longo — pendência
-    registrada."""
-    from precificacao.models import GradePrecificacaoML
-
-    linha = GradePrecificacaoML.objects.filter(produto=produto, variacao__isnull=True).first()
-
-    def campo(prefixo, sufixo):
-        return getattr(linha, f'{prefixo}_{margem_alvo}_{sufixo}', None) if linha else None
-
-    return {
-        'produto': produto,
-        'margem_atual': margem_alvo,
-        'classico_preco': campo('classico', 'preco'),
-        'classico_margem': campo('classico', 'margem'),
-        'classico_frete': linha.frete_classico_usado if linha else None,
-        'premium_preco': campo('premium', 'preco'),
-        'premium_margem': campo('premium', 'margem'),
-        'premium_frete': linha.frete_premium_usado if linha else None,
-    }
+# Função Objetivo: Representa 1 marketplace/tipo de anúncio exibido na linha do Resumo.
+@dataclass
+class GrupoMarketplaceExibido:
+    preco: object
+    margem_percentual_obtida: object
+    frete_usado: object
 
 
+# Função Objetivo: Representa 1 linha da tabela de Resumo — 1 produto, todos os marketplaces.
+@dataclass
+class LinhaResumoMarketplace:
+    produto: object
+    margem_atual: str
+    classico: object
+    premium: object
+
+    # Função Objetivo: Monta 1 linha a partir do fallback do produto (variacao=None).
+    # Explicação em detalhe: SEMPRE a referência de planejamento (fallback), nunca 1 MLB
+    # específico — o Resumo é "visão por produto", não por anúncio. Só Mercado Livre tem
+    # dado real hoje; os outros marketplaces (item 2/3 do plano) entram aqui depois, sem
+    # mudar a forma desta dataclass — só adicionar mais campos.
+    @classmethod
+    def montar(cls, produto, margem_alvo):
+        from precificacao.models import GradePrecificacaoML
+
+        linhas = GradePrecificacaoML.objects.filter(
+            produto=produto, variacao__isnull=True, margem=margem_alvo,
+        )
+        por_tipo = {linha.tipo_anuncio: linha for linha in linhas}
+
+        def montar_grupo(tipo):
+            linha = por_tipo.get(tipo)
+            if not linha:
+                return None
+            return GrupoMarketplaceExibido(
+                preco=linha.preco,
+                margem_percentual_obtida=linha.margem_percentual_obtida,
+                frete_usado=linha.frete_usado,
+            )
+
+        return cls(
+            produto=produto,
+            margem_atual=margem_alvo,
+            classico=montar_grupo('classico'),
+            premium=montar_grupo('premium'),
+        )
+
+
+# Função Objetivo: Exibe a tabela "tipo Excel" — 1 linha por produto, todos os marketplaces lado a lado.
 def view_resumo_marketplaces(request):
     from produtos.models import Produto
-    from precificacao.models import GradePrecificacaoML
 
     margem_geral = request.GET.get('margem', 'padrao')
     if margem_geral not in MARGENS_CHAVES:
         margem_geral = 'padrao'
 
-    busca = request.GET.get('busca', '').strip()
-    por_pagina = request.GET.get('por_pagina', '25')
-    try:
-        por_pagina = int(por_pagina)
-    except ValueError:
-        por_pagina = 25
+    filtros = FiltrosGrade.montar(request)
 
-    filtros_produto = {
-        'marcas': request.GET.getlist('marca'),
-        'categorias': request.GET.getlist('categoria'),
-        'curvas': request.GET.getlist('curva'),
-        'estoque_min': request.GET.get('estoque_min', ''),
-        'estoque_max': request.GET.get('estoque_max', ''),
-        'custo_min': request.GET.get('custo_min', ''),
-        'custo_max': request.GET.get('custo_max', ''),
-    }
-    produtos_qs = listar_produtos_filtrados(busca=busca or None, filtros=filtros_produto, ordenar='titulo')
+    produtos_qs = listar_produtos_filtrados(
+        busca=filtros.busca or None, filtros=filtros.para_filtros_produto(), ordenar='titulo'
+    )
     produtos_qs = produtos_qs.filter(grade_precificacao_ml__isnull=False).distinct()
 
-    paginator = Paginator(produtos_qs, por_pagina)
+    paginator = Paginator(produtos_qs, filtros.por_pagina)
     pagina = paginator.get_page(request.GET.get('pagina', 1))
 
-    linhas_tabela = [_montar_linha_resumo(produto, margem_geral) for produto in pagina.object_list]
+    linhas_tabela = [LinhaResumoMarketplace.montar(produto, margem_geral) for produto in pagina.object_list]
 
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
 
     return render(request, 'precificacao/estrutura_resumo_marketplaces.html', {
         'pagina': pagina,
-        'busca': busca,
-        'por_pagina': por_pagina,
+        'busca': filtros.busca,
+        'por_pagina': filtros.por_pagina,
         'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
         'margem_geral': margem_geral,
         'opcoes_margem': [(m.chave, m.label_padrao) for m in MARGENS],
@@ -808,14 +820,13 @@ def view_resumo_marketplaces(request):
         'categorias_disponiveis': Produto.objects.exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria'),
         'curvas_disponiveis': Produto.objects.exclude(curva__isnull=True).exclude(curva='').values_list('curva', flat=True).distinct().order_by('curva'),
         'filtros_selecionados': {
-            'marca': filtros_produto['marcas'],
-            'categoria': filtros_produto['categorias'],
-            'curva': filtros_produto['curvas'],
+            'marca': filtros.marcas, 'categoria': filtros.categorias, 'curva': filtros.curvas,
         },
         'get_params': request.GET,
     })
 
 
+# Função Objetivo: Reexibe 1 linha da tabela quando o seletor de margem DESSA linha muda.
 def view_resumo_linha(request, produto_id):
     from django.shortcuts import get_object_or_404
     from produtos.models import Produto
@@ -825,7 +836,7 @@ def view_resumo_linha(request, produto_id):
         margem = 'padrao'
 
     produto = get_object_or_404(Produto, id=produto_id)
-    linha = _montar_linha_resumo(produto, margem)
+    linha = LinhaResumoMarketplace.montar(produto, margem)
 
     return render(request, 'precificacao/parciais/estrutura_parcial_resumo_linha.html', {
         'linha': linha,
