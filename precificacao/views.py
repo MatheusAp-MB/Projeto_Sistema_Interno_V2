@@ -761,7 +761,7 @@ COLUNAS_ORDENAVEIS = {
     'premium_margem': 'premium_margem_anotado',
     'shopee_frete': None, 'shopee_preco': None, 'shopee_margem': None,
     'amazon_frete': None, 'amazon_preco': None, 'amazon_margem': None,
-    'magalu_frete': None, 'magalu_preco': None, 'magalu_margem': None,
+    'magalu_frete': 'magalu_frete_anotado', 'magalu_preco': 'magalu_preco_anotado', 'magalu_margem': 'magalu_margem_anotado',
     'tiktok_frete': None, 'tiktok_preco': None, 'tiktok_margem': None,
     'raia_frete': None, 'raia_preco': None, 'raia_margem': None,
     'b2w_frete': None, 'b2w_preco': None, 'b2w_margem': None,
@@ -829,6 +829,19 @@ def _subquery_grade_campo(tipo, campo, margem_geral):
     )
 
 
+# Função Objetivo: Mesma coisa, pro Magalu — sem tipo_anuncio (não existe Clássico/Premium lá).
+def _subquery_grade_magalu_campo(campo, margem_geral):
+    from django.db.models import Subquery, OuterRef, DecimalField
+    from precificacao.models import GradePrecificacaoMagalu
+
+    return Subquery(
+        GradePrecificacaoMagalu.objects.filter(
+            produto=OuterRef('pk'), margem=margem_geral,
+        ).values(campo)[:1],
+        output_field=DecimalField(max_digits=12, decimal_places=4),
+    )
+
+
 # Função Objetivo: Representa 1 marketplace/tipo de anúncio exibido na linha do Resumo.
 @dataclass
 class GrupoMarketplaceExibido:
@@ -844,15 +857,14 @@ class LinhaResumoMarketplace:
     margem_atual: str
     classico: object
     premium: object
+    magalu: object
 
     # Função Objetivo: Monta 1 linha a partir do fallback do produto (variacao=None).
     # Explicação em detalhe: SEMPRE a referência de planejamento (fallback), nunca 1 MLB
-    # específico — o Resumo é "visão por produto", não por anúncio. Só Mercado Livre tem
-    # dado real hoje; os outros marketplaces (item 2/3 do plano) entram aqui depois, sem
-    # mudar a forma desta dataclass — só adicionar mais campos.
+    # específico — o Resumo é "visão por produto", não por anúncio.
     @classmethod
     def montar(cls, produto, margem_alvo):
-        from precificacao.models import GradePrecificacaoML
+        from precificacao.models import GradePrecificacaoML, GradePrecificacaoMagalu
 
         linhas = GradePrecificacaoML.objects.filter(
             produto=produto, variacao__isnull=True, margem=margem_alvo,
@@ -869,17 +881,27 @@ class LinhaResumoMarketplace:
                 frete_usado=linha.frete_usado,
             )
 
+        linha_magalu = GradePrecificacaoMagalu.objects.filter(produto=produto, margem=margem_alvo).first()
+        magalu = None
+        if linha_magalu:
+            magalu = GrupoMarketplaceExibido(
+                preco=linha_magalu.preco,
+                margem_percentual_obtida=linha_magalu.margem_percentual_obtida,
+                frete_usado=linha_magalu.frete_usado,
+            )
+
         return cls(
             produto=produto,
             margem_atual=margem_alvo,
             classico=montar_grupo('classico'),
             premium=montar_grupo('premium'),
+            magalu=magalu,
         )
 
     # Função Objetivo: Monta a linha a partir dos campos JÁ ANOTADOS na query principal.
     # Explicação em detalhe: usada pela listagem (view_resumo_marketplaces) — evita 1
-    # query por produto (N+1), já que os 6 valores de Clássico/Premium vêm anotados via
-    # Subquery direto na queryset. montar() (acima) continua existindo pro caso de
+    # query por produto (N+1), já que os valores de Clássico/Premium/Magalu vêm anotados
+    # via Subquery direto na queryset. montar() (acima) continua existindo pro caso de
     # margem INDIVIDUAL por linha (troca via HTMX, pode ser diferente da margem geral).
     @classmethod
     def montar_do_anotado(cls, produto, margem_alvo):
@@ -898,6 +920,7 @@ class LinhaResumoMarketplace:
             margem_atual=margem_alvo,
             classico=montar_grupo('classico'),
             premium=montar_grupo('premium'),
+            magalu=montar_grupo('magalu'),
         )
 
 
@@ -924,6 +947,9 @@ def view_resumo_marketplaces(request):
         premium_preco_anotado=_subquery_grade_campo('premium', 'preco', margem_geral),
         premium_margem_anotado=_subquery_grade_campo('premium', 'margem_percentual_obtida', margem_geral),
         premium_frete_anotado=_subquery_grade_campo('premium', 'frete_usado', margem_geral),
+        magalu_preco_anotado=_subquery_grade_magalu_campo('preco', margem_geral),
+        magalu_margem_anotado=_subquery_grade_magalu_campo('margem_percentual_obtida', margem_geral),
+        magalu_frete_anotado=_subquery_grade_magalu_campo('frete_usado', margem_geral),
     )
     produtos_qs = produtos_qs.order_by(f'{"-" if direcao_ativa == "desc" else ""}{campo_orm}')
 
@@ -1055,4 +1081,256 @@ def view_configuracoes_operacionais(request):
         'config_geral': config_geral,
         'faixas': faixas,
         'salvo': request.GET.get('salvo') == '1',
+    })
+
+
+# Função Objetivo: Representa 1 produto na árvore da Grade Magalu — sem MLB, sem tipo.
+@dataclass
+class ItemGradeMagaluProduto:
+    produto: object
+    linhas_margem: list
+
+    # Função Objetivo: Monta 1 item a partir do produto e das linhas já agrupadas.
+    @classmethod
+    def montar(cls, produto, agrupador, labels):
+        linhas_por_margem = agrupador.linhas_de(produto.id)
+        return cls(
+            produto=produto,
+            linhas_margem=LinhaMargemExibida.montar_bloco(linhas_por_margem, labels),
+        )
+
+
+# Função Objetivo: Agrupa as linhas soltas de GradePrecificacaoMagalu em memória.
+# Explicação em detalhe: bem mais simples que o do ML — sem fallback/reais (não existe
+# MLB no Magalu ainda), só produto → {margem: linha}.
+class AgrupadorLinhasGradeMagalu:
+
+    def __init__(self, linhas):
+        self._por_produto = {}
+        for linha in linhas:
+            self._por_produto.setdefault(linha.produto_id, {})[linha.margem] = linha
+
+    def linhas_de(self, produto_id):
+        return self._por_produto.get(produto_id, {})
+
+
+# * [EXPLICAÇÃO] → Sem tipo_anuncio (Magalu não tem Clássico/Premium) —
+#                  só 4 faixas de preço, não 8.
+FAIXAS_PRECO_GRADE_MAGALU = {
+    'magalu_competicao': 'competicao',
+    'magalu_minima': 'minima',
+    'magalu_padrao': 'padrao',
+    'magalu_maxima': 'maxima',
+}
+
+
+# Função Objetivo: Exibe a árvore de precificação do Magalu — 1 card simples por produto.
+def view_grade_precificacao_magalu(request):
+    from precificacao.models import GradePrecificacaoMagalu
+    from produtos.models import Produto
+
+    filtros = FiltrosGrade.montar(request)
+
+    produtos_qs = listar_produtos_filtrados(
+        busca=filtros.busca or None, filtros=filtros.para_filtros_produto(), ordenar='titulo'
+    )
+    produtos_qs = produtos_qs.filter(grade_precificacao_magalu__isnull=False).distinct()
+
+    for chave, margem_valor in FAIXAS_PRECO_GRADE_MAGALU.items():
+        minimo = request.GET.get(f'preco_{chave}_min', '')
+        maximo = request.GET.get(f'preco_{chave}_max', '')
+        if minimo or maximo:
+            condicoes = {'grade_precificacao_magalu__margem': margem_valor}
+            if minimo:
+                condicoes['grade_precificacao_magalu__preco__gte'] = minimo
+            if maximo:
+                condicoes['grade_precificacao_magalu__preco__lte'] = maximo
+            produtos_qs = produtos_qs.filter(**condicoes)
+
+    produtos_qs = produtos_qs.distinct()
+
+    paginator = Paginator(produtos_qs, filtros.por_pagina)
+    pagina = paginator.get_page(request.GET.get('pagina', 1))
+
+    produtos_ids = [p.id for p in pagina.object_list]
+    linhas = GradePrecificacaoMagalu.objects.filter(produto_id__in=produtos_ids)
+    agrupador = AgrupadorLinhasGradeMagalu(linhas)
+
+    # * [EXPLICAÇÃO] → Magalu não tem config editável por margem (são
+    #                  fixas: 10/15/20/5%) — usa o label padrão de cada
+    #                  Margem direto, sem passar por config nenhuma.
+    labels_magalu = [m.label_padrao for m in MARGENS]
+
+    produtos_com_grade = [
+        ItemGradeMagaluProduto.montar(produto, agrupador, labels_magalu)
+        for produto in pagina.object_list
+    ]
+
+    querystring_sem_pagina = request.GET.copy()
+    querystring_sem_pagina.pop('pagina', None)
+
+    return render(request, 'precificacao/estrutura_grade_precificacao_magalu.html', {
+        'pagina': pagina,
+        'busca': filtros.busca,
+        'por_pagina': filtros.por_pagina,
+        'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+        'produtos_com_grade': produtos_com_grade,
+        'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True).exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
+        'categorias_disponiveis': Produto.objects.exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria'),
+        'curvas_disponiveis': Produto.objects.exclude(curva__isnull=True).exclude(curva='').values_list('curva', flat=True).distinct().order_by('curva'),
+        'filtros_selecionados': {
+            'marca': filtros.marcas, 'categoria': filtros.categorias, 'curva': filtros.curvas,
+        },
+        'get_params': request.GET,
+        'filtros_preco_magalu': FiltroPrecoExibido.montar_bloco(request, 'magalu'),
+    })
+
+
+# Função Objetivo: Representa o modal de auditoria do Magalu — reaproveita as mesmas
+# dataclasses de exibição do ML (são só formato, sem lógica de marketplace).
+@dataclass
+class DetalheFormulaExibidaMagalu:
+    margem_label: str
+    tabela_percentuais: list
+    pis_cofins: object
+    valores_soltos: list
+    dimensao: object
+    passo_1: object
+    passo_2: object
+    passo_3: object
+    passo_4: object
+    passo_5: object
+    passo_6: object
+    passo_7: object
+    passo_8: object
+    saida: list
+
+    # Função Objetivo: Lê o detalhamento persistido e monta a exibição completa.
+    # Explicação em detalhe: sem tipo_label (Magalu não tem Clássico/Premium), sem rebate
+    # (não existe no Magalu), dimensão sempre "Embalagem ERP" (sem declarado na
+    # plataforma), passo 7 usa faixa de PESO (não de preço, como no ML).
+    @classmethod
+    def montar(cls, linha, margem_label):
+        det = linha.detalhamento or {}
+        e = det.get('entrada', {})
+        i = det.get('intermediarios', {})
+        s = det.get('saida', {})
+
+        def dec(valor):
+            return Decimal(str(valor)) if valor is not None else None
+
+        tabela_percentuais = [
+            LinhaPercentualValor('IPI', dec(e.get('ipi_percentual')), dec(i.get('ipi_valor'))),
+            LinhaPercentualValor('Frete CIF/FOB', dec(e.get('frete_cif_fob_percentual')), dec(i.get('frete_cif_fob_valor'))),
+            LinhaPercentualValor('ICMS entrada', dec(e.get('icms_entrada_percentual')), dec(i.get('credito_icms_entrada'))),
+            LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor'))),
+            LinhaPercentualValor('Comissão Magalu', dec(e.get('comissao_percentual')), dec(i.get('comissao_valor'))),
+            LinhaPercentualValor('Margem-alvo', dec(e.get('margem_alvo_percentual')), dec(i.get('margem_alvo_valor'))),
+        ]
+
+        pis_cofins = BlocoPisCofins(
+            percentual=dec(e.get('pis_cofins_percentual')),
+            credito_entrada=dec(i.get('credito_pis')),
+            taxa_saida=dec(i.get('pis_cofins_valor')),
+        )
+
+        valores_soltos = [
+            LinhaValorUnico('Custo do produto', dec(e.get('custo'))),
+            LinhaValorUnico('Custo com bonificação', dec(e.get('custo_com_boni'))),
+            LinhaValorUnico('Substituição tributária (ST)', dec(e.get('st_valor'))),
+            LinhaValorUnico('Fator de coleta', dec(e.get('fator_coleta'))),
+            LinhaValorUnico('Período de armazenagem (dias)', dec(e.get('periodo_armazenagem'))),
+        ]
+
+        dimensao = DimensaoUsada(
+            origem_label='Embalagem ERP',
+            altura=dec(e.get('altura')), largura=dec(e.get('largura')),
+            comprimento=dec(e.get('comprimento')), peso=dec(e.get('peso')),
+        )
+
+        passo_1 = PassoCustoFinal(
+            custo_com_boni=dec(e.get('custo_com_boni')), ipi_valor=dec(i.get('ipi_valor')),
+            frete_cif_fob_valor=dec(i.get('frete_cif_fob_valor')), st_valor=dec(e.get('st_valor')),
+            resultado=dec(i.get('custo_final')),
+        )
+        passo_2 = PassoColeta(
+            metro_cubico=dec(i.get('metro_cubico')), fator_coleta=dec(e.get('fator_coleta')),
+            resultado=dec(i.get('coleta')),
+        )
+        passo_3 = PassoArmazenagem(
+            origem=i.get('armazenagem_origem'), periodo_dias=dec(e.get('periodo_armazenagem')),
+            resultado=dec(i.get('armazenagem')),
+        )
+        passo_4 = PassoFixo(
+            coleta=dec(i.get('coleta')), armazenagem=dec(i.get('armazenagem')),
+            custo_final=dec(i.get('custo_final')), credito_icms=dec(i.get('credito_icms_entrada')),
+            credito_pis=dec(i.get('credito_pis')), resultado=dec(i.get('fixo')),
+        )
+        passo_5 = PassoTaxa(
+            itens=[
+                LinhaPercentualValor('Comissão Magalu', dec(e.get('comissao_percentual')), dec(i.get('comissao_valor'))),
+                LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor'))),
+                LinhaPercentualValor('PIS/COFINS (saída)', dec(e.get('pis_cofins_percentual')), dec(i.get('pis_cofins_valor'))),
+            ],
+            resultado=dec(i.get('taxa_percentual')),
+        )
+        passo_6 = PassoDenominador(
+            taxa_percentual=dec(i.get('taxa_percentual')), margem_alvo_percentual=dec(e.get('margem_alvo_percentual')),
+            resultado=dec(i.get('denominador')),
+        )
+        # * [EXPLICAÇÃO] → faixa_min/max aqui são os limites de PESO da
+        #                  faixa usada — não de preço, como no ML (Magalu
+        #                  não busca por preço, só por peso+reputação).
+        passo_7 = PassoFaixaFrete(
+            peso=dec(e.get('peso')), faixa_min=dec(i.get('faixa_frete_peso_min')),
+            faixa_max=dec(i.get('faixa_frete_peso_max')), resultado=dec(s.get('frete_usado')),
+        )
+        passo_8 = PassoPrecoExato(
+            frete=dec(s.get('frete_usado')), fixo=dec(i.get('fixo')), rebate=Decimal('0'),
+            denominador=dec(i.get('denominador')), resultado=dec(i.get('preco_exato_antes_arredondar')),
+        )
+
+        saida = [
+            LinhaSaida('Preço exato', dec(i.get('preco_exato_antes_arredondar')), 'reais'),
+            LinhaSaida('Margem exata', dec(s.get('margem_exata_percentual')), 'percentual'),
+            LinhaSaida('Preço final (arredondado pra ,90)', dec(s.get('preco_final')), 'reais', destaque=True),
+            LinhaSaida('Margem final', dec(s.get('margem_percentual_obtida')), 'percentual', destaque=True),
+            LinhaSaida('Custo de frete final', dec(s.get('frete_usado')), 'reais'),
+        ]
+
+        return cls(
+            margem_label=margem_label,
+            tabela_percentuais=tabela_percentuais,
+            pis_cofins=pis_cofins,
+            valores_soltos=valores_soltos,
+            dimensao=dimensao,
+            passo_1=passo_1, passo_2=passo_2, passo_3=passo_3, passo_4=passo_4,
+            passo_5=passo_5, passo_6=passo_6, passo_7=passo_7, passo_8=passo_8,
+            saida=saida,
+        )
+
+
+# Função Objetivo: Exibe o modal "como chegamos nesse preço" do Magalu, pra 1 margem.
+def view_grade_detalhe_magalu(request, produto_id, margem):
+    from precificacao.models import GradePrecificacaoMagalu
+
+    linha = None
+    if margem in MARGENS_POR_CHAVE:
+        linha = GradePrecificacaoMagalu.objects.filter(
+            produto_id=produto_id, margem=margem,
+        ).select_related('produto').first()
+
+    if not linha or not linha.detalhamento:
+        return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe_magalu.html', {
+            'sem_detalhamento': True,
+        })
+
+    margem_label = MARGENS_POR_CHAVE[margem].label_base
+    det = DetalheFormulaExibidaMagalu.montar(linha, margem_label)
+
+    return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe_magalu.html', {
+        'det': det,
+        'produto_id': produto_id,
+        'produto_titulo': linha.produto.titulo,
+        'margem': margem,
     })

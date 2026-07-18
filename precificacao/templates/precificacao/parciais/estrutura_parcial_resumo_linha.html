@@ -50,9 +50,9 @@
     <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>
     <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>
 
-    <td class="resumo-col-numero resumo-grupo-magalu resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-magalu resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-magalu resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-grupo-magalu">{% if linha.magalu %}R$ {{ linha.magalu.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-magalu">{% if linha.magalu %}R$ {{ linha.magalu.preco|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-magalu">{% if linha.magalu %}{{ linha.magalu.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
     
     <td class="resumo-col-numero resumo-grupo-tiktok resumo-placeholder">—</td>
     <td class="resumo-col-numero resumo-grupo-tiktok resumo-placeholder">—</td>
