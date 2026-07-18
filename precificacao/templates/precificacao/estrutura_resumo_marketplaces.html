@@ -10,6 +10,7 @@
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
 
+{% block body_class %}sidebar-oculta{% endblock %}
 {% block titulo %}Resumo por Marketplace — Sistema Interno MB/SV{% endblock %}
 {% block toolbar_titulo %}Resumo por Marketplace{% endblock %}
 
@@ -130,16 +131,16 @@
 <div class="resumo-tabela-wrapper">
     <table class="resumo-tabela">
         <thead>
-            <tr class="resumo-linha-grupos">
-                <th class="resumo-col-margem" rowspan="2">Margem Linha</th>
-                <th rowspan="2">Curva</th>
-                <th rowspan="2">Cód Fab.</th>
-                <th rowspan="2">Cód Barras</th>
-                <th rowspan="2">SKU</th>
-                <th rowspan="2">Descrição</th>
+<tr class="resumo-linha-grupos">
+                <th class="resumo-col-margem" rowspan="2"></th>
+                <th rowspan="2"><a href="{{ colunas.curva.url }}" class="resumo-th-link">Curva {{ colunas.curva.seta }}</a></th>
+                <th rowspan="2"><a href="{{ colunas.cod_fabricante.url }}" class="resumo-th-link">Cód Fab. {{ colunas.cod_fabricante.seta }}</a></th>
+                <th rowspan="2"><a href="{{ colunas.ean.url }}" class="resumo-th-link">Cód Barras {{ colunas.ean.seta }}</a></th>
+                <th rowspan="2"><a href="{{ colunas.sku.url }}" class="resumo-th-link">SKU {{ colunas.sku.seta }}</a></th>
+                <th rowspan="2"><a href="{{ colunas.titulo.url }}" class="resumo-th-link">Descrição {{ colunas.titulo.seta }}</a></th>
                 <th rowspan="2">Foto</th>
-                <th rowspan="2">Custo</th>
-                <th rowspan="2">Custo c/Boni</th>
+                <th rowspan="2"><a href="{{ colunas.custo.url }}" class="resumo-th-link">Custo {{ colunas.custo.seta }}</a></th>
+                <th rowspan="2"><a href="{{ colunas.custo_com_boni.url }}" class="resumo-th-link">Custo c/Boni {{ colunas.custo_com_boni.seta }}</a></th>
                 <th colspan="3" class="resumo-grupo-header resumo-grupo-header--classico">Mercado Livre — Clássico</th>
                 <th colspan="3" class="resumo-grupo-header resumo-grupo-header--premium">Mercado Livre — Premium</th>
                 <th colspan="3" class="resumo-grupo-header resumo-grupo-header--shopee">Shopee</th>
@@ -150,14 +151,39 @@
                 <th colspan="3" class="resumo-grupo-header resumo-grupo-header--b2w">B2W / Site</th>
             </tr>
             <tr class="resumo-linha-subcolunas">
-                <th class="resumo-sub--classico">Frete</th><th class="resumo-sub--classico">Preço</th><th class="resumo-sub--classico">Margem</th>
-                <th class="resumo-sub--premium">Frete</th><th class="resumo-sub--premium">Preço</th><th class="resumo-sub--premium">Margem</th>
-                <th class="resumo-sub--shopee">Frete</th><th class="resumo-sub--shopee">Preço</th><th class="resumo-sub--shopee">Margem</th>
-                <th class="resumo-sub--amazon">Frete</th><th class="resumo-sub--amazon">Preço</th><th class="resumo-sub--amazon">Margem</th>
-                <th class="resumo-sub--magalu">Frete</th><th class="resumo-sub--magalu">Preço</th><th class="resumo-sub--magalu">Margem</th>
-                <th class="resumo-sub--tiktok">Frete</th><th class="resumo-sub--tiktok">Preço</th><th class="resumo-sub--tiktok">Margem</th>
-                <th class="resumo-sub--raia">Frete</th><th class="resumo-sub--raia">Preço</th><th class="resumo-sub--raia">Margem</th>
-                <th class="resumo-sub--b2w">Frete</th><th class="resumo-sub--b2w">Preço</th><th class="resumo-sub--b2w">Margem</th>
+                <th class="resumo-sub--classico"><a href="{{ colunas.classico_frete.url }}" class="resumo-th-link">Frete {{ colunas.classico_frete.seta }}</a></th>
+                <th class="resumo-sub--classico"><a href="{{ colunas.classico_preco.url }}" class="resumo-th-link">Preço {{ colunas.classico_preco.seta }}</a></th>
+                <th class="resumo-sub--classico"><a href="{{ colunas.classico_margem.url }}" class="resumo-th-link">Margem {{ colunas.classico_margem.seta }}</a></th>
+
+                <th class="resumo-sub--premium"><a href="{{ colunas.premium_frete.url }}" class="resumo-th-link">Frete {{ colunas.premium_frete.seta }}</a></th>
+                <th class="resumo-sub--premium"><a href="{{ colunas.premium_preco.url }}" class="resumo-th-link">Preço {{ colunas.premium_preco.seta }}</a></th>
+                <th class="resumo-sub--premium"><a href="{{ colunas.premium_margem.url }}" class="resumo-th-link">Margem {{ colunas.premium_margem.seta }}</a></th>
+
+                <th class="resumo-sub--shopee"><a href="{{ colunas.shopee_frete.url }}" class="resumo-th-link">Frete {{ colunas.shopee_frete.seta }}</a></th>
+                <th class="resumo-sub--shopee"><a href="{{ colunas.shopee_preco.url }}" class="resumo-th-link">Preço {{ colunas.shopee_preco.seta }}</a></th>
+                <th class="resumo-sub--shopee"><a href="{{ colunas.shopee_margem.url }}" class="resumo-th-link">Margem {{ colunas.shopee_margem.seta }}</a></th>
+
+                <th class="resumo-sub--amazon"><a href="{{ colunas.amazon_frete.url }}" class="resumo-th-link">Frete {{ colunas.amazon_frete.seta }}</a></th>
+                <th class="resumo-sub--amazon"><a href="{{ colunas.amazon_preco.url }}" class="resumo-th-link">Preço {{ colunas.amazon_preco.seta }}</a></th>
+                <th class="resumo-sub--amazon"><a href="{{ colunas.amazon_margem.url }}" class="resumo-th-link">Margem {{ colunas.amazon_margem.seta }}</a></th>
+
+                <th class="resumo-sub--magalu"><a href="{{ colunas.magalu_frete.url }}" class="resumo-th-link">Frete {{ colunas.magalu_frete.seta }}</a></th>
+                <th class="resumo-sub--magalu"><a href="{{ colunas.magalu_preco.url }}" class="resumo-th-link">Preço {{ colunas.magalu_preco.seta }}</a></th>
+                <th class="resumo-sub--magalu"><a href="{{ colunas.magalu_margem.url }}" class="resumo-th-link">Margem {{ colunas.magalu_margem.seta }}</a></th>
+
+                <th class="resumo-sub--tiktok"><a href="{{ colunas.tiktok_frete.url }}" class="resumo-th-link">Frete {{ colunas.tiktok_frete.seta }}</a></th>
+                <th class="resumo-sub--tiktok"><a href="{{ colunas.tiktok_preco.url }}" class="resumo-th-link">Preço {{ colunas.tiktok_preco.seta }}</a></th>
+                <th class="resumo-sub--tiktok"><a href="{{ colunas.tiktok_margem.url }}" class="resumo-th-link">Margem {{ colunas.tiktok_margem.seta }}</a></th>
+                
+                <th class="resumo-sub--raia"><a href="{{ colunas.raia_frete.url }}" class="resumo-th-link">Frete {{ colunas.raia_frete.seta }}</a></th>
+                <th class="resumo-sub--raia"><a href="{{ colunas.raia_preco.url }}" class="resumo-th-link">Preço {{ colunas.raia_preco.seta }}</a></th>
+                <th class="resumo-sub--raia"><a href="{{ colunas.raia_margem.url }}" class="resumo-th-link">Margem {{ colunas.raia_margem.seta }}</a></th>
+
+                <th class="resumo-sub--b2w"><a href="{{ colunas.b2w_frete.url }}" class="resumo-th-link">Frete {{ colunas.b2w_frete.seta }}</a></th>
+                <th class="resumo-sub--b2w"><a href="{{ colunas.b2w_preco.url }}" class="resumo-th-link">Preço {{ colunas.b2w_preco.seta }}</a></th>
+                <th class="resumo-sub--b2w"><a href="{{ colunas.b2w_margem.url }}" class="resumo-th-link">Margem {{ colunas.b2w_margem.seta }}</a></th>
+
+
             </tr>
         </thead>
         <tbody>

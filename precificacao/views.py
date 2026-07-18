@@ -737,6 +737,98 @@ def view_grade_detalhe(request, produto_id, tipo, margem):
 # GradePrecificacaoML continua quebrada, como já era esperado.)
 # ═══════════════════════════════════════════════════════════════════
 
+# * [EXPLICAÇÃO] → Whitelist de colunas ordenáveis — nunca aceita nome de
+#                  campo arbitrário vindo da querystring. As 18 de
+#                  marketplace ainda sem dado real mapeiam pra None —
+#                  clicáveis (mesma seta, mesmo visual), mas o clique
+#                  não muda a ordem (não existe "menor/maior" pra "—").
+#                  Quando esses marketplaces ganharem dado de verdade
+#                  (item 2 do plano), só troca None pelo campo anotado
+#                  real, sem tocar em mais nada.
+COLUNAS_ORDENAVEIS = {
+    'curva': 'curva',
+    'cod_fabricante': 'cod_fabricante',
+    'ean': 'ean',
+    'sku': 'sku',
+    'titulo': 'titulo',
+    'custo': 'custo',
+    'custo_com_boni': 'custo_com_boni',
+    'classico_frete': 'classico_frete_anotado',
+    'classico_preco': 'classico_preco_anotado',
+    'classico_margem': 'classico_margem_anotado',
+    'premium_frete': 'premium_frete_anotado',
+    'premium_preco': 'premium_preco_anotado',
+    'premium_margem': 'premium_margem_anotado',
+    'shopee_frete': None, 'shopee_preco': None, 'shopee_margem': None,
+    'amazon_frete': None, 'amazon_preco': None, 'amazon_margem': None,
+    'magalu_frete': None, 'magalu_preco': None, 'magalu_margem': None,
+    'tiktok_frete': None, 'tiktok_preco': None, 'tiktok_margem': None,
+    'raia_frete': None, 'raia_preco': None, 'raia_margem': None,
+    'b2w_frete': None, 'b2w_preco': None, 'b2w_margem': None,
+}
+COLUNA_ORDENACAO_PADRAO = 'titulo'
+
+
+# Função Objetivo: Lê e valida ordenar/direcao da querystring, com fallback seguro.
+def _resolver_ordenacao(request):
+    coluna = request.GET.get('ordenar', COLUNA_ORDENACAO_PADRAO)
+    direcao = request.GET.get('direcao', 'asc')
+    if direcao not in ('asc', 'desc'):
+        direcao = 'asc'
+
+    campo_orm = COLUNAS_ORDENAVEIS.get(coluna)
+    if campo_orm is None:
+        # * Coluna inválida OU placeholder sem dado — ignora e mantém a padrão.
+        coluna = COLUNA_ORDENACAO_PADRAO
+        campo_orm = COLUNAS_ORDENAVEIS[COLUNA_ORDENACAO_PADRAO]
+
+    return coluna, direcao, campo_orm
+
+
+# Função Objetivo: Representa 1 cabeçalho de coluna clicável, com seta de direção.
+@dataclass
+class ColunaOrdenavel:
+    label: str
+    url: str
+    seta: str
+    ativa: bool
+
+
+# Função Objetivo: Monta o link + seta de 1 cabeçalho, preservando os outros filtros ativos.
+def _montar_coluna_ordenavel(request, chave, label, coluna_ativa, direcao_ativa):
+    params = request.GET.copy()
+    params.pop('pagina', None)
+
+    if chave == coluna_ativa:
+        nova_direcao = 'desc' if direcao_ativa == 'asc' else 'asc'
+        seta = '▲' if direcao_ativa == 'asc' else '▼'
+    else:
+        nova_direcao = 'asc'
+        # * [EXPLICAÇÃO] → Indicador neutro — sinaliza "isso é
+        #                  clicável/ordenável" mesmo nas 30 colunas
+        #                  que não são a ativa agora. Sem isso, nada
+        #                  visual dizia que dava pra ordenar por ali.
+        seta = '⇅'
+
+    params['ordenar'] = chave
+    params['direcao'] = nova_direcao
+    return ColunaOrdenavel(label=label, url=f'?{params.urlencode()}', seta=seta, ativa=(chave == coluna_ativa))
+
+
+# Função Objetivo: Monta a subquery que busca 1 campo de 1 marketplace/margem, por produto.
+def _subquery_grade_campo(tipo, campo, margem_geral):
+    from django.db.models import Subquery, OuterRef, DecimalField
+    from precificacao.models import GradePrecificacaoML
+
+    return Subquery(
+        GradePrecificacaoML.objects.filter(
+            produto=OuterRef('pk'), variacao__isnull=True,
+            tipo_anuncio=tipo, margem=margem_geral,
+        ).values(campo)[:1],
+        output_field=DecimalField(max_digits=12, decimal_places=4),
+    )
+
+
 # Função Objetivo: Representa 1 marketplace/tipo de anúncio exibido na linha do Resumo.
 @dataclass
 class GrupoMarketplaceExibido:
@@ -784,6 +876,30 @@ class LinhaResumoMarketplace:
             premium=montar_grupo('premium'),
         )
 
+    # Função Objetivo: Monta a linha a partir dos campos JÁ ANOTADOS na query principal.
+    # Explicação em detalhe: usada pela listagem (view_resumo_marketplaces) — evita 1
+    # query por produto (N+1), já que os 6 valores de Clássico/Premium vêm anotados via
+    # Subquery direto na queryset. montar() (acima) continua existindo pro caso de
+    # margem INDIVIDUAL por linha (troca via HTMX, pode ser diferente da margem geral).
+    @classmethod
+    def montar_do_anotado(cls, produto, margem_alvo):
+        def montar_grupo(prefixo):
+            preco = getattr(produto, f'{prefixo}_preco_anotado', None)
+            if preco is None:
+                return None
+            return GrupoMarketplaceExibido(
+                preco=preco,
+                margem_percentual_obtida=getattr(produto, f'{prefixo}_margem_anotado', None),
+                frete_usado=getattr(produto, f'{prefixo}_frete_anotado', None),
+            )
+
+        return cls(
+            produto=produto,
+            margem_atual=margem_alvo,
+            classico=montar_grupo('classico'),
+            premium=montar_grupo('premium'),
+        )
+
 
 # Função Objetivo: Exibe a tabela "tipo Excel" — 1 linha por produto, todos os marketplaces lado a lado.
 def view_resumo_marketplaces(request):
@@ -794,19 +910,67 @@ def view_resumo_marketplaces(request):
         margem_geral = 'padrao'
 
     filtros = FiltrosGrade.montar(request)
+    coluna_ativa, direcao_ativa, campo_orm = _resolver_ordenacao(request)
 
     produtos_qs = listar_produtos_filtrados(
         busca=filtros.busca or None, filtros=filtros.para_filtros_produto(), ordenar='titulo'
     )
     produtos_qs = produtos_qs.filter(grade_precificacao_ml__isnull=False).distinct()
 
+    produtos_qs = produtos_qs.annotate(
+        classico_preco_anotado=_subquery_grade_campo('classico', 'preco', margem_geral),
+        classico_margem_anotado=_subquery_grade_campo('classico', 'margem_percentual_obtida', margem_geral),
+        classico_frete_anotado=_subquery_grade_campo('classico', 'frete_usado', margem_geral),
+        premium_preco_anotado=_subquery_grade_campo('premium', 'preco', margem_geral),
+        premium_margem_anotado=_subquery_grade_campo('premium', 'margem_percentual_obtida', margem_geral),
+        premium_frete_anotado=_subquery_grade_campo('premium', 'frete_usado', margem_geral),
+    )
+    produtos_qs = produtos_qs.order_by(f'{"-" if direcao_ativa == "desc" else ""}{campo_orm}')
+
     paginator = Paginator(produtos_qs, filtros.por_pagina)
     pagina = paginator.get_page(request.GET.get('pagina', 1))
 
-    linhas_tabela = [LinhaResumoMarketplace.montar(produto, margem_geral) for produto in pagina.object_list]
+    linhas_tabela = [LinhaResumoMarketplace.montar_do_anotado(produto, margem_geral) for produto in pagina.object_list]
 
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
+
+    def col(chave, label):
+        return _montar_coluna_ordenavel(request, chave, label, coluna_ativa, direcao_ativa)
+
+    colunas = {
+        'curva': col('curva', 'Curva'),
+        'cod_fabricante': col('cod_fabricante', 'Cód Fab.'),
+        'ean': col('ean', 'Cód Barras'),
+        'sku': col('sku', 'SKU'),
+        'titulo': col('titulo', 'Descrição'),
+        'custo': col('custo', 'Custo'),
+        'custo_com_boni': col('custo_com_boni', 'Custo c/Boni'),
+        'classico_frete': col('classico_frete', 'Frete'),
+        'classico_preco': col('classico_preco', 'Preço'),
+        'classico_margem': col('classico_margem', 'Margem'),
+        'premium_frete': col('premium_frete', 'Frete'),
+        'premium_preco': col('premium_preco', 'Preço'),
+        'premium_margem': col('premium_margem', 'Margem'),
+        'shopee_frete': col('shopee_frete', 'Frete'),
+        'shopee_preco': col('shopee_preco', 'Preço'),
+        'shopee_margem': col('shopee_margem', 'Margem'),
+        'amazon_frete': col('amazon_frete', 'Frete'),
+        'amazon_preco': col('amazon_preco', 'Preço'),
+        'amazon_margem': col('amazon_margem', 'Margem'),
+        'magalu_frete': col('magalu_frete', 'Frete'),
+        'magalu_preco': col('magalu_preco', 'Preço'),
+        'magalu_margem': col('magalu_margem', 'Margem'),
+        'tiktok_frete': col('tiktok_frete', 'Frete'),
+        'tiktok_preco': col('tiktok_preco', 'Preço'),
+        'tiktok_margem': col('tiktok_margem', 'Margem'),
+        'raia_frete': col('raia_frete', 'Frete'),
+        'raia_preco': col('raia_preco', 'Preço'),
+        'raia_margem': col('raia_margem', 'Margem'),
+        'b2w_frete': col('b2w_frete', 'Frete'),
+        'b2w_preco': col('b2w_preco', 'Preço'),
+        'b2w_margem': col('b2w_margem', 'Margem'),
+    }
 
     return render(request, 'precificacao/estrutura_resumo_marketplaces.html', {
         'pagina': pagina,
@@ -816,6 +980,7 @@ def view_resumo_marketplaces(request):
         'margem_geral': margem_geral,
         'opcoes_margem': [(m.chave, m.label_padrao) for m in MARGENS],
         'linhas_tabela': linhas_tabela,
+        'colunas': colunas,
         'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True).exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
         'categorias_disponiveis': Produto.objects.exclude(categoria__isnull=True).exclude(categoria='').values_list('categoria', flat=True).distinct().order_by('categoria'),
         'curvas_disponiveis': Produto.objects.exclude(curva__isnull=True).exclude(curva='').values_list('curva', flat=True).distinct().order_by('curva'),

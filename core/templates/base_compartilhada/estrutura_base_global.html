@@ -64,7 +64,7 @@
     -->
         {% block head_extra %}{% endblock %}
     </head>
-    <body>
+    <body class="{% block body_class %}{% endblock %}">
         <!--
     * [EXPLICAÇÃO] → Container principal do layout.
     * Usa flexbox para colocar sidebar e conteúdo lado a lado.
