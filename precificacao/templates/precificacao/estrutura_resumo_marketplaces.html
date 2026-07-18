@@ -31,7 +31,8 @@
             placeholder="Buscar por Nome ou EAN..."
             class="grade-input-busca"
         >
-
+        
+        <button type="submit" class="btn-acao">Buscar</button>
         <div class="resumo-margem-geral">
             <label>Margem geral</label>
             <select name="margem" onchange="this.form.submit()" class="grade-select">
@@ -46,7 +47,6 @@
             <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
             <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
         </select>
-        <button type="submit" class="btn-acao">Buscar</button>
     </div>
 
     <details class="grade-filtros-painel">
@@ -131,7 +131,7 @@
     <table class="resumo-tabela">
         <thead>
             <tr class="resumo-linha-grupos">
-                <th class="resumo-col-margem" rowspan="2"></th>
+                <th class="resumo-col-margem" rowspan="2">Margem Linha</th>
                 <th rowspan="2">Curva</th>
                 <th rowspan="2">Cód Fab.</th>
                 <th rowspan="2">Cód Barras</th>
@@ -142,22 +142,22 @@
                 <th rowspan="2">Custo c/Boni</th>
                 <th colspan="3" class="resumo-grupo-header resumo-grupo-header--classico">Mercado Livre — Clássico</th>
                 <th colspan="3" class="resumo-grupo-header resumo-grupo-header--premium">Mercado Livre — Premium</th>
-                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Shopee</th>
-                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Amazon</th>
-                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Magalu</th>
-                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">B2W / Site</th>
-                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">Raia</th>
-                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--placeholder">TikTok Shop</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--shopee">Shopee</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--amazon">Amazon</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--magalu">Magalu</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--tiktok">TikTok Shop</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--raia">Raia</th>
+                <th colspan="3" class="resumo-grupo-header resumo-grupo-header--b2w">B2W / Site</th>
             </tr>
             <tr class="resumo-linha-subcolunas">
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
-                <th>Frete</th><th>Preço</th><th>Margem</th>
+                <th class="resumo-sub--classico">Frete</th><th class="resumo-sub--classico">Preço</th><th class="resumo-sub--classico">Margem</th>
+                <th class="resumo-sub--premium">Frete</th><th class="resumo-sub--premium">Preço</th><th class="resumo-sub--premium">Margem</th>
+                <th class="resumo-sub--shopee">Frete</th><th class="resumo-sub--shopee">Preço</th><th class="resumo-sub--shopee">Margem</th>
+                <th class="resumo-sub--amazon">Frete</th><th class="resumo-sub--amazon">Preço</th><th class="resumo-sub--amazon">Margem</th>
+                <th class="resumo-sub--magalu">Frete</th><th class="resumo-sub--magalu">Preço</th><th class="resumo-sub--magalu">Margem</th>
+                <th class="resumo-sub--tiktok">Frete</th><th class="resumo-sub--tiktok">Preço</th><th class="resumo-sub--tiktok">Margem</th>
+                <th class="resumo-sub--raia">Frete</th><th class="resumo-sub--raia">Preço</th><th class="resumo-sub--raia">Margem</th>
+                <th class="resumo-sub--b2w">Frete</th><th class="resumo-sub--b2w">Preço</th><th class="resumo-sub--b2w">Margem</th>
             </tr>
         </thead>
         <tbody>

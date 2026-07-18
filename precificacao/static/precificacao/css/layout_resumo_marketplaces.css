@@ -4,6 +4,27 @@
 * do CSS da Grade, já carregado nessa mesma família de telas.
 */
 
+/* * [EXPLICAÇÃO] → Paleta de identidade por marketplace, centralizada
+   em custom properties — cor FORTE usada nos 2 headers (grupo +
+   subcoluna); a versão pastel do corpo é derivada com alpha próprio
+   em cada .resumo-grupo-* (não dá pra usar var()+alpha direto em hex,
+   então cada cor pastel é escrita à mão, mas a fonte da verdade da
+   cor forte fica só aqui). */
+.resumo-tabela {
+    --cor-classico: #1d4ed8;
+    --cor-premium: #8b4fc7;
+    --cor-shopee: #ee4d2d;
+    --cor-amazon: #232f3e;
+    --cor-magalu: #0086ff;
+    --cor-b2w: #e60014;
+    --cor-raia: #00a651;
+    --cor-tiktok: #fe2c55;
+}
+
+.resumo-form-filtros {
+    margin-bottom: 16px;
+}
+
 .resumo-barra-topo {
     display: flex;
     flex-wrap: wrap;
@@ -53,6 +74,7 @@
     color: #fff;
     z-index: 2;
     font-weight: 700;
+    text-align: center;
 }
 
 .resumo-linha-subcolunas th {
@@ -66,19 +88,55 @@
     background: #2c4d75;
 }
 
-.resumo-grupo-header--classico { background: #1d4ed8; }
-.resumo-grupo-header--premium { background: #8b4fc7; }
-.resumo-grupo-header--placeholder { background: #6b7280; }
+/* * [EXPLICAÇÃO] → As 2 linhas do header (grupo + subcoluna) levam a
+   cor FORTE de identidade do marketplace — mesma cor nas duas, pra
+   o bloco inteiro do cabeçalho se ler como "1 unidade" por canal. */
+.resumo-linha-grupos th.resumo-grupo-header--classico,
+.resumo-linha-subcolunas th.resumo-sub--classico { background: var(--cor-classico); }
+
+.resumo-linha-grupos th.resumo-grupo-header--premium,
+.resumo-linha-subcolunas th.resumo-sub--premium { background: var(--cor-premium); }
+
+.resumo-linha-grupos th.resumo-grupo-header--shopee,
+.resumo-linha-subcolunas th.resumo-sub--shopee { background: var(--cor-shopee); }
+
+.resumo-linha-grupos th.resumo-grupo-header--amazon,
+.resumo-linha-subcolunas th.resumo-sub--amazon { background: var(--cor-amazon); }
+
+.resumo-linha-grupos th.resumo-grupo-header--magalu,
+.resumo-linha-subcolunas th.resumo-sub--magalu { background: var(--cor-magalu); }
+
+.resumo-linha-grupos th.resumo-grupo-header--b2w,
+.resumo-linha-subcolunas th.resumo-sub--b2w { background: var(--cor-b2w); }
+
+.resumo-linha-grupos th.resumo-grupo-header--raia,
+.resumo-linha-subcolunas th.resumo-sub--raia { background: var(--cor-raia); }
+
+.resumo-linha-grupos th.resumo-grupo-header--tiktok,
+.resumo-linha-subcolunas th.resumo-sub--tiktok { background: var(--cor-tiktok); }
 
 .resumo-col-margem {
     position: sticky;
     left: 0;
     background: #fff;
-    z-index: 3;
+    /* * [EXPLICAÇÃO] → BUG CORRIGIDO: antes esse z-index (3) era MAIOR
+       que o do cabeçalho normal (2) — a coluna congelada do CORPO
+       vencia o cabeçalho durante a rolagem vertical, aparecendo por
+       cima dele (o vazamento visual do print). Hierarquia certa:
+       corner (mais alto) > cabeçalho normal > coluna congelada do
+       corpo (mais baixo, aqui). */
+    z-index: 1;
 }
 
-thead .resumo-col-margem {
-    z-index: 4;
+.resumo-tabela thead th.resumo-col-margem {
+    /* * [EXPLICAÇÃO] → Precisa de MAIS especificidade que
+       ".resumo-tabela thead th" (que tem z-index:2) — senão a regra
+       genérica vence por ter mais seletores de tag, e o corner fica
+       empatado com os outros cabeçalhos. Empate = desempate por
+       ordem no HTML = "Curva" (que vem depois) pinta por cima do
+       corner durante a rolagem horizontal. Corner precisa SEMPRE
+       vencer, nos 2 eixos de rolagem. */
+    z-index: 3;
     background: #1e3a5f;
 }
 
@@ -124,30 +182,44 @@ thead .resumo-col-margem {
     font-variant-numeric: tabular-nums;
 }
 
-.resumo-grupo-classico {
-    background: #1d4ed80a;
-}
-
-.resumo-grupo-premium {
-    background: #8b4fc70a;
-}
+/* * [EXPLICAÇÃO] → Versão PASTEL (corpo da tabela) de cada cor forte
+   — ~8-10% de opacidade, suave o bastante pra não competir com o
+   dado (número), forte o bastante pra diferenciar 1 grupo do outro
+   sem precisar olhar o cabeçalho toda hora. */
+.resumo-grupo-classico { background: #1d4ed81a; }
+.resumo-grupo-premium { background: #8b4fc71a; }
+.resumo-grupo-shopee { background: #ee4d2d1a; }
+.resumo-grupo-amazon { background: #232f3e1a; }
+.resumo-grupo-magalu { background: #0086ff1a; }
+.resumo-grupo-b2w { background: #e600141a; }
+.resumo-grupo-raia { background: #00a6511a; }
+.resumo-grupo-tiktok { background: #fe2c551a; }
 
 .resumo-placeholder {
-    color: #b8bec7;
+    color: #9199a6;
 }
 
-.resumo-tabela tbody tr:nth-child(even) .resumo-col-margem {
+/* * [EXPLICAÇÃO] → Divisória entre cada grupo de marketplace — reforça
+   visualmente onde 1 canal termina e o próximo começa, já que agora
+   todos os 8 têm cor própria (antes só existia a divisória entre
+   identificação e Clássico). */
+.resumo-tabela th[colspan="3"],
+.resumo-tabela td.resumo-grupo-classico:first-of-type,
+.resumo-tabela td.resumo-grupo-premium:first-of-type,
+.resumo-tabela td.resumo-grupo-shopee:first-of-type,
+.resumo-tabela td.resumo-grupo-amazon:first-of-type,
+.resumo-tabela td.resumo-grupo-magalu:first-of-type,
+.resumo-tabela td.resumo-grupo-b2w:first-of-type,
+.resumo-tabela td.resumo-grupo-raia:first-of-type,
+.resumo-tabela td.resumo-grupo-tiktok:first-of-type {
+    border-left: 2px solid #1e3a5f;
+}
+
+/* * [EXPLICAÇÃO] → Zebra só no bloco de IDENTIFICAÇÃO — as colunas
+   de marketplace já têm seu próprio sinal de cor (tinta do grupo);
+   empilhar zebra + tinta de grupo ao mesmo tempo criava 2 sinais
+   competindo sem nenhum se destacar de verdade. */
+.resumo-tabela tbody tr:nth-child(even) .resumo-col-margem,
+.resumo-tabela tbody tr:nth-child(even) td:not(.resumo-col-margem):not([class*="resumo-grupo-"]) {
     background: #fafbfc;
-}
-
-.resumo-tabela tbody tr:nth-child(even) td:not(.resumo-col-margem) {
-    background: #fafbfc;
-}
-
-.resumo-tabela tbody tr:nth-child(even) .resumo-grupo-classico {
-    background: #1d4ed814;
-}
-
-.resumo-tabela tbody tr:nth-child(even) .resumo-grupo-premium {
-    background: #8b4fc714;
 }

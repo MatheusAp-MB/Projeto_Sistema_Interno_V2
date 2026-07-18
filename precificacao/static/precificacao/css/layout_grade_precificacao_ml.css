@@ -72,6 +72,13 @@
     gap: 4px;
 }
 
+/* * [EXPLICAÇÃO] → Usado em subgrupos curtos (Curva, Estoque, Custo)
+   que não têm lista rolável — o gap precisa ser menor pra não deixar
+   espaço morto entre o título e o campo único/linha inline. */
+.filtro-subgrupo-compacto {
+    gap: 2px;
+}
+
 .filtro-subgrupo-titulo {
     font-size: 0.7rem;
     font-weight: 600;
@@ -672,6 +679,15 @@
     text-decoration: underline;
 }
 
+/* * [EXPLICAÇÃO] → Compartilhada entre Grade e Resumo — sem regra
+   própria, ficava só com o que herdava de .grade-paginacao (cor/
+   tamanho do texto solto). Reforça como o "estado atual", não mais
+   um link — cor um pouco mais escura, peso médio. */
+.grade-paginacao-atual {
+    color: #334;
+    font-weight: 600;
+}
+
 /* ================================================
    Contagem de MLBs no cabeçalho do produto
    ================================================ */
@@ -754,19 +770,23 @@
     color: #1a1a2e;
 }
 
-.grade-badge-frete {
+/* * [EXPLICAÇÃO] → Renomeado de "grade-badge-frete" — o badge nunca
+   mostrou frete de verdade, mostra a ORIGEM DA DIMENSÃO (Declarada no
+   ML / Embalagem ERP). O nome antigo era sobra do conceito de
+   "frete_real"/"frete_tabela" que já não existe mais no sistema. */
+.grade-badge-dimensao {
     font-size: 0.66rem;
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 8px;
 }
 
-.grade-badge-frete--tabela {
+.grade-badge-dimensao--erp {
     background: #eef2f7;
     color: #556;
 }
 
-.grade-badge-frete--real {
+.grade-badge-dimensao--ml {
     background: #fffbeb;
     color: #b45309;
 }
