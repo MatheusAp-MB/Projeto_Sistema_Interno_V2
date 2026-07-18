@@ -23,44 +23,6 @@
 <div class="config-ml-aviso-salvo">✓ Alterações salvas com sucesso.</div>
 {% endif %}
 
-<div class="config-ml-grid-topo">
-
-    <form method="post" class="config-ml-card">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="salvar_geral">
-        <div class="config-ml-card-header">Configuração Geral</div>
-        <table class="config-ml-tabela-simples">
-            <tr>
-                <td>Fator de Coleta (R$/m³)</td>
-                <td><input type="text" name="fator_coleta" value="{{ config_geral.fator_coleta }}" class="config-ml-input"></td>
-            </tr>
-            <tr>
-                <td>Período de Armazenagem (dias)</td>
-                <td><input type="number" name="periodo_armazenagem" value="{{ config_geral.periodo_armazenagem }}" class="config-ml-input"></td>
-            </tr>
-        </table>
-        <button type="submit" class="btn-acao config-ml-btn-salvar">Salvar</button>
-    </form>
-
-    <form method="post" class="config-ml-card">
-        {% csrf_token %}
-        <input type="hidden" name="acao" value="salvar_faixas">
-        <div class="config-ml-card-header">Faixas de Armazenagem</div>
-        <table class="config-ml-tabela-simples">
-            {% for faixa in faixas %}
-            <tr class="config-ml-linha-faixa config-ml-linha-faixa--{{ forloop.counter }}">
-                <td>{{ faixa.nome }}</td>
-                <td>
-                    R$ <input type="text" name="faixa_{{ faixa.id }}_valor_diario" value="{{ faixa.valor_diario }}" class="config-ml-input config-ml-input-pequeno">/dia
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-        <button type="submit" class="btn-acao config-ml-btn-salvar">Salvar</button>
-    </form>
-
-</div>
-
 <form method="post" class="config-ml-card">
     {% csrf_token %}
     <input type="hidden" name="acao" value="salvar_tipos">

@@ -1,0 +1,62 @@
+<!--
+* [RESUMO] → Tela EDITÁVEL de Configuração Operacional — fator de
+* coleta, período de armazenagem, e as 4 faixas de armazenagem por
+* dimensão. Movida de dentro de "Configurações Mercado Livre" (17/07)
+* — é custo FÍSICO compartilhado por todos os marketplaces, não regra
+* de negócio de nenhum canal específico.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações Operacionais — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — Operacional{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_configuracoes_operacionais.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if salvo %}
+<div class="config-operacional-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
+<div class="config-operacional-grid-topo">
+
+    <form method="post" class="config-operacional-card">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="salvar_geral">
+        <div class="config-operacional-card-header">Configuração Geral</div>
+        <table class="config-operacional-tabela-simples">
+            <tr>
+                <td>Fator de Coleta (R$/m³)</td>
+                <td><input type="text" name="fator_coleta" value="{{ config_geral.fator_coleta }}" class="config-operacional-input"></td>
+            </tr>
+            <tr>
+                <td>Período de Armazenagem (dias)</td>
+                <td><input type="number" name="periodo_armazenagem" value="{{ config_geral.periodo_armazenagem }}" class="config-operacional-input"></td>
+            </tr>
+        </table>
+        <button type="submit" class="btn-acao config-operacional-btn-salvar">Salvar</button>
+    </form>
+
+    <form method="post" class="config-operacional-card">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="salvar_faixas">
+        <div class="config-operacional-card-header">Faixas de Armazenagem</div>
+        <table class="config-operacional-tabela-simples">
+            {% for faixa in faixas %}
+            <tr class="config-operacional-linha-faixa config-operacional-linha-faixa--{{ forloop.counter }}">
+                <td>{{ faixa.nome }}</td>
+                <td>
+                    R$ <input type="text" name="faixa_{{ faixa.id }}_valor_diario" value="{{ faixa.valor_diario }}" class="config-operacional-input config-operacional-input-pequeno">/dia
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <button type="submit" class="btn-acao config-operacional-btn-salvar">Salvar</button>
+    </form>
+
+</div>
+
+{% endblock %}

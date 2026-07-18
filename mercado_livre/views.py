@@ -485,10 +485,7 @@ def view_configuracoes_mercado_livre(request):
     from decimal import Decimal, InvalidOperation
     from django.urls import reverse
     from django.shortcuts import redirect
-    from mercado_livre.models import (
-        ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre,
-        FaixaArmazenagemMercadoLivre, TipoDeAnuncioMercadoLivre,
-    )
+    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
     from mercado_livre.funcoes_auxiliares.badges import BADGES_TIPO_ANUNCIO, badge_de
 
     TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
@@ -504,27 +501,14 @@ def view_configuracoes_mercado_livre(request):
         except (InvalidOperation, TypeError, ValueError, AttributeError):
             return atual
 
-    # * [EXPLICAÇÃO] → Tela editável — decisão do usuário: Django Admin
-    #                  removido do projeto inteiro, toda edição
-    #                  acontece na superfície do sistema. 3 formulários
-    #                  separados (Geral / Tipos / Faixas), cada um com
-    #                  seu próprio botão — evita que salvar uma seção
-    #                  mexa sem querer nas outras. Post-Redirect-Get
-    #                  depois de salvar, mesmo padrão já usado em
-    #                  "Salvar decisão" na tela de Recomendação.
+    # * [EXPLICAÇÃO] → Reduzida (17/07) — "Geral"/"Faixas" (custo físico
+    #                  compartilhado) migraram pra Configurações
+    #                  Operacionais, em precificacao. Aqui fica só o
+    #                  que é regra de negócio EXCLUSIVA do ML.
     if request.method == 'POST':
         acao = request.POST.get('acao')
 
-        if acao == 'salvar_geral':
-            config_geral = ConfiguracaoMercadoLivre.obter()
-            config_geral.fator_coleta = _dec(request.POST.get('fator_coleta'), config_geral.fator_coleta)
-            try:
-                config_geral.periodo_armazenagem = int(request.POST.get('periodo_armazenagem'))
-            except (TypeError, ValueError):
-                pass
-            config_geral.save()
-
-        elif acao == 'salvar_tipos':
+        if acao == 'salvar_tipos':
             for tipo_valor in [TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM]:
                 config = ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(tipo_anuncio=tipo_valor).first()
                 if not config:
@@ -536,17 +520,7 @@ def view_configuracoes_mercado_livre(request):
                 config.margem_competicao = _dec(request.POST.get(f'{tipo_valor}_margem_competicao'), config.margem_competicao)
                 config.save()
 
-        elif acao == 'salvar_faixas':
-            for faixa in FaixaArmazenagemMercadoLivre.objects.filter(ativo=True):
-                valor = request.POST.get(f'faixa_{faixa.id}_valor_diario')
-                if valor is not None:
-                    faixa.valor_diario = _dec(valor, faixa.valor_diario)
-                    faixa.save()
-
         return redirect(f"{reverse('mercado_livre_configuracoes')}?salvo=1")
-
-    config_geral = ConfiguracaoMercadoLivre.obter()
-    faixas = FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem')
 
     tipos = []
     for tipo in ConfiguracaoTipoAnuncioMercadoLivre.objects.all().order_by('tipo_anuncio'):
@@ -561,8 +535,6 @@ def view_configuracoes_mercado_livre(request):
         })
 
     return render(request, 'mercado_livre/estrutura_configuracoes_mercado_livre.html', {
-        'config_geral': config_geral,
-        'faixas': faixas,
         'tipos': tipos,
         'salvo': request.GET.get('salvo') == '1',
     })
