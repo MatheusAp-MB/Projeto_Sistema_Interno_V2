@@ -26,3 +26,4 @@ from .resumo_marketplaces import (
     view_resumo_marketplaces, view_resumo_linha,
 )
 from .configuracoes import view_configuracoes_operacionais
+from .hub import view_precificacao_hub

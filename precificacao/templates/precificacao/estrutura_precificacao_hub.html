@@ -1,0 +1,54 @@
+<!--
+* [RESUMO] → Grid de seleção do módulo Precificação (2º nível de
+* navegação, mesmo padrão de Marketplaces) — lista as telas que hoje
+* só existiam via navbar.
+-->
+{% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
+{% load static %}
+
+{% block titulo %}Precificação — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Precificação{% endblock %}
+
+{% block cards %}
+
+<div class="col-md-4">
+    <a href="{% url 'precificacao_grade_mercado_livre' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-sitemap fa-2x mb-3"></i>
+            <h5>Grade Mercado Livre</h5>
+            <p>Precificação por produto e MLB, 4 margens</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'precificacao_grade_magalu' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-store fa-2x mb-3"></i>
+            <h5>Grade Magalu</h5>
+            <p>Precificação por produto, 4 margens</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'precificacao_resumo_marketplaces' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-table fa-2x mb-3"></i>
+            <h5>Resumo por Marketplace</h5>
+            <p>Todos os marketplaces lado a lado, tipo Excel</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'precificacao_configuracoes_operacionais' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-sliders-h fa-2x mb-3"></i>
+            <h5>Configurações Operacionais</h5>
+            <p>Fator de coleta, período e faixas de armazenagem</p>
+        </div>
+    </a>
+</div>
+
+{% endblock %}

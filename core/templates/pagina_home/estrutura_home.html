@@ -37,6 +37,19 @@
     </a>
 </div>
 
+
+<!-- Card: Precificação — grid de telas (Grade ML, Grade Magalu, Resumo, Config) -->
+<div class="col-md-4">
+    <a href="{% url 'precificacao_hub' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-tags fa-2x mb-3"></i>
+            <h5>Precificação</h5>
+            <p>Grade por marketplace, resumo e configurações</p>
+        </div>
+    </a>
+</div>
+
+
 <!-- Card: Configurações — reservado para o futuro (controle de admin) -->
 <div class="col-md-4">
     <div class="card-modulo card-modulo-vazio">
@@ -46,8 +59,10 @@
     </div>
 </div>
 
+
+
 <!-- Cards em branco — reservados para módulos futuros (resumos/cruzamentos) -->
-{% for i in "1234" %}
+{% for i in "123" %}
 <div class="col-md-4">
     <div class="card-modulo card-modulo-vazio">
         <i class="fas fa-plus fa-2x mb-3"></i>

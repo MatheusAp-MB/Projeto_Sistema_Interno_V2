@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('', views.view_precificacao_hub, name='precificacao_hub'),
     path('grade-mercado-livre/', views.view_grade_precificacao_ml, name='precificacao_grade_mercado_livre'),
     path(
         'grade-mercado-livre/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',
