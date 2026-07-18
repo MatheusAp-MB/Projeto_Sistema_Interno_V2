@@ -1,0 +1,93 @@
+<!--
+* [RESUMO] → Tela da tabela de frete do Magalu — mais simples que a do
+* ML: LISTA (peso → 3 valores de reputação), não matriz, já que o
+* frete do Magalu nunca depende de preço.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Tabela de Frete Magalu — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Tabela de Frete — Magalu{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'magalu/css/layout_tabela_frete_magalu.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+    <!-- Calculadora -->
+    <div class="calculadora-container" id="form-calcular">
+        <h6 class="mb-3">Calcular Frete</h6>
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+                <label>Peso do produto (kg)</label>
+                <input type="number" name="peso" id="input-peso" step="0.001" min="0" placeholder="Ex: 0.821">
+            </div>
+
+            <div class="col-md-4">
+                <label>Faixa de reputação</label>
+                <select name="reputacao" id="input-reputacao">
+                    <option value="baixa">&lt; 92% (0% desconto)</option>
+                    <option value="media">92-97% (25% desconto)</option>
+                    <option value="alta" {% if faixa_reputacao_atual == 'alta' %}selected{% endif %}>&gt; 97% (50% desconto)</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+               <button class="btn-calcular"
+                    hx-post="{% url 'magalu_calcular_frete' %}"
+                    hx-target="#resultado-calculadora"
+                    hx-include="#form-calcular">
+                    <i class="fas fa-calculator"></i> Calcular
+                </button>
+            </div>
+
+        </div>
+        <p class="calculadora-nota">Reputação atual configurada: <strong>{{ faixa_reputacao_atual }}</strong> — a calculadora permite testar as outras faixas hipoteticamente.</p>
+    </div>
+
+    <!-- Resultado -->
+    <div id="resultado-calculadora" class="resultado-container">
+        <div class="resultado-frete">
+            <span class="descricao">Informe o peso e a faixa de reputação para calcular o frete.</span>
+        </div>
+    </div>
+
+    <!-- Lista de faixas -->
+    <div class="grade-container">
+        <table class="grade-tabela">
+            <thead>
+                <tr>
+                    <th class="col-peso">De (kg)</th>
+                    <th class="col-peso">Até (kg)</th>
+                    <th>&lt; 92% (0% desconto)</th>
+                    <th>92-97% (25% desconto)</th>
+                    <th>&gt; 97% (50% desconto)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for faixa in faixas %}
+                <tr data-peso-min="{{ faixa.peso_min }}">
+                    <td class="col-peso">{{ faixa.peso_min|floatformat:3 }}</td>
+                    <td class="col-peso">
+                        {% if faixa.peso_max %}
+                            {{ faixa.peso_max|floatformat:3 }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td data-reputacao="baixa">R$ {{ faixa.valor_baixa|floatformat:2 }}</td>
+                    <td data-reputacao="media">R$ {{ faixa.valor_media|floatformat:2 }}</td>
+                    <td data-reputacao="alta">R$ {{ faixa.valor_alta|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'magalu/js/script_tabela_frete_magalu.js' %}"></script>
+{% endblock %}

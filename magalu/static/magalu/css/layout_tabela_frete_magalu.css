@@ -1,0 +1,116 @@
+/*
+* [RESUMO] → CSS da tela de tabela de frete do Magalu. Mesma
+* linguagem visual da tela do ML (variáveis de cor globais), estrutura
+* mais simples (lista, não matriz).
+*/
+
+.calculadora-container {
+    background-color: var(--cor-primaria);
+    border-radius: 10px;
+    padding: 24px;
+    color: var(--cor-texto-claro);
+    margin-bottom: 16px;
+}
+
+.calculadora-container label {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.calculadora-container input,
+.calculadora-container select {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    width: 100%;
+}
+
+.calculadora-container input:focus,
+.calculadora-container select:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.3);
+}
+
+.calculadora-nota {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.8rem;
+    margin: 12px 0 0;
+}
+
+.resultado-container {
+    margin-bottom: 16px;
+}
+
+.resultado-frete {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.resultado-frete .valor {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.resultado-frete .descricao {
+    color: #667;
+    font-size: 0.9rem;
+}
+
+.grade-container {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: auto;
+}
+
+.grade-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.grade-tabela th,
+.grade-tabela td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #eee;
+    text-align: right;
+}
+
+.grade-tabela th {
+    position: sticky;
+    top: 0;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    z-index: 1;
+}
+
+.col-peso {
+    text-align: left;
+    font-weight: 600;
+}
+
+.grade-tabela tr:nth-child(even) td {
+    background: #fafbfc;
+}
+
+.destaque {
+    background: #fff3cd !important;
+    font-weight: 700;
+}
+
+.destaque-linha {
+    font-weight: 700;
+    color: var(--cor-primaria);
+}

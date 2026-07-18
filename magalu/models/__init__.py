@@ -1,0 +1,2 @@
+from .configuracao_magalu import ConfiguracaoMagalu
+from .frete_magalu import FreteMagalu

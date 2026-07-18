@@ -1,3 +1,4 @@
 from .mercado_livre.grade_precificacao_ml import GradePrecificacaoML
+from .magalu.grade_precificacao_magalu import GradePrecificacaoMagalu
 from .configuracao_operacional import ConfiguracaoOperacional
 from .faixa_armazenagem import FaixaArmazenagem

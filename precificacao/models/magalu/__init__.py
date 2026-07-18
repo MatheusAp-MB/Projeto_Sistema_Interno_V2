@@ -1,0 +1,1 @@
+from .grade_precificacao_magalu import GradePrecificacaoMagalu

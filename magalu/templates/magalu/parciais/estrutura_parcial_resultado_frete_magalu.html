@@ -1,0 +1,22 @@
+<!--
+* [RESUMO] → Resultado da calculadora de frete Magalu.
+* Retornado pelo HTMX — injetado em #resultado-calculadora.
+* Chama destacar_linha() pra iluminar a linha correspondente na lista.
+-->
+{% if erro %}
+    <div class="resultado-frete">
+        <span class="descricao">Erro ao calcular o frete: {{ erro }}</span>
+    </div>
+
+{% elif valor %}
+    <div class="resultado-frete">
+        <span class="valor">R$ {{ valor|floatformat:2 }}</span>
+        <span class="descricao">Frete para os parâmetros informados.</span>
+    </div>
+    <script>destacar_linha('{{ peso_min }}', '{{ reputacao }}');</script>
+
+{% else %}
+    <div class="resultado-frete">
+        <span class="descricao">Nenhuma faixa encontrada para os valores informados.</span>
+    </div>
+{% endif %}

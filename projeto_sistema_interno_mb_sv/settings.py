@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'produtos',
     'marketplaces',
     'mercado_livre',
+    'magalu',
     'precificacao',
 ]
 
