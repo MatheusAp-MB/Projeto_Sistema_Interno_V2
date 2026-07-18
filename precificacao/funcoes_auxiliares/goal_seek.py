@@ -130,27 +130,34 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
     return None
 
 
-def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, frete, rebate_valor=Decimal('0')):
+def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, frete,
+                                   taxa_unidade=Decimal('0'), rebate_valor=Decimal('0')):
     """Mesma fórmula de resolver_preco_por_margem, mas SEM busca de
     faixa — usado quando o frete já é um número fechado, sem tabela
     (ex: marketplace onde o comprador paga o frete — frete=0 — ou
     frete fixo de verdade, sem faixa peso×preço). NÃO usado hoje pelo
     Mercado Livre (lá o frete sempre passa por busca de faixa, mesmo
     quando o peso vem da dimensão declarada do ML) — mantido genérico
-    pra outros marketplaces que vierem a usar esse motor."""
+    pra outros marketplaces que vierem a usar esse motor.
+
+    taxa_unidade: Decimal — opcional, taxa FIXA em R$ cobrada por
+                  unidade vendida (ex: Magalu), na MESMA posição do
+                  frete na fórmula — independente do preço. Default 0,
+                  então quem não usa (ML) não muda nada."""
     denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
     if denominador <= 0:
         return None
 
     fixo = Decimal(str(fixo))
     frete = Decimal(str(frete))
+    taxa_unidade = Decimal(str(taxa_unidade))
     rebate_valor = Decimal(str(rebate_valor))
     margem_alvo_percentual = margem_alvo_fracao * 100
 
-    preco_exato = (frete + fixo - rebate_valor) / denominador
+    preco_exato = (frete + taxa_unidade + fixo - rebate_valor) / denominador
     preco_90 = arredondar_para_90(preco_exato)
 
-    margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete + rebate_valor
+    margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete - taxa_unidade + rebate_valor
     margem_percentual_obtida = (margem_valor / preco_90) * 100
 
     assert margem_percentual_obtida >= margem_alvo_percentual, (
@@ -166,6 +173,7 @@ def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, fre
         'detalhamento': {
             'custo_produto': None,  # preenchido por quem chama (só ele sabe)
             'fixo': fixo,
+            'taxa_unidade': taxa_unidade,
             'rebate_valor': rebate_valor,
             'taxa_percentual': taxa_percentual * 100,
             'margem_alvo_percentual': margem_alvo_percentual,

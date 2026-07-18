@@ -1,0 +1,43 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações Magalu — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — Magalu{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'magalu/css/layout_configuracoes_magalu.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if salvo %}
+<div class="config-magalu-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
+<form method="post" class="config-magalu-card">
+    {% csrf_token %}
+    <div class="config-magalu-card-header">Configuração Magalu</div>
+    <table class="config-magalu-tabela-simples">
+        <tr>
+            <td>Comissão (%)</td>
+            <td><input type="text" name="comissao_percentual" value="{{ config.comissao_percentual }}" class="config-magalu-input"></td>
+        </tr>
+        <tr>
+            <td>Taxa unidade (R$, fixa por venda)</td>
+            <td><input type="text" name="taxa_unidade_fixa" value="{{ config.taxa_unidade_fixa }}" class="config-magalu-input"></td>
+        </tr>
+        <tr>
+            <td>Faixa de reputação atual</td>
+            <td>
+                <select name="faixa_reputacao_atual" class="config-magalu-input config-magalu-select">
+                    {% for valor, label in faixas_reputacao %}
+                    <option value="{{ valor }}" {% if config.faixa_reputacao_atual == valor %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+        </tr>
+    </table>
+    <button type="submit" class="btn-acao config-magalu-btn-salvar">Salvar</button>
+</form>
+
+{% endblock %}

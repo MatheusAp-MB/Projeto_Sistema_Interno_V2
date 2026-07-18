@@ -50,6 +50,7 @@ class DadosEntrada:
     periodo_armazenagem: Decimal
 
     faixa_reputacao: str  # 'baixa'/'media'/'alta' — define a coluna de frete usada
+    taxa_unidade_fixa: Decimal  # taxa fixa em R$ por unidade vendida — independente do preço
 
 
 # Função Objetivo: Cada pedaço calculado, passo a passo, com o par número/percentual.
@@ -207,12 +208,14 @@ class FormulaPrecificacaoMagalu:
             return
 
         frete = self._faixa_frete.valor_para_reputacao(self.config_magalu.faixa_reputacao_atual)
+        self._taxa_unidade = self.config_magalu.taxa_unidade_fixa
 
         resultado = resolver_preco_com_frete_fixo(
             fixo=self._fixo,
             taxa_percentual=self._taxa_percentual,
             margem_alvo_fracao=self.margem_alvo_percentual / 100,
             frete=frete,
+            taxa_unidade=self._taxa_unidade,
         )
 
         if resultado is None:
@@ -229,9 +232,11 @@ class FormulaPrecificacaoMagalu:
         self._preco_exato_antes_arredondar = detalhamento['preco_exato_antes_arredondar']
 
         # * [EXPLICAÇÃO] → Mesma fórmula de margem, aplicada no preço EXATO,
-        #                  antes do RoundUp90 — mesma lógica do ML.
+        #                  antes do RoundUp90 — mesma lógica do ML, agora
+        #                  descontando também a taxa unidade fixa.
         self._margem_exata_valor = (
-            self._preco_exato_antes_arredondar * (1 - self._taxa_percentual) - self._fixo - self._frete_usado
+            self._preco_exato_antes_arredondar * (1 - self._taxa_percentual)
+            - self._fixo - self._frete_usado - self._taxa_unidade
         )
         self._margem_exata_percentual = (self._margem_exata_valor / self._preco_exato_antes_arredondar) * 100
 
@@ -288,6 +293,7 @@ class FormulaPrecificacaoMagalu:
             fator_coleta=self.config_geral.fator_coleta,
             periodo_armazenagem=self.config_geral.periodo_armazenagem,
             faixa_reputacao=self.config_magalu.faixa_reputacao_atual,
+            taxa_unidade_fixa=self._taxa_unidade,
         )
 
     # Função Objetivo: Monta cada pedaço calculado, passo a passo.

@@ -45,3 +45,35 @@ def view_calcular_frete_magalu(request):
             'valor': None,
             'erro': str(e),
         })
+    
+
+def view_configuracoes_magalu(request):
+    from decimal import Decimal, InvalidOperation
+    from django.urls import reverse
+    from django.shortcuts import redirect
+    from magalu.models import ConfiguracaoMagalu
+
+    def _dec(valor, atual):
+        try:
+            return Decimal(str(valor).replace(',', '.'))
+        except (InvalidOperation, TypeError, ValueError, AttributeError):
+            return atual
+
+    config = ConfiguracaoMagalu.obter()
+
+    if request.method == 'POST':
+        config.comissao_percentual = _dec(request.POST.get('comissao_percentual'), config.comissao_percentual)
+        config.taxa_unidade_fixa = _dec(request.POST.get('taxa_unidade_fixa'), config.taxa_unidade_fixa)
+
+        faixa = request.POST.get('faixa_reputacao_atual')
+        if faixa in ConfiguracaoMagalu.FaixaReputacao.values:
+            config.faixa_reputacao_atual = faixa
+
+        config.save()
+        return redirect(f"{reverse('magalu_configuracoes')}?salvo=1")
+
+    return render(request, 'magalu/estrutura_configuracoes_magalu.html', {
+        'config': config,
+        'faixas_reputacao': ConfiguracaoMagalu.FaixaReputacao.choices,
+        'salvo': request.GET.get('salvo') == '1',
+    })

@@ -1,0 +1,71 @@
+/*
+* [RESUMO] → CSS da tela EDITÁVEL "Configurações Magalu" — comissão,
+* taxa unidade fixa, faixa de reputação. Padrão visual próprio do app
+* (config-magalu-*), independente do que existe em precificacao/mercado_livre.
+*/
+
+.config-magalu-card {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 480px;
+}
+
+.config-magalu-card-header {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 20px;
+}
+
+.config-magalu-tabela-simples {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.config-magalu-tabela-simples td {
+    padding: 10px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.config-magalu-tabela-simples td:first-child {
+    color: #667;
+}
+
+.config-magalu-tabela-simples td:last-child {
+    text-align: right;
+}
+
+.config-magalu-tabela-simples tr:last-child td {
+    border-bottom: none;
+}
+
+.config-magalu-input {
+    font-size: 0.88rem;
+    padding: 5px 8px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+    width: 140px;
+    text-align: right;
+}
+
+.config-magalu-select {
+    text-align: left;
+}
+
+.config-magalu-btn-salvar {
+    margin: 12px 20px 16px;
+}
+
+.config-magalu-aviso-salvo {
+    background: #e8f8ee;
+    color: #1a8a5f;
+    border: 1px solid #b8e6cc;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}

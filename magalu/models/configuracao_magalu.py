@@ -17,6 +17,10 @@ class ConfiguracaoMagalu(models.Model):
         max_digits=5, decimal_places=2, default=6,
         help_text='Comissão flat do Magalu, em %.'
     )
+    taxa_unidade_fixa = models.DecimalField(
+        max_digits=8, decimal_places=2, default=5,
+        help_text='Taxa fixa em R$, cobrada por unidade vendida — independente do preço.'
+    )
     faixa_reputacao_atual = models.CharField(
         max_length=10, choices=FaixaReputacao.choices, default=FaixaReputacao.ALTA,
         help_text='Define qual das 3 colunas de frete usar — muda conforme o desempenho da conta vendedora.'

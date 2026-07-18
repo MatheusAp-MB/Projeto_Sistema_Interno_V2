@@ -155,9 +155,10 @@
             <span class="grade-detalhe-passo-numero">8</span>
             <div>
                 <div class="grade-detalhe-passo-texto">Calculando o preço exato</div>
-                <div class="grade-detalhe-passo-abstrata">(frete + FIXO) ÷ denominador</div>
+                <div class="grade-detalhe-passo-abstrata">(frete + taxa unidade + FIXO) ÷ denominador</div>
                 <div class="grade-detalhe-passo-conta">
-                    (R$ {{ det.passo_8.frete|floatformat:2 }} + R$ {{ det.passo_8.fixo|floatformat:2 }})
+                    (R$ {{ det.passo_8.frete|floatformat:2 }} + R$ {{ det.passo_8.taxa_unidade|floatformat:2 }}
+                    + R$ {{ det.passo_8.fixo|floatformat:2 }})
                     ÷ {{ det.passo_8.denominador|floatformat:4 }} = R$ {{ det.passo_8.resultado|floatformat:2 }}
                 </div>
             </div>
