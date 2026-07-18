@@ -21,6 +21,10 @@ from .grade_magalu import (
     FAIXAS_PRECO_GRADE_MAGALU, ItemGradeMagaluProduto, AgrupadorLinhasGradeMagalu,
     DetalheFormulaExibidaMagalu, view_grade_precificacao_magalu, view_grade_detalhe_magalu,
 )
+from .grade_raia import (
+    FAIXAS_PRECO_GRADE_RAIA, ItemGradeRaiaProduto, AgrupadorLinhasGradeRaia,
+    DetalheFormulaExibidaRaia, view_grade_precificacao_raia, view_grade_detalhe_raia,
+)
 from .resumo_marketplaces import (
     COLUNAS_ORDENAVEIS, GrupoMarketplaceExibido, LinhaResumoMarketplace,
     view_resumo_marketplaces, view_resumo_linha,

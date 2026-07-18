@@ -143,6 +143,19 @@
                                     </a>
                                 </div>
                             </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Raia</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'raia_configuracoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <!-- Precificação -->
@@ -161,6 +174,9 @@
                             </a>
                             <a href="{% url 'precificacao_grade_magalu' %}" class="sidebar-subitem">
                                 <i class="fas fa-store"></i> Grade Magalu
+                            </a>
+                            <a href="{% url 'precificacao_grade_raia' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Raia
                             </a>
                             <a href="{% url 'precificacao_configuracoes_operacionais' %}" class="sidebar-subitem">
                                 <i class="fas fa-truck-loading"></i> Configuração Operacional

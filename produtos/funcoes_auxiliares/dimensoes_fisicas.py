@@ -1,5 +1,8 @@
 # produtos/funcoes_auxiliares/dimensoes_fisicas.py
 
+from decimal import Decimal
+
+
 # Função Objetivo: Conta pura — m³ a partir de altura/largura/comprimento em CM.
 # Explicação em detalhe: movida de mercado_livre/funcoes_auxiliares/calculo_margem.py
 # (17/07) — é operação puramente física sobre dimensões do Produto, sem nenhum conceito
@@ -31,3 +34,17 @@ def selecionar_faixa_por_dimensao(altura, largura, comprimento, faixas):
             return faixa
 
     return faixas[-1]
+
+
+# Função Objetivo: Resolve a dimensão efetiva direto do Produto (ERP), sem declaração de plataforma.
+# Explicação em detalhe: usada por marketplaces sem pipeline de anúncio/API próprio (Magalu,
+# Raia, e o que vier depois) — peso efetivo é sempre o maior entre físico e cúbico, mesma
+# regra usada em todo o sistema. Extraída (18/07) depois que Magalu e Raia precisaram do
+# mesmo código exato — 2 casos reais já justificam.
+def resolver_dimensao_produto(produto):
+    altura = produto.altura_produto_apos_embalado or Decimal('0')
+    largura = produto.largura_produto_apos_embalado or Decimal('0')
+    comprimento = produto.comprimento_produto_apos_embalado or Decimal('0')
+    peso_fisico = produto.peso_produto_apos_embalado or Decimal('0')
+    peso_cubico = produto.peso_cubado or Decimal('0')
+    return altura, largura, comprimento, max(peso_fisico, peso_cubico)

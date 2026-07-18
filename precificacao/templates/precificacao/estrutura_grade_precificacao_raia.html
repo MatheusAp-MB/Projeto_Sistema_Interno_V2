@@ -1,0 +1,104 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Grade Raia — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Grade de Precificação — Raia{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_grade_precificacao_ml.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="grade-form-filtros">
+    <div class="resumo-barra-topo">
+        <input type="text" name="busca" value="{{ busca }}" placeholder="Buscar por Nome, SKU ou EAN..." class="grade-input-busca">
+        <select name="por_pagina" onchange="this.form.submit()" class="grade-select">
+            <option value="10" {% if por_pagina == 10 %}selected{% endif %}>10 por página</option>
+            <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+            <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        </select>
+        <button type="submit" class="btn-acao">Buscar</button>
+    </div>
+
+    <details class="grade-filtros-painel">
+        <summary class="grade-filtros-titulo">Filtros avançados</summary>
+        <div class="grade-filtros-secoes">
+            <div class="grade-filtro-secao-card">
+                <div class="grade-filtro-secao-titulo">Faixa de preço por margem</div>
+                {% for filtro in filtros_preco_raia %}
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">{{ filtro.label }}</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="number" step="0.01" name="{{ filtro.campo_min }}" value="{{ filtro.valor_min }}" placeholder="De">
+                        <input type="number" step="0.01" name="{{ filtro.campo_max }}" value="{{ filtro.valor_max }}" placeholder="Até">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="grade-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
+            <a href="?busca={{ busca }}&por_pagina={{ por_pagina }}" class="btn-limpar-filtros">Limpar filtros</a>
+        </div>
+    </details>
+</form>
+
+{% if not produtos_com_grade %}
+<div class="grade-vazio">Nenhum produto encontrado com esses filtros.</div>
+{% endif %}
+
+{% for item in produtos_com_grade %}
+<div class="grade-card">
+    <div class="grade-card-cabecalho">
+        {% if item.produto.imagem_url %}
+        <img src="{{ item.produto.imagem_url }}" class="grade-card-imagem" alt="{{ item.produto.titulo }}">
+        {% else %}
+        <div class="grade-card-imagem grade-card-imagem-vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+        <div class="grade-card-info">
+            <div class="grade-card-titulo-linha">
+                <span class="grade-card-titulo">{{ item.produto.titulo }}</span>
+            </div>
+            <div class="grade-card-subtitulo">SKU {{ item.produto.sku }} · EAN {{ item.produto.ean }}</div>
+        </div>
+    </div>
+
+    <div class="grade-card-corpo">
+        <div class="grade-margens-grid">
+            {% for linha in item.linhas_margem %}
+            <div class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.preco %}grade-margem-clicavel{% endif %}"
+                 {% if linha.preco %}onclick="alternarDetalheMargemRaia(this, {{ item.produto.id }}, '{{ linha.margem_chave }}')"{% endif %}>
+                <div class="grade-margem-label">{{ linha.label }}</div>
+                {% if linha.preco %}
+                <div class="grade-margem-linha">
+                    <span class="grade-margem-preco">R$ {{ linha.preco|floatformat:2 }}</span>
+                    <span class="grade-margem-separador">|</span>
+                    <span class="grade-margem-obtida">{{ linha.margem|floatformat:2 }}%</span>
+                </div>
+                {% else %}
+                <div class="grade-margem-vazia">—</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <div id="detalhe-raia-{{ item.produto.id }}" class="grade-detalhe-slot"></div>
+    </div>
+</div>
+{% endfor %}
+
+<div class="grade-paginacao">
+    {% if pagina.has_previous %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="grade-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="grade-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    {% if pagina.has_next %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="grade-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'precificacao/js/script_grade_detalhe_raia.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações Raia — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — Raia{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'raia/css/layout_configuracoes_raia.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if salvo %}
+<div class="config-raia-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
+<form method="post" class="config-raia-card">
+    {% csrf_token %}
+    <div class="config-raia-card-header">Configuração Raia</div>
+    <table class="config-raia-tabela-simples">
+        <tr>
+            <td>Comissão (%)</td>
+            <td><input type="text" name="comissao_percentual" value="{{ config.comissao_percentual }}" class="config-raia-input"></td>
+        </tr>
+        <tr>
+            <td>Frete fixo (R$)</td>
+            <td><input type="text" name="frete_fixo" value="{{ config.frete_fixo }}" class="config-raia-input"></td>
+        </tr>
+    </table>
+    <button type="submit" class="btn-acao config-raia-btn-salvar">Salvar</button>
+</form>
+
+{% endblock %}

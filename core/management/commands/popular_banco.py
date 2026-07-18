@@ -28,6 +28,7 @@ from core.management.commands.popular_banco_suporte.importar_promocoes_ml import
 from core.management.commands.popular_banco_suporte.calcular_recomendacoes_precificacao import calcular_recomendacoes_precificacao
 from precificacao.funcoes_auxiliares.mercado_livre.calcular_grade_precificacao_ml import calcular_grade_precificacao_ml
 from precificacao.funcoes_auxiliares.magalu.calcular_grade_precificacao_magalu import calcular_grade_precificacao_magalu
+from precificacao.funcoes_auxiliares.raia.calcular_grade_precificacao_raia import calcular_grade_precificacao_raia
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
@@ -76,6 +77,7 @@ class Command(BaseCommand):
             #                  de precificação por clareza.
             ('GRADE DE PRECIFICAÇÃO ML', calcular_grade_precificacao_ml, ()),
             ('GRADE MAGALU', calcular_grade_precificacao_magalu, ()),
+            ('GRADE RAIA', calcular_grade_precificacao_raia, ()),
             ('PROMOÇÕES ML', importar_promocoes_ml, ()),
             ('RECOMENDAÇÃO PRECIFICAÇÃO', calcular_recomendacoes_precificacao, ()),
         ]

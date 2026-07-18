@@ -15,6 +15,11 @@ urlpatterns = [
         'grade-magalu/detalhe/<int:produto_id>/<str:margem>/',
         views.view_grade_detalhe_magalu, name='precificacao_grade_detalhe_magalu',
     ),
+    path('grade-raia/', views.view_grade_precificacao_raia, name='precificacao_grade_raia'),
+    path(
+        'grade-raia/detalhe/<int:produto_id>/<str:margem>/',
+        views.view_grade_detalhe_raia, name='precificacao_grade_detalhe_raia',
+    ),
     path(
         'resumo-marketplaces/linha/<int:produto_id>/',
         views.view_resumo_linha, name='precificacao_resumo_linha',
