@@ -76,10 +76,8 @@
     <div class="grade-card-corpo">
         <div class="grade-margens-grid">
             {% for linha in item.linhas_margem %}
-            <div class="grade-margem-card grade-margem-clicavel {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %}"
-                 hx-get="{% url 'precificacao_grade_detalhe_magalu' item.produto.id linha.margem_chave %}"
-                 hx-target="#detalhe-magalu-{{ item.produto.id }}"
-                 hx-swap="innerHTML">
+            <div class="grade-margem-card {% if linha.eh_padrao %}grade-margem-card--padrao{% endif %} {% if linha.preco %}grade-margem-clicavel{% endif %}"
+                 {% if linha.preco %}onclick="alternarDetalheMargemMagalu(this, {{ item.produto.id }}, '{{ linha.margem_chave }}')"{% endif %}>
                 <div class="grade-margem-label">{{ linha.label }}</div>
                 {% if linha.preco %}
                 <div class="grade-margem-linha">
@@ -107,5 +105,9 @@
         <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="grade-paginacao-link">Próxima »</a>
     {% endif %}
 </div>
+
+{% block scripts %}
+<script src="{% static 'precificacao/js/script_grade_detalhe_magalu.js' %}"></script>
+{% endblock %}
 
 {% endblock %}

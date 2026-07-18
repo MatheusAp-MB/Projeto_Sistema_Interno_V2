@@ -11,7 +11,7 @@
             <div class="grade-detalhe-subtitulo">Magalu · Margem {{ det.margem_label }}</div>
             <div class="grade-detalhe-titulo">{{ produto_titulo }}</div>
         </div>
-        <button type="button" class="grade-detalhe-fechar" onclick="document.getElementById('detalhe-magalu-{{ produto_id }}').innerHTML=''">
+        <button type="button" class="grade-detalhe-fechar" onclick="fecharDetalheMargemMagalu('{{ produto_id }}')">
             <i class="fas fa-times"></i> Fechar
         </button>
     </div>
