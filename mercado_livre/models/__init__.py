@@ -7,7 +7,7 @@ from .qualidade_anuncio_criterio import QualidadeAnuncioCriterio
 from .competicao_catalogo import CompeticaoCatalogo
 from .frete_ml import FreteML
 from .configuracao_mercado_livre import (
-    ConfiguracaoMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre, FaixaArmazenagemMercadoLivre,
+    ConfiguracaoTipoAnuncioMercadoLivre,
 )
 from .promocao_mercado_livre import PromocaoMercadoLivre
 from .recomendacao_precificacao import RecomendacaoPrecificacao

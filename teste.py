@@ -9,7 +9,8 @@ from decimal import Decimal
 import openpyxl
 from produtos.models import Produto
 from precificacao.models import GradePrecificacaoML
-from mercado_livre.models import FreteML, ConfiguracaoTipoAnuncioMercadoLivre, ConfiguracaoMercadoLivre
+from mercado_livre.models import FreteML, ConfiguracaoTipoAnuncioMercadoLivre
+from precificacao.models import ConfiguracaoOperacional
 from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 

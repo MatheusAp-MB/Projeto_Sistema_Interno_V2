@@ -16,7 +16,7 @@
 from dataclasses import dataclass, asdict
 from decimal import Decimal
 from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
-from mercado_livre.funcoes_auxiliares.calculo_margem import (
+from produtos.funcoes_auxiliares.dimensoes_fisicas import (
     metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao,
 )
 
@@ -172,8 +172,8 @@ class FormulaPrecificacao:
         if self.faixas_armazenagem is not None:
             faixas = self.faixas_armazenagem
         else:
-            from mercado_livre.models import FaixaArmazenagemMercadoLivre
-            faixas = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+            from precificacao.models import FaixaArmazenagem
+            faixas = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
 
         faixa_usada = selecionar_faixa_por_dimensao(dim.altura, dim.largura, dim.comprimento, faixas)
         self._armazenagem_origem = 'faixa_dimensao'

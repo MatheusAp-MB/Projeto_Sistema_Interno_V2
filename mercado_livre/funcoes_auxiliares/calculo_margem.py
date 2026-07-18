@@ -33,16 +33,9 @@
 
 from decimal import Decimal
 from django.db.models import Q
-
-
-def metro_cubico_de_dimensoes(altura, largura, comprimento):
-    """Conta pura — m³ a partir de altura/largura/comprimento em CM.
-    Reaproveitada tanto por calcular_metro_cubico (produto do ERP)
-    quanto por FormulaPrecificacao (DimensoesEfetivas, que pode vir da
-    Variação ML) — evita duplicar a mesma fórmula 2x."""
-    if altura is None or largura is None or comprimento is None:
-        return Decimal('0')
-    return (altura / 100) * (largura / 100) * (comprimento / 100)
+from produtos.funcoes_auxiliares.dimensoes_fisicas import (
+    metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao,
+)
 
 
 def calcular_metro_cubico(produto):
@@ -55,28 +48,6 @@ def calcular_metro_cubico(produto):
         produto.largura_produto_apos_embalado,
         produto.comprimento_produto_apos_embalado,
     )
-
-
-def selecionar_faixa_por_dimensao(altura, largura, comprimento, faixas):
-    """Conta pura — acha a primeira faixa (ordem crescente) onde TODAS
-    as dimensões cabem; se nenhuma comportar, usa a maior (fallback).
-    Reaproveitada tanto por selecionar_faixa_armazenagem (produto do
-    ERP) quanto por FormulaPrecificacao (DimensoesEfetivas) — evita
-    duplicar a mesma busca 2x."""
-    if not faixas:
-        return None
-
-    altura = altura or Decimal('0')
-    largura = largura or Decimal('0')
-    comprimento = comprimento or Decimal('0')
-
-    for faixa in faixas:
-        if (altura <= faixa.max_altura
-                and largura <= faixa.max_largura
-                and comprimento <= faixa.max_profundidade):
-            return faixa
-
-    return faixas[-1]
 
 
 def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
@@ -99,8 +70,8 @@ def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
     if faixas_armazenagem is not None:
         faixas = faixas_armazenagem
     else:
-        from mercado_livre.models import FaixaArmazenagemMercadoLivre
-        faixas = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+        from precificacao.models import FaixaArmazenagem
+        faixas = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
 
     return selecionar_faixa_por_dimensao(
         produto.altura_produto_apos_embalado,
@@ -133,9 +104,9 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
     Coleta e Armazenagem (quando cai no fallback por dimensão) usam
     EMBALAGEM (confirmado com o usuário) — calcular_metro_cubico e
     selecionar_faixa_armazenagem já fazem isso internamente."""
-    from mercado_livre.models import ConfiguracaoMercadoLivre
+    from precificacao.models import ConfiguracaoOperacional
 
-    config = config_geral if config_geral is not None else ConfiguracaoMercadoLivre.obter()
+    config = config_geral if config_geral is not None else ConfiguracaoOperacional.obter()
 
     custo_com_boni = produto.custo_com_boni or produto.custo
     ipi_percentual = produto.ipi or Decimal('0')

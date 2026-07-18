@@ -1,1 +1,3 @@
 from .mercado_livre.grade_precificacao_ml import GradePrecificacaoML
+from .configuracao_operacional import ConfiguracaoOperacional
+from .faixa_armazenagem import FaixaArmazenagem

@@ -68,13 +68,12 @@ def calcular_recomendacoes_precificacao(stdout, style):
         #                  otimização já aplicada na Grade de Precificação.
         #                  Elimina dezenas de milhares de queries repetidas
         #                  (1 por linha candidata × variação).
-        from mercado_livre.models import (
-            ConfiguracaoMercadoLivre, FaixaArmazenagemMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre,
-        )
+        from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre
+        from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem
 
         frete_todas = list(FreteML.objects.all())
-        config_geral = ConfiguracaoMercadoLivre.obter()
-        faixas_armazenagem = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+        config_geral = ConfiguracaoOperacional.obter()
+        faixas_armazenagem = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
         configs_por_tipo = {c.tipo_anuncio: c for c in ConfiguracaoTipoAnuncioMercadoLivre.objects.all()}
 
         existentes = {

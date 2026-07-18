@@ -100,10 +100,9 @@ def calcular_grade_precificacao_ml(stdout, style):
     from produtos.models import Produto
     from mercado_livre.models import (
         ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre,
-        ConfiguracaoMercadoLivre, FaixaArmazenagemMercadoLivre,
         FreteML, VariacaoAnuncioMercadoLivre,
     )
-    from precificacao.models import GradePrecificacaoML
+    from precificacao.models import GradePrecificacaoML, ConfiguracaoOperacional, FaixaArmazenagem
 
     TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
 
@@ -119,8 +118,8 @@ def calcular_grade_precificacao_ml(stdout, style):
 
     configs = {c.tipo_anuncio: c for c in ConfiguracaoTipoAnuncioMercadoLivre.objects.all()}
     frete_todas = list(FreteML.objects.all())
-    config_geral = ConfiguracaoMercadoLivre.obter()
-    faixas_armazenagem = list(FaixaArmazenagemMercadoLivre.objects.filter(ativo=True).order_by('ordem'))
+    config_geral = ConfiguracaoOperacional.obter()
+    faixas_armazenagem = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
 
     variacoes_por_produto = defaultdict(list)
     total_variacoes = 0
