@@ -8,6 +8,7 @@ from precificacao.views.comum import MARGENS, MARGENS_CHAVES, FiltrosGrade, mont
 from precificacao.views.grade_mercado_livre import subquery_grade_campo
 from precificacao.views.grade_magalu import subquery_grade_magalu_campo
 from precificacao.views.grade_raia import subquery_grade_raia_campo
+from precificacao.views.grade_shopee import subquery_grade_shopee_campo
 
 
 COLUNAS_ORDENAVEIS = {
@@ -24,7 +25,7 @@ COLUNAS_ORDENAVEIS = {
     'premium_frete': 'premium_frete_anotado',
     'premium_preco': 'premium_preco_anotado',
     'premium_margem': 'premium_margem_anotado',
-    'shopee_frete': None, 'shopee_preco': None, 'shopee_margem': None,
+    'shopee_frete': 'shopee_frete_anotado', 'shopee_preco': 'shopee_preco_anotado', 'shopee_margem': 'shopee_margem_anotado',
     'amazon_frete': None, 'amazon_preco': None, 'amazon_margem': None,
     'magalu_frete': 'magalu_frete_anotado', 'magalu_preco': 'magalu_preco_anotado', 'magalu_margem': 'magalu_margem_anotado',
     'tiktok_frete': None, 'tiktok_preco': None, 'tiktok_margem': None,
@@ -63,10 +64,11 @@ class LinhaResumoMarketplace:
     premium: object
     magalu: object
     raia: object
+    shopee: object
 
     @classmethod
     def montar(cls, produto, margem_alvo):
-        from precificacao.models import GradePrecificacaoML, GradePrecificacaoMagalu, GradePrecificacaoRaia
+        from precificacao.models import GradePrecificacaoML, GradePrecificacaoMagalu, GradePrecificacaoRaia, GradePrecificacaoShopee
 
         linhas = GradePrecificacaoML.objects.filter(
             produto=produto, variacao__isnull=True, margem=margem_alvo,
@@ -101,6 +103,15 @@ class LinhaResumoMarketplace:
                 frete_usado=linha_raia.frete_usado,
             )
 
+        linha_shopee = GradePrecificacaoShopee.objects.filter(produto=produto, margem=margem_alvo).first()
+        shopee = None
+        if linha_shopee:
+            shopee = GrupoMarketplaceExibido(
+                preco=linha_shopee.preco,
+                margem_percentual_obtida=linha_shopee.margem_percentual_obtida,
+                frete_usado=linha_shopee.frete_usado,
+            )
+
         return cls(
             produto=produto,
             margem_atual=margem_alvo,
@@ -108,6 +119,7 @@ class LinhaResumoMarketplace:
             premium=montar_grupo('premium'),
             magalu=magalu,
             raia=raia,
+            shopee=shopee,
         )
 
     @classmethod
@@ -129,6 +141,7 @@ class LinhaResumoMarketplace:
             premium=montar_grupo('premium'),
             magalu=montar_grupo('magalu'),
             raia=montar_grupo('raia'),
+            shopee=montar_grupo('shopee'),
         )
 
 
@@ -158,6 +171,9 @@ def view_resumo_marketplaces(request):
         raia_preco_anotado=subquery_grade_raia_campo('preco', margem_geral),
         raia_margem_anotado=subquery_grade_raia_campo('margem_percentual_obtida', margem_geral),
         raia_frete_anotado=subquery_grade_raia_campo('frete_usado', margem_geral),
+        shopee_preco_anotado=subquery_grade_shopee_campo('preco', margem_geral),
+        shopee_margem_anotado=subquery_grade_shopee_campo('margem_percentual_obtida', margem_geral),
+        shopee_frete_anotado=subquery_grade_shopee_campo('frete_usado', margem_geral),
     )
     produtos_qs = produtos_qs.order_by(f'{"-" if direcao_ativa == "desc" else ""}{campo_orm}')
 

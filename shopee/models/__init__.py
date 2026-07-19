@@ -1,0 +1,1 @@
+from .configuracao_shopee import ConfiguracaoShopee

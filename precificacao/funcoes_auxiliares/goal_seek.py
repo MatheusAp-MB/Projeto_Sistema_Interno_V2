@@ -188,3 +188,90 @@ def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, fre
             'margem_percentual_obtida': margem_percentual_obtida,
         },
     }
+
+
+def resolver_preco_por_faixa_comissao(fixo, margem_alvo_fracao, custo_produto, frete,
+                                       faixas_comissao_candidatas, taxa_extra_fracao=Decimal('0'),
+                                       rebate_valor=Decimal('0')):
+    """Acha o preço que atinge (ou supera) a margem-alvo, resolvendo a
+    circularidade da COMISSÃO por busca finita entre faixas de preço —
+    inverso do que resolver_preco_por_margem faz (lá é o FRETE que varia
+    por faixa com taxa fixa; aqui é a TAXA (comissão) + um adicional fixo
+    em R$ que variam por faixa, com o FRETE fixo). Usado pela Shopee, cuja
+    tabela de comissão muda (%+R$) conforme o valor do item.
+
+    fixo: Decimal — custos que não dependem do preço (já calculado)
+    margem_alvo_fracao: Decimal — meta de margem, em FRAÇÃO (ex: 0.15)
+    custo_produto: Decimal — só usado pra pular faixas abaixo do custo
+    frete: Decimal — fixo, não varia por faixa (diferente do ML)
+    faixas_comissao_candidatas: lista de objetos com .preco_min/.preco_max/
+                   .comissao_percentual (fração, ex: 0.20)/.adicional_fixo
+                   (R$), ordenados por preco_min crescente
+    taxa_extra_fracao: Decimal — soma adicional à comissão da faixa, ex:
+                   ICMS saída + PIS/COFINS (impostos de governo, não varia
+                   por faixa de preço — só a comissão da plataforma varia)
+    rebate_valor: Decimal — opcional, mesmo papel de resolver_preco_por_margem
+
+    Retorna dict com preco_calculado, frete_usado, margem_percentual_obtida,
+    faixa_comissao — ou None se nenhuma faixa gerar solução consistente."""
+    fixo = Decimal(str(fixo))
+    custo_produto = Decimal(str(custo_produto))
+    frete = Decimal(str(frete))
+    rebate_valor = Decimal(str(rebate_valor))
+    margem_alvo_percentual = margem_alvo_fracao * 100
+
+    faixas_validas = [
+        f for f in faixas_comissao_candidatas
+        if f.preco_max is None or f.preco_max >= custo_produto
+    ]
+
+    for faixa in faixas_validas:
+        comissao_percentual = Decimal(str(faixa.comissao_percentual)) / 100
+        taxa_percentual = comissao_percentual + taxa_extra_fracao
+        adicional_fixo = Decimal(str(faixa.adicional_fixo))
+
+        denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
+        if denominador <= 0:
+            continue
+
+        preco_exato = (frete + adicional_fixo + fixo - rebate_valor) / denominador
+        preco_90 = arredondar_para_90(preco_exato)
+
+        dentro_do_piso = preco_90 >= faixa.preco_min
+        dentro_do_teto = faixa.preco_max is None or preco_90 <= faixa.preco_max
+
+        if dentro_do_piso and dentro_do_teto:
+            margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete - adicional_fixo + rebate_valor
+            margem_percentual_obtida = (margem_valor / preco_90) * 100
+
+            assert margem_percentual_obtida >= margem_alvo_percentual, (
+                f'Margem obtida ({margem_percentual_obtida}%) ficou ABAIXO da margem-alvo '
+                f'({margem_alvo_percentual}%) — RoundUp90 deveria garantir margem sempre >= '
+                f'meta. Verificar a fórmula ou a busca de faixa de comissão.'
+            )
+
+            return {
+                'preco_calculado': preco_90,
+                'frete_usado': frete,
+                'margem_percentual_obtida': margem_percentual_obtida,
+                'faixa_comissao': faixa,
+                'detalhamento': {
+                    'custo_produto': custo_produto,
+                    'fixo': fixo,
+                    'rebate_valor': rebate_valor,
+                    'comissao_percentual': comissao_percentual * 100,
+                    'taxa_percentual': taxa_percentual * 100,
+                    'adicional_fixo': adicional_fixo,
+                    'margem_alvo_percentual': margem_alvo_percentual,
+                    'faixa_preco_min': faixa.preco_min,
+                    'faixa_preco_max': faixa.preco_max,
+                    'frete_usado': frete,
+                    'denominador': denominador,
+                    'preco_exato_antes_arredondar': preco_exato,
+                    'preco_calculado': preco_90,
+                    'margem_valor': margem_valor,
+                    'margem_percentual_obtida': margem_percentual_obtida,
+                },
+            }
+
+    return None

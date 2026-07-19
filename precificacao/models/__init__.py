@@ -1,5 +1,7 @@
 from .mercado_livre.grade_precificacao_ml import GradePrecificacaoML
 from .magalu.grade_precificacao_magalu import GradePrecificacaoMagalu
 from .raia.grade_precificacao_raia import GradePrecificacaoRaia
+from .shopee.tabela_comissao_shopee import TabelaComissaoShopee
+from .shopee.grade_precificacao_shopee import GradePrecificacaoShopee
 from .configuracao_operacional import ConfiguracaoOperacional
 from .faixa_armazenagem import FaixaArmazenagem

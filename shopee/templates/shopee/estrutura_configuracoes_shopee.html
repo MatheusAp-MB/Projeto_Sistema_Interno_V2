@@ -1,0 +1,66 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações Shopee — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — Shopee{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'shopee/css/layout_configuracoes_shopee.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if salvo %}
+<div class="config-shopee-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
+<div class="config-shopee-grid-topo">
+
+    <form method="post" class="config-shopee-card">
+        {% csrf_token %}
+        <div class="config-shopee-card-header">Configuração Geral</div>
+        <table class="config-shopee-tabela-simples">
+            <tr>
+                <td>
+                    Frete padrão (R$)
+                    <div class="config-shopee-aviso-presuncao">⚠ presunção não confirmada</div>
+                </td>
+                <td><input type="text" name="frete_padrao" value="{{ config.frete_padrao }}" class="config-shopee-input"></td>
+            </tr>
+            <tr>
+                <td>Desconto padrão da vitrine (%)</td>
+                <td><input type="text" name="desconto_vitrine_percentual" value="{{ config.desconto_vitrine_percentual }}" class="config-shopee-input"></td>
+            </tr>
+        </table>
+        <button type="submit" class="btn-acao config-shopee-btn-salvar">Salvar</button>
+    </form>
+
+    <div class="config-shopee-card">
+        <div class="config-shopee-card-header">Tabela de Comissão CNPJ (somente leitura)</div>
+        <table class="config-shopee-tabela-simples">
+            <thead>
+                <tr>
+                    <th>Faixa de preço</th>
+                    <th>Comissão</th>
+                    <th>Adicional</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for faixa in faixas_comissao %}
+                <tr>
+                    <td>
+                        R$ {{ faixa.preco_min|floatformat:2 }}
+                        {% if faixa.preco_max %}– R$ {{ faixa.preco_max|floatformat:2 }}{% else %}(sem teto){% endif %}
+                    </td>
+                    <td>{{ faixa.comissao_percentual|floatformat:2 }}%</td>
+                    <td>R$ {{ faixa.adicional_fixo|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="config-shopee-nota">Confirmada por print oficial da Shopee (18/07) — edição só via banco, não pela tela.</p>
+    </div>
+
+</div>
+
+{% endblock %}

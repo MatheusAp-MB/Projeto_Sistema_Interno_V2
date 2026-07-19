@@ -25,6 +25,10 @@ from .grade_raia import (
     FAIXAS_PRECO_GRADE_RAIA, ItemGradeRaiaProduto, AgrupadorLinhasGradeRaia,
     DetalheFormulaExibidaRaia, view_grade_precificacao_raia, view_grade_detalhe_raia,
 )
+from .grade_shopee import (
+    FAIXAS_PRECO_GRADE_SHOPEE, ItemGradeShopeeProduto, AgrupadorLinhasGradeShopee,
+    DetalheFormulaExibidaShopee, view_grade_precificacao_shopee, view_grade_detalhe_shopee,
+)
 from .resumo_marketplaces import (
     COLUNAS_ORDENAVEIS, GrupoMarketplaceExibido, LinhaResumoMarketplace,
     view_resumo_marketplaces, view_resumo_linha,

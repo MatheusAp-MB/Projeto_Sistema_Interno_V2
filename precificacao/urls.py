@@ -20,6 +20,11 @@ urlpatterns = [
         'grade-raia/detalhe/<int:produto_id>/<str:margem>/',
         views.view_grade_detalhe_raia, name='precificacao_grade_detalhe_raia',
     ),
+    path('grade-shopee/', views.view_grade_precificacao_shopee, name='precificacao_grade_shopee'),
+    path(
+        'grade-shopee/detalhe/<int:produto_id>/<str:margem>/',
+        views.view_grade_detalhe_shopee, name='precificacao_grade_detalhe_shopee',
+    ),
     path(
         'resumo-marketplaces/linha/<int:produto_id>/',
         views.view_resumo_linha, name='precificacao_resumo_linha',

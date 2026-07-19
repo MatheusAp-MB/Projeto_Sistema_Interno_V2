@@ -42,9 +42,9 @@
     <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.preco|floatformat:2 }}{% else %}—{% endif %}</td>
     <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}{{ linha.premium.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
 
-    <td class="resumo-col-numero resumo-grupo-shopee resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-shopee resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-shopee resumo-placeholder">—</td>
+    <td class="resumo-col-numero resumo-grupo-shopee">{% if linha.shopee %}R$ {{ linha.shopee.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-shopee">{% if linha.shopee %}R$ {{ linha.shopee.preco|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-shopee">{% if linha.shopee %}{{ linha.shopee.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
 
     <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>
     <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>

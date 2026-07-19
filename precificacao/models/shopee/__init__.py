@@ -1,0 +1,2 @@
+from .tabela_comissao_shopee import TabelaComissaoShopee
+from .grade_precificacao_shopee import GradePrecificacaoShopee
