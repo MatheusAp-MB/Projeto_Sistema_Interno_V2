@@ -30,6 +30,11 @@ urlpatterns = [
         'grade-tiktok/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',
         views.view_grade_detalhe_tiktok, name='precificacao_grade_detalhe_tiktok',
     ),
+    path('grade-amazon/', views.view_grade_precificacao_amazon, name='precificacao_grade_amazon'),
+    path(
+        'grade-amazon/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',
+        views.view_grade_detalhe_amazon, name='precificacao_grade_detalhe_amazon',
+    ),
     path(
         'resumo-marketplaces/linha/<int:produto_id>/',
         views.view_resumo_linha, name='precificacao_resumo_linha',

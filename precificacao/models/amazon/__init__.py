@@ -1,0 +1,3 @@
+from .frete_amazon import FreteAmazon
+from .taxa_kg_adicional_amazon import TaxaKgAdicionalAmazon
+from .grade_precificacao_amazon import GradePrecificacaoAmazon

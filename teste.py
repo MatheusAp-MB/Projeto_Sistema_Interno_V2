@@ -4,105 +4,90 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
-from tabulate import tabulate
+from decimal import Decimal
+from collections import Counter
 from produtos.models import Produto
+from amazon.models import ConfiguracaoAmazon
 from precificacao.models import (
-    GradePrecificacaoML, GradePrecificacaoMagalu, GradePrecificacaoRaia,
-    GradePrecificacaoShopee, GradePrecificacaoTiktok,
+    ConfiguracaoOperacional, FaixaArmazenagem, FreteAmazon, TaxaKgAdicionalAmazon,
+    GradePrecificacaoAmazon,
 )
+from precificacao.funcoes_auxiliares.amazon.formula_precificacao_amazon import FormulaPrecificacaoAmazon
 
-MARGEM = 'padrao'
-QUANTIDADE = 20
+config_amazon = ConfiguracaoAmazon.obter()
+config_geral = ConfiguracaoOperacional.obter()
+faixas_armazenagem = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
+fretes_amazon = list(FreteAmazon.objects.all())
+taxas_kg_adicional = list(TaxaKgAdicionalAmazon.objects.all())
 
-produtos = list(
-    Produto.objects.filter(
-        grade_precificacao_ml__isnull=False,
-        grade_precificacao_magalu__isnull=False,
-        grade_precificacao_raia__isnull=False,
-        grade_precificacao_shopee__isnull=False,
-        grade_precificacao_tiktok__isnull=False,
-    ).distinct().order_by('id')[:QUANTIDADE]
-)
+MARGENS = [('minima', 10), ('padrao', 15), ('maxima', 20), ('competicao', 5)]
+TIPOS = ['dba', 'fba']
 
+produtos = list(Produto.objects.filter(grade_precificacao_ml__isnull=False).distinct())
 
-def preco(linha):
-    return f'R$ {linha.preco:.2f}' if linha and linha.preco else '—'
+contador_categorias = Counter()
+exemplos_por_categoria = {}
 
-
-print(f'\n{"=" * 20} TABELA COMPARATIVA — margem "{MARGEM}" {"=" * 20}\n')
-
-linhas_tabela = []
 for produto in produtos:
-    linha_ml = GradePrecificacaoML.objects.filter(
-        produto=produto, variacao__isnull=True, tipo_anuncio='classico', margem=MARGEM,
-    ).first()
-    linha_magalu = GradePrecificacaoMagalu.objects.filter(produto=produto, margem=MARGEM).first()
-    linha_raia = GradePrecificacaoRaia.objects.filter(produto=produto, margem=MARGEM).first()
-    linha_shopee = GradePrecificacaoShopee.objects.filter(produto=produto, margem=MARGEM).first()
-    linha_tiktok_sem = GradePrecificacaoTiktok.objects.filter(
-        produto=produto, margem=MARGEM, tipo='sem_afiliado',
-    ).first()
-    linha_tiktok_com = GradePrecificacaoTiktok.objects.filter(
-        produto=produto, margem=MARGEM, tipo='com_afiliado',
-    ).first()
+    for tipo in TIPOS:
+        for margem_chave, margem_valor in MARGENS:
+            ja_resolveu = GradePrecificacaoAmazon.objects.filter(
+                produto=produto, tipo=tipo, margem=margem_chave, preco__isnull=False,
+            ).exists()
+            if ja_resolveu:
+                continue
 
-    linhas_tabela.append([
-        produto.sku,
-        produto.titulo[:35],
-        f'{produto.custo:.2f}',
-        preco(linha_ml),
-        preco(linha_magalu),
-        preco(linha_raia),
-        preco(linha_shopee),
-        preco(linha_tiktok_sem),
-        preco(linha_tiktok_com),
-    ])
+            formula = FormulaPrecificacaoAmazon(
+                produto=produto, config_amazon=config_amazon, config_geral=config_geral,
+                margem_alvo_percentual=margem_valor, tipo=tipo,
+                fretes_amazon=fretes_amazon, taxas_kg_adicional=taxas_kg_adicional,
+                faixas_armazenagem=faixas_armazenagem,
+            )
+            formula.resolver_dimensao()
+            formula.calcular_custo_final()
+            formula.calcular_coleta()
+            formula.calcular_armazenagem()
+            formula.calcular_fixo()
+            formula.montar_taxa_e_denominador()
 
-print(tabulate(
-    linhas_tabela,
-    headers=['SKU', 'Título', 'Custo', 'ML Clássico', 'Magalu', 'Raia', 'Shopee', 'TikTok S/Afil', 'TikTok C/Afil'],
-    tablefmt='simple_outline',
-))
+            if formula._denominador <= 0:
+                categoria = 'DENOMINADOR_NEGATIVO'
+            else:
+                nenhuma_faixa_teve_frete = True
+                zona_morta = False
 
+                for preco_min, preco_max in formula._faixas_preco_candidatas():
+                    frete, _, _ = formula._frete_para_faixa(preco_min, preco_max)
+                    if frete is None:
+                        continue
+                    nenhuma_faixa_teve_frete = False
 
-print(f'\n{"=" * 20} DETALHE — faixa de comissão usada (Shopee) {"=" * 20}\n')
+                    from precificacao.funcoes_auxiliares.goal_seek import arredondar_para_90
+                    preco_exato = (frete + formula._fixo) / formula._denominador
+                    preco_90 = arredondar_para_90(preco_exato)
+                    dentro_piso = preco_90 >= preco_min
+                    dentro_teto = preco_max is None or preco_90 <= preco_max
+                    if not (dentro_piso and dentro_teto):
+                        zona_morta = True
 
-linhas_shopee = []
-for produto in produtos:
-    linha_shopee = GradePrecificacaoShopee.objects.filter(produto=produto, margem=MARGEM).first()
-    if linha_shopee and linha_shopee.detalhamento:
-        i = linha_shopee.detalhamento.get('intermediarios', {})
-        linhas_shopee.append([
-            produto.sku,
-            f'R$ {linha_shopee.preco:.2f}',
-            f'R$ {i.get("faixa_comissao_preco_min")}-{i.get("faixa_comissao_preco_max")}',
-            f'{i.get("comissao_percentual")}%',
-            f'R$ {i.get("adicional_fixo")}',
-        ])
+                if nenhuma_faixa_teve_frete:
+                    categoria = 'NENHUMA_FAIXA_ACHOU_FRETE'
+                elif zona_morta:
+                    categoria = 'ZONA_MORTA'
+                else:
+                    categoria = 'OUTRO_NAO_IDENTIFICADO'
 
-print(tabulate(linhas_shopee, headers=['SKU', 'Preço', 'Faixa de preço', 'Comissão', 'Adicional fixo'], tablefmt='simple_outline'))
+            contador_categorias[categoria] += 1
+            if categoria not in exemplos_por_categoria:
+                exemplos_por_categoria[categoria] = []
+            if len(exemplos_por_categoria[categoria]) < 3:
+                exemplos_por_categoria[categoria].append(
+                    f'{produto.sku} | {tipo} | {margem_chave} | custo={produto.custo} | '
+                    f'FIXO={formula._fixo:.2f} | peso={formula._peso} | denom={formula._denominador}'
+                )
 
-
-print(f'\n{"=" * 20} DETALHE — faixa de comissão usada (TikTok, sem afiliado) {"=" * 20}\n')
-
-linhas_tiktok = []
-for produto in produtos:
-    linha_tiktok = GradePrecificacaoTiktok.objects.filter(
-        produto=produto, margem=MARGEM, tipo='sem_afiliado',
-    ).first()
-    if linha_tiktok and linha_tiktok.detalhamento:
-        i = linha_tiktok.detalhamento.get('intermediarios', {})
-        linhas_tiktok.append([
-            produto.sku,
-            f'R$ {linha_tiktok.preco:.2f}',
-            f'R$ {i.get("faixa_comissao_preco_min")}-{i.get("faixa_comissao_preco_max")}',
-            f'{i.get("comissao_percentual")}%',
-            f'R$ {i.get("adicional_fixo")}',
-            f'R$ {linha_tiktok.frete_usado}',
-        ])
-
-print(tabulate(
-    linhas_tiktok,
-    headers=['SKU', 'Preço', 'Faixa de preço', 'Comissão', 'Adicional fixo', 'Frete (peso)'],
-    tablefmt='simple_outline',
-))
+print(f'\n{"=" * 70}\nRESUMO — {sum(contador_categorias.values())} casos "sem cálculo" analisados\n{"=" * 70}')
+for categoria, total in contador_categorias.most_common():
+    print(f'\n{categoria}: {total} casos')
+    for exemplo in exemplos_por_categoria[categoria]:
+        print(f'  - {exemplo}')

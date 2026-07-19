@@ -35,7 +35,7 @@ class MarketplaceResumoConfig:
 def _montar_marketplaces_resumo():
     from precificacao.models import (
         GradePrecificacaoML, GradePrecificacaoMagalu, GradePrecificacaoRaia,
-        GradePrecificacaoShopee, GradePrecificacaoTiktok,
+        GradePrecificacaoShopee, GradePrecificacaoTiktok, GradePrecificacaoAmazon,
     )
     return [
         MarketplaceResumoConfig('classico', 'Mercado Livre — Clássico', GradePrecificacaoML,
@@ -43,7 +43,8 @@ def _montar_marketplaces_resumo():
         MarketplaceResumoConfig('premium', 'Mercado Livre — Premium', GradePrecificacaoML,
                                  {'tipo_anuncio': 'premium', 'variacao__isnull': True}),
         MarketplaceResumoConfig('shopee', 'Shopee', GradePrecificacaoShopee),
-        MarketplaceResumoConfig('amazon', 'Amazon', None),
+        MarketplaceResumoConfig('amazon_dba', 'Amazon — DBA', GradePrecificacaoAmazon, {'tipo': 'dba'}),
+        MarketplaceResumoConfig('amazon_fba', 'Amazon — FBA', GradePrecificacaoAmazon, {'tipo': 'fba'}),
         MarketplaceResumoConfig('magalu', 'Magalu', GradePrecificacaoMagalu),
         MarketplaceResumoConfig('mais_correios', 'Mais Correios', None),
         MarketplaceResumoConfig('raia', 'Raia', GradePrecificacaoRaia),

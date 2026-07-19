@@ -1,0 +1,59 @@
+.config-amazon-card {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 480px;
+}
+
+.config-amazon-card-header {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 20px;
+}
+
+.config-amazon-tabela-simples {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.config-amazon-tabela-simples td {
+    padding: 10px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.config-amazon-tabela-simples td:first-child {
+    color: #667;
+}
+
+.config-amazon-input {
+    font-size: 0.88rem;
+    padding: 5px 8px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+    width: 140px;
+    text-align: right;
+}
+
+.config-amazon-btn-salvar {
+    margin: 12px 20px 16px;
+}
+
+.config-amazon-aviso-presuncao {
+    font-size: 0.7rem;
+    color: #b45309;
+    font-weight: 600;
+}
+
+.config-amazon-aviso-salvo {
+    background: #e8f8ee;
+    color: #1a8a5f;
+    border: 1px solid #b8e6cc;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}

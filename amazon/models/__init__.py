@@ -1,0 +1,1 @@
+from .configuracao_amazon import ConfiguracaoAmazon

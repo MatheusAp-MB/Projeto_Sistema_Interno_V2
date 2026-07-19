@@ -1,0 +1,32 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações Amazon — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — Amazon{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'amazon/css/layout_configuracoes_amazon.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if salvo %}
+<div class="config-amazon-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
+<form method="post" class="config-amazon-card">
+    {% csrf_token %}
+    <div class="config-amazon-card-header">Configuração Amazon</div>
+    <table class="config-amazon-tabela-simples">
+        <tr>
+            <td>
+                Comissão / Referral Fee (%)
+                <div class="config-amazon-aviso-presuncao">⚠ fixa provisória — Amazon real varia por categoria</div>
+            </td>
+            <td><input type="text" name="comissao_percentual" value="{{ config.comissao_percentual }}" class="config-amazon-input"></td>
+        </tr>
+    </table>
+    <button type="submit" class="btn-acao config-amazon-btn-salvar">Salvar</button>
+</form>
+
+{% endblock %}

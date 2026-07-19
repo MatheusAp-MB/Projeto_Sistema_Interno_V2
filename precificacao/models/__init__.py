@@ -5,5 +5,8 @@ from .shopee.tabela_comissao_shopee import TabelaComissaoShopee
 from .shopee.grade_precificacao_shopee import GradePrecificacaoShopee
 from .tiktok.tabela_comissao_tiktok import TabelaComissaoTiktok
 from .tiktok.grade_precificacao_tiktok import GradePrecificacaoTiktok
+from .amazon.frete_amazon import FreteAmazon
+from .amazon.taxa_kg_adicional_amazon import TaxaKgAdicionalAmazon
+from .amazon.grade_precificacao_amazon import GradePrecificacaoAmazon
 from .configuracao_operacional import ConfiguracaoOperacional
 from .faixa_armazenagem import FaixaArmazenagem

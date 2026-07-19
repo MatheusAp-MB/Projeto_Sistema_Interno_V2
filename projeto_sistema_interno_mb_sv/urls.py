@@ -12,5 +12,6 @@ urlpatterns = [
     path('raia/', include('raia.urls')),
     path('shopee/', include('shopee.urls')),
     path('tiktok/', include('tiktok.urls')),
+    path('amazon/', include('amazon.urls')),
     path('precificacao/', include('precificacao.urls')),
 ]

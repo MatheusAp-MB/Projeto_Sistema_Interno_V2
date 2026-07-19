@@ -33,6 +33,10 @@ from .grade_tiktok import (
     FAIXAS_PRECO_GRADE_TIKTOK, ItemGradeTiktokProduto, AgrupadorLinhasGradeTiktok,
     DetalheFormulaExibidaTiktok, view_grade_precificacao_tiktok, view_grade_detalhe_tiktok,
 )
+from .grade_amazon import (
+    FAIXAS_PRECO_GRADE_AMAZON, ItemGradeAmazonProduto, AgrupadorLinhasGradeAmazon,
+    DetalheFormulaExibidaAmazon, view_grade_precificacao_amazon, view_grade_detalhe_amazon,
+)
 from .resumo_marketplaces import (
     COLUNAS_ORDENAVEIS, GrupoMarketplaceExibido, LinhaResumoMarketplace,
     view_resumo_marketplaces, view_resumo_linha,

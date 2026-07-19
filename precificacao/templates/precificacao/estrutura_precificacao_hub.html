@@ -12,6 +12,16 @@
 {% block cards %}
 
 <div class="col-md-4">
+    <a href="{% url 'precificacao_resumo_marketplaces' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-table fa-2x mb-3"></i>
+            <h5>Resumo por Marketplace</h5>
+            <p>Todos os marketplaces lado a lado, tipo Excel</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
     <a href="{% url 'precificacao_grade_mercado_livre' %}" class="text-decoration-none">
         <div class="card-modulo">
             <i class="fas fa-sitemap fa-2x mb-3"></i>
@@ -52,14 +62,16 @@
 </div>
 
 <div class="col-md-4">
-    <a href="{% url 'precificacao_resumo_marketplaces' %}" class="text-decoration-none">
+    <a href="{% url 'precificacao_grade_tiktok' %}" class="text-decoration-none">
         <div class="card-modulo">
-            <i class="fas fa-table fa-2x mb-3"></i>
-            <h5>Resumo por Marketplace</h5>
-            <p>Todos os marketplaces lado a lado, tipo Excel</p>
+            <i class="fas fa-store fa-2x mb-3"></i>
+            <h5>Grade TikTok Shop</h5>
+            <p>Precificação por produto — Sem/Com Afiliado, 4 margens</p>
         </div>
     </a>
 </div>
+
+
 
 <div class="col-md-4">
     <a href="{% url 'precificacao_configuracoes_operacionais' %}" class="text-decoration-none">

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'raia',
     'shopee',
     'tiktok',
+    'amazon',
     'precificacao',
 ]
 

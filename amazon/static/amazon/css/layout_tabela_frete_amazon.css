@@ -1,0 +1,9 @@
+.amazon-frete-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .amazon-frete-grid { grid-template-columns: 1fr; }
+}

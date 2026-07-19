@@ -24,6 +24,7 @@ from core.management.commands.popular_banco_suporte.importar_competicao_catalogo
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml import importar_tabela_frete_ml
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_magalu import importar_tabela_frete_magalu
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_tiktok import importar_tabela_frete_tiktok
+from core.management.commands.popular_banco_suporte.importar_tabela_frete_amazon import importar_tabela_frete_amazon
 from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
 from core.management.commands.popular_banco_suporte.importar_promocoes_ml import importar_promocoes_ml
 from core.management.commands.popular_banco_suporte.calcular_recomendacoes_precificacao import calcular_recomendacoes_precificacao
@@ -32,6 +33,7 @@ from precificacao.funcoes_auxiliares.magalu.calcular_grade_precificacao_magalu i
 from precificacao.funcoes_auxiliares.raia.calcular_grade_precificacao_raia import calcular_grade_precificacao_raia
 from precificacao.funcoes_auxiliares.shopee.calcular_grade_precificacao_shopee import calcular_grade_precificacao_shopee
 from precificacao.funcoes_auxiliares.tiktok.calcular_grade_precificacao_tiktok import calcular_grade_precificacao_tiktok
+from precificacao.funcoes_auxiliares.amazon.calcular_grade_precificacao_amazon import calcular_grade_precificacao_amazon
 
 CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
 CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
@@ -65,6 +67,7 @@ class Command(BaseCommand):
             ('FRETE ML', importar_tabela_frete_ml, ()),
             ('FRETE MAGALU', importar_tabela_frete_magalu, ()),
             ('FRETE TIKTOK', importar_tabela_frete_tiktok, ()),
+            ('FRETE AMAZON', importar_tabela_frete_amazon, ()),
             # * [EXPLICAÇÃO] → Roda por ÚLTIMO de propósito — precisa
             #                  "vencer" a disputa de campos compartilhados
             #                  com PRODUTOS ERP COMPLETO (custo, fiscais,
@@ -84,6 +87,7 @@ class Command(BaseCommand):
             ('GRADE RAIA', calcular_grade_precificacao_raia, ()),
             ('GRADE SHOPEE', calcular_grade_precificacao_shopee, ()),
             ('GRADE TIKTOK', calcular_grade_precificacao_tiktok, ()),
+            ('GRADE AMAZON', calcular_grade_precificacao_amazon, ()),
             ('PROMOÇÕES ML', importar_promocoes_ml, ()),
             ('RECOMENDAÇÃO PRECIFICAÇÃO', calcular_recomendacoes_precificacao, ()),
         ]

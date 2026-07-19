@@ -1,0 +1,9 @@
+.grade-tipo-bloco--dba {
+    border-left: 4px solid #232f3e;
+    background: #232f3e14;
+}
+
+.grade-tipo-bloco--fba {
+    border-left: 4px solid #ff9900;
+    background: #ff990014;
+}
