@@ -1,0 +1,20 @@
+/* * [EXPLICAÇÃO] → TikTok não tem cor de marca própria já usada nos blocos
+   (diferente de Clássico=azul/Premium=roxo do ML) — cor neutra pros 2 tipos,
+   só pra diferenciar visualmente Sem/Com Afiliado sem inventar identidade nova. */
+.grade-tipo-bloco--sem-afiliado {
+    border-left: 4px solid #6b7280;
+    background: #6b728014;
+}
+
+.grade-tipo-bloco--com-afiliado {
+    border-left: 4px solid #fe2c55;
+    background: #fe2c5514;
+}
+
+.grade-tipo-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #445;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}

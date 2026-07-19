@@ -1,19 +1,15 @@
 <!--
-* [RESUMO] → Fragmento de 1 linha da tabela de Resumo por
-* Marketplace — usado tanto no carregamento inicial da tabela quanto
-* na resposta HTMX quando o seletor de margem DESSA linha muda (sem
-* afetar as outras linhas).
+* [RESUMO] → 1 linha da tabela de Resumo. As colunas de marketplace são
+* geradas em loop sobre linha.grupos (lista de CelulaMarketplace, cada
+* 1 já com .mkt e .grupo prontos) — mesma ordem de MARKETPLACES_RESUMO,
+* garantida pela view. Nenhum marketplace é escrito à mão aqui.
 -->
-<tr id="linha-produto-{{ linha.produto.id }}">
+<tr>
     <td class="resumo-col-margem">
-        <select
-            name="margem"
-            hx-get="{% url 'precificacao_resumo_linha' linha.produto.id %}"
-            hx-target="closest tr"
-            hx-swap="outerHTML"
-            hx-trigger="change"
-            class="resumo-select-margem"
-        >
+        <select class="resumo-select-margem"
+                hx-get="{% url 'precificacao_resumo_linha' linha.produto.id %}"
+                hx-target="closest tr" hx-swap="outerHTML"
+                name="margem">
             {% for valor, label in opcoes_margem %}
             <option value="{{ valor }}" {% if valor == linha.margem_atual %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
@@ -22,49 +18,21 @@
     <td>{{ linha.produto.curva|default:"—" }}</td>
     <td>{{ linha.produto.cod_fabricante|default:"—" }}</td>
     <td>{{ linha.produto.ean }}</td>
-    <td>{{ linha.produto.sku|default:"—" }}</td>
+    <td>{{ linha.produto.sku }}</td>
     <td class="resumo-col-descricao">{{ linha.produto.titulo }}</td>
     <td class="resumo-col-foto">
         {% if linha.produto.imagem_url %}
         <img src="{{ linha.produto.imagem_url }}" class="resumo-foto" alt="{{ linha.produto.titulo }}">
         {% else %}
-        <div class="resumo-foto resumo-foto-vazia"><i class="fas fa-image"></i></div>
+        <div class="resumo-foto-vazia"><i class="fas fa-image"></i></div>
         {% endif %}
     </td>
     <td class="resumo-col-numero">R$ {{ linha.produto.custo|floatformat:2 }}</td>
     <td class="resumo-col-numero">R$ {{ linha.produto.custo_com_boni|default:linha.produto.custo|floatformat:2 }}</td>
 
-    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}R$ {{ linha.classico.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}R$ {{ linha.classico.preco|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-classico">{% if linha.classico %}{{ linha.classico.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-
-    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}R$ {{ linha.premium.preco|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-premium">{% if linha.premium %}{{ linha.premium.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-
-    <td class="resumo-col-numero resumo-grupo-shopee">{% if linha.shopee %}R$ {{ linha.shopee.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-shopee">{% if linha.shopee %}R$ {{ linha.shopee.preco|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-shopee">{% if linha.shopee %}{{ linha.shopee.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-
-    <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-amazon resumo-placeholder">—</td>
-
-    <td class="resumo-col-numero resumo-grupo-magalu">{% if linha.magalu %}R$ {{ linha.magalu.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-magalu">{% if linha.magalu %}R$ {{ linha.magalu.preco|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-magalu">{% if linha.magalu %}{{ linha.magalu.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-    
-    <td class="resumo-col-numero resumo-grupo-tiktok resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-tiktok resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-tiktok resumo-placeholder">—</td>
-    
-    <td class="resumo-col-numero resumo-grupo-raia">{% if linha.raia %}R$ {{ linha.raia.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-raia">{% if linha.raia %}R$ {{ linha.raia.preco|floatformat:2 }}{% else %}—{% endif %}</td>
-    <td class="resumo-col-numero resumo-grupo-raia">{% if linha.raia %}{{ linha.raia.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
-    
-    <td class="resumo-col-numero resumo-grupo-b2w resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-b2w resumo-placeholder">—</td>
-    <td class="resumo-col-numero resumo-grupo-b2w resumo-placeholder">—</td>
-
-
+    {% for celula in linha.grupos %}
+    <td class="resumo-col-numero resumo-grupo-{{ celula.mkt.chave }}">{% if celula.grupo %}R$ {{ celula.grupo.frete_usado|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-{{ celula.mkt.chave }}">{% if celula.grupo %}R$ {{ celula.grupo.preco|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td class="resumo-col-numero resumo-grupo-{{ celula.mkt.chave }}">{% if celula.grupo %}{{ celula.grupo.margem_percentual_obtida|floatformat:2 }}%{% else %}—{% endif %}</td>
+    {% endfor %}
 </tr>

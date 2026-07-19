@@ -25,6 +25,11 @@ urlpatterns = [
         'grade-shopee/detalhe/<int:produto_id>/<str:margem>/',
         views.view_grade_detalhe_shopee, name='precificacao_grade_detalhe_shopee',
     ),
+    path('grade-tiktok/', views.view_grade_precificacao_tiktok, name='precificacao_grade_tiktok'),
+    path(
+        'grade-tiktok/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',
+        views.view_grade_detalhe_tiktok, name='precificacao_grade_detalhe_tiktok',
+    ),
     path(
         'resumo-marketplaces/linha/<int:produto_id>/',
         views.view_resumo_linha, name='precificacao_resumo_linha',

@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'magalu',
     'raia',
     'shopee',
+    'tiktok',
     'precificacao',
 ]
 

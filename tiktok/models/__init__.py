@@ -1,0 +1,2 @@
+from .configuracao_tiktok import ConfiguracaoTiktok
+from .frete_tiktok import FreteTiktok

@@ -9,6 +9,7 @@ from core.management.commands.iniciar_banco_suporte.popular_criterios_qualidade 
 from core.management.commands.iniciar_banco_suporte.popular_configuracao_operacional import popular_configuracao_operacional
 from core.management.commands.iniciar_banco_suporte.popular_configuracao_mercado_livre import popular_configuracao_mercado_livre
 from core.management.commands.iniciar_banco_suporte.popular_tabela_comissao_shopee import popular_tabela_comissao_shopee
+from core.management.commands.iniciar_banco_suporte.popular_tabela_comissao_tiktok import popular_tabela_comissao_tiktok
 
 class Command(BaseCommand):
     help = 'Popula dados iniciais do sistema (seed)'
@@ -24,4 +25,6 @@ class Command(BaseCommand):
         popular_configuracao_mercado_livre(self.stdout, self.style)
         self.stdout.write('')
         popular_tabela_comissao_shopee(self.stdout, self.style)
+        self.stdout.write('')
+        popular_tabela_comissao_tiktok(self.stdout, self.style)
         self.stdout.write(self.style.SUCCESS('\nSeed concluído!'))

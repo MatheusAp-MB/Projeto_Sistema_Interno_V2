@@ -1,0 +1,2 @@
+from .tabela_comissao_tiktok import TabelaComissaoTiktok
+from .grade_precificacao_tiktok import GradePrecificacaoTiktok

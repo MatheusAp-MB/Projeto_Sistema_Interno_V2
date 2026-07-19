@@ -1,0 +1,59 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Tabela de Frete TikTok Shop — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Tabela de Frete — TikTok Shop{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'magalu/css/layout_tabela_frete_magalu.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<div class="calculadora-container" id="form-calcular">
+    <h6 class="mb-3">Calcular Frete</h6>
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <label>Peso do produto (kg)</label>
+            <input type="number" name="peso" id="input-peso" step="0.001" min="0" placeholder="Ex: 0.821">
+        </div>
+        <div class="col-md-6">
+           <button class="btn-calcular"
+                hx-post="{% url 'tiktok_calcular_frete' %}"
+                hx-target="#resultado-calculadora"
+                hx-include="#form-calcular">
+                <i class="fas fa-calculator"></i> Calcular
+            </button>
+        </div>
+    </div>
+    <p class="calculadora-nota">Frete não considera peso acima de 30kg — TikTok Shop não aceita produtos nessa faixa.</p>
+</div>
+
+<div id="resultado-calculadora" class="resultado-container">
+    <div class="resultado-frete">
+        <span class="descricao">Informe o peso para calcular o frete.</span>
+    </div>
+</div>
+
+<div class="grade-container">
+    <table class="grade-tabela">
+        <thead>
+            <tr><th class="col-peso">De (kg)</th><th class="col-peso">Até (kg)</th><th>Valor médio (R$)</th></tr>
+        </thead>
+        <tbody>
+            {% for faixa in faixas %}
+            <tr data-peso-min="{{ faixa.peso_min }}">
+                <td class="col-peso">{{ faixa.peso_min|floatformat:3 }}</td>
+                <td class="col-peso">{% if faixa.peso_max %}{{ faixa.peso_max|floatformat:3 }}{% else %}—{% endif %}</td>
+                <td>R$ {{ faixa.valor|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'tiktok/js/script_tabela_frete_tiktok.js' %}"></script>
+{% endblock %}

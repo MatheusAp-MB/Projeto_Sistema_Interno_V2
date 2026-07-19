@@ -1,0 +1,81 @@
+.config-tiktok-grid-topo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.config-tiktok-card {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.config-tiktok-card-header {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 20px;
+}
+
+.config-tiktok-tabela-simples {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.config-tiktok-tabela-simples th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: #99a;
+    padding: 8px 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.config-tiktok-tabela-simples td {
+    padding: 8px 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.config-tiktok-tabela-simples td:first-child {
+    color: #667;
+}
+
+.config-tiktok-input {
+    font-size: 0.88rem;
+    padding: 5px 8px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+    width: 140px;
+    text-align: right;
+}
+
+.config-tiktok-btn-salvar {
+    margin: 12px 20px 16px;
+}
+
+.config-tiktok-nota {
+    font-size: 0.76rem;
+    color: #667;
+    padding: 0 20px 16px;
+    margin: 0;
+}
+
+.config-tiktok-aviso-salvo {
+    background: #e8f8ee;
+    color: #1a8a5f;
+    border: 1px solid #b8e6cc;
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    .config-tiktok-grid-topo {
+        grid-template-columns: 1fr;
+    }
+}

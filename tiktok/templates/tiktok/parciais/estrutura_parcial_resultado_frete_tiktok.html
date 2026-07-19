@@ -1,0 +1,11 @@
+{% if erro %}
+<div class="resultado-frete"><span class="descricao">Erro ao calcular o frete: {{ erro }}</span></div>
+{% elif valor %}
+<div class="resultado-frete">
+    <span class="valor">R$ {{ valor|floatformat:2 }}</span>
+    <span class="descricao">Frete para o peso informado.</span>
+</div>
+<script>destacar_linha_tiktok('{{ peso_min }}');</script>
+{% else %}
+<div class="resultado-frete"><span class="descricao">Nenhuma faixa encontrada — peso pode estar acima de 30kg (TikTok Shop não aceita).</span></div>
+{% endif %}

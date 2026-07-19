@@ -1,0 +1,55 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações TikTok Shop — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — TikTok Shop{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'tiktok/css/layout_configuracoes_tiktok.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if salvo %}
+<div class="config-tiktok-aviso-salvo">✓ Alterações salvas com sucesso.</div>
+{% endif %}
+
+<div class="config-tiktok-grid-topo">
+
+    <form method="post" class="config-tiktok-card">
+        {% csrf_token %}
+        <div class="config-tiktok-card-header">Configuração Geral</div>
+        <table class="config-tiktok-tabela-simples">
+            <tr>
+                <td>Margem de afiliado (%)</td>
+                <td><input type="text" name="margem_afiliado_percentual" value="{{ config.margem_afiliado_percentual }}" class="config-tiktok-input"></td>
+            </tr>
+        </table>
+        <button type="submit" class="btn-acao config-tiktok-btn-salvar">Salvar</button>
+    </form>
+
+    <div class="config-tiktok-card">
+        <div class="config-tiktok-card-header">Tabela de Comissão (somente leitura)</div>
+        <table class="config-tiktok-tabela-simples">
+            <thead>
+                <tr><th>Faixa de preço</th><th>Comissão</th><th>Adicional</th></tr>
+            </thead>
+            <tbody>
+                {% for faixa in faixas_comissao %}
+                <tr>
+                    <td>
+                        R$ {{ faixa.preco_min|floatformat:2 }}
+                        {% if faixa.preco_max %}– R$ {{ faixa.preco_max|floatformat:2 }}{% else %}(sem teto){% endif %}
+                    </td>
+                    <td>{{ faixa.comissao_percentual|floatformat:2 }}%</td>
+                    <td>R$ {{ faixa.adicional_fixo|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="config-tiktok-nota">Confirmada por comunicado oficial do TikTok Shop (vigente 15/07/2026) — edição só via banco.</p>
+    </div>
+
+</div>
+
+{% endblock %}
