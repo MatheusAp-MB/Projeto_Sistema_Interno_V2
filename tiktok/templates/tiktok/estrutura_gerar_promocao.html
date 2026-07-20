@@ -1,0 +1,113 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Gerar Promoção — TikTok Shop{% endblock %}
+{% block toolbar_titulo %}TikTok Shop — Gerar Promoção{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_grade_precificacao_ml.css' %}">
+<script src="{% static 'precificacao/js/script_filtros_compartilhado.js' %}" defer></script>
+<link rel="stylesheet" href="{% static 'tiktok/css/layout_gerar_promocao_tiktok.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form hx-post="{% url 'tiktok_processar_promocao' %}"
+      hx-encoding="multipart/form-data"
+      hx-target="#modal-erro-slot"
+      hx-swap="innerHTML"
+      class="promocao-form">
+
+    <div class="promocao-secao">
+        <div class="promocao-secao-header">Margem de referência — Sem Afiliado</div>
+        <div class="promocao-margens-grid">
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem_sem_afiliado" value="competicao" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Competição</div><div class="promocao-margem-percentual">5%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem_sem_afiliado" value="minima" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Mínima</div><div class="promocao-margem-percentual">10%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel grade-margem-card--ativa promocao-margem-card">
+                <input type="radio" name="margem_sem_afiliado" value="padrao" checked class="promocao-radio-oculto">
+                <div class="grade-margem-label">Padrão</div><div class="promocao-margem-percentual">15%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem_sem_afiliado" value="maxima" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Máxima</div><div class="promocao-margem-percentual">20%</div>
+            </label>
+        </div>
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div class="promocao-secao">
+        <div class="promocao-secao-header">Margem de referência — Com Afiliado</div>
+        <div class="promocao-margens-grid">
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem_com_afiliado" value="competicao" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Competição</div><div class="promocao-margem-percentual">5%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem_com_afiliado" value="minima" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Mínima</div><div class="promocao-margem-percentual">10%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel grade-margem-card--ativa promocao-margem-card">
+                <input type="radio" name="margem_com_afiliado" value="padrao" checked class="promocao-radio-oculto">
+                <div class="grade-margem-label">Padrão</div><div class="promocao-margem-percentual">15%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem_com_afiliado" value="maxima" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Máxima</div><div class="promocao-margem-percentual">20%</div>
+            </label>
+        </div>
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div class="promocao-secao">
+        <div class="promocao-secao-header promocao-secao-header-flex">
+            <span>Marcas</span>
+            <button type="button" class="promocao-selecionar-tudo" onclick="marcarTodasMarcas(this)">Selecionar tudo</button>
+        </div>
+
+        <div class="promocao-marcas-grid">
+            <div class="filtro-subgrupo promocao-marcas-lista-wrapper">
+                <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                <div class="filtro-opcoes-lista">
+                    {% for marca in marcas_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="marca" value="{{ marca }}" onchange="atualizarChipsMarca()">
+                        {{ marca }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="promocao-chips-marcas">
+                <div class="promocao-chips-titulo">Selecionadas (<span id="contador-marcas">0</span>)</div>
+                <div id="lista-chips-marcas" class="promocao-chips-lista">
+                    <span class="promocao-chips-vazio">Nenhuma marca selecionada ainda.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div class="promocao-secao">
+        <div class="promocao-secao-header">Arquivo do TikTok Shop (.xlsx)</div>
+        <input type="file" name="arquivo_tiktok" accept=".xlsx" class="promocao-input-arquivo">
+    </div>
+
+    <button type="submit" class="btn-acao promocao-btn-gerar">Gerar promoção</button>
+</form>
+
+<div id="modal-erro-slot"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'tiktok/js/script_gerar_promocao_tiktok.js' %}"></script>
+{% endblock %}

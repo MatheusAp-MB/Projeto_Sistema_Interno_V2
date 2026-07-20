@@ -70,6 +70,7 @@ def calcular_grade_precificacao_tiktok(stdout, style):
                     preco=formula.saida.preco_final,
                     margem_percentual_obtida=formula.saida.margem_percentual_obtida,
                     frete_usado=formula.saida.frete_usado,
+                    preco_de_exibicao=formula.saida.preco_de_exibicao,
                     detalhamento=formula.para_dict_auditoria(),
                 )
 
@@ -91,7 +92,7 @@ def calcular_grade_precificacao_tiktok(stdout, style):
         GradePrecificacaoTiktok.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar:
         GradePrecificacaoTiktok.objects.bulk_update(
-            para_atualizar, ['preco', 'margem_percentual_obtida', 'frete_usado', 'detalhamento'],
+            para_atualizar, ['preco', 'margem_percentual_obtida', 'frete_usado', 'preco_de_exibicao', 'detalhamento'],
             batch_size=BATCH_SIZE_PADRAO,
         )
 

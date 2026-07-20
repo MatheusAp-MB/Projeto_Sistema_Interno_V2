@@ -11,6 +11,10 @@ class ConfiguracaoTiktok(models.Model):
         max_digits=5, decimal_places=2, default=8,
         help_text='Comissão adicional paga quando a venda vem com afiliado, em %.'
     )
+    desconto_vitrine_percentual = models.DecimalField(
+        max_digits=5, decimal_places=2, default=20,
+        help_text='Percentual de desconto padrão da vitrine (usado só pra calcular o preço "De" decorativo) — vale pros 2 tipos, Sem e Com Afiliado.'
+    )
 
     atualizado_em = models.DateTimeField(auto_now=True)
 

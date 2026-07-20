@@ -32,6 +32,7 @@ class DadosEntrada:
     icms_saida_percentual: Decimal
     comissao_percentual: Decimal
     margem_afiliado_percentual: Decimal  # 0 se tipo=sem_afiliado
+    desconto_vitrine_percentual: Decimal
 
     armazenagem_planilha: Decimal | None
     origem_dados_fiscais: str
@@ -80,6 +81,7 @@ class DadosSaida:
     margem_percentual_obtida: Decimal
     margem_exata_percentual: Decimal
     margem_exata_valor: Decimal
+    preco_de_exibicao: Decimal
 
 
 class FormulaPrecificacaoTiktok:
@@ -223,6 +225,12 @@ class FormulaPrecificacaoTiktok:
         self._margem_afiliado_valor = self._preco_final * self._margem_afiliado_percentual / 100
         self._margem_alvo_valor = self._preco_final * (self.margem_alvo_percentual / 100)
 
+        # * [EXPLICAÇÃO] → "De" decorativo — preço ÷ (1 − desconto configurado),
+        #                  vale pros 2 tipos (Sem/Com Afiliado). NUNCA usado em
+        #                  nenhuma conta de margem/FIXO — mesmo padrão da Shopee.
+        fator_vitrine = Decimal('1') - (Decimal(str(self.config_tiktok.desconto_vitrine_percentual)) / 100)
+        self._preco_de_exibicao = (self._preco_final / fator_vitrine).quantize(Decimal('0.01'))
+
     def calcular(self):
         self.resolver_dimensao()
         self.calcular_custo_final()
@@ -254,6 +262,7 @@ class FormulaPrecificacaoTiktok:
             icms_saida_percentual=self._icms_saida_percentual,
             comissao_percentual=self._comissao_percentual,
             margem_afiliado_percentual=self._margem_afiliado_percentual,
+            desconto_vitrine_percentual=self.config_tiktok.desconto_vitrine_percentual,
             armazenagem_planilha=produto.armazenagem_planilha,
             origem_dados_fiscais=(
                 'planilha_precificacao' if produto.armazenagem_planilha is not None else 'erp_completo'
@@ -288,6 +297,7 @@ class FormulaPrecificacaoTiktok:
             preco_final=self._preco_final, frete_usado=self._frete_usado,
             margem_valor=self._margem_valor, margem_percentual_obtida=self._margem_percentual_obtida,
             margem_exata_percentual=self._margem_exata_percentual, margem_exata_valor=self._margem_exata_valor,
+            preco_de_exibicao=self._preco_de_exibicao,
         )
 
     def para_dict_auditoria(self):

@@ -42,7 +42,6 @@ def view_gerar_promocao(request):
 # o navegador de verdade pra tela de resultado, via header HX-Redirect.
 def view_processar_promocao(request):
     import uuid
-    import openpyxl
     from django.core.cache import cache
     from django.http import HttpResponse
     from django.urls import reverse
@@ -59,29 +58,31 @@ def view_processar_promocao(request):
     if not arquivo:
         erros.append('Envie o arquivo baixado da Shopee.')
 
-    workbook = None
+    cabecalho, linhas_arquivo = [], []
     if not erros:
         try:
-            workbook = openpyxl.load_workbook(arquivo, data_only=True)
-            ws = workbook.active
-            cabecalho = {c.value for c in next(ws.iter_rows(min_row=1, max_row=1))}
+            from core.funcoes_auxiliares.leitor_planilha_robusto import ler_linhas_planilha_robusta
+            cabecalho, linhas_arquivo = ler_linhas_planilha_robusta(arquivo, linha_cabecalho=3, primeira_linha_dado=6)
+
             colunas_esperadas = {'ID do Produto', 'SKU', 'Preço', 'Estoque do Vendedor', 'Variante Identificador', 'SKU de referência'}
-            faltando = colunas_esperadas - cabecalho
+            faltando = colunas_esperadas - set(cabecalho)
             if faltando:
                 erros.append(f'O arquivo não tem as colunas esperadas da Shopee: {", ".join(sorted(faltando))}.')
-        except Exception:
-            erros.append('Não foi possível abrir o arquivo — confirme que é um .xlsx válido, baixado direto da Shopee.')
+        except Exception as e:
+            erros.append(f'Não foi possível abrir o arquivo — confirme que é um .xlsx válido, baixado direto da Shopee. Erro técnico: {type(e).__name__}: {e}')
 
     if erros:
         return render(request, 'shopee/parciais/estrutura_parcial_modal_erro_promocao.html', {'erros': erros})
 
-    processador = ProcessadorPromocaoShopee(marcas, margem, workbook).processar()
+    processador = ProcessadorPromocaoShopee(marcas, margem, cabecalho, linhas_arquivo).processar()
 
     token = str(uuid.uuid4())
     resumo = processador.resumo_geral()
 
     marcas_prontas = []
     marcas_com_divergencia = []
+
+    from core.funcoes_auxiliares.chave_cache_segura import chave_cache_segura
 
     for marca in processador.marcas_com_resultado():
         resultados_marca = processador.resultados_por_marca(marca)
@@ -93,12 +94,14 @@ def view_processar_promocao(request):
         n_estoque_inconsistente = sum(1 for r in resultados_marca if r.categoria == 'estoque_inconsistente')
         n_excecoes = n_divergente + n_novo + n_nao_encontrado + n_estoque_inconsistente
 
+        marca_chave = chave_cache_segura(marca)
+
         if n_prontos > 0:
-            cache.set(f'promocao_shopee_{token}_{marca}_promocao', gerar_excel_promocao(resultados_marca), timeout=3600)
+            cache.set(f'promocao_shopee_{token}_{marca_chave}_promocao', gerar_excel_promocao(resultados_marca), timeout=3600)
             marcas_prontas.append({'marca': marca, 'total': n_prontos})
 
         if n_excecoes > 0:
-            cache.set(f'promocao_shopee_{token}_{marca}_detalhes', gerar_excel_detalhes(resultados_marca), timeout=3600)
+            cache.set(f'promocao_shopee_{token}_{marca_chave}_detalhes', gerar_excel_detalhes(resultados_marca), timeout=3600)
             marcas_com_divergencia.append({
                 'marca': marca, 'total': n_excecoes,
                 'divergente': n_divergente, 'novo': n_novo,
@@ -129,8 +132,9 @@ def view_baixar_promocao(request, token, marca, tipo):
     from datetime import date
     from django.core.cache import cache
     from django.http import HttpResponse
+    from core.funcoes_auxiliares.chave_cache_segura import chave_cache_segura
 
-    arquivo_bytes = cache.get(f'promocao_shopee_{token}_{marca}_{tipo}')
+    arquivo_bytes = cache.get(f'promocao_shopee_{token}_{chave_cache_segura(marca)}_{tipo}')
     if arquivo_bytes is None:
         return HttpResponse('Arquivo expirado — gere a promoção de novo.', status=404)
 
@@ -168,9 +172,11 @@ def view_baixar_todas_promocao(request, token, categoria):
     data_hoje = date.today().strftime('%d_%m_%y')
     buffer = io.BytesIO()
 
+    from core.funcoes_auxiliares.chave_cache_segura import chave_cache_segura
+
     with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_arquivo:
         for marca in marcas:
-            arquivo_bytes = cache.get(f'promocao_shopee_{token}_{marca}_{tipo_arquivo}')
+            arquivo_bytes = cache.get(f'promocao_shopee_{token}_{chave_cache_segura(marca)}_{tipo_arquivo}')
             if arquivo_bytes is None:
                 continue
             nome_arquivo = (

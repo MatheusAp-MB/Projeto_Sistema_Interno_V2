@@ -30,6 +30,10 @@ class GradePrecificacaoTiktok(models.Model):
     preco = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     margem_percentual_obtida = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     frete_usado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # * [EXPLICAÇÃO] → "Preço De" — decorativo/vitrine (preço ÷ (1-desconto)),
+    #                  vale pros 2 tipos (Sem/Com Afiliado). Nunca entra em
+    #                  conta de margem/FIXO — mesmo papel do da Shopee.
+    preco_de_exibicao = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     detalhamento = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
     calculado_em = models.DateTimeField(auto_now=True)

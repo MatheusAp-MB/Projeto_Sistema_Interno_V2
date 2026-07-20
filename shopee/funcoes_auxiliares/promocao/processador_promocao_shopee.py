@@ -8,6 +8,7 @@
 
 from dataclasses import dataclass
 from decimal import Decimal
+from core.funcoes_auxiliares.conversao_valores_externos import para_decimal_seguro, para_int_seguro
 
 TOLERANCIA_CENTAVOS = Decimal('0.05')
 
@@ -35,21 +36,21 @@ class ResultadoProduto:
 
 class ProcessadorPromocaoShopee:
 
-    # Função Objetivo: Recebe as marcas escolhidas, a margem de referência e o workbook já aberto.
-    def __init__(self, marcas_selecionadas, margem, workbook_shopee):
+    # Função Objetivo: Recebe as marcas, a margem, e o (cabeçalho, linhas) já lidos
+    # de forma robusta (ver core/funcoes_auxiliares/leitor_planilha_robusto.py).
+    def __init__(self, marcas_selecionadas, margem, cabecalho_arquivo, linhas_arquivo):
         self.marcas_selecionadas = list(marcas_selecionadas)
         self.margem = margem
-        self.workbook_shopee = workbook_shopee
+        self.cabecalho_arquivo = cabecalho_arquivo
+        self.linhas_arquivo_bruto = linhas_arquivo
         self.resultados = []
 
-    # Função Objetivo: Lê o arquivo da Shopee, linha a linha, pelos nomes de coluna.
+    # Função Objetivo: Converte as linhas brutas (já lidas) em LinhaArquivoShopee.
     def _ler_arquivo_shopee(self):
-        ws = self.workbook_shopee.active
-        cabecalho = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
-        indice_coluna = {nome: i for i, nome in enumerate(cabecalho) if nome}
+        indice_coluna = {nome: i for i, nome in enumerate(self.cabecalho_arquivo) if nome}
 
         linhas = []
-        for row in ws.iter_rows(min_row=2, values_only=True):
+        for row in self.linhas_arquivo_bruto:
             if not any(v is not None for v in row):
                 continue
 
@@ -61,8 +62,8 @@ class ProcessadorPromocaoShopee:
                 id_variacao=str(row[indice_coluna['Variante Identificador']]),
                 sku_referencia=str(row[indice_coluna['SKU de referência']]) if row[indice_coluna['SKU de referência']] else None,
                 sku=str(row[indice_coluna['SKU']]) if row[indice_coluna['SKU']] else None,
-                preco_atual=Decimal(str(preco)) if preco is not None else None,
-                estoque_plataforma=int(estoque) if estoque is not None else 0,
+                preco_atual=para_decimal_seguro(preco),
+                estoque_plataforma=para_int_seguro(estoque),
             ))
         return linhas
 

@@ -8,10 +8,11 @@ from precificacao.views.comum import (
     _opcoes_filtro_produto, _filtrar_paginar_produtos_grade,
 )
 from precificacao.views.modal_comum import (
-    PassoFaixaFrete, PassoPrecoExato, PassoTaxa, LinhaPercentualValor,
+    PassoFaixaFrete, PassoPrecoExato, PassoTaxa, LinhaPercentualValor, LinhaSaida,
     montar_tabela_percentuais, montar_pis_cofins, montar_valores_soltos,
     montar_dimensao, montar_passos_1_a_6, montar_saida,
 )
+from decimal import Decimal
 
 # * [EXPLICAÇÃO] → Único marketplace fora do ML com "tipo" — 8 faixas de preço
 #                  (2 tipos × 4 margens), mesmo formato do ML.
@@ -161,16 +162,23 @@ class DetalheFormulaExibidaTiktok:
                 'Margem de afiliado', margem_afiliado_percentual, dec(i.get('margem_afiliado_valor'))
             ))
 
+        desconto_vitrine = dec(e.get('desconto_vitrine_percentual'))
+        saida = montar_saida(i, s, dec)
+        saida.append(LinhaSaida(
+            f'Preço "De" (vitrine, {desconto_vitrine:.0f}% de desconto)' if desconto_vitrine else 'Preço "De" (vitrine)',
+            dec(s.get('preco_de_exibicao')), 'reais',
+        ))
+
         return cls(
             tipo_label=tipo_label,
             margem_label=margem_label,
             tabela_percentuais=tabela_percentuais,
             pis_cofins=montar_pis_cofins(e, i, dec),
-            valores_soltos=montar_valores_soltos(e, dec),
+            valores_soltos=valores_soltos,
             dimensao=montar_dimensao(e, dec, origem_label='Embalagem ERP'),
             passo_1=passo_1, passo_2=passo_2, passo_3=passo_3, passo_4=passo_4,
             passo_5=passo_5, passo_6=passo_6, passo_7=passo_7, passo_8=passo_8,
-            saida=montar_saida(i, s, dec),
+            saida=saida,
         )
 
 
