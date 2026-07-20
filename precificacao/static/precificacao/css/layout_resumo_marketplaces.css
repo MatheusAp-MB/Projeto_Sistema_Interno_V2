@@ -14,11 +14,14 @@
     --cor-classico: #1d4ed8;
     --cor-premium: #8b4fc7;
     --cor-shopee: #ee4d2d;
-    --cor-amazon: #232f3e;
+    --cor-amazon-dba: #232f3e;
+    --cor-amazon-fba: #0e7490;
     --cor-magalu: #0086ff;
-    --cor-b2w: #e60014;
+    --cor-mais-correios: #ca8a04;
     --cor-raia: #00a651;
-    --cor-tiktok: #fe2c55;
+    --cor-tiktok-sem: #27272a;
+    --cor-tiktok-com: #71717a;
+    --cor-tudo-agro: #166534;
 }
 
 .resumo-form-filtros {
@@ -100,20 +103,29 @@
 .resumo-linha-grupos th.resumo-grupo-header--shopee,
 .resumo-linha-subcolunas th.resumo-sub--shopee { background: var(--cor-shopee); }
 
-.resumo-linha-grupos th.resumo-grupo-header--amazon,
-.resumo-linha-subcolunas th.resumo-sub--amazon { background: var(--cor-amazon); }
+.resumo-linha-grupos th.resumo-grupo-header--amazon_dba,
+.resumo-linha-subcolunas th.resumo-sub--amazon_dba { background: var(--cor-amazon-dba); }
+
+.resumo-linha-grupos th.resumo-grupo-header--amazon_fba,
+.resumo-linha-subcolunas th.resumo-sub--amazon_fba { background: var(--cor-amazon-fba); }
 
 .resumo-linha-grupos th.resumo-grupo-header--magalu,
 .resumo-linha-subcolunas th.resumo-sub--magalu { background: var(--cor-magalu); }
 
-.resumo-linha-grupos th.resumo-grupo-header--b2w,
-.resumo-linha-subcolunas th.resumo-sub--b2w { background: var(--cor-b2w); }
+.resumo-linha-grupos th.resumo-grupo-header--mais_correios,
+.resumo-linha-subcolunas th.resumo-sub--mais_correios { background: var(--cor-mais-correios); }
 
 .resumo-linha-grupos th.resumo-grupo-header--raia,
 .resumo-linha-subcolunas th.resumo-sub--raia { background: var(--cor-raia); }
 
-.resumo-linha-grupos th.resumo-grupo-header--tiktok,
-.resumo-linha-subcolunas th.resumo-sub--tiktok { background: var(--cor-tiktok); }
+.resumo-linha-grupos th.resumo-grupo-header--tiktok_sem_afiliado,
+.resumo-linha-subcolunas th.resumo-sub--tiktok_sem_afiliado { background: var(--cor-tiktok-sem); }
+
+.resumo-linha-grupos th.resumo-grupo-header--tiktok_com_afiliado,
+.resumo-linha-subcolunas th.resumo-sub--tiktok_com_afiliado { background: var(--cor-tiktok-com); }
+
+.resumo-linha-grupos th.resumo-grupo-header--tudo_de_agro,
+.resumo-linha-subcolunas th.resumo-sub--tudo_de_agro { background: var(--cor-tudo-agro); }
 
 .resumo-col-margem {
     position: sticky;
@@ -189,11 +201,14 @@
 .resumo-grupo-classico { background: #1d4ed81a; }
 .resumo-grupo-premium { background: #8b4fc71a; }
 .resumo-grupo-shopee { background: #ee4d2d1a; }
-.resumo-grupo-amazon { background: #232f3e1a; }
+.resumo-grupo-amazon_dba { background: #232f3e1a; }
+.resumo-grupo-amazon_fba { background: #0e74901a; }
 .resumo-grupo-magalu { background: #0086ff1a; }
-.resumo-grupo-b2w { background: #e600141a; }
+.resumo-grupo-mais_correios { background: #ca8a041a; }
 .resumo-grupo-raia { background: #00a6511a; }
-.resumo-grupo-tiktok { background: #fe2c551a; }
+.resumo-grupo-tiktok_sem_afiliado { background: #27272a1a; }
+.resumo-grupo-tiktok_com_afiliado { background: #71717a1a; }
+.resumo-grupo-tudo_de_agro { background: #1665341a; }
 
 .resumo-placeholder {
     color: #9199a6;
@@ -207,11 +222,14 @@
 .resumo-tabela td.resumo-grupo-classico:first-of-type,
 .resumo-tabela td.resumo-grupo-premium:first-of-type,
 .resumo-tabela td.resumo-grupo-shopee:first-of-type,
-.resumo-tabela td.resumo-grupo-amazon:first-of-type,
+.resumo-tabela td.resumo-grupo-amazon_dba:first-of-type,
+.resumo-tabela td.resumo-grupo-amazon_fba:first-of-type,
 .resumo-tabela td.resumo-grupo-magalu:first-of-type,
-.resumo-tabela td.resumo-grupo-b2w:first-of-type,
+.resumo-tabela td.resumo-grupo-mais_correios:first-of-type,
 .resumo-tabela td.resumo-grupo-raia:first-of-type,
-.resumo-tabela td.resumo-grupo-tiktok:first-of-type {
+.resumo-tabela td.resumo-grupo-tiktok_sem_afiliado:first-of-type,
+.resumo-tabela td.resumo-grupo-tiktok_com_afiliado:first-of-type,
+.resumo-tabela td.resumo-grupo-tudo_de_agro:first-of-type {
     border-left: 2px solid #1e3a5f;
 }
 

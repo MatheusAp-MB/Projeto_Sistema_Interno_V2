@@ -169,6 +169,40 @@
                                     </a>
                                 </div>
                             </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>TikTok Shop</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'tiktok_tabela_frete' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="{% url 'tiktok_configuracoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Amazon</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'amazon_tabela_frete' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="{% url 'amazon_configuracoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <!-- Precificação -->
@@ -196,6 +230,9 @@
                             </a>
                             <a href="{% url 'precificacao_grade_tiktok' %}" class="sidebar-subitem">
                                 <i class="fas fa-store"></i> Grade TikTok Shop
+                            </a>
+                            <a href="{% url 'precificacao_grade_amazon' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Amazon
                             </a>
                             <a href="{% url 'precificacao_configuracoes_operacionais' %}" class="sidebar-subitem">
                                 <i class="fas fa-truck-loading"></i> Configuração Operacional
