@@ -1,0 +1,183 @@
+/* * [EXPLICAÇÃO] → Tela "Exportar Precificação" — reaproveita o mesmo padrão visual
+   da tela de Promoção (Shopee/TikTok), mas com cor neutra (#1e3a5f) em vez da cor
+   de marca de cada plataforma, já que essa tela não é específica de nenhum
+   marketplace. Arquivo autocontido — não depende de nenhum CSS de outro app. */
+
+.promocao-form {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 24px 28px;
+}
+
+.promocao-secao {
+    margin-bottom: 4px;
+}
+
+.promocao-secao-divisor {
+    border-top: 1px solid #eee;
+    margin: 22px 0;
+}
+
+.promocao-secao-header {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #1e3a5f;
+    border-left: 3px solid #1e3a5f;
+    padding-left: 8px;
+    margin-bottom: 14px;
+}
+
+.promocao-secao-header-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 4px;
+}
+
+.promocao-margens-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 200px));
+    gap: 12px;
+}
+
+.promocao-margem-card {
+    display: block;
+    position: relative;
+    padding: 14px 10px;
+}
+
+.promocao-radio-oculto {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.promocao-margem-percentual {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin-top: 4px;
+}
+
+.promocao-selecionar-tudo {
+    background: none;
+    border: none;
+    color: #1e3a5f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.promocao-marcas-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.promocao-marcas-lista-wrapper .filtro-opcoes-lista {
+    max-height: 220px;
+}
+
+.promocao-chips-titulo {
+    font-size: 0.76rem;
+    color: #889;
+    margin-bottom: 8px;
+}
+
+.promocao-chips-lista {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 5px;
+    height: 220px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.promocao-chips-vazio {
+    font-size: 0.78rem;
+    color: #aab;
+}
+
+.promocao-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #eef2f7;
+    color: #1e3a5f;
+    border: 1px solid #c9d6e8;
+    border-radius: 14px;
+    padding: 2px 4px 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.6;
+    height: fit-content;
+    white-space: nowrap;
+}
+
+.promocao-chip-remover {
+    background: none;
+    border: none;
+    color: #1e3a5f;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 3px;
+}
+
+.promocao-btn-gerar {
+    margin-top: 24px;
+}
+
+/* --- específico dessa tela --- */
+
+.exportacao-erros {
+    margin-bottom: 16px;
+}
+
+.exportacao-erro-item {
+    background: #fdecec;
+    border: 1px solid #f0a0a0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.83rem;
+    margin-bottom: 8px;
+}
+
+.exportacao-obrigatorio {
+    text-transform: none;
+    font-weight: 400;
+    color: #b45309;
+    font-size: 0.72rem;
+}
+
+.exportacao-marketplaces-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.exportacao-marketplace-card, .exportacao-tipo-card {
+    padding: 14px 10px;
+    text-align: center;
+}
+
+.exportacao-tipos-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 220px));
+    gap: 12px;
+}
+
+@media (max-width: 800px) {
+    .promocao-margens-grid { grid-template-columns: repeat(2, 1fr); }
+    .promocao-marcas-grid { grid-template-columns: 1fr; }
+    .exportacao-marketplaces-grid { grid-template-columns: repeat(2, 1fr); }
+}

@@ -1,0 +1,118 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Exportar Precificação{% endblock %}
+{% block toolbar_titulo %}Precificação — Exportar para o ERP{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_grade_precificacao_ml.css' %}">
+<script src="{% static 'precificacao/js/script_filtros_compartilhado.js' %}" defer></script>
+<link rel="stylesheet" href="{% static 'precificacao/css/layout_exportar_precificacao.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+{% if erros %}
+<div class="exportacao-erros">
+    {% for erro in erros %}
+    <div class="exportacao-erro-item">{{ erro }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" class="exportacao-form">
+    {% csrf_token %}
+
+    <div class="exportacao-secao">
+        <div class="exportacao-secao-header">Marketplace <span class="exportacao-obrigatorio">(escolha 1 só — o ERP não aceita mais de 1 por vez)</span></div>
+        <div class="exportacao-marketplaces-grid">
+            {% for mkt in marketplaces %}
+            <label class="grade-margem-card grade-margem-clicavel exportacao-marketplace-card" data-marketplace="{{ mkt.chave }}">
+                <input type="radio" name="marketplace" value="{{ mkt.chave }}" class="promocao-radio-oculto exportacao-radio-marketplace" data-tem-tipo="{% if mkt.tipos %}1{% else %}0{% endif %}">
+                <div class="grade-margem-label">{{ mkt.label }}</div>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div class="exportacao-secao" id="secao-tipo" style="display:none;">
+        <div class="exportacao-secao-header">Tipo</div>
+        {% for mkt in marketplaces %}
+        {% if mkt.tipos %}
+        <div class="exportacao-tipos-grid" data-tipos-de="{{ mkt.chave }}" style="display:none;">
+            {% for tipo in mkt.tipos %}
+            <label class="grade-margem-card grade-margem-clicavel exportacao-tipo-card">
+                <input type="radio" name="tipo" value="{{ tipo.chave }}" class="promocao-radio-oculto">
+                <div class="grade-margem-label">{{ tipo.label }}</div>
+            </label>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div class="promocao-secao">
+        <div class="promocao-secao-header">Margem de referência</div>
+        <div class="promocao-margens-grid">
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem" value="competicao" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Competição</div><div class="promocao-margem-percentual">5%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem" value="minima" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Mínima</div><div class="promocao-margem-percentual">10%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel grade-margem-card--ativa promocao-margem-card">
+                <input type="radio" name="margem" value="padrao" checked class="promocao-radio-oculto">
+                <div class="grade-margem-label">Padrão</div><div class="promocao-margem-percentual">15%</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="margem" value="maxima" class="promocao-radio-oculto">
+                <div class="grade-margem-label">Máxima</div><div class="promocao-margem-percentual">20%</div>
+            </label>
+        </div>
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div class="promocao-secao">
+        <div class="promocao-secao-header promocao-secao-header-flex">
+            <span>Marcas</span>
+            <button type="button" class="promocao-selecionar-tudo" onclick="marcarTodasMarcas(this)">Selecionar tudo</button>
+        </div>
+
+        <div class="promocao-marcas-grid">
+            <div class="filtro-subgrupo promocao-marcas-lista-wrapper">
+                <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                <div class="filtro-opcoes-lista">
+                    {% for marca in marcas_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in marcas_selecionadas %}checked{% endif %} onchange="atualizarChipsMarca()">
+                        {{ marca }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="promocao-chips-marcas">
+                <div class="promocao-chips-titulo">Selecionadas (<span id="contador-marcas">0</span>)</div>
+                <div id="lista-chips-marcas" class="promocao-chips-lista">
+                    <span class="promocao-chips-vazio">Nenhuma marca selecionada ainda.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn-acao promocao-btn-gerar"><i class="fas fa-file-export"></i> Exportar .xlsx</button>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'precificacao/js/script_gerar_promocao.js' %}"></script>
+<script src="{% static 'precificacao/js/script_exportar_precificacao.js' %}"></script>
+{% endblock %}

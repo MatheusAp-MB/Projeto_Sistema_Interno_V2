@@ -43,3 +43,4 @@ from .resumo_marketplaces import (
 )
 from .configuracoes import view_configuracoes_operacionais
 from .hub import view_precificacao_hub
+from .exportacao_precos import view_exportar_precificacao
