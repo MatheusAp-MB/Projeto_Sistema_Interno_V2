@@ -1,0 +1,95 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Resultado da Promoção — Shopee{% endblock %}
+{% block toolbar_titulo %}Shopee — Resultado da Promoção{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'shopee/css/layout_gerar_promocao.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<a href="{% url 'shopee_gerar_promocao' %}" class="promocao-link-voltar"><i class="fas fa-arrow-left"></i> Nova promoção</a>
+
+<div class="promocao-resumo-grid">
+    <div class="promocao-resumo-card promocao-resumo-card--sucesso">
+        <div class="promocao-resumo-label">Prontos</div>
+        <div class="promocao-resumo-numero">{{ resumo.pronto }}</div>
+    </div>
+    <div class="promocao-resumo-card promocao-resumo-card--alerta">
+        <div class="promocao-resumo-label">Preço divergente</div>
+        <div class="promocao-resumo-numero">{{ resumo.divergente }}</div>
+    </div>
+    <div class="promocao-resumo-card">
+        <div class="promocao-resumo-label">Novos (sem Grade)</div>
+        <div class="promocao-resumo-numero">{{ resumo.novo }}</div>
+    </div>
+    <div class="promocao-resumo-card">
+        <div class="promocao-resumo-label">Não encontrados</div>
+        <div class="promocao-resumo-numero">{{ resumo.nao_encontrado }}</div>
+    </div>
+    <div class="promocao-resumo-card promocao-resumo-card--erro">
+        <div class="promocao-resumo-label">Estoque inconsistente</div>
+        <div class="promocao-resumo-numero">{{ resumo.estoque_inconsistente }}</div>
+    </div>
+</div>
+
+<div class="promocao-blocos-grid">
+    <div class="promocao-bloco promocao-bloco--sucesso">
+        <div class="promocao-bloco-header">
+            <span class="promocao-bloco-titulo"><i class="fas fa-check-circle"></i> Prontas para promoção ({{ marcas_prontas|length }})</span>
+            {% if marcas_prontas %}
+            <a href="{% url 'shopee_baixar_todas_promocao' token 'prontas' %}" class="promocao-bloco-baixar-todas">
+                <i class="fas fa-file-archive"></i> Baixar todas
+            </a>
+            {% endif %}
+        </div>
+        <div class="promocao-bloco-lista">
+            {% if not marcas_prontas %}
+            <div class="promocao-bloco-vazio">Nenhuma marca teve produto pronto pra promoção nesse envio.</div>
+            {% endif %}
+            {% for item in marcas_prontas %}
+            <div class="promocao-linha-marca">
+                <span class="promocao-linha-marca-nome">{{ item.marca }}</span>
+                <span class="promocao-linha-marca-total">{{ item.total }} produto{{ item.total|pluralize }}</span>
+                <a href="{% url 'shopee_baixar_promocao' token item.marca 'promocao' %}" class="promocao-linha-marca-btn" title="Baixar arquivo de promoção">
+                    <i class="fas fa-download"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="promocao-bloco promocao-bloco--alerta">
+        <div class="promocao-bloco-header">
+            <span class="promocao-bloco-titulo"><i class="fas fa-exclamation-triangle"></i> Com divergências ({{ marcas_com_divergencia|length }})</span>
+            {% if marcas_com_divergencia %}
+            <a href="{% url 'shopee_baixar_todas_promocao' token 'divergencias' %}" class="promocao-bloco-baixar-todas">
+                <i class="fas fa-file-archive"></i> Baixar todas
+            </a>
+            {% endif %}
+        </div>
+        <div class="promocao-bloco-lista">
+            {% if not marcas_com_divergencia %}
+            <div class="promocao-bloco-vazio">Nenhuma divergência encontrada nesse envio.</div>
+            {% endif %}
+            {% for item in marcas_com_divergencia %}
+            <div class="promocao-linha-marca promocao-linha-marca--divergencia">
+                <span class="promocao-linha-marca-nome">{{ item.marca }}</span>
+                <div class="promocao-linha-marca-mini-tags">
+                    {% if item.divergente %}<span class="promocao-mini-tag promocao-mini-tag--divergente">{{ item.divergente }} preço</span>{% endif %}
+                    {% if item.novo %}<span class="promocao-mini-tag promocao-mini-tag--novo">{{ item.novo }} novo{{ item.novo|pluralize }}</span>{% endif %}
+                    {% if item.nao_encontrado %}<span class="promocao-mini-tag promocao-mini-tag--nao-encontrado">{{ item.nao_encontrado }} não achado{{ item.nao_encontrado|pluralize }}</span>{% endif %}
+                    {% if item.estoque_inconsistente %}<span class="promocao-mini-tag promocao-mini-tag--estoque">{{ item.estoque_inconsistente }} estoque</span>{% endif %}
+                </div>
+                <a href="{% url 'shopee_baixar_promocao' token item.marca 'detalhes' %}" class="promocao-linha-marca-btn" title="Baixar detalhes">
+                    <i class="fas fa-download"></i>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
