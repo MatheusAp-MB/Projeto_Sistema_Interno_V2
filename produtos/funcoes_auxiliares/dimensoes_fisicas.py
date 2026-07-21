@@ -40,11 +40,16 @@ def selecionar_faixa_por_dimensao(altura, largura, comprimento, faixas):
 # Explicação em detalhe: usada por marketplaces sem pipeline de anúncio/API próprio (Magalu,
 # Raia, e o que vier depois) — peso efetivo é sempre o maior entre físico e cúbico, mesma
 # regra usada em todo o sistema. Extraída (18/07) depois que Magalu e Raia precisaram do
-# mesmo código exato — 2 casos reais já justificam.
+# mesmo código exato — 2 casos reais já justificam. Usa os campos "_ordenada_cm" (não mais
+# "_apos_embalado" direto, 21/07) — são as mesmas 3 dimensões, só que já organizadas
+# menor→maior, pra bater com as faixas de frete/armazenagem sem depender de qual eixo o
+# ERP chamou de "altura"/"largura"/"comprimento". Calculados por
+# organizar_e_verificar_divergencias_dimensoes_envio; se ainda não rodou pra esse produto,
+# os campos vêm None e caem no fallback 0 abaixo, igual sempre.
 def resolver_dimensao_produto(produto):
-    altura = produto.altura_produto_apos_embalado or Decimal('0')
-    largura = produto.largura_produto_apos_embalado or Decimal('0')
-    comprimento = produto.comprimento_produto_apos_embalado or Decimal('0')
+    altura = produto.altura_ordenada_cm or Decimal('0')
+    largura = produto.largura_ordenada_cm or Decimal('0')
+    comprimento = produto.comprimento_ordenada_cm or Decimal('0')
     peso_fisico = produto.peso_produto_apos_embalado or Decimal('0')
     peso_cubico = produto.peso_cubado or Decimal('0')
     return altura, largura, comprimento, max(peso_fisico, peso_cubico)

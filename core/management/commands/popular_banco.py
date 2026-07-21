@@ -25,7 +25,11 @@ from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml imp
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_magalu import importar_tabela_frete_magalu
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_tiktok import importar_tabela_frete_tiktok
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_amazon import importar_tabela_frete_amazon
-from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
+# * [EXPLICAÇÃO] → Desativada (21/07) — o sistema não depende mais da planilha
+#                  validada como fonte de custo/fiscal/dimensão. Import mantido
+#                  comentado (não apagado), pode ser útil revisitar no futuro.
+# from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
+from core.management.commands.popular_banco_suporte.organizar_e_verificar_divergencias_dimensoes_envio import organizar_e_verificar_divergencias_dimensoes_envio
 from core.management.commands.popular_banco_suporte.importar_promocoes_ml import importar_promocoes_ml
 from core.management.commands.popular_banco_suporte.calcular_recomendacoes_precificacao import calcular_recomendacoes_precificacao
 from precificacao.funcoes_auxiliares.mercado_livre.calcular_grade_precificacao_ml import calcular_grade_precificacao_ml
@@ -68,20 +72,18 @@ class Command(BaseCommand):
             ('FRETE MAGALU', importar_tabela_frete_magalu, ()),
             ('FRETE TIKTOK', importar_tabela_frete_tiktok, ()),
             ('FRETE AMAZON', importar_tabela_frete_amazon, ()),
-            # * [EXPLICAÇÃO] → Roda por ÚLTIMO de propósito — precisa
-            #                  "vencer" a disputa de campos compartilhados
-            #                  com PRODUTOS ERP COMPLETO (custo, fiscais,
-            #                  dimensões). Essa é a fonte validada
-            #                  especificamente para precificação.
-            ('PRECIFICAÇÃO — PLANILHA VALIDADA', importar_planilha_precificacao, ()),
-            # * [EXPLICAÇÃO] → Roda logo depois da Planilha Validada —
-            #                  precisa de Produto com custo/dimensões/
-            #                  peso_cubado já corretos (a fonte validada
-            #                  acabou de rodar). Não depende de
-            #                  Promoções nem de Qualidade/Competição —
-            #                  poderia rodar em qualquer ponto depois
-            #                  daqui, mas fica agrupada perto do resto
-            #                  de precificação por clareza.
+            # * [EXPLICAÇÃO] → Desativada (21/07) — sistema 100% independente da
+            #                  planilha validada. Etapa mantida comentada (não
+            #                  apagada), pode ser útil revisitar no futuro.
+            # ('PRECIFICAÇÃO — PLANILHA VALIDADA', importar_planilha_precificacao, ()),
+            # * [EXPLICAÇÃO] → Roda logo depois de DIMENSÕES DECLARADAS ML —
+            #                  precisa dos 2 lados (Produto + Variação) já
+            #                  importados pra organizar/comparar. Roda ANTES de
+            #                  qualquer GRADE, porque as 5 fórmulas de marketplace
+            #                  (via resolver_dimensao_produto) e a Grade ML (via
+            #                  resolver_dimensoes_efetivas) agora dependem dos
+            #                  campos "_ordenada_cm" calculados aqui.
+            ('DIMENSÃO DE ENVIO — ORGANIZAR E COMPARAR', organizar_e_verificar_divergencias_dimensoes_envio, ()),
             ('GRADE DE PRECIFICAÇÃO ML', calcular_grade_precificacao_ml, ()),
             ('GRADE MAGALU', calcular_grade_precificacao_magalu, ()),
             ('GRADE RAIA', calcular_grade_precificacao_raia, ()),

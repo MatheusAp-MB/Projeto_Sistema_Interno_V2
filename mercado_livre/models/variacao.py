@@ -1,5 +1,6 @@
 from django.db import models
 from produtos.models import Produto
+from mercado_livre.funcoes_auxiliares.comparador_dimensao_envio import SituacaoDimensaoEnvio
 
 
 class VariacaoAnuncioMercadoLivre(models.Model):
@@ -101,10 +102,48 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     comprimento_declarado_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
     peso_declarado_kg = models.DecimalField(max_digits=8, decimal_places=3, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Mesmos valores de cima (declarados pelo vendedor no ML), só
+    #                  que ORDENADOS (menor → maior) — mesmo conceito já aplicado
+    #                  em Produto.altura_ordenada_cm/etc. "altura/largura/comprimento"
+    #                  aqui é só rótulo de posição no ranking, não eixo físico real.
+    #                  Calculados por obter_dimensoes_envio(), persistidos pelo
+    #                  comando organizar_e_verificar_divergencias_dimensoes_envio.
+    altura_ordenada_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    largura_ordenada_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+    comprimento_ordenada_cm = models.DecimalField(max_digits=8, decimal_places=2, blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Resultado da comparação ERP (fonte da verdade) vs ML
+    #                  (declarado pelo vendedor) pras dimensões de envio deste
+    #                  MLB — calculado sempre a partir dos campos _ordenada_cm
+    #                  dos 2 lados (nunca dos brutos direto, pra não sofrer com
+    #                  troca de rótulo de eixo entre ERP e ML). ERP é sempre a
+    #                  fonte da verdade; este campo só sinaliza onde o ML está
+    #                  desalinhado, nunca corrige nada sozinho. Choices definidos
+    #                  em comparador_dimensao_envio.py — mora junto de quem usa.
+    situacao_dimensao_envio = models.CharField(
+        max_length=25,
+        choices=SituacaoDimensaoEnvio.choices,
+        blank=True,
+        null=True,
+    )
+
     class Meta:
         unique_together = ['anuncio', 'variacao_id']
         verbose_name        = 'Variação de Anúncio Mercado Livre'
         verbose_name_plural = 'Variações de Anúncio Mercado Livre'
+
+    # Função Objetivo: Devolve as dimensões de envio declaradas no ML pra esta variação, já ordenadas.
+    # Explicação em detalhe: usa sempre os campos "_declarada(o)" (SELLER_PACKAGE_*, dado do
+    # vendedor) — nunca calcula nada a partir do peso cúbico aqui, só organiza o que já está
+    # gravado. Não persiste nada, só calcula e devolve.
+    def obter_dimensoes_envio(self):
+        from core.funcoes_auxiliares.dimensoes_envio import montar_dimensoes_envio
+        return montar_dimensoes_envio(
+            altura=self.altura_declarada_cm,
+            largura=self.largura_declarada_cm,
+            comprimento=self.comprimento_declarado_cm,
+            peso=self.peso_declarado_kg,
+        )
 
     def __str__(self):
         return f'{self.anuncio.mlb} — {self.atributos or self.variacao_id}'

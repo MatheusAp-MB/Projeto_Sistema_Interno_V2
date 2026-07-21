@@ -186,26 +186,6 @@ class LinhaProdutoCompleto:
         self.comprimento_embalagem = comprimento * 100 if comprimento is not None else None
         self.peso_embalagem = peso
 
-    # Função Objetivo: Ordena os 2 conjuntos de dimensão sempre menor→maior.
-    # Explicação em detalhe: a equipe nunca padronizou qual eixo é "altura" x
-    # "largura" x "comprimento" entre as fontes — confirmado que fisicamente
-    # não importa, só o conjunto de valores. Convenção: altura ≤ comprimento
-    # ≤ largura.
-    def padronizar_ordem_dimensoes(self):
-        self.altura_sem_embalar, self.comprimento_sem_embalar, self.largura_sem_embalar = sorted(
-            [self.altura_sem_embalar, self.largura_sem_embalar, self.comprimento_sem_embalar]
-        )
-
-        tem_embalagem_completa = (
-            self.altura_embalagem is not None
-            and self.largura_embalagem is not None
-            and self.comprimento_embalagem is not None
-        )
-        if tem_embalagem_completa:
-            self.altura_embalagem, self.comprimento_embalagem, self.largura_embalagem = sorted(
-                [self.altura_embalagem, self.largura_embalagem, self.comprimento_embalagem]
-            )
-
     # Função Objetivo: Detecta dimensão fisicamente absurda e marca o erro.
     # Explicação em detalhe: nunca corrige o valor sozinha — só marca
     # self.erro_dimensao e zera os 3 eixos da embalagem, pro usuário corrigir
@@ -213,9 +193,9 @@ class LinhaProdutoCompleto:
     def validar_dimensoes(self):
         dimensoes_com_erro = []
         for nome, valor in [
-            ('menor dimensão da embalagem', self.altura_embalagem),
-            ('dimensão intermediária da embalagem', self.comprimento_embalagem),
-            ('maior dimensão da embalagem', self.largura_embalagem),
+            ('altura da embalagem', self.altura_embalagem),
+            ('comprimento da embalagem', self.comprimento_embalagem),
+            ('largura da embalagem', self.largura_embalagem),
         ]:
             if valor is not None and valor > LIMITE_DIMENSAO_CM:
                 dimensoes_com_erro.append(f'{nome}={valor}')
@@ -258,7 +238,6 @@ class LinhaProdutoCompleto:
         self.extrair_campos_basicos()
         self.extrair_dimensoes_sem_embalar()
         self.extrair_dimensoes_embalagem()
-        self.padronizar_ordem_dimensoes()
         self.validar_dimensoes()
         self.calcular_peso_cubado()
         return self

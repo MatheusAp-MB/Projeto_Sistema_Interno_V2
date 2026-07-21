@@ -43,6 +43,30 @@ class Produto(models.Model):
     largura_produto_apos_embalado = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
     comprimento_produto_apos_embalado = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Mesmos valores de cima (_apos_embalado), só que ORDENADOS
+    #                  (menor → maior) — "altura/largura/comprimento" aqui é só
+    #                  rótulo de posição no ranking de tamanho, não eixo físico
+    #                  real. Única fonte usada por qualquer cálculo que precise
+    #                  de eixos consistentes (frete, armazenagem, peso cúbico) —
+    #                  os campos "_apos_embalado" acima agora são 100% brutos,
+    #                  nunca mais usados direto em cálculo. Calculados por
+    #                  obter_dimensoes_envio(), persistidos pelo comando
+    #                  organizar_e_verificar_divergencias_dimensoes_envio.
+    altura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    largura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    comprimento_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Mesmos valores de cima (_apos_embalado), só que ORDENADOS
+    #                  (menor → maior) — "altura/largura/comprimento" aqui é só
+    #                  rótulo de posição no ranking de tamanho, não eixo físico
+    #                  real. Existem pra comparar com o lado ML (VariacaoAnuncioML)
+    #                  sem depender de qual rótulo cada API/planilha usou pro
+    #                  mesmo eixo físico. Calculados por obter_dimensoes_envio(),
+    #                  persistidos pelo comando verificar_divergencias_de_dimensoes.
+    altura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    largura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+    comprimento_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
     # * [EXPLICAÇÃO] → Peso cúbico (volumétrico) — agora SEMPRE
     #                  calculado a partir do produto APÓS EMBALADO
     #                  (a caixa real enviada), nunca do produto puro.
@@ -84,6 +108,32 @@ class Produto(models.Model):
     cadastrado_erp_em = models.DateTimeField(blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
+
+    # Função Objetivo: Devolve as dimensões de envio deste produto, já ordenadas.
+    # Explicação em detalhe: usa sempre os campos "_apos_embalado" (embalagem real
+    # enviada, nunca o produto sem embalar) — mesma regra já aplicada em frete e
+    # armazenagem. Não persiste nada, só calcula e devolve.
+    def obter_dimensoes_envio(self):
+        from core.funcoes_auxiliares.dimensoes_envio import montar_dimensoes_envio
+        return montar_dimensoes_envio(
+            altura=self.altura_produto_apos_embalado,
+            largura=self.largura_produto_apos_embalado,
+            comprimento=self.comprimento_produto_apos_embalado,
+            peso=self.peso_produto_apos_embalado,
+        )
+
+    # Função Objetivo: Devolve as dimensões de envio deste produto, já ordenadas.
+    # Explicação em detalhe: usa sempre os campos "_apos_embalado" (embalagem real
+    # enviada, nunca o produto sem embalar) — mesma regra já aplicada em frete e
+    # armazenagem. Não persiste nada, só calcula e devolve.
+    def obter_dimensoes_envio(self):
+        from core.funcoes_auxiliares.dimensoes_envio import montar_dimensoes_envio
+        return montar_dimensoes_envio(
+            altura=self.altura_produto_apos_embalado,
+            largura=self.largura_produto_apos_embalado,
+            comprimento=self.comprimento_produto_apos_embalado,
+            peso=self.peso_produto_apos_embalado,
+        )
 
     class Meta:
         verbose_name = 'Produto'

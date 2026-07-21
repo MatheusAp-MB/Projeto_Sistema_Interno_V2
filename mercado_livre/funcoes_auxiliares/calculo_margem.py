@@ -42,11 +42,13 @@ def calcular_metro_cubico(produto):
     """Custo de Coleta usa a EMBALAGEM (a caixa real coletada/
     despachada) — confirmado com o usuário. Se a embalagem ainda não
     foi cadastrada pra esse produto (campos None), retorna 0 — nunca
-    finge um cálculo sem dado real."""
+    finge um cálculo sem dado real. Usa "_ordenada_cm" (não mais
+    "_apos_embalado" direto, 21/07) — única fonte usada por qualquer
+    cálculo que precise de eixos consistentes."""
     return metro_cubico_de_dimensoes(
-        produto.altura_produto_apos_embalado,
-        produto.largura_produto_apos_embalado,
-        produto.comprimento_produto_apos_embalado,
+        produto.altura_ordenada_cm,
+        produto.largura_ordenada_cm,
+        produto.comprimento_ordenada_cm,
     )
 
 
@@ -58,9 +60,12 @@ def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
 
     Usa EMBALAGEM (confirmado com o usuário — mesma regra de Coleta/
     Frete: é a caixa real que ocupa espaço físico no estoque, não o
-    produto puro). Se a embalagem ainda não tiver dimensão cadastrada,
-    trata como 0 (mesma consistência de Coleta/Frete: nunca finge
-    dado que não existe, nunca cai de volta pro produto sem embalar).
+    produto puro), sempre via "_ordenada_cm" (21/07) — nunca mais
+    "_apos_embalado" direto, pra bater certo nas faixas sem depender
+    de rótulo de eixo original. Se a embalagem ainda não tiver
+    dimensão ordenada calculada, trata como 0 (mesma consistência de
+    Coleta/Frete: nunca finge dado que não existe, nunca cai de volta
+    pro produto sem embalar).
 
     faixas_armazenagem: opcional — lista já carregada em memória (só
     4 linhas no total, tabela pequena) por quem processa MUITOS
@@ -74,9 +79,9 @@ def selecionar_faixa_armazenagem(produto, faixas_armazenagem=None):
         faixas = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
 
     return selecionar_faixa_por_dimensao(
-        produto.altura_produto_apos_embalado,
-        produto.largura_produto_apos_embalado,
-        produto.comprimento_produto_apos_embalado,
+        produto.altura_ordenada_cm,
+        produto.largura_ordenada_cm,
+        produto.comprimento_ordenada_cm,
         faixas,
     )
 
