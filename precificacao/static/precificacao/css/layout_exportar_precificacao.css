@@ -28,6 +28,7 @@
     border-left: 3px solid #1e3a5f;
     padding-left: 8px;
     margin-bottom: 14px;
+    
 }
 
 .promocao-secao-header-flex {
@@ -40,6 +41,7 @@
 .promocao-margens-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(120px, 200px));
+    justify-content: center;
     gap: 12px;
 }
 
@@ -159,25 +161,84 @@
     font-size: 0.72rem;
 }
 
-.exportacao-marketplaces-grid {
+.exportacao-canais-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+    gap: 10px;
 }
 
-.exportacao-marketplace-card, .exportacao-tipo-card {
+.exportacao-canal-card {
+    display: block;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
     padding: 14px 10px;
     text-align: center;
+    cursor: pointer;
+    transition: border-color .12s, box-shadow .12s, background .12s;
 }
 
-.exportacao-tipos-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(140px, 220px));
-    gap: 12px;
+.exportacao-canal-card {
+    border-color: var(--cor-canal);
+}
+
+
+
+.exportacao-canal-card--ativa {
+    border-color: var(--cor-canal);
+    background: color-mix(in srgb, var(--cor-canal) 12%, white);
+    box-shadow: 0 0 0 2px var(--cor-canal);
+}
+
+.exportacao-canal-label {
+    font-size: 0.83rem;
+    font-weight: 700;
+    color: var(--cor-canal);
 }
 
 @media (max-width: 800px) {
     .promocao-margens-grid { grid-template-columns: repeat(2, 1fr); }
     .promocao-marcas-grid { grid-template-columns: 1fr; }
-    .exportacao-marketplaces-grid { grid-template-columns: repeat(2, 1fr); }
+    .exportacao-canais-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.exportacao-canal-card:hover{
+    background-color: color-mix(in srgb, var(--cor-canal) 10%, transparent);
+    
+}
+
+.promocao-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.promocao-modal {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px;
+    width: 360px;
+}
+
+.promocao-modal-titulo {
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 14px;
+}
+
+.promocao-modal-erro {
+    background: #fdecec;
+    border: 1px solid #f0a0a0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    margin-bottom: 10px;
+}
+
+.promocao-modal-btn {
+    width: 100%;
+    margin-top: 6px;
 }

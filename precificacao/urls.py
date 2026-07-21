@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.view_precificacao_hub, name='precificacao_hub'),
     path('exportar-precos/', views.view_exportar_precificacao, name='precificacao_exportar_precos'),
+    path('exportar-precos/baixar/<str:token>/', views.view_baixar_exportacao, name='precificacao_baixar_exportacao'),
     path('grade-mercado-livre/', views.view_grade_precificacao_ml, name='precificacao_grade_mercado_livre'),
     path(
         'grade-mercado-livre/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',

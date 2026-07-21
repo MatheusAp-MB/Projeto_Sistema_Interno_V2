@@ -19,10 +19,15 @@ from precificacao.views.comum import MARGENS, MARGENS_CHAVES, FiltrosGrade, mont
 # Função Objetivo: Representa 1 marketplace/tipo exibido no Resumo — a fonte da verdade única.
 @dataclass(frozen=True)
 class MarketplaceResumoConfig:
-    chave: str            # usado em TUDO: nome de campo anotado, chave de ordenação, chave do dict de grupos
-    label: str             # nome exibido no cabeçalho
-    model: type | None     # None = ainda é placeholder (sem dado real)
-    filtro_extra: dict = field(default_factory=dict)  # filtro extra além de produto+margem (ex: tipo_anuncio)
+    chave: str
+    label: str
+    model: type | None
+    filtro_extra: dict = field(default_factory=dict)
+    # * [EXPLICAÇÃO] → Cor de identidade — mesma usada no CSS do Resumo,
+    #                  agora também 1 fonte de verdade única, reaproveitável
+    #                  por qualquer tela nova que precise da mesma cor
+    #                  (ex: Exportar Precificação).
+    cor: str = '#1e3a5f'
 
     @property
     def eh_real(self):
@@ -39,20 +44,20 @@ def _montar_marketplaces_resumo():
     )
     return [
         MarketplaceResumoConfig('classico', 'Mercado Livre — Clássico', GradePrecificacaoML,
-                                 {'tipo_anuncio': 'classico', 'variacao__isnull': True}),
+                                 {'tipo_anuncio': 'classico', 'variacao__isnull': True}, cor='#1d4ed8'),
         MarketplaceResumoConfig('premium', 'Mercado Livre — Premium', GradePrecificacaoML,
-                                 {'tipo_anuncio': 'premium', 'variacao__isnull': True}),
-        MarketplaceResumoConfig('shopee', 'Shopee', GradePrecificacaoShopee),
-        MarketplaceResumoConfig('amazon_dba', 'Amazon — DBA', GradePrecificacaoAmazon, {'tipo': 'dba'}),
-        MarketplaceResumoConfig('amazon_fba', 'Amazon — FBA', GradePrecificacaoAmazon, {'tipo': 'fba'}),
-        MarketplaceResumoConfig('magalu', 'Magalu', GradePrecificacaoMagalu),
-        MarketplaceResumoConfig('mais_correios', 'Mais Correios', None),
-        MarketplaceResumoConfig('raia', 'Raia', GradePrecificacaoRaia),
+                                 {'tipo_anuncio': 'premium', 'variacao__isnull': True}, cor='#8b4fc7'),
+        MarketplaceResumoConfig('shopee', 'Shopee', GradePrecificacaoShopee, cor='#ee4d2d'),
+        MarketplaceResumoConfig('amazon_dba', 'Amazon — DBA', GradePrecificacaoAmazon, {'tipo': 'dba'}, cor='#232f3e'),
+        MarketplaceResumoConfig('amazon_fba', 'Amazon — FBA', GradePrecificacaoAmazon, {'tipo': 'fba'}, cor='#0e7490'),
+        MarketplaceResumoConfig('magalu', 'Magalu', GradePrecificacaoMagalu, cor='#0086ff'),
+        MarketplaceResumoConfig('mais_correios', 'Mais Correios', None, cor='#ca8a04'),
+        MarketplaceResumoConfig('raia', 'Raia', GradePrecificacaoRaia, cor='#00a651'),
         MarketplaceResumoConfig('tiktok_sem_afiliado', 'TikTok — Sem Afiliado', GradePrecificacaoTiktok,
-                                 {'tipo': 'sem_afiliado'}),
+                                 {'tipo': 'sem_afiliado'}, cor='#27272a'),
         MarketplaceResumoConfig('tiktok_com_afiliado', 'TikTok — Com Afiliado', GradePrecificacaoTiktok,
-                                 {'tipo': 'com_afiliado'}),
-        MarketplaceResumoConfig('tudo_de_agro', 'Tudo de Agro', None),
+                                 {'tipo': 'com_afiliado'}, cor='#71717a'),
+        MarketplaceResumoConfig('tudo_de_agro', 'Tudo de Agro', None, cor='#166534'),
     ]
 
 

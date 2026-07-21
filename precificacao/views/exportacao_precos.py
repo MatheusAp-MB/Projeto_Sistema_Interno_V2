@@ -2,10 +2,8 @@
 
 from dataclasses import dataclass
 from django.shortcuts import render
-from precificacao.funcoes_auxiliares.exportacao.config_marketplaces_exportaveis import (
-    MARKETPLACES_EXPORTAVEIS, MARKETPLACES_EXPORTAVEIS_POR_CHAVE,
-)
-from precificacao.views.comum import MARGENS
+from precificacao.views.comum import MARGENS, MARGENS_CHAVES
+from precificacao.views.resumo_marketplaces import MARKETPLACES_RESUMO
 
 
 # Função Objetivo: Representa 1 linha da exportação — só os 4 campos que o ERP espera.
@@ -20,41 +18,28 @@ class LinhaExportacaoPrecos:
 def view_exportar_precificacao(request):
     from produtos.models import Produto
 
+    canais_exportaveis = [m for m in MARKETPLACES_RESUMO if m.eh_real]
     marcas_disponiveis = Produto.objects.exclude(marca__isnull=True).exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca')
 
     if request.method != 'POST':
         return render(request, 'precificacao/estrutura_exportar_precificacao.html', {
-            'marketplaces': MARKETPLACES_EXPORTAVEIS, 'marcas_disponiveis': marcas_disponiveis,
+            'canais': canais_exportaveis, 'marcas_disponiveis': marcas_disponiveis,
         })
 
     from precificacao.funcoes_auxiliares.exportacao.gerador_excel_exportacao_precos import gerar_excel_exportacao_precos
 
-    from precificacao.views.comum import MARGENS_CHAVES
-
-    marketplace_chave = request.POST.get('marketplace')
-    tipo = request.POST.get('tipo')
+    canal_chave = request.POST.get('canal')
     margem = request.POST.get('margem', 'padrao')
     marcas = request.POST.getlist('marca')
 
     erros = []
-    marketplace = MARKETPLACES_EXPORTAVEIS_POR_CHAVE.get(marketplace_chave)
+    canal = next((c for c in canais_exportaveis if c.chave == canal_chave), None)
 
-    # * [EXPLICAÇÃO] → NUNCA confia no que veio do POST sem checar — o
-    #                  navegador manda qualquer campo marcado, mesmo se
-    #                  o JS deveria ter escondido/limpado. Validação real
-    #                  acontece aqui, não só na tela.
-    if not marketplace:
-        erros.append('Selecione um marketplace válido.')
-    else:
-        chaves_tipo_validas = {t.chave for t in marketplace.tipos}
-        if marketplace.tipos and tipo not in chaves_tipo_validas:
-            erros.append(f'Selecione o tipo de {marketplace.label} (obrigatório para esse marketplace).')
-        elif not marketplace.tipos:
-            # * [EXPLICAÇÃO] → Marketplace sem tipo NUNCA deve carregar um
-            #                  "tipo" pro resto do processamento, mesmo que
-            #                  algo estranho tenha vindo no POST.
-            tipo = None
-
+    # * [EXPLICAÇÃO] → NUNCA confia no que veio do POST sem checar contra
+    #                  as opções reais — mesma disciplina do bug que
+    #                  corrigimos antes ("Shopee_premium").
+    if not canal:
+        erros.append('Selecione um canal de venda válido.')
     if margem not in MARGENS_CHAVES:
         erros.append('Margem inválida.')
 
@@ -66,16 +51,10 @@ def view_exportar_precificacao(request):
         erros.append('Selecione ao menos uma marca.')
 
     if erros:
-        return render(request, 'precificacao/estrutura_exportar_precificacao.html', {
-            'marketplaces': MARKETPLACES_EXPORTAVEIS, 'marcas_disponiveis': marcas_disponiveis,
-            'erros': erros, 'marcas_selecionadas': marcas,
-        })
+        return render(request, 'precificacao/parciais/estrutura_parcial_modal_erro_exportacao.html', {'erros': erros})
 
-    condicoes = {'produto__marca__in': marcas, 'margem': margem, **marketplace.filtro_extra}
-    if marketplace.campo_tipo:
-        condicoes[marketplace.campo_tipo] = tipo
-
-    linhas_grade = marketplace.model.objects.filter(**condicoes, preco__isnull=False).select_related('produto')
+    condicoes = {'produto__marca__in': marcas, 'margem': margem, **canal.filtro_extra}
+    linhas_grade = canal.model.objects.filter(**condicoes, preco__isnull=False).select_related('produto')
 
     linhas_exportacao = [
         LinhaExportacaoPrecos(ean=g.produto.ean, titulo=g.produto.titulo, custo=g.produto.custo, preco=g.preco)
@@ -83,22 +62,40 @@ def view_exportar_precificacao(request):
     ]
 
     if not linhas_exportacao:
-        return render(request, 'precificacao/estrutura_exportar_precificacao.html', {
-            'marketplaces': MARKETPLACES_EXPORTAVEIS, 'marcas_disponiveis': marcas_disponiveis,
-            'erros': ['Nenhum produto encontrado para essa combinação de marketplace/tipo/margem/marcas — confira se a Grade foi calculada.'],
-            'marcas_selecionadas': marcas,
+        return render(request, 'precificacao/parciais/estrutura_parcial_modal_erro_exportacao.html', {
+            'erros': ['Nenhum produto encontrado para essa combinação de canal/margem/marcas — confira se a Grade foi calculada.'],
         })
 
+    import uuid
+    from django.core.cache import cache
     from django.http import HttpResponse
-    from datetime import date
+    from django.urls import reverse
 
     arquivo_bytes = gerar_excel_exportacao_precos(linhas_exportacao)
+    token = str(uuid.uuid4())
+    cache.set(f'exportacao_precos_{token}', {'arquivo': arquivo_bytes, 'canal_chave': canal.chave}, timeout=300)
+
+    resposta = HttpResponse(status=200)
+    resposta['HX-Redirect'] = reverse('precificacao_baixar_exportacao', args=[token])
+    return resposta
+
+
+# Função Objetivo: Serve o arquivo gerado — SEMPRE via GET, pra nunca disparar o
+# aviso de "reenviar formulário" do navegador ao apertar F5.
+def view_baixar_exportacao(request, token):
+    from datetime import date
+    from django.core.cache import cache
+    from django.http import HttpResponse
+
+    dados = cache.get(f'exportacao_precos_{token}')
+    if dados is None:
+        return HttpResponse('Arquivo expirado — gere a exportação de novo.', status=404)
+
     data_hoje = date.today().strftime('%d_%m_%y')
-    nome_tipo = f'_{tipo}' if tipo else ''
-    nome_arquivo = f'Precificacao_{marketplace.label.replace(" ", "_")}{nome_tipo}_{data_hoje}.xlsx'
+    nome_arquivo = f'Precificacao_{dados["canal_chave"]}_{data_hoje}.xlsx'
 
     response = HttpResponse(
-        arquivo_bytes,
+        dados['arquivo'],
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
     response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'

@@ -12,45 +12,22 @@
 
 {% block conteudo %}
 
-{% if erros %}
-<div class="exportacao-erros">
-    {% for erro in erros %}
-    <div class="exportacao-erro-item">{{ erro }}</div>
-    {% endfor %}
-</div>
-{% endif %}
-
-<form method="post" class="exportacao-form">
+<form hx-post="{% url 'precificacao_exportar_precos' %}"
+      hx-target="#modal-erro-slot"
+      hx-swap="innerHTML"
+      class="promocao-form">
     {% csrf_token %}
 
-    <div class="exportacao-secao">
-        <div class="exportacao-secao-header">Marketplace <span class="exportacao-obrigatorio">(escolha 1 só — o ERP não aceita mais de 1 por vez)</span></div>
-        <div class="exportacao-marketplaces-grid">
-            {% for mkt in marketplaces %}
-            <label class="grade-margem-card grade-margem-clicavel exportacao-marketplace-card" data-marketplace="{{ mkt.chave }}">
-                <input type="radio" name="marketplace" value="{{ mkt.chave }}" class="promocao-radio-oculto exportacao-radio-marketplace" data-tem-tipo="{% if mkt.tipos %}1{% else %}0{% endif %}">
-                <div class="grade-margem-label">{{ mkt.label }}</div>
+    <div class="promocao-secao">
+        <div class="promocao-secao-header">Canal de venda <span class="exportacao-obrigatorio">(1 só — o ERP não aceita mais de 1 por vez)</span></div>
+        <div class="exportacao-canais-grid">
+            {% for canal in canais %}
+            <label class="exportacao-canal-card" style="--cor-canal: {{ canal.cor }};">
+                <input type="radio" name="canal" value="{{ canal.chave }}" class="promocao-radio-oculto">
+                <div class="exportacao-canal-label">{{ canal.label }}</div>
             </label>
             {% endfor %}
         </div>
-    </div>
-
-    <div class="promocao-secao-divisor"></div>
-
-    <div class="exportacao-secao" id="secao-tipo" style="display:none;">
-        <div class="exportacao-secao-header">Tipo</div>
-        {% for mkt in marketplaces %}
-        {% if mkt.tipos %}
-        <div class="exportacao-tipos-grid" data-tipos-de="{{ mkt.chave }}" style="display:none;">
-            {% for tipo in mkt.tipos %}
-            <label class="grade-margem-card grade-margem-clicavel exportacao-tipo-card">
-                <input type="radio" name="tipo" value="{{ tipo.chave }}" class="promocao-radio-oculto">
-                <div class="grade-margem-label">{{ tipo.label }}</div>
-            </label>
-            {% endfor %}
-        </div>
-        {% endif %}
-        {% endfor %}
     </div>
 
     <div class="promocao-secao-divisor"></div>
@@ -109,6 +86,8 @@
 
     <button type="submit" class="btn-acao promocao-btn-gerar"><i class="fas fa-file-export"></i> Exportar .xlsx</button>
 </form>
+
+<div id="modal-erro-slot"></div>
 
 {% endblock %}
 
