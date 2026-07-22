@@ -115,25 +115,25 @@ class Produto(models.Model):
     # armazenagem. Não persiste nada, só calcula e devolve.
     def obter_dimensoes_envio(self):
         from core.funcoes_auxiliares.dimensoes_envio import montar_dimensoes_envio
+
+        # * [EXPLICAÇÃO] → Convenção real do ERP (confirmada 21/07): "0" nesses 4
+        #                  campos significa "nunca foi cadastrado", não "o produto
+        #                  mede zero". Tratar como ausente aqui, não em
+        #                  montar_dimensoes_envio (que é neutra e não deveria saber
+        #                  dessa convenção específica do ERP).
+        def _valor_ou_none(valor):
+            if valor is None or valor == 0:
+                return None
+            return valor
+
         return montar_dimensoes_envio(
-            altura=self.altura_produto_apos_embalado,
-            largura=self.largura_produto_apos_embalado,
-            comprimento=self.comprimento_produto_apos_embalado,
-            peso=self.peso_produto_apos_embalado,
+            altura=_valor_ou_none(self.altura_produto_apos_embalado),
+            largura=_valor_ou_none(self.largura_produto_apos_embalado),
+            comprimento=_valor_ou_none(self.comprimento_produto_apos_embalado),
+            peso=_valor_ou_none(self.peso_produto_apos_embalado),
         )
 
-    # Função Objetivo: Devolve as dimensões de envio deste produto, já ordenadas.
-    # Explicação em detalhe: usa sempre os campos "_apos_embalado" (embalagem real
-    # enviada, nunca o produto sem embalar) — mesma regra já aplicada em frete e
-    # armazenagem. Não persiste nada, só calcula e devolve.
-    def obter_dimensoes_envio(self):
-        from core.funcoes_auxiliares.dimensoes_envio import montar_dimensoes_envio
-        return montar_dimensoes_envio(
-            altura=self.altura_produto_apos_embalado,
-            largura=self.largura_produto_apos_embalado,
-            comprimento=self.comprimento_produto_apos_embalado,
-            peso=self.peso_produto_apos_embalado,
-        )
+
 
     class Meta:
         verbose_name = 'Produto'

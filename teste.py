@@ -4,69 +4,76 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
-import sys
-import openpyxl
-from decimal import Decimal
-from precificacao.funcoes_auxiliares.exportacao.config_marketplaces_exportaveis import MARKETPLACES_EXPORTAVEIS_POR_CHAVE
+from mercado_livre.models import VariacaoAnuncioMercadoLivre
+from mercado_livre.funcoes_auxiliares.comparador_dimensao_envio import SituacaoDimensaoEnvio
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-CAMINHO_ARQUIVO = 'Precificacao_Shopee_20_07_26.xlsx'
-MARKETPLACE_CHAVE = 'shopee'   # mercado_livre | magalu | raia | shopee | tiktok | amazon
-TIPO = None                     # 'classico'/'premium', 'sem_afiliado'/'com_afiliado', 'dba'/'fba' — None se não tiver
-MARGEM = 'padrao'               # minima | padrao | maxima | competicao
+QTD_EXEMPLOS_POR_CATEGORIA = 5
+CLASSIFICACOES_ACEITAS = ['simples', 'base']  # nunca 'catalogo' — filtro pedido pela outra conversa
 # ========================================
 
-marketplace = MARKETPLACES_EXPORTAVEIS_POR_CHAVE.get(MARKETPLACE_CHAVE)
-if not marketplace:
-    print(f'Marketplace "{MARKETPLACE_CHAVE}" não encontrado no registro.')
-    sys.exit(1)
 
-wb = openpyxl.load_workbook(CAMINHO_ARQUIVO, data_only=True)
-ws = wb.active
-linhas_arquivo = list(ws.iter_rows(min_row=2, values_only=True))
-print(f'Arquivo tem {len(linhas_arquivo)} linhas de dado.')
+# Função Objetivo: Classifica 1 variação divergente numa das 3 categorias de causa.
+# Explicação em detalhe: mesma lógica de gerar_relatorio_divergencia_dimensao_envio.py —
+# repetida aqui só pra manter este script autocontido (teste.py é sempre descartável).
+def classificar_causa_divergencia(variacao, produto):
+    dims_erp_com = [produto.altura_ordenada_cm, produto.largura_ordenada_cm, produto.comprimento_ordenada_cm]
+    dims_ml = [variacao.altura_ordenada_cm, variacao.largura_ordenada_cm, variacao.comprimento_ordenada_cm]
 
-condicoes = {'margem': MARGEM, **marketplace.filtro_extra}
-if marketplace.campo_tipo:
-    condicoes[marketplace.campo_tipo] = TIPO
+    dims_erp_sem_brutas = [
+        produto.altura_produto_sem_embalar, produto.largura_produto_sem_embalar,
+        produto.comprimento_produto_sem_embalar,
+    ]
+    sem_embalar_tem_dado = any(valor != 0 for valor in dims_erp_sem_brutas) or produto.peso_produto_sem_embalar != 0
+    dims_erp_sem_ordenadas = sorted(dims_erp_sem_brutas)
 
-linhas_banco = marketplace.model.objects.filter(**condicoes, preco__isnull=False).select_related('produto')
-banco_por_ean = {g.produto.ean: g for g in linhas_banco}
-print(f'Banco tem {len(banco_por_ean)} linhas com essa combinação (marketplace/tipo/margem).')
+    bate_com_sem_embalar = (
+        sem_embalar_tem_dado
+        and dims_erp_sem_ordenadas == dims_ml
+        and produto.peso_produto_sem_embalar == variacao.peso_declarado_kg
+    )
+    if bate_com_sem_embalar:
+        return 'ML usa SEM EMBALAR do ERP (confirmado)'
 
-erros = []
-eans_do_arquivo = set()
+    diferencas = [erp - ml for erp, ml in zip(dims_erp_com, dims_ml)]
+    offset_uniforme = len(set(diferencas)) == 1 and diferencas[0] != 0
+    if offset_uniforme:
+        return 'Offset uniforme — outro padrão'
 
-for i, (ean, titulo, custo, preco) in enumerate(linhas_arquivo, start=2):
-    eans_do_arquivo.add(ean)
-    grade = banco_por_ean.get(ean)
+    return 'Sem padrão — divergência real'
 
-    if grade is None:
-        erros.append(f'Linha {i}: EAN {ean} está no arquivo mas NÃO tem Grade no banco pra essa combinação.')
-        continue
 
-    if grade.produto.titulo != titulo:
-        erros.append(f'Linha {i}: EAN {ean} — título diferente. Arquivo="{titulo}" Banco="{grade.produto.titulo}"')
+variacoes_divergentes = list(
+    VariacaoAnuncioMercadoLivre.objects
+    .filter(
+        situacao_dimensao_envio=SituacaoDimensaoEnvio.DIVERGENTE,
+        anuncio__tipo_de_anuncio__classificacao_catalogo__in=CLASSIFICACOES_ACEITAS,
+    )
+    .select_related('produto', 'anuncio', 'anuncio__tipo_de_anuncio')
+)
+print(f'Total divergente (Simples/Base): {len(variacoes_divergentes)}')
+print()
 
-    if Decimal(str(grade.produto.custo)) != Decimal(str(custo)):
-        erros.append(f'Linha {i}: EAN {ean} — custo diferente. Arquivo={custo} Banco={grade.produto.custo}')
+exemplos_por_categoria = {
+    'ML usa SEM EMBALAR do ERP (confirmado)': [],
+    'Offset uniforme — outro padrão': [],
+    'Sem padrão — divergência real': [],
+}
 
-    if Decimal(str(grade.preco)) != Decimal(str(preco)):
-        erros.append(f'Linha {i}: EAN {ean} — preço diferente. Arquivo={preco} Banco={grade.preco}')
+for variacao in variacoes_divergentes:
+    categoria = classificar_causa_divergencia(variacao, variacao.produto)
+    if len(exemplos_por_categoria[categoria]) < QTD_EXEMPLOS_POR_CATEGORIA:
+        exemplos_por_categoria[categoria].append(variacao)
 
-eans_faltando_no_arquivo = set(banco_por_ean.keys()) - eans_do_arquivo
-if eans_faltando_no_arquivo:
-    print(f'\n⚠ {len(eans_faltando_no_arquivo)} produto(s) existem no banco (nessa combinação) mas NÃO aparecem no arquivo.')
-    print('  (Esperado se você filtrou por marca na hora de exportar — só estranhe se não filtrou.)')
-    for ean in list(eans_faltando_no_arquivo)[:10]:
-        print(f'   - {ean}')
-
-print(f'\n{"=" * 60}')
-if erros:
-    print(f'❌ {len(erros)} inconsistência(s) encontrada(s):\n')
-    for erro in erros[:50]:
-        print(f'  {erro}')
-    if len(erros) > 50:
-        print(f'  ... e mais {len(erros) - 50}')
-else:
-    print('✅ Nenhuma inconsistência — arquivo bate 100% com o banco pra essa combinação.')
+for categoria, exemplos in exemplos_por_categoria.items():
+    print(f'=== {categoria} — {len(exemplos)} exemplo(s) ===')
+    for variacao in exemplos:
+        p = variacao.produto
+        tipo = variacao.anuncio.tipo_de_anuncio
+        print(f'  MLB: {variacao.anuncio.mlb} | Classificação: {tipo.get_classificacao_catalogo_display()}')
+        print(f'    ERP c/ Embalagem: altura={p.altura_ordenada_cm} largura={p.largura_ordenada_cm} '
+              f'comprimento={p.comprimento_ordenada_cm} peso={p.peso_produto_apos_embalado}')
+        print(f'    ML Declarado atual: altura={variacao.altura_ordenada_cm} largura={variacao.largura_ordenada_cm} '
+              f'comprimento={variacao.comprimento_ordenada_cm} peso={variacao.peso_declarado_kg}')
+        print()
+    print()

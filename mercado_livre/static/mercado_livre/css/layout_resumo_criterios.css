@@ -448,3 +448,30 @@
     background-color: #dff5ffbd;
     color: #05004f;
 }
+
+#aviso-exportacao-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.aviso-exportacao-caixa {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e3a5f;
+}
+
+.aviso-exportacao-caixa i {
+    font-size: 1.3rem;
+    color: #1e3a5f;
+}

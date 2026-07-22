@@ -33,6 +33,11 @@
 
     <button type="submit" class="btn-acao">Buscar</button>
 
+    <button type="button" id="btn-exportar-resumo-criterios" class="btn-acao"
+            data-url-exportar="{% url 'mercado_livre_exportar_resumo_criterios' %}?{{ querystring_sem_pagina }}">
+        <i class="fas fa-file-export"></i> Exportar
+    </button>
+
     {% if chips_ativos or filtros.criterios_grid %}
     <div class="resumo-chips-filtros">
         <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
@@ -260,4 +265,5 @@
 
 {% block scripts %}
 <script src="{% static 'mercado_livre/js/script_resumo_criterios.js' %}"></script>
+<script src="{% static 'mercado_livre/js/script_exportar_resumo_criterios.js' %}"></script>
 {% endblock %}

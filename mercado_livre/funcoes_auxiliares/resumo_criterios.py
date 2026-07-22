@@ -8,6 +8,34 @@ from mercado_livre.models import (
     VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre, QualidadeAnuncioCriterio,
 )
 
+
+# Função Objetivo: Lê busca/filtros/ordenação do GET — usada pela tela e pela
+# exportação, pra nunca duplicar essa leitura em 2 lugares.
+def ler_filtros_resumo_criterios(request, criterios):
+    busca = request.GET.get('busca', '').strip()
+
+    ordenar = request.GET.get('ordenar', 'sku')
+    if ordenar.lstrip('-') not in CAMPOS_ORDENACAO:
+        ordenar = 'sku'
+
+    criterios_grid_filtro = {}
+    for c in criterios:
+        valores = request.GET.getlist(f'crit_{c.rule_key}')
+        if valores:
+            criterios_grid_filtro[c.rule_key] = valores
+
+    filtros = {
+        'marcas': request.GET.getlist('marca'),
+        'status': request.GET.getlist('status'),
+        'tipos_anuncio': request.GET.getlist('tipo_anuncio'),
+        'tipos_logisticos': request.GET.getlist('logistica'),
+        'catalogos': request.GET.getlist('catalogo'),
+        'flex': request.GET.getlist('flex'),
+        'criterios_grid': criterios_grid_filtro,
+    }
+
+    return busca, filtros, ordenar
+
 # * [EXPLICAÇÃO] → Única fonte de verdade dos campos ordenáveis — usada
 #                  tanto pra montar os links de cabeçalho quanto pra
 #                  validar o parâmetro "ordenar" (nunca confiar em input

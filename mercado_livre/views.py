@@ -197,6 +197,43 @@ def view_competicao_catalogo(request, mlb):
         'voltar_url': voltar_url,
     })
 
+def view_exportar_resumo_criterios(request):
+    from django.db.models import Prefetch
+    from django.http import HttpResponse
+    from mercado_livre.models import CriterioQualidade, QualidadeAnuncioCriterio
+    from mercado_livre.funcoes_auxiliares.qualidade_anuncio import GRUPO_CORES
+    from mercado_livre.funcoes_auxiliares.resumo_criterios import (
+        listar_variacoes_resumo_filtradas, ler_filtros_resumo_criterios,
+    )
+    from mercado_livre.funcoes_auxiliares.exportacao_resumo_criterios import (
+        montar_linhas_exportacao, gerar_excel_resumo_criterios,
+    )
+
+    criterios = list(CriterioQualidade.objects.order_by('grupo', 'rule_key'))
+    for c in criterios:
+        c.cor_resolvida = GRUPO_CORES.get(c.grupo, GRUPO_CORES['DESCONHECIDO'])
+
+    busca, filtros, ordenar = ler_filtros_resumo_criterios(request, criterios)
+
+    variacoes = listar_variacoes_resumo_filtradas(
+        busca=busca or None, filtros=filtros, ordenar=ordenar,
+    ).prefetch_related(
+        Prefetch(
+            'qualidade__criterios',
+            queryset=QualidadeAnuncioCriterio.objects.select_related('criterio'),
+        )
+    )
+
+    linhas = montar_linhas_exportacao(variacoes, criterios)
+    arquivo_bytes = gerar_excel_resumo_criterios(linhas, criterios)
+
+    response = HttpResponse(
+        arquivo_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="Resumo_Criterios.xlsx"'
+    return response
+
 def view_resumo_criterios(request):
     from django.db.models import Prefetch
     from mercado_livre.models import (
@@ -205,7 +242,7 @@ def view_resumo_criterios(request):
     from produtos.models import Produto
     from mercado_livre.funcoes_auxiliares.qualidade_anuncio import GRUPO_CORES
     from mercado_livre.funcoes_auxiliares.resumo_criterios import (
-        listar_variacoes_resumo_filtradas, CAMPOS_ORDENACAO,
+        listar_variacoes_resumo_filtradas, ler_filtros_resumo_criterios, CAMPOS_ORDENACAO,
     )
     from mercado_livre.funcoes_auxiliares.badges import (
         BADGES_STATUS, BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, BADGES_CATALOGO,
@@ -213,36 +250,14 @@ def view_resumo_criterios(request):
         badge_de, badge_flex, opcoes_com_badge,
     )
 
-    busca = request.GET.get('busca', '').strip()
     por_pagina = request.GET.get('por_pagina', '25')
     try:
         por_pagina = int(por_pagina)
     except ValueError:
         por_pagina = 25
 
-    ordenar = request.GET.get('ordenar', 'sku')
-    if ordenar.lstrip('-') not in CAMPOS_ORDENACAO:
-        ordenar = 'sku'
-
     criterios = list(CriterioQualidade.objects.order_by('grupo', 'rule_key'))
-
-    # * [EXPLICAÇÃO] → Filtro em grade: 1 GET param por critério
-    #                  (crit_<rule_key>), cada um multi-select.
-    criterios_grid_filtro = {}
-    for c in criterios:
-        valores = request.GET.getlist(f'crit_{c.rule_key}')
-        if valores:
-            criterios_grid_filtro[c.rule_key] = valores
-
-    filtros = {
-        'marcas': request.GET.getlist('marca'),
-        'status': request.GET.getlist('status'),
-        'tipos_anuncio': request.GET.getlist('tipo_anuncio'),
-        'tipos_logisticos': request.GET.getlist('logistica'),
-        'catalogos': request.GET.getlist('catalogo'),
-        'flex': request.GET.getlist('flex'),
-        'criterios_grid': criterios_grid_filtro,
-    }
+    busca, filtros, ordenar = ler_filtros_resumo_criterios(request, criterios)
 
     # * [EXPLICAÇÃO] → Versão "pronta pro template" dos critérios: já traz
     #                  a cor do grupo e quais checkboxes devem vir marcados
@@ -253,7 +268,7 @@ def view_resumo_criterios(request):
             'rule_key': c.rule_key,
             'pergunta': c.pergunta,
             'cor': GRUPO_CORES.get(c.grupo, GRUPO_CORES['DESCONHECIDO']),
-            'selecionados': criterios_grid_filtro.get(c.rule_key, []),
+            'selecionados': filtros['criterios_grid'].get(c.rule_key, []),
         }
         for c in criterios
     ]
