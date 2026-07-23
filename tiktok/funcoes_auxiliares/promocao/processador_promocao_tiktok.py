@@ -92,20 +92,26 @@ class ProcessadorPromocaoTiktok:
     def _montar_indice_por_seller_sku(self, linhas):
         return {linha.seller_sku: linha for linha in linhas}
 
-    # Função Objetivo: Acha a linha do arquivo pro SKU real do produto, testando os 2 tipos.
-    # Explicação em detalhe: tenta o SKU direto (Com Afiliado) primeiro; se não achar,
-    # tenta "1" + SKU (Sem Afiliado). Confirmado pelo usuário — a associação é sempre
-    # nessa ordem, "1" na frente é sempre Sem Afiliado.
-    def _buscar_linha_e_tipo(self, sku_produto, indice_arquivo):
+    # Função Objetivo: Acha TODAS as linhas do arquivo pro SKU real do produto (até 2:
+    # Com Afiliado e Sem Afiliado), não só a primeira que bater.
+    # Explicação em detalhe: cada Produto no nosso banco pode corresponder a ATÉ 2 listagens
+    # reais na plataforma — o SKU direto (Com Afiliado) e o mesmo SKU com "1" na frente
+    # (Sem Afiliado). As 2 podem existir ao mesmo tempo no arquivo, e as 2 precisam virar
+    # promoção separada. Corrigido (23/07) — antes parava no primeiro achado (só Com
+    # Afiliado OU só Sem Afiliado, nunca os 2), perdendo silenciosamente metade das
+    # promoções sempre que o produto tinha as 2 listagens ativas.
+    def _buscar_linhas_e_tipos(self, sku_produto, indice_arquivo):
+        encontrados = []
+
         linha_com_afiliado = indice_arquivo.get(sku_produto)
         if linha_com_afiliado:
-            return linha_com_afiliado, 'com_afiliado'
+            encontrados.append((linha_com_afiliado, 'com_afiliado'))
 
         linha_sem_afiliado = indice_arquivo.get(f'1{sku_produto}')
         if linha_sem_afiliado:
-            return linha_sem_afiliado, 'sem_afiliado'
+            encontrados.append((linha_sem_afiliado, 'sem_afiliado'))
 
-        return None, None
+        return encontrados
 
     def processar(self):
         from produtos.models import Produto
@@ -125,49 +131,50 @@ class ProcessadorPromocaoTiktok:
         }
 
         for produto in produtos:
-            linha_arquivo, tipo = self._buscar_linha_e_tipo(produto.sku, indice_arquivo)
+            encontrados = self._buscar_linhas_e_tipos(produto.sku, indice_arquivo)
 
-            if linha_arquivo is None:
+            if not encontrados:
                 self.resultados.append(ResultadoProdutoTiktok(
                     categoria='nao_encontrado', sku=produto.sku, titulo=produto.titulo,
                     marca=produto.marca, tipo=None, estoque_sistema=produto.estoque,
                 ))
                 continue
 
-            grade = grades.get((produto.id, tipo))
+            for linha_arquivo, tipo in encontrados:
+                grade = grades.get((produto.id, tipo))
 
-            if grade is None or grade.preco is None:
+                if grade is None or grade.preco is None:
+                    self.resultados.append(ResultadoProdutoTiktok(
+                        categoria='novo', sku=produto.sku, titulo=produto.titulo,
+                        marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
+                        linha_arquivo=linha_arquivo,
+                    ))
+                    continue
+
+                preco_atual = linha_arquivo.preco_atual or Decimal('0')
+                diferenca = abs(preco_atual - grade.preco_de_exibicao)
+                if diferenca > TOLERANCIA_CENTAVOS:
+                    self.resultados.append(ResultadoProdutoTiktok(
+                        categoria='divergente', sku=produto.sku, titulo=produto.titulo,
+                        marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
+                        linha_arquivo=linha_arquivo, grade=grade,
+                    ))
+                    continue
+
+                estoque_bate = (produto.estoque > 0) == (linha_arquivo.estoque_plataforma > 0)
+                if not estoque_bate:
+                    self.resultados.append(ResultadoProdutoTiktok(
+                        categoria='estoque_inconsistente', sku=produto.sku, titulo=produto.titulo,
+                        marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
+                        linha_arquivo=linha_arquivo, grade=grade,
+                    ))
+                    continue
+
                 self.resultados.append(ResultadoProdutoTiktok(
-                    categoria='novo', sku=produto.sku, titulo=produto.titulo,
+                    categoria='pronto', sku=produto.sku, titulo=produto.titulo,
                     marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
-                    linha_arquivo=linha_arquivo,
+                    linha_arquivo=linha_arquivo, grade=grade, preco_final=grade.preco,
                 ))
-                continue
-
-            preco_atual = linha_arquivo.preco_atual or Decimal('0')
-            diferenca = abs(preco_atual - grade.preco_de_exibicao)
-            if diferenca > TOLERANCIA_CENTAVOS:
-                self.resultados.append(ResultadoProdutoTiktok(
-                    categoria='divergente', sku=produto.sku, titulo=produto.titulo,
-                    marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
-                    linha_arquivo=linha_arquivo, grade=grade,
-                ))
-                continue
-
-            estoque_bate = (produto.estoque > 0) == (linha_arquivo.estoque_plataforma > 0)
-            if not estoque_bate:
-                self.resultados.append(ResultadoProdutoTiktok(
-                    categoria='estoque_inconsistente', sku=produto.sku, titulo=produto.titulo,
-                    marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
-                    linha_arquivo=linha_arquivo, grade=grade,
-                ))
-                continue
-
-            self.resultados.append(ResultadoProdutoTiktok(
-                categoria='pronto', sku=produto.sku, titulo=produto.titulo,
-                marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
-                linha_arquivo=linha_arquivo, grade=grade, preco_final=grade.preco,
-            ))
 
         return self
 
@@ -187,22 +194,23 @@ class ProcessadorPromocaoTiktok:
         produtos = Produto.objects.filter(marca__in=self.marcas_selecionadas)
 
         for produto in produtos:
-            linha_arquivo, tipo = self._buscar_linha_e_tipo(produto.sku, indice_arquivo)
+            encontrados = self._buscar_linhas_e_tipos(produto.sku, indice_arquivo)
 
-            if linha_arquivo is None:
+            if not encontrados:
                 self.resultados.append(ResultadoProdutoTiktok(
                     categoria='nao_encontrado', sku=produto.sku, titulo=produto.titulo,
                     marca=produto.marca, tipo=None, estoque_sistema=produto.estoque,
                 ))
                 continue
 
-            preco_final = calcular_preco_com_desconto(linha_arquivo.preco_atual, desconto_percentual)
+            for linha_arquivo, tipo in encontrados:
+                preco_final = calcular_preco_com_desconto(linha_arquivo.preco_atual, desconto_percentual)
 
-            self.resultados.append(ResultadoProdutoTiktok(
-                categoria='pronto', sku=produto.sku, titulo=produto.titulo,
-                marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
-                linha_arquivo=linha_arquivo, preco_final=preco_final,
-            ))
+                self.resultados.append(ResultadoProdutoTiktok(
+                    categoria='pronto', sku=produto.sku, titulo=produto.titulo,
+                    marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
+                    linha_arquivo=linha_arquivo, preco_final=preco_final,
+                ))
 
         return self
 
