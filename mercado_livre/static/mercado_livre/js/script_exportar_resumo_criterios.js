@@ -4,10 +4,11 @@
 // nenhum feedback visual — o navegador só salva o arquivo sem avisar nada.
 
 document.addEventListener('click', function (evento) {
-    var botao = evento.target.closest('#btn-exportar-resumo-criterios');
+    var botao = evento.target.closest('.btn-exportar-com-aviso');
     if (!botao) return;
 
     var url = botao.dataset.urlExportar;
+    var nomeArquivo = botao.dataset.nomeArquivo || 'Exportacao.xlsx';
     mostrarAvisoCarregandoExportacao();
 
     fetch(url)
@@ -19,7 +20,7 @@ document.addEventListener('click', function (evento) {
             var linkTemporario = document.createElement('a');
             var urlBlob = window.URL.createObjectURL(blob);
             linkTemporario.href = urlBlob;
-            linkTemporario.download = 'Resumo_Criterios.xlsx';
+            linkTemporario.download = nomeArquivo;
             document.body.appendChild(linkTemporario);
             linkTemporario.click();
             linkTemporario.remove();

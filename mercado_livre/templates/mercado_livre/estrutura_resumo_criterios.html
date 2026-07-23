@@ -33,9 +33,16 @@
 
     <button type="submit" class="btn-acao">Buscar</button>
 
-    <button type="button" id="btn-exportar-resumo-criterios" class="btn-acao"
-            data-url-exportar="{% url 'mercado_livre_exportar_resumo_criterios' %}?{{ querystring_sem_pagina }}">
+    <button type="button" class="btn-acao btn-exportar-com-aviso"
+            data-url-exportar="{% url 'mercado_livre_exportar_resumo_criterios' %}?{{ querystring_sem_pagina }}"
+            data-nome-arquivo="Resumo_Criterios.xlsx">
         <i class="fas fa-file-export"></i> Exportar
+    </button>
+
+    <button type="button" class="btn-acao btn-exportar-com-aviso"
+            data-url-exportar="{% url 'mercado_livre_exportar_agenda_videos' %}?{{ querystring_sem_pagina }}"
+            data-nome-arquivo="Agenda_Videos.xlsx">
+        <i class="fas fa-calendar-alt"></i> Exportar Planilha Agenda
     </button>
 
     {% if chips_ativos or filtros.criterios_grid %}

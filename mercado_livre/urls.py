@@ -7,6 +7,7 @@ urlpatterns = [
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),
     path('resumo-criterios/', views.view_resumo_criterios, name='mercado_livre_resumo_criterios'),
     path('resumo-criterios/exportar/', views.view_exportar_resumo_criterios, name='mercado_livre_exportar_resumo_criterios'),
+    path('resumo-criterios/exportar-agenda-videos/', views.view_exportar_agenda_videos, name='mercado_livre_exportar_agenda_videos'),
 
     path('precificar/tabela-de-frete/', views.view_tabela_frete_ml, name='mercado_livre_tabela_frete'),
     path('precificar/tabela-de-frete/calcular/', views.view_calcular_frete_ml, name='mercado_livre_calcular_frete'),

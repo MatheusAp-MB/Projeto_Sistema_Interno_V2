@@ -28,9 +28,9 @@ def gerar_excel_promocao(resultados):
     prontos_ordenados = sorted(prontos, key=lambda r: r.estoque_sistema)
 
     for r in prontos_ordenados:
-        la, g = r.linha_arquivo, r.grade
+        la = r.linha_arquivo
         ws.append([
-            la.product_id, la.sku_id, float(g.preco), '', '',
+            la.product_id, la.sku_id, float(r.preco_final), '', '',
             r.sku, r.titulo, LABEL_TIPO.get(r.tipo, ''), r.estoque_sistema,
         ])
 

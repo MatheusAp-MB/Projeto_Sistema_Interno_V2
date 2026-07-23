@@ -84,16 +84,33 @@ def view_processar_promocao(request):
     from tiktok.funcoes_auxiliares.promocao.processador_promocao_tiktok import ProcessadorPromocaoTiktok
     from tiktok.funcoes_auxiliares.promocao.gerador_excel_promocao_tiktok import gerar_excel_promocao, gerar_excel_detalhes
 
+    from decimal import Decimal, InvalidOperation
+
     marcas = request.POST.getlist('marca')
     margem_sem_afiliado = request.POST.get('margem_sem_afiliado', 'padrao')
     margem_com_afiliado = request.POST.get('margem_com_afiliado', 'padrao')
     arquivo = request.FILES.get('arquivo_tiktok')
+
+    # * [EXPLICAÇÃO] → 'grade' = comportamento padrão (Grade do sistema, intocado).
+    #                  'arquivo' = usa o preço já correto na plataforma como referência
+    #                  + desconto manual — sem Grade, sem checagem de estoque, sem trava.
+    fonte_preco = request.POST.get('fonte_preco', 'grade')
+    desconto_percentual = None
 
     erros = []
     if not marcas:
         erros.append('Selecione ao menos uma marca.')
     if not arquivo:
         erros.append('Envie o arquivo baixado do TikTok Shop.')
+
+    if fonte_preco == 'arquivo':
+        valor_desconto_bruto = request.POST.get('desconto_percentual', '').strip().replace(',', '.')
+        try:
+            desconto_percentual = Decimal(valor_desconto_bruto)
+            if not (Decimal('0') < desconto_percentual < Decimal('100')):
+                erros.append('O desconto (%) precisa ser maior que 0 e menor que 100.')
+        except InvalidOperation:
+            erros.append('Informe um desconto (%) válido pra usar o preço do arquivo como referência.')
 
     cabecalho, linhas_arquivo = [], []
     if not erros:
@@ -114,7 +131,12 @@ def view_processar_promocao(request):
     if erros:
         return render(request, 'tiktok/parciais/estrutura_parcial_modal_erro_promocao.html', {'erros': erros})
 
-    processador = ProcessadorPromocaoTiktok(marcas, margem_sem_afiliado, margem_com_afiliado, cabecalho, linhas_arquivo).processar()
+    processador = ProcessadorPromocaoTiktok(marcas, margem_sem_afiliado, margem_com_afiliado, cabecalho, linhas_arquivo)
+
+    if fonte_preco == 'arquivo':
+        processador.processar_modo_arquivo(desconto_percentual)
+    else:
+        processador.processar()
 
     token = str(uuid.uuid4())
     resumo = processador.resumo_geral()

@@ -33,6 +33,21 @@ class ResultadoProdutoTiktok:
     estoque_sistema: int
     linha_arquivo: object = None
     grade: object = None
+    # * [EXPLICAÇÃO] → "Por" final, sempre preenchido em categoria='pronto' — venha de
+    #                  onde vier (grade.preco no modo Grade, ou calculado a partir do
+    #                  arquivo + desconto no modo Arquivo). O gerador de Excel lê SÓ este
+    #                  campo, nunca grade.preco direto — assim não precisa saber qual modo
+    #                  gerou o resultado.
+    preco_final: Decimal = None
+
+
+# Função Objetivo: Calcula o "Por" a partir do preço já correto na plataforma + desconto manual.
+# Explicação em detalhe: usada só no modo Arquivo — o preço de referência ("De") já é o que
+# está na plataforma (o usuário confirmou 100% de confiança nele, precificado por fora do
+# sistema), então não existe cálculo de margem/Grade aqui, só desconto direto.
+def calcular_preco_com_desconto(preco_referencia, desconto_percentual):
+    fator = Decimal('1') - (desconto_percentual / Decimal('100'))
+    return (preco_referencia * fator).quantize(Decimal('0.01'))
 
 
 class ProcessadorPromocaoTiktok:
@@ -151,7 +166,42 @@ class ProcessadorPromocaoTiktok:
             self.resultados.append(ResultadoProdutoTiktok(
                 categoria='pronto', sku=produto.sku, titulo=produto.titulo,
                 marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
-                linha_arquivo=linha_arquivo, grade=grade,
+                linha_arquivo=linha_arquivo, grade=grade, preco_final=grade.preco,
+            ))
+
+        return self
+
+    # Função Objetivo: Modo alternativo — usa o preço já correto na plataforma (arquivo)
+    # como referência, em vez da Grade do sistema.
+    # Explicação em detalhe: usuário confirmou 100% de confiança no preço do arquivo (foi
+    # precificado por fora do sistema) — por isso este modo NÃO verifica Grade, NÃO verifica
+    # estoque, e NÃO bloqueia por divergência nenhuma. Só existe 1 caso que impede gerar
+    # linha: o produto do catálogo simplesmente não aparece no arquivo (não tem o que gerar,
+    # não é uma trava que dá pra tirar). Método separado, não mexe em processar() — o modo
+    # Grade continua 100% intocado.
+    def processar_modo_arquivo(self, desconto_percentual):
+        linhas_arquivo = self._ler_arquivo_tiktok()
+        indice_arquivo = self._montar_indice_por_seller_sku(linhas_arquivo)
+
+        from produtos.models import Produto
+        produtos = Produto.objects.filter(marca__in=self.marcas_selecionadas)
+
+        for produto in produtos:
+            linha_arquivo, tipo = self._buscar_linha_e_tipo(produto.sku, indice_arquivo)
+
+            if linha_arquivo is None:
+                self.resultados.append(ResultadoProdutoTiktok(
+                    categoria='nao_encontrado', sku=produto.sku, titulo=produto.titulo,
+                    marca=produto.marca, tipo=None, estoque_sistema=produto.estoque,
+                ))
+                continue
+
+            preco_final = calcular_preco_com_desconto(linha_arquivo.preco_atual, desconto_percentual)
+
+            self.resultados.append(ResultadoProdutoTiktok(
+                categoria='pronto', sku=produto.sku, titulo=produto.titulo,
+                marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
+                linha_arquivo=linha_arquivo, preco_final=preco_final,
             ))
 
         return self

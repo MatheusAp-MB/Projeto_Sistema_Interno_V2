@@ -835,3 +835,37 @@ def view_hub_promocoes(request):
         'chips_ativos': chips_ativos,
         'querystring_atual': querystring_atual,
     })
+
+
+def view_exportar_agenda_videos(request):
+    from django.db.models import Prefetch
+    from django.http import HttpResponse
+    from mercado_livre.models import CriterioQualidade, QualidadeAnuncioCriterio
+    from mercado_livre.funcoes_auxiliares.resumo_criterios import (
+        listar_variacoes_resumo_filtradas, ler_filtros_resumo_criterios,
+    )
+    from mercado_livre.funcoes_auxiliares.exportacao_agenda_videos import (
+        montar_linhas_agenda_videos, gerar_excel_agenda_videos,
+    )
+
+    criterios = list(CriterioQualidade.objects.order_by('grupo', 'rule_key'))
+    busca, filtros, ordenar = ler_filtros_resumo_criterios(request, criterios)
+
+    variacoes = listar_variacoes_resumo_filtradas(
+        busca=busca or None, filtros=filtros, ordenar=ordenar,
+    ).select_related('produto', 'anuncio').prefetch_related(
+        Prefetch(
+            'qualidade__criterios',
+            queryset=QualidadeAnuncioCriterio.objects.select_related('criterio'),
+        )
+    )
+
+    linhas = montar_linhas_agenda_videos(variacoes)
+    arquivo_bytes = gerar_excel_agenda_videos(linhas)
+
+    response = HttpResponse(
+        arquivo_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="Agenda_Videos.xlsx"'
+    return response
