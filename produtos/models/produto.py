@@ -2,12 +2,107 @@
 #              Independente de marketplace: o mesmo produto físico pode
 #              ser vendido em qualquer um dos marketplaces trabalhados.
 
+from dataclasses import dataclass
+from decimal import Decimal
+from datetime import datetime
+
 from django.db import models
+
+
+# Função Objetivo: Agrupa os dados de identificação/catálogo do Produto.
+@dataclass
+class DadosIdentificacaoProduto:
+    ean: str
+    sku: str
+    cod_fabricante: str
+    ncm: str
+    titulo: str
+    marca: str
+    categoria: str
+    curva: str
+    imagem_url: str
+    estoque: int
+
+
+# Função Objetivo: Agrupa os dados financeiros do Produto.
+@dataclass
+class DadosFinanceirosProduto:
+    custo: Decimal
+    custo_com_boni: Decimal
+
+
+# Função Objetivo: Agrupa os dados fiscais do Produto.
+@dataclass
+class DadosFiscaisProduto:
+    mva: Decimal
+    st_valor: Decimal
+    icms_entrada: Decimal
+    icms_saida_sp: Decimal
+    icms_saida_media: Decimal
+    ipi: Decimal
+    # * [EXPLICAÇÃO] → Campo legado, ainda o único realmente consumido pelas
+    #                  6 fórmulas de precificação hoje (taxa combinada).
+    pis_cofins: Decimal
+    # * [EXPLICAÇÃO] → Campos novos (23/07), ainda sem uso em fórmula nenhuma
+    #                  — só prontos pra receber dado separado do ERP.
+    pis_percentual: Decimal
+    cofins_percentual: Decimal
+    frete_cif_fob: Decimal
+
+
+# Função Objetivo: Agrupa a dimensão do produto PURO, sem embalagem.
+@dataclass
+class DimensaoSemEmbalar:
+    peso: Decimal
+    altura: Decimal
+    largura: Decimal
+    comprimento: Decimal
+
+
+# Função Objetivo: Agrupa a dimensão da embalagem REAL enviada (a que frete/armazenagem usam).
+@dataclass
+class DimensaoAposEmbalado:
+    peso: Decimal
+    altura: Decimal
+    largura: Decimal
+    comprimento: Decimal
+    peso_cubado: Decimal
+    # * [EXPLICAÇÃO] → Mesmos altura/largura/comprimento de cima, só que
+    #                  ORDENADOS (menor→maior) — usados por qualquer cálculo
+    #                  que precise de eixo consistente (frete/armazenagem).
+    altura_ordenada: Decimal
+    largura_ordenada: Decimal
+    comprimento_ordenada: Decimal
+
+
+# Função Objetivo: Agrupa os dados de controle/auditoria do Produto.
+@dataclass
+class DadosControleProduto:
+    ultima_compra: datetime
+    cadastrado_erp_em: datetime
+    criado_em: datetime
+    atualizado_em: datetime
+    armazenagem_planilha: Decimal
+
+
+# Função Objetivo: Representa 1 código do Produto numa plataforma específica.
+@dataclass
+class CodigoAssociado:
+    marketplace: str
+    rotulo: str
+    codigo: str
+
+
+# Função Objetivo: Representa a situação de anúncio manualmente marcada por marketplace.
+@dataclass
+class MarketplaceAnunciado:
+    marketplace: str
+    anunciado: bool
 
 
 class Produto(models.Model):
     ean = models.CharField(max_length=20, unique=True)
-    sku = models.CharField(max_length=30, blank=True, null=True, unique=True)   
+    sku = models.CharField(max_length=30, blank=True, null=True, unique=True)
     cod_fabricante = models.CharField(max_length=50, blank=True, null=True)
     ncm = models.CharField(max_length=20, blank=True, null=True)
 
@@ -56,17 +151,6 @@ class Produto(models.Model):
     largura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
     comprimento_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
 
-    # * [EXPLICAÇÃO] → Mesmos valores de cima (_apos_embalado), só que ORDENADOS
-    #                  (menor → maior) — "altura/largura/comprimento" aqui é só
-    #                  rótulo de posição no ranking de tamanho, não eixo físico
-    #                  real. Existem pra comparar com o lado ML (VariacaoAnuncioML)
-    #                  sem depender de qual rótulo cada API/planilha usou pro
-    #                  mesmo eixo físico. Calculados por obter_dimensoes_envio(),
-    #                  persistidos pelo comando verificar_divergencias_de_dimensoes.
-    altura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
-    largura_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
-    comprimento_ordenada_cm = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
-
     # * [EXPLICAÇÃO] → Peso cúbico (volumétrico) — agora SEMPRE
     #                  calculado a partir do produto APÓS EMBALADO
     #                  (a caixa real enviada), nunca do produto puro.
@@ -86,7 +170,23 @@ class Produto(models.Model):
     icms_saida_media = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
     ipi = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    # * [EXPLICAÇÃO] → Campo original, usado hoje pelas 6 fórmulas de
+    #                  precificação (1 taxa combinada). Mantido intocado
+    #                  de propósito — a Frente fiscal (separar PIS/COFINS
+    #                  na fórmula de verdade) está pausada, aguardando
+    #                  definição do regime/ordem de cálculo com o ERP.
     pis_cofins = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
+    # * [EXPLICAÇÃO] → Campos novos (23/07) — o ERP vai passar a entregar PIS e
+    #                  COFINS separados. Existem só pra já ter onde receber esse
+    #                  dado assim que chegar; NENHUMA fórmula usa esses 2 campos
+    #                  ainda — isso só muda quando a Frente fiscal for retomada
+    #                  de propósito. "pis_cofins" acima continua sendo o único
+    #                  campo realmente consumido pelas 6 fórmulas por enquanto.
+    pis_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    cofins_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+
     frete_cif_fob = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
 
@@ -112,7 +212,9 @@ class Produto(models.Model):
     # Função Objetivo: Devolve as dimensões de envio deste produto, já ordenadas.
     # Explicação em detalhe: usa sempre os campos "_apos_embalado" (embalagem real
     # enviada, nunca o produto sem embalar) — mesma regra já aplicada em frete e
-    # armazenagem. Não persiste nada, só calcula e devolve.
+    # armazenagem. Não persiste nada, só calcula e devolve. Método de propósito
+    # único (infraestrutura do comparador ERP x ML) — não faz parte dos 8
+    # agrupamentos de consulta geral do Produto.
     def obter_dimensoes_envio(self):
         from core.funcoes_auxiliares.dimensoes_envio import montar_dimensoes_envio
 
@@ -133,7 +235,70 @@ class Produto(models.Model):
             peso=_valor_ou_none(self.peso_produto_apos_embalado),
         )
 
+    # Função Objetivo: Devolve os dados de identificação/catálogo deste produto.
+    def obter_dados_identificacao(self):
+        return DadosIdentificacaoProduto(
+            ean=self.ean, sku=self.sku, cod_fabricante=self.cod_fabricante, ncm=self.ncm,
+            titulo=self.titulo, marca=self.marca, categoria=self.categoria, curva=self.curva,
+            imagem_url=self.imagem_url, estoque=self.estoque,
+        )
 
+    # Função Objetivo: Devolve os dados financeiros deste produto.
+    def obter_dados_financeiros(self):
+        return DadosFinanceirosProduto(
+            custo=self.custo, custo_com_boni=self.custo_com_boni,
+        )
+
+    # Função Objetivo: Devolve os dados fiscais deste produto.
+    def obter_dados_fiscais(self):
+        return DadosFiscaisProduto(
+            mva=self.mva, st_valor=self.st_valor, icms_entrada=self.icms_entrada,
+            icms_saida_sp=self.icms_saida_sp, icms_saida_media=self.icms_saida_media,
+            ipi=self.ipi, pis_cofins=self.pis_cofins,
+            pis_percentual=self.pis_percentual, cofins_percentual=self.cofins_percentual,
+            frete_cif_fob=self.frete_cif_fob,
+        )
+
+    # Função Objetivo: Devolve a dimensão do produto puro, sem embalagem.
+    def obter_dimensoes_sem_embalar(self):
+        return DimensaoSemEmbalar(
+            peso=self.peso_produto_sem_embalar, altura=self.altura_produto_sem_embalar,
+            largura=self.largura_produto_sem_embalar,
+            comprimento=self.comprimento_produto_sem_embalar,
+        )
+
+    # Função Objetivo: Devolve a dimensão da embalagem real enviada.
+    def obter_dimensoes_apos_embalado(self):
+        return DimensaoAposEmbalado(
+            peso=self.peso_produto_apos_embalado, altura=self.altura_produto_apos_embalado,
+            largura=self.largura_produto_apos_embalado,
+            comprimento=self.comprimento_produto_apos_embalado,
+            peso_cubado=self.peso_cubado,
+            altura_ordenada=self.altura_ordenada_cm, largura_ordenada=self.largura_ordenada_cm,
+            comprimento_ordenada=self.comprimento_ordenada_cm,
+        )
+
+    # Função Objetivo: Devolve os dados de controle/auditoria deste produto.
+    def obter_dados_controle(self):
+        return DadosControleProduto(
+            ultima_compra=self.ultima_compra, cadastrado_erp_em=self.cadastrado_erp_em,
+            criado_em=self.criado_em, atualizado_em=self.atualizado_em,
+            armazenagem_planilha=self.armazenagem_planilha,
+        )
+
+    # Função Objetivo: Devolve todos os códigos associados deste produto, por marketplace.
+    def obter_codigos_associados(self):
+        return [
+            CodigoAssociado(marketplace=c.marketplace, rotulo=c.rotulo, codigo=c.codigo)
+            for c in self.codigos_associados.all()
+        ]
+
+    # Função Objetivo: Devolve a situação de anúncio (marcada manualmente) por marketplace.
+    def obter_marketplaces_anunciados(self):
+        return [
+            MarketplaceAnunciado(marketplace=a.marketplace, anunciado=a.anunciado)
+            for a in self.anuncios_marketplace.all()
+        ]
 
     class Meta:
         verbose_name = 'Produto'

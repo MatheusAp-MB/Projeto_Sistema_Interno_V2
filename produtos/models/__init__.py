@@ -1,0 +1,3 @@
+from .produto import Produto
+from .codigo_associado_produto import CodigoAssociadoProduto
+from .produto_anuncio_marketplace import ProdutoAnuncioMarketplace
