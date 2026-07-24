@@ -1,0 +1,610 @@
+Control Identifiers:
+
+Dialog - 'Criar vídeo - Google Chrome'    (L-8, T-8, R1448, B868)
+['Criar vídeo - Google Chrome', 'Criar vídeo - Google ChromeDialog', 'Dialog']
+child_window(title="Criar vídeo - Google Chrome", control_type="Window")
+   | 
+   | Pane - ''    (L0, T0, R1440, B860)
+   | ['\uea47Pane', 'Pane', 'Pane0', 'Pane1', '\uea47Pane0', '\uea47Pane1']
+   | 
+   | Pane - 'Criar vídeo - Google Chrome: ML | MAGAZINE'    (L0, T0, R1440, B860)
+   | ['Pane2', 'Criar vídeo - Google Chrome: ML | MAGAZINEPane', 'Criar vídeo - Google Chrome: ML | MAGAZINE']
+   | child_window(title="Criar vídeo - Google Chrome: ML | MAGAZINE", control_type="Pane")
+   |    | 
+   |    | Pane - ''    (L0, T0, R1440, B860)
+   |    | ['\uea47Pane2', 'Pane3']
+   |    |    | 
+   |    |    | Pane - ''    (L0, T0, R1440, B860)
+   |    |    | ['\uea47Pane3', 'Pane4']
+   |    |    |    | 
+   |    |    |    | Pane - ''    (L1303, T0, R1440, B40)
+   |    |    |    | ['Pane5']
+   |    |    |    |    | 
+   |    |    |    |    | Button - 'Minimizar'    (L1303, T0, R1348, B40)
+   |    |    |    |    | ['MinimizarButton', 'Minimizar', 'Button', 'Button0', 'Button1']
+   |    |    |    |    | child_window(title="Minimizar", auto_id="view_1", control_type="Button")
+   |    |    |    |    | 
+   |    |    |    |    | Button - 'Restaurar'    (L1348, T0, R1394, B40)
+   |    |    |    |    | ['RestaurarButton', 'Restaurar', 'Button2']
+   |    |    |    |    | child_window(title="Restaurar", auto_id="view_3", control_type="Button")
+   |    |    |    |    | 
+   |    |    |    |    | Button - 'Fechar'    (L1394, T0, R1440, B40)
+   |    |    |    |    | ['FecharButton', 'Fechar', 'Button3', 'FecharButton0', 'FecharButton1', 'Fechar0', 'Fechar1']
+   |    |    |    |    | child_window(title="Fechar", auto_id="view_4", control_type="Button")
+   |    |    |    | 
+   |    |    |    | Pane - ''    (L0, T0, R1440, B860)
+   |    |    |    | ['\uea47Pane4', 'Pane6']
+   |    |    |    |    | 
+   |    |    |    |    | Pane - ''    (L0, T40, R1440, B86)
+   |    |    |    |    | ['Pane7', 'Digite o que você quer encontrarPane', 'Digite o que você quer encontrarPane0', 'Digite o que você quer encontrarPane1']
+   |    |    |    |    |    | 
+   |    |    |    |    |    | Toolbar - ''    (L0, T40, R1440, B86)
+   |    |    |    |    |    | ['ToolbarAvançar', 'ToolbarRecarregar', 'Digite o que você quer encontrarToolbar', 'ToolbarChrome', 'Toolbar', 'ToolbarML | MAGAZINE']
+   |    |    |    |    |    | child_window(auto_id="view_1000", control_type="ToolBar")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Button - 'Voltar'    (L0, T46, R40, B80)
+   |    |    |    |    |    |    | ['VoltarButton', 'Button4', 'Voltar']
+   |    |    |    |    |    |    | child_window(title="Voltar", auto_id="view_1001", control_type="Button")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Button - 'Avançar'    (L42, T46, R76, B80)
+   |    |    |    |    |    |    | ['Avançar', 'Button5', 'AvançarButton']
+   |    |    |    |    |    |    | child_window(title="Avançar", auto_id="view_1002", control_type="Button")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Button - 'Recarregar'    (L78, T46, R112, B80)
+   |    |    |    |    |    |    | ['Recarregar', 'Button6', 'RecarregarButton']
+   |    |    |    |    |    |    | child_window(title="Recarregar", auto_id="view_1003", control_type="Button")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | GroupBox - ''    (L121, T46, R1265, B80)
+   |    |    |    |    |    |    | ['GroupBox', 'Digite o que você quer encontrarGroupBox', 'GroupBox0', 'GroupBox1', 'Digite o que você quer encontrarGroupBox0', 'Digite o que você quer encontrarGroupBox1']
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Button - 'Ver informações do site'    (L126, T51, R150, B75)
+   |    |    |    |    |    |    |    | ['Ver informações do site', 'Button7', 'Ver informações do siteButton']
+   |    |    |    |    |    |    |    | child_window(title="Ver informações do site", auto_id="view_1011", control_type="Button")
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Edit - 'https://www.mercadolivre.com.br/video/creator/upload?item_syi=MLB1633265106&item_id=MLB1633265106&origin=syi'    (L158, T51, R1055, B75)
+   |    |    |    |    |    |    |    | ['Digite o que você quer encontrarEdit', 'Edit']
+   |    |    |    |    |    |    |    | child_window(title="https://www.mercadolivre.com.br/video/creator/upload?item_syi=MLB1633265106&item_id=MLB1633265106&origin=syi", auto_id="view_1012", control_type="Edit")
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Pane - ''    (L1063, T51, R1253, B75)
+   |    |    |    |    |    |    |    | ['Pane8', 'Digite o que você quer encontrarPane2']
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | Button - 'Pergunte ao Google'    (L1063, T51, R1221, B75)
+   |    |    |    |    |    |    |    |    | ['Pergunte ao Google', 'Pergunte ao GoogleButton', 'Button8']
+   |    |    |    |    |    |    |    |    | child_window(title="Pergunte ao Google", control_type="Button")
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | Button - 'Adicionar esta guia aos favoritos'    (L1229, T51, R1253, B75)
+   |    |    |    |    |    |    |    |    | ['Adicionar esta guia aos favoritosButton', 'Button9', 'Adicionar esta guia aos favoritos']
+   |    |    |    |    |    |    |    |    | child_window(title="Adicionar esta guia aos favoritos", control_type="Button")
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Pane - ''    (L0, T0, R0, B0)
+   |    |    |    |    |    |    |    | ['Pane9']
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Pane - ''    (L1274, T46, R1344, B80)
+   |    |    |    |    |    |    | ['Pane10', 'Digite o que você quer encontrarPane3']
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Button - 'Testador de XPath\nTem acesso a este site'    (L1274, T46, R1308, B80)
+   |    |    |    |    |    |    |    | ['Testador de XPath\nTem acesso a este siteButton', 'Testador de XPath\nTem acesso a este site', 'Button10']
+   |    |    |    |    |    |    |    | child_window(title="Testador de XPath\nTem acesso a este site", auto_id="view_1009", control_type="Button")
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Button - 'Extensões'    (L1310, T46, R1344, B80)
+   |    |    |    |    |    |    |    | ['Extensões', 'Button11', 'ExtensõesButton']
+   |    |    |    |    |    |    |    | child_window(title="Extensões", auto_id="view_1006", control_type="Button")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Pane - ''    (L1353, T55, R1355, B71)
+   |    |    |    |    |    |    | ['Pane11', 'Digite o que você quer encontrarPane4']
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Button - 'ML | MAGAZINE'    (L1364, T46, R1398, B80)
+   |    |    |    |    |    |    | ['ML | MAGAZINE', 'ML | MAGAZINEButton', 'Button12']
+   |    |    |    |    |    |    | child_window(title="ML | MAGAZINE", auto_id="view_1018", control_type="Button")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Button - 'Chrome'    (L1400, T46, R1440, B80)
+   |    |    |    |    |    |    | ['Chrome', 'ChromeButton', 'Button13']
+   |    |    |    |    |    |    | child_window(title="Chrome", auto_id="view_1007", control_type="Button")
+   |    |    |    |    | 
+   |    |    |    |    | Pane - ''    (L0, T86, R1440, B860)
+   |    |    |    |    | ['\uea47Pane5', 'Pane12']
+   |    |    |    |    |    | 
+   |    |    |    |    |    | Pane - ''    (L0, T86, R1440, B860)
+   |    |    |    |    |    | ['\uea47Pane6', 'Pane13']
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Pane - ''    (L0, T87, R1440, B860)
+   |    |    |    |    |    |    | ['\uea47Pane7', 'Pane14']
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | Document - 'Criar vídeo'    (L0, T87, R1440, B860)
+   |    |    |    |    |    |    |    | ['Criar vídeo', 'Document', 'Criar vídeoDocument', 'Criar vídeo0', 'Criar vídeo1']
+   |    |    |    |    |    |    |    | child_window(title="Criar vídeo", auto_id="RootWebArea", control_type="Document")
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T71, R1425, B171)
+   |    |    |    |    |    |    |    |    | ['GroupBox2', '\uea47GroupBox', '\uea47GroupBox0', '\uea47GroupBox1']
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'Pular para o conteúdo'    (L-9888, T98, R-9886, B100)
+   |    |    |    |    |    |    |    |    |    | ['Hyperlink', 'Pular para o conteúdo', 'Pular para o conteúdoHyperlink', 'Hyperlink0', 'Hyperlink1']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Pular para o conteúdo", auto_id="nav-skip-to-main-content", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'Comentar sobre acessibilidade'    (L-9888, T98, R-9886, B100)
+   |    |    |    |    |    |    |    |    |    | ['Hyperlink2', 'Comentar sobre acessibilidadeHyperlink', 'Comentar sobre acessibilidade']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Comentar sobre acessibilidade", auto_id="nav-a11y-feedback-link", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'Mercado Livre Brasil - Onde comprar e vender de Tudo'    (L122, T82, R257, B116)
+   |    |    |    |    |    |    |    |    |    | ['Mercado Livre Brasil - Onde comprar e vender de Tudo', 'Hyperlink3', 'Mercado Livre Brasil - Onde comprar e vender de TudoHyperlink']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Mercado Livre Brasil - Onde comprar e vender de Tudo", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L304, T79, R893, B119)
+   |    |    |    |    |    |    |    |    |    | ['GroupBox3', 'Digite o que você quer encontrarGroupBox2']
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - 'Digite o que você quer encontrar'    (L598, T42, R654, B157)
+   |    |    |    |    |    |    |    |    |    |    | ['Digite o que você quer encontrarStatic', 'Digite o que você quer encontrar', 'Static', 'Static0', 'Static1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Digite o que você quer encontrar", control_type="Text")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ComboBox - '￼'    (L304, T79, R893, B119)
+   |    |    |    |    |    |    |    |    |    |    | ['￼', 'ComboBox', '￼ComboBox']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="￼", auto_id="cb1-edit", control_type="ComboBox")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Button - 'Buscar'    (L846, T79, R893, B119)
+   |    |    |    |    |    |    |    |    |    |    | ['Buscar', 'Button14', 'BuscarButton', 'Buscar0', 'Buscar1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Buscar", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Image - 'Buscar'    (L846, T88, R893, B110)
+   |    |    |    |    |    |    |    |    |    |    |    | ['BuscarImage', 'Buscar2', 'Image', 'Image0', 'Image1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Buscar", control_type="Image")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE'    (L977, T79, R1303, B119)
+   |    |    |    |    |    |    |    |    |    | ['Hyperlink4', 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE', 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTREHyperlink', 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE0', 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE1']
+   |    |    |    |    |    |    |    |    |    | child_window(title="MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Image - 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE'    (L977, T79, R1303, B119)
+   |    |    |    |    |    |    |    |    |    |    | ['Image2', 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE2', 'MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTREImage']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="MELI+ | PLANO MEGA | QUE O ÉPICO TE ENCONTRE", control_type="Image")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Button - ' Enviar para MAGAZINE Avenida dos Expedicionários de Pompeia 157'    (L122, T131, R287, B159)
+   |    |    |    |    |    |    |    |    |    | ['\uea47 Enviar para MAGAZINE Avenida dos Expedicionários de Pompeia 157', 'Button15', '\uea47 Enviar para MAGAZINE Avenida dos Expedicionários de Pompeia 157Button']
+   |    |    |    |    |    |    |    |    |    | child_window(title=" Enviar para MAGAZINE Avenida dos Expedicionários de Pompeia 157", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - ''    (L122, T126, R141, B158)
+   |    |    |    |    |    |    |    |    |    |    | ['\uea47Static', '\uea47', 'Static2']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="", control_type="Text")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - 'Enviar para MAGAZINE'    (L146, T128, R268, B145)
+   |    |    |    |    |    |    |    |    |    |    | ['Enviar para MAGAZINE', 'Enviar para MAGAZINEStatic', 'Static3']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Enviar para MAGAZINE", control_type="Text")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - 'Avenida dos Expedicionários de Pompeia 157'    (L146, T140, R285, B160)
+   |    |    |    |    |    |    |    |    |    |    | ['Avenida dos Expedicionários de Pompeia 157Static', 'Static4', 'Avenida dos Expedicionários de Pompeia 157']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Avenida dos Expedicionários de Pompeia 157", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | ListBox - ''    (L304, T131, R885, B159)
+   |    |    |    |    |    |    |    |    |    | ['ListBox', 'Avenida dos Expedicionários de Pompeia 157ListBox', 'ListBox0', 'ListBox1']
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Categorias'    (L304, T131, R386, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['ListItem', 'CategoriasListItem', 'Categorias', 'Categorias0', 'Categorias1', 'ListItem0', 'ListItem1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Categorias", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Button - 'Categorias'    (L304, T141, R386, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['CategoriasButton', 'Button16', 'Categorias2']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Categorias", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Ofertas'    (L400, T131, R446, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['Ofertas', 'ListItem2', 'OfertasListItem', 'Ofertas0', 'Ofertas1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Ofertas", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Ofertas'    (L400, T141, R446, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Ofertas2', 'OfertasHyperlink', 'Hyperlink5']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Ofertas", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Cupons'    (L460, T131, R508, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['CuponsListItem', 'ListItem3', 'Cupons', 'Cupons0', 'Cupons1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Cupons", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Cupons'    (L460, T141, R508, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Hyperlink6', 'Cupons2', 'CuponsHyperlink']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Cupons", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Supermercado'    (L522, T131, R614, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['ListItem4', 'Supermercado', 'SupermercadoListItem', 'Supermercado0', 'Supermercado1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Supermercado", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Supermercado'    (L522, T141, R614, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['SupermercadoHyperlink', 'Hyperlink7', 'Supermercado2']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Supermercado", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Moda'    (L628, T131, R664, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['ModaListItem', 'ListItem5', 'Moda', 'Moda0', 'Moda1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Moda", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Moda'    (L628, T141, R664, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Hyperlink8', 'ModaHyperlink', 'Moda2']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Moda", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Mercado PlayGRÁTIS'    (L678, T131, R762, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['Mercado PlayGRÁTIS', 'ListItem6', 'Mercado PlayGRÁTISListItem']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Mercado PlayGRÁTIS", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Mercado Play GRÁTIS'    (L678, T141, R762, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Hyperlink9', 'Mercado Play GRÁTIS', 'Mercado Play GRÁTISHyperlink']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Mercado Play GRÁTIS", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Vender'    (L776, T131, R822, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['VenderListItem', 'ListItem7', 'Vender', 'Vender0', 'Vender1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Vender", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Vender'    (L776, T141, R822, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['VenderHyperlink', 'Hyperlink10', 'Vender2']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Vender", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Contato'    (L836, T131, R885, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['Contato', 'ListItem8', 'ContatoListItem', 'Contato0', 'Contato1', 'ContatoListItem0', 'ContatoListItem1']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Contato", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Contato'    (L836, T141, R885, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Contato2', 'ContatoHyperlink', 'Hyperlink11', 'ContatoHyperlink0', 'ContatoHyperlink1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Contato", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | GroupBox - 'Menu do usuário'    (L941, T139, R1281, B159)
+   |    |    |    |    |    |    |    |    |    | ['GroupBox4', 'Menu do usuário', 'Menu do usuárioGroupBox']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Menu do usuário", auto_id="nav-header-menu", control_type="Group")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListBox - ''    (L941, T139, R1281, B159)
+   |    |    |    |    |    |    |    |    |    |    | ['ListBox2', 'Digite o que você quer encontrarListBox']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - ''    (L941, T139, R1051, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['ListItem9', 'Digite o que você quer encontrarListItem']
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L941, T139, R1051, B159)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['GroupBox5', 'Digite o que você quer encontrarGroupBox3']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L941, T139, R1051, B159)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['GroupBox6', 'Digite o que você quer encontrarGroupBox4']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Alessandro, menu'    (L941, T139, R1051, B159)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Alessandro, menu', 'Button17', 'Alessandro, menuButton']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Alessandro, menu", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'ComprasFavoritos'    (L1050, T139, R1281, B159)
+   |    |    |    |    |    |    |    |    |    |    |    | ['ComprasFavoritos\uea25ListItem', 'ComprasFavoritos\uea25', 'ListItem10']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="ComprasFavoritos", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Compras'    (L1072, T141, R1129, B159)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Compras', 'Hyperlink12', 'ComprasHyperlink', 'Compras0', 'Compras1']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Compras", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Favoritos'    (L1150, T141, R1221, B159)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Button18', 'FavoritosButton', 'Favoritos']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Favoritos", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Avisos'    (L1242, T139, R1259, B159)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Avisos', 'AvisosButton', 'Button19']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Avisos", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - ''    (L0, T0, R0, B0)
+   |    |    |    |    |    |    |    |    |    |    |    | ['ListItem11']
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - '1 produtos em seu carrinho'    (L1280, T139, R1303, B159)
+   |    |    |    |    |    |    |    |    |    | ['1 produtos em seu carrinhoHyperlink', '1 produtos em seu carrinho', 'Hyperlink13']
+   |    |    |    |    |    |    |    |    |    | child_window(title="1 produtos em seu carrinho", auto_id="nav-cart", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T171, R1425, B706)
+   |    |    |    |    |    |    |    |    | ['GroupBox7', '\uea47GroupBox2']
+   |    |    |    |    |    |    |    |    | child_window(auto_id="root-app", control_type="Group")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T171, R58, B770)
+   |    |    |    |    |    |    |    |    |    | ['GroupBox8']
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - 'Minha conta'    (L58, T230, R146, B254)
+   |    |    |    |    |    |    |    |    |    |    | ['Static5', 'Minha contaStatic', 'Minha conta']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Minha conta", control_type="Text")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListBox - ''    (L0, T268, R260, B740)
+   |    |    |    |    |    |    |    |    |    |    | ['\uea47ListBox', 'ListBox3']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Compras'    (L0, T281, R260, B332)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Compras2', 'ComprasListItem', 'ListItem12']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Compras", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Compras'    (L0, T281, R260, B332)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Compras3', 'ComprasButton', 'Button20']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Compras", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L19, T294, R43, B319)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image3']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Vendas'    (L0, T332, R260, B383)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Vendas', 'VendasListItem', 'ListItem13', 'Vendas0', 'Vendas1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Vendas", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Vendas'    (L0, T332, R260, B383)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['VendasButton', 'Vendas2', 'Button21']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Vendas", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L19, T345, R43, B370)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image4']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Marketing'    (L0, T383, R260, B434)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Marketing', 'ListItem14', 'MarketingListItem', 'Marketing0', 'Marketing1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Marketing", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Marketing'    (L0, T383, R260, B434)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Marketing2', 'MarketingButton', 'Button22']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Marketing", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L19, T396, R43, B421)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image5']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Venda com afiliados'    (L0, T434, R260, B485)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Venda com afiliadosListItem', 'Venda com afiliados', 'ListItem15', 'Venda com afiliados0', 'Venda com afiliados1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Venda com afiliados", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Venda com afiliados'    (L0, T434, R260, B485)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Venda com afiliados2', 'Venda com afiliadosButton', 'Button23']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Venda com afiliados", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L21, T449, R41, B470)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image6']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Empréstimos'    (L0, T485, R260, B536)
+   |    |    |    |    |    |    |    |    |    |    |    | ['ListItem16', 'EmpréstimosListItem', 'Empréstimos', 'Empréstimos0', 'Empréstimos1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Empréstimos", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T485, R260, B536)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['GroupBox9', '\uea47GroupBox3']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Empréstimos'    (L0, T485, R260, B536)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Hyperlink14', 'EmpréstimosHyperlink', 'Empréstimos2']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Empréstimos", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L19, T499, R43, B522)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image7']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Assinaturas'    (L0, T536, R260, B587)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Assinaturas', 'ListItem17', 'AssinaturasListItem', 'Assinaturas0', 'Assinaturas1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Assinaturas", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T536, R260, B587)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['GroupBox10', '\uea47GroupBox4']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Assinaturas'    (L0, T536, R260, B587)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Assinaturas2', 'Hyperlink15', 'AssinaturasHyperlink']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Assinaturas", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L21, T551, R41, B572)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image8']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Faturamento'    (L0, T587, R260, B638)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Faturamento', 'ListItem18', 'FaturamentoListItem', 'Faturamento0', 'Faturamento1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Faturamento", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Faturamento'    (L0, T587, R260, B638)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['FaturamentoButton', 'Faturamento2', 'Button24']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Faturamento", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L19, T600, R43, B625)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image9']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Meu perfil'    (L0, T638, R260, B689)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Meu perfil', 'ListItem19', 'Meu perfilListItem', 'Meu perfil0', 'Meu perfil1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Meu perfil", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T638, R260, B689)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['GroupBox11', '\uea47GroupBox5']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Meu perfil'    (L0, T638, R260, B689)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Meu perfil2', 'Hyperlink16', 'Meu perfilHyperlink']
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Meu perfil", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L21, T653, R41, B674)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image10']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Configurações'    (L0, T689, R260, B740)
+   |    |    |    |    |    |    |    |    |    |    |    | ['ConfiguraçõesListItem', 'Configurações', 'ListItem20', 'Configurações0', 'Configurações1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Configurações", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Button - 'Configurações'    (L0, T689, R260, B740)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['ConfiguraçõesButton', 'Configurações2', 'Button25']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Configurações", control_type="Button")
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | Image - ''    (L19, T702, R43, B727)
+   |    |    |    |    |    |    |    |    |    |    |    |    |    | ['Image11']
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - 'Criar vídeo'    (L363, T203, R481, B233)
+   |    |    |    |    |    |    |    |    |    | ['Criar vídeoStatic', 'Criar vídeo2', 'Static6']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Criar vídeo", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'Preciso de ajuda'    (L1003, T208, R1108, B228)
+   |    |    |    |    |    |    |    |    |    | ['Preciso de ajudaHyperlink', 'Hyperlink17', 'Preciso de ajuda']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Preciso de ajuda", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Image - 'Para acessar descrições ausentes de imagens, abra o menu de contexto.'    (L380, T282, R445, B347)
+   |    |    |    |    |    |    |    |    |    | ['Para acessar descrições ausentes de imagens, abra o menu de contexto.', 'Image12', 'Para acessar descrições ausentes de imagens, abra o menu de contexto.Image']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Para acessar descrições ausentes de imagens, abra o menu de contexto.", control_type="Image")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | GroupBox - 'Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros '    (L459, T281, R988, B299)
+   |    |    |    |    |    |    |    |    |    | ['GroupBox12', 'Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros GroupBox', 'Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros ']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros ", control_type="Group")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - 'Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros'    (L459, T278, R863, B301)
+   |    |    |    |    |    |    |    |    |    |    | ['Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros', 'Pulverizador Costal Manual Agrícola Xp20 Jacto 20 LitrosStatic', 'Static7']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Pulverizador Costal Manual Agrícola Xp20 Jacto 20 Litros", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | GroupBox - 'Azul'    (L459, T299, R988, B317)
+   |    |    |    |    |    |    |    |    |    | ['Azul', 'GroupBox13', 'AzulGroupBox', 'Azul0', 'Azul1']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Azul", control_type="Group")
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | Static - 'Azul'    (L459, T298, R487, B318)
+   |    |    |    |    |    |    |    |    |    |    | ['Azul2', 'Static8', 'AzulStatic']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Azul", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | CheckBox - 'Mostrar o vídeo em todas as variações'    (L459, T327, R476, B343)
+   |    |    |    |    |    |    |    |    |    | ['Mostrar o vídeo em todas as variaçõesCheckBox', 'Mostrar o vídeo em todas as variações', 'CheckBox', 'Mostrar o vídeo em todas as variações0', 'Mostrar o vídeo em todas as variações1']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Mostrar o vídeo em todas as variações", auto_id="CHECKBOX_SHOW_VIDEO_IN_ALL_VARIANTS", control_type="CheckBox")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - 'Mostrar o vídeo em todas as variações'    (L487, T323, R724, B343)
+   |    |    |    |    |    |    |    |    |    | ['Mostrar o vídeo em todas as variaçõesStatic', 'Mostrar o vídeo em todas as variações2', 'Static9']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Mostrar o vídeo em todas as variações", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Button - 'Alterar'    (L1003, T290, R1104, B339)
+   |    |    |    |    |    |    |    |    |    | ['Alterar', 'AlterarButton', 'Button26']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Alterar", auto_id="_R_ef7pa_", control_type="Button")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - 'Envie um vídeo pelos seus arquivos'    (L387, T412, R1096, B443)
+   |    |    |    |    |    |    |    |    |    | ['Envie um vídeo pelos seus arquivosStatic', 'Envie um vídeo pelos seus arquivos', 'Static10']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Envie um vídeo pelos seus arquivos", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Button - 'Subir archivo'    (L388, T455, R1095, B553)
+   |    |    |    |    |    |    |    |    |    | ['Subir archivoButton', 'Button27', 'Subir archivo']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Subir archivo", control_type="Button")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | ListBox - ''    (L562, T505, R921, B525)
+   |    |    |    |    |    |    |    |    |    | ['ListBox4', 'Mostrar o vídeo em todas as variaçõesListBox']
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListItem - 'Duração máxima: 60 segundos. Tamanho máximo: 280 MB.'    (L562, T505, R921, B525)
+   |    |    |    |    |    |    |    |    |    |    | ['Duração máxima: 60 segundos. Tamanho máximo: 280 MB.', 'Duração máxima: 60 segundos. Tamanho máximo: 280 MB.ListItem', 'ListItem21']
+   |    |    |    |    |    |    |    |    |    |    | child_window(title="Duração máxima: 60 segundos. Tamanho máximo: 280 MB.", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Button - 'Anunciar'    (L387, T577, R534, B626)
+   |    |    |    |    |    |    |    |    |    | ['AnunciarButton', 'Anunciar', 'Button28']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Anunciar", auto_id="_R_fnpa_", control_type="Button")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - 'Ao publicar, você aceita os '    (L387, T632, R530, B650)
+   |    |    |    |    |    |    |    |    |    | ['Ao publicar, você aceita os Static', 'Static11', 'Ao publicar, você aceita os ']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Ao publicar, você aceita os ", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'Termos e condições'    (L529, T632, R634, B650)
+   |    |    |    |    |    |    |    |    |    | ['Termos e condiçõesHyperlink', 'Hyperlink18', 'Termos e condições', 'Termos e condições0', 'Termos e condições1', 'Termos e condiçõesHyperlink0', 'Termos e condiçõesHyperlink1']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Termos e condições", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - '.'    (L633, T632, R637, B650)
+   |    |    |    |    |    |    |    |    |    | ['.', '.Static', 'Static12']
+   |    |    |    |    |    |    |    |    |    | child_window(title=".", control_type="Text")
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | Static - 'Mais informações '    (L629, T738, R796, B771)
+   |    |    |    |    |    |    |    |    | ['Mais informações \uea07', 'Mais informações \uea07Static', 'Static13', 'Mais informações \uea070', 'Mais informações \uea071']
+   |    |    |    |    |    |    |    |    | child_window(title="Mais informações ", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Button - 'Mais informações '    (L629, T738, R796, B771)
+   |    |    |    |    |    |    |    |    |    | ['Mais informações \uea072', 'Button29', 'Mais informações \uea07Button']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Mais informações ", auto_id="nav-footer-access-switch", control_type="Button")
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | GroupBox - ''    (L0, T769, R1425, B860)
+   |    |    |    |    |    |    |    |    | ['GroupBox14', 'Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.GroupBox', 'Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.GroupBox0', 'Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.GroupBox1']
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - 'Copyright © 1999-2026. Mercado Livre Brasil Ltda.'    (L122, T808, R389, B826)
+   |    |    |    |    |    |    |    |    |    | ['Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.', 'Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.Static', 'Static14']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Copyright © 1999-2026. Mercado Livre Brasil Ltda.", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | GroupBox - ''    (L122, T786, R1303, B810)
+   |    |    |    |    |    |    |    |    |    | ['GroupBox15', 'Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.GroupBox2']
+   |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    | ListBox - ''    (L122, T786, R1303, B810)
+   |    |    |    |    |    |    |    |    |    |    | ['Copyright ©\xa01999-2026. Mercado Livre Brasil Ltda.ListBox', 'ListBox5']
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Trabalhe conosco'    (L122, T786, R216, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Trabalhe conosco', 'ListItem22', 'Trabalhe conoscoListItem', 'Trabalhe conosco0', 'Trabalhe conosco1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Trabalhe conosco", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Trabalhe conosco'    (L122, T785, R216, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Hyperlink19', 'Trabalhe conoscoHyperlink', 'Trabalhe conosco2']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Trabalhe conosco", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Termos e condições'    (L231, T786, R338, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Termos e condiçõesListItem', 'ListItem23', 'Termos e condições2']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Termos e condições", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Termos e condições'    (L231, T785, R338, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Termos e condiçõesHyperlink2', 'Hyperlink20', 'Termos e condições3']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Termos e condições", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Promoções'    (L353, T786, R413, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['PromoçõesListItem', 'ListItem24', 'Promoções', 'Promoções0', 'Promoções1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Promoções", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Promoções'    (L353, T785, R413, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Hyperlink21', 'PromoçõesHyperlink', 'Promoções2']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Promoções", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Como cuidamos da sua privacidade'    (L428, T786, R617, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Como cuidamos da sua privacidadeListItem', 'ListItem25', 'Como cuidamos da sua privacidade', 'Como cuidamos da sua privacidade0', 'Como cuidamos da sua privacidade1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Como cuidamos da sua privacidade", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Como cuidamos da sua privacidade'    (L428, T785, R617, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Como cuidamos da sua privacidadeHyperlink', 'Hyperlink22', 'Como cuidamos da sua privacidade2']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Como cuidamos da sua privacidade", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Acessibilidade'    (L632, T786, R733, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Acessibilidade', 'ListItem26', 'AcessibilidadeListItem', 'Acessibilidade0', 'Acessibilidade1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Acessibilidade", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Acessibilidade'    (L632, T785, R733, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Acessibilidade2', 'Hyperlink23', 'AcessibilidadeHyperlink']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Acessibilidade", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Contato'    (L748, T786, R791, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Contato3', 'ListItem27', 'ContatoListItem2']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Contato", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Contato'    (L748, T785, R791, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Contato4', 'ContatoHyperlink2', 'Hyperlink24']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Contato", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Informações sobre seguros'    (L806, T786, R950, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['Informações sobre seguros', 'ListItem28', 'Informações sobre segurosListItem', 'Informações sobre seguros0', 'Informações sobre seguros1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Informações sobre seguros", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Informações sobre seguros'    (L806, T785, R950, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Informações sobre seguros2', 'Hyperlink25', 'Informações sobre segurosHyperlink']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Informações sobre seguros", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    | ListItem - 'Programa de Afiliados'    (L965, T786, R1082, B802)
+   |    |    |    |    |    |    |    |    |    |    |    | ['ListItem29', 'Programa de Afiliados', 'Programa de AfiliadosListItem', 'Programa de Afiliados0', 'Programa de Afiliados1']
+   |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Programa de Afiliados", control_type="ListItem")
+   |    |    |    |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    |    |    |    | Hyperlink - 'Programa de Afiliados'    (L965, T785, R1082, B811)
+   |    |    |    |    |    |    |    |    |    |    |    |    | ['Programa de AfiliadosHyperlink', 'Hyperlink26', 'Programa de Afiliados2']
+   |    |    |    |    |    |    |    |    |    |    |    |    | child_window(title="Programa de Afiliados", control_type="Hyperlink")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Static - 'CNPJ n.º 03.007.331/0001-41 / Av. das Nações Unidas, nº 3.003, Bonfim, Osasco/SP - CEP 06233-903 - empresa do grupo Mercado Livre.'    (L122, T827, R841, B845)
+   |    |    |    |    |    |    |    |    |    | ['CNPJ n.º 03.007.331/0001-41 / Av. das Nações Unidas, nº 3.003, Bonfim, Osasco/SP - CEP 06233-903 - empresa do grupo Mercado Livre.', 'CNPJ n.º 03.007.331/0001-41 / Av. das Nações Unidas, nº 3.003, Bonfim, Osasco/SP - CEP 06233-903 - empresa do grupo Mercado Livre.Static', 'Static15']
+   |    |    |    |    |    |    |    |    |    | child_window(title="CNPJ n.º 03.007.331/0001-41 / Av. das Nações Unidas, nº 3.003, Bonfim, Osasco/SP - CEP 06233-903 - empresa do grupo Mercado Livre.", control_type="Text")
+   |    |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    |    | Hyperlink - 'Mercado Livre'    (L0, T859, R1, B861)
+   |    |    |    |    |    |    |    |    |    | ['Mercado LivreHyperlink', 'Hyperlink27', 'Mercado Livre']
+   |    |    |    |    |    |    |    |    |    | child_window(title="Mercado Livre", control_type="Hyperlink")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Pane - ''    (L0, T86, R1440, B87)
+   |    |    |    |    |    |    | ['Pane15', 'Digite o que você quer encontrarPane5']
+   |    |    |    |    | 
+   |    |    |    |    | Pane - ''    (L0, T0, R1303, B41)
+   |    |    |    |    | ['Pane16']
+   |    |    |    |    |    | 
+   |    |    |    |    |    | Pane - ''    (L6, T0, R34, B41)
+   |    |    |    |    |    | ['Pane17']
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Button - 'Pesquisa em todas as guias'    (L6, T6, R34, B34)
+   |    |    |    |    |    |    | ['Pesquisa em todas as guiasButton', 'Button30', 'Pesquisa em todas as guias']
+   |    |    |    |    |    |    | child_window(title="Pesquisa em todas as guias", control_type="Button")
+   |    |    |    |    |    | 
+   |    |    |    |    |    | Pane - ''    (L28, T0, R284, B41)
+   |    |    |    |    |    | ['Pane18']
+   |    |    |    |    |    | child_window(auto_id="view_21", control_type="Pane")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | TabControl - ''    (L28, T0, R284, B41)
+   |    |    |    |    |    |    | ['TabControl']
+   |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    | TabItem - 'Criar vídeo'    (L28, T0, R284, B41)
+   |    |    |    |    |    |    |    | ['Criar vídeo3', 'TabItem', 'Criar vídeoTabItem']
+   |    |    |    |    |    |    |    | child_window(title="Criar vídeo", auto_id="view_20", control_type="TabItem")
+   |    |    |    |    |    |    |    |    | 
+   |    |    |    |    |    |    |    |    | Button - 'Fechar'    (L242, T6, R270, B34)
+   |    |    |    |    |    |    |    |    | ['FecharButton2', 'Fechar2', 'Button31']
+   |    |    |    |    |    |    |    |    | child_window(title="Fechar", control_type="Button")
+   |    |    |    |    |    |    | 
+   |    |    |    |    |    |    | Pane - ''    (L28, T0, R284, B41)
+   |    |    |    |    |    |    | ['Pane19']
+   |    |    |    |    |    | 
+   |    |    |    |    |    | Button - 'Nova guia'    (L278, T0, R306, B41)
+   |    |    |    |    |    | ['Nova guiaButton', 'Button32', 'Nova guia']
+   |    |    |    |    |    | child_window(title="Nova guia", control_type="Button")
+   |    |    |    |    |    | 
+   |    |    |    |    |    | Pane - ''    (L318, T0, R1303, B41)
+   |    |    |    |    |    | ['Pane20']
+   |    |    |    |    | 
+   |    |    |    |    | Pane - ''    (L0, T0, R0, B0)
+   |    |    |    |    | ['Pane21']
