@@ -235,11 +235,15 @@
                 <th><a href="{{ cabecalhos.estoque.href }}">Estoque <i class="fas {{ cabecalhos.estoque.icone }} icone-ordenar {% if cabecalhos.estoque.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.curva.href }}">Curva <i class="fas {{ cabecalhos.curva.icone }} icone-ordenar {% if cabecalhos.curva.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.categoria.href }}">Categoria <i class="fas {{ cabecalhos.categoria.icone }} icone-ordenar {% if cabecalhos.categoria.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
-                <th><a href="{{ cabecalhos.peso.href }}">Peso <i class="fas {{ cabecalhos.peso.icone }} icone-ordenar {% if cabecalhos.peso.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.peso_sem_embalar.href }}">Peso (sem embalar) <i class="fas {{ cabecalhos.peso_sem_embalar.icone }} icone-ordenar {% if cabecalhos.peso_sem_embalar.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.altura_sem_embalar.href }}">Altura (sem embalar) <i class="fas {{ cabecalhos.altura_sem_embalar.icone }} icone-ordenar {% if cabecalhos.altura_sem_embalar.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.largura_sem_embalar.href }}">Largura (sem embalar) <i class="fas {{ cabecalhos.largura_sem_embalar.icone }} icone-ordenar {% if cabecalhos.largura_sem_embalar.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.comprimento_sem_embalar.href }}">Comprimento (sem embalar) <i class="fas {{ cabecalhos.comprimento_sem_embalar.icone }} icone-ordenar {% if cabecalhos.comprimento_sem_embalar.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.peso_apos_embalado.href }}">Peso (após embalado) <i class="fas {{ cabecalhos.peso_apos_embalado.icone }} icone-ordenar {% if cabecalhos.peso_apos_embalado.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.altura_apos_embalado.href }}">Altura (após embalado) <i class="fas {{ cabecalhos.altura_apos_embalado.icone }} icone-ordenar {% if cabecalhos.altura_apos_embalado.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.largura_apos_embalado.href }}">Largura (após embalado) <i class="fas {{ cabecalhos.largura_apos_embalado.icone }} icone-ordenar {% if cabecalhos.largura_apos_embalado.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.comprimento_apos_embalado.href }}">Comprimento (após embalado) <i class="fas {{ cabecalhos.comprimento_apos_embalado.icone }} icone-ordenar {% if cabecalhos.comprimento_apos_embalado.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.peso_cubado.href }}">Peso Cubado <i class="fas {{ cabecalhos.peso_cubado.icone }} icone-ordenar {% if cabecalhos.peso_cubado.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
-                <th><a href="{{ cabecalhos.altura.href }}">Altura <i class="fas {{ cabecalhos.altura.icone }} icone-ordenar {% if cabecalhos.altura.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
-                <th><a href="{{ cabecalhos.largura.href }}">Largura <i class="fas {{ cabecalhos.largura.icone }} icone-ordenar {% if cabecalhos.largura.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
-                <th><a href="{{ cabecalhos.profundidade.href }}">Profundidade <i class="fas {{ cabecalhos.profundidade.icone }} icone-ordenar {% if cabecalhos.profundidade.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.custo.href }}">Custo <i class="fas {{ cabecalhos.custo.icone }} icone-ordenar {% if cabecalhos.custo.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.custo_com_boni.href }}">Custo c/ Boni <i class="fas {{ cabecalhos.custo_com_boni.icone }} icone-ordenar {% if cabecalhos.custo_com_boni.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.ncm.href }}">NCM <i class="fas {{ cabecalhos.ncm.icone }} icone-ordenar {% if cabecalhos.ncm.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
@@ -272,34 +276,38 @@
                     <div class="miniatura-produto miniatura-vazia"><i class="fas fa-image"></i></div>
                     {% endif %}
                 </td>
-                <td>{{ produto.ean|default:"" }}</td>
-                <td>{{ produto.sku|default:"" }}</td>
-                <td>{{ produto.cod_fabricante|default:"" }}</td>
-                <td>{{ produto.titulo|default:"" }}</td>
-                <td>{{ produto.marca|default:"" }}</td>
-                <td>{{ produto.estoque|default:"" }}</td>
-                <td>{{ produto.curva|default:"" }}</td>
-                <td>{{ produto.categoria|default:"" }}</td>
-                <td>{{ produto.peso|floatformat:3|default:"" }} kg</td>
-                <td>{{ produto.peso_cubado|floatformat:3|default:"" }} kg</td>
-                <td>{{ produto.altura|floatformat:2|default:"" }} cm</td>
-                <td>{{ produto.largura|floatformat:2|default:"" }} cm</td>
-                <td>{{ produto.profundidade|floatformat:2|default:"" }} cm</td>
-                <td>R$ {{ produto.custo|floatformat:2|default:"" }}</td>
-                <td>R$ {{ produto.custo_com_boni|floatformat:2|default:"" }}</td>
-                <td>{{ produto.ncm|default:"" }}</td>
-                <td>{{ produto.ipi|floatformat:2|default:"" }}%</td>
-                <td>{{ produto.icms_entrada|floatformat:2|default:"" }}%</td>
-                <td>{{ produto.icms_saida_sp|floatformat:2|default:"" }}%</td>
-                <td>{{ produto.icms_saida_media|floatformat:2|default:"" }}%</td>
-                <td>{{ produto.pis_cofins|floatformat:2|default:"" }}%</td>
-                <td>{{ produto.mva|default:"" }}</td>
-                <td>{{ produto.st_valor|default:"" }}</td>
-                <td>{{ produto.frete_cif_fob|default:"" }}</td>
-                <td>{{ produto.criado_em|date:"d/m/Y H:i"|default:"" }}</td>
-                <td>{{ produto.atualizado_em|date:"d/m/Y H:i"|default:"" }}</td>
-                <td>{{ produto.ultima_compra|date:"d/m/Y"|default:"" }}</td>
-                <td>{{ produto.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.ean|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.sku|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.cod_fabricante|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.titulo|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.marca|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.estoque|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.curva|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.categoria|default:"" }}</td>
+                <td>{{ produto.obter_dimensoes_sem_embalar.peso|floatformat:3|default:"" }} kg</td>
+                <td>{{ produto.obter_dimensoes_sem_embalar.altura|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.obter_dimensoes_sem_embalar.largura|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.obter_dimensoes_sem_embalar.comprimento|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.obter_dimensoes_apos_embalado.peso|floatformat:3|default:"" }} kg</td>
+                <td>{{ produto.obter_dimensoes_apos_embalado.altura|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.obter_dimensoes_apos_embalado.largura|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.obter_dimensoes_apos_embalado.comprimento|floatformat:2|default:"" }} cm</td>
+                <td>{{ produto.obter_dimensoes_apos_embalado.peso_cubado|floatformat:3|default:"" }} kg</td>
+                <td>R$ {{ produto.obter_dados_financeiros.custo|floatformat:2|default:"" }}</td>
+                <td>R$ {{ produto.obter_dados_financeiros.custo_com_boni|floatformat:2|default:"" }}</td>
+                <td>{{ produto.obter_dados_identificacao.ncm|default:"" }}</td>
+                <td>{{ produto.obter_dados_fiscais.ipi|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.obter_dados_fiscais.icms_entrada|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.obter_dados_fiscais.icms_saida_sp|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.obter_dados_fiscais.icms_saida_media|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.obter_dados_fiscais.pis_cofins|floatformat:2|default:"" }}%</td>
+                <td>{{ produto.obter_dados_fiscais.mva|default:"" }}</td>
+                <td>{{ produto.obter_dados_fiscais.st_valor|default:"" }}</td>
+                <td>{{ produto.obter_dados_fiscais.frete_cif_fob|default:"" }}</td>
+                <td>{{ produto.obter_dados_controle.criado_em|date:"d/m/Y H:i"|default:"" }}</td>
+                <td>{{ produto.obter_dados_controle.atualizado_em|date:"d/m/Y H:i"|default:"" }}</td>
+                <td>{{ produto.obter_dados_controle.ultima_compra|date:"d/m/Y"|default:"" }}</td>
+                <td>{{ produto.obter_dados_controle.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td>
             </tr>
             {% endfor %}
         </tbody>

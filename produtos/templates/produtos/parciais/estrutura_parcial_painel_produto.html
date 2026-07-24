@@ -28,13 +28,14 @@
                         <col class="modal-col-dado">
                         <col class="modal-col-valor">
                     </colgroup>
-                    <tr><td class="modal-td-dado">EAN</td><td class="modal-td-valor">{{ produto.ean }}</td></tr>
-                    <tr><td class="modal-td-dado">SKU</td><td class="modal-td-valor">{{ produto.sku|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">Cód. Fabricante</td><td class="modal-td-valor">{{ produto.cod_fabricante|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">Marca</td><td class="modal-td-valor">{{ produto.marca|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">Curva</td><td class="modal-td-valor">{{ produto.curva|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">Estoque</td><td class="modal-td-valor">{{ produto.estoque }}</td></tr>
-                    <tr><td class="modal-td-dado">Categoria</td><td class="modal-td-valor">{{ produto.categoria|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">EAN</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.ean }}</td></tr>
+                    <tr><td class="modal-td-dado">SKU</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.sku|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Cód. Fabricante</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.cod_fabricante|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">NCM</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.ncm|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Marca</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.marca|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Curva</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.curva|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Estoque</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.estoque }}</td></tr>
+                    <tr><td class="modal-td-dado">Categoria</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.categoria|default:"" }}</td></tr>
                 </table>
             </div>
         </div>
@@ -52,25 +53,26 @@
                         <col class="modal-col-dado">
                         <col class="modal-col-valor">
                     </colgroup>
-                    <tr><td class="modal-td-dado">NCM</td><td class="modal-td-valor">{{ produto.ncm|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">IPI</td><td class="modal-td-valor">{{ produto.ipi|floatformat:2 }}%</td></tr>
-                    <tr><td class="modal-td-dado">ICMS Entrada</td><td class="modal-td-valor">{{ produto.icms_entrada|floatformat:2 }}%</td></tr>
-                    <tr><td class="modal-td-dado">ICMS Saída SP</td><td class="modal-td-valor">{{ produto.icms_saida_sp|floatformat:2 }}%</td></tr>
-                    <tr><td class="modal-td-dado">ICMS Saída Média</td><td class="modal-td-valor">{{ produto.icms_saida_media|floatformat:2 }}%</td></tr>
-                    <tr><td class="modal-td-dado">PIS/COFINS</td><td class="modal-td-valor">{{ produto.pis_cofins|floatformat:2 }}%</td></tr>
-                    <tr><td class="modal-td-dado">MVA</td><td class="modal-td-valor">{{ produto.mva|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">ST Valor</td><td class="modal-td-valor">{{ produto.st_valor|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">Frete CIF/FOB</td><td class="modal-td-valor">{{ produto.frete_cif_fob|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">IPI</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.ipi|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">ICMS Entrada</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_entrada|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">ICMS Saída SP</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_saida_sp|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">ICMS Saída Média</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_saida_media|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">PIS/COFINS</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.pis_cofins|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">PIS %</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.pis_percentual|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">COFINS %</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.cofins_percentual|floatformat:2 }}%</td></tr>
+                    <tr><td class="modal-td-dado">MVA</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.mva|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">ST Valor</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.st_valor|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Frete CIF/FOB</td><td class="modal-td-valor">{{ produto.obter_dados_fiscais.frete_cif_fob|default:"" }}</td></tr>
                 </table>
             </div>
         </div>
     </div>
 
-    <!-- Dimensões -->
+    <!-- Dimensões — sem embalar -->
     <div class="col-md-6">
         <div class="card">
             <div class="card-header modal-card-cabecalho">
-                <strong>Dimensões</strong>
+                <strong>Dimensões — sem embalar</strong>
             </div>
             <div class="card-body">
                 <table class="modal-tabela">
@@ -78,18 +80,41 @@
                         <col class="modal-col-dado">
                         <col class="modal-col-valor">
                     </colgroup>
-                    <tr><td class="modal-td-dado">Peso</td><td class="modal-td-valor">{{ produto.peso|floatformat:3 }} kg</td></tr>
-                    <tr><td class="modal-td-dado">Peso Cubado</td><td class="modal-td-valor">{{ produto.peso_cubado|floatformat:3 }} kg</td></tr>
-                    <tr><td class="modal-td-dado">Altura</td><td class="modal-td-valor">{{ produto.altura|floatformat:2 }} cm</td></tr>
-                    <tr><td class="modal-td-dado">Largura</td><td class="modal-td-valor">{{ produto.largura|floatformat:2 }} cm</td></tr>
-                    <tr><td class="modal-td-dado">Profundidade</td><td class="modal-td-valor">{{ produto.profundidade|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Peso</td><td class="modal-td-valor">{{ produto.obter_dimensoes_sem_embalar.peso|floatformat:3 }} kg</td></tr>
+                    <tr><td class="modal-td-dado">Altura</td><td class="modal-td-valor">{{ produto.obter_dimensoes_sem_embalar.altura|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Largura</td><td class="modal-td-valor">{{ produto.obter_dimensoes_sem_embalar.largura|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Comprimento</td><td class="modal-td-valor">{{ produto.obter_dimensoes_sem_embalar.comprimento|floatformat:2 }} cm</td></tr>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- Dimensões — após embalado -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Dimensões — após embalado</strong>
+            </div>
+            <div class="card-body">
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    <tr><td class="modal-td-dado">Peso</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.peso|floatformat:3 }} kg</td></tr>
+                    <tr><td class="modal-td-dado">Altura</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.altura|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Largura</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.largura|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Comprimento</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.comprimento|floatformat:2 }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Peso Cubado</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.peso_cubado|floatformat:3 }} kg</td></tr>
+                    <tr><td class="modal-td-dado">Altura ordenada</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.altura_ordenada|floatformat:2|default:"" }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Largura ordenada</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.largura_ordenada|floatformat:2|default:"" }} cm</td></tr>
+                    <tr><td class="modal-td-dado">Comprimento ordenado</td><td class="modal-td-valor">{{ produto.obter_dimensoes_apos_embalado.comprimento_ordenada|floatformat:2|default:"" }} cm</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
 
-        <!-- Financeiro -->
+    <!-- Financeiro -->
     <div class="col-md-6">
         <div class="card">
             <div class="card-header modal-card-cabecalho">
@@ -101,13 +126,13 @@
                         <col class="modal-col-dado">
                         <col class="modal-col-valor">
                     </colgroup>
-                    <tr><td class="modal-td-dado">Custo</td><td class="modal-td-valor">R$ {{ produto.custo|floatformat:2 }}</td></tr>
-                    <tr><td class="modal-td-dado">Custo c/ Boni</td><td class="modal-td-valor">{{ produto.custo_com_boni|floatformat:2|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Custo</td><td class="modal-td-valor">R$ {{ produto.obter_dados_financeiros.custo|floatformat:2 }}</td></tr>
+                    <tr><td class="modal-td-dado">Custo c/ Boni</td><td class="modal-td-valor">{{ produto.obter_dados_financeiros.custo_com_boni|floatformat:2|default:"" }}</td></tr>
                 </table>
             </div>
         </div>
     </div>
-    
+
     <!-- Controle -->
     <div class="col-md-6">
         <div class="card">
@@ -120,17 +145,72 @@
                         <col class="modal-col-dado">
                         <col class="modal-col-valor">
                     </colgroup>
-                    <tr><td class="modal-td-dado">Entrada no DB</td><td class="modal-td-valor">{{ produto.criado_em|date:"d/m/Y H:i" }}</td></tr>
-                    <tr><td class="modal-td-dado">Atualização no DB</td><td class="modal-td-valor">{{ produto.atualizado_em|date:"d/m/Y H:i" }}</td></tr>
-                    <tr><td class="modal-td-dado">Cadastro no ERP</td><td class="modal-td-valor">{{ produto.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td></tr>
-                    <tr><td class="modal-td-dado">Última Compra</td><td class="modal-td-valor">{{ produto.ultima_compra|date:"d/m/Y"|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Entrada no DB</td><td class="modal-td-valor">{{ produto.obter_dados_controle.criado_em|date:"d/m/Y H:i" }}</td></tr>
+                    <tr><td class="modal-td-dado">Atualização no DB</td><td class="modal-td-valor">{{ produto.obter_dados_controle.atualizado_em|date:"d/m/Y H:i" }}</td></tr>
+                    <tr><td class="modal-td-dado">Cadastro no ERP</td><td class="modal-td-valor">{{ produto.obter_dados_controle.cadastrado_erp_em|date:"d/m/Y"|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Última Compra</td><td class="modal-td-valor">{{ produto.obter_dados_controle.ultima_compra|date:"d/m/Y"|default:"" }}</td></tr>
+                    <tr><td class="modal-td-dado">Armazenagem (planilha)</td><td class="modal-td-valor">{{ produto.obter_dados_controle.armazenagem_planilha|floatformat:2|default:"" }}</td></tr>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- Códigos Associados -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Códigos Associados</strong>
+            </div>
+            <div class="card-body">
+                {% with codigos=produto.obter_codigos_associados %}
+                {% if codigos %}
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    {% for codigo in codigos %}
+                    <tr>
+                        <td class="modal-td-dado">{{ codigo.marketplace }} — {{ codigo.rotulo }}</td>
+                        <td class="modal-td-valor">{{ codigo.codigo }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <span class="modal-sem-dado">Nenhum código associado cadastrado.</span>
+                {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
 
-
-
+    <!-- Marketplaces Anunciados -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header modal-card-cabecalho">
+                <strong>Marketplaces Anunciados</strong>
+            </div>
+            <div class="card-body">
+                {% with anuncios=produto.obter_marketplaces_anunciados %}
+                {% if anuncios %}
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado">
+                        <col class="modal-col-valor">
+                    </colgroup>
+                    {% for anuncio in anuncios %}
+                    <tr>
+                        <td class="modal-td-dado">{{ anuncio.marketplace }}</td>
+                        <td class="modal-td-valor">{% if anuncio.anunciado %}Sim{% else %}Não{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                {% else %}
+                <span class="modal-sem-dado">Nenhum marketplace marcado ainda — defina pelo admin.</span>
+                {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
 
 </div>

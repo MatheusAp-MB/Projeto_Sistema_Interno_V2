@@ -28,11 +28,24 @@ CAMPOS_ORDENACAO = {
     'titulo': 'titulo', 'marca': 'marca', 'categoria': 'categoria', 'curva': 'curva',
     'estoque': 'estoque',
     'custo': 'custo', 'custo_com_boni': 'custo_com_boni',
-    'peso': 'peso', 'peso_cubado': 'peso_cubado', 'altura': 'altura',
-    'largura': 'largura', 'profundidade': 'profundidade',
+    # * [EXPLICAÇÃO] → Corrigido (23/07) — os 4 nomes antigos ('peso', 'altura',
+    #                  'largura', 'profundidade') não existem no Produto desde a
+    #                  renomeação de 16/07 (FieldError se alguém tentasse usar).
+    #                  Agora expõe os 2 conjuntos completos e corretos.
+    'peso_sem_embalar': 'peso_produto_sem_embalar',
+    'altura_sem_embalar': 'altura_produto_sem_embalar',
+    'largura_sem_embalar': 'largura_produto_sem_embalar',
+    'comprimento_sem_embalar': 'comprimento_produto_sem_embalar',
+    'peso_apos_embalado': 'peso_produto_apos_embalado',
+    'altura_apos_embalado': 'altura_produto_apos_embalado',
+    'largura_apos_embalado': 'largura_produto_apos_embalado',
+    'comprimento_apos_embalado': 'comprimento_produto_apos_embalado',
+    'peso_cubado': 'peso_cubado',
     'mva': 'mva', 'st_valor': 'st_valor', 'icms_entrada': 'icms_entrada',
     'icms_saida_sp': 'icms_saida_sp', 'icms_saida_media': 'icms_saida_media',
-    'ipi': 'ipi', 'pis_cofins': 'pis_cofins', 'frete_cif_fob': 'frete_cif_fob',
+    'ipi': 'ipi', 'pis_cofins': 'pis_cofins',
+    'pis_percentual': 'pis_percentual', 'cofins_percentual': 'cofins_percentual',
+    'frete_cif_fob': 'frete_cif_fob',
     'ultima_compra': 'ultima_compra', 'cadastrado_erp_em': 'cadastrado_erp_em',
     'criado_em': 'criado_em', 'atualizado_em': 'atualizado_em',
 }
@@ -44,10 +57,13 @@ CAMPOS_ORDENACAO = {
 #                  que a função de filtro é idêntica pra número e data).
 CAMPOS_FAIXA = [
     'estoque',
-    'peso', 'peso_cubado', 'altura', 'largura', 'profundidade',
+    # * [EXPLICAÇÃO] → Corrigido (23/07), mesma razão do CAMPOS_ORDENACAO acima.
+    'peso_sem_embalar', 'altura_sem_embalar', 'largura_sem_embalar', 'comprimento_sem_embalar',
+    'peso_apos_embalado', 'altura_apos_embalado', 'largura_apos_embalado', 'comprimento_apos_embalado',
+    'peso_cubado',
     'custo', 'custo_com_boni',
     'ipi', 'icms_entrada', 'icms_saida_sp', 'icms_saida_media',
-    'pis_cofins', 'mva', 'st_valor', 'frete_cif_fob',
+    'pis_cofins', 'pis_percentual', 'cofins_percentual', 'mva', 'st_valor', 'frete_cif_fob',
     'ultima_compra', 'cadastrado_erp_em', 'criado_em', 'atualizado_em',
 ]
 

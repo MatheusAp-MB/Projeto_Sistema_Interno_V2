@@ -4,11 +4,25 @@
 # todos os campos de custo/impostos/dimensão diretamente, sem precisar de tela própria.
 
 from django.contrib import admin
-from .models import Produto
+from .models import Produto, CodigoAssociadoProduto, ProdutoAnuncioMarketplace
+
+
+# Função Objetivo: Edita os Códigos Associados direto na tela do Produto, sem precisar
+# procurar o produto de novo numa tela separada.
+class CodigoAssociadoProdutoInline(admin.TabularInline):
+    model = CodigoAssociadoProduto
+    extra = 1
+
+
+# Função Objetivo: Edita os Marketplaces Anunciados direto na tela do Produto.
+class ProdutoAnuncioMarketplaceInline(admin.TabularInline):
+    model = ProdutoAnuncioMarketplace
+    extra = 1
 
 
 @admin.register(Produto)
 class ProdutoAdmin(admin.ModelAdmin):
+    inlines = [CodigoAssociadoProdutoInline, ProdutoAnuncioMarketplaceInline]
     list_display = [
         'ean', 'sku', 'cod_fabricante', 'ncm', 'titulo', 'marca', 'categoria', 'curva',
         'imagem_url', 'estoque', 'custo', 'custo_com_boni',
@@ -17,7 +31,7 @@ class ProdutoAdmin(admin.ModelAdmin):
         'peso_produto_apos_embalado', 'altura_produto_apos_embalado',
         'largura_produto_apos_embalado', 'comprimento_produto_apos_embalado',
         'peso_cubado', 'mva', 'st_valor', 'icms_entrada', 'icms_saida_sp',
-        'icms_saida_media', 'ipi', 'pis_cofins', 'frete_cif_fob',
+        'icms_saida_media', 'ipi', 'pis_cofins', 'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
         'armazenagem_planilha', 'ultima_compra', 'cadastrado_erp_em',
         'criado_em', 'atualizado_em',
     ]
@@ -39,7 +53,7 @@ class ProdutoAdmin(admin.ModelAdmin):
             'fields': (
                 'custo', 'custo_com_boni',
                 'mva', 'st_valor', 'icms_entrada', 'icms_saida_sp',
-                'icms_saida_media', 'ipi', 'pis_cofins', 'frete_cif_fob',
+                'icms_saida_media', 'ipi', 'pis_cofins', 'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
             ),
         }),
         ('Dimensão — Produto sem embalar', {
@@ -62,3 +76,4 @@ class ProdutoAdmin(admin.ModelAdmin):
             ),
         }),
     )
+
