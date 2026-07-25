@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'tiktok',
     'amazon',
     'precificacao',
+    'agenda_videos',
 ]
 
 MIDDLEWARE = [
