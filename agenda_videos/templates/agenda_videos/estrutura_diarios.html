@@ -43,7 +43,9 @@
     {% endif %}
 
     <details class="diarios-filtros">
-        <summary class="diarios-filtros-titulo"><i class="fas fa-filter"></i> Filtros</summary>
+        <summary class="diarios-filtros-titulo">
+            <i class="fas fa-filter"></i> Filtros <i class="fas fa-chevron-down diarios-filtros-seta"></i>
+        </summary>
 
         <div class="diarios-filtros-secoes">
 
@@ -189,10 +191,11 @@
 </form>
 
 <div class="diarios-ordenar-por">
-    <span class="diarios-ordenar-rotulo">Ordenar por:</span>
+    <span class="diarios-ordenar-rotulo">Ordenar por</span>
     {% for chave, cabecalho in cabecalhos.items %}
     <a href="{{ cabecalho.href }}" class="diarios-ordenar-link {% if cabecalho.ativo %}diarios-ordenar-ativo{% endif %}">
-        {{ cabecalho.label }} <i class="fas {{ cabecalho.icone }}"></i>
+        {{ cabecalho.label }}
+        {% if cabecalho.ativo %}<i class="fas {{ cabecalho.icone }}"></i>{% endif %}
     </a>
     {% endfor %}
 </div>
@@ -273,7 +276,16 @@
 
     </div>
     {% empty %}
-    <p class="diarios-sem-resultado">Nenhum produto encontrado na Fase Diária com esses filtros.</p>
+    <div class="diarios-vazio">
+        <i class="fas fa-calendar-xmark"></i>
+        {% if chips_ativos or busca %}
+        <p class="diarios-vazio-titulo">Nenhum produto bate com esses filtros</p>
+        <p class="diarios-vazio-subtitulo">Tenta limpar a busca ou os filtros ativos.</p>
+        {% else %}
+        <p class="diarios-vazio-titulo">Nenhum produto na Fase Diária ainda</p>
+        <p class="diarios-vazio-subtitulo">Assim que um produto entrar na Agenda, ele aparece aqui.</p>
+        {% endif %}
+    </div>
     {% endfor %}
 </div>
 

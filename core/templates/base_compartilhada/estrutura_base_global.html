@@ -65,6 +65,16 @@
         {% block head_extra %}{% endblock %}
     </head>
     <body class="{% block body_class %}{% endblock %}">
+        <script>
+            // * [EXPLICAÇÃO] → Roda ANTES do resto da página renderizar, de
+            //                  propósito — evita o "flash" de sidebar aberta
+            //                  fechando 1 fração de segundo depois, que
+            //                  aconteceria se essa leitura ficasse só no
+            //                  script_global.js (que carrega no fim da página).
+            if (localStorage.getItem('sidebar_oculta') === 'true') {
+                document.body.classList.add('sidebar-oculta');
+            }
+        </script>
         <!--
     * [EXPLICAÇÃO] → Container principal do layout.
     * Usa flexbox para colocar sidebar e conteúdo lado a lado.

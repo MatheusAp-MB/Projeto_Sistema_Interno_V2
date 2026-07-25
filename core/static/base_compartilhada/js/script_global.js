@@ -9,10 +9,16 @@
 // ================================================
 
 // * [EXPLICAÇÃO] → Ao clicar no botão de menu (hamburguer) na toolbar,
-//                  adiciona ou remove a classe 'sidebar-oculta' no body.
-//                  O CSS usa essa classe para esconder ou mostrar a sidebar.
+//                  adiciona ou remove a classe 'sidebar-oculta' no body,
+//                  e GRAVA a escolha no localStorage — sem isso, a escolha
+//                  se perdia a cada recarregamento de página de verdade
+//                  (ex: os links de "Ordenar por", que não são AJAX/htmx).
+//                  A leitura desse valor já acontece antes, no <script>
+//                  inline logo no início do <body> (evita flash visual).
 document.getElementById('btn-toggle-sidebar').addEventListener('click', function() {
     document.body.classList.toggle('sidebar-oculta');
+    const estaOculta = document.body.classList.contains('sidebar-oculta');
+    localStorage.setItem('sidebar_oculta', estaOculta);
 });
 
 // ================================================
