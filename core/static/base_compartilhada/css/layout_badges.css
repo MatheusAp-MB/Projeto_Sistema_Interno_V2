@@ -69,6 +69,11 @@
 .badge-competing            { background: #fee2e2; color: #b91c1c; }
 .badge-sharing_first_place  { background: #dbeafe; color: #1d4ed8; }
 .badge-listed               { background: #fef3c7; color: #92400e; }
+
+/* * [EXPLICAÇÃO] → Laranja de propósito — distinto do vermelho (badge-conta-propria,
+ *                  já usado por "Urgente"), reservado pra quando "Urgentes" for
+ *                  codado de verdade no futuro. Atrasado ≠ Urgente. */
+.badge-atrasado              { background: #ffedd5; color: #9a3412; }
 .badge-not_listed           { background: #e5e7eb; color: #4b5563; }
 .badge-sem-dado             { background: #e5e7eb; color: #6b7280; }
 

@@ -119,15 +119,15 @@ DEFINICOES_PONTOS = [
     ),
     DefinicaoPonto(
         chave='diaria', rotulo='Diária', rotulo_completo='Fase Diária',
-        unidade_tempo=UnidadeTempoFase('Dia', 'dias', 'no'),
+        eh_editavel=True, unidade_tempo=UnidadeTempoFase('Dia', 'dias', 'no'),
     ),
     DefinicaoPonto(
         chave='semanal', rotulo='Semanal', rotulo_completo='Fase Semanal',
-        unidade_tempo=UnidadeTempoFase('Semana', 'semanas', 'na'),
+        eh_editavel=True, unidade_tempo=UnidadeTempoFase('Semana', 'semanas', 'na'),
     ),
     DefinicaoPonto(
         chave='mensal', rotulo='Mensal', rotulo_completo='Fase Mensal',
-        unidade_tempo=UnidadeTempoFase('Mês', 'meses', 'no'),
+        eh_editavel=True, unidade_tempo=UnidadeTempoFase('Mês', 'meses', 'no'),
     ),
     DefinicaoPonto(
         chave='otimizado', rotulo='Otimizado', rotulo_completo='Anúncio Otimizado',

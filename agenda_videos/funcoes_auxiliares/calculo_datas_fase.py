@@ -34,6 +34,17 @@ def proximo_dia_util(data_base):
     return data_base
 
 
+# Função Objetivo: Ajusta uma data pro ÚLTIMO dia útil (volta no tempo, não avança).
+# Explicação em detalhe: usado como "referência de hoje" em qualquer comparação de
+# atraso/vencimento — o prazo só corre de verdade em dia útil (confirmado com o
+# usuário), então sábado/domingo precisam "virar" a sexta-feira anterior pra esse
+# tipo de conta, nunca contar como se fosse 1 dia normal de prazo passando.
+def ultimo_dia_util_ou_hoje(data_base):
+    while data_base.weekday() >= 5:
+        data_base -= timedelta(days=1)
+    return data_base
+
+
 # Função Objetivo: Avança N dias úteis a partir de uma data (que já deve ser dia útil).
 # Explicação em detalhe: "avancar_quantidade=0" devolve a própria data_base — usado pra
 # calcular a ocorrência 1 (que é o próprio início da fase, sem avançar nada).

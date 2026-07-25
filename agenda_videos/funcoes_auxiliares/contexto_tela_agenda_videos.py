@@ -5,13 +5,16 @@
 # aplica na 1ª visita (nenhum parâmetro na URL ainda) — depois disso, respeita
 # exatamente o que o usuário escolheu, mesmo que seja "nenhum estágio marcado".
 
+from datetime import datetime
 from dataclasses import dataclass, field
+from django.conf import settings
 from django.core.paginator import Paginator
 from produtos.models import Produto
 from agenda_videos.models import EstagioAgenda
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
     listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
 )
+from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_STATUS_VIDEO, opcoes_com_badge,
 )
@@ -45,6 +48,7 @@ class ParametrosBuscaAgendaVideos:
     ordenar: str
     numero_pagina: int
     filtros: dict = field(default_factory=dict)
+    data_simulada: object = None
 
     @classmethod
     def a_partir_da_requisicao(cls, request):
@@ -60,18 +64,30 @@ class ParametrosBuscaAgendaVideos:
         if ordenar.lstrip('-') not in CAMPOS_ORDENACAO:
             ordenar = 'titulo'
 
-        # * [EXPLICAÇÃO] → "1ª visita" = nenhum parâmetro na URL (link direto,
-        #                  sem nenhum filtro ainda escolhido) — só nesse caso o
-        #                  padrão "Diário" é aplicado. Qualquer submissão real do
-        #                  formulário (mesmo com todos os checkboxes desmarcados)
-        #                  já traz outros parâmetros (busca, por_pagina), então
-        #                  nunca é confundida com a 1ª visita.
+        # * [EXPLICAÇÃO] → "1ª visita" = nenhum parâmetro na URL — nesse caso o
+        #                  padrão passa a ser "A Fazer Hoje" (não mais "Diário").
+        #                  "A Fazer Hoje" é um filtro à parte, não um EstagioAgenda —
+        #                  quando ativo, ignora "estagio" por completo (são 2 caminhos
+        #                  de query diferentes, nunca combinados).
         eh_primeira_visita = len(request.GET) == 0
-        estagio = request.GET.getlist('estagio')
-        if eh_primeira_visita:
-            estagio = [EstagioAgenda.DIARIA]
+        a_fazer_hoje = eh_primeira_visita or request.GET.get('a_fazer_hoje') is not None
+        estagio = [] if a_fazer_hoje else request.GET.getlist('estagio')
+
+        # * [EXPLICAÇÃO] → Só funciona com DEBUG=True — nunca em produção, mesmo que
+        #                  alguém tente forjar o parâmetro na URL manualmente. Existe
+        #                  só pra testar "A Fazer Hoje"/Atrasado/Risco com datas
+        #                  diferentes direto na tela, sem precisar de teste.py.
+        data_simulada = None
+        if settings.DEBUG:
+            valor_bruto = request.GET.get('simular_data', '').strip()
+            if valor_bruto:
+                try:
+                    data_simulada = datetime.strptime(valor_bruto, '%Y-%m-%d').date()
+                except ValueError:
+                    data_simulada = None
 
         filtros = {
+            'a_fazer_hoje': a_fazer_hoje,
             'estagio': estagio,
             'marcas': request.GET.getlist('marca'),
             'status_manual': request.GET.getlist('status_manual'),
@@ -90,6 +106,7 @@ class ParametrosBuscaAgendaVideos:
         return cls(
             busca=busca, por_pagina=por_pagina, ordenar=ordenar,
             numero_pagina=request.GET.get('pagina', 1), filtros=filtros,
+            data_simulada=data_simulada,
         )
 
 
@@ -153,11 +170,17 @@ class ContextoTelaAgendaVideos:
         return qs.urlencode()
 
     def _montar_pagina(self):
-        produtos = listar_produtos_agenda_filtrados(
-            busca=self.parametros.busca or None,
-            filtros=self.parametros.filtros,
-            ordenar=self.parametros.ordenar,
-        )
+        if self.parametros.filtros.get('a_fazer_hoje'):
+            produtos = listar_a_fazer_hoje(
+                busca=self.parametros.busca or None,
+                data_referencia=self.parametros.data_simulada,
+            )
+        else:
+            produtos = listar_produtos_agenda_filtrados(
+                busca=self.parametros.busca or None,
+                filtros=self.parametros.filtros,
+                ordenar=self.parametros.ordenar,
+            )
         paginator = Paginator(produtos, self.parametros.por_pagina)
         return paginator.get_page(self.parametros.numero_pagina)
 
@@ -177,6 +200,8 @@ class ContextoTelaAgendaVideos:
         return {
             'pagina': self._montar_pagina(),
             'busca': self.parametros.busca,
+            'debug_ativo': settings.DEBUG,
+            'data_simulada': self.parametros.data_simulada,
             'por_pagina': self.parametros.por_pagina,
             'filtros': self.parametros.filtros,
             'cabecalhos': cabecalhos,

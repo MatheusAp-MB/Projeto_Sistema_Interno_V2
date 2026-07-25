@@ -42,8 +42,24 @@
 
     <button type="submit" class="btn-acao">Buscar</button>
 
-    <!-- Estágio — filtro em destaque, é o conceito central que substitui as "telas" -->
+    {% if debug_ativo %}
+    <div class="agenda-simular-data">
+        <label>
+            <i class="fas fa-flask"></i> Simular "hoje":
+            <input type="date" name="simular_data" value="{{ data_simulada|date:'Y-m-d' }}" onchange="this.form.submit()">
+        </label>
+        {% if data_simulada %}
+        <a href="?{{ querystring_sem_pagina }}" class="agenda-simular-data-limpar">limpar</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Estágio + "A Fazer Hoje" — filtro em destaque, o conceito central da tela -->
     <div class="agenda-estagio-destaque">
+        <label class="agenda-estagio-opcao {% if filtros.a_fazer_hoje %}agenda-estagio-ativo{% endif %}">
+            <input type="checkbox" name="a_fazer_hoje" value="1" {% if filtros.a_fazer_hoje %}checked{% endif %} onchange="this.form.submit()">
+            <span><i class="fas fa-bolt"></i> A Fazer Hoje</span>
+        </label>
         {% for opcao in opcoes_estagio %}
         <label class="agenda-estagio-opcao {% if opcao.valor in filtros.estagio %}agenda-estagio-ativo{% endif %}">
             <input type="checkbox" name="estagio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.estagio %}checked{% endif %} onchange="this.form.submit()">
@@ -51,6 +67,12 @@
         </label>
         {% endfor %}
     </div>
+
+    {% if data_simulada %}
+    <div class="agenda-aviso-simulacao">
+        <i class="fas fa-flask"></i> Você está vendo o sistema como se "hoje" fosse <strong>{{ data_simulada|date:"d/m/Y" }}</strong> — não é a data real.
+    </div>
+    {% endif %}
 
     {% if chips_ativos %}
     <div class="agenda-chips-filtros">
@@ -275,6 +297,12 @@
         {% endif %}
 
         <div class="agenda-card-roadmap">
+            {% if produto.a_fazer_hoje_atrasado %}
+            <span class="badge-tabela badge-atrasado"><i class="fas fa-clock"></i> Atrasado</span>
+            {% elif produto.a_fazer_hoje_risco %}
+            <span class="badge-tabela badge-listed"><i class="fas fa-triangle-exclamation"></i> Risco de Atraso</span>
+            {% endif %}
+
             {% roadmap_produto produto %}
 
             {% with progresso=produto.progresso_producao_video %}

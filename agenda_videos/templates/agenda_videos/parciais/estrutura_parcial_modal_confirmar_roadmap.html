@@ -1,9 +1,13 @@
 <!--
-* [RESUMO] → Modal de confirmação antes de marcar um ponto do roadmap como concluído.
-* Sem reversão — o aviso disso é explícito no texto, de propósito (decisão do usuário).
+* [RESUMO] → 5 variações de modal, controladas por "tipo_acao":
+* confirmar_simples (os 4 pontos de preparação) · postar · resolver_aprovacao
+* (2 botões, não 1) · replicar · nova_tentativa (os 4 últimos são o ciclo de
+* postagem dos pontos cíclicos).
 -->
 <div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
     <div class="modal-roadmap-caixa">
+
+        {% if tipo_acao == 'confirmar_simples' %}
         <h3 class="modal-roadmap-titulo">Marcar como concluído?</h3>
         <p class="modal-roadmap-texto">
             <strong>{{ ponto.rotulo_completo }}</strong><br>
@@ -12,7 +16,7 @@
             {% else %}
             {{ ponto.explicacao }}
             {% endif %}
-        </p> 
+        </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
         </p>
@@ -20,11 +24,82 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_marcar' produto_id chave %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}"
-                    hx-swap="outerHTML"
+                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar
             </button>
         </div>
+
+        {% elif tipo_acao == 'postar' %}
+        <h3 class="modal-roadmap-titulo">Confirmar postagem de hoje?</h3>
+        <p class="modal-roadmap-texto">
+            Confirma que o vídeo desta ocorrência ({{ ponto.contador }}) já foi postado no anúncio?
+            Vai ficar "Aguardando aprovação" do Mercado Livre.
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'postar' %}"
+                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Confirmar
+            </button>
+        </div>
+
+        {% elif tipo_acao == 'resolver_aprovacao' %}
+        <h3 class="modal-roadmap-titulo">O Mercado Livre já validou?</h3>
+        <p class="modal-roadmap-texto">
+            {{ ponto.contador }} — o vídeo está aguardando aprovação. O que aconteceu?
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-recusar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'recusado' %}"
+                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Recusado
+            </button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'aprovado' %}"
+                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Aprovado
+            </button>
+        </div>
+
+        {% elif tipo_acao == 'replicar' %}
+        <h3 class="modal-roadmap-titulo">Já replicou?</h3>
+        <p class="modal-roadmap-texto">
+            {{ ponto.contador }} foi aprovado. Confirma que já usou a opção "Replicar" pros demais anúncios?
+        </p>
+        <p class="modal-roadmap-aviso">
+            <i class="fas fa-triangle-exclamation"></i> Ao confirmar, avança pra próxima ocorrência (ou fase, se era a última).
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'replicar' %}"
+                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Confirmar
+            </button>
+        </div>
+
+        {% elif tipo_acao == 'nova_tentativa' %}
+        <h3 class="modal-roadmap-titulo">Refez e subiu de novo?</h3>
+        <p class="modal-roadmap-texto">
+            {{ ponto.contador }} foi recusado. Confirma que já corrigiu e subiu um novo vídeo? Vai ficar "Aguardando aprovação" de novo.
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'nova_tentativa' %}"
+                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Confirmar
+            </button>
+        </div>
+        {% endif %}
+
     </div>
 </div>

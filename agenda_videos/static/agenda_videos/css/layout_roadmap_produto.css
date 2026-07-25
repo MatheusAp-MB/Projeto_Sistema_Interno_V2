@@ -150,3 +150,9 @@
     color: #fff;
     border-color: #1d4ed8;
 }
+
+.btn-acao-recusar {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fca5a5;
+}
