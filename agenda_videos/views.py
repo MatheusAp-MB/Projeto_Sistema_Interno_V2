@@ -2,16 +2,16 @@
 
 from django.http import HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404
-from agenda_videos.funcoes_auxiliares.contexto_tela_diarios import ContextoTelaDiarios
-from agenda_videos.funcoes_auxiliares.roadmap_produto import (
-    calcular_roadmap_produto, obter_mapa_periodos_por_fase,
-)
+from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import ContextoTelaAgendaVideos
+from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_roadmap_produto
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
+from agenda_videos.funcoes_auxiliares.roadmap_produto import obter_mapa_periodos_por_fase
 from agenda_videos.models import StatusVideo, Fase
 
 
-def view_diarios(request):
-    contexto = ContextoTelaDiarios(request).montar()
-    return render(request, 'agenda_videos/estrutura_diarios.html', contexto)
+def view_agenda_videos(request):
+    contexto = ContextoTelaAgendaVideos(request).montar()
+    return render(request, 'agenda_videos/estrutura_agenda_videos.html', contexto)
 
 
 # Função Objetivo: Busca o ponto do roadmap e valida que ele realmente pode ser
@@ -30,9 +30,6 @@ def view_confirmar_ponto_roadmap(request, produto_id, chave):
     if ponto is None:
         return HttpResponseBadRequest('Esse ponto não pode ser confirmado agora.')
 
-    # * [EXPLICAÇÃO] → "Roteiros" tem mensagem própria — a confirmação já assume
-    #                  que foram gerados roteiros suficientes pros X dias da Diária
-    #                  (X = período configurado), sem pedir número nenhum digitado.
     periodo_diaria = None
     if chave == 'roteiros':
         periodo_diaria = obter_mapa_periodos_por_fase().get(Fase.DIARIA)
@@ -42,7 +39,8 @@ def view_confirmar_ponto_roadmap(request, produto_id, chave):
     })
 
 
-# Função Objetivo: Confirma o ponto — marca o campo real como concluído, sem reversão.
+# Função Objetivo: Confirma o ponto — marca o campo real como concluído, sem reversão,
+# e sincroniza o RoadmapAgenda na hora (recálculo direto, 1 dos 2 mecanismos de sincronização).
 def view_marcar_ponto_roadmap(request, produto_id, chave):
     from produtos.models import Produto
     produto = get_object_or_404(Produto, id=produto_id)
@@ -58,16 +56,14 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
         progresso.video_base_status = StatusVideo.GERADO
     elif chave == 'roteiros':
         progresso.roteiros_gerados = True
-        # * [EXPLICAÇÃO] → Padronizado (24/07): confirmar "Roteiros" assume que
-        #                  foram gerados roteiros suficientes pros X dias da
-        #                  Diária — quantidade_roteiros vira igual ao período
-        #                  configurado, nunca um número digitado à mão.
         periodo_diaria = obter_mapa_periodos_por_fase().get(Fase.DIARIA)
         if periodo_diaria:
             progresso.quantidade_roteiros = periodo_diaria
     elif chave == 'completos':
         progresso.completos_produzidos = True
     progresso.save()
+
+    sincronizar_roadmap_agenda_produto(produto)
 
     roadmap_atualizado = calcular_roadmap_produto(produto)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_roadmap_produto.html', {

@@ -17,6 +17,7 @@ from django.core.management.base import BaseCommand, OutputWrapper
 from rich import print
 from core.funcoes_auxiliares.saida_dupla import SaidaDupla
 from core.management.commands.popular_banco_suporte.importar_produtos_erp import importar_produtos_erp
+from core.management.commands.popular_banco_suporte.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda
 from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
 from core.management.commands.popular_banco_suporte.importar_dimensoes_declaradas_ml import importar_dimensoes_declaradas_ml
 from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
@@ -65,6 +66,7 @@ class Command(BaseCommand):
         etapas = [
             ('PRODUTOS ERP', importar_produtos_erp, (CAMINHO_DETALHES_MLBS,)),
             ('ANUNCIOS ML', importar_anuncios_ml, (CAMINHO_DETALHES_MLBS,)),
+            ('ROADMAP AGENDA', sincronizar_roadmap_agenda, ()),
             ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (CAMINHO_DETALHES_MLBS,)),
             ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
             ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),

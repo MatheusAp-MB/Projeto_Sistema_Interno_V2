@@ -1,15 +1,17 @@
-# agenda_videos/funcoes_auxiliares/filtros_diarios.py
+# agenda_videos/funcoes_auxiliares/filtros_agenda_videos.py
 
-# * [RESUMO] → Busca, filtros e ordenação da tela "Diários". Mesma arquitetura já validada
-#              em Produtos/Hub de Anúncios: tudo resolvido no servidor, sem client-side.
+# * [RESUMO] → Busca, filtros e ordenação da tela única "Agenda de Vídeos".
+# Renomeado de filtros_diarios.py (24/07) — a tela deixou de existir só pra Fase
+# Diária: agora mostra QUALQUER produto, e o "Não Agendado"/"Pronto para Agendar"
+# nem tem AndamentoAgenda ainda — por isso a base da query não exige mais isso.
+# Filtros de checkbox/faixa que já existiam (status manual, urgente, vídeo, etc.)
+# continuam aqui intocados por enquanto — serão repensados numa rodada própria.
 
 from django.db.models import Q, OuterRef, Subquery
 from produtos.models import Produto
-from agenda_videos.models import Fase, Postagem
+from agenda_videos.models import Postagem
 from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 
-# * [EXPLICAÇÃO] → Única fonte de verdade dos campos ordenáveis — nunca usar o valor
-#                  de "ordenar" direto num order_by() sem passar por esse whitelist.
 CAMPOS_ORDENACAO = {
     'titulo': 'titulo', 'marca': 'marca', 'estoque': 'estoque',
     'ocorrencia_atual': 'andamento_agenda__ocorrencia_atual',
@@ -18,7 +20,6 @@ CAMPOS_ORDENACAO = {
     'quantidade_roteiros': 'progresso_producao_video__quantidade_roteiros',
 }
 
-# * [EXPLICAÇÃO] → Campos numéricos/data com filtro de faixa (mín/máx).
 CAMPOS_FAIXA = [
     'andamento_agenda__ocorrencia_atual',
     'andamento_agenda__inicio_fase',
@@ -27,57 +28,47 @@ CAMPOS_FAIXA = [
 ]
 
 
-def listar_produtos_diarios_filtrados(busca=None, filtros=None, ordenar='titulo'):
+def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo'):
     filtros = filtros or {}
 
-    # * [EXPLICAÇÃO] → Status da Postagem mais recente — via Subquery/OuterRef, numa
-    #                  única query (nunca 1 query por produto em loop). Postagem é
-    #                  histórico (N por produto); pega sempre a última por criado_em.
-    postagem_mais_recente = Postagem.objects.filter(
-        produto=OuterRef('pk')
-    ).order_by('-criado_em')
+    postagem_mais_recente = Postagem.objects.filter(produto=OuterRef('pk')).order_by('-criado_em')
 
-    qs = Produto.objects.filter(
-        andamento_agenda__fase_atual__fase=Fase.DIARIA,
-        andamento_agenda__concluido=False,
-    ).select_related(
-        'andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video',
+    # * [EXPLICAÇÃO] → Base NÃO exige mais AndamentoAgenda (diferente da antiga
+    #                  tela "Diários") — "Não Agendado"/"Pronto para Agendar"
+    #                  ainda não têm esse registro, e precisam aparecer também.
+    qs = Produto.objects.select_related(
+        'andamento_agenda', 'andamento_agenda__fase_atual',
+        'progresso_producao_video', 'roadmap_agenda',
     ).annotate(
         status_postagem_recente=Subquery(postagem_mais_recente.values('status')[:1]),
     )
 
     if busca:
-        termos = busca.split()
-        for termo in termos:
+        for termo in busca.split():
             qs = qs.filter(
                 Q(titulo__icontains=termo) | Q(ean__icontains=termo) |
                 Q(sku__icontains=termo) | Q(cod_fabricante__icontains=termo)
             )
 
+    if filtros.get('estagio'):
+        qs = qs.filter(roadmap_agenda__estagio_atual__in=filtros['estagio'])
+
     if filtros.get('marcas'):
         qs = qs.filter(marca__in=filtros['marcas'])
-
     if filtros.get('status_manual'):
         qs = qs.filter(andamento_agenda__status_manual__in=filtros['status_manual'])
-
     if filtros.get('urgente'):
         qs = qs.filter(andamento_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
-
     if filtros.get('video_simples_status'):
         qs = qs.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
-
     if filtros.get('video_base_status'):
         qs = qs.filter(progresso_producao_video__video_base_status__in=filtros['video_base_status'])
-
     if filtros.get('roteiros_gerados'):
         qs = qs.filter(progresso_producao_video__roteiros_gerados__in=[v == 'sim' for v in filtros['roteiros_gerados']])
-
     if filtros.get('completos_produzidos'):
         qs = qs.filter(progresso_producao_video__completos_produzidos__in=[v == 'sim' for v in filtros['completos_produzidos']])
-
     if filtros.get('roteiros_insuficientes'):
         qs = qs.filter(progresso_producao_video__roteiros_insuficientes__in=[v == 'sim' for v in filtros['roteiros_insuficientes']])
-
     if filtros.get('status_postagem'):
         qs = qs.filter(status_postagem_recente__in=filtros['status_postagem'])
 

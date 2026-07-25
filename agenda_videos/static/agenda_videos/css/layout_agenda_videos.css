@@ -1,0 +1,344 @@
+/* * [RESUMO] → Layout da tela única "Agenda de Vídeos". Renomeado de
+ *              layout_diarios.css (24/07) — classes diarios-* viraram agenda-*.
+ *              Estágio ganha destaque visual próprio (é o filtro central).
+ */
+
+.agenda-barra-busca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.agenda-input-busca {
+    flex: 1;
+    min-width: 260px;
+    padding: 8px 12px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+
+.agenda-select-paginacao {
+    padding: 8px 10px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+
+/* ================================================
+   ESTÁGIO — filtro em destaque (o conceito central)
+   ================================================ */
+.agenda-estagio-destaque {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 10px;
+    background: #eef2f8;
+    border: 1px solid #ccd8e8;
+    border-radius: 10px;
+}
+
+.agenda-estagio-opcao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #ccd3de;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.agenda-estagio-opcao input {
+    display: none;
+}
+
+.agenda-estagio-ativo {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.agenda-chips-filtros {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.chips-filtros-rotulo {
+    font-size: 0.75rem;
+    color: #4d5b6e;
+}
+
+.chip-filtro {
+    background: #dde6f2;
+    color: #1e3a5f;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+}
+
+.agenda-filtros {
+    width: 100%;
+    margin-bottom: 14px;
+}
+
+.agenda-filtros-titulo {
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #f0f2f5;
+    border: 1px solid #ccd3de;
+    border-radius: 8px;
+    padding: 7px 14px;
+    list-style: none;
+    user-select: none;
+}
+
+.agenda-filtros-titulo::-webkit-details-marker {
+    display: none;
+}
+
+.agenda-filtros-seta {
+    font-size: 0.7rem;
+    color: #4d5b6e;
+    transition: transform 0.15s ease;
+}
+
+.agenda-filtros[open] .agenda-filtros-seta {
+    transform: rotate(180deg);
+}
+
+.agenda-filtros-secoes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 10px;
+}
+
+.agenda-ordenar-por {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 0 0 20px;
+}
+
+.agenda-ordenar-rotulo {
+    font-size: 0.75rem;
+    color: #4d5b6e;
+    margin-right: 4px;
+}
+
+.agenda-ordenar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #e8ecf2;
+    color: #33404f;
+    text-decoration: none;
+    font-size: 0.75rem;
+    padding: 5px 12px;
+    border-radius: 999px;
+    transition: background-color 0.15s ease;
+}
+
+.agenda-ordenar-link:hover {
+    background: #d8dfe8;
+}
+
+.agenda-ordenar-ativo,
+.agenda-ordenar-ativo:hover {
+    background: #1d4ed8;
+    color: #fff;
+}
+
+.agenda-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.agenda-card {
+    border: 1px solid #d3dae4;
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(30, 45, 70, 0.08);
+}
+
+.agenda-card-identidade {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.agenda-foto {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: #eef1f5;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.agenda-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.agenda-titulo {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1b2534;
+    margin: 0;
+}
+
+.agenda-subtitulo {
+    font-size: 0.75rem;
+    color: #4d5b6e;
+    margin: 2px 0 0;
+}
+
+.agenda-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #eef1f5;
+    font-size: 0.75rem;
+}
+
+.agenda-ocorrencia {
+    font-size: 0.8rem;
+    color: #33404f;
+}
+
+.agenda-datas {
+    color: #4d5b6e;
+}
+
+.agenda-card-roadmap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.agenda-status-postagem {
+    margin-left: auto;
+}
+
+.agenda-vazio {
+    text-align: center;
+    padding: 48px 20px;
+    border: 1px dashed #b7c1cf;
+    border-radius: 12px;
+    background: #f6f8fa;
+}
+
+.agenda-vazio i {
+    font-size: 1.8rem;
+    color: #8b96a5;
+}
+
+.agenda-vazio-titulo {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #1b2534;
+    margin: 12px 0 4px;
+}
+
+.agenda-vazio-subtitulo {
+    font-size: 0.75rem;
+    color: #4d5b6e;
+    margin: 0;
+}
+
+.agenda-paginacao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 20px;
+    font-size: 0.75rem;
+    color: #4d5b6e;
+}
+
+.filtro-secao-card {
+    min-width: 0;
+    border: 1px solid #e5e9ef;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fafbfc;
+}
+
+.filtro-secao-titulo {
+    font-weight: 700;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+    color: #33404f;
+}
+
+.filtro-subgrupo {
+    margin-bottom: 10px;
+}
+
+.filtro-subgrupo-titulo {
+    display: block;
+    font-size: 0.75rem;
+    color: #4d5b6e;
+    margin-bottom: 4px;
+}
+
+.filtro-opcoes-lista {
+    max-height: 140px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.filtro-opcoes-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filtro-opcao {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.filtro-faixa-campos {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+}
+
+.filtro-faixa-campos input {
+    width: 100%;
+    min-width: 0;
+    padding: 4px 6px;
+    border: 1px solid #ccd3de;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    box-sizing: border-box;
+}

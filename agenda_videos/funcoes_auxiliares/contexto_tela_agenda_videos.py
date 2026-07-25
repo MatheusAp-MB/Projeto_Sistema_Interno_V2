@@ -1,14 +1,16 @@
-# agenda_videos/funcoes_auxiliares/contexto_tela_diarios.py
+# agenda_videos/funcoes_auxiliares/contexto_tela_agenda_videos.py
 
-# Função Objetivo: Monta todo o contexto da tela "Diários" — mesma arquitetura já validada
-# em Produtos e no Hub de Anúncios (busca/filtro/ordenação/paginação no servidor).
+# Função Objetivo: Monta todo o contexto da tela única "Agenda de Vídeos".
+# Renomeado de contexto_tela_diarios.py (24/07). Estágio padrão ("Diário") só se
+# aplica na 1ª visita (nenhum parâmetro na URL ainda) — depois disso, respeita
+# exatamente o que o usuário escolheu, mesmo que seja "nenhum estágio marcado".
 
 from dataclasses import dataclass, field
 from django.core.paginator import Paginator
 from produtos.models import Produto
-from agenda_videos.models import Fase
-from agenda_videos.funcoes_auxiliares.filtros_diarios import (
-    listar_produtos_diarios_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
+from agenda_videos.models import EstagioAgenda
+from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
+    listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
 )
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_STATUS_VIDEO, opcoes_com_badge,
@@ -28,12 +30,7 @@ LABELS_CAMPOS_FAIXA = {
     'progresso_producao_video__quantidade_roteiros': 'Qtd. Roteiros',
 }
 
-# * [EXPLICAÇÃO] → Removido SECOES_FILTRO_FAIXA (24/07) — gerava 2 cards duplicados
-#                  no template (um de checkbox, outro de faixa, com o MESMO título
-#                  "Andamento"/"Produção de Vídeo" em posições diferentes da grade).
-#                  Os campos de faixa agora são escritos diretamente dentro do mesmo
-#                  card de checkbox da categoria certa — só 1 card por categoria.
-#                  LABELS_CAMPOS_FAIXA continua existindo, usado só pros chips ativos.
+OPCOES_ESTAGIO = [{'valor': e.value, 'label': e.label} for e in EstagioAgenda]
 
 OPCOES_SIM_NAO = [
     {'valor': 'sim', 'label': 'Sim', 'classe': None, 'icone': None},
@@ -41,9 +38,8 @@ OPCOES_SIM_NAO = [
 ]
 
 
-# Função Objetivo: Representa os parâmetros de busca/filtro/ordenação já validados.
 @dataclass
-class ParametrosBuscaDiarios:
+class ParametrosBuscaAgendaVideos:
     busca: str
     por_pagina: int
     ordenar: str
@@ -64,7 +60,19 @@ class ParametrosBuscaDiarios:
         if ordenar.lstrip('-') not in CAMPOS_ORDENACAO:
             ordenar = 'titulo'
 
+        # * [EXPLICAÇÃO] → "1ª visita" = nenhum parâmetro na URL (link direto,
+        #                  sem nenhum filtro ainda escolhido) — só nesse caso o
+        #                  padrão "Diário" é aplicado. Qualquer submissão real do
+        #                  formulário (mesmo com todos os checkboxes desmarcados)
+        #                  já traz outros parâmetros (busca, por_pagina), então
+        #                  nunca é confundida com a 1ª visita.
+        eh_primeira_visita = len(request.GET) == 0
+        estagio = request.GET.getlist('estagio')
+        if eh_primeira_visita:
+            estagio = [EstagioAgenda.DIARIA]
+
         filtros = {
+            'estagio': estagio,
             'marcas': request.GET.getlist('marca'),
             'status_manual': request.GET.getlist('status_manual'),
             'urgente': request.GET.getlist('urgente'),
@@ -85,8 +93,7 @@ class ParametrosBuscaDiarios:
         )
 
 
-# Função Objetivo: Monta os chips de "filtro ativo" exibidos acima da lista.
-class ConstrutorChipsAtivosDiarios:
+class ConstrutorChipsAtivosAgendaVideos:
 
     def __init__(self, filtros):
         self.filtros = filtros
@@ -95,7 +102,9 @@ class ConstrutorChipsAtivosDiarios:
         return {'label': label, 'classe': None, 'icone': None}
 
     def _chips_checkbox(self):
-        chips = [self._chip_simples(m) for m in self.filtros['marcas']]
+        mapa_labels_estagio = dict(EstagioAgenda.choices)
+        chips = [self._chip_simples(mapa_labels_estagio.get(v, v)) for v in self.filtros['estagio']]
+        chips += [self._chip_simples(m) for m in self.filtros['marcas']]
         chips += [BADGES_STATUS_MANUAL[v] for v in self.filtros['status_manual'] if v in BADGES_STATUS_MANUAL]
         chips += [self._chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
         chips += [self._chip_simples(f'Simples: {BADGES_STATUS_VIDEO[v]["label"]}') for v in self.filtros['video_simples_status'] if v in BADGES_STATUS_VIDEO]
@@ -126,12 +135,11 @@ class ConstrutorChipsAtivosDiarios:
         return self._chips_checkbox() + self._chips_faixa()
 
 
-# Função Objetivo: Orquestra a montagem inteira do contexto da tela "Diários".
-class ContextoTelaDiarios:
+class ContextoTelaAgendaVideos:
 
     def __init__(self, request):
         self.request = request
-        self.parametros = ParametrosBuscaDiarios.a_partir_da_requisicao(request)
+        self.parametros = ParametrosBuscaAgendaVideos.a_partir_da_requisicao(request)
 
     def _querystring_base(self):
         qs = self.request.GET.copy()
@@ -145,7 +153,7 @@ class ContextoTelaDiarios:
         return qs.urlencode()
 
     def _montar_pagina(self):
-        produtos = listar_produtos_diarios_filtrados(
+        produtos = listar_produtos_agenda_filtrados(
             busca=self.parametros.busca or None,
             filtros=self.parametros.filtros,
             ordenar=self.parametros.ordenar,
@@ -158,11 +166,10 @@ class ContextoTelaDiarios:
             self.parametros.ordenar, self._querystring_base(),
         ).montar(LABELS_COLUNAS)
 
-        chips_ativos = ConstrutorChipsAtivosDiarios(self.parametros.filtros).montar()
+        chips_ativos = ConstrutorChipsAtivosAgendaVideos(self.parametros.filtros).montar()
 
         marcas_disponiveis = (
             Produto.objects
-            .filter(andamento_agenda__fase_atual__fase=Fase.DIARIA, andamento_agenda__concluido=False)
             .exclude(marca__isnull=True).exclude(marca='')
             .values_list('marca', flat=True).distinct().order_by('marca')
         )
@@ -175,15 +182,11 @@ class ContextoTelaDiarios:
             'cabecalhos': cabecalhos,
             'chips_ativos': chips_ativos,
             'marcas_disponiveis': marcas_disponiveis,
+            'opcoes_estagio': OPCOES_ESTAGIO,
             'opcoes_status_manual': opcoes_com_badge(BADGES_STATUS_MANUAL),
             'opcoes_status_video': opcoes_com_badge(BADGES_STATUS_VIDEO),
             'opcoes_status_postagem': opcoes_com_badge(BADGES_STATUS_POSTAGEM),
             'opcoes_sim_nao': OPCOES_SIM_NAO,
-            # * [EXPLICAÇÃO] → Passado pro contexto pra resolver o badge do
-            #                  status_postagem_recente (vem de Subquery, é só
-            #                  uma string crua) — usa o get_item genérico que
-            #                  já existe em core/templatetags/filtros.py, sem
-            #                  precisar de nenhum filtro de template novo.
             'badges_status_postagem': BADGES_STATUS_POSTAGEM,
             'querystring_sem_pagina': self._querystring_sem_pagina(),
         }

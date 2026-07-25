@@ -1,22 +1,21 @@
 <!--
-* [RESUMO] → Tela "Diários": todos os produtos na Fase Diária, independente do
-* status daquele dia específico. Busca/filtro/ordenação/paginação no servidor —
-* mesma arquitetura de Produtos/Hub de Anúncios.
-* Reorganizado (24/07): categorias de filtro fundidas (checkbox + faixa juntos,
-* 1 card por categoria — antes gerava 2 cards duplicados com o mesmo título).
-* Hierarquia do card revisada: identidade do produto isolada numa linha própria,
-* metadados/badges numa 2ª linha, roadmap como elemento central sem concorrência.
+* [RESUMO] → Tela ÚNICA "Agenda de Vídeos" — mostra qualquer produto, com o filtro
+* de Estágio (Não Agendado / Pronto p/ Agendar / Diário / Semanal / Mensal /
+* Otimizado) no topo, em destaque. Renomeada de estrutura_diarios.html (24/07) —
+* a tela "Diários" deixou de existir como conceito próprio.
+* Padrão "A Fazer Hoje" adiado de propósito (depende do "motor" de postagem, que
+* ainda não existe) — decisão registrada no documento de Idealização.
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
 {% load filtros %}
 {% load roadmap_tags %}
 
-{% block titulo %}Diários — Agenda de Vídeos{% endblock %}
-{% block toolbar_titulo %}Diários{% endblock %}
+{% block titulo %}Agenda de Vídeos{% endblock %}
+{% block toolbar_titulo %}Agenda de Vídeos{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_diarios.css' %}">
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_agenda_videos.css' %}">
 <link rel="stylesheet" href="{% static 'agenda_videos/css/layout_roadmap_produto.css' %}">
 {% endblock %}
 
@@ -26,16 +25,16 @@
 
 {% block conteudo %}
 
-<form method="get" class="diarios-barra-busca">
+<form method="get" class="agenda-barra-busca">
     <input
         type="text"
         name="busca"
         value="{{ busca }}"
         placeholder="Buscar por Nome, SKU, EAN ou Cód. Fabricante..."
-        class="diarios-input-busca"
+        class="agenda-input-busca"
     >
 
-    <select name="por_pagina" onchange="this.form.submit()" class="diarios-select-paginacao">
+    <select name="por_pagina" onchange="this.form.submit()" class="agenda-select-paginacao">
         <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
         <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
         <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
@@ -43,8 +42,18 @@
 
     <button type="submit" class="btn-acao">Buscar</button>
 
+    <!-- Estágio — filtro em destaque, é o conceito central que substitui as "telas" -->
+    <div class="agenda-estagio-destaque">
+        {% for opcao in opcoes_estagio %}
+        <label class="agenda-estagio-opcao {% if opcao.valor in filtros.estagio %}agenda-estagio-ativo{% endif %}">
+            <input type="checkbox" name="estagio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.estagio %}checked{% endif %} onchange="this.form.submit()">
+            <span>{{ opcao.label }}</span>
+        </label>
+        {% endfor %}
+    </div>
+
     {% if chips_ativos %}
-    <div class="diarios-chips-filtros">
+    <div class="agenda-chips-filtros">
         <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
         {% for chip in chips_ativos %}
         <span class="chip-filtro">{{ chip.label }}</span>
@@ -52,14 +61,16 @@
     </div>
     {% endif %}
 
-    <details class="diarios-filtros">
-        <summary class="diarios-filtros-titulo">
-            <i class="fas fa-filter"></i> Filtros <i class="fas fa-chevron-down diarios-filtros-seta"></i>
+    <!-- * [EXPLICAÇÃO] → Filtros abaixo (Status Manual, Urgente, Vídeo, Postagem,
+         faixas) serão repensados por completo numa rodada própria — mantidos como
+         estão por enquanto, só a base da tela/query mudou. -->
+    <details class="agenda-filtros">
+        <summary class="agenda-filtros-titulo">
+            <i class="fas fa-filter"></i> Mais filtros <i class="fas fa-chevron-down agenda-filtros-seta"></i>
         </summary>
 
-        <div class="diarios-filtros-secoes">
+        <div class="agenda-filtros-secoes">
 
-            <!-- Identificação -->
             <div class="filtro-secao-card">
                 <div class="filtro-secao-titulo">Identificação</div>
                 <div class="filtro-subgrupo">
@@ -75,7 +86,6 @@
                 </div>
             </div>
 
-            <!-- Andamento — status/urgência/postagem + faixas de ocorrência/data juntos -->
             <div class="filtro-secao-card">
                 <div class="filtro-secao-titulo">Andamento</div>
 
@@ -140,7 +150,6 @@
                 </div>
             </div>
 
-            <!-- Produção de Vídeo — checkboxes + faixa de qtd. roteiros juntos -->
             <div class="filtro-secao-card">
                 <div class="filtro-secao-titulo">Produção de Vídeo</div>
 
@@ -217,29 +226,29 @@
     </details>
 </form>
 
-<div class="diarios-ordenar-por">
-    <span class="diarios-ordenar-rotulo">Ordenar por</span>
+<div class="agenda-ordenar-por">
+    <span class="agenda-ordenar-rotulo">Ordenar por</span>
     {% for chave, cabecalho in cabecalhos.items %}
-    <a href="{{ cabecalho.href }}" class="diarios-ordenar-link {% if cabecalho.ativo %}diarios-ordenar-ativo{% endif %}">
+    <a href="{{ cabecalho.href }}" class="agenda-ordenar-link {% if cabecalho.ativo %}agenda-ordenar-ativo{% endif %}">
         {{ cabecalho.label }}
         {% if cabecalho.ativo %}<i class="fas {{ cabecalho.icone }}"></i>{% endif %}
     </a>
     {% endfor %}
 </div>
 
-<div class="diarios-lista">
+<div class="agenda-lista">
     {% for produto in pagina %}
-    <div class="diarios-card">
+    <div class="agenda-card">
 
-        <div class="diarios-card-identidade">
-            <div class="diarios-foto">
+        <div class="agenda-card-identidade">
+            <div class="agenda-foto">
                 {% if produto.obter_dados_identificacao.imagem_url %}
                 <img src="{{ produto.obter_dados_identificacao.imagem_url }}" alt="">
                 {% endif %}
             </div>
-            <div class="diarios-identificacao">
-                <p class="diarios-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
-                <p class="diarios-subtitulo">
+            <div class="agenda-identificacao">
+                <p class="agenda-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
+                <p class="agenda-subtitulo">
                     EAN {{ produto.obter_dados_identificacao.ean }} ·
                     SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
                     {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
@@ -248,53 +257,54 @@
             </div>
         </div>
 
-        <div class="diarios-card-meta">
-            {% with status_manual=produto.andamento_agenda.status_manual %}
-            <span class="badge-tabela status-{{ status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
-            {% endwith %}
+        <!-- * [EXPLICAÇÃO] → Só existe quando o produto já tem AndamentoAgenda —
+             "Não Agendado"/"Pronto para Agendar" não têm esse registro ainda, e
+             o roadmap abaixo já explica a situação deles sozinho. -->
+        {% if produto.andamento_agenda %}
+        <div class="agenda-card-meta">
+            <span class="badge-tabela status-{{ produto.andamento_agenda.status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
 
             {% if produto.andamento_agenda.urgente %}
             <span class="badge-tabela badge-conta-propria"><i class="fas fa-triangle-exclamation"></i> Urgente</span>
             {% endif %}
 
-            <span class="badge-tabela badge-papel">Diária</span>
-            <span class="diarios-ocorrencia">dia {{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
-            <span class="diarios-datas">{{ produto.andamento_agenda.inicio_fase|date:"d/m" }} → {{ produto.andamento_agenda.fim_fase|date:"d/m" }}</span>
+            <span class="badge-tabela badge-papel">{{ produto.andamento_agenda.fase_atual.get_fase_display }}</span>
+            <span class="agenda-ocorrencia">{{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
+            <span class="agenda-datas">{{ produto.andamento_agenda.inicio_fase|date:"d/m" }} → {{ produto.andamento_agenda.fim_fase|date:"d/m" }}</span>
         </div>
+        {% endif %}
 
-        <div class="diarios-card-roadmap">
+        <div class="agenda-card-roadmap">
             {% roadmap_produto produto %}
 
             {% with progresso=produto.progresso_producao_video %}
             {% if progresso.roteiros_insuficientes %}
             <span class="badge-tabela badge-listed" title="Roteiros insuficientes pra Fase Diária">
-                <i class="fas fa-triangle-exclamation"></i> {{ progresso.quantidade_roteiros }} roteiros p/ {{ produto.andamento_agenda.fase_atual.periodo }} dias
+                <i class="fas fa-triangle-exclamation"></i> {{ progresso.quantidade_roteiros }} roteiros
             </span>
             {% endif %}
             {% endwith %}
 
             {% with badge_postagem=badges_status_postagem|get_item:produto.status_postagem_recente %}
             {% if badge_postagem %}
-            <span class="badge-tabela {{ badge_postagem.classe }} diarios-status-postagem">
+            <span class="badge-tabela {{ badge_postagem.classe }} agenda-status-postagem">
                 {% if badge_postagem.icone %}<i class="fas {{ badge_postagem.icone }}"></i>{% endif %}
                 {{ badge_postagem.label }}
             </span>
-            {% else %}
-            <span class="badge-tabela badge-papel diarios-status-postagem">Sem postagem ainda</span>
             {% endif %}
             {% endwith %}
         </div>
 
     </div>
     {% empty %}
-    <div class="diarios-vazio">
+    <div class="agenda-vazio">
         <i class="fas fa-calendar-xmark"></i>
         {% if chips_ativos or busca %}
-        <p class="diarios-vazio-titulo">Nenhum produto bate com esses filtros</p>
-        <p class="diarios-vazio-subtitulo">Tenta limpar a busca ou os filtros ativos.</p>
+        <p class="agenda-vazio-titulo">Nenhum produto bate com esses filtros</p>
+        <p class="agenda-vazio-subtitulo">Tenta limpar a busca ou os filtros ativos.</p>
         {% else %}
-        <p class="diarios-vazio-titulo">Nenhum produto na Fase Diária ainda</p>
-        <p class="diarios-vazio-subtitulo">Assim que um produto entrar na Agenda, ele aparece aqui.</p>
+        <p class="agenda-vazio-titulo">Nenhum produto neste estágio ainda</p>
+        <p class="agenda-vazio-subtitulo">Marque outro estágio no filtro acima, ou aguarde produtos avançarem.</p>
         {% endif %}
     </div>
     {% endfor %}
@@ -302,11 +312,11 @@
 
 <div id="modal-roadmap-slot"></div>
 
-<div class="diarios-paginacao">
+<div class="agenda-paginacao">
     {% if pagina.has_previous %}
     <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}">← Anterior</a>
     {% endif %}
-    <span class="diarios-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    <span class="agenda-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
     {% if pagina.has_next %}
     <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}">Próxima →</a>
     {% endif %}
