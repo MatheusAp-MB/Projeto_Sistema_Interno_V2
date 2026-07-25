@@ -1,0 +1,152 @@
+/* * [RESUMO] → Visual do roadmap de produto (9 pontos) + modal de confirmação —
+ *              cores validadas no mockup: verde=concluído, coral=atual (com anel
+ *              tracejado nas fases cíclicas), cinza=futuro. Compartilhado por
+ *              qualquer tela que inclua a template tag {% roadmap_produto %}.
+ */
+
+.roadmap-produto {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    flex-wrap: nowrap;
+}
+
+.roadmap-ponto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 58px;
+}
+
+.roadmap-bolinha {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 600;
+    border: none;
+    padding: 0;
+    position: relative;
+}
+
+.roadmap-ponto-concluido .roadmap-bolinha {
+    background: #3B6D11;
+}
+
+.roadmap-ponto-atual .roadmap-bolinha {
+    background: #993C1D;
+}
+
+.roadmap-ponto-futuro .roadmap-bolinha {
+    background: #e8e6e0;
+    color: #8a887f;
+}
+
+.roadmap-ponto-ciclico .roadmap-bolinha::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 1.5px dashed #c7c5bd;
+}
+
+.roadmap-ponto-ciclico.roadmap-ponto-atual .roadmap-bolinha::after {
+    border-color: #993C1D;
+}
+
+.roadmap-bolinha-clicavel {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease;
+}
+
+.roadmap-bolinha-clicavel:hover {
+    box-shadow: 0 0 0 4px rgba(153, 60, 29, 0.2);
+}
+
+.roadmap-ponto-rotulo {
+    font-size: 0.72rem;
+    color: #445;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.roadmap-ponto-futuro .roadmap-ponto-rotulo {
+    color: #8a887f;
+}
+
+.roadmap-ponto-contador {
+    font-size: 0.68rem;
+    color: #778;
+}
+
+.roadmap-linha {
+    width: 18px;
+    height: 1px;
+    background: #c3ccd8;
+    margin-top: 17px;
+    flex-shrink: 0;
+}
+
+/* ================================================
+   MODAL DE CONFIRMAÇÃO
+   ================================================ */
+
+.modal-roadmap-fundo {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 25, 35, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-roadmap-caixa {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 28px;
+    max-width: 420px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-roadmap-titulo {
+    margin: 0 0 12px;
+    font-size: 1.05rem;
+    color: #1b2534;
+}
+
+.modal-roadmap-texto {
+    font-size: 0.88rem;
+    color: #33404f;
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+
+.modal-roadmap-aviso {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal-roadmap-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.btn-acao-confirmar {
+    background: #1d4ed8;
+    color: #fff;
+    border-color: #1d4ed8;
+}

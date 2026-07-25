@@ -1,0 +1,30 @@
+<!--
+* [RESUMO] → Modal de confirmação antes de marcar um ponto do roadmap como concluído.
+* Sem reversão — o aviso disso é explícito no texto, de propósito (decisão do usuário).
+-->
+<div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
+    <div class="modal-roadmap-caixa">
+        <h3 class="modal-roadmap-titulo">Marcar como concluído?</h3>
+        <p class="modal-roadmap-texto">
+            <strong>{{ ponto.rotulo_completo }}</strong><br>
+            {% if periodo_diaria %}
+            Garante que foram gerados {{ periodo_diaria }} roteiros suficientes pros {{ periodo_diaria }} dias da Fase Diária?
+            {% else %}
+            {{ ponto.explicacao }}
+            {% endif %}
+        </p>
+        <p class="modal-roadmap-aviso">
+            <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_roadmap_marcar' produto_id chave %}"
+                    hx-target="#roadmap-produto-{{ produto_id }}"
+                    hx-swap="outerHTML"
+                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Confirmar
+            </button>
+        </div>
+    </div>
+</div>

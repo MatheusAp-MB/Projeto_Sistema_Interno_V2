@@ -1,0 +1,35 @@
+<!--
+* [RESUMO] → Parcial reaproveitável do roadmap de produto — 9 pontos (4 editáveis +
+* 5 automáticos). Tooltip nativo via atributo title (sem JS). Só o ponto "atual", entre
+* os 4 primeiros, é clicável — dispara hx-get pro modal de confirmação, que renderiza
+* dentro de #modal-roadmap-slot (a página que inclui este parcial precisa ter esse
+* slot em algum lugar, 1 vez só, mesmo com vários roadmaps na tela).
+-->
+<div class="roadmap-produto" id="roadmap-produto-{{ roadmap.produto_id }}">
+    {% for ponto in roadmap.pontos %}
+    <div class="roadmap-ponto roadmap-ponto-{{ ponto.estado }} {% if ponto.chave == 'diaria' or ponto.chave == 'semanal' or ponto.chave == 'mensal' %}roadmap-ponto-ciclico{% endif %}"
+         title="{{ ponto.rotulo_completo }} — {{ ponto.explicacao }}">
+
+        {% if ponto.clicavel %}
+        <button type="button" class="roadmap-bolinha roadmap-bolinha-clicavel"
+                hx-get="{% url 'agenda_videos_roadmap_confirmar' roadmap.produto_id ponto.chave %}"
+                hx-target="#modal-roadmap-slot"
+                hx-swap="innerHTML">
+        </button>
+        {% else %}
+        <span class="roadmap-bolinha">
+            {% if ponto.estado == 'concluido' %}<i class="fas fa-check"></i>{% endif %}
+        </span>
+        {% endif %}
+
+        <span class="roadmap-ponto-rotulo">{{ ponto.rotulo }}</span>
+        {% if ponto.contador %}
+        <span class="roadmap-ponto-contador">{{ ponto.contador }}</span>
+        {% endif %}
+    </div>
+
+    {% if not forloop.last %}
+    <div class="roadmap-linha"></div>
+    {% endif %}
+    {% endfor %}
+</div>

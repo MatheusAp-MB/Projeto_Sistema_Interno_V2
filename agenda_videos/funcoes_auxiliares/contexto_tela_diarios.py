@@ -28,16 +28,12 @@ LABELS_CAMPOS_FAIXA = {
     'progresso_producao_video__quantidade_roteiros': 'Qtd. Roteiros',
 }
 
-SECOES_FILTRO_FAIXA = [
-    {'titulo': 'Andamento', 'campos': [
-        ('andamento_agenda__ocorrencia_atual', 'Ocorrência'),
-        ('andamento_agenda__inicio_fase', 'Início da Fase'),
-        ('andamento_agenda__fim_fase', 'Fim da Fase'),
-    ]},
-    {'titulo': 'Produção de Vídeo', 'campos': [
-        ('progresso_producao_video__quantidade_roteiros', 'Qtd. Roteiros'),
-    ]},
-]
+# * [EXPLICAÇÃO] → Removido SECOES_FILTRO_FAIXA (24/07) — gerava 2 cards duplicados
+#                  no template (um de checkbox, outro de faixa, com o MESMO título
+#                  "Andamento"/"Produção de Vídeo" em posições diferentes da grade).
+#                  Os campos de faixa agora são escritos diretamente dentro do mesmo
+#                  card de checkbox da categoria certa — só 1 card por categoria.
+#                  LABELS_CAMPOS_FAIXA continua existindo, usado só pros chips ativos.
 
 OPCOES_SIM_NAO = [
     {'valor': 'sim', 'label': 'Sim', 'classe': None, 'icone': None},
@@ -178,7 +174,6 @@ class ContextoTelaDiarios:
             'filtros': self.parametros.filtros,
             'cabecalhos': cabecalhos,
             'chips_ativos': chips_ativos,
-            'secoes_filtro_faixa': SECOES_FILTRO_FAIXA,
             'marcas_disponiveis': marcas_disponiveis,
             'opcoes_status_manual': opcoes_com_badge(BADGES_STATUS_MANUAL),
             'opcoes_status_video': opcoes_com_badge(BADGES_STATUS_VIDEO),

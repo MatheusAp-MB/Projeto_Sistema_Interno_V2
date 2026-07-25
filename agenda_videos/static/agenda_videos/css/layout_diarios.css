@@ -1,8 +1,22 @@
-/* * [RESUMO] → Layout da tela "Diários" — card por produto (identificação +
- *              roadmap de produção), painel de filtro (mesmo padrão visual já
- *              usado em Produtos/Hub de Anúncios — CSS duplicado de propósito,
- *              seguindo o precedente já existente no projeto).
+/* * [RESUMO] → Layout da tela "Diários" — card por produto (identidade + metadados +
+ *              roadmap de produção), painel de filtro (CSS duplicado de propósito,
+ *              seguindo o precedente já existente no projeto — ver commit anterior).
+ *              Revisado (24/07) — escala tipográfica de 3 níveis só (título/corpo/
+ *              secundário, no lugar de 7 tamanhos quase iguais sem intenção), card
+ *              com sombra + borda mais forte (contraste real contra o fundo da
+ *              página, que é quase idêntico ao branco), hierarquia de identidade do
+ *              produto separada dos metadados.
  */
+
+/* ================================================
+   ESCALA TIPOGRÁFICA — só 3 níveis, usados em tudo
+   ================================================ */
+:root {
+    --diarios-fonte-titulo: 0.95rem;
+    --diarios-fonte-corpo: 0.8rem;
+    --diarios-fonte-secundaria: 0.75rem;
+    --diarios-cor-texto-secundario: #4d5b6e; /* substitui o antigo #889 (contraste insuficiente) */
+}
 
 .diarios-barra-busca {
     display: flex;
@@ -18,12 +32,14 @@
     padding: 8px 12px;
     border: 1px solid #ccd3de;
     border-radius: 6px;
+    font-size: var(--diarios-fonte-corpo);
 }
 
 .diarios-select-paginacao {
     padding: 8px 10px;
     border: 1px solid #ccd3de;
     border-radius: 6px;
+    font-size: var(--diarios-fonte-corpo);
 }
 
 .diarios-chips-filtros {
@@ -35,16 +51,16 @@
 }
 
 .chips-filtros-rotulo {
-    font-size: 0.85rem;
-    color: #556;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
 }
 
 .chip-filtro {
-    background: #eef2f7;
-    color: #3d4a5c;
+    background: #dde6f2;
+    color: #1e3a5f;
     padding: 3px 10px;
     border-radius: 999px;
-    font-size: 0.78rem;
+    font-size: var(--diarios-fonte-secundaria);
 }
 
 .diarios-filtros {
@@ -55,12 +71,12 @@
 .diarios-filtros-titulo {
     cursor: pointer;
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: var(--diarios-fonte-corpo);
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: #f7f8fa;
-    border: 1px solid #dde2e8;
+    background: #f0f2f5;
+    border: 1px solid #ccd3de;
     border-radius: 8px;
     padding: 7px 14px;
     list-style: none;
@@ -73,7 +89,7 @@
 
 .diarios-filtros-seta {
     font-size: 0.7rem;
-    color: #889;
+    color: var(--diarios-cor-texto-secundario);
     transition: transform 0.15s ease;
 }
 
@@ -89,25 +105,23 @@
 }
 
 .filtro-secao-card {
-    /* * [EXPLICAÇÃO] → min-width: 0 é necessário porque item de grid,
-     *                  por padrão, tem min-width: auto — nunca encolhe
-     *                  menor que o conteúdo interno, mesmo que a coluna
-     *                  tenha menos espaço. Sem isso, os inputs de data
-     *                  (que têm largura mínima nativa do navegador)
-     *                  forçam o card inteiro a estourar pra fora da grade.
-     */
+    /* min-width:0 — item de grid tem min-width:auto por padrão, nunca encolhe
+       menor que o conteúdo interno (ex: input de data), o que estourava o card
+       pra fora da coluna. */
     min-width: 0;
-    border: 1px solid #e5e9ef;
+    border: 1px solid #ccd3de;
     border-radius: 8px;
-    padding: 10px 12px;
-    background: #fafbfc;
+    padding: 12px 14px;
+    background: #f6f8fa;
 }
 
 .filtro-secao-titulo {
     font-weight: 700;
-    font-size: 0.82rem;
-    margin-bottom: 8px;
-    color: #33404f;
+    font-size: var(--diarios-fonte-corpo);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 10px;
+    color: #1e3a5f;
 }
 
 .filtro-subgrupo {
@@ -116,8 +130,8 @@
 
 .filtro-subgrupo-titulo {
     display: block;
-    font-size: 0.75rem;
-    color: #667;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
     margin-bottom: 4px;
 }
 
@@ -139,7 +153,7 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    font-size: 0.8rem;
+    font-size: var(--diarios-fonte-corpo);
     cursor: pointer;
 }
 
@@ -150,18 +164,12 @@
 }
 
 .filtro-faixa-campos input {
-    /* * [EXPLICAÇÃO] → Mesmo motivo do .filtro-secao-card acima: item de
-     *                  flex também tem min-width: auto por padrão. Sem
-     *                  isso, o input de data/número nunca encolhe abaixo
-     *                  do tamanho nativo do navegador, e "empurra" o
-     *                  irmão ao lado + o card pai pra fora da grade.
-     */
     width: 100%;
     min-width: 0;
     padding: 4px 6px;
     border: 1px solid #ccd3de;
     border-radius: 5px;
-    font-size: 0.8rem;
+    font-size: var(--diarios-fonte-secundaria);
     box-sizing: border-box;
 }
 
@@ -174,8 +182,8 @@
 }
 
 .diarios-ordenar-rotulo {
-    font-size: 0.75rem;
-    color: #889;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
     margin-right: 4px;
 }
 
@@ -183,17 +191,17 @@
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: #f1f3f6;
-    color: #556;
+    background: #e8ecf2;
+    color: #33404f;
     text-decoration: none;
-    font-size: 0.8rem;
+    font-size: var(--diarios-fonte-secundaria);
     padding: 5px 12px;
     border-radius: 999px;
     transition: background-color 0.15s ease;
 }
 
 .diarios-ordenar-link:hover {
-    background: #e5e9ef;
+    background: #d8dfe8;
 }
 
 .diarios-ordenar-ativo,
@@ -205,29 +213,33 @@
 .diarios-lista {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 14px;
 }
 
 .diarios-card {
-    border: 1px solid #e5e9ef;
+    border: 1px solid #d3dae4;
     border-radius: 10px;
-    padding: 14px 16px;
+    padding: 16px 18px;
     background: #fff;
+    box-shadow: 0 1px 3px rgba(30, 45, 70, 0.08);
 }
 
-.diarios-card-topo {
+/* ================================================
+   LINHA 1 — IDENTIDADE (nome do produto em destaque,
+   isolado dos metadados/badges de propósito)
+   ================================================ */
+.diarios-card-identidade {
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
     margin-bottom: 10px;
 }
 
 .diarios-foto {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 8px;
-    background: #f1f3f6;
+    background: #eef1f5;
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -238,38 +250,52 @@
     object-fit: cover;
 }
 
-.diarios-identificacao {
-    min-width: 220px;
-}
-
 .diarios-titulo {
     font-weight: 600;
-    font-size: 0.88rem;
+    font-size: var(--diarios-fonte-titulo);
+    color: #1b2534;
     margin: 0;
 }
 
 .diarios-subtitulo {
-    font-size: 0.75rem;
-    color: #667;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
     margin: 2px 0 0;
 }
 
+/* ================================================
+   LINHA 2 — METADADOS/BADGES (peso visual menor
+   que a identidade, mas ainda com contraste real)
+   ================================================ */
+.diarios-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #eef1f5;
+    font-size: var(--diarios-fonte-secundaria);
+}
+
 .diarios-ocorrencia {
-    font-size: 0.82rem;
+    font-size: var(--diarios-fonte-corpo);
+    color: #33404f;
 }
 
 .diarios-datas {
-    font-size: 0.82rem;
-    color: #667;
+    color: var(--diarios-cor-texto-secundario);
 }
 
+/* ================================================
+   ROADMAP — elemento central da tela, com contraste
+   real inclusive na etapa "não feita"
+   ================================================ */
 .diarios-card-roadmap {
     display: flex;
     align-items: center;
     gap: 4px;
     flex-wrap: wrap;
-    border-top: 1px solid #eef1f5;
-    padding-top: 10px;
 }
 
 .roadmap-etapa {
@@ -282,7 +308,8 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    border: 1.5px solid #ccd3de;
+    border: 1.5px solid #9aa7ba;
+    background: #eef1f5;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -296,14 +323,14 @@
 }
 
 .roadmap-label {
-    font-size: 0.75rem;
-    color: #667;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
 }
 
 .roadmap-linha {
     width: 20px;
     height: 1px;
-    background: #ccd3de;
+    background: #c3ccd8;
 }
 
 .diarios-status-postagem {
@@ -313,24 +340,26 @@
 .diarios-vazio {
     text-align: center;
     padding: 48px 20px;
-    border: 1px dashed #ccd3de;
+    border: 1px dashed #b7c1cf;
     border-radius: 12px;
+    background: #f6f8fa;
 }
 
 .diarios-vazio i {
     font-size: 1.8rem;
-    color: #aab;
+    color: #8b96a5;
 }
 
 .diarios-vazio-titulo {
     font-weight: 600;
-    font-size: 0.92rem;
+    font-size: var(--diarios-fonte-corpo);
+    color: #1b2534;
     margin: 12px 0 4px;
 }
 
 .diarios-vazio-subtitulo {
-    font-size: 0.8rem;
-    color: #667;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
     margin: 0;
 }
 
@@ -340,5 +369,6 @@
     justify-content: center;
     gap: 16px;
     margin-top: 20px;
-    font-size: 0.85rem;
+    font-size: var(--diarios-fonte-secundaria);
+    color: var(--diarios-cor-texto-secundario);
 }
