@@ -4,76 +4,107 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
-from mercado_livre.models import VariacaoAnuncioMercadoLivre
-from mercado_livre.funcoes_auxiliares.comparador_dimensao_envio import SituacaoDimensaoEnvio
-
-# ==== CONFIGURA AQUI ANTES DE RODAR ====
-QTD_EXEMPLOS_POR_CATEGORIA = 5
-CLASSIFICACOES_ACEITAS = ['simples', 'base']  # nunca 'catalogo' — filtro pedido pela outra conversa
-# ========================================
-
-
-# Função Objetivo: Classifica 1 variação divergente numa das 3 categorias de causa.
-# Explicação em detalhe: mesma lógica de gerar_relatorio_divergencia_dimensao_envio.py —
-# repetida aqui só pra manter este script autocontido (teste.py é sempre descartável).
-def classificar_causa_divergencia(variacao, produto):
-    dims_erp_com = [produto.altura_ordenada_cm, produto.largura_ordenada_cm, produto.comprimento_ordenada_cm]
-    dims_ml = [variacao.altura_ordenada_cm, variacao.largura_ordenada_cm, variacao.comprimento_ordenada_cm]
-
-    dims_erp_sem_brutas = [
-        produto.altura_produto_sem_embalar, produto.largura_produto_sem_embalar,
-        produto.comprimento_produto_sem_embalar,
-    ]
-    sem_embalar_tem_dado = any(valor != 0 for valor in dims_erp_sem_brutas) or produto.peso_produto_sem_embalar != 0
-    dims_erp_sem_ordenadas = sorted(dims_erp_sem_brutas)
-
-    bate_com_sem_embalar = (
-        sem_embalar_tem_dado
-        and dims_erp_sem_ordenadas == dims_ml
-        and produto.peso_produto_sem_embalar == variacao.peso_declarado_kg
-    )
-    if bate_com_sem_embalar:
-        return 'ML usa SEM EMBALAR do ERP (confirmado)'
-
-    diferencas = [erp - ml for erp, ml in zip(dims_erp_com, dims_ml)]
-    offset_uniforme = len(set(diferencas)) == 1 and diferencas[0] != 0
-    if offset_uniforme:
-        return 'Offset uniforme — outro padrão'
-
-    return 'Sem padrão — divergência real'
-
-
-variacoes_divergentes = list(
-    VariacaoAnuncioMercadoLivre.objects
-    .filter(
-        situacao_dimensao_envio=SituacaoDimensaoEnvio.DIVERGENTE,
-        anuncio__tipo_de_anuncio__classificacao_catalogo__in=CLASSIFICACOES_ACEITAS,
-    )
-    .select_related('produto', 'anuncio', 'anuncio__tipo_de_anuncio')
+from datetime import date, timedelta
+from agenda_videos.models import Fase
+from agenda_videos.funcoes_auxiliares.calculo_datas_fase import (
+    proximo_dia_util, adicionar_dias_uteis, proxima_segunda, proximo_dia_1,
+    adicionar_meses, ultimo_dia_do_mes, calcular_janela_fase, calcular_janela_ocorrencia,
 )
-print(f'Total divergente (Simples/Base): {len(variacoes_divergentes)}')
+
+erros = []
+
+
+def checar(nome, obtido, esperado):
+    ok = obtido == esperado
+    print(f"[{'OK' if ok else 'FALHOU'}] {nome}: obtido={obtido} esperado={esperado}")
+    if not ok:
+        erros.append(nome)
+
+
+print("=== 1) proximo_dia_util — todos os 7 dias da semana como entrada ===")
+base = date(2026, 7, 20)  # segunda
+dias_semana = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']
+for i in range(7):
+    d = base + timedelta(days=i)
+    esperado = d if i < 5 else date(2026, 7, 27)
+    checar(f"proximo_dia_util({d} = {dias_semana[i]})", proximo_dia_util(d), esperado)
+
+print("\n=== 2) adicionar_dias_uteis — fim de semana e virada de ano ===")
+checar("adicionar_dias_uteis(seg 20/07, 0)", adicionar_dias_uteis(date(2026, 7, 20), 0), date(2026, 7, 20))
+checar("adicionar_dias_uteis(seg 20/07, 4)", adicionar_dias_uteis(date(2026, 7, 20), 4), date(2026, 7, 24))
+checar("adicionar_dias_uteis(seg 20/07, 5) pula fds", adicionar_dias_uteis(date(2026, 7, 20), 5), date(2026, 7, 27))
+checar("adicionar_dias_uteis(sex 25/12, 3) vira o ano", adicionar_dias_uteis(date(2026, 12, 25), 3), date(2026, 12, 30))
+
+print("\n=== 3) proxima_segunda — os 7 dias, incluindo já-segunda (não deve pular) ===")
+for i in range(7):
+    d = base + timedelta(days=i)
+    esperado = d if i == 0 else date(2026, 7, 27)
+    checar(f"proxima_segunda({d} = {dias_semana[i]})", proxima_segunda(d), esperado)
+
+print("\n=== 4) proximo_dia_1 — meio do mês, último dia, já-dia-1 (não deve pular) ===")
+checar("proximo_dia_1(01/09, já é dia 1)", proximo_dia_1(date(2026, 9, 1)), date(2026, 9, 1))
+checar("proximo_dia_1(15/09, meio do mês)", proximo_dia_1(date(2026, 9, 15)), date(2026, 10, 1))
+checar("proximo_dia_1(30/09, último dia)", proximo_dia_1(date(2026, 9, 30)), date(2026, 10, 1))
+checar("proximo_dia_1(31/12, virada de ano)", proximo_dia_1(date(2026, 12, 31)), date(2027, 1, 1))
+
+print("\n=== 5) adicionar_meses — virada de ano, 12 e 18 meses ===")
+checar("adicionar_meses(01/10, 0)", adicionar_meses(date(2026, 10, 1), 0), date(2026, 10, 1))
+checar("adicionar_meses(01/10, 2)", adicionar_meses(date(2026, 10, 1), 2), date(2026, 12, 1))
+checar("adicionar_meses(01/11, 2) cruza ano", adicionar_meses(date(2026, 11, 1), 2), date(2027, 1, 1))
+checar("adicionar_meses(01/01, 12)", adicionar_meses(date(2026, 1, 1), 12), date(2027, 1, 1))
+checar("adicionar_meses(01/06, 18)", adicionar_meses(date(2026, 6, 1), 18), date(2027, 12, 1))
+
+print("\n=== 6) ultimo_dia_do_mes — fevereiro bissexto/não, mês 30/31 dias ===")
+checar("fev/2026 (não bissexto)", ultimo_dia_do_mes(date(2026, 2, 10)), date(2026, 2, 28))
+checar("fev/2028 (bissexto)", ultimo_dia_do_mes(date(2028, 2, 10)), date(2028, 2, 29))
+checar("dez (virada de ano)", ultimo_dia_do_mes(date(2026, 12, 5)), date(2026, 12, 31))
+checar("abr (30 dias)", ultimo_dia_do_mes(date(2026, 4, 15)), date(2026, 4, 30))
+
+print("\n=== 7) calcular_janela_fase — DIÁRIA ===")
+j = calcular_janela_fase(Fase.DIARIA, date(2026, 7, 25), 10)
+checar("ref=sáb 25/07, período=10 -> início", j.inicio, date(2026, 7, 27))
+checar("ref=sáb 25/07, período=10 -> fim", j.fim, date(2026, 8, 7))
+j = calcular_janela_fase(Fase.DIARIA, date(2026, 7, 20), 10)
+checar("ref=seg 20/07 (já útil) -> não pula", j.inicio, date(2026, 7, 20))
+j = calcular_janela_fase(Fase.DIARIA, date(2026, 7, 20), 1)
+checar("período=1 -> início==fim", (j.inicio, j.fim), (date(2026, 7, 20), date(2026, 7, 20)))
+
+print("\n=== 8) calcular_janela_fase — SEMANAL ===")
+j = calcular_janela_fase(Fase.SEMANAL, date(2026, 7, 30), 4)
+checar("ref=qui 30/07, período=4 -> início", j.inicio, date(2026, 8, 3))
+checar("ref=qui 30/07, período=4 -> fim", j.fim, date(2026, 8, 28))
+j = calcular_janela_fase(Fase.SEMANAL, date(2026, 8, 3), 4)
+checar("ref=seg 03/08 (já segunda) -> não pula", j.inicio, date(2026, 8, 3))
+
+print("\n=== 9) calcular_janela_fase — MENSAL ===")
+j = calcular_janela_fase(Fase.MENSAL, date(2026, 9, 15), 3)
+checar("ref=15/09, período=3 -> início", j.inicio, date(2026, 10, 1))
+checar("ref=15/09, período=3 -> fim", j.fim, date(2026, 12, 31))
+j = calcular_janela_fase(Fase.MENSAL, date(2026, 10, 1), 3)
+checar("ref=01/10 (já dia 1) -> não pula", j.inicio, date(2026, 10, 1))
+j = calcular_janela_fase(Fase.MENSAL, date(2026, 11, 20), 3)
+checar("ref=20/11, período=3, cruza ano -> início", j.inicio, date(2026, 12, 1))
+checar("ref=20/11, período=3, cruza ano -> fim", j.fim, date(2027, 2, 28))
+
+print("\n=== 10) calcular_janela_ocorrencia — ocorrência 1 == início da fase ===")
+checar("Diária", calcular_janela_ocorrencia(Fase.DIARIA, date(2026, 7, 27), 1).inicio, date(2026, 7, 27))
+checar("Semanal", calcular_janela_ocorrencia(Fase.SEMANAL, date(2026, 8, 3), 1).inicio, date(2026, 8, 3))
+checar("Mensal", calcular_janela_ocorrencia(Fase.MENSAL, date(2026, 10, 1), 1).inicio, date(2026, 10, 1))
+
+print("\n=== 11) última ocorrência bate com fim da fase ===")
+jd = calcular_janela_fase(Fase.DIARIA, date(2026, 7, 27), 10)
+checar("Diária", calcular_janela_ocorrencia(Fase.DIARIA, jd.inicio, 10).fim, jd.fim)
+js = calcular_janela_fase(Fase.SEMANAL, date(2026, 8, 3), 4)
+checar("Semanal", calcular_janela_ocorrencia(Fase.SEMANAL, js.inicio, 4).fim, js.fim)
+jm = calcular_janela_fase(Fase.MENSAL, date(2026, 10, 1), 3)
+checar("Mensal", calcular_janela_ocorrencia(Fase.MENSAL, jm.inicio, 3).fim, jm.fim)
+
+print("\n=== 12) Diária — ocorrência cruzando fim de semana ===")
+checar("início=qua 22/07, ocorrência 3 (sem pular)", calcular_janela_ocorrencia(Fase.DIARIA, date(2026, 7, 22), 3).inicio, date(2026, 7, 24))
+checar("início=qua 22/07, ocorrência 4 (pula fds)", calcular_janela_ocorrencia(Fase.DIARIA, date(2026, 7, 22), 4).inicio, date(2026, 7, 27))
+
 print()
-
-exemplos_por_categoria = {
-    'ML usa SEM EMBALAR do ERP (confirmado)': [],
-    'Offset uniforme — outro padrão': [],
-    'Sem padrão — divergência real': [],
-}
-
-for variacao in variacoes_divergentes:
-    categoria = classificar_causa_divergencia(variacao, variacao.produto)
-    if len(exemplos_por_categoria[categoria]) < QTD_EXEMPLOS_POR_CATEGORIA:
-        exemplos_por_categoria[categoria].append(variacao)
-
-for categoria, exemplos in exemplos_por_categoria.items():
-    print(f'=== {categoria} — {len(exemplos)} exemplo(s) ===')
-    for variacao in exemplos:
-        p = variacao.produto
-        tipo = variacao.anuncio.tipo_de_anuncio
-        print(f'  MLB: {variacao.anuncio.mlb} | Classificação: {tipo.get_classificacao_catalogo_display()}')
-        print(f'    ERP c/ Embalagem: altura={p.altura_ordenada_cm} largura={p.largura_ordenada_cm} '
-              f'comprimento={p.comprimento_ordenada_cm} peso={p.peso_produto_apos_embalado}')
-        print(f'    ML Declarado atual: altura={variacao.altura_ordenada_cm} largura={variacao.largura_ordenada_cm} '
-              f'comprimento={variacao.comprimento_ordenada_cm} peso={variacao.peso_declarado_kg}')
-        print()
-    print()
+if erros:
+    print(f"### {len(erros)} CASO(S) FALHARAM: {erros}")
+else:
+    print("### TODOS OS CASOS PASSARAM ###")

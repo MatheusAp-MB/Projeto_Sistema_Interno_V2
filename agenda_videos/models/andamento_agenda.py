@@ -34,6 +34,17 @@ class AndamentoAgenda(models.Model):
     # Função Objetivo: Prioridade 1 na tela "A Fazer" (Urgentes > Atrasados > Sem vídeo > resto).
     urgente = models.BooleanField(default=False)
 
+    # * [EXPLICAÇÃO] → Estado terminal (24/07): quando a Fase Mensal termina, o produto sai
+    #                  de vez das telas Diários/Semanal-Mensal/A Fazer e passa a aparecer só
+    #                  na tela "Produtos Já Otimizados" (filtro simples, sem model novo).
+    #                  fase_atual continua guardando a ÚLTIMA fase real (Mensal, na prática),
+    #                  útil pra auditoria — nunca vira um valor artificial tipo "concluído".
+    #                  Por decisão do usuário, é terminal por enquanto — reativação (voltar
+    #                  o produto pra Agenda depois de concluído) fica pra pensar depois,
+    #                  não existe ação nenhuma pra isso ainda.
+    concluido = models.BooleanField(default=False)
+    concluido_em = models.DateField(blank=True, null=True)
+
     class Meta:
         verbose_name = 'Andamento na Agenda'
         verbose_name_plural = 'Andamentos na Agenda'
