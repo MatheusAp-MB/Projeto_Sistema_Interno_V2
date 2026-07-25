@@ -10,6 +10,7 @@ from produtos.models import Produto
 from produtos.funcoes_auxiliares.filtros_produtos import (
     listar_produtos_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
 )
+from core.funcoes_auxiliares.cabecalhos_ordenaveis import ConstrutorCabecalhosOrdenacao
 
 # * [EXPLICAÇÃO] → Rótulo amigável de cada coluna — única fonte, usada tanto
 #                  pros cabeçalhos ordenáveis quanto pros chips de filtro ativo.
@@ -100,32 +101,6 @@ class ParametrosBuscaProdutos:
             busca=busca, por_pagina=por_pagina, ordenar=ordenar,
             numero_pagina=request.GET.get('pagina', 1), filtros=filtros,
         )
-
-
-# Função Objetivo: Monta o link/seta de ordenação de cada cabeçalho de coluna.
-class ConstrutorCabecalhosOrdenacao:
-
-    def __init__(self, ordenar, querystring_base):
-        self.ordenar = ordenar
-        self.querystring_base = querystring_base
-
-    # Função Objetivo: Monta 1 cabeçalho (chave, label).
-    def _montar_um(self, chave, label):
-        ativo = self.ordenar.lstrip('-') == chave
-        esta_asc = ativo and not self.ordenar.startswith('-')
-        proximo = f'-{chave}' if esta_asc else chave
-        if ativo:
-            icone = 'fa-sort-up' if esta_asc else 'fa-sort-down'
-        else:
-            icone = 'fa-sort'
-        return {
-            'label': label, 'icone': icone, 'ativo': ativo,
-            'href': f'?{self.querystring_base}&ordenar={proximo}',
-        }
-
-    # Função Objetivo: Monta todos os cabeçalhos, a partir do dicionário de rótulos.
-    def montar(self, labels_colunas):
-        return {chave: self._montar_um(chave, label) for chave, label in labels_colunas.items()}
 
 
 # Função Objetivo: Monta os chips de "filtro ativo" exibidos acima da tabela.

@@ -7,6 +7,7 @@
 from django.db.models import Q
 from django.db.models.functions import Trim
 from produtos.models import Produto
+from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 
 # * [EXPLICAÇÃO] → Campos de texto sofrem do mesmo problema já visto na
 #                  tela de Resumo de Critérios: dado bruto vindo da API/
@@ -66,22 +67,6 @@ CAMPOS_FAIXA = [
     'pis_cofins', 'pis_percentual', 'cofins_percentual', 'mva', 'st_valor', 'frete_cif_fob',
     'ultima_compra', 'cadastrado_erp_em', 'criado_em', 'atualizado_em',
 ]
-
-
-def aplicar_filtro_faixa(qs, filtros_faixa, campo):
-    """Filtro genérico de mín/máx — funciona igual pra número e data,
-    porque __gte/__lte do Django não diferenciam tipo. Reaproveitado
-    pelos 20 campos de CAMPOS_FAIXA, em vez de escrever 20 blocos quase
-    idênticos."""
-    minimo = filtros_faixa.get(f'{campo}_min')
-    maximo = filtros_faixa.get(f'{campo}_max')
-
-    if minimo:
-        qs = qs.filter(**{f'{campo}__gte': minimo})
-    if maximo:
-        qs = qs.filter(**{f'{campo}__lte': maximo})
-
-    return qs
 
 
 def listar_produtos_filtrados(busca=None, filtros=None, ordenar='titulo'):

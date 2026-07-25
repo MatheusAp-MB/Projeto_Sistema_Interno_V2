@@ -79,3 +79,23 @@
     padding: 3px 6px;
     gap: 0;
 }
+
+/* ================================================
+   STATUS MANUAL — AGENDA DE VÍDEOS (só o que falta;
+   status-ativo/status-pausado já existem acima)
+   ================================================ */
+.status-descontinuado { background: #e5e7eb; color: #4b5563; }
+
+/* ================================================
+   STATUS DE POSTAGEM — AGENDA DE VÍDEOS
+   ================================================ */
+.postagem-aguardando { background: #fef3c7; color: #92400e; }
+.postagem-aprovado    { background: #dcfce7; color: #15803d; }
+.postagem-recusado    { background: #fee2e2; color: #b91c1c; }
+.postagem-replicado   { background: #dbeafe; color: #1d4ed8; }
+
+/* ================================================
+   STATUS DE VÍDEO (Simples/Base) — AGENDA DE VÍDEOS
+   ================================================ */
+.video-nao-gerado { background: #f3f4f6; color: #9ca3af; }
+.video-gerado     { background: #dcfce7; color: #15803d; }

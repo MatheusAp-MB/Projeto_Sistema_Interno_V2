@@ -14,4 +14,5 @@ urlpatterns = [
     path('tiktok/', include('tiktok.urls')),
     path('amazon/', include('amazon.urls')),
     path('precificacao/', include('precificacao.urls')),
+    path('agenda-videos/', include('agenda_videos.urls')),
 ]

@@ -29,14 +29,36 @@ class ProgressoProducaoVideo(models.Model):
     completos_produzidos = models.BooleanField(default=False)
 
     # * [EXPLICAÇÃO] → Tamanho do "pool" de vídeos Completos disponíveis (ex: 10, 1 por
-    #                  dia da Fase Diária). Comparado contra ConfiguracaoFase.quantidade_postagens
-    #                  na hora de exibir o aviso "roteiros insuficientes" — não é campo de
-    #                  aviso persistido, é só o dado bruto pra essa conta ser feita na hora.
+    #                  dia da Fase Diária).
     quantidade_roteiros = models.PositiveIntegerField(default=0)
+
+    # * [EXPLICAÇÃO] → Persistido (24/07) — precisa ser filtrável/paginável na tela
+    #                  "Diários", então não pode ser calculado só na hora da exibição.
+    #                  Recalculado automaticamente em save() (ver abaixo) sempre que
+    #                  este registro é salvo — não precisa de comando separado nem de
+    #                  recálculo manual. Limitação conhecida: se ConfiguracaoFase(Diária)
+    #                  .periodo mudar, registros já existentes só atualizam quando forem
+    #                  salvos de novo por algum outro motivo.
+    roteiros_insuficientes = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = 'Progresso de Produção de Vídeo'
         verbose_name_plural = 'Progressos de Produção de Vídeo'
+
+    # Função Objetivo: Recalcula 'roteiros_insuficientes' sempre que o registro é salvo.
+    def save(self, *args, **kwargs):
+        self.roteiros_insuficientes = self._calcular_roteiros_insuficientes()
+        super().save(*args, **kwargs)
+
+    # Função Objetivo: Compara o pool disponível contra o período da Fase Diária.
+    def _calcular_roteiros_insuficientes(self):
+        from .configuracao_fase import ConfiguracaoFase, Fase
+        try:
+            periodo_diaria = ConfiguracaoFase.objects.get(fase=Fase.DIARIA).periodo
+        except ConfiguracaoFase.DoesNotExist:
+            return False
+
+        return self.quantidade_roteiros < periodo_diaria
 
     def __str__(self):
         return f'{self.produto.sku} — vídeo simples: {self.get_video_simples_status_display()}'

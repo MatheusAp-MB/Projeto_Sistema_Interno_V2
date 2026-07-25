@@ -1,0 +1,290 @@
+<!--
+* [RESUMO] → Tela "Diários": todos os produtos na Fase Diária, independente do
+* status daquele dia específico. Busca/filtro/ordenação/paginação no servidor —
+* mesma arquitetura de Produtos/Hub de Anúncios.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% load filtros %}
+
+{% block titulo %}Diários — Agenda de Vídeos{% endblock %}
+{% block toolbar_titulo %}Diários{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_diarios.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="diarios-barra-busca">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por Nome, SKU, EAN ou Cód. Fabricante..."
+        class="diarios-input-busca"
+    >
+
+    <select name="por_pagina" onchange="this.form.submit()" class="diarios-select-paginacao">
+        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
+    </select>
+
+    <button type="submit" class="btn-acao">Buscar</button>
+
+    {% if chips_ativos %}
+    <div class="diarios-chips-filtros">
+        <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
+        {% for chip in chips_ativos %}
+        <span class="chip-filtro">{{ chip.label }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <details class="diarios-filtros">
+        <summary class="diarios-filtros-titulo"><i class="fas fa-filter"></i> Filtros</summary>
+
+        <div class="diarios-filtros-secoes">
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Identificação</div>
+                <div class="filtro-subgrupo">
+                    <span class="filtro-subgrupo-titulo">Marca</span>
+                    <div class="filtro-opcoes-lista">
+                        {% for marca in marcas_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in filtros.marcas %}checked{% endif %}>
+                            <span>{{ marca }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Andamento</div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Status Manual</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_status_manual %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="status_manual" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status_manual %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Urgente</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="urgente" value="{{ opcao.valor }}" {% if opcao.valor in filtros.urgente %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Produção de Vídeo</div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Vídeo Simples</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_status_video %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="video_simples_status" value="{{ opcao.valor }}" {% if opcao.valor in filtros.video_simples_status %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Vídeo Base</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_status_video %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="video_base_status" value="{{ opcao.valor }}" {% if opcao.valor in filtros.video_base_status %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Roteiros gerados</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="roteiros_gerados" value="{{ opcao.valor }}" {% if opcao.valor in filtros.roteiros_gerados %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Completos produzidos</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="completos_produzidos" value="{{ opcao.valor }}" {% if opcao.valor in filtros.completos_produzidos %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Roteiros insuficientes</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="roteiros_insuficientes" value="{{ opcao.valor }}" {% if opcao.valor in filtros.roteiros_insuficientes %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Postagem</div>
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Status da postagem mais recente</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_status_postagem %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="status_postagem" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status_postagem %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {% for secao in secoes_filtro_faixa %}
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">{{ secao.titulo }}</div>
+                {% for campo, label in secao.campos %}
+                {% with chave_min=campo|add:'_min' chave_max=campo|add:'_max' %}
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">{{ label }}</span>
+                    <div class="filtro-faixa-campos">
+                        {% if campo == 'andamento_agenda__inicio_fase' or campo == 'andamento_agenda__fim_fase' %}
+                        <input type="date" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}">
+                        <input type="date" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}">
+                        {% else %}
+                        <input type="number" step="any" name="{{ chave_min }}" value="{{ filtros|get_item:chave_min }}" placeholder="De">
+                        <input type="number" step="any" name="{{ chave_max }}" value="{{ filtros|get_item:chave_max }}" placeholder="Até">
+                        {% endif %}
+                    </div>
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+        </div>
+    </details>
+</form>
+
+<div class="diarios-ordenar-por">
+    <span class="diarios-ordenar-rotulo">Ordenar por:</span>
+    {% for chave, cabecalho in cabecalhos.items %}
+    <a href="{{ cabecalho.href }}" class="diarios-ordenar-link {% if cabecalho.ativo %}diarios-ordenar-ativo{% endif %}">
+        {{ cabecalho.label }} <i class="fas {{ cabecalho.icone }}"></i>
+    </a>
+    {% endfor %}
+</div>
+
+<div class="diarios-lista">
+    {% for produto in pagina %}
+    <div class="diarios-card">
+
+        <div class="diarios-card-topo">
+            <div class="diarios-foto">
+                {% if produto.obter_dados_identificacao.imagem_url %}
+                <img src="{{ produto.obter_dados_identificacao.imagem_url }}" alt="">
+                {% endif %}
+            </div>
+            <div class="diarios-identificacao">
+                <p class="diarios-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
+                <p class="diarios-subtitulo">
+                    EAN {{ produto.obter_dados_identificacao.ean }} ·
+                    SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
+                    {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
+                    Estoque {{ produto.obter_dados_identificacao.estoque }}
+                </p>
+            </div>
+
+            {% with status_manual=produto.andamento_agenda.status_manual %}
+            <span class="badge-tabela status-{{ status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
+            {% endwith %}
+
+            {% if produto.andamento_agenda.urgente %}
+            <span class="badge-tabela badge-conta-propria"><i class="fas fa-triangle-exclamation"></i> Urgente</span>
+            {% endif %}
+
+            <span class="badge-tabela badge-papel">Diária</span>
+            <span class="diarios-ocorrencia">dia {{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
+            <span class="diarios-datas">{{ produto.andamento_agenda.inicio_fase|date:"d/m" }} → {{ produto.andamento_agenda.fim_fase|date:"d/m" }}</span>
+        </div>
+
+        <div class="diarios-card-roadmap">
+            {% with progresso=produto.progresso_producao_video %}
+            <div class="roadmap-etapa {% if progresso.video_simples_status == 'gerado' %}roadmap-feito{% endif %}">
+                <span class="roadmap-bolinha">{% if progresso.video_simples_status == 'gerado' %}<i class="fas fa-check"></i>{% endif %}</span>
+                <span class="roadmap-label">Simples</span>
+            </div>
+            <div class="roadmap-linha"></div>
+            <div class="roadmap-etapa {% if progresso.video_base_status == 'gerado' %}roadmap-feito{% endif %}">
+                <span class="roadmap-bolinha">{% if progresso.video_base_status == 'gerado' %}<i class="fas fa-check"></i>{% endif %}</span>
+                <span class="roadmap-label">Base</span>
+            </div>
+            <div class="roadmap-linha"></div>
+            <div class="roadmap-etapa {% if progresso.roteiros_gerados %}roadmap-feito{% endif %}">
+                <span class="roadmap-bolinha">{% if progresso.roteiros_gerados %}<i class="fas fa-check"></i>{% endif %}</span>
+                <span class="roadmap-label">Roteiros ({{ progresso.quantidade_roteiros }})</span>
+            </div>
+            <div class="roadmap-linha"></div>
+            <div class="roadmap-etapa {% if progresso.completos_produzidos %}roadmap-feito{% endif %}">
+                <span class="roadmap-bolinha">{% if progresso.completos_produzidos %}<i class="fas fa-check"></i>{% endif %}</span>
+                <span class="roadmap-label">Completos</span>
+            </div>
+
+            {% if progresso.roteiros_insuficientes %}
+            <span class="badge-tabela badge-listed" title="Roteiros insuficientes pra Fase Diária">
+                <i class="fas fa-triangle-exclamation"></i> {{ progresso.quantidade_roteiros }} roteiros p/ {{ produto.andamento_agenda.fase_atual.periodo }} dias
+            </span>
+            {% endif %}
+            {% endwith %}
+
+            {% with badge_postagem=badges_status_postagem|get_item:produto.status_postagem_recente %}
+            {% if badge_postagem %}
+            <span class="badge-tabela {{ badge_postagem.classe }} diarios-status-postagem">
+                {% if badge_postagem.icone %}<i class="fas {{ badge_postagem.icone }}"></i>{% endif %}
+                {{ badge_postagem.label }}
+            </span>
+            {% else %}
+            <span class="badge-tabela badge-papel diarios-status-postagem">Sem postagem ainda</span>
+            {% endif %}
+            {% endwith %}
+        </div>
+
+    </div>
+    {% empty %}
+    <p class="diarios-sem-resultado">Nenhum produto encontrado na Fase Diária com esses filtros.</p>
+    {% endfor %}
+</div>
+
+<div class="diarios-paginacao">
+    {% if pagina.has_previous %}
+    <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}">← Anterior</a>
+    {% endif %}
+    <span class="diarios-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    {% if pagina.has_next %}
+    <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}">Próxima →</a>
+    {% endif %}
+</div>
+
+{% endblock %}

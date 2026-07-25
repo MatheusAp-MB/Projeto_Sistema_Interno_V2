@@ -1,0 +1,275 @@
+/* * [RESUMO] → Layout da tela "Diários" — card por produto (identificação +
+ *              roadmap de produção), painel de filtro (mesmo padrão visual já
+ *              usado em Produtos/Hub de Anúncios — CSS duplicado de propósito,
+ *              seguindo o precedente já existente no projeto).
+ */
+
+.diarios-barra-busca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.diarios-input-busca {
+    flex: 1;
+    min-width: 260px;
+    padding: 8px 12px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+}
+
+.diarios-select-paginacao {
+    padding: 8px 10px;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+}
+
+.diarios-chips-filtros {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.chips-filtros-rotulo {
+    font-size: 0.85rem;
+    color: #556;
+}
+
+.chip-filtro {
+    background: #eef2f7;
+    color: #3d4a5c;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+}
+
+.diarios-filtros {
+    width: 100%;
+}
+
+.diarios-filtros-titulo {
+    cursor: pointer;
+    font-weight: 600;
+    padding: 6px 0;
+}
+
+.diarios-filtros-secoes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 10px;
+}
+
+.filtro-secao-card {
+    border: 1px solid #e5e9ef;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fafbfc;
+}
+
+.filtro-secao-titulo {
+    font-weight: 700;
+    font-size: 0.82rem;
+    margin-bottom: 8px;
+    color: #33404f;
+}
+
+.filtro-subgrupo {
+    margin-bottom: 10px;
+}
+
+.filtro-subgrupo-titulo {
+    display: block;
+    font-size: 0.75rem;
+    color: #667;
+    margin-bottom: 4px;
+}
+
+.filtro-opcoes-lista {
+    max-height: 140px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.filtro-opcoes-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filtro-opcao {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.filtro-faixa-campos {
+    display: flex;
+    gap: 6px;
+}
+
+.filtro-faixa-campos input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #ccd3de;
+    border-radius: 5px;
+    font-size: 0.8rem;
+}
+
+.diarios-ordenar-por {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0;
+    font-size: 0.82rem;
+}
+
+.diarios-ordenar-rotulo {
+    color: #667;
+}
+
+.diarios-ordenar-link {
+    color: #445;
+    text-decoration: none;
+}
+
+.diarios-ordenar-link:hover {
+    text-decoration: underline;
+}
+
+.diarios-ordenar-ativo {
+    font-weight: 700;
+    color: #1d4ed8;
+}
+
+.diarios-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.diarios-card {
+    border: 1px solid #e5e9ef;
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: #fff;
+}
+
+.diarios-card-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.diarios-foto {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: #f1f3f6;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.diarios-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.diarios-identificacao {
+    min-width: 220px;
+}
+
+.diarios-titulo {
+    font-weight: 600;
+    font-size: 0.88rem;
+    margin: 0;
+}
+
+.diarios-subtitulo {
+    font-size: 0.75rem;
+    color: #667;
+    margin: 2px 0 0;
+}
+
+.diarios-ocorrencia {
+    font-size: 0.82rem;
+}
+
+.diarios-datas {
+    font-size: 0.82rem;
+    color: #667;
+}
+
+.diarios-card-roadmap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    border-top: 1px solid #eef1f5;
+    padding-top: 10px;
+}
+
+.roadmap-etapa {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.roadmap-bolinha {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid #ccd3de;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: #fff;
+}
+
+.roadmap-feito .roadmap-bolinha {
+    background: #1a8a5f;
+    border-color: #1a8a5f;
+}
+
+.roadmap-label {
+    font-size: 0.75rem;
+    color: #667;
+}
+
+.roadmap-linha {
+    width: 20px;
+    height: 1px;
+    background: #ccd3de;
+}
+
+.diarios-status-postagem {
+    margin-left: auto;
+}
+
+.diarios-sem-resultado {
+    text-align: center;
+    color: #889;
+    padding: 30px 0;
+}
+
+.diarios-paginacao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 20px;
+    font-size: 0.85rem;
+}
