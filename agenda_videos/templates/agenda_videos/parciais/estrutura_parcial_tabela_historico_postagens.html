@@ -1,0 +1,48 @@
+<!--
+* [RESUMO] → Tabela de histórico de Postagem de 1 produto — reaproveitada
+* pelo modal de 1 produto (Formato A) e por cada grupo aberto do relatório
+* geral (Formato B). Recebe "historico" (dict de montar_historico_produto).
+* Sempre mostra o histórico INTEIRO — filtro (quando existe) só decide quais
+* produtos aparecem, nunca filtra as linhas daqui de dentro.
+-->
+<table class="historico-tabela">
+    <thead>
+        <tr>
+            <th>Fase</th>
+            <th>Ocorrência</th>
+            <th>Janela</th>
+            <th>Status</th>
+            <th>Timestamps</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for postagem in historico.postagens %}
+        <tr>
+            <td>{{ postagem.get_fase_display }}</td>
+            <td>{{ postagem.numero_ocorrencia }}</td>
+            <td>{{ postagem.inicio_ocorrencia|date:"d/m" }} → {{ postagem.fim_ocorrencia|date:"d/m" }}</td>
+            <td>
+                <span class="badge-tabela {{ postagem.badge.classe }}">
+                    {% if postagem.badge.icone %}<i class="fas {{ postagem.badge.icone }}"></i>{% endif %}
+                    {{ postagem.badge.label }}
+                </span>
+            </td>
+            <td class="historico-timestamps">
+                {% if postagem.aguardando_aprovacao_em %}
+                <span>Aguard: {{ postagem.aguardando_aprovacao_em|date:"d/m/Y H:i" }}</span>
+                {% endif %}
+                {% if postagem.aprovado_ou_recusado_em %}
+                <span>{% if postagem.status == 'recusado' %}Recus{% else %}Aprov{% endif %}: {{ postagem.aprovado_ou_recusado_em|date:"d/m/Y H:i" }}</span>
+                {% endif %}
+                {% if postagem.replicado_em %}
+                <span>Replic: {{ postagem.replicado_em|date:"d/m/Y H:i" }}</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5" class="historico-vazio">Nenhuma postagem ainda.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

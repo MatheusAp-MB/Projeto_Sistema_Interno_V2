@@ -1,0 +1,83 @@
+<!--
+* [RESUMO] → Histórico de Postagens — relatório geral, agrupado por produto
+* (mesmo padrão <details>/<summary> do Hub de Anúncios). Filtro estreita
+* QUAIS produtos aparecem; o conteúdo de cada um, aberto, é sempre completo.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Histórico — Agenda de Vídeos — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Histórico de Postagens{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_historico_agenda_videos.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="historico-filtros">
+    <input type="text" name="busca" value="{{ busca }}"
+           placeholder="Buscar por Nome, SKU, EAN ou Cód. Fabricante..." class="historico-busca">
+
+    <div class="historico-filtro-grupo">
+        <span class="historico-filtro-titulo">Fase</span>
+        {% for valor, label in opcoes_fase %}
+        <label class="historico-checkbox">
+            <input type="checkbox" name="fase" value="{{ valor }}" {% if valor in filtros.fase %}checked{% endif %}>
+            {{ label }}
+        </label>
+        {% endfor %}
+    </div>
+
+    <div class="historico-filtro-grupo">
+        <span class="historico-filtro-titulo">Status</span>
+        {% for valor, label in opcoes_status %}
+        <label class="historico-checkbox">
+            <input type="checkbox" name="status" value="{{ valor }}" {% if valor in filtros.status %}checked{% endif %}>
+            {{ label }}
+        </label>
+        {% endfor %}
+    </div>
+
+    <div class="historico-filtro-grupo">
+        <span class="historico-filtro-titulo">Data (criação)</span>
+        <input type="date" name="data_de" value="{{ filtros.data_de|date:'Y-m-d' }}" class="historico-data">
+        <input type="date" name="data_ate" value="{{ filtros.data_ate|date:'Y-m-d' }}" class="historico-data">
+    </div>
+
+    <button type="submit" class="btn-acao historico-btn-buscar">Buscar</button>
+</form>
+
+{% if not grupos %}
+<p class="historico-vazio-geral">Nenhum produto encontrado com esses filtros.</p>
+{% endif %}
+
+{% for historico in grupos %}
+<details class="historico-grupo-produto">
+    <summary class="historico-grupo-cabecalho">
+        <span class="historico-grupo-titulo">{{ historico.produto.obter_dados_identificacao.titulo }}</span>
+        <span class="historico-grupo-ean">EAN {{ historico.produto.obter_dados_identificacao.ean }}</span>
+        <span class="historico-grupo-resumo">
+            {{ historico.total }} postagem{{ historico.total|pluralize }}
+            {% for item in historico.resumo %} · {{ item.quantidade }} {{ item.label|lower }}{% endfor %}
+        </span>
+    </summary>
+    <div class="historico-grupo-conteudo">
+        {% include 'agenda_videos/parciais/estrutura_parcial_tabela_historico_postagens.html' %}
+    </div>
+</details>
+{% endfor %}
+
+{% if grupos %}
+<div class="historico-paginacao">
+    {% if pagina.has_previous %}
+    <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="historico-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="historico-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+    {% if pagina.has_next %}
+    <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="historico-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

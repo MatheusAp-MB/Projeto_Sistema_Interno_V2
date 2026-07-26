@@ -487,3 +487,67 @@ def view_configuracoes_agenda_videos(request):
     return render(request, 'agenda_videos/estrutura_configuracoes_agenda_videos.html', {
         'fases': fases,
     })
+
+# Função Objetivo: Modal de histórico de 1 produto (Formato A) — disparado
+# pelo ícone novo no card, sempre mostra o histórico COMPLETO daquele produto.
+def view_historico_produto(request, produto_id):
+    from produtos.models import Produto
+    from agenda_videos.funcoes_auxiliares.historico_postagens import montar_historico_produto
+
+    produto = get_object_or_404(Produto, id=produto_id)
+    contexto = montar_historico_produto(produto)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_historico_produto.html', contexto)
+
+
+# Função Objetivo: Valida uma data vinda de input HTML (YYYY-MM-DD) — devolve
+# None se vazia ou inválida, nunca deixa passar string crua pro ORM.
+def _validar_data(valor):
+    from datetime import datetime
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+# Função Objetivo: Tela de relatório (Formato B) — produtos que têm pelo
+# menos 1 Postagem batendo com os filtros, agrupados, cada um mostrando o
+# histórico completo dele quando aberto (ver historico_postagens.py).
+def view_historico_agenda_videos(request):
+    from django.core.paginator import Paginator
+    from agenda_videos.funcoes_auxiliares.historico_postagens import (
+        listar_produtos_com_historico, montar_historico_produto,
+    )
+
+    busca = request.GET.get('busca', '').strip()
+    filtros = {
+        'fase': request.GET.getlist('fase'),
+        'status': request.GET.getlist('status'),
+        'data_de': _validar_data(request.GET.get('data_de')),
+        'data_ate': _validar_data(request.GET.get('data_ate')),
+    }
+
+    produtos = listar_produtos_com_historico(busca=busca or None, filtros=filtros)
+
+    try:
+        por_pagina = int(request.GET.get('por_pagina', '25'))
+    except ValueError:
+        por_pagina = 25
+
+    paginator = Paginator(produtos, por_pagina)
+    pagina = paginator.get_page(request.GET.get('pagina', 1))
+    grupos = [montar_historico_produto(produto) for produto in pagina]
+
+    querystring_sem_pagina = request.GET.copy()
+    querystring_sem_pagina.pop('pagina', None)
+
+    return render(request, 'agenda_videos/estrutura_historico_agenda_videos.html', {
+        'grupos': grupos,
+        'pagina': pagina,
+        'busca': busca,
+        'filtros': filtros,
+        'opcoes_fase': Fase.choices,
+        'opcoes_status': StatusPostagem.choices,
+        'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+    })

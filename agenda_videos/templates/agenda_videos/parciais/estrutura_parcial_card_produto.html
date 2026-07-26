@@ -40,6 +40,12 @@
                 hx-target="#agenda-card-{{ produto.id }}" hx-swap="outerHTML">
             <i class="fas fa-triangle-exclamation"></i>
         </button>
+        <button type="button" class="agenda-historico-toggle"
+                title="Ver histórico de postagens"
+                hx-get="{% url 'agenda_videos_historico_produto' produto.id %}"
+                hx-target="#modal-roadmap-slot" hx-swap="innerHTML">
+            <i class="fas fa-clock-rotate-left"></i>
+        </button>
     </div>
 
     {% if produto.andamento_agenda %}

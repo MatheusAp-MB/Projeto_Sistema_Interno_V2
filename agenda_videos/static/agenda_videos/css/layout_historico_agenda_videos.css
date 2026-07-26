@@ -1,0 +1,205 @@
+/*
+* [RESUMO] → CSS da tela de Histórico (Formato B) + modal de 1 produto
+* (Formato A) + tabela reaproveitada pelos 2.
+*/
+
+/* ================================================
+   FILTROS
+   ================================================ */
+.historico-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 20px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+}
+
+.historico-busca {
+    flex: 1 1 260px;
+    padding: 8px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    align-self: center;
+}
+
+.historico-filtro-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.historico-filtro-titulo {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #667;
+}
+
+.historico-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.historico-data {
+    padding: 7px 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+/* ================================================
+   GRUPOS POR PRODUTO
+   ================================================ */
+.historico-grupo-produto {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.historico-grupo-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.historico-grupo-cabecalho::-webkit-details-marker {
+    display: none;
+}
+
+.historico-grupo-titulo {
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.historico-grupo-ean {
+    font-size: 0.8rem;
+    color: #667;
+}
+
+.historico-grupo-resumo {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: #667;
+}
+
+.historico-grupo-conteudo {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.historico-vazio-geral {
+    text-align: center;
+    color: #667;
+    padding: 40px 0;
+}
+
+.historico-paginacao {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.historico-paginacao-link {
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.historico-paginacao-atual {
+    font-size: 0.85rem;
+    color: #667;
+}
+
+/* ================================================
+   TABELA (reaproveitada pelos 2 formatos)
+   ================================================ */
+.historico-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 12px;
+}
+
+.historico-tabela th {
+    background: #f9fafb;
+    color: #556;
+    text-align: left;
+    padding: 8px 12px;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--cor-borda);
+}
+
+.historico-tabela td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+}
+
+.historico-timestamps {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.78rem;
+    color: #667;
+    white-space: normal;
+}
+
+.historico-vazio {
+    text-align: center;
+    color: #9ca3af;
+    padding: 20px;
+}
+
+/* ================================================
+   MODAL DE 1 PRODUTO
+   ================================================ */
+.modal-historico-caixa {
+    max-width: 720px;
+    width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-historico-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.modal-historico-fechar {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    color: #667;
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.modal-historico-resumo {
+    font-size: 0.82rem;
+    color: #667;
+    margin: 0 0 8px;
+}
+
+.modal-historico-tabela-wrapper {
+    overflow-y: auto;
+    overflow-x: auto;
+}
