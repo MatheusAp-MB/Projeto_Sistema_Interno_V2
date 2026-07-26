@@ -24,6 +24,28 @@ class RoadmapAgenda(models.Model):
         Produto, on_delete=models.CASCADE, related_name='roadmap_agenda')
     estagio_atual = models.CharField(
         max_length=20, choices=EstagioAgenda.choices, default=EstagioAgenda.NAO_AGENDADO)
+
+    # * [EXPLICAÇÃO] → Movido de AndamentoAgenda (25/07) — qualquer produto pode
+    #                  ser marcado como urgente, mesmo "Não Agendado" (a urgência
+    #                  é justamente pra que ele COMECE a ser feito/postado, não só
+    #                  pra quem já está no ciclo). RoadmapAgenda é a única tabela
+    #                  que existe pra todo produto, sempre — por isso é o dono certo.
+    #                  Prioridade 1 em qualquer listagem: Urgente > Atrasado >
+    #                  Sem vídeo (critério UP_HAS_SHORTS reprovado, API do ML) > resto.
+    urgente = models.BooleanField(default=False)
+
+    # * [EXPLICAÇÃO] → Persistido (25/07), corrigindo erro de arquitetura: esse
+    #                  indicador vinha de uma Exists() ao vivo (Produto → Variação
+    #                  → Qualidade → Critério), recalculada pra TODO produto a cada
+    #                  carregamento de tela, pra poder ordenar por prioridade — isso
+    #                  deixou a tela extremamente lenta (até 1955 produtos, 4 tabelas
+    #                  juntas, toda vez). Agora só recalcula nos mesmos pontos que já
+    #                  recalculam o resto (sincronizar_roadmap_agenda_produto + o
+    #                  comando em lote) — fica tão atualizado quanto a última
+    #                  sincronização, não em tempo real (defasagem aceitável, mesma
+    #                  lógica já usada pro resto do sistema).
+    tem_video_reprovado = models.BooleanField(default=False)
+
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

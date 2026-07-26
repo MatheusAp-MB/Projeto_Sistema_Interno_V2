@@ -182,6 +182,7 @@ class ContextoTelaAgendaVideos:
             busca=self.parametros.busca or None,
             filtros=self.parametros.filtros,
             ordenar=self.parametros.ordenar,
+            data_referencia=self.parametros.data_simulada,
         )
         paginator = Paginator(produtos, self.parametros.por_pagina)
         pagina = paginator.get_page(self.parametros.numero_pagina)

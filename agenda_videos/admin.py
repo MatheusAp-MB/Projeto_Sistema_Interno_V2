@@ -4,7 +4,10 @@
 # suficiente pra inspecionar/editar dado manualmente enquanto as telas de verdade não existem.
 
 from django.contrib import admin
-from .models import ConfiguracaoFase, ProgressoProducaoVideo, AndamentoAgenda, Postagem, PreparacaoVideoFase
+from .models import (
+    ConfiguracaoFase, ProgressoProducaoVideo, AndamentoAgenda, Postagem,
+    PreparacaoVideoFase, RoadmapAgenda,
+)
 
 
 @admin.register(ConfiguracaoFase)
@@ -30,9 +33,16 @@ class PreparacaoVideoFaseAdmin(admin.ModelAdmin):
 class AndamentoAgendaAdmin(admin.ModelAdmin):
     list_display = [
         'produto', 'fase_atual', 'ocorrencia_atual',
-        'inicio_fase', 'fim_fase', 'status_manual', 'urgente',
+        'inicio_fase', 'fim_fase', 'fim_ocorrencia_atual', 'status_manual',
     ]
-    list_filter = ['fase_atual', 'status_manual', 'urgente']
+    list_filter = ['fase_atual', 'status_manual']
+    search_fields = ['produto__sku', 'produto__ean']
+
+
+@admin.register(RoadmapAgenda)
+class RoadmapAgendaAdmin(admin.ModelAdmin):
+    list_display = ['produto', 'estagio_atual', 'urgente', 'atualizado_em']
+    list_filter = ['estagio_atual', 'urgente']
     search_fields = ['produto__sku', 'produto__ean']
 
 

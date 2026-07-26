@@ -218,6 +218,31 @@
     margin-bottom: 10px;
 }
 
+.agenda-urgente-toggle {
+    margin-left: auto;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid #ccd3de;
+    background: #fff;
+    color: #aab0bb;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.agenda-urgente-toggle:hover {
+    border-color: #b91c1c;
+    color: #b91c1c;
+}
+
+.agenda-urgente-ativo {
+    background: #fee2e2;
+    border-color: #b91c1c;
+    color: #b91c1c;
+}
+
 .agenda-foto {
     width: 44px;
     height: 44px;

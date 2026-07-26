@@ -31,9 +31,6 @@ class AndamentoAgenda(models.Model):
     status_manual = models.CharField(
         max_length=15, choices=StatusManualAgenda.choices, default=StatusManualAgenda.ATIVO)
 
-    # Função Objetivo: Prioridade 1 na tela "A Fazer" (Urgentes > Atrasados > Sem vídeo > resto).
-    urgente = models.BooleanField(default=False)
-
     # * [EXPLICAÇÃO] → Estado terminal (24/07): quando a Fase Mensal termina, o produto sai
     #                  de vez das telas Diários/Semanal-Mensal/A Fazer e passa a aparecer só
     #                  na tela "Produtos Já Otimizados" (filtro simples, sem model novo).
@@ -44,6 +41,20 @@ class AndamentoAgenda(models.Model):
     #                  não existe ação nenhuma pra isso ainda.
     concluido = models.BooleanField(default=False)
     concluido_em = models.DateField(blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → "urgente" MUDOU DE LUGAR (25/07) — saiu daqui e foi pra
+    #                  RoadmapAgenda. Motivo: qualquer produto pode ser marcado
+    #                  como urgente (mesmo "Não Agendado"), e AndamentoAgenda só
+    #                  existe pra quem já tem Agenda — não servia mais como dono
+    #                  desse campo.
+
+    # * [EXPLICAÇÃO] → Vencimento da ocorrência ATUAL (não da fase inteira) —
+    #                  persistido de propósito, pra dar pro banco comparar/ordenar
+    #                  por "atrasado" direto em SQL (Case/When), sem precisar rodar
+    #                  nossa função de dia útil durante a query. Recalculado sempre
+    #                  que ocorrencia_atual ou fase_atual mudam (view_agendar_produto,
+    #                  view_executar_acao_ciclica).
+    fim_ocorrencia_atual = models.DateField(blank=True, null=True)
 
     class Meta:
         verbose_name = 'Andamento na Agenda'

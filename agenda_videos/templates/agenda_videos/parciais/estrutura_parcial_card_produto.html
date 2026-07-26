@@ -28,16 +28,23 @@
                 Estoque {{ produto.obter_dados_identificacao.estoque }}
             </p>
         </div>
+
+        <!-- * [EXPLICAÇÃO] → Toggle de Urgente — SEMPRE visível, qualquer estágio
+             (urgente mora em RoadmapAgenda agora, existe pra todo produto). Sem
+             modal — clique liga/desliga direto (reversível, baixo risco). -->
+        <button type="button"
+                class="agenda-urgente-toggle {% if produto.roadmap_agenda.urgente %}agenda-urgente-ativo{% endif %}"
+                title="{% if produto.roadmap_agenda.urgente %}Desmarcar urgente{% else %}Marcar como urgente{% endif %}"
+                hx-post="{% url 'agenda_videos_alternar_urgente' produto.id %}"
+                hx-vals='js:{simular_data: document.getElementById("agenda-card-{{ produto.id }}").dataset.simularData}'
+                hx-target="#agenda-card-{{ produto.id }}" hx-swap="outerHTML">
+            <i class="fas fa-triangle-exclamation"></i>
+        </button>
     </div>
 
     {% if produto.andamento_agenda %}
     <div class="agenda-card-meta">
         <span class="badge-tabela status-{{ produto.andamento_agenda.status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
-
-        {% if produto.andamento_agenda.urgente %}
-        <span class="badge-tabela badge-conta-propria"><i class="fas fa-triangle-exclamation"></i> Urgente</span>
-        {% endif %}
-
         <span class="badge-tabela badge-papel">{{ produto.andamento_agenda.fase_atual.get_fase_display }}</span>
         <span class="agenda-ocorrencia">{{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
         {% janela_ocorrencia_atual produto as janela_atual %}
@@ -50,6 +57,12 @@
         <span class="badge-tabela badge-atrasado"><i class="fas fa-clock"></i> Atrasado</span>
         {% elif produto.a_fazer_hoje_risco %}
         <span class="badge-tabela badge-listed"><i class="fas fa-triangle-exclamation"></i> Risco de Atraso</span>
+        {% endif %}
+
+        {% if produto.roadmap_agenda.tem_video_reprovado %}
+        <span class="badge-tabela badge-sem-clipes" title="Reprovado no critério de vídeo do Mercado Livre (UP_HAS_SHORTS)">
+            <i class="fas fa-video-slash"></i> Sem clipes
+        </span>
         {% endif %}
 
         {% roadmap_produto produto %}

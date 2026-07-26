@@ -3,7 +3,9 @@
 from produtos.models import Produto
 from agenda_videos.models import RoadmapAgenda, EstagioAgenda, ProgressoProducaoVideo
 from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_chave_atual
-from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import colapsar_chave_em_estagio
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import (
+    colapsar_chave_em_estagio, _verificar_video_reprovado,
+)
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 
@@ -53,18 +55,24 @@ def sincronizar_roadmap_agenda(stdout, style):
         )
         estagio = colapsar_chave_em_estagio(chave_atual)
         contagem_por_estagio[estagio] += 1
+        tem_video_reprovado = _verificar_video_reprovado(produto)
 
         existente = existentes.get(produto.id)
         if existente is None:
-            para_criar.append(RoadmapAgenda(produto=produto, estagio_atual=estagio))
-        elif existente.estagio_atual != estagio:
+            para_criar.append(RoadmapAgenda(
+                produto=produto, estagio_atual=estagio, tem_video_reprovado=tem_video_reprovado,
+            ))
+        elif existente.estagio_atual != estagio or existente.tem_video_reprovado != tem_video_reprovado:
             existente.estagio_atual = estagio
+            existente.tem_video_reprovado = tem_video_reprovado
             para_atualizar.append(existente)
 
     if para_criar:
         RoadmapAgenda.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
     if para_atualizar:
-        RoadmapAgenda.objects.bulk_update(para_atualizar, ['estagio_atual'], batch_size=BATCH_SIZE_PADRAO)
+        RoadmapAgenda.objects.bulk_update(
+            para_atualizar, ['estagio_atual', 'tem_video_reprovado'], batch_size=BATCH_SIZE_PADRAO,
+        )
 
     linhas_resumo = '\n'.join(f'    {EstagioAgenda(k).label}: {v}' for k, v in contagem_por_estagio.items())
     stdout.write(style.SUCCESS(

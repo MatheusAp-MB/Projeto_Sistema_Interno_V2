@@ -33,6 +33,18 @@ def _montar_preparacoes_por_fase(produto):
     return {p.fase: p for p in produto.preparacoes_video.all()}
 
 
+# Função Objetivo: "Qualquer variação do produto reprovada em UP_HAS_SHORTS?"
+# Explicação em detalhe: 1 query só (não é ao vivo dentro de listagem/ordenação —
+# só roda aqui, nos pontos de sincronização, nunca a cada carregamento de tela).
+def _verificar_video_reprovado(produto):
+    from mercado_livre.models import QualidadeAnuncioCriterio
+    return QualidadeAnuncioCriterio.objects.filter(
+        qualidade__variacao__produto=produto,
+        criterio__rule_key='UP_HAS_SHORTS',
+        status='nao_aprovado',
+    ).exists()
+
+
 def sincronizar_roadmap_agenda_produto(produto):
     progresso = getattr(produto, 'progresso_producao_video', None)
     andamento = getattr(produto, 'andamento_agenda', None)
@@ -40,8 +52,10 @@ def sincronizar_roadmap_agenda_produto(produto):
 
     chave_atual = calcular_chave_atual(progresso, preparacoes_por_fase, andamento)
     estagio = colapsar_chave_em_estagio(chave_atual)
+    tem_video_reprovado = _verificar_video_reprovado(produto)
 
     roadmap_agenda, _ = RoadmapAgenda.objects.update_or_create(
-        produto=produto, defaults={'estagio_atual': estagio},
+        produto=produto,
+        defaults={'estagio_atual': estagio, 'tem_video_reprovado': tem_video_reprovado},
     )
     return roadmap_agenda

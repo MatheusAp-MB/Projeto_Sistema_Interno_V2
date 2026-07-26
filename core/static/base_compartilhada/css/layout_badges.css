@@ -74,6 +74,12 @@
  *                  já usado por "Urgente"), reservado pra quando "Urgentes" for
  *                  codado de verdade no futuro. Atrasado ≠ Urgente. */
 .badge-atrasado              { background: #ffedd5; color: #9a3412; }
+
+/* * [EXPLICAÇÃO] → Roxo de propósito — critério UP_HAS_SHORTS reprovado (API do
+ *                  ML), distinto do espectro laranja/vermelho/âmbar já reservado
+ *                  (Atrasado/Urgente/Risco de Atraso), já que é um problema de
+ *                  qualidade de conteúdo, não de prazo. */
+.badge-sem-clipes            { background: #ede9fe; color: #6d28d9; }
 .badge-not_listed           { background: #e5e7eb; color: #4b5563; }
 .badge-sem-dado             { background: #e5e7eb; color: #6b7280; }
 

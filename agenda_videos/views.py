@@ -16,6 +16,7 @@ from django.utils import timezone
 from agenda_videos.models import (
     StatusVideo, StatusPostagem, Fase, ConfiguracaoFase, Postagem,
     ProgressoProducaoVideo, PreparacaoVideoFase, AndamentoAgenda, StatusManualAgenda,
+    RoadmapAgenda,
 )
 
 # * [EXPLICAÇÃO] → Ordem das fases — usado pra saber quais ficam "puladas" quando o
@@ -171,6 +172,9 @@ def view_agendar_produto(request, produto_id, fase_inicial):
 
     hoje = timezone.now().date()
     janela = calcular_janela_fase(fase_inicial, hoje, config_fase_inicial.periodo)
+    # * [EXPLICAÇÃO] → fim_ocorrencia_atual da 1ª ocorrência (ocorrencia_atual=1
+    #                  sempre no agendamento) — nunca da janela da fase inteira.
+    janela_ocorrencia_1 = calcular_janela_ocorrencia(fase_inicial, janela.inicio, 1)
 
     AndamentoAgenda.objects.update_or_create(
         produto=produto,
@@ -179,8 +183,8 @@ def view_agendar_produto(request, produto_id, fase_inicial):
             'ocorrencia_atual': 1,
             'inicio_fase': janela.inicio,
             'fim_fase': janela.fim,
+            'fim_ocorrencia_atual': janela_ocorrencia_1.fim,
             'status_manual': StatusManualAgenda.ATIVO,
-            'urgente': False,
             'concluido': False,
             'concluido_em': None,
         }
@@ -269,6 +273,14 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
                 andamento.ocorrencia_atual = 1
                 andamento.inicio_fase = janela_proxima.inicio
                 andamento.fim_fase = janela_proxima.fim
+
+        # * [EXPLICAÇÃO] → Recalcula o vencimento da ocorrência (nova ou a mesma
+        #                  fase, avançada) — cobre os 2 casos do if/else acima.
+        if not andamento.concluido:
+            janela_ocorrencia_nova = calcular_janela_ocorrencia(
+                andamento.fase_atual.fase, andamento.inicio_fase, andamento.ocorrencia_atual,
+            )
+            andamento.fim_ocorrencia_atual = janela_ocorrencia_nova.fim
         andamento.save()
 
     else:
@@ -278,6 +290,25 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
     #                  sem cache de relação grudado, antes de montar a resposta.
     produto = Produto.objects.get(id=produto.id)
     sincronizar_roadmap_agenda_produto(produto)
+    data_simulada = _resolver_data_simulada(request)
+    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
+        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
+        'produto': produto, 'data_simulada': data_simulada,
+    })
+
+
+# Função Objetivo: Liga/desliga "Urgente" — qualquer produto, sem confirmação
+# (reversível, baixo risco, diferente dos pontos do roadmap).
+def view_alternar_urgente(request, produto_id):
+    from produtos.models import Produto
+    produto = get_object_or_404(Produto, id=produto_id)
+
+    roadmap_agenda, _ = RoadmapAgenda.objects.get_or_create(produto=produto)
+    roadmap_agenda.urgente = not roadmap_agenda.urgente
+    roadmap_agenda.save()
+
+    produto = Produto.objects.get(id=produto.id)
     data_simulada = _resolver_data_simulada(request)
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)

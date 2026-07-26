@@ -53,7 +53,9 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
     candidatos = Produto.objects.filter(
         andamento_agenda__isnull=False, andamento_agenda__concluido=False,
         andamento_agenda__status_manual=StatusManualAgenda.ATIVO,
-    ).select_related('andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video')
+    ).select_related(
+        'andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video', 'roadmap_agenda',
+    )
 
     if busca:
         for termo in busca.split():
@@ -85,7 +87,50 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
         calcular_indicadores_atraso(produto, andamento, data_referencia=hoje)
         resultado.append(produto)
 
-    # * [EXPLICAÇÃO] → Atrasados primeiro (prioridade máxima), depois por vencimento
-    #                  mais próximo.
-    resultado.sort(key=lambda p: (not p.a_fazer_hoje_atrasado, p.a_fazer_hoje_vencimento))
+    # * [EXPLICAÇÃO] → Mesma prioridade da listagem principal, calculada em Python
+    #                  aqui (já era assim — essa função nunca virou queryset puro,
+    #                  por causa do cálculo de janela por ocorrência):
+    #                  1. Urgente  2. Atrasado  3. Sem vídeo (UP_HAS_SHORTS)  4. Resto.
+    for produto in resultado:
+        produto.prioridade_ordenacao = _calcular_prioridade(produto)
+        produto.ordenacao_fase = _calcular_ordem_fase(produto)
+
+    resultado.sort(key=lambda p: (p.prioridade_ordenacao, p.ordenacao_fase, p.a_fazer_hoje_vencimento))
     return resultado
+
+
+# Função Objetivo: Mesmo grupo de fase da listagem principal — Diária → Semanal
+# → Mensal, grupo intermediário (não critério), entre prioridade e vencimento.
+MAPA_ORDEM_FASE = {'diaria': 1, 'semanal': 2, 'mensal': 3}
+
+
+def _calcular_ordem_fase(produto):
+    andamento = getattr(produto, 'andamento_agenda', None)
+    if andamento is None:
+        return 4
+    return MAPA_ORDEM_FASE.get(andamento.fase_atual.fase, 4)
+
+
+# Função Objetivo: Mesma regra de prioridade da listagem principal — 6 níveis,
+# cruzando Urgente/Atrasado com "Sem vídeo" (um Urgente sem vídeo é mais crítico
+# que um Urgente comum, mesma lógica pra Atrasado):
+#   1. Urgente + Sem vídeo    2. Urgente
+#   3. Atrasado + Sem vídeo   4. Atrasado
+#   5. Sem vídeo              6. Resto
+def _calcular_prioridade(produto):
+    roadmap_agenda = getattr(produto, 'roadmap_agenda', None)
+    urgente = roadmap_agenda is not None and roadmap_agenda.urgente
+    sem_video = roadmap_agenda is not None and roadmap_agenda.tem_video_reprovado
+    atrasado = produto.a_fazer_hoje_atrasado
+
+    if urgente and sem_video:
+        return 1
+    if urgente:
+        return 2
+    if atrasado and sem_video:
+        return 3
+    if atrasado:
+        return 4
+    if sem_video:
+        return 5
+    return 6
