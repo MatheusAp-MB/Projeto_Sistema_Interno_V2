@@ -1,6 +1,10 @@
 /*
 * [RESUMO] → CSS da tela de Histórico (Formato B) + modal de 1 produto
-* (Formato A) + tabela reaproveitada pelos 2.
+* (Formato A) + linha do tempo reaproveitada pelos 2. Redesenhado (26/07):
+* era tabela de 5 colunas, virou trilha vertical com card por evento —
+* mesma cor de badge de status já usada no resto do sistema, sem paleta
+* nova. Preparado pra crescer (Simples/Base/Roteiros/Agendamento) quando a
+* linha do tempo completa for construída.
 */
 
 /* ================================================
@@ -56,7 +60,30 @@
 }
 
 /* ================================================
-   GRUPOS POR PRODUTO
+   RESUMO EM PILLS (reaproveitado no modal e no relatório)
+   ================================================ */
+.historico-resumo-pills {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+.historico-resumo-pills--compacto {
+    margin: 4px 0 0;
+    margin-left: auto;
+}
+
+.historico-resumo-total {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    margin-right: 4px;
+}
+
+/* ================================================
+   GRUPOS POR PRODUTO (Formato B)
    ================================================ */
 .historico-grupo-produto {
     background: var(--cor-fundo-card);
@@ -68,9 +95,10 @@
 
 .historico-grupo-cabecalho {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px;
+    padding: 14px 18px;
     cursor: pointer;
     list-style: none;
 }
@@ -79,24 +107,23 @@
     display: none;
 }
 
-.historico-grupo-titulo {
-    font-weight: 700;
-    color: var(--cor-primaria);
+.historico-grupo-identidade {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1 1 320px;
+    min-width: 0;
 }
 
-.historico-grupo-ean {
-    font-size: 0.8rem;
-    color: #667;
-}
-
-.historico-grupo-resumo {
-    margin-left: auto;
-    font-size: 0.8rem;
-    color: #667;
+.historico-grupo-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .historico-grupo-conteudo {
-    padding: 0 16px 16px;
+    padding: 4px 18px 18px;
     border-top: 1px solid var(--cor-borda);
 }
 
@@ -127,54 +154,103 @@
 }
 
 /* ================================================
-   TABELA (reaproveitada pelos 2 formatos)
+   LINHA DO TEMPO (reaproveitada pelos 2 formatos)
    ================================================ */
-.historico-tabela {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-    margin-top: 12px;
-}
-
-.historico-tabela th {
-    background: #f9fafb;
-    color: #556;
-    text-align: left;
-    padding: 8px 12px;
-    white-space: nowrap;
-    border-bottom: 2px solid var(--cor-borda);
-}
-
-.historico-tabela td {
-    padding: 8px 12px;
-    border-bottom: 1px solid #eee;
-    white-space: nowrap;
-}
-
-.historico-timestamps {
+.historico-lista {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    font-size: 0.78rem;
+    gap: 12px;
+    margin: 14px 0 0 4px;
+    padding-left: 20px;
+    border-left: 2px solid var(--cor-borda);
+}
+
+.historico-evento {
+    position: relative;
+}
+
+.historico-evento::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #9ca3af;
+    box-shadow: 0 0 0 3px var(--cor-fundo-card);
+}
+
+.historico-evento--aguardando_aprovacao::before { background: #92400e; }
+.historico-evento--aprovado::before             { background: #15803d; }
+.historico-evento--recusado::before             { background: #b91c1c; }
+.historico-evento--replicado::before            { background: #1d4ed8; }
+
+.historico-evento-corpo {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.historico-evento-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.historico-evento-fase {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--cor-primaria);
+}
+
+.historico-evento-janela {
+    display: block;
+    font-size: 0.75rem;
     color: #667;
-    white-space: normal;
+    margin-top: 2px;
+}
+
+.historico-evento-trilha {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: #556;
+}
+
+.historico-evento-trilha b {
+    font-weight: 600;
+    color: #33404f;
+}
+
+.historico-evento-seta {
+    color: #aab0bb;
 }
 
 .historico-vazio {
     text-align: center;
     color: #9ca3af;
-    padding: 20px;
+    padding: 16px;
+    margin: 14px 0 0;
 }
 
 /* ================================================
    MODAL DE 1 PRODUTO
    ================================================ */
 .modal-historico-caixa {
-    max-width: 720px;
-    width: 90vw;
-    max-height: 80vh;
+    max-width: 640px;
+    width: 92vw;
+    max-height: 82vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .modal-historico-cabecalho {
@@ -182,6 +258,12 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    flex: 0 0 auto;
+}
+
+.modal-historico-cabecalho .modal-roadmap-titulo {
+    flex: 1;
+    margin: 0;
 }
 
 .modal-historico-fechar {
@@ -191,15 +273,14 @@
     color: #667;
     cursor: pointer;
     padding: 2px 6px;
+    flex-shrink: 0;
 }
 
-.modal-historico-resumo {
-    font-size: 0.82rem;
-    color: #667;
-    margin: 0 0 8px;
-}
-
-.modal-historico-tabela-wrapper {
+.modal-historico-corpo {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    overflow-x: auto;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--cor-borda);
 }

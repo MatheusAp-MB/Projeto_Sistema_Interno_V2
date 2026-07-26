@@ -14,20 +14,7 @@
 <div class="agenda-card" id="agenda-card-{{ produto.id }}" data-simular-data="{{ data_simulada|date:'Y-m-d'|default:'' }}">
 
     <div class="agenda-card-identidade">
-        <div class="agenda-foto">
-            {% if produto.obter_dados_identificacao.imagem_url %}
-            <img src="{{ produto.obter_dados_identificacao.imagem_url }}" alt="">
-            {% endif %}
-        </div>
-        <div class="agenda-identificacao">
-            <p class="agenda-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
-            <p class="agenda-subtitulo">
-                EAN {{ produto.obter_dados_identificacao.ean }} ·
-                SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
-                {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
-                Estoque {{ produto.obter_dados_identificacao.estoque }}
-            </p>
-        </div>
+        {% include 'agenda_videos/parciais/estrutura_parcial_identidade_produto.html' %}
 
         <!-- * [EXPLICAÇÃO] → Toggle de Urgente — SEMPRE visível, qualquer estágio
              (urgente mora em RoadmapAgenda agora, existe pra todo produto). Sem
@@ -50,11 +37,7 @@
 
     {% if produto.andamento_agenda %}
     <div class="agenda-card-meta">
-        <span class="badge-tabela status-{{ produto.andamento_agenda.status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
-        <span class="badge-tabela badge-papel">{{ produto.andamento_agenda.fase_atual.get_fase_display }}</span>
-        <span class="agenda-ocorrencia">{{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
-        {% janela_ocorrencia_atual produto as janela_atual %}
-        <span class="agenda-datas">{{ janela_atual.inicio|date:"d/m" }} → {{ janela_atual.fim|date:"d/m" }}</span>
+        {% include 'agenda_videos/parciais/estrutura_parcial_meta_produto.html' %}
     </div>
     {% endif %}
 

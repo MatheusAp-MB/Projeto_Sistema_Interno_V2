@@ -1,8 +1,8 @@
 <!--
 * [RESUMO] → Modal de histórico de 1 produto (Formato A). Reaproveita
-* modal-roadmap-fundo/caixa (mesmo overlay, mesmo fechar-ao-clicar-fora
-* já existente em script_roadmap_produto.js) — só adiciona modal-historico-
-* caixa por cima, mais larga, pra caber a tabela.
+* modal-roadmap-fundo/caixa (overlay e fechar-ao-clicar-fora já existentes
+* em script_roadmap_produto.js). Redesenhado (26/07) junto com a linha do
+* tempo — cabeçalho e resumo fixos, só o corpo rola.
 -->
 <div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
     <div class="modal-roadmap-caixa modal-historico-caixa">
@@ -12,11 +12,13 @@
                 <i class="fas fa-xmark"></i>
             </button>
         </div>
-        <p class="modal-historico-resumo">
-            {{ historico.total }} postagem{{ historico.total|pluralize }}
-            {% for item in historico.resumo %} · {{ item.quantidade }} {{ item.label|lower }}{% endfor %}
-        </p>
-        <div class="modal-historico-tabela-wrapper">
+        <div class="historico-resumo-pills">
+            <span class="historico-resumo-total">{{ historico.total }} postagem{{ historico.total|pluralize }}</span>
+            {% for item in historico.resumo %}
+            <span class="badge-tabela {{ item.classe }}">{{ item.quantidade }} {{ item.label|lower }}</span>
+            {% endfor %}
+        </div>
+        <div class="modal-historico-corpo">
             {% include 'agenda_videos/parciais/estrutura_parcial_tabela_historico_postagens.html' %}
         </div>
     </div>

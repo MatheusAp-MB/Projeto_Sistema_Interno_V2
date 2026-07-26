@@ -10,6 +10,7 @@
 {% block toolbar_titulo %}Histórico de Postagens{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_agenda_videos.css' %}">
 <link rel="stylesheet" href="{% static 'agenda_videos/css/layout_historico_agenda_videos.css' %}">
 {% endblock %}
 
@@ -55,12 +56,25 @@
 {% for historico in grupos %}
 <details class="historico-grupo-produto">
     <summary class="historico-grupo-cabecalho">
-        <span class="historico-grupo-titulo">{{ historico.produto.obter_dados_identificacao.titulo }}</span>
-        <span class="historico-grupo-ean">EAN {{ historico.produto.obter_dados_identificacao.ean }}</span>
-        <span class="historico-grupo-resumo">
-            {{ historico.total }} postagem{{ historico.total|pluralize }}
-            {% for item in historico.resumo %} · {{ item.quantidade }} {{ item.label|lower }}{% endfor %}
+        <div class="historico-grupo-identidade">
+            {% include 'agenda_videos/parciais/estrutura_parcial_identidade_produto.html' with produto=historico.produto %}
+        </div>
+        {% if historico.produto.roadmap_agenda.urgente %}
+        <span class="badge-tabela badge-conta-propria">
+            <i class="fas fa-triangle-exclamation"></i> Urgente
         </span>
+        {% endif %}
+        {% if historico.produto.andamento_agenda %}
+        <div class="historico-grupo-meta">
+            {% include 'agenda_videos/parciais/estrutura_parcial_meta_produto.html' with produto=historico.produto %}
+        </div>
+        {% endif %}
+        <div class="historico-resumo-pills historico-resumo-pills--compacto">
+            <span class="historico-resumo-total">{{ historico.total }} postagem{{ historico.total|pluralize }}</span>
+            {% for item in historico.resumo %}
+            <span class="badge-tabela {{ item.classe }}">{{ item.quantidade }} {{ item.label|lower }}</span>
+            {% endfor %}
+        </div>
     </summary>
     <div class="historico-grupo-conteudo">
         {% include 'agenda_videos/parciais/estrutura_parcial_tabela_historico_postagens.html' %}

@@ -26,8 +26,14 @@ def montar_historico_produto(produto):
         postagem.badge = badge_de(BADGES_STATUS_POSTAGEM, postagem.status)
         contagem_por_status[postagem.status] = contagem_por_status.get(postagem.status, 0) + 1
 
+    # * [EXPLICAÇÃO] → "classe" incluída (26/07, redesenho visual) — o resumo
+    #                  agora vira badge colorido, não só texto puro.
     resumo = [
-        {'label': BADGES_STATUS_POSTAGEM[status_valor]['label'], 'quantidade': quantidade}
+        {
+            'label': BADGES_STATUS_POSTAGEM[status_valor]['label'],
+            'classe': BADGES_STATUS_POSTAGEM[status_valor]['classe'],
+            'quantidade': quantidade,
+        }
         for status_valor, quantidade in contagem_por_status.items()
     ]
 

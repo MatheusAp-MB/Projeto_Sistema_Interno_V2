@@ -1,0 +1,20 @@
+<!--
+* [RESUMO] → Identidade de 1 produto (foto + título + EAN/SKU/marca/
+* estoque) — extraído (26/07) do card principal pra reaproveitar no
+* cabeçalho de cada grupo do Histórico (2º uso real — promovido pra
+* parcial compartilhado em vez de duplicar o HTML).
+-->
+<div class="agenda-foto">
+    {% if produto.obter_dados_identificacao.imagem_url %}
+    <img src="{{ produto.obter_dados_identificacao.imagem_url }}" alt="">
+    {% endif %}
+</div>
+<div class="agenda-identificacao">
+    <p class="agenda-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
+    <p class="agenda-subtitulo">
+        EAN {{ produto.obter_dados_identificacao.ean }} ·
+        SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
+        {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
+        Estoque {{ produto.obter_dados_identificacao.estoque }}
+    </p>
+</div>

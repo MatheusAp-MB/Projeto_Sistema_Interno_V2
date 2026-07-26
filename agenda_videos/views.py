@@ -495,8 +495,10 @@ def view_historico_produto(request, produto_id):
     from agenda_videos.funcoes_auxiliares.historico_postagens import montar_historico_produto
 
     produto = get_object_or_404(Produto, id=produto_id)
-    contexto = montar_historico_produto(produto)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_historico_produto.html', contexto)
+    historico = montar_historico_produto(produto)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_historico_produto.html', {
+        'historico': historico,
+    })
 
 
 # Função Objetivo: Valida uma data vinda de input HTML (YYYY-MM-DD) — devolve
