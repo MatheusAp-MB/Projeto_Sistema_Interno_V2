@@ -75,6 +75,14 @@
         </span>
         {% endif %}
 
+        {% for divergencia in produto.divergencia_fase_concluida %}
+        <span class="badge-tabela badge-papel" title="Concluída com {{ divergencia.real }} — a configuração atual pede {{ divergencia.atual }}. O período mudou depois que essa fase já tinha terminado.">
+            <i class="fas fa-circle-info"></i>
+            {% if divergencia.fase == 'diaria' %}Diária{% elif divergencia.fase == 'semanal' %}Semanal{% else %}Mensal{% endif %}
+            concluída com período diferente
+        </span>
+        {% endfor %}
+
         {% roadmap_produto produto %}
     </div>
 

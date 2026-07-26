@@ -15,7 +15,9 @@ from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
     listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
 )
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje, calcular_indicadores_atraso
-from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_indicador_pool_insuficiente
+from agenda_videos.funcoes_auxiliares.roadmap_produto import (
+    calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
+)
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_STATUS_VIDEO, opcoes_com_badge,
 )
@@ -199,6 +201,8 @@ class ContextoTelaAgendaVideos:
             if andamento is not None and not andamento.concluido:
                 calcular_indicadores_atraso(produto, andamento, data_referencia=self.parametros.data_simulada)
                 produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
+            if andamento is not None:
+                produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, andamento)
 
         return pagina
 

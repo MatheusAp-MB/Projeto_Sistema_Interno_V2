@@ -357,6 +357,50 @@ def _buscar_sub_estado_postagem(produto, chave, andamento):
 # 'completos'. Não decide clicabilidade (isso é calcular_chave_atual) — aparece
 # mesmo com uma ação pendente em aberto, como aviso antecipado do que vai
 # bloquear a PRÓXIMA ocorrência de começar.
+# Função Objetivo: Conta quantas ocorrências dessa fase realmente viraram
+# Postagem Replicada — número REAL, nunca afetado por mudança de config depois
+# que a fase já tinha terminado.
+def _contar_ocorrencias_replicadas(produto, fase):
+    from agenda_videos.models import Postagem, StatusPostagem
+    return Postagem.objects.filter(produto=produto, fase=fase, status=StatusPostagem.REPLICADO).count()
+
+
+# Função Objetivo: Indicador pro badge do card — quais fases JÁ CONCLUÍDAS
+# (Diária/Semanal/Mensal) têm contagem real diferente do periodo ATUAL da
+# config? Acontece quando o periodo muda depois que a fase já tinha
+# terminado — não afeta o andamento do produto (ele já passou dela), só a
+# comparação/exibição fica desatualizada sem esse aviso. Devolve TODAS as
+# divergências encontradas (26/07 — antes só a primeira; um produto pode
+# ter mais de uma fase concluída divergindo ao mesmo tempo), lista vazia
+# se nenhuma.
+def calcular_indicador_divergencia_fase_concluida(produto, andamento):
+    if andamento is None:
+        return []
+
+    fase_atual = andamento.fase_atual.fase
+    concluidas = []
+    if fase_atual in ('semanal', 'mensal') or andamento.concluido:
+        concluidas.append('diaria')
+    if fase_atual == 'mensal' or andamento.concluido:
+        concluidas.append('semanal')
+    if andamento.concluido:
+        concluidas.append('mensal')
+
+    if not concluidas:
+        return []
+
+    mapa_periodos = obter_mapa_periodos_por_fase()
+    divergencias = []
+    for fase in concluidas:
+        periodo_atual = mapa_periodos.get(fase)
+        if periodo_atual is None:
+            continue
+        real = _contar_ocorrencias_replicadas(produto, fase)
+        if real != periodo_atual:
+            divergencias.append({'fase': fase, 'real': real, 'atual': periodo_atual})
+    return divergencias
+
+
 def calcular_indicador_pool_insuficiente(produto, andamento):
     if andamento is None or andamento.concluido:
         return None
@@ -412,7 +456,7 @@ def calcular_roadmap_produto(produto):
                 if estado == EstadoPonto.ATUAL:
                     atual = andamento.ocorrencia_atual
                 elif estado == EstadoPonto.CONCLUIDO:
-                    atual = periodo
+                    atual = _contar_ocorrencias_replicadas(produto, definicao.chave)
                 else:
                     atual = 0
 

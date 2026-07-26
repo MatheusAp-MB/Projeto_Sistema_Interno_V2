@@ -8,7 +8,7 @@ from django.utils import timezone
 from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import ContextoTelaAgendaVideos
 from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_roadmap_produto, obter_mapa_periodos_por_fase, FASE_DA_CHAVE_PREPARACAO,
-    calcular_indicador_pool_insuficiente,
+    calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
@@ -223,12 +223,15 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
         #                  completos_semanal/roteiros_mensal/completos_mensal —
         #                  todos operam em cima do PreparacaoVideoFase DAQUELA fase.
         fase = FASE_DA_CHAVE_PREPARACAO[chave]
+        periodo_atual = obter_mapa_periodos_por_fase().get(fase)
         preparacao, _ = PreparacaoVideoFase.objects.get_or_create(produto=produto, fase=fase)
 
         if chave.startswith('roteiros_'):
             preparacao.roteiros_gerados = True
+            preparacao.roteiros_quantidade_no_clique = periodo_atual
         elif chave.startswith('completos_'):
             preparacao.completos_produzidos = True
+            preparacao.completos_quantidade_no_clique = periodo_atual
         preparacao.save()
 
     # * [EXPLICAÇÃO] → Busca o produto DE NOVO, do zero — Django guarda ("cacheia")
@@ -243,6 +246,8 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
+    if getattr(produto, 'andamento_agenda', None):
+        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })
@@ -303,6 +308,8 @@ def view_agendar_produto(request, produto_id, fase_inicial):
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
+    if getattr(produto, 'andamento_agenda', None):
+        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })
@@ -387,6 +394,8 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
+    if getattr(produto, 'andamento_agenda', None):
+        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })
@@ -407,6 +416,8 @@ def view_alternar_urgente(request, produto_id):
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
+    if getattr(produto, 'andamento_agenda', None):
+        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })

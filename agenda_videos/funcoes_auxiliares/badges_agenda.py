@@ -38,6 +38,10 @@ BADGE_URGENTE_ATIVO          = {'label': 'Urgente',                       'class
 #                  insuficiente, cor nova, sem overlap com nada existente.
 BADGE_ROTEIROS_INSUFICIENTES  = {'label': 'Roteiros insuficientes',         'classe': 'badge-pool-insuficiente', 'icone': 'fa-triangle-exclamation'}
 BADGE_COMPLETOS_INSUFICIENTES = {'label': 'Vídeos completos insuficientes', 'classe': 'badge-pool-insuficiente', 'icone': 'fa-triangle-exclamation'}
+# * [EXPLICAÇÃO] → Reaproveita badge-papel (neutro) de propósito — é aviso
+#                  informativo (nada quebrou, nada trava), diferente do rosa
+#                  de "precisa agir" usado acima.
+BADGE_DIVERGENCIA_FASE_CONCLUIDA = {'label': 'Período divergente', 'classe': 'badge-papel', 'icone': 'fa-circle-info'}
 
 BADGE_PADRAO = {'label': '—', 'classe': 'badge-papel', 'icone': None}
 
