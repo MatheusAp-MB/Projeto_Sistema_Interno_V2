@@ -1,39 +1,27 @@
 <!--
-* [RESUMO] → Linha do tempo de Postagem de 1 produto — cada card é 1
-* Postagem (fase+ocorrência), status final em destaque, timestamps como
-* trilha compacta. Reaproveitada pelo modal (Formato A) e por cada grupo
-* do relatório geral (Formato B). Recebe "historico" (dict de
-* montar_historico_produto). Redesenhado (26/07) — era tabela de 5
-* colunas, não cabia bem num modal estreito com timestamp empilhado.
+* [RESUMO] → Linha do tempo ÚNICA e completa de 1 produto — desde o Vídeo
+* Simples até o fim do ciclo, tudo misturado em ordem cronológica (26/07,
+* "toda ação feita é rastreada de ponta a ponta"). Reaproveitada pelo modal
+* (Formato A) e por cada grupo do relatório geral (Formato B). Recebe
+* "historico" (dict de montar_historico_produto — "eventos" já vem
+* mesclado e ordenado por historico_postagens.py, nunca ordenar aqui).
 -->
+{% if historico.aviso_gap %}
+<p class="historico-aviso-gap">
+    <i class="fas fa-circle-info"></i> {{ historico.aviso_gap }}
+</p>
+{% endif %}
+
 <div class="historico-lista">
-    {% for postagem in historico.postagens %}
-    <div class="historico-evento historico-evento--{{ postagem.status }}">
+    {% for evento in historico.eventos %}
+    <div class="historico-evento historico-evento--{{ evento.tipo }}">
         <div class="historico-evento-corpo">
-            <div class="historico-evento-cabecalho">
-                <span class="historico-evento-fase">{{ postagem.get_fase_display }} · Ocorrência {{ postagem.numero_ocorrencia }}</span>
-                <span class="badge-tabela {{ postagem.badge.classe }}">
-                    {% if postagem.badge.icone %}<i class="fas {{ postagem.badge.icone }}"></i>{% endif %}
-                    {{ postagem.badge.label }}
-                </span>
-            </div>
-            <span class="historico-evento-janela">{{ postagem.inicio_ocorrencia|date:"d/m" }} – {{ postagem.fim_ocorrencia|date:"d/m" }}</span>
-            <div class="historico-evento-trilha">
-                {% if postagem.aguardando_aprovacao_em %}
-                <span>Postado <b>{{ postagem.aguardando_aprovacao_em|date:"d/m H:i" }}</b></span>
-                {% endif %}
-                {% if postagem.aprovado_ou_recusado_em %}
-                <span class="historico-evento-seta">→</span>
-                <span>{% if postagem.status == 'recusado' %}Recusado{% else %}Aprovado{% endif %} <b>{{ postagem.aprovado_ou_recusado_em|date:"d/m H:i" }}</b></span>
-                {% endif %}
-                {% if postagem.replicado_em %}
-                <span class="historico-evento-seta">→</span>
-                <span>Replicado <b>{{ postagem.replicado_em|date:"d/m H:i" }}</b></span>
-                {% endif %}
-            </div>
+            <i class="fas {{ evento.icone }} historico-evento-icone"></i>
+            <span class="historico-evento-label">{{ evento.label }}</span>
+            <span class="historico-evento-data">{{ evento.timestamp|date:"d/m/Y H:i" }}</span>
         </div>
     </div>
     {% empty %}
-    <p class="historico-vazio">Nenhuma postagem ainda.</p>
+    <p class="historico-vazio">Nenhuma atividade registrada ainda.</p>
     {% endfor %}
 </div>

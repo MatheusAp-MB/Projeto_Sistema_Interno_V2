@@ -42,6 +42,14 @@ class AndamentoAgenda(models.Model):
     concluido = models.BooleanField(default=False)
     concluido_em = models.DateField(blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Timestamp com HORA real do momento do "já repliquei" que
+    #                  encerrou o ciclo (26/07, linha do tempo completa) — criado
+    #                  à parte de concluido_em porque esse já existia como só-data
+    #                  desde antes, e mudar o tipo dele seria alterar campo já em
+    #                  uso, não só adicionar. None = concluído antes desse
+    #                  rastreio existir (dado legado).
+    concluido_marcado_em = models.DateTimeField(null=True, blank=True)
+
     # * [EXPLICAÇÃO] → "urgente" MUDOU DE LUGAR (25/07) — saiu daqui e foi pra
     #                  RoadmapAgenda. Motivo: qualquer produto pode ser marcado
     #                  como urgente (mesmo "Não Agendado"), e AndamentoAgenda só
@@ -55,6 +63,12 @@ class AndamentoAgenda(models.Model):
     #                  que ocorrencia_atual ou fase_atual mudam (view_agendar_produto,
     #                  view_executar_acao_ciclica).
     fim_ocorrencia_atual = models.DateField(blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Timestamp de quando o produto entrou na Agenda de verdade
+    #                  (26/07, linha do tempo completa) — None só é possível pra
+    #                  quem já tinha AndamentoAgenda antes desse rastreio existir
+    #                  (dado legado, nunca inventamos a data).
+    agendado_em = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Andamento na Agenda'

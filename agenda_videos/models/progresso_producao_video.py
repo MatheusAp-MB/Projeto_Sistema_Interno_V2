@@ -23,6 +23,13 @@ class ProgressoProducaoVideo(models.Model):
     video_base_status = models.CharField(
         max_length=15, choices=StatusVideo.choices, default=StatusVideo.NAO_GERADO)
 
+    # * [EXPLICAÇÃO] → Timestamp do momento exato do clique que marcou como
+    #                  Gerado (26/07, linha do tempo completa) — None = nunca
+    #                  marcado OU marcado antes desse rastreio existir (dado
+    #                  legado, decisão: nunca inventar data pra ele).
+    video_simples_marcado_em = models.DateTimeField(null=True, blank=True)
+    video_base_marcado_em = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = 'Progresso de Produção de Vídeo'
         verbose_name_plural = 'Progressos de Produção de Vídeo'

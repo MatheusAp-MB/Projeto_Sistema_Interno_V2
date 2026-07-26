@@ -80,6 +80,7 @@ def avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas):
         if proxima_fase is None:
             andamento.concluido = True
             andamento.concluido_em = timezone.now().date()
+            andamento.concluido_marcado_em = timezone.now()
         else:
             config_proxima = ConfiguracaoFase.objects.filter(fase=proxima_fase).first()
             if config_proxima is None:
@@ -214,8 +215,10 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
         progresso, _ = ProgressoProducaoVideo.objects.get_or_create(produto=produto)
         if chave == 'simples':
             progresso.video_simples_status = StatusVideo.GERADO
+            progresso.video_simples_marcado_em = timezone.now()
         else:
             progresso.video_base_status = StatusVideo.GERADO
+            progresso.video_base_marcado_em = timezone.now()
         progresso.save()
 
     else:
@@ -229,9 +232,11 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
         if chave.startswith('roteiros_'):
             preparacao.roteiros_gerados = True
             preparacao.roteiros_quantidade_no_clique = periodo_atual
+            preparacao.roteiros_marcado_em = timezone.now()
         elif chave.startswith('completos_'):
             preparacao.completos_produzidos = True
             preparacao.completos_quantidade_no_clique = periodo_atual
+            preparacao.completos_marcado_em = timezone.now()
         preparacao.save()
 
     # * [EXPLICAÇÃO] → Busca o produto DE NOVO, do zero — Django guarda ("cacheia")
@@ -288,6 +293,8 @@ def view_agendar_produto(request, produto_id, fase_inicial):
             'status_manual': StatusManualAgenda.ATIVO,
             'concluido': False,
             'concluido_em': None,
+            'concluido_marcado_em': None,
+            'agendado_em': timezone.now(),
         }
     )
 
@@ -295,6 +302,9 @@ def view_agendar_produto(request, produto_id, fase_inicial):
     #                  da escolhida — mesmo espírito da Decisão A já usada na
     #                  importação. Período usa o valor configurado de cada fase
     #                  pulada, pra manter "roteiros_insuficientes" consistente.
+    # * [EXPLICAÇÃO] → Fases puladas NÃO ganham roteiros_marcado_em/completos_
+    #                  marcado_em (26/07) — nunca aconteceu um clique real ali,
+    #                  seria inventar um timestamp pra algo que foi automático.
     indice_inicial = ORDEM_FASES.index(fase_inicial)
     for fase_pulada in ORDEM_FASES[:indice_inicial]:
         PreparacaoVideoFase.objects.update_or_create(

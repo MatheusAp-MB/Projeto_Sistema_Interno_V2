@@ -1,14 +1,111 @@
 # agenda_videos/funcoes_auxiliares/historico_postagens.py
 
-# Função Objetivo: Monta os dados de histórico de Postagem — usado tanto pelo
-# modal de 1 produto (Formato A) quanto pela tela de relatório geral agrupada
-# por produto (Formato B). 1 função só constrói o histórico de 1 produto, os
-# 2 formatos reaproveitam ela — nunca duplicada.
+# Função Objetivo: Monta os dados de histórico de 1 produto — usado tanto pelo
+# modal individual (Formato A) quanto pela tela de relatório geral agrupada
+# por produto (Formato B). 1 função só constrói o histórico, os 2 formatos
+# reaproveitam ela — nunca duplicada.
 
+from datetime import datetime, time
 from django.db.models import Q
+from django.utils import timezone
 from produtos.models import Produto
-from agenda_videos.models import Postagem
+from agenda_videos.models import Postagem, StatusPostagem, StatusVideo
 from agenda_videos.funcoes_auxiliares.badges_agenda import BADGES_STATUS_POSTAGEM, badge_de
+
+
+# Função Objetivo: Monta a linha do tempo COMPLETA e ÚNICA de 1 produto —
+# desde o Vídeo Simples até o fim do ciclo, tudo misturado em ordem
+# cronológica (26/07, "toda ação feita é rastreada de ponta a ponta" — não é
+# uma seção separada de marcos + outra de postagens, é 1 trilha só).
+# Explicação em detalhe: cada Postagem contribui com ATÉ 3 linhas separadas
+# (Postado/Aprovado-ou-Recusado/Replicado), cada uma com seu próprio horário
+# — diferente do card agrupado que a tela ainda usa pro resumo de contagem.
+# "Gap" (marco já concluído mas sem data) só conta pra quem JÁ aconteceu —
+# uma etapa que o produto ainda nem chegou nunca gera aviso.
+def montar_linha_do_tempo_produto(produto):
+    eventos = []
+    tem_gap = False
+    marcos_presentes = 0
+
+    def _adicionar_marco(ja_concluido, timestamp, label, icone):
+        nonlocal tem_gap, marcos_presentes
+        if not ja_concluido:
+            return
+        if timestamp:
+            eventos.append({'timestamp': timestamp, 'label': label, 'tipo': 'marco', 'icone': icone})
+            marcos_presentes += 1
+        else:
+            # * [EXPLICAÇÃO] → Sem timestamp mas já concluído = ou é dado
+            #                  legado (marcado antes do rastreio existir), ou
+            #                  foi uma fase PULADA no agendamento (marcado
+            #                  automaticamente, nunca teve clique real) — nos
+            #                  2 casos, nunca inventamos uma data.
+            tem_gap = True
+
+    progresso = getattr(produto, 'progresso_producao_video', None)
+    if progresso:
+        _adicionar_marco(
+            progresso.video_simples_status == StatusVideo.GERADO,
+            progresso.video_simples_marcado_em, 'Vídeo Simples gerado', 'fa-video',
+        )
+        _adicionar_marco(
+            progresso.video_base_status == StatusVideo.GERADO,
+            progresso.video_base_marcado_em, 'Vídeo Base gerado', 'fa-video',
+        )
+
+    for preparacao in produto.preparacoes_video.all():
+        fase_label = preparacao.get_fase_display()
+        _adicionar_marco(
+            preparacao.roteiros_gerados,
+            preparacao.roteiros_marcado_em, f'Roteiros gerados ({fase_label})', 'fa-pen',
+        )
+        _adicionar_marco(
+            preparacao.completos_produzidos,
+            preparacao.completos_marcado_em, f'Vídeos completos gerados ({fase_label})', 'fa-film',
+        )
+
+    andamento = getattr(produto, 'andamento_agenda', None)
+    if andamento:
+        _adicionar_marco(True, andamento.agendado_em, 'Entrou na Agenda de Vídeos', 'fa-calendar-check')
+
+        if andamento.concluido:
+            _adicionar_marco(
+                True, andamento.concluido_marcado_em, 'Ciclo de divulgação encerrado (Otimizado)', 'fa-flag-checkered',
+            )
+    for postagem in Postagem.objects.filter(produto=produto):
+        rotulo_base = f'{postagem.get_fase_display()} #{postagem.numero_ocorrencia}'
+
+        if postagem.aguardando_aprovacao_em:
+            eventos.append({
+                'timestamp': postagem.aguardando_aprovacao_em,
+                'label': f'{rotulo_base} — Postado', 'tipo': 'aguardando_aprovacao', 'icone': 'fa-upload',
+            })
+
+        if postagem.aprovado_ou_recusado_em:
+            if postagem.status == StatusPostagem.RECUSADO:
+                tipo, acao = 'recusado', 'Recusado'
+            else:
+                tipo, acao = 'aprovado', 'Aprovado'
+            eventos.append({
+                'timestamp': postagem.aprovado_ou_recusado_em,
+                'label': f'{rotulo_base} — {acao}', 'tipo': tipo, 'icone': 'fa-gavel',
+            })
+
+        if postagem.replicado_em:
+            eventos.append({
+                'timestamp': postagem.replicado_em,
+                'label': f'{rotulo_base} — Replicado', 'tipo': 'replicado', 'icone': 'fa-copy',
+            })
+
+    eventos.sort(key=lambda evento: evento['timestamp'])
+
+    aviso_gap = None
+    if tem_gap and marcos_presentes == 0:
+        aviso_gap = 'Nenhuma etapa de preparação deste produto tem data registrada — aconteceram antes do rastreio existir.'
+    elif tem_gap:
+        aviso_gap = 'Algumas etapas deste produto aconteceram antes do rastreio existir — sem data registrada.'
+
+    return {'eventos': eventos, 'aviso_gap': aviso_gap}
 
 
 # Função Objetivo: Monta o histórico completo (todas as fases/ocorrências) de
@@ -37,11 +134,15 @@ def montar_historico_produto(produto):
         for status_valor, quantidade in contagem_por_status.items()
     ]
 
+    linha_do_tempo = montar_linha_do_tempo_produto(produto)
+
     return {
         'produto': produto,
         'postagens': postagens,
         'total': len(postagens),
         'resumo': resumo,
+        'eventos': linha_do_tempo['eventos'],
+        'aviso_gap': linha_do_tempo['aviso_gap'],
     }
 
 

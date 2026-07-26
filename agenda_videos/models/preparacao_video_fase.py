@@ -32,6 +32,12 @@ class PreparacaoVideoFase(models.Model):
     roteiros_quantidade_no_clique = models.PositiveIntegerField(null=True, blank=True)
     completos_quantidade_no_clique = models.PositiveIntegerField(null=True, blank=True)
 
+    # * [EXPLICAÇÃO] → Timestamp do momento exato do clique (26/07, linha do tempo
+    #                  completa) — None = nunca marcado OU marcado antes desse
+    #                  rastreio existir (dado legado, nunca inventamos a data).
+    roteiros_marcado_em = models.DateTimeField(null=True, blank=True)
+    completos_marcado_em = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         verbose_name = 'Preparação de Vídeo por Fase'
         verbose_name_plural = 'Preparações de Vídeo por Fase'

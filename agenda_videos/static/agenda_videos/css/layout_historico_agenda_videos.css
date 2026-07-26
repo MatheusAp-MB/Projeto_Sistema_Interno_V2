@@ -1,10 +1,9 @@
 /*
 * [RESUMO] → CSS da tela de Histórico (Formato B) + modal de 1 produto
-* (Formato A) + linha do tempo reaproveitada pelos 2. Redesenhado (26/07):
-* era tabela de 5 colunas, virou trilha vertical com card por evento —
-* mesma cor de badge de status já usada no resto do sistema, sem paleta
-* nova. Preparado pra crescer (Simples/Base/Roteiros/Agendamento) quando a
-* linha do tempo completa for construída.
+* (Formato A) + linha do tempo única reaproveitada pelos 2. Redesenhado
+* (26/07, 2x): era tabela de 5 colunas → virou card por Postagem → virou
+* trilha ÚNICA e cronológica (marcos de preparação + cada timestamp de
+* Postagem, misturados em ordem real de acontecimento).
 */
 
 /* ================================================
@@ -125,6 +124,8 @@
 .historico-grupo-conteudo {
     padding: 4px 18px 18px;
     border-top: 1px solid var(--cor-borda);
+    max-height: 420px;
+    overflow-y: auto;
 }
 
 .historico-vazio-geral {
@@ -154,13 +155,29 @@
 }
 
 /* ================================================
-   LINHA DO TEMPO (reaproveitada pelos 2 formatos)
+   AVISO DE GAP (marco concluído sem timestamp — dado
+   legado, ou fase pulada no agendamento)
+   ================================================ */
+.historico-aviso-gap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #eef2f7;
+    color: #44546a;
+    font-size: 0.8rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin: 12px 0 0;
+}
+
+/* ================================================
+   LINHA DO TEMPO ÚNICA (reaproveitada pelos 2 formatos)
    ================================================ */
 .historico-lista {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     margin: 14px 0 0 4px;
     padding-left: 20px;
     border-left: 2px solid var(--cor-borda);
@@ -174,7 +191,7 @@
     content: '';
     position: absolute;
     left: -26px;
-    top: 14px;
+    top: 12px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
@@ -182,56 +199,41 @@
     box-shadow: 0 0 0 3px var(--cor-fundo-card);
 }
 
+.historico-evento--marco::before             { background: #9ca3af; }
 .historico-evento--aguardando_aprovacao::before { background: #92400e; }
 .historico-evento--aprovado::before             { background: #15803d; }
 .historico-evento--recusado::before             { background: #b91c1c; }
 .historico-evento--replicado::before            { background: #1d4ed8; }
 
 .historico-evento-corpo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
     border-radius: 8px;
-    padding: 10px 14px;
+    padding: 8px 14px;
 }
 
-.historico-evento-cabecalho {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+.historico-evento-icone {
+    color: #9ca3af;
+    font-size: 0.8rem;
+    width: 14px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
-.historico-evento-fase {
-    font-weight: 700;
-    font-size: 0.85rem;
-    color: var(--cor-primaria);
-}
-
-.historico-evento-janela {
-    display: block;
-    font-size: 0.75rem;
-    color: #667;
-    margin-top: 2px;
-}
-
-.historico-evento-trilha {
-    margin-top: 8px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.78rem;
-    color: #556;
-}
-
-.historico-evento-trilha b {
+.historico-evento-label {
     font-weight: 600;
+    font-size: 0.85rem;
     color: #33404f;
+    flex: 1;
 }
 
-.historico-evento-seta {
-    color: #aab0bb;
+.historico-evento-data {
+    font-size: 0.78rem;
+    color: #667;
+    white-space: nowrap;
 }
 
 .historico-vazio {
