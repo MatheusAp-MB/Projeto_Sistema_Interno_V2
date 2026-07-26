@@ -350,3 +350,51 @@ a:hover {
 .sidebar-subitem-nivel2 {
     padding-left: 76px;
 }
+
+/* ================================================
+   AVISOS GLOBAIS (Django messages)
+   Qualquer view do sistema que chamar messages.success/
+   warning/error/info aparece aqui — ver
+   estrutura_base_global.html.
+   ================================================ */
+.avisos-globais {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.aviso-global {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border-left: 4px solid transparent;
+    font-size: 0.9rem;
+}
+
+.aviso-global--success {
+    background: #e6f4ea;
+    border-left-color: var(--cor-positivo);
+    color: var(--cor-positivo);
+}
+
+.aviso-global--warning {
+    background: #fef3c7;
+    border-left-color: var(--cor-alerta);
+    color: #92400e;
+}
+
+.aviso-global--error {
+    background: #fde8e8;
+    border-left-color: var(--cor-negativo);
+    color: var(--cor-negativo);
+}
+
+.aviso-global--info,
+.aviso-global--debug {
+    background: #e0edf7;
+    border-left-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria);
+}

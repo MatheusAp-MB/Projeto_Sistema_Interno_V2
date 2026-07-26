@@ -8,6 +8,7 @@ from django.utils import timezone
 from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import ContextoTelaAgendaVideos
 from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_roadmap_produto, obter_mapa_periodos_por_fase, FASE_DA_CHAVE_PREPARACAO,
+    calcular_indicador_pool_insuficiente,
 )
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
@@ -64,6 +65,92 @@ def _resolver_data_simulada(request):
     except ValueError:
         return None
 
+# Função Objetivo: Avança o AndamentoAgenda pra próxima ocorrência ou próxima
+# fase — assume que a ocorrência atual já foi tratada (replicada, ou pulada via
+# "seguir sem repor"), quem chama decide isso antes de chamar esta função.
+# Explicação em detalhe: extraída (26/07) pra ser reaproveitada em 3 lugares —
+# o clique normal de "replicar", o recálculo em massa ao salvar Configuração de
+# Fases, e a nova ação "seguir sem repor" (Recusada com cota já cumprida).
+# Não chama .save() sozinha — quem chama decide quando persistir.
+def avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas):
+    if ocorrencias_completadas < andamento.fase_atual.periodo:
+        andamento.ocorrencia_atual = ocorrencias_completadas + 1
+    else:
+        proxima_fase = PROXIMA_FASE.get(andamento.fase_atual.fase)
+        if proxima_fase is None:
+            andamento.concluido = True
+            andamento.concluido_em = timezone.now().date()
+        else:
+            config_proxima = ConfiguracaoFase.objects.filter(fase=proxima_fase).first()
+            if config_proxima is None:
+                raise ValueError(f'Configuração da fase "{proxima_fase}" ainda não existe.')
+            # * [EXPLICAÇÃO] → Referência é a data REAL do fim da última ocorrência
+            #                  que de fato aconteceu (nunca andamento.fim_fase, que
+            #                  fica desatualizado se o periodo mudar no meio da
+            #                  fase). "ocorrencias_completadas" pode ser a que acabou
+            #                  de ser replicada (clique normal) ou a última que
+            #                  realmente aconteceu antes de pular direto pra próxima
+            #                  fase (recálculo em massa, ver recalcular_andamentos_da_fase).
+            janela_ocorrencia_referencia = calcular_janela_ocorrencia(
+                andamento.fase_atual.fase, andamento.inicio_fase, ocorrencias_completadas,
+            )
+            referencia = janela_ocorrencia_referencia.fim + timedelta(days=1)
+            janela_proxima = calcular_janela_fase(proxima_fase, referencia, config_proxima.periodo)
+            andamento.fase_atual = config_proxima
+            andamento.ocorrencia_atual = 1
+            andamento.inicio_fase = janela_proxima.inicio
+            andamento.fim_fase = janela_proxima.fim
+
+    if not andamento.concluido:
+        janela_ocorrencia_nova = calcular_janela_ocorrencia(
+            andamento.fase_atual.fase, andamento.inicio_fase, andamento.ocorrencia_atual,
+        )
+        andamento.fim_ocorrencia_atual = janela_ocorrencia_nova.fim
+
+
+# Função Objetivo: Reavalia TODO produto Ativo OU Pausado (não Descontinuado,
+# não concluído) atualmente na fase informada — chamado sempre que a
+# Configuração daquela fase é salva. Pausado ENTRA de propósito (26/07) —
+# pausar é "temporariamente fora de atividade" (ex: falta de estoque), não
+# "ignorar pra sempre"; a contagem de ocorrência/fase continua rodando por
+# baixo mesmo pausado. Descontinuado fica de fora — é escopo encerrado de
+# vez, só o Admin mexe nele por enquanto (decisão a repensar depois).
+# NUNCA mexe numa postagem já aberta (Aguardando/Aprovado/Recusado); só
+# decide avançar direto quem não tinha nada postado ainda pra ocorrência
+# atual, ou atualiza fim_fase pra refletir o periodo novo em quem continua na
+# mesma fase. O caso Recusado com cota já cumprida é resolvido depois, na hora
+# que o usuário abrir aquele ponto (ver view_confirmar_ponto_roadmap).
+def recalcular_andamentos_da_fase(config_fase):
+    andamentos = AndamentoAgenda.objects.filter(
+        fase_atual=config_fase, concluido=False,
+        status_manual__in=[StatusManualAgenda.ATIVO, StatusManualAgenda.PAUSADO],
+    ).select_related('produto')
+
+    for andamento in andamentos:
+        completadas = andamento.ocorrencia_atual - 1
+
+        if completadas < config_fase.periodo:
+            janela_fase = calcular_janela_fase(config_fase.fase, andamento.inicio_fase, config_fase.periodo)
+            andamento.fim_fase = janela_fase.fim
+            andamento.save(update_fields=['fim_fase'])
+            continue
+
+        postagem_atual = _buscar_postagem_atual(andamento.produto, andamento)
+
+        if postagem_atual is None:
+            # * [EXPLICAÇÃO] → Nunca postou essa ocorrência — não é mais
+            #                  necessária com o periodo novo, avança direto.
+            avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=completadas)
+            andamento.save()
+        else:
+            # * [EXPLICAÇÃO] → Aguardando/Aprovado: resolve sozinho no próximo
+            #                  "já repliquei" (comparação já é ao vivo). Recusado:
+            #                  o modal detecta a cota cumprida na hora de abrir.
+            #                  Só atualiza a data, nunca mexe na postagem aberta.
+            janela_fase = calcular_janela_fase(config_fase.fase, andamento.inicio_fase, config_fase.periodo)
+            andamento.fim_fase = janela_fase.fim
+            andamento.save(update_fields=['fim_fase'])
+
 
 def view_confirmar_ponto_roadmap(request, produto_id, chave):
     from produtos.models import Produto
@@ -93,7 +180,15 @@ def view_confirmar_ponto_roadmap(request, produto_id, chave):
         elif postagem_atual.status == StatusPostagem.APROVADO:
             contexto['tipo_acao'] = 'replicar'
         elif postagem_atual.status == StatusPostagem.RECUSADO:
-            contexto['tipo_acao'] = 'nova_tentativa'
+            # * [EXPLICAÇÃO] → Se a cota da fase já foi cumprida (periodo mudou
+            #                  pra menos enquanto essa ocorrência estava recusada),
+            #                  oferece a opção de seguir sem repor — ver 'seguir'
+            #                  em view_executar_acao_ciclica.
+            completadas = andamento.ocorrencia_atual - 1
+            if completadas >= andamento.fase_atual.periodo:
+                contexto['tipo_acao'] = 'recusado_cota_cumprida'
+            else:
+                contexto['tipo_acao'] = 'nova_tentativa'
         else:
             contexto['tipo_acao'] = 'postar'
     else:
@@ -147,6 +242,7 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
     data_simulada = _resolver_data_simulada(request)
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })
@@ -206,6 +302,7 @@ def view_agendar_produto(request, produto_id, fase_inicial):
     data_simulada = _resolver_data_simulada(request)
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })
@@ -249,6 +346,23 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
             status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
         )
 
+    elif acao == 'seguir':
+        # * [EXPLICAÇÃO] → "Seguir sem repor" (26/07) — só existe pra Recusada
+        #                  com cota já cumprida (periodo encolheu no meio do
+        #                  caminho). Nunca cria Postagem nova — a recusada
+        #                  fica no histórico exatamente como ficou, sem
+        #                  resolução, e o produto avança mesmo assim.
+        if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
+            return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
+        completadas = andamento.ocorrencia_atual - 1
+        if completadas < andamento.fase_atual.periodo:
+            return HttpResponseBadRequest('A cota desta fase ainda não foi cumprida — não é possível seguir sem repor.')
+        try:
+            avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=completadas)
+        except ValueError as erro:
+            return HttpResponseBadRequest(str(erro))
+        andamento.save()
+
     elif acao == 'replicar':
         if postagem_atual is None or postagem_atual.status != StatusPostagem.APROVADO:
             return HttpResponseBadRequest('Estado inválido — a postagem atual não foi aprovada.')
@@ -256,31 +370,10 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
         postagem_atual.replicado_em = agora
         postagem_atual.save()
 
-        if andamento.ocorrencia_atual < andamento.fase_atual.periodo:
-            andamento.ocorrencia_atual += 1
-        else:
-            proxima_fase = PROXIMA_FASE.get(andamento.fase_atual.fase)
-            if proxima_fase is None:
-                andamento.concluido = True
-                andamento.concluido_em = timezone.now().date()
-            else:
-                config_proxima = ConfiguracaoFase.objects.filter(fase=proxima_fase).first()
-                if config_proxima is None:
-                    return HttpResponseBadRequest(f'Configuração da fase "{proxima_fase}" ainda não existe.')
-                referencia = andamento.fim_fase + timedelta(days=1)
-                janela_proxima = calcular_janela_fase(proxima_fase, referencia, config_proxima.periodo)
-                andamento.fase_atual = config_proxima
-                andamento.ocorrencia_atual = 1
-                andamento.inicio_fase = janela_proxima.inicio
-                andamento.fim_fase = janela_proxima.fim
-
-        # * [EXPLICAÇÃO] → Recalcula o vencimento da ocorrência (nova ou a mesma
-        #                  fase, avançada) — cobre os 2 casos do if/else acima.
-        if not andamento.concluido:
-            janela_ocorrencia_nova = calcular_janela_ocorrencia(
-                andamento.fase_atual.fase, andamento.inicio_fase, andamento.ocorrencia_atual,
-            )
-            andamento.fim_ocorrencia_atual = janela_ocorrencia_nova.fim
+        try:
+            avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=andamento.ocorrencia_atual)
+        except ValueError as erro:
+            return HttpResponseBadRequest(str(erro))
         andamento.save()
 
     else:
@@ -293,6 +386,7 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
     data_simulada = _resolver_data_simulada(request)
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
     })
@@ -312,6 +406,73 @@ def view_alternar_urgente(request, produto_id):
     data_simulada = _resolver_data_simulada(request)
     if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
         calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
         'produto': produto, 'data_simulada': data_simulada,
+    })
+
+# Função Objetivo: Valida quantidade_postagens/periodo — só aceita inteiro
+# >= 1 (regra de negócio: "0 vídeos a cada 0 dias" não existe). Qualquer
+# coisa fora disso (vazio, texto, negativo, zero) é tratada como inválida.
+def _validar_inteiro_positivo(valor):
+    try:
+        numero = int(valor)
+    except (TypeError, ValueError):
+        return None
+    return numero if numero >= 1 else None
+
+
+# Função Objetivo: Tela de Configuração das fases (Diária/Semanal/Mensal) —
+# substitui o Admin como forma de editar ConfiguracaoFase. Sempre mostra as
+# 3 fases fixas (Fase.choices), mesmo que uma ainda não tenha registro no
+# banco — nesse caso a linha aparece vazia, com aviso "não configurado", e
+# o próprio submit cria o registro (update_or_create), nunca mais precisa
+# passar pelo Admin.
+def view_configuracoes_agenda_videos(request):
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.urls import reverse
+
+    if request.method == 'POST':
+        from django.db import transaction
+
+        algum_salvo = False
+
+        with transaction.atomic():
+            for fase_valor, fase_label in Fase.choices:
+                quantidade = _validar_inteiro_positivo(request.POST.get(f'{fase_valor}_quantidade_postagens'))
+                periodo = _validar_inteiro_positivo(request.POST.get(f'{fase_valor}_periodo'))
+                config_existente = ConfiguracaoFase.objects.filter(fase=fase_valor).first()
+
+                if quantidade is None or periodo is None:
+                    if config_existente is None:
+                        messages.warning(request, f'{fase_label}: valor inválido — não foi possível criar a configuração.')
+                    else:
+                        messages.warning(request, f'{fase_label}: valor inválido — mantido o valor anterior.')
+                    continue
+
+                config_fase, _ = ConfiguracaoFase.objects.update_or_create(
+                    fase=fase_valor,
+                    defaults={'quantidade_postagens': quantidade, 'periodo': periodo},
+                )
+                algum_salvo = True
+                recalcular_andamentos_da_fase(config_fase)
+
+        if algum_salvo:
+            messages.success(request, 'Configurações de fase salvas com sucesso.')
+        return redirect(reverse('agenda_videos_configuracoes'))
+
+    fases = []
+    for fase_valor, fase_label in Fase.choices:
+        config = ConfiguracaoFase.objects.filter(fase=fase_valor).first()
+        fases.append({
+            'valor': fase_valor,
+            'label': fase_label,
+            'quantidade_postagens': config.quantidade_postagens if config else '',
+            'periodo': config.periodo if config else '',
+            'configurado': config is not None,
+        })
+
+    return render(request, 'agenda_videos/estrutura_configuracoes_agenda_videos.html', {
+        'fases': fases,
     })

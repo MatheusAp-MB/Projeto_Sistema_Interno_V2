@@ -260,11 +260,25 @@
                             </a>
                         </div>
                     </div>
-                    <!-- Agenda de Vídeos — link direto (tela única, sem dropdown) -->
-                    <a href="{% url 'agenda_videos_principal' %}" class="sidebar-item">
-                        <i class="fas fa-video"></i>
-                        <span>Agenda de Vídeos</span>
-                    </a>
+                    <!-- Agenda de Vídeos -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-video"></i>
+                            <span>Agenda de Vídeos</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="{% url 'agenda_videos_principal' %}" class="sidebar-subitem">
+                                <i class="fas fa-calendar-check"></i> Agenda
+                            </a>
+                            <a href="#" class="sidebar-subitem">
+                                <i class="fas fa-history"></i> Histórico
+                            </a>
+                            <a href="{% url 'agenda_videos_configuracoes' %}" class="sidebar-subitem">
+                                <i class="fas fa-sliders-h"></i> Configurações
+                            </a>
+                        </div>
+                    </div>
                     <!-- Configurações -->
                     <div class="sidebar-dropdown">
                         <a href="#" class="sidebar-item sidebar-dropdown-toggle">
@@ -325,6 +339,31 @@
                 <!-- Fim toolbar -->
                 <!-- CONTEÚDO PRINCIPAL -->
                 <main class="conteudo-principal">
+                    <!--
+                * [EXPLICAÇÃO] → Avisos globais (Django messages) — qualquer
+                * view do sistema pode chamar messages.success/warning/error,
+                * e aparece aqui, no topo do conteúdo, em QUALQUER página.
+                * O Django consome e descarta a mensagem sozinho depois de
+                * exibida (não reaparece se der F5 na página).
+                -->
+                    {% if messages %}
+                    <div class="avisos-globais">
+                        {% for message in messages %}
+                        <div class="aviso-global aviso-global--{{ message.tags }}">
+                            {% if message.tags == 'success' %}
+                                <i class="fas fa-check-circle"></i>
+                            {% elif message.tags == 'warning' %}
+                                <i class="fas fa-exclamation-triangle"></i>
+                            {% elif message.tags == 'error' %}
+                                <i class="fas fa-exclamation-circle"></i>
+                            {% else %}
+                                <i class="fas fa-info-circle"></i>
+                            {% endif %}
+                            {{ message }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     <!--
                 * [EXPLICAÇÃO] → Block principal onde cada página
                 * insere seu conteúdo específico.

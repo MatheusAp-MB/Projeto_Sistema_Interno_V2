@@ -83,6 +83,13 @@
 .badge-not_listed           { background: #e5e7eb; color: #4b5563; }
 .badge-sem-dado             { background: #e5e7eb; color: #6b7280; }
 
+/* * [EXPLICAÇÃO] → Rosa/magenta de propósito (26/07) — Roteiros/Completos
+ *                  insuficientes (pool de preparação não cobre mais o periodo
+ *                  atual da fase). Faixa de cor ainda não usada em nenhum
+ *                  outro badge do sistema — sem overlap com atraso/risco
+ *                  (laranja/âmbar) nem qualidade de conteúdo do ML (roxo). */
+.badge-pool-insuficiente     { background: #fce7f3; color: #be185d; }
+
 
 
 

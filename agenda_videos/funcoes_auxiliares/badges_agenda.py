@@ -31,8 +31,13 @@ BADGES_STATUS_VIDEO = {
     StatusVideo.GERADO:     {'label': 'Gerado',      'classe': 'video-gerado',     'icone': 'fa-circle-check'},
 }
 
-BADGE_URGENTE_ATIVO          = {'label': 'Urgente',               'classe': 'badge-conta-propria', 'icone': 'fa-triangle-exclamation'}
-BADGE_ROTEIROS_INSUFICIENTES = {'label': 'Roteiros insuficientes', 'classe': 'badge-listed',        'icone': 'fa-triangle-exclamation'}
+BADGE_URGENTE_ATIVO          = {'label': 'Urgente',                       'classe': 'badge-conta-propria',     'icone': 'fa-triangle-exclamation'}
+# * [EXPLICAÇÃO] → Corrigido (26/07) — usava badge-listed (âmbar), que já é a
+#                  cor de "Risco de Atraso" no mesmo card; colidiria (prazo vs
+#                  conteúdo são coisas diferentes). Agora usa badge-pool-
+#                  insuficiente, cor nova, sem overlap com nada existente.
+BADGE_ROTEIROS_INSUFICIENTES  = {'label': 'Roteiros insuficientes',         'classe': 'badge-pool-insuficiente', 'icone': 'fa-triangle-exclamation'}
+BADGE_COMPLETOS_INSUFICIENTES = {'label': 'Vídeos completos insuficientes', 'classe': 'badge-pool-insuficiente', 'icone': 'fa-triangle-exclamation'}
 
 BADGE_PADRAO = {'label': '—', 'classe': 'badge-papel', 'icone': None}
 

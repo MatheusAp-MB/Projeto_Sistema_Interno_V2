@@ -19,6 +19,7 @@ from agenda_videos.models import Postagem, StatusPostagem, Fase
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import (
     calcular_janela_ocorrencia, adicionar_dias_uteis, ultimo_dia_util_ou_hoje,
 )
+from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_indicador_pool_insuficiente
 
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 
@@ -85,6 +86,7 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
         #                  é o mesmo template pros 2 modos.
         produto.status_postagem_recente = postagem_atual.status if postagem_atual else None
         calcular_indicadores_atraso(produto, andamento, data_referencia=hoje)
+        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
         resultado.append(produto)
 
     # * [EXPLICAÇÃO] → Mesma prioridade da listagem principal, calculada em Python

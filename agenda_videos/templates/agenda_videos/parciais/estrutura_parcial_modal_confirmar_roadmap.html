@@ -153,6 +153,32 @@
                 Confirmar
             </button>
         </div>
+
+        {% elif tipo_acao == 'recusado_cota_cumprida' %}
+        <h3 class="modal-roadmap-titulo">Recusado — e a cota desta fase já foi cumprida</h3>
+        <p class="modal-roadmap-texto">
+            {{ ponto.contador }} foi recusado, mas o período configurado pra essa fase já foi cumprido por outras ocorrências (a configuração mudou nesse meio tempo). Você pode <strong>tentar novamente</strong> (produzir e subir um novo vídeo pra essa ocorrência) ou <strong>seguir sem repor</strong> (avança pra próxima fase agora, deixando essa ocorrência recusada no histórico, sem repor).
+        </p>
+        <p class="modal-roadmap-aviso">
+            <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-recusar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'seguir' %}"
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Seguir sem repor
+            </button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'nova_tentativa' %}"
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                Tentar novamente
+            </button>
+        </div>
         {% endif %}
 
     </div>

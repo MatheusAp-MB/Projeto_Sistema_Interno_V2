@@ -12,7 +12,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
-from django.core.cache import cache
 
 
 class EstadoPonto(str, Enum):
@@ -195,13 +194,14 @@ DEFINICOES_PONTOS = [
 ]
 
 
+# * [EXPLICAÇÃO] → Sem cache de propósito (26/07) — tinha cache de 5min antes,
+#                  mas ConfiguracaoFase são só 3 linhas (indexadas), a query é
+#                  tão barata quanto o próprio cache, e cache em memória por
+#                  processo (LocMemCache, padrão do projeto) não invalida entre
+#                  workers — arriscava ler periodo velho mesmo depois de salvar.
 def obter_mapa_periodos_por_fase():
-    mapa = cache.get('agenda_videos_mapa_periodos_fase')
-    if mapa is None:
-        from agenda_videos.models import ConfiguracaoFase
-        mapa = {c.fase: c.periodo for c in ConfiguracaoFase.objects.all()}
-        cache.set('agenda_videos_mapa_periodos_fase', mapa, 300)
-    return mapa
+    from agenda_videos.models import ConfiguracaoFase
+    return {c.fase: c.periodo for c in ConfiguracaoFase.objects.all()}
 
 
 # Função Objetivo: Busca (num dict já carregado, sem query nova) a preparação de 1 fase.
@@ -209,19 +209,66 @@ def _obter_preparacao(preparacoes_por_fase, fase):
     return preparacoes_por_fase.get(fase) if preparacoes_por_fase else None
 
 
+# Função Objetivo: Compara a quantidade capturada no clique contra o periodo
+# ATUAL da config — None (nunca clicado com esse recurso ativo) nunca é suficiente.
+def _quantidade_suficiente(quantidade_no_clique, periodo_atual):
+    return quantidade_no_clique is not None and quantidade_no_clique >= periodo_atual
+
+
+# Função Objetivo: Existe Postagem aberta (não Replicada) na ocorrência atual?
+# Explicação em detalhe: só usada quando a suficiência do pool falha — regra
+# "deixar o ciclo rodar" (26/07): nunca interrompe uma ação já em andamento, só
+# bloqueia a PRÓXIMA ocorrência de começar sem antes repor o pool.
+def _existe_postagem_aberta(produto, andamento):
+    from agenda_videos.models import Postagem, StatusPostagem
+    return Postagem.objects.filter(
+        produto=produto, fase=andamento.fase_atual.fase, numero_ocorrencia=andamento.ocorrencia_atual,
+    ).exclude(status=StatusPostagem.REPLICADO).exists()
+
+
 # Função Objetivo: Decide qual chave é "o atual", seguindo a ordem travada (13 pontos).
 # Explicação em detalhe: "preparacoes_por_fase" é um dict {fase: PreparacaoVideoFase},
 # carregado 1 vez por quem chama (nunca 1 query por fase aqui dentro).
-def calcular_chave_atual(progresso, preparacoes_por_fase, andamento):
+# "produto" (26/07, opcional) habilita a checagem de suficiência de pool
+# (Roteiros/Completos insuficientes pra fase ATUAL) — os 2 lugares que
+# sincronizam RoadmapAgenda em lote (sincronizar_roadmap_agenda.py e o
+# equivalente em popular_banco_suporte) não precisam passar isso: a distinção
+# roteiros_X/completos_X vs a própria fase cíclica colapsa no MESMO
+# EstagioAgenda (ver MAPA_COLAPSO), então essa checagem ali só custaria query
+# extra sem mudar nada visível no Estágio salvo.
+def calcular_chave_atual(progresso, preparacoes_por_fase, andamento, produto=None):
     if progresso is None or progresso.video_simples_status != 'gerado':
         return 'simples'
     if progresso.video_base_status != 'gerado':
         return 'base'
 
+    mapa_periodos = obter_mapa_periodos_por_fase() if produto is not None else {}
+    fase_atual = andamento.fase_atual.fase if andamento else None
+
+    # * [EXPLICAÇÃO] → "relevante" = o produto ainda ESTÁ nessa fase agora (ou
+    #                  nem começou nenhuma, no caso da Diária). Fase já
+    #                  concluída fica de fora da checagem — o pool dela já
+    #                  cumpriu o papel, reabrir isso voltaria o produto pra uma
+    #                  etapa que não existe mais pra ele.
+    def _insuficiente_e_bloqueia(quantidade_no_clique, fase, relevante):
+        if produto is None or not relevante:
+            return False
+        periodo_atual = mapa_periodos.get(fase)
+        if periodo_atual is None or _quantidade_suficiente(quantidade_no_clique, periodo_atual):
+            return False
+        if andamento is None:
+            return True  # nunca postou nada nessa fase — nada "aberto" a proteger
+        return not _existe_postagem_aberta(produto, andamento)
+
     prep_diaria = _obter_preparacao(preparacoes_por_fase, 'diaria')
+    diaria_relevante = andamento is None or fase_atual == 'diaria'
     if prep_diaria is None or not prep_diaria.roteiros_gerados:
         return 'roteiros_diaria'
+    if _insuficiente_e_bloqueia(prep_diaria.roteiros_quantidade_no_clique, 'diaria', diaria_relevante):
+        return 'roteiros_diaria'
     if not prep_diaria.completos_produzidos:
+        return 'completos_diaria'
+    if _insuficiente_e_bloqueia(prep_diaria.completos_quantidade_no_clique, 'diaria', diaria_relevante):
         return 'completos_diaria'
 
     if andamento is None:
@@ -229,22 +276,31 @@ def calcular_chave_atual(progresso, preparacoes_por_fase, andamento):
     if andamento.concluido:
         return 'otimizado'
 
-    fase_atual = andamento.fase_atual.fase
     if fase_atual == 'diaria':
         return 'diaria'
 
     prep_semanal = _obter_preparacao(preparacoes_por_fase, 'semanal')
+    semanal_relevante = fase_atual == 'semanal'
     if prep_semanal is None or not prep_semanal.roteiros_gerados:
         return 'roteiros_semanal'
+    if _insuficiente_e_bloqueia(prep_semanal.roteiros_quantidade_no_clique, 'semanal', semanal_relevante):
+        return 'roteiros_semanal'
     if not prep_semanal.completos_produzidos:
+        return 'completos_semanal'
+    if _insuficiente_e_bloqueia(prep_semanal.completos_quantidade_no_clique, 'semanal', semanal_relevante):
         return 'completos_semanal'
     if fase_atual == 'semanal':
         return 'semanal'
 
     prep_mensal = _obter_preparacao(preparacoes_por_fase, 'mensal')
+    mensal_relevante = fase_atual == 'mensal'
     if prep_mensal is None or not prep_mensal.roteiros_gerados:
         return 'roteiros_mensal'
+    if _insuficiente_e_bloqueia(prep_mensal.roteiros_quantidade_no_clique, 'mensal', mensal_relevante):
+        return 'roteiros_mensal'
     if not prep_mensal.completos_produzidos:
+        return 'completos_mensal'
+    if _insuficiente_e_bloqueia(prep_mensal.completos_quantidade_no_clique, 'mensal', mensal_relevante):
         return 'completos_mensal'
     return 'mensal'
 
@@ -295,6 +351,32 @@ def _buscar_sub_estado_postagem(produto, chave, andamento):
     }.get(postagem_atual.status)
 
 
+# Função Objetivo: Indicador pro badge do card — a fase ATUAL do produto tem
+# Roteiros ou Completos insuficientes (marcado como pronto, mas a quantidade
+# capturada no clique não cobre mais o periodo de agora)? Devolve None/'roteiros'/
+# 'completos'. Não decide clicabilidade (isso é calcular_chave_atual) — aparece
+# mesmo com uma ação pendente em aberto, como aviso antecipado do que vai
+# bloquear a PRÓXIMA ocorrência de começar.
+def calcular_indicador_pool_insuficiente(produto, andamento):
+    if andamento is None or andamento.concluido:
+        return None
+
+    fase = andamento.fase_atual.fase
+    preparacao = next((p for p in produto.preparacoes_video.all() if p.fase == fase), None)
+    if preparacao is None:
+        return None
+
+    periodo_atual = obter_mapa_periodos_por_fase().get(fase)
+    if periodo_atual is None:
+        return None
+
+    if preparacao.roteiros_gerados and not _quantidade_suficiente(preparacao.roteiros_quantidade_no_clique, periodo_atual):
+        return 'roteiros'
+    if preparacao.completos_produzidos and not _quantidade_suficiente(preparacao.completos_quantidade_no_clique, periodo_atual):
+        return 'completos'
+    return None
+
+
 # Função Objetivo: Monta o roadmap completo (13 pontos) de 1 produto.
 def calcular_roadmap_produto(produto):
     progresso = getattr(produto, 'progresso_producao_video', None)
@@ -306,7 +388,7 @@ def calcular_roadmap_produto(produto):
         p.fase: p for p in produto.preparacoes_video.all()
     } if produto.pk else {}
 
-    chave_atual = calcular_chave_atual(progresso, preparacoes_por_fase, andamento)
+    chave_atual = calcular_chave_atual(progresso, preparacoes_por_fase, andamento, produto=produto)
     ordem_chaves = [definicao.chave for definicao in DEFINICOES_PONTOS]
     indice_atual = ordem_chaves.index(chave_atual)
     mapa_periodos = obter_mapa_periodos_por_fase()

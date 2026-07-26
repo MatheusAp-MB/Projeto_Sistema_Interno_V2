@@ -5,14 +5,9 @@
 
 from django.contrib import admin
 from .models import (
-    ConfiguracaoFase, ProgressoProducaoVideo, AndamentoAgenda, Postagem,
+    ProgressoProducaoVideo, AndamentoAgenda, Postagem,
     PreparacaoVideoFase, RoadmapAgenda,
 )
-
-
-@admin.register(ConfiguracaoFase)
-class ConfiguracaoFaseAdmin(admin.ModelAdmin):
-    list_display = ['fase', 'quantidade_postagens', 'periodo']
 
 
 @admin.register(ProgressoProducaoVideo)
@@ -24,7 +19,10 @@ class ProgressoProducaoVideoAdmin(admin.ModelAdmin):
 
 @admin.register(PreparacaoVideoFase)
 class PreparacaoVideoFaseAdmin(admin.ModelAdmin):
-    list_display = ['produto', 'fase', 'roteiros_gerados', 'completos_produzidos']
+    list_display = [
+        'produto', 'fase', 'roteiros_gerados', 'roteiros_quantidade_no_clique',
+        'completos_produzidos', 'completos_quantidade_no_clique',
+    ]
     list_filter = ['fase', 'roteiros_gerados', 'completos_produzidos']
     search_fields = ['produto__sku', 'produto__ean']
 

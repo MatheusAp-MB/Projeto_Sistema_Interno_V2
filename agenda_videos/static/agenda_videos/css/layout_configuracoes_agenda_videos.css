@@ -1,0 +1,95 @@
+/*
+* [RESUMO] → CSS da tela EDITÁVEL "Configurações — Agenda de Vídeos".
+* Reaproveita a mesma paleta/estrutura da tela de Configurações do
+* Mercado Livre (card com header + tabela de inputs inline).
+*/
+
+.config-agenda-card {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.config-agenda-card form,
+form.config-agenda-card {
+    margin: 0;
+}
+
+.config-agenda-card-header {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 10px 20px;
+}
+
+.config-agenda-tabela-wrapper {
+    overflow-x: auto;
+}
+
+.config-agenda-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.config-agenda-tabela th {
+    background: #f9fafb;
+    color: #556;
+    text-align: left;
+    padding: 10px 16px;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--cor-borda);
+}
+
+.config-agenda-tabela td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #eee;
+    white-space: nowrap;
+}
+
+.config-agenda-tabela tr:last-child td {
+    border-bottom: none;
+}
+
+.config-agenda-fase {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.config-agenda-badge-nao-configurado {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.config-agenda-input {
+    width: 100%;
+    max-width: 80px;
+    padding: 5px 8px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    text-align: right;
+    font-family: inherit;
+}
+
+.config-agenda-input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.15);
+}
+
+.config-agenda-btn-salvar {
+    display: block;
+    margin: 12px 20px 16px;
+}

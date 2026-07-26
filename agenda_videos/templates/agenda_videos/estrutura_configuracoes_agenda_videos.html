@@ -1,0 +1,70 @@
+<!--
+* [RESUMO] → Tela de Configuração das fases de postagem (Diária/Semanal/
+* Mensal) — substitui o Django Admin como forma de editar ConfiguracaoFase.
+* Sempre mostra as 3 fases fixas, mesmo que uma ainda não tenha registro
+* no banco (nesse caso aparece vazia, com badge "não configurado ainda").
+* Avisos de sucesso/aviso vêm do sistema global de messages (ver
+* estrutura_base_global.html) — não tem banner local aqui.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Configurações — Agenda de Vídeos — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações — Agenda de Vídeos{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_configuracoes_agenda_videos.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="post" class="config-agenda-card">
+    {% csrf_token %}
+    <div class="config-agenda-card-header">Duração de cada fase</div>
+    <div class="config-agenda-tabela-wrapper">
+        <table class="config-agenda-tabela">
+            <thead>
+                <tr>
+                    <th>Fase</th>
+                    <th>Vídeos obrigatórios no período</th>
+                    <th>Duração do período</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fase in fases %}
+                <tr class="config-agenda-linha config-agenda-linha--{{ fase.valor }}">
+                    <td class="config-agenda-fase">
+                        {{ fase.label }}
+                        {% if not fase.configurado %}
+                        <span class="config-agenda-badge-nao-configurado">não configurado ainda</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <input type="number" min="1" step="1"
+                               name="{{ fase.valor }}_quantidade_postagens"
+                               value="{{ fase.quantidade_postagens }}"
+                               class="config-agenda-input">
+                        vídeos
+                    </td>
+                    <td>
+                        <input type="number" min="1" step="1"
+                               name="{{ fase.valor }}_periodo"
+                               value="{{ fase.periodo }}"
+                               class="config-agenda-input">
+                        {% if fase.valor == 'diaria' %}
+                            dias úteis
+                        {% elif fase.valor == 'semanal' %}
+                            semanas
+                        {% elif fase.valor == 'mensal' %}
+                            meses
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn-acao config-agenda-btn-salvar">Salvar</button>
+</form>
+
+{% endblock %}

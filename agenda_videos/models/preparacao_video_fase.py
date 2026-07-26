@@ -21,11 +21,16 @@ class PreparacaoVideoFase(models.Model):
     roteiros_gerados = models.BooleanField(default=False)
     completos_produzidos = models.BooleanField(default=False)
 
-    # * [EXPLICAÇÃO] → quantidade_roteiros/roteiros_insuficientes REMOVIDOS (25/07)
-    #                  — deixaram de fazer sentido desde que o clique em "Roteiros"
-    #                  passou a assumir automaticamente que a quantidade gerada é
-    #                  igual ao período da fase (nunca mais informado/divergente).
-    #                  O aviso de "insuficiente" nunca mais pode acontecer.
+    # * [EXPLICAÇÃO] → Quantidade que a config (periodo) tinha NO MOMENTO do clique
+    #                  em "Roteiros"/"Completos" — reintroduzido em 26/07. Tinha sido
+    #                  removido em 25/07 porque, na época, periodo nunca mudava depois
+    #                  do clique. Com a tela de Configuração de Fases (26/07), periodo
+    #                  pode mudar a qualquer momento — esses campos permitem comparar
+    #                  o que foi feito contra a exigência ATUAL, sem exigir digitação
+    #                  manual (o usuário continua só clicando; o número é capturado
+    #                  sozinho). None = nunca foi marcado (equivalente a "não gerado").
+    roteiros_quantidade_no_clique = models.PositiveIntegerField(null=True, blank=True)
+    completos_quantidade_no_clique = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = 'Preparação de Vídeo por Fase'

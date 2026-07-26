@@ -65,6 +65,16 @@
         </span>
         {% endif %}
 
+        {% if produto.pool_insuficiente_tipo == 'roteiros' %}
+        <span class="badge-tabela badge-pool-insuficiente" title="A quantidade de roteiros feita não cobre mais o período atual da fase — precisa gerar os que faltam.">
+            <i class="fas fa-triangle-exclamation"></i> Roteiros insuficientes
+        </span>
+        {% elif produto.pool_insuficiente_tipo == 'completos' %}
+        <span class="badge-tabela badge-pool-insuficiente" title="A quantidade de vídeos completos feita não cobre mais o período atual da fase — precisa produzir os que faltam.">
+            <i class="fas fa-triangle-exclamation"></i> Vídeos completos insuficientes
+        </span>
+        {% endif %}
+
         {% roadmap_produto produto %}
     </div>
 
