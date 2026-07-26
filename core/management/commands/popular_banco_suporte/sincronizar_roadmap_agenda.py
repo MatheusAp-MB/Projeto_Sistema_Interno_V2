@@ -1,16 +1,24 @@
 # core/management/commands/popular_banco_suporte/sincronizar_roadmap_agenda.py
 
-# Função Objetivo: Garante que TODO Produto tenha um RoadmapAgenda — cria "Não
-# Agendado" pra quem ainda não tem, recalcula quem já tem.
-# Explicação em detalhe: substitui a ideia de signal (que não dispara em bulk_create,
-# usado pela importação do ERP) — esta etapa varre tudo, sempre, a cada rodada do
-# popular_banco. Idempotente — seguro rodar quantas vezes for preciso.
-
 from produtos.models import Produto
-from agenda_videos.models import RoadmapAgenda, EstagioAgenda
+from agenda_videos.models import RoadmapAgenda, EstagioAgenda, ProgressoProducaoVideo
 from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_chave_atual
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import colapsar_chave_em_estagio
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+
+
+# Função Objetivo: Garante que TODO Produto tenha um ProgressoProducaoVideo — sem
+# isso, marcar Simples/Base quebraria pros produtos "Não Agendado" de verdade.
+def _garantir_progresso_producao_video(produtos):
+    ids_com_progresso = set(
+        ProgressoProducaoVideo.objects.filter(produto__in=produtos).values_list('produto_id', flat=True)
+    )
+    faltando = [p for p in produtos if p.id not in ids_com_progresso]
+    if faltando:
+        ProgressoProducaoVideo.objects.bulk_create(
+            [ProgressoProducaoVideo(produto=p) for p in faltando], batch_size=BATCH_SIZE_PADRAO,
+        )
+    return len(faltando)
 
 
 def sincronizar_roadmap_agenda(stdout, style):
@@ -18,9 +26,16 @@ def sincronizar_roadmap_agenda(stdout, style):
 
     produtos = list(Produto.objects.select_related(
         'progresso_producao_video', 'andamento_agenda', 'andamento_agenda__fase_atual',
-    ).all())
-    total = len(produtos)
+    ).prefetch_related('preparacoes_video').all())
 
+    qtd_progresso_criado = _garantir_progresso_producao_video(produtos)
+    if qtd_progresso_criado:
+        stdout.write(f'    ProgressoProducaoVideo criado pra {qtd_progresso_criado} produto(s).')
+        produtos = list(Produto.objects.select_related(
+            'progresso_producao_video', 'andamento_agenda', 'andamento_agenda__fase_atual',
+        ).prefetch_related('preparacoes_video').all())
+
+    total = len(produtos)
     existentes = {r.produto_id: r for r in RoadmapAgenda.objects.all()}
     para_criar = []
     para_atualizar = []
@@ -30,8 +45,10 @@ def sincronizar_roadmap_agenda(stdout, style):
         if indice % 500 == 0 or indice == total:
             stdout.write(f'    ... {indice}/{total} produtos processados')
 
+        preparacoes_por_fase = {p.fase: p for p in produto.preparacoes_video.all()}
         chave_atual = calcular_chave_atual(
             getattr(produto, 'progresso_producao_video', None),
+            preparacoes_por_fase,
             getattr(produto, 'andamento_agenda', None),
         )
         estagio = colapsar_chave_em_estagio(chave_atual)
@@ -51,8 +68,5 @@ def sincronizar_roadmap_agenda(stdout, style):
 
     linhas_resumo = '\n'.join(f'    {EstagioAgenda(k).label}: {v}' for k, v in contagem_por_estagio.items())
     stdout.write(style.SUCCESS(
-        f'[ROADMAP AGENDA] Concluído!\n'
-        f'    Criados: {len(para_criar)}\n'
-        f'    Atualizados: {len(para_atualizar)}\n'
-        f'{linhas_resumo}'
+        f'[ROADMAP AGENDA] Concluído!\n    Criados: {len(para_criar)}\n    Atualizados: {len(para_atualizar)}\n{linhas_resumo}'
     ))

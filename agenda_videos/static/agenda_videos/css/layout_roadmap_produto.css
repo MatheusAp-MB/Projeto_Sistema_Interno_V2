@@ -42,6 +42,24 @@
     background: #993C1D;
 }
 
+/* * [EXPLICAÇÃO] → Sub-estado da Postagem em andamento — sobrescreve a cor "atual"
+ *                  (coral) padrão, pra nunca parecer travado sem o usuário entender
+ *                  que precisa clicar de novo pra avançar. */
+.roadmap-ponto-postagem-aguardando .roadmap-bolinha {
+    background: #d97706;
+}
+
+.roadmap-ponto-postagem-recusado .roadmap-bolinha {
+    background: #dc2626;
+}
+
+/* * [EXPLICAÇÃO] → Verde CLARO, de propósito — ainda falta clicar "já repliquei"
+ *                  antes de virar o check verde escuro padrão (roadmap-ponto-
+ *                  concluido). Aprovado ≠ Replicado. */
+.roadmap-ponto-postagem-aprovado .roadmap-bolinha {
+    background: #86efac;
+}
+
 .roadmap-ponto-futuro .roadmap-bolinha {
     background: #e8e6e0;
     color: #8a887f;

@@ -7,7 +7,7 @@
 -->
 <div class="roadmap-produto" id="roadmap-produto-{{ roadmap.produto_id }}">
     {% for ponto in roadmap.pontos %}
-    <div class="roadmap-ponto roadmap-ponto-{{ ponto.estado.value }} {% if ponto.chave == 'diaria' or ponto.chave == 'semanal' or ponto.chave == 'mensal' %}roadmap-ponto-ciclico{% endif %}"
+    <div class="roadmap-ponto roadmap-ponto-{{ ponto.estado.value }} {% if ponto.chave == 'diaria' or ponto.chave == 'semanal' or ponto.chave == 'mensal' %}roadmap-ponto-ciclico{% endif %} {% if ponto.sub_estado_postagem %}roadmap-ponto-postagem-{{ ponto.sub_estado_postagem }}{% endif %}"
          title="{{ ponto.explicacao }}">
 
         {% if ponto.clicavel %}

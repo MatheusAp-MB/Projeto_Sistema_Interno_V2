@@ -1,18 +1,13 @@
 # agenda_videos/funcoes_auxiliares/roadmap_produto.py
 
-# Função Objetivo: Calcula o "mapa de missão" (roadmap) de 1 produto — os 9 pontos do
+# Função Objetivo: Calcula o "mapa de missão" (roadmap) de 1 produto — os 13 pontos do
 # ciclo de vida de vídeo, qual está concluído/atual/futuro, e se é clicável.
-# Explicação em detalhe: é o produto quem "possui" o roadmap (não é conceito de Diária,
-# Semanal ou A Fazer) — por isso vira template tag, reaproveitável em QUALQUER tela que
-# mostre produto, sem duplicar lógica. Ordem é travada (nunca fora de ordem, confirmado
-# com o usuário) — só o ponto "atual" pode ser clicável, e só entre os 4 primeiros
-# (preparação); os 5 seguintes são sempre só leitura (calculados pelo sistema).
 #
-# Refatorado (24/07) — cada ponto agora é 1 dataclass só (chave/editável/unidade de
-# tempo/explicações tudo junto, nada em conjunto externo pra manter sincronizado à mão).
-# "Próxima fase" não é mais dicionário separado — é simplesmente o próximo item desta
-# mesma lista ordenada (elimina uma 2ª fonte de verdade pra um fato que a própria ordem
-# da lista já contava).
+# Refatorado (25/07) — de 9 pra 13 pontos. Roteiros/Completos deixaram de ser
+# únicos pro produto inteiro e viraram POR FASE (Diária/Semanal/Mensal) — regra
+# confirmada: só compensa preparar o pool de uma fase quando o produto CHEGA nela
+# (nunca com antecedência), então cada fase precisa da sua própria checagem de
+# "roteiros prontos / completos prontos" antes de liberar o ponto cíclico dela.
 
 from dataclasses import dataclass, field
 from enum import Enum
@@ -39,12 +34,9 @@ class DefinicaoPonto:
     rotulo: str
     rotulo_completo: str
     eh_editavel: bool = False
-    # * [EXPLICAÇÃO] → Presença deste campo (não-None) já DEFINE que o ponto é
-    #                  cíclico — não precisa de um "CHAVES_FASES_CICLICAS" à parte.
     unidade_tempo: Optional[UnidadeTempoFase] = None
-    # * [EXPLICAÇÃO] → None nos pontos cíclicos (o texto é sempre calculado com o
-    #                  número real do produto, nunca fixo — ver _montar_explicacao_ciclica).
     explicacoes_por_estado: Optional[dict] = None
+    texto_confirmacao: str = ''
 
     @property
     def eh_ciclico(self):
@@ -60,6 +52,13 @@ class PontoRoadmap:
     estado: EstadoPonto
     clicavel: bool
     contador: Optional[str] = None
+    texto_confirmacao: str = ''
+    # * [EXPLICAÇÃO] → Só preenchido nos 3 pontos cíclicos, quando ATIVOS — o sub-
+    #                  estado da Postagem em andamento (None = ainda não postou,
+    #                  'aguardando'/'recusado'/'aprovado' = já postou, aguardando
+    #                  ou já resolvido). Muda a cor da bolinha, pra nunca parecer
+    #                  "travado" sem o usuário entender que precisa clicar de novo.
+    sub_estado_postagem: Optional[str] = None
 
 
 @dataclass
@@ -68,11 +67,23 @@ class RoadmapProduto:
     pontos: list = field(default_factory=list)
 
 
-# * [EXPLICAÇÃO] → Ordem travada — nunca reordenar sem revisar _calcular_chave_atual
-#                  logo abaixo, junto. "Próxima fase" (usada só nos 3 pontos cíclicos)
-#                  é sempre o item seguinte desta mesma lista — por isso "Otimizado"
-#                  precisa continuar logo depois de "Mensal", e "Semanal" logo depois
-#                  de "Diária": a ordem da lista É a fonte de verdade da sequência.
+# * [EXPLICAÇÃO] → "Roteiros"/"Completos" de preparação por fase (usados fora do
+#                  ciclo, na checagem de "pronto pra entrar/avançar de fase").
+CHAVES_PREPARACAO_POR_FASE = {
+    'diaria': ('roteiros_diaria', 'completos_diaria'),
+    'semanal': ('roteiros_semanal', 'completos_semanal'),
+    'mensal': ('roteiros_mensal', 'completos_mensal'),
+}
+
+# * [EXPLICAÇÃO] → Mapeamento inverso — de qualquer chave de preparação por fase
+#                  pra qual FASE ela pertence (usado pra buscar o período certo e o
+#                  PreparacaoVideoFase certo, sem repetir esse "if" em cada função).
+FASE_DA_CHAVE_PREPARACAO = {
+    chave: fase
+    for fase, (chave_roteiros, chave_completos) in CHAVES_PREPARACAO_POR_FASE.items()
+    for chave in (chave_roteiros, chave_completos)
+}
+
 DEFINICOES_PONTOS = [
     DefinicaoPonto(
         chave='simples', rotulo='Simples', rotulo_completo='Vídeos Simples Gerados',
@@ -81,6 +92,7 @@ DEFINICOES_PONTOS = [
             EstadoPonto.ATUAL: 'Vídeo simples (imagens + música de fundo) ainda não foi gerado — é a versão mínima usada no 1º anúncio do produto.',
             EstadoPonto.CONCLUIDO: 'Vídeo simples (imagens + música de fundo) já foi gerado — usado no 1º anúncio do produto.',
         },
+        texto_confirmacao='Ao marcar o vídeo simples como gerado, você assume que já foi produzido um vídeo com imagens do produto e música de fundo — a versão mínima, usada no 1º anúncio.',
     ),
     DefinicaoPonto(
         chave='base', rotulo='Base', rotulo_completo='Vídeos Base Gerados',
@@ -90,30 +102,34 @@ DEFINICOES_PONTOS = [
             EstadoPonto.ATUAL: 'Vídeo-base ainda não foi gerado — vira a base das versões narradas (pode ser o mesmo Simples ou um novo, mais elaborado).',
             EstadoPonto.CONCLUIDO: 'Vídeo-base já foi gerado — pronto pra virar as versões narradas.',
         },
+        texto_confirmacao='Ao marcar o vídeo base como gerado, você assume que já existe o vídeo que vai servir de base pras versões narradas (pode ser o mesmo Simples ou um novo, mais elaborado).',
     ),
     DefinicaoPonto(
-        chave='roteiros', rotulo='Roteiros', rotulo_completo='Roteiros Gerados',
+        chave='roteiros_diaria', rotulo='Roteiros', rotulo_completo='Roteiros Gerados (Diária)',
         eh_editavel=True,
         explicacoes_por_estado={
-            EstadoPonto.FUTURO: 'Roteiros ainda não podem ser escritos — depende do Vídeo Base estar pronto primeiro.',
-            EstadoPonto.ATUAL: 'Roteiros (texto de narração/legenda) ainda não foram escritos — 1 por dia da Fase Diária.',
-            EstadoPonto.CONCLUIDO: 'Roteiros já foram escritos — prontos pra virar os vídeos completos.',
+            EstadoPonto.FUTURO: 'Roteiros da Diária ainda não podem ser escritos — depende do Vídeo Base estar pronto primeiro.',
+            EstadoPonto.ATUAL: 'Roteiros da Fase Diária ainda não foram escritos — 1 por dia.',
+            EstadoPonto.CONCLUIDO: 'Roteiros da Fase Diária já foram escritos — prontos pra virar os vídeos completos.',
         },
+        texto_confirmacao='Ao marcar os roteiros da Diária como gerados, você assume que já foram escritos',
     ),
     DefinicaoPonto(
-        chave='completos', rotulo='Completos', rotulo_completo='Vídeos Completos Gerados',
+        chave='completos_diaria', rotulo='Completos', rotulo_completo='Vídeos Completos Gerados (Diária)',
         eh_editavel=True,
         explicacoes_por_estado={
-            EstadoPonto.FUTURO: 'Vídeos completos ainda não podem ser produzidos — depende dos Roteiros estarem prontos primeiro.',
-            EstadoPonto.ATUAL: 'Vídeos completos (vídeo-base + narração de cada roteiro) ainda não foram produzidos — é o pool pronto pra postar na Fase Diária.',
-            EstadoPonto.CONCLUIDO: 'Vídeos completos já foram produzidos — pool pronto, só falta entrar na Agenda.',
+            EstadoPonto.FUTURO: 'Vídeos completos da Diária ainda não podem ser produzidos — depende dos Roteiros estarem prontos primeiro.',
+            EstadoPonto.ATUAL: 'Vídeos completos da Fase Diária ainda não foram produzidos — é o pool pronto pra postar.',
+            EstadoPonto.CONCLUIDO: 'Vídeos completos da Fase Diária já foram produzidos — pool pronto.',
         },
+        texto_confirmacao='Ao marcar os vídeos completos da Diária como gerados, você assume que já foi produzido o pool inteiro, pronto pra postar.',
     ),
     DefinicaoPonto(
         chave='pronto_agendamento', rotulo='Agendamento', rotulo_completo='Pronto para Agendamento',
+        eh_editavel=True,
         explicacoes_por_estado={
             EstadoPonto.FUTURO: 'Ainda não chegou a vez de agendar — depende de terminar a produção de vídeo primeiro.',
-            EstadoPonto.ATUAL: 'Tudo pronto! Só falta alguém decidir formalmente colocar esse produto na Agenda de Vídeos.',
+            EstadoPonto.ATUAL: 'Tudo pronto! Escolha em qual fase esse produto deve começar.',
             EstadoPonto.CONCLUIDO: 'Já entrou na Agenda — seguiu pro ciclo de postagem.',
         },
     ),
@@ -122,8 +138,48 @@ DEFINICOES_PONTOS = [
         eh_editavel=True, unidade_tempo=UnidadeTempoFase('Dia', 'dias', 'no'),
     ),
     DefinicaoPonto(
+        chave='roteiros_semanal', rotulo='Roteiros', rotulo_completo='Roteiros Gerados (Semanal)',
+        eh_editavel=True,
+        explicacoes_por_estado={
+            EstadoPonto.FUTURO: 'Ainda não chegou a vez — só é preciso preparar a Semanal quando o produto chegar nela.',
+            EstadoPonto.ATUAL: 'Roteiros da Fase Semanal ainda não foram escritos — 1 por semana.',
+            EstadoPonto.CONCLUIDO: 'Roteiros da Fase Semanal já foram escritos.',
+        },
+        texto_confirmacao='Ao marcar os roteiros da Semanal como gerados, você assume que já foram escritos',
+    ),
+    DefinicaoPonto(
+        chave='completos_semanal', rotulo='Completos', rotulo_completo='Vídeos Completos Gerados (Semanal)',
+        eh_editavel=True,
+        explicacoes_por_estado={
+            EstadoPonto.FUTURO: 'Vídeos completos da Semanal ainda não podem ser produzidos — depende dos Roteiros estarem prontos primeiro.',
+            EstadoPonto.ATUAL: 'Vídeos completos da Fase Semanal ainda não foram produzidos.',
+            EstadoPonto.CONCLUIDO: 'Vídeos completos da Fase Semanal já foram produzidos.',
+        },
+        texto_confirmacao='Ao marcar os vídeos completos da Semanal como gerados, você assume que já foi produzido o pool inteiro dessa fase.',
+    ),
+    DefinicaoPonto(
         chave='semanal', rotulo='Semanal', rotulo_completo='Fase Semanal',
         eh_editavel=True, unidade_tempo=UnidadeTempoFase('Semana', 'semanas', 'na'),
+    ),
+    DefinicaoPonto(
+        chave='roteiros_mensal', rotulo='Roteiros', rotulo_completo='Roteiros Gerados (Mensal)',
+        eh_editavel=True,
+        explicacoes_por_estado={
+            EstadoPonto.FUTURO: 'Ainda não chegou a vez — só é preciso preparar a Mensal quando o produto chegar nela.',
+            EstadoPonto.ATUAL: 'Roteiros da Fase Mensal ainda não foram escritos — 1 por mês.',
+            EstadoPonto.CONCLUIDO: 'Roteiros da Fase Mensal já foram escritos.',
+        },
+        texto_confirmacao='Ao marcar os roteiros da Mensal como gerados, você assume que já foram escritos',
+    ),
+    DefinicaoPonto(
+        chave='completos_mensal', rotulo='Completos', rotulo_completo='Vídeos Completos Gerados (Mensal)',
+        eh_editavel=True,
+        explicacoes_por_estado={
+            EstadoPonto.FUTURO: 'Vídeos completos da Mensal ainda não podem ser produzidos — depende dos Roteiros estarem prontos primeiro.',
+            EstadoPonto.ATUAL: 'Vídeos completos da Fase Mensal ainda não foram produzidos.',
+            EstadoPonto.CONCLUIDO: 'Vídeos completos da Fase Mensal já foram produzidos.',
+        },
+        texto_confirmacao='Ao marcar os vídeos completos da Mensal como gerados, você assume que já foi produzido o pool inteiro dessa fase.',
     ),
     DefinicaoPonto(
         chave='mensal', rotulo='Mensal', rotulo_completo='Fase Mensal',
@@ -139,10 +195,6 @@ DEFINICOES_PONTOS = [
 ]
 
 
-# Função Objetivo: Busca (com cache de 5min) o período configurado de cada fase.
-# Explicação em detalhe: evita 1 query por produto por fase futura — numa lista de N
-# produtos, sem isso viraria N+1 de verdade. Muda raríssimo (é config, não dado por
-# produto), então 5min de cache é seguro.
 def obter_mapa_periodos_por_fase():
     mapa = cache.get('agenda_videos_mapa_periodos_fase')
     if mapa is None:
@@ -152,50 +204,65 @@ def obter_mapa_periodos_por_fase():
     return mapa
 
 
-# Função Objetivo: Decide qual chave é "o atual", seguindo a ordem travada.
-# Explicação em detalhe: pública (24/07) — deixou de ser uso interno único desta função
-# quando RoadmapAgenda passou a precisar da mesma decisão (nunca duplicar a lógica).
-def calcular_chave_atual(progresso, andamento):
+# Função Objetivo: Busca (num dict já carregado, sem query nova) a preparação de 1 fase.
+def _obter_preparacao(preparacoes_por_fase, fase):
+    return preparacoes_por_fase.get(fase) if preparacoes_por_fase else None
+
+
+# Função Objetivo: Decide qual chave é "o atual", seguindo a ordem travada (13 pontos).
+# Explicação em detalhe: "preparacoes_por_fase" é um dict {fase: PreparacaoVideoFase},
+# carregado 1 vez por quem chama (nunca 1 query por fase aqui dentro).
+def calcular_chave_atual(progresso, preparacoes_por_fase, andamento):
     if progresso is None or progresso.video_simples_status != 'gerado':
         return 'simples'
     if progresso.video_base_status != 'gerado':
         return 'base'
-    if not progresso.roteiros_gerados:
-        return 'roteiros'
-    if not progresso.completos_produzidos:
-        return 'completos'
+
+    prep_diaria = _obter_preparacao(preparacoes_por_fase, 'diaria')
+    if prep_diaria is None or not prep_diaria.roteiros_gerados:
+        return 'roteiros_diaria'
+    if not prep_diaria.completos_produzidos:
+        return 'completos_diaria'
+
     if andamento is None:
         return 'pronto_agendamento'
     if andamento.concluido:
         return 'otimizado'
-    return andamento.fase_atual.fase
+
+    fase_atual = andamento.fase_atual.fase
+    if fase_atual == 'diaria':
+        return 'diaria'
+
+    prep_semanal = _obter_preparacao(preparacoes_por_fase, 'semanal')
+    if prep_semanal is None or not prep_semanal.roteiros_gerados:
+        return 'roteiros_semanal'
+    if not prep_semanal.completos_produzidos:
+        return 'completos_semanal'
+    if fase_atual == 'semanal':
+        return 'semanal'
+
+    prep_mensal = _obter_preparacao(preparacoes_por_fase, 'mensal')
+    if prep_mensal is None or not prep_mensal.roteiros_gerados:
+        return 'roteiros_mensal'
+    if not prep_mensal.completos_produzidos:
+        return 'completos_mensal'
+    return 'mensal'
 
 
-# Função Objetivo: Monta o rótulo compacto ("Dia 03 de 10") de uma fase cíclica.
-# Explicação em detalhe: zero à esquerda só quando o período tem 2+ dígitos (a
-# Diária, com período 10, fica "03" pra alinhar com "10" — Semanal/Mensal, com
-# período de 1 dígito, não precisam disso).
 def _montar_rotulo_ciclico(unidade, atual, periodo):
     largura = len(str(periodo))
     return f'{unidade.singular} {str(atual).zfill(largura)} de {periodo}'
 
 
-# Função Objetivo: Monta a frase do hover de uma fase cíclica, nos 3 estados possíveis.
-# Explicação em detalhe: sempre explica o que já foi feito, o que está em andamento,
-# e o que falta — nunca o número puro. "definicao_seguinte" é o próximo item de
-# DEFINICOES_PONTOS (não um dicionário separado) — usado só quando a última ocorrência
-# da fase é atingida, pra dizer "avança para: {próximo ponto}".
 def _montar_explicacao_ciclica(unidade, estado, atual, periodo, definicao_seguinte):
     if estado == EstadoPonto.FUTURO:
         return (
             f'Ainda não começou. Serão {periodo} {unidade.plural}, '
             f'1 vídeo por {unidade.singular.lower()}, quando chegar a vez.'
         )
-
     if estado == EstadoPonto.CONCLUIDO:
         return f'Concluída — foram publicados os {periodo} {unidade.plural}.'
 
-    # estado == EstadoPonto.ATUAL
     ja_publicados = atual - 1
     if atual < periodo:
         proximo = f'o {unidade.singular.lower()} {atual + 1}'
@@ -208,12 +275,38 @@ def _montar_explicacao_ciclica(unidade, estado, atual, periodo, definicao_seguin
     )
 
 
-# Função Objetivo: Monta o roadmap completo (9 pontos) de 1 produto.
+# Função Objetivo: Busca o sub-estado da Postagem mais recente da ocorrência ativa.
+# Explicação em detalhe: só chamada quando o ponto ativo é cíclico (poucos produtos
+# de verdade — os que já estão agendados), então o custo de 1 query a mais aqui é
+# aceitável, sem virar N+1 numa lista de milhares de "Não Agendado".
+def _buscar_sub_estado_postagem(produto, chave, andamento):
+    from agenda_videos.models import Postagem, StatusPostagem
+
+    postagem_atual = Postagem.objects.filter(
+        produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
+    ).order_by('-criado_em').first()
+
+    if postagem_atual is None:
+        return None
+    return {
+        StatusPostagem.AGUARDANDO_APROVACAO: 'aguardando',
+        StatusPostagem.RECUSADO: 'recusado',
+        StatusPostagem.APROVADO: 'aprovado',
+    }.get(postagem_atual.status)
+
+
+# Função Objetivo: Monta o roadmap completo (13 pontos) de 1 produto.
 def calcular_roadmap_produto(produto):
     progresso = getattr(produto, 'progresso_producao_video', None)
     andamento = getattr(produto, 'andamento_agenda', None)
 
-    chave_atual = calcular_chave_atual(progresso, andamento)
+    # * [EXPLICAÇÃO] → Carrega as 3 preparações (Diária/Semanal/Mensal) numa query
+    #                  só, monta um dict — nunca 1 query por fase depois.
+    preparacoes_por_fase = {
+        p.fase: p for p in produto.preparacoes_video.all()
+    } if produto.pk else {}
+
+    chave_atual = calcular_chave_atual(progresso, preparacoes_por_fase, andamento)
     ordem_chaves = [definicao.chave for definicao in DEFINICOES_PONTOS]
     indice_atual = ordem_chaves.index(chave_atual)
     mapa_periodos = obter_mapa_periodos_por_fase()
@@ -229,6 +322,7 @@ def calcular_roadmap_produto(produto):
 
         clicavel = estado == EstadoPonto.ATUAL and definicao.eh_editavel
         contador = None
+        texto_confirmacao = definicao.texto_confirmacao
 
         if definicao.eh_ciclico:
             periodo = mapa_periodos.get(definicao.chave)
@@ -246,15 +340,30 @@ def calcular_roadmap_produto(produto):
                     definicao.unidade_tempo, estado, atual, periodo, definicao_seguinte,
                 )
             else:
-                explicacao = ''  # sem ConfiguracaoFase pra essa fase ainda
+                explicacao = ''
+        elif definicao.chave in FASE_DA_CHAVE_PREPARACAO and 'roteiros' in definicao.chave:
+            # * [EXPLICAÇÃO] → "Roteiros de X" tem número dinâmico (o período
+            #                  daquela fase) — injeta no contador, igual "Dia 3 de 10".
+            fase = FASE_DA_CHAVE_PREPARACAO[definicao.chave]
+            periodo = mapa_periodos.get(fase)
+            if periodo:
+                contador = f'{periodo} necessários'
+            explicacao = definicao.explicacoes_por_estado.get(
+                estado, definicao.explicacoes_por_estado.get(EstadoPonto.ATUAL, ''),
+            )
         else:
             explicacao = definicao.explicacoes_por_estado.get(
                 estado, definicao.explicacoes_por_estado.get(EstadoPonto.ATUAL, ''),
             )
 
+        sub_estado_postagem = None
+        if definicao.eh_ciclico and estado == EstadoPonto.ATUAL:
+            sub_estado_postagem = _buscar_sub_estado_postagem(produto, definicao.chave, andamento)
+
         pontos.append(PontoRoadmap(
             chave=definicao.chave, rotulo=definicao.rotulo, rotulo_completo=definicao.rotulo_completo,
             explicacao=explicacao, estado=estado, clicavel=clicavel, contador=contador,
+            texto_confirmacao=texto_confirmacao, sub_estado_postagem=sub_estado_postagem,
         ))
 
     return RoadmapProduto(produto_id=produto.id, pontos=pontos)

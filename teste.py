@@ -4,17 +4,24 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
-from datetime import date
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
+from agenda_videos.models import AndamentoAgenda, PreparacaoVideoFase, ConfiguracaoFase, Fase
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 
-# ==== CONFIGURA AQUI ANTES DE RODAR ====
-DATA_SIMULADA = date(2026, 7, 27)  # segunda-feira — troque pra qualquer data de teste
-# ========================================
+ORDEM_FASES = [Fase.DIARIA, Fase.SEMANAL, Fase.MENSAL]
+periodos = {c.fase: c.periodo for c in ConfiguracaoFase.objects.all()}
 
-produtos = listar_a_fazer_hoje(data_referencia=DATA_SIMULADA)
-print(f"Simulando 'hoje' = {DATA_SIMULADA} ({DATA_SIMULADA.strftime('%A')})")
-print(f"{len(produtos)} produto(s) apareceriam em 'A Fazer Hoje'\n")
+qtd = 0
+for andamento in AndamentoAgenda.objects.select_related('produto', 'fase_atual').all():
+    indice_atual = ORDEM_FASES.index(andamento.fase_atual.fase)
+    for fase in ORDEM_FASES[:indice_atual + 1]:
+        PreparacaoVideoFase.objects.update_or_create(
+            produto=andamento.produto, fase=fase,
+            defaults={
+                'roteiros_gerados': True, 'completos_produzidos': True,
+                'quantidade_roteiros': periodos.get(fase, 0),
+            },
+        )
+    sincronizar_roadmap_agenda_produto(andamento.produto)
+    qtd += 1
 
-for produto in produtos:
-    situacao = "ATRASADO" if produto.a_fazer_hoje_atrasado else ("RISCO" if produto.a_fazer_hoje_risco else "normal")
-    print(f"[{situacao}] {produto.sku or produto.ean} — {produto.titulo[:40]} | vence {produto.a_fazer_hoje_vencimento}")
+print(f"{qtd} produto(s) com PreparacaoVideoFase reaplicada (Decisão A) pra todas as fases até a atual.")

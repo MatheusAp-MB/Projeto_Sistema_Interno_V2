@@ -4,7 +4,7 @@
 # suficiente pra inspecionar/editar dado manualmente enquanto as telas de verdade não existem.
 
 from django.contrib import admin
-from .models import ConfiguracaoFase, ProgressoProducaoVideo, AndamentoAgenda, Postagem
+from .models import ConfiguracaoFase, ProgressoProducaoVideo, AndamentoAgenda, Postagem, PreparacaoVideoFase
 
 
 @admin.register(ConfiguracaoFase)
@@ -14,11 +14,15 @@ class ConfiguracaoFaseAdmin(admin.ModelAdmin):
 
 @admin.register(ProgressoProducaoVideo)
 class ProgressoProducaoVideoAdmin(admin.ModelAdmin):
-    list_display = [
-        'produto', 'video_simples_status', 'video_base_status',
-        'roteiros_gerados', 'completos_produzidos', 'quantidade_roteiros',
-    ]
+    list_display = ['produto', 'video_simples_status', 'video_base_status']
     list_filter = ['video_simples_status', 'video_base_status']
+    search_fields = ['produto__sku', 'produto__ean']
+
+
+@admin.register(PreparacaoVideoFase)
+class PreparacaoVideoFaseAdmin(admin.ModelAdmin):
+    list_display = ['produto', 'fase', 'roteiros_gerados', 'completos_produzidos', 'quantidade_roteiros', 'roteiros_insuficientes']
+    list_filter = ['fase', 'roteiros_gerados', 'completos_produzidos']
     search_fields = ['produto__sku', 'produto__ean']
 
 

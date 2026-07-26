@@ -21,6 +21,7 @@
 
 {% block scripts %}
 <script src="{% static 'agenda_videos/js/script_roadmap_produto.js' %}"></script>
+<script src="{% static 'agenda_videos/js/script_agenda_videos.js' %}"></script>
 {% endblock %}
 
 {% block conteudo %}
@@ -54,15 +55,17 @@
     </div>
     {% endif %}
 
-    <!-- Estágio + "A Fazer Hoje" — filtro em destaque, o conceito central da tela -->
+    <!-- Estágio + "A Fazer Hoje" — filtro em destaque, o conceito central da tela.
+         Mutuamente exclusivos (ver script_agenda_videos.js) — marcar um desmarca
+         o outro automaticamente, antes de enviar. -->
     <div class="agenda-estagio-destaque">
         <label class="agenda-estagio-opcao {% if filtros.a_fazer_hoje %}agenda-estagio-ativo{% endif %}">
-            <input type="checkbox" name="a_fazer_hoje" value="1" {% if filtros.a_fazer_hoje %}checked{% endif %} onchange="this.form.submit()">
+            <input type="checkbox" name="a_fazer_hoje" value="1" {% if filtros.a_fazer_hoje %}checked{% endif %} onchange="agendaAlternarAFazerHoje(this)">
             <span><i class="fas fa-bolt"></i> A Fazer Hoje</span>
         </label>
         {% for opcao in opcoes_estagio %}
         <label class="agenda-estagio-opcao {% if opcao.valor in filtros.estagio %}agenda-estagio-ativo{% endif %}">
-            <input type="checkbox" name="estagio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.estagio %}checked{% endif %} onchange="this.form.submit()">
+            <input type="checkbox" name="estagio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.estagio %}checked{% endif %} onchange="agendaAlternarEstagio(this)">
             <span>{{ opcao.label }}</span>
         </label>
         {% endfor %}
