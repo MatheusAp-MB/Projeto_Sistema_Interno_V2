@@ -10,6 +10,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_roadmap_produto, obter_mapa_periodos_por_fase, FASE_DA_CHAVE_PREPARACAO,
 )
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
+from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import calcular_janela_ocorrencia, calcular_janela_fase
 from django.utils import timezone
 from agenda_videos.models import (
@@ -46,6 +47,23 @@ def _buscar_postagem_atual(produto, andamento):
     ).order_by('-criado_em').first()
 
 
+# Função Objetivo: Lê a data simulada — só funciona com DEBUG=True, igual a tela
+# principal (mesma regra de segurança: nunca em produção, mesmo que forjada na URL).
+def _resolver_data_simulada(request):
+    from datetime import datetime
+    from django.conf import settings
+    if not settings.DEBUG:
+        return None
+    valor_bruto = request.POST.get('simular_data') or request.GET.get('simular_data', '')
+    valor_bruto = valor_bruto.strip()
+    if not valor_bruto:
+        return None
+    try:
+        return datetime.strptime(valor_bruto, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
 def view_confirmar_ponto_roadmap(request, produto_id, chave):
     from produtos.models import Produto
     produto = get_object_or_404(Produto, id=produto_id)
@@ -54,7 +72,10 @@ def view_confirmar_ponto_roadmap(request, produto_id, chave):
     if ponto is None:
         return HttpResponseBadRequest('Esse ponto não pode ser confirmado agora.')
 
-    contexto = {'produto_id': produto_id, 'chave': chave, 'ponto': ponto}
+    # * [EXPLICAÇÃO] → Propaga a data simulada (se houver) pros botões do modal —
+    #                  "se eu tô simulando, quero que TUDO use a data simulada".
+    simular_data = request.GET.get('simular_data', '')
+    contexto = {'produto_id': produto_id, 'chave': chave, 'ponto': ponto, 'simular_data': simular_data}
 
     if chave == 'pronto_agendamento':
         contexto['tipo_acao'] = 'escolher_fase_inicial'
@@ -110,9 +131,6 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
 
         if chave.startswith('roteiros_'):
             preparacao.roteiros_gerados = True
-            periodo = obter_mapa_periodos_por_fase().get(fase)
-            if periodo:
-                preparacao.quantidade_roteiros = periodo
         elif chave.startswith('completos_'):
             preparacao.completos_produzidos = True
         preparacao.save()
@@ -125,8 +143,12 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
     #                  mostraria o estado antigo, mesmo o banco já estando certo.
     produto = Produto.objects.get(id=produto.id)
     sincronizar_roadmap_agenda_produto(produto)
-    roadmap_atualizado = calcular_roadmap_produto(produto)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_roadmap_produto.html', {'roadmap': roadmap_atualizado})
+    data_simulada = _resolver_data_simulada(request)
+    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
+        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
+        'produto': produto, 'data_simulada': data_simulada,
+    })
 
 
 # Função Objetivo: Agenda o produto formalmente — cria AndamentoAgenda na fase
@@ -168,21 +190,21 @@ def view_agendar_produto(request, produto_id, fase_inicial):
     #                  da escolhida — mesmo espírito da Decisão A já usada na
     #                  importação. Período usa o valor configurado de cada fase
     #                  pulada, pra manter "roteiros_insuficientes" consistente.
-    mapa_periodos = obter_mapa_periodos_por_fase()
     indice_inicial = ORDEM_FASES.index(fase_inicial)
     for fase_pulada in ORDEM_FASES[:indice_inicial]:
         PreparacaoVideoFase.objects.update_or_create(
             produto=produto, fase=fase_pulada,
-            defaults={
-                'roteiros_gerados': True, 'completos_produzidos': True,
-                'quantidade_roteiros': mapa_periodos.get(fase_pulada, 0),
-            },
+            defaults={'roteiros_gerados': True, 'completos_produzidos': True},
         )
 
     produto = Produto.objects.get(id=produto.id)
     sincronizar_roadmap_agenda_produto(produto)
-    roadmap_atualizado = calcular_roadmap_produto(produto)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_roadmap_produto.html', {'roadmap': roadmap_atualizado})
+    data_simulada = _resolver_data_simulada(request)
+    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
+        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
+        'produto': produto, 'data_simulada': data_simulada,
+    })
 
 
 def view_executar_acao_ciclica(request, produto_id, chave, acao):
@@ -256,5 +278,9 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
     #                  sem cache de relação grudado, antes de montar a resposta.
     produto = Produto.objects.get(id=produto.id)
     sincronizar_roadmap_agenda_produto(produto)
-    roadmap_atualizado = calcular_roadmap_produto(produto)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_roadmap_produto.html', {'roadmap': roadmap_atualizado})
+    data_simulada = _resolver_data_simulada(request)
+    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
+        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
+        'produto': produto, 'data_simulada': data_simulada,
+    })

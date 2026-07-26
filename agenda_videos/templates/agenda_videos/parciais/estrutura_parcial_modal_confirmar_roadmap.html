@@ -1,7 +1,15 @@
 <!--
 * [RESUMO] → 5 variações de modal, controladas por "tipo_acao". Padrão de texto
-* (24/07): "Ao marcar/confirmar X, você assume/confirma que Y" — deixa explícito
-* o que exatamente está sendo afirmado, não só "confirma ou cancela".
+* (24/07): "Ao marcar/confirmar X, você assume/confirma que Y". Alvo da troca é
+* SEMPRE #agenda-card-{{ produto_id }} (card inteiro, 25/07) — nunca só o roadmap.
+* hx-on usa a sintaxe ANTIGA (htmx:afterRequest, sem "::") de propósito — a
+* versão 1.9.10 travada no projeto não reconhece a sintaxe nova (hx-on::after-
+* request), e ela falha SILENCIOSAMENTE (sem erro), fazendo o modal nunca fechar
+* sozinho. Já corrigido 2x nesta mesma seção — checar sempre os 5 blocos juntos
+* ao editar este arquivo, nunca 1 de cada vez.
+* Todos os botões de ação carregam "simular_data" via hx-vals (25/07) — "se eu tô
+* simulando, quero que TUDO use a data simulada", sem isso o clique final sempre
+* recalculava com a data real, ignorando a simulação no último passo.
 -->
 <div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
     <div class="modal-roadmap-caixa">
@@ -14,7 +22,7 @@
             {% else %}
             {{ ponto.texto_confirmacao }}
             {% endif %}
-        </p> 
+        </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
         </p>
@@ -22,7 +30,8 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_marcar' produto_id chave %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar
             </button>
@@ -41,19 +50,22 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_agendar_produto' produto_id 'diaria' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Diária
             </button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_agendar_produto' produto_id 'semanal' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Semanal
             </button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_agendar_produto' produto_id 'mensal' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Mensal
             </button>
@@ -71,8 +83,9 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'postar' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar
             </button>
         </div>
@@ -89,14 +102,16 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-recusar"
                     hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'recusado' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Recusado
             </button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'aprovado' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Aprovado
             </button>
         </div>
@@ -113,8 +128,9 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'replicar' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar
             </button>
         </div>
@@ -131,8 +147,9 @@
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'nova_tentativa' %}"
-                    hx-target="#roadmap-produto-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on::after-request="document.getElementById('modal-roadmap-slot').innerHTML = ''">
+                    hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar
             </button>
         </div>

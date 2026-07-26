@@ -39,7 +39,14 @@
 }
 
 .roadmap-ponto-atual .roadmap-bolinha {
-    background: #993C1D;
+    background: #2563eb;
+}
+
+/* * [EXPLICAÇÃO] → "Otimizado" no estado atual = fim de linha, sem ação esperando
+ *                  — visualmente igual a "concluído" (verde), não "atual" (a cor
+ *                  de "precisa agir"). */
+.roadmap-ponto-otimizado.roadmap-ponto-atual .roadmap-bolinha {
+    background: #3B6D11;
 }
 
 /* * [EXPLICAÇÃO] → Sub-estado da Postagem em andamento — sobrescreve a cor "atual"
@@ -74,7 +81,7 @@
 }
 
 .roadmap-ponto-ciclico.roadmap-ponto-atual .roadmap-bolinha::after {
-    border-color: #993C1D;
+    border-color: #2563eb;
 }
 
 .roadmap-bolinha-clicavel {
@@ -83,7 +90,7 @@
 }
 
 .roadmap-bolinha-clicavel:hover {
-    box-shadow: 0 0 0 4px rgba(153, 60, 29, 0.2);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
 .roadmap-ponto-rotulo {

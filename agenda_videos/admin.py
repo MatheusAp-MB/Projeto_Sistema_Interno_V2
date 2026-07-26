@@ -21,7 +21,7 @@ class ProgressoProducaoVideoAdmin(admin.ModelAdmin):
 
 @admin.register(PreparacaoVideoFase)
 class PreparacaoVideoFaseAdmin(admin.ModelAdmin):
-    list_display = ['produto', 'fase', 'roteiros_gerados', 'completos_produzidos', 'quantidade_roteiros', 'roteiros_insuficientes']
+    list_display = ['produto', 'fase', 'roteiros_gerados', 'completos_produzidos']
     list_filter = ['fase', 'roteiros_gerados', 'completos_produzidos']
     search_fields = ['produto__sku', 'produto__ean']
 

@@ -23,18 +23,36 @@ from agenda_videos.funcoes_auxiliares.calculo_datas_fase import (
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 
 
+# Função Objetivo: Calcula e anexa os 3 indicadores de atraso/risco em 1 produto só.
+# Explicação em detalhe: extraído (25/07) pra ser reaproveitado também depois de
+# qualquer clique no roadmap — sem isso, o produto buscado "do zero" nas views de
+# ação nunca tinha esses atributos calculados, e o badge sumia da resposta do
+# clique mesmo que estivesse visível na lista antes.
+def calcular_indicadores_atraso(produto, andamento, data_referencia=None):
+    hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
+    limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
+    fase = andamento.fase_atual.fase
+    janela = calcular_janela_ocorrencia(fase, andamento.inicio_fase, andamento.ocorrencia_atual)
+
+    produto.a_fazer_hoje_atrasado = janela.fim < hoje
+    produto.a_fazer_hoje_risco = (
+        not produto.a_fazer_hoje_atrasado and fase != Fase.DIARIA and janela.fim <= limite_risco
+    )
+    produto.a_fazer_hoje_vencimento = janela.fim
+    return janela
+
+
 def listar_a_fazer_hoje(busca=None, data_referencia=None):
     # * [EXPLICAÇÃO] → "data_referencia" existe só pra permitir simular outra data em
     #                  teste.py — a view real nunca passa esse parâmetro, sempre usa
     #                  a data de hoje de verdade.
-    # "hoje" sempre vira o ÚLTIMO DIA ÚTIL (recua pra sexta se cair em fim de
-    # semana) — o prazo só corre em dia útil, confirmado com o usuário. Sem isso,
-    # rodar o sistema num sábado faria tudo da Diária parecer atrasado à toa.
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
-    limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
+
+    from agenda_videos.models import StatusManualAgenda
 
     candidatos = Produto.objects.filter(
         andamento_agenda__isnull=False, andamento_agenda__concluido=False,
+        andamento_agenda__status_manual=StatusManualAgenda.ATIVO,
     ).select_related('andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video')
 
     if busca:
@@ -60,19 +78,11 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
         if postagem_atual is not None and postagem_atual.status == StatusPostagem.REPLICADO:
             continue  # essa ocorrência já foi concluída, não aparece mais
 
-        # * [EXPLICAÇÃO] → Atributos anexados direto no Produto (não um wrapper à
-        #                  parte) — assim o template continua usando {{ produto... }}
-        #                  normalmente, sem precisar de 2 formatos de linha na lista.
-        # "status_postagem_recente" precisa existir aqui TAMBÉM (não só na listagem
-        # normal, que usa annotate/Subquery) — é o mesmo template pros 2 modos, e ele
-        # espera essa forma sempre. Sem custo de query nova: postagem_atual já foi
-        # buscada acima, só reaproveita o resultado.
+        # * [EXPLICAÇÃO] → "status_postagem_recente" precisa existir aqui TAMBÉM
+        #                  (não só na listagem normal, que usa annotate/Subquery) —
+        #                  é o mesmo template pros 2 modos.
         produto.status_postagem_recente = postagem_atual.status if postagem_atual else None
-        produto.a_fazer_hoje_atrasado = janela.fim < hoje
-        produto.a_fazer_hoje_risco = (
-            not produto.a_fazer_hoje_atrasado and fase != Fase.DIARIA and janela.fim <= limite_risco
-        )
-        produto.a_fazer_hoje_vencimento = janela.fim
+        calcular_indicadores_atraso(produto, andamento, data_referencia=hoje)
         resultado.append(produto)
 
     # * [EXPLICAÇÃO] → Atrasados primeiro (prioridade máxima), depois por vencimento

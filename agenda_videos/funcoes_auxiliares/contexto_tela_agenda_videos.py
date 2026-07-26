@@ -14,7 +14,7 @@ from agenda_videos.models import EstagioAgenda
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
     listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
 )
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
+from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje, calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_STATUS_VIDEO, opcoes_com_badge,
 )
@@ -175,14 +175,29 @@ class ContextoTelaAgendaVideos:
                 busca=self.parametros.busca or None,
                 data_referencia=self.parametros.data_simulada,
             )
-        else:
-            produtos = listar_produtos_agenda_filtrados(
-                busca=self.parametros.busca or None,
-                filtros=self.parametros.filtros,
-                ordenar=self.parametros.ordenar,
-            )
+            paginator = Paginator(produtos, self.parametros.por_pagina)
+            return paginator.get_page(self.parametros.numero_pagina)
+
+        produtos = listar_produtos_agenda_filtrados(
+            busca=self.parametros.busca or None,
+            filtros=self.parametros.filtros,
+            ordenar=self.parametros.ordenar,
+        )
         paginator = Paginator(produtos, self.parametros.por_pagina)
-        return paginator.get_page(self.parametros.numero_pagina)
+        pagina = paginator.get_page(self.parametros.numero_pagina)
+
+        # * [EXPLICAÇÃO] → Aplica o cálculo de Atrasado/Risco SÓ na página atual
+        #                  (25 produtos, não a lista inteira) — antes, esses badges
+        #                  só apareciam filtrando por "A Fazer Hoje", nunca nas
+        #                  outras abas (Diário/Semanal/Mensal/etc.), mesmo quando o
+        #                  produto realmente estava atrasado. Reaproveita a mesma
+        #                  função, sem duplicar a conta em 2 lugares.
+        for produto in pagina:
+            andamento = getattr(produto, 'andamento_agenda', None)
+            if andamento is not None and not andamento.concluido:
+                calcular_indicadores_atraso(produto, andamento, data_referencia=self.parametros.data_simulada)
+
+        return pagina
 
     def montar(self):
         cabecalhos = ConstrutorCabecalhosOrdenacao(

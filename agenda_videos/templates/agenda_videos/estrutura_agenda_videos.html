@@ -1,15 +1,15 @@
 <!--
 * [RESUMO] → Tela ÚNICA "Agenda de Vídeos" — mostra qualquer produto, com o filtro
 * de Estágio (Não Agendado / Pronto p/ Agendar / Diário / Semanal / Mensal /
-* Otimizado) no topo, em destaque. Renomeada de estrutura_diarios.html (24/07) —
-* a tela "Diários" deixou de existir como conceito próprio.
-* Padrão "A Fazer Hoje" adiado de propósito (depende do "motor" de postagem, que
-* ainda não existe) — decisão registrada no documento de Idealização.
+* Otimizado) no topo, em destaque, e "A Fazer Hoje" como padrão da tela.
+* Card de produto extraído em parcial reaproveitável (25/07) —
+* estrutura_parcial_card_produto.html — usado aqui via { % include % } e também
+* devolvido inteiro pelas views de clique do roadmap (identidade + meta + roadmap
+* sempre trocam juntos, nunca só o miolo do roadmap sozinho).
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
 {% load filtros %}
-{% load roadmap_tags %}
 
 {% block titulo %}Agenda de Vídeos{% endblock %}
 {% block toolbar_titulo %}Agenda de Vídeos{% endblock %}
@@ -227,18 +227,6 @@
                 </div>
 
                 <div class="filtro-subgrupo filtro-subgrupo-compacto">
-                    <span class="filtro-subgrupo-titulo">Roteiros insuficientes</span>
-                    <div class="filtro-opcoes-inline">
-                        {% for opcao in opcoes_sim_nao %}
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="roteiros_insuficientes" value="{{ opcao.valor }}" {% if opcao.valor in filtros.roteiros_insuficientes %}checked{% endif %}>
-                            <span>{{ opcao.label }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="filtro-subgrupo filtro-subgrupo-compacto">
                     <span class="filtro-subgrupo-titulo">Qtd. Roteiros</span>
                     <div class="filtro-faixa-campos">
                         <input type="number" step="any" name="progresso_producao_video__quantidade_roteiros_min" value="{{ filtros|get_item:'progresso_producao_video__quantidade_roteiros_min' }}" placeholder="De">
@@ -263,70 +251,7 @@
 
 <div class="agenda-lista">
     {% for produto in pagina %}
-    <div class="agenda-card">
-
-        <div class="agenda-card-identidade">
-            <div class="agenda-foto">
-                {% if produto.obter_dados_identificacao.imagem_url %}
-                <img src="{{ produto.obter_dados_identificacao.imagem_url }}" alt="">
-                {% endif %}
-            </div>
-            <div class="agenda-identificacao">
-                <p class="agenda-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
-                <p class="agenda-subtitulo">
-                    EAN {{ produto.obter_dados_identificacao.ean }} ·
-                    SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
-                    {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
-                    Estoque {{ produto.obter_dados_identificacao.estoque }}
-                </p>
-            </div>
-        </div>
-
-        <!-- * [EXPLICAÇÃO] → Só existe quando o produto já tem AndamentoAgenda —
-             "Não Agendado"/"Pronto para Agendar" não têm esse registro ainda, e
-             o roadmap abaixo já explica a situação deles sozinho. -->
-        {% if produto.andamento_agenda %}
-        <div class="agenda-card-meta">
-            <span class="badge-tabela status-{{ produto.andamento_agenda.status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
-
-            {% if produto.andamento_agenda.urgente %}
-            <span class="badge-tabela badge-conta-propria"><i class="fas fa-triangle-exclamation"></i> Urgente</span>
-            {% endif %}
-
-            <span class="badge-tabela badge-papel">{{ produto.andamento_agenda.fase_atual.get_fase_display }}</span>
-            <span class="agenda-ocorrencia">{{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
-            <span class="agenda-datas">{{ produto.andamento_agenda.inicio_fase|date:"d/m" }} → {{ produto.andamento_agenda.fim_fase|date:"d/m" }}</span>
-        </div>
-        {% endif %}
-
-        <div class="agenda-card-roadmap">
-            {% if produto.a_fazer_hoje_atrasado %}
-            <span class="badge-tabela badge-atrasado"><i class="fas fa-clock"></i> Atrasado</span>
-            {% elif produto.a_fazer_hoje_risco %}
-            <span class="badge-tabela badge-listed"><i class="fas fa-triangle-exclamation"></i> Risco de Atraso</span>
-            {% endif %}
-
-            {% roadmap_produto produto %}
-
-            {% with progresso=produto.progresso_producao_video %}
-            {% if progresso.roteiros_insuficientes %}
-            <span class="badge-tabela badge-listed" title="Roteiros insuficientes pra Fase Diária">
-                <i class="fas fa-triangle-exclamation"></i> {{ progresso.quantidade_roteiros }} roteiros
-            </span>
-            {% endif %}
-            {% endwith %}
-
-            {% with badge_postagem=badges_status_postagem|get_item:produto.status_postagem_recente %}
-            {% if badge_postagem %}
-            <span class="badge-tabela {{ badge_postagem.classe }} agenda-status-postagem">
-                {% if badge_postagem.icone %}<i class="fas {{ badge_postagem.icone }}"></i>{% endif %}
-                {{ badge_postagem.label }}
-            </span>
-            {% endif %}
-            {% endwith %}
-        </div>
-
-    </div>
+    {% include 'agenda_videos/parciais/estrutura_parcial_card_produto.html' %}
     {% empty %}
     <div class="agenda-vazio">
         <i class="fas fa-calendar-xmark"></i>

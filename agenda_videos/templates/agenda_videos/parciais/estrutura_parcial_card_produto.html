@@ -1,0 +1,58 @@
+<!--
+* [RESUMO] → Card de 1 produto (identidade + meta + roadmap) — extraído em parcial
+* reaproveitável (25/07): os cliques do roadmap agora precisam atualizar o CARD
+* INTEIRO, não só o miolo do roadmap (badges de status/urgente/fase/ocorrência/
+* datas também mudam depois de um clique, e ficavam desatualizados até reload).
+* Badge de "status de postagem" REMOVIDO da exibição (25/07) — mostrava a Postagem
+* mais recente do produto INTEIRO, sem filtrar por ocorrência, então ficava preso
+* mostrando "Replicado" do dia anterior mesmo depois de avançar pro dia seguinte.
+* O roadmap (cor da bolinha do ponto cíclico) já conta essa história corretamente,
+* sempre relativo à ocorrência ATUAL — esse badge virou redundante e impreciso.
+-->
+{% load roadmap_tags %}
+{% load andamento_tags %}
+<div class="agenda-card" id="agenda-card-{{ produto.id }}" data-simular-data="{{ data_simulada|date:'Y-m-d'|default:'' }}">
+
+    <div class="agenda-card-identidade">
+        <div class="agenda-foto">
+            {% if produto.obter_dados_identificacao.imagem_url %}
+            <img src="{{ produto.obter_dados_identificacao.imagem_url }}" alt="">
+            {% endif %}
+        </div>
+        <div class="agenda-identificacao">
+            <p class="agenda-titulo">{{ produto.obter_dados_identificacao.titulo }}</p>
+            <p class="agenda-subtitulo">
+                EAN {{ produto.obter_dados_identificacao.ean }} ·
+                SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
+                {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
+                Estoque {{ produto.obter_dados_identificacao.estoque }}
+            </p>
+        </div>
+    </div>
+
+    {% if produto.andamento_agenda %}
+    <div class="agenda-card-meta">
+        <span class="badge-tabela status-{{ produto.andamento_agenda.status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
+
+        {% if produto.andamento_agenda.urgente %}
+        <span class="badge-tabela badge-conta-propria"><i class="fas fa-triangle-exclamation"></i> Urgente</span>
+        {% endif %}
+
+        <span class="badge-tabela badge-papel">{{ produto.andamento_agenda.fase_atual.get_fase_display }}</span>
+        <span class="agenda-ocorrencia">{{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
+        {% janela_ocorrencia_atual produto as janela_atual %}
+        <span class="agenda-datas">{{ janela_atual.inicio|date:"d/m" }} → {{ janela_atual.fim|date:"d/m" }}</span>
+    </div>
+    {% endif %}
+
+    <div class="agenda-card-roadmap">
+        {% if produto.a_fazer_hoje_atrasado %}
+        <span class="badge-tabela badge-atrasado"><i class="fas fa-clock"></i> Atrasado</span>
+        {% elif produto.a_fazer_hoje_risco %}
+        <span class="badge-tabela badge-listed"><i class="fas fa-triangle-exclamation"></i> Risco de Atraso</span>
+        {% endif %}
+
+        {% roadmap_produto produto %}
+    </div>
+
+</div>

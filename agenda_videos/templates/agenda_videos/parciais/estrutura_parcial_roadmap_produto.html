@@ -7,18 +7,19 @@
 -->
 <div class="roadmap-produto" id="roadmap-produto-{{ roadmap.produto_id }}">
     {% for ponto in roadmap.pontos %}
-    <div class="roadmap-ponto roadmap-ponto-{{ ponto.estado.value }} {% if ponto.chave == 'diaria' or ponto.chave == 'semanal' or ponto.chave == 'mensal' %}roadmap-ponto-ciclico{% endif %} {% if ponto.sub_estado_postagem %}roadmap-ponto-postagem-{{ ponto.sub_estado_postagem }}{% endif %}"
+    <div class="roadmap-ponto roadmap-ponto-{{ ponto.estado.value }} roadmap-ponto-{{ ponto.chave }} {% if ponto.chave == 'diaria' or ponto.chave == 'semanal' or ponto.chave == 'mensal' %}roadmap-ponto-ciclico{% endif %} {% if ponto.sub_estado_postagem %}roadmap-ponto-postagem-{{ ponto.sub_estado_postagem }}{% endif %}"
          title="{{ ponto.explicacao }}">
 
         {% if ponto.clicavel %}
         <button type="button" class="roadmap-bolinha roadmap-bolinha-clicavel"
                 hx-get="{% url 'agenda_videos_roadmap_confirmar' roadmap.produto_id ponto.chave %}"
+                hx-vals='js:{simular_data: document.getElementById("agenda-card-{{ roadmap.produto_id }}").dataset.simularData}'
                 hx-target="#modal-roadmap-slot"
                 hx-swap="innerHTML">
         </button>
         {% else %}
         <span class="roadmap-bolinha">
-            {% if ponto.estado == 'concluido' %}<i class="fas fa-check"></i>{% endif %}
+            {% if ponto.estado == 'concluido' or ponto.chave == 'otimizado' and ponto.estado == 'atual' %}<i class="fas fa-check"></i>{% endif %}
         </span>
         {% endif %}
 
