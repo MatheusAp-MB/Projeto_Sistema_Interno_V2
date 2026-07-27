@@ -107,6 +107,9 @@ DATABASES = {
     }
 }
 
+GOOGLE_DRIVE_CREDENCIAIS_JSON = os.getenv('GOOGLE_DRIVE_CREDENCIAIS_JSON')
+GOOGLE_DRIVE_PASTA_RAIZ_ID = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_ID')
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

@@ -10,6 +10,8 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_roadmap_produto, obter_mapa_periodos_por_fase, FASE_DA_CHAVE_PREPARACAO,
     calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
+from agenda_videos.funcoes_auxiliares.diagnostico_preparo_drive import calcular_diagnostico_preparo_drive
+from agenda_videos.funcoes_auxiliares.verificar_arquivos_drive import verificar_produto_no_drive
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import calcular_janela_ocorrencia, calcular_janela_fase
@@ -71,7 +73,7 @@ def _resolver_data_simulada(request):
 # card atualizado. Extraído (26/07, pente fino) — estava copiado quase idêntico
 # em 4 views (view_marcar_ponto_roadmap, view_agendar_produto,
 # view_executar_acao_ciclica, view_alternar_urgente).
-def _recarregar_e_renderizar_card(request, produto_id):
+def _recarregar_e_renderizar_card(request, produto_id, contexto_extra=None):
     from produtos.models import Produto
     produto = Produto.objects.get(id=produto_id)
     sincronizar_roadmap_agenda_produto(produto)
@@ -81,9 +83,15 @@ def _recarregar_e_renderizar_card(request, produto_id):
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
     if getattr(produto, 'andamento_agenda', None):
         produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
-        'produto': produto, 'data_simulada': data_simulada,
-    })
+    # * [EXPLICAÇÃO] → Sem guarda de "andamento existe" — o diagnóstico
+    #                  importa justamente pros pontos ANTES do agendamento
+    #                  (Simples/Base/Roteiros da Diária), quando ainda não
+    #                  existe AndamentoAgenda nenhum.
+    produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
+    contexto = {'produto': produto, 'data_simulada': data_simulada}
+    if contexto_extra:
+        contexto.update(contexto_extra)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', contexto)
 
 
 # Função Objetivo: Avança o AndamentoAgenda pra próxima ocorrência ou próxima
@@ -446,6 +454,33 @@ def view_alternar_urgente(request, produto_id):
     roadmap_agenda.save()
 
     return _recarregar_e_renderizar_card(request, produto.id)
+
+
+# Função Objetivo: Verifica os arquivos deste produto no Google Drive e
+# avança quantos pontos de preparação os arquivos permitirem — 1 clique
+# em vez de N cliques manuais (Simples/Base/Roteiros/Completos, um por um).
+# Sempre atualiza o snapshot (SnapshotArquivosDrive), mesmo quando nenhum
+# ponto novo avança — é isso que "reseta" o badge de "Não sincronizado"
+# mostrado no card, de graça, sem chamada nova, até a próxima verificação.
+#
+# * [EXPLICAÇÃO] → try/except em volta da chamada real ao Drive — sem isso,
+#                  qualquer falha de rede/credencial quebrava a tela inteira
+#                  (exceção não tratada, sem mensagem nenhuma pro usuário).
+#                  Erro vira um aviso visível no próprio card, não uma
+#                  página de erro.
+def view_verificar_produto_drive(request, produto_id):
+    from produtos.models import Produto
+    get_object_or_404(Produto, id=produto_id)
+    try:
+        verificar_produto_no_drive(produto_id)
+    except Exception:
+        return _recarregar_e_renderizar_card(
+            request, produto_id,
+            contexto_extra={
+                'erro_verificacao_drive': 'Não foi possível conectar ao Google Drive agora — tente novamente em instantes.',
+            },
+        )
+    return _recarregar_e_renderizar_card(request, produto_id)
 
 
 # Função Objetivo: Valida quantidade_postagens/periodo — só aceita inteiro

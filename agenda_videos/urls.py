@@ -11,6 +11,7 @@ urlpatterns = [
     path('roadmap/<int:produto_id>/<str:chave>/acao/<str:acao>/', views.view_executar_acao_ciclica, name='agenda_videos_roadmap_acao_ciclica'),
     path('roadmap/<int:produto_id>/agendar/<str:fase_inicial>/', views.view_agendar_produto, name='agenda_videos_agendar_produto'),
     path('produto/<int:produto_id>/urgente/alternar/', views.view_alternar_urgente, name='agenda_videos_alternar_urgente'),
+    path('produto/<int:produto_id>/verificar-drive/', views.view_verificar_produto_drive, name='agenda_videos_verificar_drive'),
     path('historico/', views.view_historico_agenda_videos, name='agenda_videos_historico'),
     path('produto/<int:produto_id>/historico/', views.view_historico_produto, name='agenda_videos_historico_produto'),
 ]

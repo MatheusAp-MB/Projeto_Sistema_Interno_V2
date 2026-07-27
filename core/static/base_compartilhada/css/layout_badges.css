@@ -117,3 +117,10 @@
    ================================================ */
 .video-nao-gerado { background: #f3f4f6; color: #9ca3af; }
 .video-gerado     { background: #dcfce7; color: #15803d; }
+
+
+
+.badge-diagnostico-drive {
+    background: #dbeafe;
+    color: #1e40af;
+}

@@ -38,6 +38,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
     calcular_prioridade_produto, calcular_ordem_fase_produto,
 )
+from agenda_videos.funcoes_auxiliares.diagnostico_preparo_drive import calcular_diagnostico_preparo_drive
 
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 
@@ -132,7 +133,8 @@ def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
         andamento_agenda__isnull=False, andamento_agenda__concluido=False,
         andamento_agenda__status_manual=StatusManualAgenda.ATIVO,
     ).select_related(
-        'andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video', 'roadmap_agenda',
+        'andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video',
+        'roadmap_agenda', 'snapshot_drive',
     ).prefetch_related('preparacoes_video')
 
     if busca:
@@ -206,6 +208,7 @@ def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
 
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
         produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, andamento)
+        produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
         resultado.append(produto)
 
     # * [EXPLICAÇÃO] → Mesma prioridade da listagem principal (ver

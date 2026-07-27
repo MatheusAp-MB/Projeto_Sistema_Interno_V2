@@ -16,5 +16,8 @@
         SKU {{ produto.obter_dados_identificacao.sku|default:"—" }} ·
         {{ produto.obter_dados_identificacao.marca|default:"—" }} ·
         Estoque {{ produto.obter_dados_identificacao.estoque }}
+        {% if produto.snapshot_drive %}
+        · <span title="Última verificação no Google Drive"><i class="fas fa-cloud"></i> {{ produto.snapshot_drive.atualizado_em|date:"d/m/Y H:i" }}</span>
+        {% endif %}
     </p>
 </div>

@@ -160,7 +160,7 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     #                  ainda não têm esse registro, e precisam aparecer também.
     qs = Produto.objects.select_related(
         'andamento_agenda', 'andamento_agenda__fase_atual',
-        'progresso_producao_video', 'roadmap_agenda',
+        'progresso_producao_video', 'roadmap_agenda', 'snapshot_drive',
     ).annotate(
         status_postagem_ocorrencia_atual=Subquery(postagem_ocorrencia_atual.values('status')[:1]),
         prioridade_ordenacao=construir_annotation_prioridade(hoje),

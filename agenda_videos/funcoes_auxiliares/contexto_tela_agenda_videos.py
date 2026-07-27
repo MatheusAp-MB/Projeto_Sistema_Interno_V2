@@ -18,6 +18,7 @@ from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje, c
 from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
+from agenda_videos.funcoes_auxiliares.diagnostico_preparo_drive import calcular_diagnostico_preparo_drive
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_STATUS_VIDEO, opcoes_com_badge,
 )
@@ -214,6 +215,9 @@ class ContextoTelaAgendaVideos:
                 produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
             if andamento is not None:
                 produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, andamento)
+            # * [EXPLICAÇÃO] → Sem guarda de "andamento existe" — importa
+            #                  justamente pros pontos ANTES do agendamento.
+            produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
 
         return pagina
 

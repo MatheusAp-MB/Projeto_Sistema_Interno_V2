@@ -269,6 +269,55 @@
     color: var(--cor-primaria-clara);
 }
 
+.agenda-verificar-drive-toggle {
+    margin-left: 8px;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid #ccd3de;
+    background: #fff;
+    color: #aab0bb;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.agenda-verificar-drive-toggle:hover {
+    border-color: #1e40af;
+    color: #1e40af;
+}
+
+.agenda-verificar-drive-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* * [EXPLICAÇÃO] → 2 ícones dentro do mesmo botão — o de carregando fica
+ *                  escondido até o HTMX marcar o botão como "em andamento"
+ *                  (classe htmx-request, adicionada automaticamente durante
+ *                  a requisição, removida quando termina — sucesso ou erro). */
+.agenda-verificar-drive-icone-carregando {
+    display: none;
+}
+
+.agenda-verificar-drive-toggle.htmx-request .agenda-verificar-drive-icone-padrao {
+    display: none;
+}
+
+.agenda-verificar-drive-toggle.htmx-request .agenda-verificar-drive-icone-carregando {
+    display: inline;
+}
+
+.agenda-erro-drive {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    margin: 0 0 12px;
+}
+
 .agenda-foto {
     width: 44px;
     height: 44px;
