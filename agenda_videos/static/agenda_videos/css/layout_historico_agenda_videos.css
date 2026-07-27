@@ -7,58 +7,6 @@
 */
 
 /* ================================================
-   FILTROS
-   ================================================ */
-.historico-filtros {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 20px;
-    background: var(--cor-fundo-card);
-    border: 1px solid var(--cor-borda);
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin-bottom: 16px;
-}
-
-.historico-busca {
-    flex: 1 1 260px;
-    padding: 8px 12px;
-    border: 1px solid var(--cor-borda);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    align-self: center;
-}
-
-.historico-filtro-grupo {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.historico-filtro-titulo {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #667;
-}
-
-.historico-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    white-space: nowrap;
-}
-
-.historico-data {
-    padding: 7px 10px;
-    border: 1px solid var(--cor-borda);
-    border-radius: 6px;
-    font-size: 0.85rem;
-}
-
-/* ================================================
    RESUMO EM PILLS (reaproveitado no modal e no relatório)
    ================================================ */
 .historico-resumo-pills {
@@ -79,6 +27,19 @@
     font-weight: 700;
     color: var(--cor-primaria);
     margin-right: 4px;
+}
+
+.historico-pill-clicavel {
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.historico-pill-clicavel:hover {
+    transform: scale(1.06);
+}
+
+.historico-pill-ativo {
+    box-shadow: 0 0 0 2px currentColor;
 }
 
 /* ================================================

@@ -15,7 +15,11 @@
         <div class="historico-resumo-pills">
             <span class="historico-resumo-total">{{ historico.total }} postagem{{ historico.total|pluralize }}</span>
             {% for item in historico.resumo %}
-            <span class="badge-tabela {{ item.classe }}">{{ item.quantidade }} {{ item.label|lower }}</span>
+            <span class="badge-tabela historico-pill-clicavel {{ item.classe }}"
+                  data-historico-pill="{{ item.valor }}"
+                  title="Clique pra filtrar só {{ item.label|lower }}">
+                {{ item.quantidade }} {{ item.label|lower }}
+            </span>
             {% endfor %}
         </div>
         <div class="modal-historico-corpo">

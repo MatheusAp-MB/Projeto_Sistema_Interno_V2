@@ -13,7 +13,6 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import calcular_janela_ocorrencia, calcular_janela_fase
-from django.utils import timezone
 from agenda_videos.models import (
     StatusVideo, StatusPostagem, Fase, ConfiguracaoFase, Postagem,
     ProgressoProducaoVideo, PreparacaoVideoFase, AndamentoAgenda, StatusManualAgenda,
@@ -65,12 +64,34 @@ def _resolver_data_simulada(request):
     except ValueError:
         return None
 
+
+# Função Objetivo: Rebusca o produto do zero, sincroniza o roadmap, calcula os
+# indicadores de card (atraso/risco/pool insuficiente/divergência) e renderiza
+# o parcial do card — usado por TODA ação que muda estado e precisa devolver o
+# card atualizado. Extraído (26/07, pente fino) — estava copiado quase idêntico
+# em 4 views (view_marcar_ponto_roadmap, view_agendar_produto,
+# view_executar_acao_ciclica, view_alternar_urgente).
+def _recarregar_e_renderizar_card(request, produto_id):
+    from produtos.models import Produto
+    produto = Produto.objects.get(id=produto_id)
+    sincronizar_roadmap_agenda_produto(produto)
+    data_simulada = _resolver_data_simulada(request)
+    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
+        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
+        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
+    if getattr(produto, 'andamento_agenda', None):
+        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
+        'produto': produto, 'data_simulada': data_simulada,
+    })
+
+
 # Função Objetivo: Avança o AndamentoAgenda pra próxima ocorrência ou próxima
 # fase — assume que a ocorrência atual já foi tratada (replicada, ou pulada via
 # "seguir sem repor"), quem chama decide isso antes de chamar esta função.
 # Explicação em detalhe: extraída (26/07) pra ser reaproveitada em 3 lugares —
 # o clique normal de "replicar", o recálculo em massa ao salvar Configuração de
-# Fases, e a nova ação "seguir sem repor" (Recusada com cota já cumprida).
+# Fases, e a ação "seguir sem repor" (Recusada com cota já cumprida).
 # Não chama .save() sozinha — quem chama decide quando persistir.
 def avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas):
     if ocorrencias_completadas < andamento.fase_atual.periodo:
@@ -184,7 +205,7 @@ def view_confirmar_ponto_roadmap(request, produto_id, chave):
             # * [EXPLICAÇÃO] → Se a cota da fase já foi cumprida (periodo mudou
             #                  pra menos enquanto essa ocorrência estava recusada),
             #                  oferece a opção de seguir sem repor — ver 'seguir'
-            #                  em view_executar_acao_ciclica.
+            #                  no dicionário ACOES_CICLICAS.
             completadas = andamento.ocorrencia_atual - 1
             if completadas >= andamento.fase_atual.periodo:
                 contexto['tipo_acao'] = 'recusado_cota_cumprida'
@@ -239,23 +260,7 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
             preparacao.completos_marcado_em = timezone.now()
         preparacao.save()
 
-    # * [EXPLICAÇÃO] → Busca o produto DE NOVO, do zero — Django guarda ("cacheia")
-    #                  no objeto `produto` a 1ª versão de progresso_producao_video
-    #                  que ele buscar (lá em _buscar_ponto_clicavel_ou_none, no topo
-    #                  desta view). Salvar um OBJETO SEPARADO (via get_or_create)
-    #                  não atualiza esse cache — sem isso, a resposta do clique
-    #                  mostraria o estado antigo, mesmo o banco já estando certo.
-    produto = Produto.objects.get(id=produto.id)
-    sincronizar_roadmap_agenda_produto(produto)
-    data_simulada = _resolver_data_simulada(request)
-    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
-        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
-        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
-    if getattr(produto, 'andamento_agenda', None):
-        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
-        'produto': produto, 'data_simulada': data_simulada,
-    })
+    return _recarregar_e_renderizar_card(request, produto.id)
 
 
 # Função Objetivo: Agenda o produto formalmente — cria AndamentoAgenda na fase
@@ -312,17 +317,100 @@ def view_agendar_produto(request, produto_id, fase_inicial):
             defaults={'roteiros_gerados': True, 'completos_produzidos': True},
         )
 
-    produto = Produto.objects.get(id=produto.id)
-    sincronizar_roadmap_agenda_produto(produto)
-    data_simulada = _resolver_data_simulada(request)
-    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
-        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
-        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
-    if getattr(produto, 'andamento_agenda', None):
-        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
-        'produto': produto, 'data_simulada': data_simulada,
-    })
+    return _recarregar_e_renderizar_card(request, produto.id)
+
+
+# ===================================================================
+# Ações do ciclo cíclico (Diária/Semanal/Mensal) — cada uma isolada
+# numa função própria (26/07, pente fino), assinatura idêntica pras 6:
+# (produto, andamento, postagem_atual, chave, agora) → HttpResponseBadRequest
+# em caso de erro, ou None em caso de sucesso. view_executar_acao_ciclica
+# só valida o estado geral e despacha pra função certa.
+# ===================================================================
+
+def _acao_postar(produto, andamento, postagem_atual, chave, agora):
+    if postagem_atual is not None:
+        return HttpResponseBadRequest('Já existe uma postagem em andamento pra essa ocorrência.')
+    janela = calcular_janela_ocorrencia(chave, andamento.inicio_fase, andamento.ocorrencia_atual)
+    Postagem.objects.create(
+        produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
+        inicio_ocorrencia=janela.inicio, fim_ocorrencia=janela.fim,
+        status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
+    )
+    return None
+
+
+def _acao_marcar_aprovado_ou_recusado(produto, andamento, postagem_atual, chave, agora, novo_status):
+    if postagem_atual is None or postagem_atual.status != StatusPostagem.AGUARDANDO_APROVACAO:
+        return HttpResponseBadRequest('Estado inválido — não há postagem aguardando aprovação.')
+    postagem_atual.status = novo_status
+    postagem_atual.aprovado_ou_recusado_em = agora
+    postagem_atual.save()
+    return None
+
+
+def _acao_aprovar(produto, andamento, postagem_atual, chave, agora):
+    return _acao_marcar_aprovado_ou_recusado(produto, andamento, postagem_atual, chave, agora, StatusPostagem.APROVADO)
+
+
+def _acao_recusar(produto, andamento, postagem_atual, chave, agora):
+    return _acao_marcar_aprovado_ou_recusado(produto, andamento, postagem_atual, chave, agora, StatusPostagem.RECUSADO)
+
+
+def _acao_nova_tentativa(produto, andamento, postagem_atual, chave, agora):
+    if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
+        return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
+    janela = calcular_janela_ocorrencia(chave, andamento.inicio_fase, andamento.ocorrencia_atual)
+    Postagem.objects.create(
+        produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
+        inicio_ocorrencia=janela.inicio, fim_ocorrencia=janela.fim,
+        status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
+    )
+    return None
+
+
+def _acao_seguir_sem_repor(produto, andamento, postagem_atual, chave, agora):
+    # * [EXPLICAÇÃO] → "Seguir sem repor" — só existe pra Recusada com cota já
+    #                  cumprida (periodo encolheu no meio do caminho). Nunca
+    #                  cria Postagem nova — a recusada fica no histórico
+    #                  exatamente como ficou, sem resolução, e o produto avança
+    #                  mesmo assim.
+    if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
+        return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
+    completadas = andamento.ocorrencia_atual - 1
+    if completadas < andamento.fase_atual.periodo:
+        return HttpResponseBadRequest('A cota desta fase ainda não foi cumprida — não é possível seguir sem repor.')
+    try:
+        avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=completadas)
+    except ValueError as erro:
+        return HttpResponseBadRequest(str(erro))
+    andamento.save()
+    return None
+
+
+def _acao_replicar(produto, andamento, postagem_atual, chave, agora):
+    if postagem_atual is None or postagem_atual.status != StatusPostagem.APROVADO:
+        return HttpResponseBadRequest('Estado inválido — a postagem atual não foi aprovada.')
+    postagem_atual.status = StatusPostagem.REPLICADO
+    postagem_atual.replicado_em = agora
+    postagem_atual.save()
+
+    try:
+        avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=andamento.ocorrencia_atual)
+    except ValueError as erro:
+        return HttpResponseBadRequest(str(erro))
+    andamento.save()
+    return None
+
+
+ACOES_CICLICAS = {
+    'postar': _acao_postar,
+    'aprovado': _acao_aprovar,
+    'recusado': _acao_recusar,
+    'nova_tentativa': _acao_nova_tentativa,
+    'seguir': _acao_seguir_sem_repor,
+    'replicar': _acao_replicar,
+}
 
 
 def view_executar_acao_ciclica(request, produto_id, chave, acao):
@@ -333,82 +421,18 @@ def view_executar_acao_ciclica(request, produto_id, chave, acao):
     if andamento is None or andamento.fase_atual.fase != chave:
         return HttpResponseBadRequest('Estado inválido — esse produto não está nessa fase agora.')
 
+    funcao_acao = ACOES_CICLICAS.get(acao)
+    if funcao_acao is None:
+        return HttpResponseBadRequest(f'Ação desconhecida: {acao}')
+
     postagem_atual = _buscar_postagem_atual(produto, andamento)
     agora = timezone.now()
 
-    if acao == 'postar':
-        if postagem_atual is not None:
-            return HttpResponseBadRequest('Já existe uma postagem em andamento pra essa ocorrência.')
-        janela = calcular_janela_ocorrencia(chave, andamento.inicio_fase, andamento.ocorrencia_atual)
-        Postagem.objects.create(
-            produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
-            inicio_ocorrencia=janela.inicio, fim_ocorrencia=janela.fim,
-            status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
-        )
+    resposta_erro = funcao_acao(produto, andamento, postagem_atual, chave, agora)
+    if resposta_erro is not None:
+        return resposta_erro
 
-    elif acao in ('aprovado', 'recusado'):
-        if postagem_atual is None or postagem_atual.status != StatusPostagem.AGUARDANDO_APROVACAO:
-            return HttpResponseBadRequest('Estado inválido — não há postagem aguardando aprovação.')
-        postagem_atual.status = StatusPostagem.APROVADO if acao == 'aprovado' else StatusPostagem.RECUSADO
-        postagem_atual.aprovado_ou_recusado_em = agora
-        postagem_atual.save()
-
-    elif acao == 'nova_tentativa':
-        if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
-            return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
-        janela = calcular_janela_ocorrencia(chave, andamento.inicio_fase, andamento.ocorrencia_atual)
-        Postagem.objects.create(
-            produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
-            inicio_ocorrencia=janela.inicio, fim_ocorrencia=janela.fim,
-            status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
-        )
-
-    elif acao == 'seguir':
-        # * [EXPLICAÇÃO] → "Seguir sem repor" (26/07) — só existe pra Recusada
-        #                  com cota já cumprida (periodo encolheu no meio do
-        #                  caminho). Nunca cria Postagem nova — a recusada
-        #                  fica no histórico exatamente como ficou, sem
-        #                  resolução, e o produto avança mesmo assim.
-        if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
-            return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
-        completadas = andamento.ocorrencia_atual - 1
-        if completadas < andamento.fase_atual.periodo:
-            return HttpResponseBadRequest('A cota desta fase ainda não foi cumprida — não é possível seguir sem repor.')
-        try:
-            avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=completadas)
-        except ValueError as erro:
-            return HttpResponseBadRequest(str(erro))
-        andamento.save()
-
-    elif acao == 'replicar':
-        if postagem_atual is None or postagem_atual.status != StatusPostagem.APROVADO:
-            return HttpResponseBadRequest('Estado inválido — a postagem atual não foi aprovada.')
-        postagem_atual.status = StatusPostagem.REPLICADO
-        postagem_atual.replicado_em = agora
-        postagem_atual.save()
-
-        try:
-            avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=andamento.ocorrencia_atual)
-        except ValueError as erro:
-            return HttpResponseBadRequest(str(erro))
-        andamento.save()
-
-    else:
-        return HttpResponseBadRequest(f'Ação desconhecida: {acao}')
-
-    # * [EXPLICAÇÃO] → Mesmo motivo do view_marcar_ponto_roadmap — busca fresco,
-    #                  sem cache de relação grudado, antes de montar a resposta.
-    produto = Produto.objects.get(id=produto.id)
-    sincronizar_roadmap_agenda_produto(produto)
-    data_simulada = _resolver_data_simulada(request)
-    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
-        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
-        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
-    if getattr(produto, 'andamento_agenda', None):
-        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
-        'produto': produto, 'data_simulada': data_simulada,
-    })
+    return _recarregar_e_renderizar_card(request, produto.id)
 
 
 # Função Objetivo: Liga/desliga "Urgente" — qualquer produto, sem confirmação
@@ -421,16 +445,8 @@ def view_alternar_urgente(request, produto_id):
     roadmap_agenda.urgente = not roadmap_agenda.urgente
     roadmap_agenda.save()
 
-    produto = Produto.objects.get(id=produto.id)
-    data_simulada = _resolver_data_simulada(request)
-    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
-        calcular_indicadores_atraso(produto, produto.andamento_agenda, data_referencia=data_simulada)
-        produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, produto.andamento_agenda)
-    if getattr(produto, 'andamento_agenda', None):
-        produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, produto.andamento_agenda)
-    return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', {
-        'produto': produto, 'data_simulada': data_simulada,
-    })
+    return _recarregar_e_renderizar_card(request, produto.id)
+
 
 # Função Objetivo: Valida quantidade_postagens/periodo — só aceita inteiro
 # >= 1 (regra de negócio: "0 vídeos a cada 0 dias" não existe). Qualquer
@@ -498,11 +514,12 @@ def view_configuracoes_agenda_videos(request):
         'fases': fases,
     })
 
+
 # Função Objetivo: Modal de histórico de 1 produto (Formato A) — disparado
 # pelo ícone novo no card, sempre mostra o histórico COMPLETO daquele produto.
 def view_historico_produto(request, produto_id):
     from produtos.models import Produto
-    from agenda_videos.funcoes_auxiliares.historico_postagens import montar_historico_produto
+    from agenda_videos.funcoes_auxiliares.historico_roadmap import montar_historico_produto
 
     produto = get_object_or_404(Produto, id=produto_id)
     historico = montar_historico_produto(produto)
@@ -525,10 +542,10 @@ def _validar_data(valor):
 
 # Função Objetivo: Tela de relatório (Formato B) — produtos que têm pelo
 # menos 1 Postagem batendo com os filtros, agrupados, cada um mostrando o
-# histórico completo dele quando aberto (ver historico_postagens.py).
+# histórico completo dele quando aberto (ver historico_roadmap.py).
 def view_historico_agenda_videos(request):
     from django.core.paginator import Paginator
-    from agenda_videos.funcoes_auxiliares.historico_postagens import (
+    from agenda_videos.funcoes_auxiliares.historico_roadmap import (
         listar_produtos_com_historico, montar_historico_produto,
     )
 
@@ -538,6 +555,9 @@ def view_historico_agenda_videos(request):
         'status': request.GET.getlist('status'),
         'data_de': _validar_data(request.GET.get('data_de')),
         'data_ate': _validar_data(request.GET.get('data_ate')),
+        'urgente': request.GET.getlist('urgente'),
+        'marcas': request.GET.getlist('marca'),
+        'status_manual': request.GET.getlist('status_manual'),
     }
 
     produtos = listar_produtos_com_historico(busca=busca or None, filtros=filtros)
@@ -554,6 +574,13 @@ def view_historico_agenda_videos(request):
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
 
+    from produtos.models import Produto
+    marcas_disponiveis = (
+        Produto.objects
+        .exclude(marca__isnull=True).exclude(marca='')
+        .values_list('marca', flat=True).distinct().order_by('marca')
+    )
+
     return render(request, 'agenda_videos/estrutura_historico_agenda_videos.html', {
         'grupos': grupos,
         'pagina': pagina,
@@ -561,5 +588,7 @@ def view_historico_agenda_videos(request):
         'filtros': filtros,
         'opcoes_fase': Fase.choices,
         'opcoes_status': StatusPostagem.choices,
+        'opcoes_status_manual': StatusManualAgenda.choices,
+        'marcas_disponiveis': marcas_disponiveis,
         'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
     })

@@ -1,10 +1,19 @@
 # agenda_videos/models/roadmap_agenda.py
 
 # Função Objetivo: Estágio AGRUPADO do produto na Agenda (6 valores) — versão
-# filtrável/paginável do roadmap de 9 pontos, que só existe calculado em Python.
-# Explicação em detalhe: os 4 primeiros pontos do roadmap visual (Simples/Base/
-# Roteiros/Completos) colapsam num só valor aqui ("nao_agendado") — o filtro não
-# precisa saber em qual dos 4 exatamente, só que a preparação ainda não terminou.
+# filtrável/paginável do roadmap de 13 pontos, que só existe calculado em Python.
+# Explicação em detalhe: os pontos de preparação (Simples/Base/Roteiros/Completos
+# de cada fase) colapsam num só valor aqui ("nao_agendado" antes de existir
+# AndamentoAgenda, ou na fase correspondente depois) — o filtro não precisa saber
+# em qual ponto exato, só o agrupamento.
+#
+# ⚠️ ATENÇÃO — estagio_atual e tem_video_reprovado são CÓPIAS calculadas, nunca
+# a fonte real do dado (que vive em ProgressoProducaoVideo, PreparacaoVideoFase,
+# AndamentoAgenda, Postagem e mercado_livre.QualidadeAnuncioCriterio). Qualquer
+# escrita direta nessas tabelas — inclusive de uma automação futura — PRECISA
+# terminar chamando sincronizar_roadmap_agenda_produto(produto) [agenda_videos/
+# funcoes_auxiliares/sincronizar_roadmap_agenda.py], senão estes 2 campos ficam
+# desatualizados silenciosamente. Sem exceção.
 
 from django.db import models
 from produtos.models import Produto

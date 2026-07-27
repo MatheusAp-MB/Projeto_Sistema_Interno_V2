@@ -7,23 +7,94 @@
 # dia inteiro já é a urgência — decisão do usuário).
 #
 # * [ATENÇÃO DE ESCALA] → Calculado em Python, não em SQL — aceitável pro volume
-# atual (dezenas de produtos ativos na Agenda), mas escala mal se isso crescer pra
-# milhares (1 query de Postagem por produto candidato). Se o volume crescer muito,
-# revisar pra Subquery/annotate, mesmo padrão já usado pro status de Postagem
-# recente na listagem principal.
+# atual (dezenas de produtos ativos na Agenda). Avaliado (26/07, pente fino) e
+# mantido assim de propósito — reescrever pra SQL sem necessidade real hoje seria
+# risco sem ganho.
+#
+# A regra de prioridade/ordenação de fase usada aqui é a MESMA da listagem
+# principal, só que em Python — as 2 versões vivem em prioridade_agenda_videos.py.
+#
+# * [EXPLICAÇÃO] → Filtros novos (26/07): mesmos filtros da listagem principal
+# (marca/status manual/urgente/sem vídeo/vídeo simples/vídeo base/status de
+# postagem/atrasado/risco/vencimento/pendente agora) — todos aplicáveis aqui
+# também, por pedido do usuário ("todos os filtros da tela geral devem poder
+# ser aplicados aqui"). "Estágio" NÃO se aplica (A Fazer Hoje e Estágio já são
+# caminhos mutuamente exclusivos, por design). Roteiros/Completos/Insuficientes/
+# Qtd.Roteiros continuam FORA — mesma pendência de "filtros quebrados" da tela
+# principal. As 9 categorias de "Pendente agora" têm a MESMA regra em SQL, na
+# listagem principal (filtros_agenda_videos.py, OPCOES_PENDENTE_AGORA/
+# _condicao_pendencia) — documentada cruzada, categoria nova? Bota nas 2.
 
-from datetime import date
+from datetime import date, datetime
 from django.db.models import Q
 from produtos.models import Produto
-from agenda_videos.models import Postagem, StatusPostagem, Fase
+from agenda_videos.models import Postagem, StatusPostagem, Fase, StatusVideo
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import (
     calcular_janela_ocorrencia, adicionar_dias_uteis, ultimo_dia_util_ou_hoje,
 )
 from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
+from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
+    calcular_prioridade_produto, calcular_ordem_fase_produto,
+)
 
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
+
+
+def _parse_data_faixa(valor):
+    if not valor:
+        return None
+    try:
+        return datetime.strptime(valor, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+# Função Objetivo: Versão Python das MESMAS 9 categorias de "Pendente agora"
+# que existem em SQL na listagem principal (ver filtros_agenda_videos.py).
+# "preparacoes_video" precisa vir prefetched por quem chama (evita N+1).
+def calcular_pendencias_atuais_produto(produto, andamento, postagem_atual):
+    pendencias = set()
+    progresso = getattr(produto, 'progresso_producao_video', None)
+    preparacoes = {p.fase: p for p in produto.preparacoes_video.all()}
+    fase_atual = andamento.fase_atual.fase
+
+    prep_diaria = preparacoes.get(Fase.DIARIA)
+    simples_base_prontos = (
+        progresso is not None and
+        progresso.video_simples_status == StatusVideo.GERADO and
+        progresso.video_base_status == StatusVideo.GERADO
+    )
+    if simples_base_prontos and (prep_diaria is None or not prep_diaria.roteiros_gerados):
+        pendencias.add('roteiros_diaria')
+    elif prep_diaria and prep_diaria.roteiros_gerados and not prep_diaria.completos_produzidos:
+        pendencias.add('completos_diaria')
+
+    for fase, chave_roteiros, chave_completos in [
+        (Fase.SEMANAL, 'roteiros_semanal', 'completos_semanal'),
+        (Fase.MENSAL, 'roteiros_mensal', 'completos_mensal'),
+    ]:
+        if fase_atual != fase:
+            continue
+        prep = preparacoes.get(fase)
+        if prep is None or not prep.roteiros_gerados:
+            pendencias.add(chave_roteiros)
+        elif not prep.completos_produzidos:
+            pendencias.add(chave_completos)
+
+    prep_atual = preparacoes.get(fase_atual)
+    pool_pronto = prep_atual is not None and prep_atual.roteiros_gerados and prep_atual.completos_produzidos
+
+    if postagem_atual is None:
+        if pool_pronto:
+            pendencias.add('aguardando_postar')
+    elif postagem_atual.status == StatusPostagem.AGUARDANDO_APROVACAO:
+        pendencias.add('aguardando_aprovacao')
+    elif postagem_atual.status == StatusPostagem.RECUSADO:
+        pendencias.add('recusado')
+
+    return pendencias
 
 
 # Função Objetivo: Calcula e anexa os 3 indicadores de atraso/risco em 1 produto só.
@@ -45,11 +116,15 @@ def calcular_indicadores_atraso(produto, andamento, data_referencia=None):
     return janela
 
 
-def listar_a_fazer_hoje(busca=None, data_referencia=None):
+def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
     # * [EXPLICAÇÃO] → "data_referencia" existe só pra permitir simular outra data em
     #                  teste.py — a view real nunca passa esse parâmetro, sempre usa
     #                  a data de hoje de verdade.
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
+    filtros = filtros or {}
+
+    vencimento_de = _parse_data_faixa(filtros.get('andamento_agenda__fim_ocorrencia_atual_min'))
+    vencimento_ate = _parse_data_faixa(filtros.get('andamento_agenda__fim_ocorrencia_atual_max'))
 
     from agenda_videos.models import StatusManualAgenda
 
@@ -58,7 +133,7 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
         andamento_agenda__status_manual=StatusManualAgenda.ATIVO,
     ).select_related(
         'andamento_agenda', 'andamento_agenda__fase_atual', 'progresso_producao_video', 'roadmap_agenda',
-    )
+    ).prefetch_related('preparacoes_video')
 
     if busca:
         for termo in busca.split():
@@ -66,6 +141,19 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
                 Q(titulo__icontains=termo) | Q(ean__icontains=termo) |
                 Q(sku__icontains=termo) | Q(cod_fabricante__icontains=termo)
             )
+
+    if filtros.get('marcas'):
+        candidatos = candidatos.filter(marca__in=filtros['marcas'])
+    if filtros.get('status_manual'):
+        candidatos = candidatos.filter(andamento_agenda__status_manual__in=filtros['status_manual'])
+    if filtros.get('urgente'):
+        candidatos = candidatos.filter(roadmap_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
+    if filtros.get('sem_video'):
+        candidatos = candidatos.filter(roadmap_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
+    if filtros.get('video_simples_status'):
+        candidatos = candidatos.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
+    if filtros.get('video_base_status'):
+        candidatos = candidatos.filter(progresso_producao_video__video_base_status__in=filtros['video_base_status'])
 
     resultado = []
     for produto in candidatos:
@@ -85,57 +173,48 @@ def listar_a_fazer_hoje(busca=None, data_referencia=None):
 
         # * [EXPLICAÇÃO] → "status_postagem_recente" precisa existir aqui TAMBÉM
         #                  (não só na listagem normal, que usa annotate/Subquery) —
-        #                  é o mesmo template pros 2 modos.
+        #                  é o mesmo template pros 2 modos. Aqui já vem escopado
+        #                  certinho na ocorrência atual (postagem_atual acima),
+        #                  diferente do status_postagem_recente da listagem
+        #                  principal (que é o mais recente do produto inteiro).
         produto.status_postagem_recente = postagem_atual.status if postagem_atual else None
         calcular_indicadores_atraso(produto, andamento, data_referencia=hoje)
+
+        if filtros.get('atrasado'):
+            valores = filtros['atrasado']
+            if 'sim' in valores and 'nao' not in valores and not produto.a_fazer_hoje_atrasado:
+                continue
+            if 'nao' in valores and 'sim' not in valores and produto.a_fazer_hoje_atrasado:
+                continue
+        if filtros.get('risco'):
+            valores = filtros['risco']
+            if 'sim' in valores and 'nao' not in valores and not produto.a_fazer_hoje_risco:
+                continue
+            if 'nao' in valores and 'sim' not in valores and produto.a_fazer_hoje_risco:
+                continue
+        if filtros.get('status_postagem') and produto.status_postagem_recente not in filtros['status_postagem']:
+            continue
+        if vencimento_de and produto.a_fazer_hoje_vencimento < vencimento_de:
+            continue
+        if vencimento_ate and produto.a_fazer_hoje_vencimento > vencimento_ate:
+            continue
+
+        if filtros.get('pendente_agora'):
+            pendencias = calcular_pendencias_atuais_produto(produto, andamento, postagem_atual)
+            if not pendencias.intersection(filtros['pendente_agora']):
+                continue
+
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
         produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, andamento)
         resultado.append(produto)
 
-    # * [EXPLICAÇÃO] → Mesma prioridade da listagem principal, calculada em Python
-    #                  aqui (já era assim — essa função nunca virou queryset puro,
-    #                  por causa do cálculo de janela por ocorrência):
+    # * [EXPLICAÇÃO] → Mesma prioridade da listagem principal (ver
+    #                  prioridade_agenda_videos.py — versão Python, calculada aqui
+    #                  por causa da janela de ocorrência):
     #                  1. Urgente  2. Atrasado  3. Sem vídeo (UP_HAS_SHORTS)  4. Resto.
     for produto in resultado:
-        produto.prioridade_ordenacao = _calcular_prioridade(produto)
-        produto.ordenacao_fase = _calcular_ordem_fase(produto)
+        produto.prioridade_ordenacao = calcular_prioridade_produto(produto)
+        produto.ordenacao_fase = calcular_ordem_fase_produto(produto)
 
     resultado.sort(key=lambda p: (p.prioridade_ordenacao, p.ordenacao_fase, p.a_fazer_hoje_vencimento))
     return resultado
-
-
-# Função Objetivo: Mesmo grupo de fase da listagem principal — Diária → Semanal
-# → Mensal, grupo intermediário (não critério), entre prioridade e vencimento.
-MAPA_ORDEM_FASE = {'diaria': 1, 'semanal': 2, 'mensal': 3}
-
-
-def _calcular_ordem_fase(produto):
-    andamento = getattr(produto, 'andamento_agenda', None)
-    if andamento is None:
-        return 4
-    return MAPA_ORDEM_FASE.get(andamento.fase_atual.fase, 4)
-
-
-# Função Objetivo: Mesma regra de prioridade da listagem principal — 6 níveis,
-# cruzando Urgente/Atrasado com "Sem vídeo" (um Urgente sem vídeo é mais crítico
-# que um Urgente comum, mesma lógica pra Atrasado):
-#   1. Urgente + Sem vídeo    2. Urgente
-#   3. Atrasado + Sem vídeo   4. Atrasado
-#   5. Sem vídeo              6. Resto
-def _calcular_prioridade(produto):
-    roadmap_agenda = getattr(produto, 'roadmap_agenda', None)
-    urgente = roadmap_agenda is not None and roadmap_agenda.urgente
-    sem_video = roadmap_agenda is not None and roadmap_agenda.tem_video_reprovado
-    atrasado = produto.a_fazer_hoje_atrasado
-
-    if urgente and sem_video:
-        return 1
-    if urgente:
-        return 2
-    if atrasado and sem_video:
-        return 3
-    if atrasado:
-        return 4
-    if sem_video:
-        return 5
-    return 6

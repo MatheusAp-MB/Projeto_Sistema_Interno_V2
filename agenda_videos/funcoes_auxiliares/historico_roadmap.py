@@ -1,13 +1,14 @@
-# agenda_videos/funcoes_auxiliares/historico_postagens.py
+# agenda_videos/funcoes_auxiliares/historico_roadmap.py
 
 # Função Objetivo: Monta os dados de histórico de 1 produto — usado tanto pelo
 # modal individual (Formato A) quanto pela tela de relatório geral agrupada
 # por produto (Formato B). 1 função só constrói o histórico, os 2 formatos
 # reaproveitam ela — nunca duplicada.
+# Renomeado (26/07) de historico_postagens.py — o escopo cresceu pra linha do
+# tempo completa (marcos de preparação + postagens), "postagens" ficou pequeno
+# demais pro que o arquivo realmente faz.
 
-from datetime import datetime, time
 from django.db.models import Q
-from django.utils import timezone
 from produtos.models import Produto
 from agenda_videos.models import Postagem, StatusPostagem, StatusVideo
 from agenda_videos.funcoes_auxiliares.badges_agenda import BADGES_STATUS_POSTAGEM, badge_de
@@ -127,6 +128,7 @@ def montar_historico_produto(produto):
     #                  agora vira badge colorido, não só texto puro.
     resumo = [
         {
+            'valor': status_valor,
             'label': BADGES_STATUS_POSTAGEM[status_valor]['label'],
             'classe': BADGES_STATUS_POSTAGEM[status_valor]['classe'],
             'quantidade': quantidade,
@@ -165,6 +167,13 @@ def listar_produtos_com_historico(busca=None, filtros=None):
 
     ids_produtos = postagens.values_list('produto_id', flat=True).distinct()
     produtos = Produto.objects.filter(id__in=ids_produtos)
+
+    if filtros.get('urgente'):
+        produtos = produtos.filter(roadmap_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
+    if filtros.get('marcas'):
+        produtos = produtos.filter(marca__in=filtros['marcas'])
+    if filtros.get('status_manual'):
+        produtos = produtos.filter(andamento_agenda__status_manual__in=filtros['status_manual'])
 
     if busca:
         for termo in busca.split():

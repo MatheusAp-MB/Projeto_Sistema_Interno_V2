@@ -12,7 +12,7 @@ from django.core.paginator import Paginator
 from produtos.models import Produto
 from agenda_videos.models import EstagioAgenda
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
-    listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA,
+    listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA, OPCOES_PENDENTE_AGORA,
 )
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje, calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.roadmap_produto import (
@@ -33,6 +33,7 @@ LABELS_CAMPOS_FAIXA = {
     'andamento_agenda__ocorrencia_atual': 'Ocorrência',
     'andamento_agenda__inicio_fase': 'Início da Fase',
     'andamento_agenda__fim_fase': 'Fim da Fase',
+    'andamento_agenda__fim_ocorrencia_atual': 'Vencimento da Ocorrência',
     'progresso_producao_video__quantidade_roteiros': 'Qtd. Roteiros',
 }
 
@@ -95,6 +96,10 @@ class ParametrosBuscaAgendaVideos:
             'marcas': request.GET.getlist('marca'),
             'status_manual': request.GET.getlist('status_manual'),
             'urgente': request.GET.getlist('urgente'),
+            'sem_video': request.GET.getlist('sem_video'),
+            'atrasado': request.GET.getlist('atrasado'),
+            'risco': request.GET.getlist('risco'),
+            'pendente_agora': request.GET.getlist('pendente_agora'),
             'video_simples_status': request.GET.getlist('video_simples_status'),
             'video_base_status': request.GET.getlist('video_base_status'),
             'roteiros_gerados': request.GET.getlist('roteiros_gerados'),
@@ -123,10 +128,15 @@ class ConstrutorChipsAtivosAgendaVideos:
 
     def _chips_checkbox(self):
         mapa_labels_estagio = dict(EstagioAgenda.choices)
+        mapa_labels_pendencia = dict(OPCOES_PENDENTE_AGORA)
         chips = [self._chip_simples(mapa_labels_estagio.get(v, v)) for v in self.filtros['estagio']]
         chips += [self._chip_simples(m) for m in self.filtros['marcas']]
         chips += [BADGES_STATUS_MANUAL[v] for v in self.filtros['status_manual'] if v in BADGES_STATUS_MANUAL]
         chips += [self._chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
+        chips += [self._chip_simples('Sem vídeo' if v == 'sim' else 'Com vídeo') for v in self.filtros['sem_video']]
+        chips += [self._chip_simples('Atrasado' if v == 'sim' else 'Não atrasado') for v in self.filtros['atrasado']]
+        chips += [self._chip_simples('Risco de atraso' if v == 'sim' else 'Sem risco') for v in self.filtros['risco']]
+        chips += [self._chip_simples(mapa_labels_pendencia.get(v, v)) for v in self.filtros['pendente_agora']]
         chips += [self._chip_simples(f'Simples: {BADGES_STATUS_VIDEO[v]["label"]}') for v in self.filtros['video_simples_status'] if v in BADGES_STATUS_VIDEO]
         chips += [self._chip_simples(f'Base: {BADGES_STATUS_VIDEO[v]["label"]}') for v in self.filtros['video_base_status'] if v in BADGES_STATUS_VIDEO]
         chips += [self._chip_simples(f'Roteiros gerados: {"Sim" if v == "sim" else "Não"}') for v in self.filtros['roteiros_gerados']]
@@ -176,6 +186,7 @@ class ContextoTelaAgendaVideos:
         if self.parametros.filtros.get('a_fazer_hoje'):
             produtos = listar_a_fazer_hoje(
                 busca=self.parametros.busca or None,
+                filtros=self.parametros.filtros,
                 data_referencia=self.parametros.data_simulada,
             )
             paginator = Paginator(produtos, self.parametros.por_pagina)
@@ -234,6 +245,6 @@ class ContextoTelaAgendaVideos:
             'opcoes_status_video': opcoes_com_badge(BADGES_STATUS_VIDEO),
             'opcoes_status_postagem': opcoes_com_badge(BADGES_STATUS_POSTAGEM),
             'opcoes_sim_nao': OPCOES_SIM_NAO,
-            'badges_status_postagem': BADGES_STATUS_POSTAGEM,
+            'opcoes_pendente_agora': OPCOES_PENDENTE_AGORA,
             'querystring_sem_pagina': self._querystring_sem_pagina(),
         }

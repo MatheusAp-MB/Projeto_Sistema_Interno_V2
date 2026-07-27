@@ -4,6 +4,16 @@
 # Explicação em detalhe: 1 registro por Produto, que evolui com o tempo — quem guarda
 # histórico é Postagem, não este model. fase_atual é sempre FK pra ConfiguracaoFase
 # (nunca choices duplicado), confirmado com o usuário.
+#
+# ⚠️ ATENÇÃO — fim_fase e fim_ocorrencia_atual são CÓPIAS calculadas de fase_atual +
+# inicio_fase + ocorrencia_atual (via calculo_datas_fase.py), nunca a fonte real do
+# dado. O ÚNICO caminho sancionado pra mexer em fase_atual/ocorrencia_atual é a
+# função avancar_ocorrencia_ou_fase() [agenda_videos/views.py] — ela já recalcula os
+# 2 campos junto. Qualquer escrita direta (inclusive de automação futura) que mude
+# fase_atual/ocorrencia_atual sem passar por essa função deixa fim_fase/
+# fim_ocorrencia_atual desatualizados silenciosamente — já vivemos esse bug de
+# verdade uma vez (26/07, correção da referência de data no recálculo de
+# Configuração de Fases).
 
 from django.db import models
 from produtos.models import Produto
@@ -52,7 +62,7 @@ class AndamentoAgenda(models.Model):
 
     # * [EXPLICAÇÃO] → "urgente" MUDOU DE LUGAR (25/07) — saiu daqui e foi pra
     #                  RoadmapAgenda. Motivo: qualquer produto pode ser marcado
-    #                  como urgente (mesmo "Não Agendado"), e AndamentoAgenda só
+    #                  como urgente, mesmo "Não Agendado", e AndamentoAgenda só
     #                  existe pra quem já tem Agenda — não servia mais como dono
     #                  desse campo.
 
@@ -60,8 +70,8 @@ class AndamentoAgenda(models.Model):
     #                  persistido de propósito, pra dar pro banco comparar/ordenar
     #                  por "atrasado" direto em SQL (Case/When), sem precisar rodar
     #                  nossa função de dia útil durante a query. Recalculado sempre
-    #                  que ocorrencia_atual ou fase_atual mudam (view_agendar_produto,
-    #                  view_executar_acao_ciclica).
+    #                  que ocorrencia_atual ou fase_atual mudam — ver aviso no topo
+    #                  do arquivo.
     fim_ocorrencia_atual = models.DateField(blank=True, null=True)
 
     # * [EXPLICAÇÃO] → Timestamp de quando o produto entrou na Agenda de verdade

@@ -204,6 +204,19 @@ def obter_mapa_periodos_por_fase():
     return {c.fase: c.periodo for c in ConfiguracaoFase.objects.all()}
 
 
+# Função Objetivo: Carrega as preparações (Diária/Semanal/Mensal) de 1 produto
+# numa query só, monta um dict {fase: PreparacaoVideoFase} — nunca 1 query por
+# fase depois. Única fonte desse dict (26/07, pente fino — antes essa mesma
+# expressão estava escrita 3 vezes: aqui, em sincronizar_roadmap_agenda.py e
+# em popular_banco_suporte/sincronizar_roadmap_agenda.py). Mora aqui (não em
+# sincronizar_roadmap_agenda.py) porque esse módulo JÁ é importado por eles —
+# o caminho contrário criaria import circular.
+def montar_preparacoes_por_fase(produto):
+    if not produto.pk:
+        return {}
+    return {p.fase: p for p in produto.preparacoes_video.all()}
+
+
 # Função Objetivo: Busca (num dict já carregado, sem query nova) a preparação de 1 fase.
 def _obter_preparacao(preparacoes_por_fase, fase):
     return preparacoes_por_fase.get(fase) if preparacoes_por_fase else None
@@ -317,7 +330,17 @@ def _montar_explicacao_ciclica(unidade, estado, atual, periodo, definicao_seguin
             f'1 vídeo por {unidade.singular.lower()}, quando chegar a vez.'
         )
     if estado == EstadoPonto.CONCLUIDO:
-        return f'Concluída — foram publicados os {periodo} {unidade.plural}.'
+        if atual == periodo:
+            return f'Concluída — foram publicados os {periodo} {unidade.plural}.'
+        # * [EXPLICAÇÃO] → periodo mudou DEPOIS que essa fase já tinha terminado —
+        #                  "atual" aqui é a contagem REAL (Postagem Replicada),
+        #                  nunca mais o periodo atual (correção reaplicada 26/07 —
+        #                  ficou faltando numa aplicação anterior, junto com a
+        #                  mudança de "atual" em calcular_roadmap_produto).
+        return (
+            f'Concluída com {atual} {unidade.plural} — regra vigente na época. '
+            f'A configuração atual pede {periodo} {unidade.plural}.'
+        )
 
     ja_publicados = atual - 1
     if atual < periodo:
@@ -351,12 +374,6 @@ def _buscar_sub_estado_postagem(produto, chave, andamento):
     }.get(postagem_atual.status)
 
 
-# Função Objetivo: Indicador pro badge do card — a fase ATUAL do produto tem
-# Roteiros ou Completos insuficientes (marcado como pronto, mas a quantidade
-# capturada no clique não cobre mais o periodo de agora)? Devolve None/'roteiros'/
-# 'completos'. Não decide clicabilidade (isso é calcular_chave_atual) — aparece
-# mesmo com uma ação pendente em aberto, como aviso antecipado do que vai
-# bloquear a PRÓXIMA ocorrência de começar.
 # Função Objetivo: Conta quantas ocorrências dessa fase realmente viraram
 # Postagem Replicada — número REAL, nunca afetado por mudança de config depois
 # que a fase já tinha terminado.
@@ -401,6 +418,12 @@ def calcular_indicador_divergencia_fase_concluida(produto, andamento):
     return divergencias
 
 
+# Função Objetivo: Indicador pro badge do card — a fase ATUAL do produto tem
+# Roteiros ou Completos insuficientes (marcado como pronto, mas a quantidade
+# capturada no clique não cobre mais o periodo de agora)? Devolve None/'roteiros'/
+# 'completos'. Não decide clicabilidade (isso é calcular_chave_atual) — aparece
+# mesmo com uma ação pendente em aberto, como aviso antecipado do que vai
+# bloquear a PRÓXIMA ocorrência de começar.
 def calcular_indicador_pool_insuficiente(produto, andamento):
     if andamento is None or andamento.concluido:
         return None
@@ -425,12 +448,7 @@ def calcular_indicador_pool_insuficiente(produto, andamento):
 def calcular_roadmap_produto(produto):
     progresso = getattr(produto, 'progresso_producao_video', None)
     andamento = getattr(produto, 'andamento_agenda', None)
-
-    # * [EXPLICAÇÃO] → Carrega as 3 preparações (Diária/Semanal/Mensal) numa query
-    #                  só, monta um dict — nunca 1 query por fase depois.
-    preparacoes_por_fase = {
-        p.fase: p for p in produto.preparacoes_video.all()
-    } if produto.pk else {}
+    preparacoes_por_fase = montar_preparacoes_por_fase(produto)
 
     chave_atual = calcular_chave_atual(progresso, preparacoes_por_fase, andamento, produto=produto)
     ordem_chaves = [definicao.chave for definicao in DEFINICOES_PONTOS]

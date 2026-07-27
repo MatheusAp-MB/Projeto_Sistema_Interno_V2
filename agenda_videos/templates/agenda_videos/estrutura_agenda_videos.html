@@ -23,6 +23,7 @@
 {% block scripts %}
 <script src="{% static 'agenda_videos/js/script_roadmap_produto.js' %}"></script>
 <script src="{% static 'agenda_videos/js/script_agenda_videos.js' %}"></script>
+<script src="{% static 'agenda_videos/js/script_historico_agenda_videos.js' %}"></script>
 {% endblock %}
 
 {% block conteudo %}
@@ -87,9 +88,12 @@
     </div>
     {% endif %}
 
-    <!-- * [EXPLICAÇÃO] → Filtros abaixo (Status Manual, Urgente, Vídeo, Postagem,
-         faixas) serão repensados por completo numa rodada própria — mantidos como
-         estão por enquanto, só a base da tela/query mudou. -->
+    <!-- * [EXPLICAÇÃO] → Filtros novos (26/07): Atrasado/Risco/Sem vídeo (antes só
+         existiam como badge), Vencimento da Ocorrência, e Pendente Agora (fila de
+         trabalho por tipo de tarefa). Roteiros gerados/Completos produzidos/
+         Roteiros insuficientes/Qtd. Roteiros SEGUEM QUEBRADOS de propósito —
+         apontam pra campos que migraram pra PreparacaoVideoFase por fase;
+         repensar numa rodada própria. -->
     <details class="agenda-filtros">
         <summary class="agenda-filtros-titulo">
             <i class="fas fa-filter"></i> Mais filtros <i class="fas fa-chevron-down agenda-filtros-seta"></i>
@@ -140,6 +144,42 @@
                 </div>
 
                 <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Atrasado</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="atrasado" value="{{ opcao.valor }}" {% if opcao.valor in filtros.atrasado %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Risco de Atraso</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="risco" value="{{ opcao.valor }}" {% if opcao.valor in filtros.risco %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Sem Vídeo (Mercado Livre)</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="sem_video" value="{{ opcao.valor }}" {% if opcao.valor in filtros.sem_video %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
                     <span class="filtro-subgrupo-titulo">Status da postagem mais recente</span>
                     <div class="filtro-opcoes-inline">
                         {% for opcao in opcoes_status_postagem %}
@@ -172,6 +212,14 @@
                     <div class="filtro-faixa-campos">
                         <input type="date" name="andamento_agenda__fim_fase_min" value="{{ filtros|get_item:'andamento_agenda__fim_fase_min' }}">
                         <input type="date" name="andamento_agenda__fim_fase_max" value="{{ filtros|get_item:'andamento_agenda__fim_fase_max' }}">
+                    </div>
+                </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Vencimento da Ocorrência</span>
+                    <div class="filtro-faixa-campos">
+                        <input type="date" name="andamento_agenda__fim_ocorrencia_atual_min" value="{{ filtros|get_item:'andamento_agenda__fim_ocorrencia_atual_min' }}">
+                        <input type="date" name="andamento_agenda__fim_ocorrencia_atual_max" value="{{ filtros|get_item:'andamento_agenda__fim_ocorrencia_atual_max' }}">
                     </div>
                 </div>
             </div>
@@ -236,6 +284,25 @@
                 </div>
             </div>
 
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Pendente Agora</div>
+                <div class="filtro-subgrupo">
+                    <span class="filtro-subgrupo-titulo">Fila de trabalho por tipo de tarefa (marque quantos quiser)</span>
+                    <div class="filtro-opcoes-lista">
+                        {% for valor, label in opcoes_pendente_agora %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="pendente_agora" value="{{ valor }}" {% if valor in filtros.pendente_agora %}checked{% endif %}>
+                            <span>{{ label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="agenda-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
         </div>
     </details>
 </form>

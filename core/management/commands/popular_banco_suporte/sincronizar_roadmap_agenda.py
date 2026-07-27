@@ -2,7 +2,7 @@
 
 from produtos.models import Produto
 from agenda_videos.models import RoadmapAgenda, EstagioAgenda, ProgressoProducaoVideo
-from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_chave_atual
+from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_chave_atual, montar_preparacoes_por_fase
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import (
     colapsar_chave_em_estagio, _verificar_video_reprovado,
 )
@@ -47,7 +47,7 @@ def sincronizar_roadmap_agenda(stdout, style):
         if indice % 500 == 0 or indice == total:
             stdout.write(f'    ... {indice}/{total} produtos processados')
 
-        preparacoes_por_fase = {p.fase: p for p in produto.preparacoes_video.all()}
+        preparacoes_por_fase = montar_preparacoes_por_fase(produto)
         chave_atual = calcular_chave_atual(
             getattr(produto, 'progresso_producao_video', None),
             preparacoes_por_fase,
