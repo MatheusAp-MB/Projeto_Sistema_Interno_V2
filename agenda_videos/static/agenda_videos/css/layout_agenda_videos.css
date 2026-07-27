@@ -372,11 +372,21 @@
     background: #fafbfc;
 }
 
+/* * [EXPLICAÇÃO] → Visual alinhado (26/07) com o mesmo componente já usado em
+ *                  Produtos e Hub de Anúncios (pill azul-marinho + hierarquia
+ *                  de 2 níveis) — a versão anterior daqui era mais antiga que
+ *                  a deles, sem esse tratamento. */
 .filtro-secao-titulo {
+    font-size: 0.72rem;
     font-weight: 700;
-    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #fff;
+    background-color: rgba(47, 47, 118, 0.811);
+    padding: 5px 10px;
+    border-radius: 4px;
     margin-bottom: 8px;
-    color: #33404f;
+    text-align: center;
 }
 
 .filtro-subgrupo {
@@ -385,9 +395,16 @@
 
 .filtro-subgrupo-titulo {
     display: block;
-    font-size: 0.75rem;
-    color: #4d5b6e;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #fff;
+    background-color: rgba(61, 70, 116, 0.811);
+    padding: 3px 6px;
+    border-radius: 4px;
     margin-bottom: 4px;
+    text-align: center;
 }
 
 .filtro-opcoes-lista {
@@ -410,6 +427,28 @@
     gap: 5px;
     font-size: 0.8rem;
     cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease;
+}
+
+.filtro-opcao:hover {
+    background-color: #dff5ffbd;
+    color: #05004f;
+}
+
+/* * [EXPLICAÇÃO] → Campo "Buscar marca..." dentro da lista longa — mesmo
+ *                  padrão de Produtos (filtro-busca-interna), filtra as
+ *                  opções na hora via JS (script_busca_interna_filtros.js),
+ *                  sem ida ao servidor. */
+.filtro-busca-interna {
+    font-size: 0.76rem;
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 6px;
 }
 
 .filtro-faixa-campos {

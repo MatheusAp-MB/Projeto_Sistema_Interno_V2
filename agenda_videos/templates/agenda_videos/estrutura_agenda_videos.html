@@ -24,6 +24,7 @@
 <script src="{% static 'agenda_videos/js/script_roadmap_produto.js' %}"></script>
 <script src="{% static 'agenda_videos/js/script_agenda_videos.js' %}"></script>
 <script src="{% static 'agenda_videos/js/script_historico_agenda_videos.js' %}"></script>
+<script src="{% static 'agenda_videos/js/script_busca_interna_filtros.js' %}"></script>
 {% endblock %}
 
 {% block conteudo %}
@@ -105,6 +106,7 @@
                 <div class="filtro-secao-titulo">Identificação</div>
                 <div class="filtro-subgrupo">
                     <span class="filtro-subgrupo-titulo">Marca</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
                     <div class="filtro-opcoes-lista">
                         {% for marca in marcas_disponiveis %}
                         <label class="filtro-opcao">
@@ -117,19 +119,7 @@
             </div>
 
             <div class="filtro-secao-card">
-                <div class="filtro-secao-titulo">Andamento</div>
-
-                <div class="filtro-subgrupo filtro-subgrupo-compacto">
-                    <span class="filtro-subgrupo-titulo">Status Manual</span>
-                    <div class="filtro-opcoes-inline">
-                        {% for opcao in opcoes_status_manual %}
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="status_manual" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status_manual %}checked{% endif %}>
-                            <span>{{ opcao.label }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
+                <div class="filtro-secao-titulo">Indicadores</div>
 
                 <div class="filtro-subgrupo filtro-subgrupo-compacto">
                     <span class="filtro-subgrupo-titulo">Urgente</span>
@@ -178,6 +168,22 @@
                         {% endfor %}
                     </div>
                 </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Status Manual</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_status_manual %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="status_manual" value="{{ opcao.valor }}" {% if opcao.valor in filtros.status_manual %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Andamento</div>
 
                 <div class="filtro-subgrupo filtro-subgrupo-compacto">
                     <span class="filtro-subgrupo-titulo">Status da postagem mais recente</span>

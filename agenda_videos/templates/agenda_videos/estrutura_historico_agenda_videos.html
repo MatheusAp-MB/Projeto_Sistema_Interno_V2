@@ -18,6 +18,11 @@
 <link rel="stylesheet" href="{% static 'agenda_videos/css/layout_historico_agenda_videos.css' %}">
 {% endblock %}
 
+{% block scripts %}
+<script src="{% static 'agenda_videos/js/script_historico_agenda_videos.js' %}"></script>
+<script src="{% static 'agenda_videos/js/script_busca_interna_filtros.js' %}"></script>
+{% endblock %}
+
 {% block conteudo %}
 
 <form method="get" class="agenda-barra-busca">
@@ -41,6 +46,7 @@
                 <div class="filtro-secao-titulo">Identificação</div>
                 <div class="filtro-subgrupo">
                     <span class="filtro-subgrupo-titulo">Marca</span>
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
                     <div class="filtro-opcoes-lista">
                         {% for marca in marcas_disponiveis %}
                         <label class="filtro-opcao">

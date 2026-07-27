@@ -138,15 +138,17 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     filtros = filtros or {}
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
 
-    postagem_mais_recente = Postagem.objects.filter(produto=OuterRef('pk')).order_by('-criado_em')
-
-    # * [EXPLICAÇÃO] → Diferente de status_postagem_recente (mais recente do
-    #                  produto INTEIRO, qualquer fase/ocorrência) — esta é
-    #                  escopada de verdade na ocorrência ATUAL, usada só pelas
-    #                  3 categorias de "Pendente agora" que dependem de status
-    #                  de Postagem. Se fossem a mesma coisa, um produto recém
-    #                  avançado pra uma ocorrência nova (sem Postagem ainda)
-    #                  apareceria com o status da ocorrência ANTERIOR.
+    # * [EXPLICAÇÃO] → Escopada na ocorrência ATUAL (fase + número certos) —
+    #                  corrigido (26/07): existia uma versão anterior
+    #                  (status_postagem_recente) que pegava a Postagem mais
+    #                  recente do produto INTEIRO, qualquer fase/ocorrência.
+    #                  Bug real encontrado em teste: um produto que passou
+    #                  por "Seguir sem repor" (Recusada deixada de propósito
+    #                  no histórico, sem nunca ser resolvida) continuava
+    #                  aparecendo no filtro "Recusado" muito depois de já ter
+    #                  avançado de fase — a Postagem antiga, abandonada, ainda
+    #                  era "a mais recente do produto", mesmo sem relevância
+    #                  nenhuma pro presente. Removida — nada mais usa ela.
     postagem_ocorrencia_atual = Postagem.objects.filter(
         produto=OuterRef('pk'),
         fase=OuterRef('andamento_agenda__fase_atual__fase'),
@@ -160,7 +162,6 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
         'andamento_agenda', 'andamento_agenda__fase_atual',
         'progresso_producao_video', 'roadmap_agenda',
     ).annotate(
-        status_postagem_recente=Subquery(postagem_mais_recente.values('status')[:1]),
         status_postagem_ocorrencia_atual=Subquery(postagem_ocorrencia_atual.values('status')[:1]),
         prioridade_ordenacao=construir_annotation_prioridade(hoje),
         ordenacao_fase=construir_annotation_ordenacao_fase(),
@@ -195,7 +196,7 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     if filtros.get('roteiros_insuficientes'):
         qs = qs.filter(progresso_producao_video__roteiros_insuficientes__in=[v == 'sim' for v in filtros['roteiros_insuficientes']])
     if filtros.get('status_postagem'):
-        qs = qs.filter(status_postagem_recente__in=filtros['status_postagem'])
+        qs = qs.filter(status_postagem_ocorrencia_atual__in=filtros['status_postagem'])
 
     # * [EXPLICAÇÃO] → Atrasado/Risco eram só badge visual até 26/07 — mesma
     #                  regra que já existe em calcular_indicadores_atraso
