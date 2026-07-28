@@ -1,19 +1,18 @@
 # agenda_videos/funcoes_auxiliares/verificar_arquivos_drive.py
 
-# Função Objetivo: Verifica os arquivos de 1 produto no Drive (AO VIVO, 1
-# produto por vez) e avança o roadmap automaticamente — reaproveita
-# calcular_chave_atual (a MESMA função que decide qual ponto é o atual pro
-# clique manual), em loop: pergunta qual é o ponto atual, confere se o Drive
-# tem o arquivo dele, marca como pronto, pergunta de novo, repete até faltar
-# arquivo ou chegar num ponto que não depende de arquivo.
+# Função Objetivo: Verifica os arquivos de preparação no Drive e avança o
+# roadmap automaticamente — reaproveita calcular_chave_atual (a MESMA função
+# que decide qual ponto é o atual pro clique manual), em loop: pergunta qual
+# é o ponto atual, confere se o Drive tem o arquivo dele, marca como pronto,
+# pergunta de novo, repete até faltar arquivo ou chegar num ponto que não
+# depende de arquivo (cíclico/Agendamento/Otimizado).
 #
-# avaliar_ponto_preparacao() é a peça COMPARTILHADA entre este arquivo
-# (verificação ao vivo, escreve no banco) e diagnostico_preparo_drive.py
-# (leitura só do snapshot já salvo, nunca escreve) — nunca duplicar a
-# pergunta "esse ponto está satisfeito?" em 2 lugares.
-#
-# Sempre grava SnapshotArquivosDrive ao final — dado da API é caro, nunca
-# descartado depois de usado 1 vez, mesmo sendo verificação individual.
+# 2 modos de entrada, MESMO loop de avanço por baixo (_avancar_pontos_com_estrutura):
+#   - verificar_produto_no_drive(produto_id) — 1 produto, busca o Drive AO VIVO
+#     (navegação individual), sempre grava o snapshot antes de avançar.
+#   - verificar_todos_no_drive() — todo o catálogo, reaproveita snapshots que
+#     a varredura completa (escanear_drive_completo.py) ACABOU de salvar —
+#     zero chamada nova ao Drive além do 1 sweep já feito.
 
 from dataclasses import dataclass
 from django.utils import timezone
@@ -32,9 +31,6 @@ from agenda_videos.funcoes_auxiliares.parser_arquivos_drive import (
 
 PREFIXO_CHAVE_PARA_FASE_TXT = {'diaria': 'Diario', 'semanal': 'Semanal', 'mensal': 'Mensal'}
 
-# * [EXPLICAÇÃO] → Só estes pontos dependem de arquivo do Drive — pontos
-#                  cíclicos (Diária/Semanal/Mensal em si), Agendamento e
-#                  Otimizado nunca dependem, e não passam por aqui.
 CHAVES_QUE_DEPENDEM_DE_ARQUIVO = {
     'simples', 'base',
     'roteiros_diaria', 'completos_diaria',
@@ -43,9 +39,6 @@ CHAVES_QUE_DEPENDEM_DE_ARQUIVO = {
 }
 
 
-# Função Objetivo: Explica POR QUE a verificação está bloqueada num ponto que
-# depende de arquivo — distingue "arquivo não existe ainda" de "existe, mas
-# é insuficiente", pra o usuário nunca ficar sem entender o que falta.
 @dataclass(frozen=True)
 class DiagnosticoBloqueio:
     ponto: str
@@ -55,9 +48,8 @@ class DiagnosticoBloqueio:
 # Função Objetivo: Avalia se o Drive (já navegado/parseado em
 # ArquivosProdutoDrive) satisfaz o ponto de preparação `chave` — devolve
 # (satisfeito, diagnostico). Pura, sem chamada de rede nem escrita no banco —
-# reutilizada tanto pela verificação que ESCREVE (este arquivo, ao vivo)
-# quanto pelo diagnóstico que só LÊ (diagnostico_preparo_drive.py, a partir
-# do snapshot salvo).
+# reutilizada tanto pela verificação que ESCREVE (este arquivo) quanto pelo
+# diagnóstico que só LÊ (diagnostico_preparo_drive.py).
 def avaliar_ponto_preparacao(chave, estrutura_drive):
     if chave == 'simples':
         if estrutura_drive.simples is None:
@@ -93,47 +85,12 @@ def avaliar_ponto_preparacao(chave, estrutura_drive):
     return True, None  # ponto que não depende de arquivo — nunca bloqueado por isso
 
 
-def _obter_estrutura_drive(produto):
-    localizador = LocalizadorArquivosProduto()
-    encontrado, arquivos_brutos, motivo, pasta_videos_id = localizador.localizar_arquivos(produto.marca, produto.ean)
-
-    if not encontrado:
-        SnapshotArquivosDrive.objects.update_or_create(
-            produto=produto,
-            defaults={
-                'pasta_encontrada': False, 'motivo_nao_encontrado': motivo,
-                'arquivos_videos': [], 'arquivos_usados': [],
-            },
-        )
-        return montar_produto_nao_encontrado(produto.marca, produto.ean, motivo)
-
-    arquivos_usados = localizador.listar_arquivos_usados(pasta_videos_id)
-
-    # * [EXPLICAÇÃO] → Dado da API é caro, sempre grava — mesmo sendo
-    #                  verificação individual (não a varredura completa),
-    #                  nunca descarta o resultado depois de usado 1 vez.
-    SnapshotArquivosDrive.objects.update_or_create(
-        produto=produto,
-        defaults={
-            'pasta_encontrada': True, 'motivo_nao_encontrado': None,
-            'arquivos_videos': arquivos_brutos, 'arquivos_usados': arquivos_usados,
-        },
-    )
-
-    return parsear_arquivos_produto(produto.marca, produto.ean, arquivos_brutos + arquivos_usados)
-
-
-# Função Objetivo: Verifica 1 produto — avança quantos pontos os arquivos do
-# Drive permitirem, numa passada só. Devolve (pontos_marcados,
-# motivo_pasta_nao_encontrada, diagnostico_do_ponto_onde_travou).
-def verificar_produto_no_drive(produto_id):
+# Função Objetivo: O LOOP de avanço em si — reaproveitado tanto pela
+# verificação individual quanto pela em massa. Recebe a estrutura do Drive JÁ
+# PRONTA (nenhuma chamada de rede aqui dentro) — quem chama decide de onde
+# ela veio (navegação ao vivo, ou snapshot recém-salvo pela varredura).
+def _avancar_pontos_com_estrutura(produto_id, estrutura_drive):
     from produtos.models import Produto
-
-    produto_inicial = Produto.objects.get(id=produto_id)
-    estrutura_drive = _obter_estrutura_drive(produto_inicial)
-
-    if not estrutura_drive.pasta_encontrada:
-        return [], estrutura_drive.motivo_pasta_nao_encontrada, None
 
     pontos_marcados = []
     diagnostico = None
@@ -195,4 +152,71 @@ def verificar_produto_no_drive(produto_id):
         produto = Produto.objects.get(id=produto_id)
         sincronizar_roadmap_agenda_produto(produto)
 
+    return pontos_marcados, diagnostico
+
+
+def _obter_estrutura_drive_ao_vivo(produto):
+    localizador = LocalizadorArquivosProduto()
+    encontrado, arquivos_brutos, motivo, pasta_videos_id = localizador.localizar_arquivos(produto.marca, produto.ean)
+
+    if not encontrado:
+        SnapshotArquivosDrive.objects.update_or_create(
+            produto=produto,
+            defaults={
+                'pasta_encontrada': False, 'motivo_nao_encontrado': motivo,
+                'arquivos_videos': [], 'arquivos_usados': [],
+            },
+        )
+        return montar_produto_nao_encontrado(produto.marca, produto.ean, motivo)
+
+    arquivos_usados = localizador.listar_arquivos_usados(pasta_videos_id)
+
+    SnapshotArquivosDrive.objects.update_or_create(
+        produto=produto,
+        defaults={
+            'pasta_encontrada': True, 'motivo_nao_encontrado': None,
+            'arquivos_videos': arquivos_brutos, 'arquivos_usados': arquivos_usados,
+        },
+    )
+
+    return parsear_arquivos_produto(produto.marca, produto.ean, arquivos_brutos + arquivos_usados)
+
+
+# Função Objetivo: Verifica 1 produto — busca o Drive AO VIVO (navegação
+# individual, 3-4 chamadas), grava o snapshot, avança quantos pontos os
+# arquivos permitirem numa passada só.
+def verificar_produto_no_drive(produto_id):
+    from produtos.models import Produto
+
+    produto_inicial = Produto.objects.get(id=produto_id)
+    estrutura_drive = _obter_estrutura_drive_ao_vivo(produto_inicial)
+
+    if not estrutura_drive.pasta_encontrada:
+        return [], estrutura_drive.motivo_pasta_nao_encontrada, None
+
+    pontos_marcados, diagnostico = _avancar_pontos_com_estrutura(produto_id, estrutura_drive)
     return pontos_marcados, None, diagnostico
+
+
+# Função Objetivo: Verifica TODO o catálogo — reaproveita a varredura
+# completa (1 sweep no Drive inteiro, escanear_drive_completo.py), depois
+# roda o loop de avanço em cada produto encontrado, usando o snapshot que
+# ACABOU de ser salvo — zero chamada nova ao Drive além do sweep.
+def verificar_todos_no_drive():
+    from produtos.models import Produto
+    from agenda_videos.funcoes_auxiliares.escanear_drive_completo import sincronizar_snapshots_drive
+
+    _, sem_produto_no_banco, produto_ids_atualizados = sincronizar_snapshots_drive()
+
+    resumo_por_produto = []
+    for produto_id in produto_ids_atualizados:
+        produto = Produto.objects.select_related('snapshot_drive').get(id=produto_id)
+        snapshot = produto.snapshot_drive
+        estrutura_drive = parsear_arquivos_produto(
+            produto.marca, produto.ean, snapshot.arquivos_videos + snapshot.arquivos_usados,
+        )
+        pontos_marcados, _ = _avancar_pontos_com_estrutura(produto_id, estrutura_drive)
+        if pontos_marcados:
+            resumo_por_produto.append((produto, pontos_marcados))
+
+    return resumo_por_produto, sem_produto_no_banco

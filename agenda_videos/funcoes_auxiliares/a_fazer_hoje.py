@@ -28,7 +28,7 @@
 from datetime import date, datetime
 from django.db.models import Q
 from produtos.models import Produto
-from agenda_videos.models import Postagem, StatusPostagem, Fase, StatusVideo
+from agenda_videos.models import Postagem, StatusPostagem, Fase, StatusVideo, VALIDADE_SNAPSHOT_DRIVE
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import (
     calcular_janela_ocorrencia, adicionar_dias_uteis, ultimo_dia_util_ou_hoje,
 )
@@ -154,6 +154,19 @@ def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
         candidatos = candidatos.filter(roadmap_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
     if filtros.get('reestruturacao_manual'):
         candidatos = candidatos.filter(roadmap_agenda__reestruturacao_manual__in=[v == 'sim' for v in filtros['reestruturacao_manual']])
+    if filtros.get('sincronizado_drive'):
+        from django.utils import timezone as django_timezone
+        limite_snapshot = django_timezone.now() - VALIDADE_SNAPSHOT_DRIVE
+        condicao_sincronizado = Q(
+            snapshot_drive__isnull=False, snapshot_drive__atualizado_em__gte=limite_snapshot,
+        )
+        valores = filtros['sincronizado_drive']
+        if 'sim' in valores and 'nao' not in valores:
+            candidatos = candidatos.filter(condicao_sincronizado)
+        elif 'nao' in valores and 'sim' not in valores:
+            candidatos = candidatos.exclude(condicao_sincronizado)
+    if filtros.get('sincronizado_drive'):
+        limite_snapshot = ultimo_dia_util_ou_hoje.__globals__['timezone'].now() - VALIDADE_SNAPSHOT_DRIVE if False else None
     if filtros.get('video_simples_status'):
         candidatos = candidatos.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
     if filtros.get('video_base_status'):

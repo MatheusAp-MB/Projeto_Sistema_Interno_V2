@@ -96,7 +96,10 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
 
 # Função Objetivo: Varre o Drive inteiro e grava 1 SnapshotArquivosDrive por
 # EAN encontrado que tenha Produto correspondente no banco. Devolve
-# (quantidade_atualizada, lista_de_eans_sem_produto_no_banco).
+# (quantidade_atualizada, lista_de_eans_sem_produto_no_banco,
+# lista_de_ids_de_produto_atualizados) — o 3º valor permite que quem chama
+# (verificar_todos_no_drive) rode o avanço de roadmap em cima do snapshot que
+# ACABOU de ser salvo, sem precisar buscar o Drive de novo.
 def sincronizar_snapshots_drive():
     from produtos.models import Produto
 
@@ -106,6 +109,7 @@ def sincronizar_snapshots_drive():
 
     atualizados = 0
     sem_produto_no_banco = []
+    produto_ids_atualizados = []
 
     for ean, dados in arvore_por_ean.items():
         produto = Produto.objects.filter(ean=ean).first()
@@ -123,5 +127,6 @@ def sincronizar_snapshots_drive():
             },
         )
         atualizados += 1
+        produto_ids_atualizados.append(produto.id)
 
-    return atualizados, sem_produto_no_banco
+    return atualizados, sem_produto_no_banco, produto_ids_atualizados

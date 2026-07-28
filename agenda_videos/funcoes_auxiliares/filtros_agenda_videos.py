@@ -25,7 +25,8 @@
 from datetime import date
 from django.db.models import Q, OuterRef, Subquery, Exists
 from produtos.models import Produto
-from agenda_videos.models import Postagem, PreparacaoVideoFase, Fase, StatusVideo, StatusPostagem
+from agenda_videos.models import Postagem, PreparacaoVideoFase, Fase, StatusVideo, StatusPostagem, VALIDADE_SNAPSHOT_DRIVE
+from django.utils import timezone as django_timezone
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_ou_hoje, adicionar_dias_uteis
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
     construir_annotation_prioridade, construir_annotation_ordenacao_fase,
@@ -187,6 +188,21 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
         qs = qs.filter(roadmap_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
     if filtros.get('reestruturacao_manual'):
         qs = qs.filter(roadmap_agenda__reestruturacao_manual__in=[v == 'sim' for v in filtros['reestruturacao_manual']])
+
+    # * [EXPLICAÇÃO] → "Sincronizado" = tem snapshot E ele está dentro da
+    #                  validade (8h) — mesmo critério do badge/diagnóstico
+    #                  (calcular_diagnostico_preparo_drive), só que aqui
+    #                  vira condição de busca, não só exibição.
+    if filtros.get('sincronizado_drive'):
+        limite_snapshot = django_timezone.now() - VALIDADE_SNAPSHOT_DRIVE
+        condicao_sincronizado = Q(
+            snapshot_drive__isnull=False, snapshot_drive__atualizado_em__gte=limite_snapshot,
+        )
+        valores = filtros['sincronizado_drive']
+        if 'sim' in valores and 'nao' not in valores:
+            qs = qs.filter(condicao_sincronizado)
+        elif 'nao' in valores and 'sim' not in valores:
+            qs = qs.exclude(condicao_sincronizado)
     if filtros.get('video_simples_status'):
         qs = qs.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
     if filtros.get('video_base_status'):

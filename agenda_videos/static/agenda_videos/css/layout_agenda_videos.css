@@ -515,3 +515,24 @@
     font-size: 0.75rem;
     box-sizing: border-box;
 }
+
+.agenda-verificar-todos-form {
+    margin: -6px 0 14px;
+}
+
+.btn-acao-secundario {
+    background: #fff;
+    color: #1e40af;
+    border: 1px solid #1e40af;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-acao-secundario:hover {
+    background: #eff6ff;
+}

@@ -192,6 +192,18 @@
                         {% endfor %}
                     </div>
                 </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Sincronizado com o Drive</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="sincronizado_drive" value="{{ opcao.valor }}" {% if opcao.valor in filtros.sincronizado_drive %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
 
             <div class="filtro-secao-card">
@@ -323,6 +335,14 @@
             <button type="submit" class="btn-acao">Aplicar filtros</button>
         </div>
     </details>
+</form>
+
+<form method="post" action="{% url 'agenda_videos_verificar_todos_drive' %}" class="agenda-verificar-todos-form"
+      onsubmit="return confirm('Isso vai varrer o Google Drive inteiro e avançar o que estiver pronto — pode demorar alguns segundos. Confirma?');">
+    {% csrf_token %}
+    <button type="submit" class="btn-acao-secundario">
+        <i class="fas fa-cloud-arrow-down"></i> Verificar Todos no Drive
+    </button>
 </form>
 
 <div class="agenda-ordenar-por">

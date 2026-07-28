@@ -11,7 +11,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
 from agenda_videos.funcoes_auxiliares.diagnostico_preparo_drive import calcular_diagnostico_preparo_drive
-from agenda_videos.funcoes_auxiliares.verificar_arquivos_drive import verificar_produto_no_drive
+from agenda_videos.funcoes_auxiliares.verificar_arquivos_drive import verificar_produto_no_drive, verificar_todos_no_drive
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import calcular_janela_ocorrencia, calcular_janela_fase
@@ -481,6 +481,40 @@ def view_verificar_produto_drive(request, produto_id):
             },
         )
     return _recarregar_e_renderizar_card(request, produto_id)
+
+
+# Função Objetivo: Verifica TODO o catálogo de uma vez (varredura completa +
+# avanço de roadmap por produto) — página inteira + mensagem de resultado,
+# diferente do botão individual (que só recarrega 1 card via HTMX), porque
+# afeta potencialmente centenas de produtos ao mesmo tempo.
+def view_verificar_todos_drive(request):
+    from django.contrib import messages
+    from django.shortcuts import redirect
+    from django.urls import reverse
+
+    try:
+        resumo_por_produto, sem_produto_no_banco = verificar_todos_no_drive()
+    except Exception:
+        messages.error(request, 'Não foi possível conectar ao Google Drive agora — tente novamente em instantes.')
+        return redirect(reverse('agenda_videos_principal'))
+
+    total_pontos = sum(len(pontos) for _, pontos in resumo_por_produto)
+    if resumo_por_produto:
+        messages.success(
+            request,
+            f'Verificação concluída — {len(resumo_por_produto)} produto(s) avançaram, '
+            f'{total_pontos} ponto(s) marcado(s) no total.',
+        )
+    else:
+        messages.info(request, 'Verificação concluída — nenhum produto teve ponto novo pra avançar.')
+
+    if sem_produto_no_banco:
+        messages.warning(
+            request,
+            f'{len(sem_produto_no_banco)} pasta(s) no Drive não correspondem a nenhum produto do banco.',
+        )
+
+    return redirect(reverse('agenda_videos_principal'))
 
 
 # Função Objetivo: Valida quantidade_postagens/periodo — só aceita inteiro
