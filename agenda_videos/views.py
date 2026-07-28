@@ -13,6 +13,8 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
 from agenda_videos.funcoes_auxiliares.drive import (
     calcular_diagnostico_preparo_drive, verificar_produto_no_drive, verificar_todos_no_drive,
 )
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao
+from agenda_videos.models import ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import calcular_janela_ocorrencia, calcular_janela_fase
@@ -340,12 +342,7 @@ def view_agendar_produto(request, produto_id, fase_inicial):
 def _acao_postar(produto, andamento, postagem_atual, chave, agora):
     if postagem_atual is not None:
         return HttpResponseBadRequest('Já existe uma postagem em andamento pra essa ocorrência.')
-    janela = calcular_janela_ocorrencia(chave, andamento.inicio_fase, andamento.ocorrencia_atual)
-    Postagem.objects.create(
-        produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
-        inicio_ocorrencia=janela.inicio, fim_ocorrencia=janela.fim,
-        status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
-    )
+    criar_postagem_aguardando_aprovacao(produto, andamento)
     return None
 
 
@@ -369,12 +366,7 @@ def _acao_recusar(produto, andamento, postagem_atual, chave, agora):
 def _acao_nova_tentativa(produto, andamento, postagem_atual, chave, agora):
     if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
-    janela = calcular_janela_ocorrencia(chave, andamento.inicio_fase, andamento.ocorrencia_atual)
-    Postagem.objects.create(
-        produto=produto, fase=chave, numero_ocorrencia=andamento.ocorrencia_atual,
-        inicio_ocorrencia=janela.inicio, fim_ocorrencia=janela.fim,
-        status=StatusPostagem.AGUARDANDO_APROVACAO, aguardando_aprovacao_em=agora,
-    )
+    criar_postagem_aguardando_aprovacao(produto, andamento)
     return None
 
 
@@ -662,3 +654,71 @@ def view_historico_agenda_videos(request):
         'marcas_disponiveis': marcas_disponiveis,
         'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
     })
+
+
+# ===================================================================
+# Postagem Automática
+# ===================================================================
+
+def view_confirmar_postagem_automatica(request):
+    from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
+    quantidade = len(listar_produtos_elegiveis())
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_confirmar_postagem_automatica.html', {
+        'quantidade_elegiveis': quantidade,
+    })
+
+
+def view_iniciar_postagem_automatica(request):
+    import threading
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from agenda_videos.funcoes_auxiliares.postagem_automatica import (
+        listar_produtos_elegiveis, executar_postagem_automatica,
+    )
+
+    produtos_elegiveis = listar_produtos_elegiveis()
+
+    execucao = ExecucaoPostagemAutomatica.objects.create()
+    for ordem, produto in enumerate(produtos_elegiveis, start=1):
+        ItemExecucaoPostagem.objects.create(execucao=execucao, produto=produto, ordem=ordem)
+
+    # * [EXPLICAÇÃO] → daemon=True — se o processo Django morrer, essa thread
+    #                  morre junto (não fica "presa" rodando sozinha).
+    thread = threading.Thread(target=executar_postagem_automatica, args=(execucao.id,), daemon=True)
+    thread.start()
+
+    return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao.id]))
+
+
+# Função Objetivo: Monta o contexto compartilhado entre a tela cheia e o
+# parcial de polling — nunca calcular os contadores em 2 lugares diferentes.
+def _montar_contexto_progresso(execucao):
+    itens = list(execucao.itens.select_related('produto').all())
+    return {
+        'execucao': execucao,
+        'itens': itens,
+        'total': len(itens),
+        'concluidos': sum(1 for i in itens if i.status == StatusItemExecucao.CONCLUIDO),
+        'falharam': sum(1 for i in itens if i.status == StatusItemExecucao.FALHOU),
+        'cancelados': sum(1 for i in itens if i.status == StatusItemExecucao.CANCELADO),
+    }
+
+
+def view_progresso_postagem_automatica(request, execucao_id):
+    execucao = get_object_or_404(ExecucaoPostagemAutomatica, id=execucao_id)
+    return render(
+        request, 'agenda_videos/estrutura_progresso_postagem_automatica.html',
+        _montar_contexto_progresso(execucao),
+    )
+
+
+# Função Objetivo: Endpoint de polling — chamado pelo HTMX a cada poucos
+# segundos, enquanto a execução não chegar num estado final (Concluído ou
+# Cancelado). Quando chega, o próprio HTML devolvido para de incluir o
+# gatilho de polling, e o navegador simplesmente para de perguntar de novo.
+def view_progresso_postagem_automatica_parcial(request, execucao_id):
+    execucao = get_object_or_404(ExecucaoPostagemAutomatica, id=execucao_id)
+    return render(
+        request, 'agenda_videos/parciais/estrutura_parcial_lista_progresso_postagem.html',
+        _montar_contexto_progresso(execucao),
+    )

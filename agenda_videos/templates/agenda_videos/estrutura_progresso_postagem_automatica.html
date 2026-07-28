@@ -1,0 +1,14 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Postagem Automática — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Execução de Postagem Automática{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_progresso_postagem_automatica.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<p class="progresso-subtitulo">Iniciada às {{ execucao.iniciado_em|date:"H:i" }}</p>
+{% include 'agenda_videos/parciais/estrutura_parcial_lista_progresso_postagem.html' %}
+{% endblock %}

@@ -1,0 +1,3 @@
+# agenda_videos/funcoes_auxiliares/postagem_automatica/__init__.py
+
+from .orquestrador import executar_postagem_automatica, listar_produtos_elegiveis

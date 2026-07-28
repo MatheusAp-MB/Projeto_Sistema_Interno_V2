@@ -1,0 +1,46 @@
+<div id="progresso-lista"
+     {% if execucao.status == 'aguardando_inicio' or execucao.status == 'rodando' or execucao.status == 'pausado' %}
+     hx-get="{% url 'agenda_videos_progresso_postagem_automatica_parcial' execucao.id %}"
+     hx-trigger="every 2s" hx-swap="outerHTML"
+     {% endif %}>
+
+    <p class="progresso-status-geral progresso-status--{{ execucao.status }}">
+        {{ execucao.get_status_display }}
+    </p>
+
+    <div class="progresso-itens">
+        {% for item in itens %}
+        <div class="progresso-item progresso-item--{{ item.status }}">
+            <div class="progresso-item-cabecalho">
+                <span class="progresso-item-icone">
+                    {% if item.status == 'concluido' %}✓
+                    {% elif item.status == 'falhou' %}✗
+                    {% elif item.status == 'cancelado' %}⊘
+                    {% elif item.status == 'aguardando' %}○
+                    {% else %}⏳{% endif %}
+                </span>
+                <span class="progresso-item-titulo">{{ item.produto.titulo }} ({{ item.produto.marca }})</span>
+                <span class="progresso-item-status">{{ item.get_status_display }}</span>
+            </div>
+
+            {% if item.baixando_em or item.postando_em or item.atualizando_agenda_em or item.arquivando_em or item.finalizado_em %}
+            <div class="progresso-item-linha-do-tempo">
+                {% if item.baixando_em %}<span>Baixando {{ item.baixando_em|date:"H:i:s" }}</span>{% endif %}
+                {% if item.postando_em %}<span>→ Postando {{ item.postando_em|date:"H:i:s" }}</span>{% endif %}
+                {% if item.atualizando_agenda_em %}<span>→ Atualizando Agenda {{ item.atualizando_agenda_em|date:"H:i:s" }}</span>{% endif %}
+                {% if item.arquivando_em %}<span>→ Arquivando {{ item.arquivando_em|date:"H:i:s" }}</span>{% endif %}
+                {% if item.finalizado_em %}<span>→ {{ item.get_status_display }} {{ item.finalizado_em|date:"H:i:s" }}</span>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if item.mensagem_erro %}
+            <span class="progresso-item-erro">{{ item.mensagem_erro }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <p class="progresso-resumo">
+        {{ total }} produto(s) no total — {{ concluidos }} concluído(s), {{ falharam }} falhou(aram), {{ cancelados }} cancelado(s)
+    </p>
+</div>

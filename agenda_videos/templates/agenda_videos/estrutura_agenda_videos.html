@@ -345,6 +345,12 @@
     </button>
 </form>
 
+<button type="button" class="btn-acao-secundario"
+        hx-get="{% url 'agenda_videos_confirmar_postagem_automatica' %}"
+        hx-target="#modal-roadmap-slot" hx-swap="innerHTML">
+    <i class="fas fa-play"></i> Iniciar Postagem Autônoma de Hoje
+</button>
+
 <div class="agenda-ordenar-por">
     <span class="agenda-ordenar-rotulo">Ordenar por</span>
     {% for chave, cabecalho in cabecalhos.items %}

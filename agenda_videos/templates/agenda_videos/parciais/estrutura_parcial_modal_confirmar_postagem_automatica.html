@@ -1,0 +1,21 @@
+<div class="modal-roadmap-fundo" id="modal-postagem-automatica-fundo">
+    <div class="modal-roadmap-caixa">
+        <h3 class="modal-roadmap-titulo">Iniciar Postagem Autônoma</h3>
+        <p>
+            Isso vai baixar e postar automaticamente os vídeos de hoje, produto
+            por produto, na ordem de prioridade — sem precisar de nenhuma ação
+            manual sua durante o processo.
+        </p>
+        <p><strong>{{ quantidade_elegiveis }}</strong> produto(s) serão processados agora.</p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-cancelar"
+                    onclick="document.getElementById('modal-postagem-automatica-fundo').remove()">
+                Cancelar
+            </button>
+            <form method="post" action="{% url 'agenda_videos_iniciar_postagem_automatica' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-acao">Confirmar e Iniciar</button>
+            </form>
+        </div>
+    </div>
+</div>
