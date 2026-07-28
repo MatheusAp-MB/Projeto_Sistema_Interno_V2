@@ -20,7 +20,12 @@
 import json
 import os
 
-CAMINHO_ARQUIVO_ESTADO = os.path.join(os.path.dirname(__file__), '..', '..', 'estado_consumo_drive.json')
+# * [EXPLICAÇÃO] → Cache dentro do próprio app (agenda_videos/cache/), não
+#                  mais solto na raiz do repositório — pasta criada
+#                  automaticamente no 1º uso (os.makedirs) e gitignorada
+#                  (é estado de execução local, não código nem configuração).
+PASTA_CACHE = os.path.join(os.path.dirname(__file__), '..', 'cache')
+CAMINHO_ARQUIVO_ESTADO = os.path.join(PASTA_CACHE, 'estado_consumo_drive.json')
 
 
 def _carregar_estado():
@@ -31,6 +36,7 @@ def _carregar_estado():
 
 
 def _salvar_estado(estado):
+    os.makedirs(PASTA_CACHE, exist_ok=True)
     with open(CAMINHO_ARQUIVO_ESTADO, 'w', encoding='utf-8') as arquivo:
         json.dump(estado, arquivo, indent=2, ensure_ascii=False)
 
