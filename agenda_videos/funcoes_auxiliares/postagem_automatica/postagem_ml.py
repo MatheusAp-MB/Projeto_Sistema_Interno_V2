@@ -2,11 +2,16 @@
 
 # Função Objetivo: Automação real no Mercado Livre — abre a URL certa, faz
 # upload do vídeo, confirma que processou (3 checkpoints) — e PARA antes do
-# clique final ("Anunciar"), de propósito, por decisão do usuário. Adaptado
-# do protótipo já validado (simular_dia_agenda.py): mesma lógica de
-# checkpoint, só recebendo MLB/caminho como parâmetro (em vez de ler de
-# planilha) e usando a janela JÁ capturada pelo controle de teclado (em vez
-# de capturar a própria).
+# clique final ("Enviar clip"/"Anunciar"), de propósito, por decisão do
+# usuário. Adaptado do protótipo já validado (simular_dia_agenda.py).
+#
+# * [EXPLICAÇÃO] → A interface do Mercado Livre já apareceu em português
+#                  ("Arraste um vídeo...", "Enviar clip") E em espanhol
+#                  ("Subir archivo", "Anunciar") em testes reais — não dá
+#                  pra confiar em 1 nome fixo. NOMES_BOTAO_* guarda TODAS as
+#                  variantes conhecidas; _buscar_por_qualquer_nome() é o
+#                  ÚNICO lugar que tenta cada uma — nunca duplicar essa
+#                  tentativa em mais de 1 ponto do arquivo.
 
 import os
 import time
@@ -14,8 +19,8 @@ import win32gui
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
 
-NOME_BOTAO_UPLOAD = 'Subir archivo'
-NOME_BOTAO_ENVIAR = 'Anunciar'
+NOMES_BOTAO_UPLOAD = ['Arraste um vídeo ou busque-o nos seus arquivos', 'Subir archivo']
+NOMES_BOTAO_ENVIAR = ['Enviar clip', 'Anunciar']
 
 
 def _montar_url(mlb):
@@ -26,6 +31,17 @@ def _listar_janelas_abertas():
     handles = []
     win32gui.EnumWindows(lambda h, resultado: resultado.append(h), handles)
     return set(h for h in handles if win32gui.IsWindowVisible(h) and win32gui.GetWindowText(h))
+
+
+# Função Objetivo: Tenta achar 1 elemento por QUALQUER 1 dos nomes possíveis
+# — devolve o elemento assim que achar o 1º que existir de verdade, ou None
+# se nenhum bater. Único lugar do arquivo que faz essa tentativa.
+def _buscar_por_qualquer_nome(janela, nomes_possiveis, control_type='Button'):
+    for nome in nomes_possiveis:
+        elemento = janela.child_window(title=nome, control_type=control_type)
+        if elemento.exists():
+            return elemento
+    return None
 
 
 def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
@@ -47,16 +63,21 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
     checagens_seguidas = 0
     for _ in range(30):
         time.sleep(0.5)
-        existe_agora = janela_ml.child_window(title=NOME_BOTAO_UPLOAD, control_type='Button').exists()
+        existe_agora = _buscar_por_qualquer_nome(janela_ml, NOMES_BOTAO_UPLOAD) is not None
         checagens_seguidas = checagens_seguidas + 1 if existe_agora else 0
         if checagens_seguidas >= 2:
             carregou = True
             break
     if not carregou:
+        try:
+            todos_os_botoes = [b.window_text() for b in janela_ml.descendants(control_type='Button')]
+        except Exception as erro_diagnostico:
+            todos_os_botoes = [f'ERRO AO LISTAR: {erro_diagnostico}']
+        print(f'[DIAGNÓSTICO] Botões visíveis na tela (Checkpoint 1 falhou): {todos_os_botoes}')
         return False, 'Página do Mercado Livre não carregou a tempo (Checkpoint 1).'
 
-    botao_enviar = janela_ml.child_window(title=NOME_BOTAO_ENVIAR, control_type='Button')
-    botao_upload = janela_ml.child_window(title=NOME_BOTAO_UPLOAD, control_type='Button')
+    botao_enviar = _buscar_por_qualquer_nome(janela_ml, NOMES_BOTAO_ENVIAR)
+    botao_upload = _buscar_por_qualquer_nome(janela_ml, NOMES_BOTAO_UPLOAD)
 
     janelas_antes = _listar_janelas_abertas()
     botao_upload.click_input()
@@ -77,7 +98,8 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
     janela_dialogo.child_window(auto_id='1', control_type='SplitButton').click_input()
 
     # * [EXPLICAÇÃO] → CHECKPOINT 2: confirma que o ARQUIVO CERTO foi
-    #                  escolhido, não só que "algum" upload aconteceu.
+    #                  escolhido — já é independente de idioma (procura pelo
+    #                  nome do ARQUIVO, não por um rótulo fixo).
     nome_arquivo = os.path.basename(caminho_video_local)
     arquivo_confirmado = False
     for _ in range(20):
@@ -97,10 +119,10 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
             habilitou = True
             break
     if not habilitou:
-        return False, 'Vídeo não processou a tempo — botão "Anunciar" não habilitou (Checkpoint 3).'
+        return False, 'Vídeo não processou a tempo — botão de enviar não habilitou (Checkpoint 3).'
 
-    # * [EXPLICAÇÃO] → PARA AQUI DE PROPÓSITO — nunca clica em "Anunciar".
-    #                  O vídeo fica processado e pronto na tela, aguardando
-    #                  confirmação humana. Decisão do usuário, não limitação
-    #                  técnica.
+    # * [EXPLICAÇÃO] → PARA AQUI DE PROPÓSITO — nunca clica no botão de
+    #                  enviar. O vídeo fica processado e pronto na tela,
+    #                  aguardando confirmação humana. Decisão do usuário,
+    #                  não limitação técnica.
     return True, None
