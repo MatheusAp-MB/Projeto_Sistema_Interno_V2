@@ -98,6 +98,7 @@ class ParametrosBuscaAgendaVideos:
             'status_manual': request.GET.getlist('status_manual'),
             'urgente': request.GET.getlist('urgente'),
             'sem_video': request.GET.getlist('sem_video'),
+            'reestruturacao_manual': request.GET.getlist('reestruturacao_manual'),
             'atrasado': request.GET.getlist('atrasado'),
             'risco': request.GET.getlist('risco'),
             'pendente_agora': request.GET.getlist('pendente_agora'),
@@ -135,6 +136,7 @@ class ConstrutorChipsAtivosAgendaVideos:
         chips += [BADGES_STATUS_MANUAL[v] for v in self.filtros['status_manual'] if v in BADGES_STATUS_MANUAL]
         chips += [self._chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
         chips += [self._chip_simples('Sem vídeo' if v == 'sim' else 'Com vídeo') for v in self.filtros['sem_video']]
+        chips += [self._chip_simples('Reestruturação Manual' if v == 'sim' else 'Sem reestruturação manual') for v in self.filtros['reestruturacao_manual']]
         chips += [self._chip_simples('Atrasado' if v == 'sim' else 'Não atrasado') for v in self.filtros['atrasado']]
         chips += [self._chip_simples('Risco de atraso' if v == 'sim' else 'Sem risco') for v in self.filtros['risco']]
         chips += [self._chip_simples(mapa_labels_pendencia.get(v, v)) for v in self.filtros['pendente_agora']]

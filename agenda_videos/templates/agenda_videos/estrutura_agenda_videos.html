@@ -180,6 +180,18 @@
                         {% endfor %}
                     </div>
                 </div>
+
+                <div class="filtro-subgrupo filtro-subgrupo-compacto">
+                    <span class="filtro-subgrupo-titulo">Reestruturação Manual</span>
+                    <div class="filtro-opcoes-inline">
+                        {% for opcao in opcoes_sim_nao %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="reestruturacao_manual" value="{{ opcao.valor }}" {% if opcao.valor in filtros.reestruturacao_manual %}checked{% endif %}>
+                            <span>{{ opcao.label }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
 
             <div class="filtro-secao-card">

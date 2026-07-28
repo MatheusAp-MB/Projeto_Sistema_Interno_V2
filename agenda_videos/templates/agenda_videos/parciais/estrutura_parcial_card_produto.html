@@ -93,6 +93,12 @@
         </span>
         {% endif %}
 
+        {% if produto.roadmap_agenda.reestruturacao_manual %}
+        <span class="badge-tabela badge-reestruturacao-manual" title="Diária finalizada manualmente pela equipe — histórico do processo antigo não é rastreável pelo sistema.">
+            <i class="fas fa-hammer"></i> Reestruturação Manual
+        </span>
+        {% endif %}
+
         {% roadmap_produto produto %}
     </div>
 

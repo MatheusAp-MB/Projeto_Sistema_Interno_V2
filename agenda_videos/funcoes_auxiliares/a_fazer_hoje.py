@@ -152,6 +152,8 @@ def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
         candidatos = candidatos.filter(roadmap_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
     if filtros.get('sem_video'):
         candidatos = candidatos.filter(roadmap_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
+    if filtros.get('reestruturacao_manual'):
+        candidatos = candidatos.filter(roadmap_agenda__reestruturacao_manual__in=[v == 'sim' for v in filtros['reestruturacao_manual']])
     if filtros.get('video_simples_status'):
         candidatos = candidatos.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
     if filtros.get('video_base_status'):

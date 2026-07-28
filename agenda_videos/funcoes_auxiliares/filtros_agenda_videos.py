@@ -185,6 +185,8 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
         qs = qs.filter(roadmap_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
     if filtros.get('sem_video'):
         qs = qs.filter(roadmap_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
+    if filtros.get('reestruturacao_manual'):
+        qs = qs.filter(roadmap_agenda__reestruturacao_manual__in=[v == 'sim' for v in filtros['reestruturacao_manual']])
     if filtros.get('video_simples_status'):
         qs = qs.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
     if filtros.get('video_base_status'):

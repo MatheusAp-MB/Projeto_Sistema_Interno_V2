@@ -43,6 +43,21 @@ class RoadmapAgenda(models.Model):
     #                  Sem vídeo (critério UP_HAS_SHORTS reprovado, API do ML) > resto.
     urgente = models.BooleanField(default=False)
 
+    # * [EXPLICAÇÃO] → Marca produtos com histórico de vídeo legado (Drive
+    #                  antigo, não estruturado / planilha de agenda antiga)
+    #                  cuja Diária está sendo finalizada MANUALMENTE pela
+    #                  equipe (26/07) — a equipe sabe o que já foi postado,
+    #                  o sistema não tem como saber com confiança (histórico
+    #                  não rastreável de verdade). Puramente informativo:
+    #                  não bloqueia nenhuma ação, não desativa "Verificar no
+    #                  Drive" (que, corretamente, vai reportar "pasta não
+    #                  encontrada" pra esses produtos até a equipe terminar
+    #                  e organizar as fases seguintes na estrutura nova).
+    #                  Desliga manualmente (por produto, ou em lote depois),
+    #                  nunca automático — decisão do usuário, revisitada
+    #                  quando a equipe terminar de reestruturar.
+    reestruturacao_manual = models.BooleanField(default=False)
+
     # * [EXPLICAÇÃO] → Persistido (25/07), corrigindo erro de arquitetura: esse
     #                  indicador vinha de uma Exists() ao vivo (Produto → Variação
     #                  → Qualidade → Critério), recalculada pra TODO produto a cada
