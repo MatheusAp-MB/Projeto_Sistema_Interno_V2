@@ -1,27 +1,18 @@
-# agenda_videos/funcoes_auxiliares/escanear_drive_completo.py
+# agenda_videos/funcoes_auxiliares/drive/escaneador.py
 
 # Função Objetivo: Varre TODA a árvore do Drive (raiz + tudo abaixo) numa
 # passada só (paginada), reconstruindo marca→EAN→Videos→arquivos via relação
 # de pai/filho — em vez de perguntar "o que tem dentro de X?" produto por
-# produto (caro, 1+ chamada por nível, por produto), pergunta "me dá tudo" e
-# monta a árvore em memória (processamento local, barato).
-#
-# NÃO substitui LocalizadorArquivosProduto — aquele continua sendo o caminho
-# certo pra verificar 1 produto isolado (ir direto ao ponto é mais barato que
-# varrer tudo só por causa de 1). Esta varredura serve o "Verificar Todos" e
-# qualquer rotina periódica futura.
-#
-# Resultado é sempre PERSISTIDO (SnapshotArquivosDrive) — dado da API é caro,
-# nunca descartado depois de usado 1 vez.
+# produto. NÃO substitui LocalizadorArquivosProduto (aquele é o caminho
+# certo pra 1 produto isolado) — esta varredura serve o "Verificar Todos" e
+# qualquer rotina periódica futura. Resultado sempre PERSISTIDO
+# (SnapshotArquivosDrive) — dado da API é caro, nunca descartado.
 
 from collections import defaultdict
 from django.conf import settings
 from agenda_videos.models import SnapshotArquivosDrive
-from agenda_videos.funcoes_auxiliares.google_drive_cliente import obter_servico_drive
-
-NOME_PASTA_VIDEOS = 'Videos'
-NOME_PASTA_USADOS = 'usados'
-MIME_PASTA = 'application/vnd.google-apps.folder'
+from .cliente import obter_servico_drive
+from .constantes import MIME_PASTA, NOME_PASTA_VIDEOS, NOME_PASTA_USADOS
 
 
 def _listar_tudo_paginado(servico):
@@ -98,8 +89,8 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
 # EAN encontrado que tenha Produto correspondente no banco. Devolve
 # (quantidade_atualizada, lista_de_eans_sem_produto_no_banco,
 # lista_de_ids_de_produto_atualizados) — o 3º valor permite que quem chama
-# (verificar_todos_no_drive) rode o avanço de roadmap em cima do snapshot que
-# ACABOU de ser salvo, sem precisar buscar o Drive de novo.
+# (verificador.verificar_todos_no_drive) rode o avanço de roadmap em cima do
+# snapshot recém-salvo, sem precisar buscar o Drive de novo.
 def sincronizar_snapshots_drive():
     from produtos.models import Produto
 

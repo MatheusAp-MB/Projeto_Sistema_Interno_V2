@@ -1,22 +1,27 @@
-# agenda_videos/funcoes_auxiliares/drive_download_e_arquivamento.py
+# agenda_videos/funcoes_auxiliares/drive/arquivador.py
 
 # Função Objetivo: Baixa 1 arquivo do Drive por ID pra um caminho local, e
 # move arquivo já usado pra subpasta "usados/" dentro de Videos/ — as 2
 # operações que fecham o ciclo (baixar → postar → arquivar). Usa o cliente
-# de ESCRITA (diferente de drive_arquivos_produto.py, que só lê) — escopo
-# maior, usado só aqui, onde é realmente necessário.
+# de ESCRITA (diferente de localizador.py, que só lê).
+#
+# * [ATENÇÃO] → Ainda sem nenhum chamador em produção (28/07) — infraestrutura
+#               construída deliberadamente pra postagem automática (feature
+#               futura já planejada), não código morto esquecido. Mantido de
+#               propósito.
 
-import io
 import os
 from googleapiclient.http import MediaIoBaseDownload
-from agenda_videos.funcoes_auxiliares.google_drive_cliente import obter_servico_drive_escrita
+from .cliente import obter_servico_drive_escrita
+from .constantes import NOME_PASTA_USADOS, MIME_PASTA
+from .utilitarios_pasta import buscar_subpasta
 
 
 # Função Objetivo: Garante a subpasta {pasta_temporaria_raiz}/{ean}/ e devolve
 # o caminho completo onde o arquivo deve ser salvo — puro filesystem local,
 # nenhuma chamada à API aqui. Organiza por EAN pra a automação de postagem
-# (ainda não construída) encontrar o vídeo certo só sabendo o EAN, sem
-# precisar adivinhar qual nome de arquivo foi baixado naquela rodada.
+# encontrar o vídeo certo só sabendo o EAN, sem precisar adivinhar o nome do
+# arquivo baixado naquela rodada.
 def montar_caminho_local_organizado(pasta_temporaria_raiz, ean, nome_arquivo):
     pasta_produto = os.path.join(pasta_temporaria_raiz, ean)
     os.makedirs(pasta_produto, exist_ok=True)
@@ -41,18 +46,13 @@ class ArquivadorDrive:
     # Função Objetivo: Acha a subpasta "usados" dentro de Videos/ — cria se
     # ainda não existir (1ª vez que qualquer arquivo é arquivado ali).
     def _obter_ou_criar_pasta_usados(self, pasta_videos_id):
-        query = (
-            f"'{pasta_videos_id}' in parents and name = 'usados' "
-            f"and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-        )
-        resultado = self.servico.files().list(q=query, fields='files(id)').execute()
-        encontrados = resultado.get('files', [])
-        if encontrados:
-            return encontrados[0]['id']
+        pasta_usados_id = buscar_subpasta(self.servico, pasta_videos_id, NOME_PASTA_USADOS)
+        if pasta_usados_id:
+            return pasta_usados_id
 
         metadados = {
-            'name': 'usados',
-            'mimeType': 'application/vnd.google-apps.folder',
+            'name': NOME_PASTA_USADOS,
+            'mimeType': MIME_PASTA,
             'parents': [pasta_videos_id],
         }
         pasta_nova = self.servico.files().create(body=metadados, fields='id').execute()

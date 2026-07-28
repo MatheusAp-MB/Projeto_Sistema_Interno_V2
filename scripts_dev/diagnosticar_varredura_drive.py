@@ -3,8 +3,8 @@ import sys
 
 # * [EXPLICAÇÃO] → Acha a raiz do projeto subindo pastas até encontrar
 #                  "manage.py" — assim o script funciona rodando de dentro
-#                  de qualquer subpasta (TESTES/, scripts_dev/, etc.), sem
-#                  precisar saber de antemão quantos níveis subir.
+#                  de qualquer subpasta, sem precisar saber de antemão
+#                  quantos níveis subir.
 def _adicionar_raiz_do_projeto_ao_path():
     caminho_atual = os.path.dirname(os.path.abspath(__file__))
     while caminho_atual != os.path.dirname(caminho_atual):
@@ -24,8 +24,8 @@ django.setup()
 
 from produtos.models import Produto
 from agenda_videos.models import SnapshotArquivosDrive
-from agenda_videos.funcoes_auxiliares.google_drive_cliente import obter_servico_drive
-from agenda_videos.funcoes_auxiliares.escanear_drive_completo import (
+from agenda_videos.funcoes_auxiliares.drive.cliente import obter_servico_drive
+from agenda_videos.funcoes_auxiliares.drive.escaneador import (
     _listar_tudo_paginado, montar_arvore_por_ean, MIME_PASTA,
 )
 from django.conf import settings

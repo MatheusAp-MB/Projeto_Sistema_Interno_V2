@@ -118,14 +118,16 @@
 .video-nao-gerado { background: #f3f4f6; color: #9ca3af; }
 .video-gerado     { background: #dcfce7; color: #15803d; }
 
-
-
-.badge-diagnostico-drive {
-    background: #dbeafe;
-    color: #1e40af;
-}
-
-.badge-reestruturacao-manual {
-    background: #fef3c7;
-    color: #92400e;
-}
+/* ================================================
+   INTEGRAÇÃO COM O GOOGLE DRIVE — AGENDA DE VÍDEOS
+   ================================================ */
+/* * [EXPLICAÇÃO] → Corrigido (28/07, pente fino) — as 2 cores originais
+ *                  colidiam com badges já existentes que podem aparecer no
+ *                  MESMO card: badge-diagnostico-drive usava o azul de
+ *                  badge-classico/badge-sharing_first_place; badge-
+ *                  reestruturacao-manual usava a cor EXATA de badge-listed
+ *                  (Risco de Atraso) — um produto legado pode estar em
+ *                  risco de atraso ao mesmo tempo, e os 2 ficariam
+ *                  visualmente idênticos no mesmo card. */
+.badge-diagnostico-drive     { background: #cffafe; color: #0e7490; }
+.badge-reestruturacao-manual { background: #e2e8f0; color: #334155; }

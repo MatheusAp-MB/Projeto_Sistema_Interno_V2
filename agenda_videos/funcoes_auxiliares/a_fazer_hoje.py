@@ -38,7 +38,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
     calcular_prioridade_produto, calcular_ordem_fase_produto,
 )
-from agenda_videos.funcoes_auxiliares.diagnostico_preparo_drive import calcular_diagnostico_preparo_drive
+from agenda_videos.funcoes_auxiliares.drive import calcular_diagnostico_preparo_drive
 
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 

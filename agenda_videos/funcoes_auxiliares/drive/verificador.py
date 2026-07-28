@@ -1,4 +1,4 @@
-# agenda_videos/funcoes_auxiliares/verificar_arquivos_drive.py
+# agenda_videos/funcoes_auxiliares/drive/verificador.py
 
 # Função Objetivo: Verifica os arquivos de preparação no Drive e avança o
 # roadmap automaticamente — reaproveita calcular_chave_atual (a MESMA função
@@ -8,11 +8,9 @@
 # depende de arquivo (cíclico/Agendamento/Otimizado).
 #
 # 2 modos de entrada, MESMO loop de avanço por baixo (_avancar_pontos_com_estrutura):
-#   - verificar_produto_no_drive(produto_id) — 1 produto, busca o Drive AO VIVO
-#     (navegação individual), sempre grava o snapshot antes de avançar.
-#   - verificar_todos_no_drive() — todo o catálogo, reaproveita snapshots que
-#     a varredura completa (escanear_drive_completo.py) ACABOU de salvar —
-#     zero chamada nova ao Drive além do 1 sweep já feito.
+#   - verificar_produto_no_drive(produto_id) — 1 produto, busca o Drive AO VIVO.
+#   - verificar_todos_no_drive() — todo o catálogo, reaproveita snapshot que
+#     a varredura completa (escaneador.py) ACABOU de salvar.
 
 from dataclasses import dataclass
 from django.utils import timezone
@@ -24,12 +22,9 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     FASE_DA_CHAVE_PREPARACAO,
 )
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
-from agenda_videos.funcoes_auxiliares.drive_arquivos_produto import LocalizadorArquivosProduto
-from agenda_videos.funcoes_auxiliares.parser_arquivos_drive import (
-    parsear_arquivos_produto, montar_produto_nao_encontrado,
-)
-
-PREFIXO_CHAVE_PARA_FASE_TXT = {'diaria': 'Diario', 'semanal': 'Semanal', 'mensal': 'Mensal'}
+from .constantes import PREFIXO_ARQUIVO_POR_FASE
+from .localizador import LocalizadorArquivosProduto
+from .parser import parsear_arquivos_produto, montar_produto_nao_encontrado
 
 CHAVES_QUE_DEPENDEM_DE_ARQUIVO = {
     'simples', 'base',
@@ -49,7 +44,7 @@ class DiagnosticoBloqueio:
 # ArquivosProdutoDrive) satisfaz o ponto de preparação `chave` — devolve
 # (satisfeito, diagnostico). Pura, sem chamada de rede nem escrita no banco —
 # reutilizada tanto pela verificação que ESCREVE (este arquivo) quanto pelo
-# diagnóstico que só LÊ (diagnostico_preparo_drive.py).
+# diagnóstico que só LÊ (diagnostico.py).
 def avaliar_ponto_preparacao(chave, estrutura_drive):
     if chave == 'simples':
         if estrutura_drive.simples is None:
@@ -64,7 +59,7 @@ def avaliar_ponto_preparacao(chave, estrutura_drive):
     if chave in ('roteiros_diaria', 'roteiros_semanal', 'roteiros_mensal'):
         fase = FASE_DA_CHAVE_PREPARACAO[chave]
         if estrutura_drive.fases[fase].roteiros is None:
-            nome_esperado = f'Roteiros_{PREFIXO_CHAVE_PARA_FASE_TXT[fase]}.txt'
+            nome_esperado = f'Roteiros_{PREFIXO_ARQUIVO_POR_FASE[fase]}.txt'
             return False, DiagnosticoBloqueio(
                 chave, f'Aguardando Roteiros ({fase}) — "{nome_esperado}" não encontrado.',
             )
@@ -87,8 +82,7 @@ def avaliar_ponto_preparacao(chave, estrutura_drive):
 
 # Função Objetivo: O LOOP de avanço em si — reaproveitado tanto pela
 # verificação individual quanto pela em massa. Recebe a estrutura do Drive JÁ
-# PRONTA (nenhuma chamada de rede aqui dentro) — quem chama decide de onde
-# ela veio (navegação ao vivo, ou snapshot recém-salvo pela varredura).
+# PRONTA (nenhuma chamada de rede aqui dentro).
 def _avancar_pontos_com_estrutura(produto_id, estrutura_drive):
     from produtos.models import Produto
 
@@ -199,12 +193,12 @@ def verificar_produto_no_drive(produto_id):
 
 
 # Função Objetivo: Verifica TODO o catálogo — reaproveita a varredura
-# completa (1 sweep no Drive inteiro, escanear_drive_completo.py), depois
-# roda o loop de avanço em cada produto encontrado, usando o snapshot que
-# ACABOU de ser salvo — zero chamada nova ao Drive além do sweep.
+# completa (1 sweep no Drive inteiro, escaneador.py), depois roda o loop de
+# avanço em cada produto encontrado, usando o snapshot recém-salvo — zero
+# chamada nova ao Drive além do sweep.
 def verificar_todos_no_drive():
     from produtos.models import Produto
-    from agenda_videos.funcoes_auxiliares.escanear_drive_completo import sincronizar_snapshots_drive
+    from .escaneador import sincronizar_snapshots_drive
 
     _, sem_produto_no_banco, produto_ids_atualizados = sincronizar_snapshots_drive()
 

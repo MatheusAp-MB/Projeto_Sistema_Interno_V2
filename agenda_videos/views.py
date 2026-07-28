@@ -10,8 +10,9 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_roadmap_produto, obter_mapa_periodos_por_fase, FASE_DA_CHAVE_PREPARACAO,
     calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
-from agenda_videos.funcoes_auxiliares.diagnostico_preparo_drive import calcular_diagnostico_preparo_drive
-from agenda_videos.funcoes_auxiliares.verificar_arquivos_drive import verificar_produto_no_drive, verificar_todos_no_drive
+from agenda_videos.funcoes_auxiliares.drive import (
+    calcular_diagnostico_preparo_drive, verificar_produto_no_drive, verificar_todos_no_drive,
+)
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import calcular_janela_ocorrencia, calcular_janela_fase

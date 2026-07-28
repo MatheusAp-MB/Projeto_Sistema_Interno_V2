@@ -1,4 +1,4 @@
-# agenda_videos/funcoes_auxiliares/diagnostico_preparo_drive.py
+# agenda_videos/funcoes_auxiliares/drive/diagnostico.py
 
 # Função Objetivo: Devolve o diagnóstico de preparação (badge) de 1 produto,
 # SEMPRE lendo do snapshot já salvo (SnapshotArquivosDrive) — nunca chama o
@@ -9,19 +9,10 @@
 # Só retorna diagnóstico quando o ponto ATUAL do roadmap depende de arquivo
 # (Simples/Base/Roteiros/Completos de qualquer fase) — pontos cíclicos,
 # Agendamento e Otimizado nunca mostram esse badge.
-#
-# 3 estados possíveis:
-#   - snapshot não existe, ou existe mas expirou (>8h) → "Não sincronizado
-#     com o Drive"
-#   - snapshot existe, dentro da validade, mas arquivo faltando/insuficiente
-#     → diagnóstico detalhado (reaproveita avaliar_ponto_preparacao)
-#   - snapshot existe, dentro da validade, tudo certo → None (sem badge)
 
 from agenda_videos.funcoes_auxiliares.roadmap_produto import calcular_chave_atual, montar_preparacoes_por_fase
-from agenda_videos.funcoes_auxiliares.verificar_arquivos_drive import (
-    CHAVES_QUE_DEPENDEM_DE_ARQUIVO, avaliar_ponto_preparacao, DiagnosticoBloqueio,
-)
-from agenda_videos.funcoes_auxiliares.parser_arquivos_drive import parsear_arquivos_produto
+from .verificador import CHAVES_QUE_DEPENDEM_DE_ARQUIVO, avaliar_ponto_preparacao, DiagnosticoBloqueio
+from .parser import parsear_arquivos_produto
 
 
 def calcular_diagnostico_preparo_drive(produto):

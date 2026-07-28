@@ -1,20 +1,15 @@
-# agenda_videos/funcoes_auxiliares/parser_arquivos_drive.py
+# agenda_videos/funcoes_auxiliares/drive/parser.py
 
 # Função Objetivo: Transforma a lista crua de arquivos (vinda do Drive — nome
 # + ID) nas dataclasses padronizadas — puro, sem chamada de rede, testável
 # isolado com qualquer lista de {id, name}. Reconhecimento é insensível a
 # maiúscula/minúscula, mas rígido no FORMATO (2 dígitos exatos, prefixo
 # certo, extensão certa).
-#
-# * [EXPLICAÇÃO] → Cada arquivo reconhecido carrega nome E id do Drive
-#                  (26/07) — não é só "existe/não existe": uma automação
-#                  futura (que vai baixar/usar o arquivo de verdade) precisa
-#                  do ID pra buscar o conteúdo direto na API, sem precisar
-#                  re-consultar "qual é o arquivo com esse nome" depois.
 
 import re
 from dataclasses import dataclass
 from typing import Optional
+from .constantes import FASE_POR_PREFIXO_ARQUIVO_MINUSCULO
 
 
 @dataclass(frozen=True)
@@ -55,12 +50,12 @@ PADRAO_BASE = re.compile(r'^base\.mp4$', re.IGNORECASE)
 PADRAO_ROTEIROS = re.compile(r'^roteiros_(diario|semanal|mensal)\.txt$', re.IGNORECASE)
 PADRAO_COMPLETO = re.compile(r'^(diario|semanal|mensal)_(\d{2})\.mp4$', re.IGNORECASE)
 
-MAPA_PREFIXO_PARA_FASE = {'diario': 'diaria', 'semanal': 'semanal', 'mensal': 'mensal'}
-
 
 # Função Objetivo: Separa os arquivos numerados em "válidos" (sequência
 # contígua a partir de 1) e "fora de sequência" (furo antes impede contar) —
 # nunca descarta um arquivo, só decide se ele conta pra quantidade ou não.
+# Única implementação desse algoritmo no pacote inteiro (28/07, pente fino —
+# antes existia uma 2ª cópia, com regex própria, em localizador.py).
 def _montar_completos(arquivos_numerados):
     ordenados = sorted(arquivos_numerados, key=lambda item: item[0])
     validos = []
@@ -99,13 +94,13 @@ def parsear_arquivos_produto(marca, ean, arquivos_brutos):
 
         match_roteiros = PADRAO_ROTEIROS.match(nome)
         if match_roteiros:
-            fase = MAPA_PREFIXO_PARA_FASE[match_roteiros.group(1).lower()]
+            fase = FASE_POR_PREFIXO_ARQUIVO_MINUSCULO[match_roteiros.group(1).lower()]
             roteiros_por_fase[fase] = arquivo
             continue
 
         match_completo = PADRAO_COMPLETO.match(nome)
         if match_completo:
-            fase = MAPA_PREFIXO_PARA_FASE[match_completo.group(1).lower()]
+            fase = FASE_POR_PREFIXO_ARQUIVO_MINUSCULO[match_completo.group(1).lower()]
             numero = int(match_completo.group(2))
             arquivo_numerado = ArquivoDrive(nome_arquivo=nome, drive_file_id=item['id'], numero=numero)
             numerados_por_fase[fase].append((numero, arquivo_numerado))
