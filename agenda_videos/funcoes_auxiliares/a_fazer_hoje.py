@@ -39,6 +39,7 @@ from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
     calcular_prioridade_produto, calcular_ordem_fase_produto,
 )
 from agenda_videos.funcoes_auxiliares.drive import calcular_diagnostico_preparo_drive
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 
@@ -55,7 +56,7 @@ def _parse_data_faixa(valor):
 # Função Objetivo: Versão Python das MESMAS 9 categorias de "Pendente agora"
 # que existem em SQL na listagem principal (ver filtros_agenda_videos.py).
 # "preparacoes_video" precisa vir prefetched por quem chama (evita N+1).
-def calcular_pendencias_atuais_produto(produto, andamento, postagem_atual):
+def calcular_pendencias_atuais_produto(produto, andamento, postagem_atual, hoje=None):
     pendencias = set()
     progresso = getattr(produto, 'progresso_producao_video', None)
     preparacoes = {p.fase: p for p in produto.preparacoes_video.all()}
@@ -88,7 +89,13 @@ def calcular_pendencias_atuais_produto(produto, andamento, postagem_atual):
     pool_pronto = prep_atual is not None and prep_atual.roteiros_gerados and prep_atual.completos_produzidos
 
     if postagem_atual is None:
-        if pool_pronto:
+        # * [EXPLICAÇÃO] → "Aguardando Postar" agora exige TAMBÉM não ter
+        #                  postado hoje em NENHUMA ocorrência (29/07) — antes,
+        #                  essa regra só existia bolada por fora
+        #                  (ja_postou_hoje), separada da definição real de
+        #                  pendência. Corrigido: única fonte de verdade,
+        #                  vale igual pra tela humana e pro sistema autônomo.
+        if pool_pronto and not ja_postou_hoje(produto, data_referencia=hoje):
             pendencias.add('aguardando_postar')
     elif postagem_atual.status == StatusPostagem.AGUARDANDO_APROVACAO:
         pendencias.add('aguardando_aprovacao')
@@ -217,13 +224,19 @@ def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
             continue
 
         if filtros.get('pendente_agora'):
-            pendencias = calcular_pendencias_atuais_produto(produto, andamento, postagem_atual)
+            pendencias = calcular_pendencias_atuais_produto(produto, andamento, postagem_atual, hoje=hoje)
             if not pendencias.intersection(filtros['pendente_agora']):
                 continue
 
         produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
         produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, andamento)
         produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
+        # * [EXPLICAÇÃO] → Badge "Já postado hoje" (29/07) — o produto continua
+        #                  na lista (a ocorrência atual não foi replicada), mas
+        #                  sem nenhuma ação possível hoje. Sem esse aviso, o
+        #                  usuário vê o card e não entende por que não tem o
+        #                  que fazer nele.
+        produto.ja_postou_hoje = ja_postou_hoje(produto, data_referencia=hoje)
         resultado.append(produto)
 
     # * [EXPLICAÇÃO] → Mesma prioridade da listagem principal (ver

@@ -131,3 +131,8 @@
  *                  visualmente idênticos no mesmo card. */
 .badge-diagnostico-drive     { background: #cffafe; color: #0e7490; }
 .badge-reestruturacao-manual { background: #e2e8f0; color: #334155; }
+
+/* * [EXPLICAÇÃO] → "Já postado hoje" (29/07) — verde no sentido de "cumprido,
+ *                  nada pendente", distinto do verde de video-gerado (que vive
+ *                  na zona do roadmap, não na faixa de badges do card). */
+.badge-ja-postado-hoje       { background: #d1fae5; color: #065f46; }

@@ -13,7 +13,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
 from agenda_videos.funcoes_auxiliares.drive import (
     calcular_diagnostico_preparo_drive, verificar_produto_no_drive, verificar_todos_no_drive,
 )
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao, ja_postou_hoje
 from agenda_videos.models import ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_atraso
@@ -91,6 +91,8 @@ def _recarregar_e_renderizar_card(request, produto_id, contexto_extra=None):
     #                  (Simples/Base/Roteiros da Diária), quando ainda não
     #                  existe AndamentoAgenda nenhum.
     produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
+    if getattr(produto, 'andamento_agenda', None) and not produto.andamento_agenda.concluido:
+        produto.ja_postou_hoje = ja_postou_hoje(produto, data_referencia=data_simulada)
     contexto = {'produto': produto, 'data_simulada': data_simulada}
     if contexto_extra:
         contexto.update(contexto_extra)
@@ -342,6 +344,8 @@ def view_agendar_produto(request, produto_id, fase_inicial):
 def _acao_postar(produto, andamento, postagem_atual, chave, agora):
     if postagem_atual is not None:
         return HttpResponseBadRequest('Já existe uma postagem em andamento pra essa ocorrência.')
+    if ja_postou_hoje(produto):
+        return HttpResponseBadRequest('Este produto já teve vídeo postado hoje — só é permitida 1 postagem por dia.')
     criar_postagem_aguardando_aprovacao(produto, andamento)
     return None
 
@@ -366,6 +370,8 @@ def _acao_recusar(produto, andamento, postagem_atual, chave, agora):
 def _acao_nova_tentativa(produto, andamento, postagem_atual, chave, agora):
     if postagem_atual is None or postagem_atual.status != StatusPostagem.RECUSADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
+    if ja_postou_hoje(produto):
+        return HttpResponseBadRequest('Este produto já teve vídeo postado hoje — só é permitida 1 postagem por dia.')
     criar_postagem_aguardando_aprovacao(produto, andamento)
     return None
 
@@ -660,11 +666,32 @@ def view_historico_agenda_videos(request):
 # Postagem Automática
 # ===================================================================
 
+# * [EXPLICAÇÃO] → Trava contra execução concorrente (29/07) — 2 execuções
+#                  rodando ao mesmo tempo derrubam o servidor inteiro
+#                  (Tkinter/Tcl não suporta 2 janelas de aviso em threads
+#                  diferentes coexistindo, e 2 hotkeys F8 registradas juntas
+#                  disparam as 2 ao mesmo tempo). Nunca permite iniciar uma
+#                  2ª enquanto a 1ª não chegou num estado final.
+def _obter_execucao_em_andamento():
+    from agenda_videos.models import ExecucaoPostagemAutomatica, StatusExecucao
+    return ExecucaoPostagemAutomatica.objects.filter(
+        status__in=[StatusExecucao.AGUARDANDO_INICIO, StatusExecucao.RODANDO, StatusExecucao.PAUSADO],
+    ).first()
+
+
 def view_confirmar_postagem_automatica(request):
     from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
-    quantidade = len(listar_produtos_elegiveis())
+
+    execucao_em_andamento = _obter_execucao_em_andamento()
+    if execucao_em_andamento:
+        return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_execucao_ja_em_andamento.html', {
+            'execucao': execucao_em_andamento,
+        })
+
+    produtos_elegiveis = listar_produtos_elegiveis()
     return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_confirmar_postagem_automatica.html', {
-        'quantidade_elegiveis': quantidade,
+        'produtos_elegiveis': produtos_elegiveis,
+        'quantidade_elegiveis': len(produtos_elegiveis),
     })
 
 
@@ -675,6 +702,13 @@ def view_iniciar_postagem_automatica(request):
     from agenda_videos.funcoes_auxiliares.postagem_automatica import (
         listar_produtos_elegiveis, executar_postagem_automatica,
     )
+
+    # * [EXPLICAÇÃO] → Mesma trava do view_confirmar — checada de novo aqui,
+    #                  porque alguém poderia (por engano ou por 2 abas
+    #                  abertas) enviar o POST direto, sem passar pelo modal.
+    execucao_em_andamento = _obter_execucao_em_andamento()
+    if execucao_em_andamento:
+        return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao_em_andamento.id]))
 
     produtos_elegiveis = listar_produtos_elegiveis()
 

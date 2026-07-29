@@ -17,7 +17,7 @@ from agenda_videos.models import (
     ExecucaoPostagemAutomatica, StatusExecucao, ItemExecucaoPostagem, StatusItemExecucao,
 )
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao, ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
 from agenda_videos.funcoes_auxiliares.drive.localizador import LocalizadorArquivosProduto
 from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_caminho_local_organizado
@@ -110,6 +110,16 @@ def _processar_1_produto(item, controle_teclado, aviso, arquivador, pasta_tempor
     andamento = getattr(produto, 'andamento_agenda', None)
     if andamento is None:
         _marcar_item(item, StatusItemExecucao.FALHOU, 'Produto sem AndamentoAgenda — não deveria acontecer aqui.')
+        return
+
+    # * [EXPLICAÇÃO] → Checado ANTES de baixar qualquer coisa — evita gastar
+    #                  tempo/chamada de API num produto que já vai ser
+    #                  pulado de qualquer jeito. Cobre o caso descrito pelo
+    #                  usuário: rodar a Postagem Automática 2x no mesmo dia
+    #                  (de propósito ou sem querer), depois de já ter
+    #                  aprovado+replicado a 1ª postagem rápido demais.
+    if ja_postou_hoje(produto):
+        _marcar_item(item, StatusItemExecucao.JA_POSTADO_HOJE)
         return
 
     mlb = _obter_mlb_do_produto(produto)

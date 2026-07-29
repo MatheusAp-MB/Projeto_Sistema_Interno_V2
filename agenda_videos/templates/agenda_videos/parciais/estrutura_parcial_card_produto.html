@@ -99,6 +99,12 @@
         </span>
         {% endif %}
 
+        {% if produto.ja_postou_hoje %}
+        <span class="badge-tabela badge-ja-postado-hoje" title="Só é permitido 1 vídeo por dia por produto — nada mais a fazer neste produto hoje. Se ele está atrasado, o atraso continua até a fase terminar.">
+            <i class="fas fa-circle-check"></i> Já postado hoje
+        </span>
+        {% endif %}
+
         {% roadmap_produto produto %}
     </div>
 

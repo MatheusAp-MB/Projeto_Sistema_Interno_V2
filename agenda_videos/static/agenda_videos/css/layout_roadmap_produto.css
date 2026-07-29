@@ -170,6 +170,21 @@
     gap: 10px;
 }
 
+/* * [EXPLICAÇÃO] → Lista de produtos elegíveis, no modal de confirmação da
+ *                  Postagem Automática (28/07). */
+.modal-postagem-lista-elegiveis {
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 0 0 14px;
+    padding-left: 20px;
+    font-size: 0.85rem;
+    color: #33404f;
+}
+
+.modal-postagem-lista-elegiveis li {
+    margin-bottom: 4px;
+}
+
 .btn-acao-confirmar {
     background: #1d4ed8;
     color: #fff;
