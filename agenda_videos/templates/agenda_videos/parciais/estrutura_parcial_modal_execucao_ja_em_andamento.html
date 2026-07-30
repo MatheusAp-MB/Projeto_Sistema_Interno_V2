@@ -1,0 +1,20 @@
+<div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
+    <div class="modal-roadmap-caixa">
+        <h3 class="modal-roadmap-titulo">Já existe uma execução em andamento</h3>
+        <p class="modal-roadmap-texto">
+            Iniciada às {{ execucao.iniciado_em|date:"H:i" }}, status atual:
+            <strong>{{ execucao.get_status_display }}</strong>.
+        </p>
+        <p class="modal-roadmap-aviso">
+            <i class="fas fa-triangle-exclamation"></i>
+            Não é possível iniciar uma 2ª execução enquanto essa não terminar
+            (concluir ou ser cancelada) — rodar 2 ao mesmo tempo pode derrubar o servidor.
+        </p>
+        <div class="modal-roadmap-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Fechar</button>
+            <a class="btn-acao btn-acao-confirmar" href="{% url 'agenda_videos_progresso_postagem_automatica' execucao.id %}">
+                Ver progresso dela
+            </a>
+        </div>
+    </div>
+</div>

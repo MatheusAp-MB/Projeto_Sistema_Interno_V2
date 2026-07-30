@@ -19,6 +19,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
     calcular_indicador_pool_insuficiente, calcular_indicador_divergencia_fase_concluida,
 )
 from agenda_videos.funcoes_auxiliares.drive import calcular_diagnostico_preparo_drive
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_STATUS_VIDEO, opcoes_com_badge,
 )
@@ -217,6 +218,7 @@ class ContextoTelaAgendaVideos:
             if andamento is not None and not andamento.concluido:
                 calcular_indicadores_atraso(produto, andamento, data_referencia=self.parametros.data_simulada)
                 produto.pool_insuficiente_tipo = calcular_indicador_pool_insuficiente(produto, andamento)
+                produto.ja_postou_hoje = ja_postou_hoje(produto, data_referencia=self.parametros.data_simulada)
             if andamento is not None:
                 produto.divergencia_fase_concluida = calcular_indicador_divergencia_fase_concluida(produto, andamento)
             # * [EXPLICAÇÃO] → Sem guarda de "andamento existe" — importa

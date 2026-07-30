@@ -1,21 +1,40 @@
-<div class="modal-roadmap-fundo" id="modal-postagem-automatica-fundo">
+<!--
+* [RESUMO] → Corrigido (28/07) — usava classes inventadas (.modal-postagem-*)
+* que não existiam em lugar nenhum do CSS. Reaproveita o padrão REAL já
+* validado em estrutura_parcial_modal_confirmar_roadmap.html — mesmas
+* classes (.modal-roadmap-*), mesmo mecanismo de fechar (data-fechar-modal-
+* roadmap, processado globalmente em script_roadmap_produto.js).
+-->
+<div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
     <div class="modal-roadmap-caixa">
         <h3 class="modal-roadmap-titulo">Iniciar Postagem Autônoma</h3>
-        <p>
+        <p class="modal-roadmap-texto">
             Isso vai baixar e postar automaticamente os vídeos de hoje, produto
             por produto, na ordem de prioridade — sem precisar de nenhuma ação
             manual sua durante o processo.
         </p>
-        <p><strong>{{ quantidade_elegiveis }}</strong> produto(s) serão processados agora.</p>
+
+        {% if quantidade_elegiveis %}
+        <p class="modal-roadmap-texto">
+            <strong>{{ quantidade_elegiveis }}</strong> produto(s) serão processados agora, nesta ordem:
+        </p>
+        <ol class="modal-postagem-lista-elegiveis">
+            {% for produto in produtos_elegiveis %}
+            <li>{{ produto.titulo }} ({{ produto.marca }})</li>
+            {% endfor %}
+        </ol>
+        {% else %}
+        <p class="modal-roadmap-texto">Nenhum produto elegível agora — não há nada pendente de postar hoje.</p>
+        {% endif %}
+
         <div class="modal-roadmap-acoes">
-            <button type="button" class="btn-cancelar"
-                    onclick="document.getElementById('modal-postagem-automatica-fundo').remove()">
-                Cancelar
-            </button>
+            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
+            {% if quantidade_elegiveis %}
             <form method="post" action="{% url 'agenda_videos_iniciar_postagem_automatica' %}">
                 {% csrf_token %}
-                <button type="submit" class="btn-acao">Confirmar e Iniciar</button>
+                <button type="submit" class="btn-acao btn-acao-confirmar">Confirmar e Iniciar</button>
             </form>
+            {% endif %}
         </div>
     </div>
 </div>

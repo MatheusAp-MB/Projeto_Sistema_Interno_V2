@@ -19,6 +19,7 @@ class StatusItemExecucao(models.TextChoices):
     CONCLUIDO = 'concluido', 'Concluído'
     FALHOU = 'falhou', 'Falhou'
     CANCELADO = 'cancelado', 'Cancelado'
+    JA_POSTADO_HOJE = 'ja_postado_hoje', 'Já postado hoje — pulado'
 
 
 class ItemExecucaoPostagem(models.Model):

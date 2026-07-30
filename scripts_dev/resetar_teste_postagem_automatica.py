@@ -21,7 +21,7 @@ django.setup()
 
 from django.utils import timezone
 from produtos.models import Produto
-from agenda_videos.models import Postagem
+from agenda_videos.models import Postagem, ExecucaoPostagemAutomatica, StatusExecucao, StatusItemExecucao
 from agenda_videos.funcoes_auxiliares.drive.localizador import LocalizadorArquivosProduto
 from agenda_videos.funcoes_auxiliares.drive.cliente import obter_servico_drive_escrita
 from agenda_videos.funcoes_auxiliares.drive.utilitarios_pasta import buscar_subpasta
@@ -32,21 +32,43 @@ from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincroni
 EANS_PARA_RESETAR = ['7891117102687', '7891988003199']
 # ========================================
 
-localizador = LocalizadorArquivosProduto()
-servico_escrita = obter_servico_drive_escrita()
 hoje = timezone.now().date()
 
+
+# * [EXPLICAÇÃO] → PARTE 1 (29/07, adicionada depois do incidente de 2
+#                  execuções concorrentes derrubando o servidor) — encerra
+#                  qualquer Execução presa (Aguardando Início/Rodando/
+#                  Pausado), que travaria uma nova de começar. Não depende
+#                  de EAN nenhum — é estado do SISTEMA, não do produto.
+print('=== Encerrando execuções presas ===')
+execucoes_presas = ExecucaoPostagemAutomatica.objects.filter(
+    status__in=[StatusExecucao.AGUARDANDO_INICIO, StatusExecucao.RODANDO, StatusExecucao.PAUSADO],
+)
+if not execucoes_presas.exists():
+    print('  Nenhuma execução presa encontrada.')
+else:
+    for execucao in execucoes_presas:
+        qtd_itens = execucao.itens.exclude(
+            status__in=[StatusItemExecucao.CONCLUIDO, StatusItemExecucao.FALHOU, StatusItemExecucao.CANCELADO],
+        ).update(status=StatusItemExecucao.CANCELADO)
+        execucao.status = StatusExecucao.CANCELADO
+        execucao.finalizado_em = timezone.now()
+        execucao.save(update_fields=['status', 'finalizado_em'])
+        print(f'  Execução #{execucao.id} (estava presa) encerrada — {qtd_itens} item(ns) cancelado(s) junto.')
+
+print()
+print('=== Resetando produtos de teste ===')
+
+localizador = LocalizadorArquivosProduto()
+servico_escrita = obter_servico_drive_escrita()
+
 for ean in EANS_PARA_RESETAR:
-    print(f'=== {ean} ===')
+    print(f'--- {ean} ---')
     produto = Produto.objects.filter(ean=ean).first()
     if produto is None:
         print('  Não encontrado no banco.')
         continue
 
-    # * [EXPLICAÇÃO] → Generalizado de novo (28/07) — reset de verdade
-    #                  limpa TUDO desse produto, não só a última ocorrência
-    #                  testada, e força sempre o mesmo ponto de partida
-    #                  conhecido (ocorrência 1, vencendo hoje).
     qtd, _ = Postagem.objects.filter(produto=produto).delete()
     print(f'  {qtd} Postagem(ns) apagada(s) (todas, qualquer ocorrência).')
 
@@ -76,3 +98,6 @@ for ean in EANS_PARA_RESETAR:
 
     sincronizar_roadmap_agenda_produto(produto)
     print('  Roadmap ressincronizado.')
+
+print()
+print('Concluído.')

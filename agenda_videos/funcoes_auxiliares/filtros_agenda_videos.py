@@ -26,6 +26,7 @@ from datetime import date
 from django.db.models import Q, OuterRef, Subquery, Exists
 from produtos.models import Produto
 from agenda_videos.models import Postagem, PreparacaoVideoFase, Fase, StatusVideo, StatusPostagem, VALIDADE_SNAPSHOT_DRIVE
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from django.utils import timezone as django_timezone
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_ou_hoje, adicionar_dias_uteis
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
@@ -111,7 +112,7 @@ def _condicao_pool_pronto_fase_atual():
 # Função Objetivo: Traduz 1 categoria de "Pendente agora" na condição Q
 # correspondente. "status_postagem_ocorrencia_atual" precisa já estar
 # anotado no queryset por quem chama (ver listar_produtos_agenda_filtrados).
-def _condicao_pendencia(chave):
+def _condicao_pendencia(chave, hoje):
     andamento_ativo = Q(andamento_agenda__isnull=False, andamento_agenda__concluido=False)
 
     if chave == 'roteiros_diaria':
@@ -127,7 +128,22 @@ def _condicao_pendencia(chave):
     if chave == 'completos_mensal':
         return _condicao_completos_pendente_fase(Fase.MENSAL)
     if chave == 'aguardando_postar':
-        return andamento_ativo & _condicao_pool_pronto_fase_atual() & Q(status_postagem_ocorrencia_atual__isnull=True)
+        # * [EXPLICAÇÃO] → Mesma regra do lado Python (a_fazer_hoje.py, 29/07)
+        #                  — e mesma correção de fuso (não usa "__date", pelo
+        #                  mesmo motivo: depende do MySQL converter fuso
+        #                  horário via CONVERT_TZ(), que falha silenciosamente
+        #                  sem as tabelas de fuso carregadas no servidor).
+        from django.utils import timezone as django_timezone
+        import datetime as datetime_module
+        inicio_do_dia = django_timezone.make_aware(datetime_module.datetime.combine(hoje, datetime_module.time.min))
+        fim_do_dia = django_timezone.make_aware(datetime_module.datetime.combine(hoje, datetime_module.time.max))
+        ja_postou_hoje_condicao = ~Exists(Postagem.objects.filter(
+            produto=OuterRef('pk'), aguardando_aprovacao_em__gte=inicio_do_dia, aguardando_aprovacao_em__lte=fim_do_dia,
+        ))
+        return (
+            andamento_ativo & _condicao_pool_pronto_fase_atual()
+            & Q(status_postagem_ocorrencia_atual__isnull=True) & ja_postou_hoje_condicao
+        )
     if chave == 'aguardando_aprovacao':
         return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.AGUARDANDO_APROVACAO)
     if chave == 'recusado':
@@ -252,7 +268,7 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     if filtros.get('pendente_agora'):
         condicao_combinada = Q()
         for chave in filtros['pendente_agora']:
-            condicao_combinada |= _condicao_pendencia(chave)
+            condicao_combinada |= _condicao_pendencia(chave, hoje)
         qs = qs.filter(condicao_combinada)
 
     for campo in CAMPOS_FAIXA:
