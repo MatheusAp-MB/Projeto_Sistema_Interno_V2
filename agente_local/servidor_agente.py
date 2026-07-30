@@ -247,6 +247,23 @@ def _processar_execucao(execucao_id):
     _voltar_ao_repouso()
 
 
+# * [EXPLICAÇÃO] → Log simples em .txt (30/07, provisório) — só pra
+#                  conferir manualmente se a Replicação real está indo pros
+#                  MLBs certos, enquanto não existe tela de histórico no
+#                  sistema (fica pra depois, ainda como Django). 1 linha
+#                  por replicação concluída, sempre em append — nunca
+#                  sobrescreve. Vive na pasta do agente (mesma de
+#                  agente_config.env), não no servidor.
+def _registrar_log_replicacao(ean, titulo, mlb_origem, marcados, observacao=None):
+    caminho_log = os.path.join(_obter_pasta_do_executavel(), 'replicacoes_realizadas.txt')
+    agora = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    linha = f'{agora} | EAN {ean} | {titulo} | MLB origem {mlb_origem} | replicado para: {", ".join(marcados)}'
+    if observacao:
+        linha += f' | obs: {observacao}'
+    with open(caminho_log, 'a', encoding='utf-8') as arquivo:
+        arquivo.write(linha + '\n')
+
+
 def _processar_execucao_replicacao(execucao_id):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
@@ -290,11 +307,11 @@ def _processar_execucao_replicacao(execucao_id):
             break
 
         try:
-            sucesso, mensagem_erro = replicar_video_no_ml(
+            sucesso, mensagem_erro, marcados = replicar_video_no_ml(
                 item['mlb'], item['outros_mlbs'], controle.janela_referencia,
             )
         except Exception as erro:
-            sucesso, mensagem_erro = False, f'Erro inesperado na automação: {erro}'
+            sucesso, mensagem_erro, marcados = False, f'Erro inesperado na automação: {erro}', []
 
         if not sucesso:
             try:
@@ -302,6 +319,12 @@ def _processar_execucao_replicacao(execucao_id):
             except Exception:
                 pass
             continue
+
+        if marcados:
+            try:
+                _registrar_log_replicacao(item['produto_ean'], item['produto_titulo'], item['mlb'], marcados, mensagem_erro)
+            except Exception as erro:
+                print(f'[AGENTE] Erro ao gravar log de replicação (não impede o fluxo): {erro}')
 
         try:
             cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id)
