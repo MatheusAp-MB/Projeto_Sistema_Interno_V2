@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Teste do Agente Local</title></head>
+<body>
+    <h1>Teste — Navegador conversando com o .exe local</h1>
+    <button onclick="testarAgente()">Avisar o agente</button>
+    <p id="resultado"></p>
+
+    <script>
+        async function testarAgente() {
+            const resultado = document.getElementById('resultado');
+            try {
+                const resposta = await fetch('http://127.0.0.1:5678/notificar', { method: 'POST' });
+                const dados = await resposta.json();
+                resultado.textContent = 'Sucesso! Resposta: ' + JSON.stringify(dados) + ' — confira o ícone na bandeja, deve estar AZUL agora.';
+            } catch (erro) {
+                resultado.textContent = 'Erro ao conversar com o agente: ' + erro;
+            }
+        }
+    </script>
+</body>
+</html>

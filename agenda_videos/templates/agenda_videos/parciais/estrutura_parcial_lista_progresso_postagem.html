@@ -4,6 +4,20 @@
      hx-trigger="every 2s" hx-swap="outerHTML"
      {% endif %}>
 
+    {% if execucao.status == 'aguardando_inicio' %}
+    <script>
+        // * [EXPLICAÇÃO] → Avisa o agente local (nunca o servidor Django)
+        //                  que existe uma execução esperando — só na 1ª
+        //                  vez que a tela carrega nesse estado. Sem token
+        //                  nenhum aqui: essa conversa nunca sai da própria
+        //                  máquina, o token só existe entre agente e Django.
+        fetch('http://127.0.0.1:5678/executar/{{ execucao.id }}', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => console.log('Agente respondeu:', d))
+            .catch(e => console.log('Agente não respondeu (pode não estar rodando):', e));
+    </script>
+    {% endif %}
+
     <p class="progresso-status-geral progresso-status--{{ execucao.status }}">
         {{ execucao.get_status_display }}
     </p>

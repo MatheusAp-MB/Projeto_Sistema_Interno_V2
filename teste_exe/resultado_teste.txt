@@ -1,0 +1,65 @@
+$ poetry run pyinstaller --onefile "teste_exe\ola_mundo.py"
+85 INFO: PyInstaller: 6.21.0, contrib hooks: 2026.6
+85 INFO: Python: 3.12.4
+104 INFO: Platform: Windows-10-10.0.19045-SP0
+104 INFO: Python environment: C:\Users\Mateus\AppData\Local\pypoetry\Cache\virtualenvs\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12
+105 INFO: wrote C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\ola_mundo.spec
+129 INFO: Module search paths (PYTHONPATH):
+['C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Scripts\\pyinstaller.exe',
+ 'C:\\Users\\Mateus\\AppData\\Local\\Programs\\Python\\Python312\\python312.zip',
+ 'C:\\Users\\Mateus\\AppData\\Local\\Programs\\Python\\Python312\\DLLs',
+ 'C:\\Users\\Mateus\\AppData\\Local\\Programs\\Python\\Python312\\Lib',
+ 'C:\\Users\\Mateus\\AppData\\Local\\Programs\\Python\\Python312',
+ 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12',
+ 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages',
+ 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\win32',
+ 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\win32\\lib',
+ 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\pythonwin',
+ 'C:\\Users\\Mateus\\Desktop\\PROJETO '
+ 'MB\\Projeto_Sistema_Interno_V2\\teste_exe']
+983 INFO: checking Analysis
+983 INFO: Building Analysis because Analysis-00.toc is non existent
+983 INFO: Looking for Python shared library...
+984 INFO: Using Python shared library: C:\Users\Mateus\AppData\Local\Programs\Python\Python312\python312.dll
+984 INFO: Running Analysis Analysis-00.toc
+984 INFO: Target bytecode optimization level: 0
+984 INFO: Initializing module dependency graph...
+986 INFO: Initializing module graph hook caches...
+1030 INFO: Analyzing modules for base_library.zip ...
+2079 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\PyInstaller\\hooks'
+2359 INFO: Processing standard module hook 'hook-math.py' from 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\PyInstaller\\hooks'
+3235 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\PyInstaller\\hooks'
+4182 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\PyInstaller\\hooks'
+5121 INFO: Caching module dependency graph...
+5142 INFO: Analyzing C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\teste_exe\ola_mundo.py
+5143 INFO: Processing module hooks (post-graph stage)...
+5146 INFO: Performing binary vs. data reclassification (1 entries)
+5147 INFO: Looking for ctypes DLLs
+5149 INFO: Analyzing run-time hooks ...
+5150 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\Users\\Mateus\\AppData\\Local\\pypoetry\\Cache\\virtualenvs\\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+5160 INFO: Creating base_library.zip...
+5172 INFO: Looking for dynamic libraries
+5254 INFO: Extra DLL search directories (AddDllDirectory): []
+5254 INFO: Extra DLL search directories (PATH): []
+5341 INFO: Warnings written to C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\build\ola_mundo\warn-ola_mundo.txt
+5350 INFO: Graph cross-reference written to C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\build\ola_mundo\xref-ola_mundo.html
+5381 INFO: checking PYZ
+5381 INFO: Building PYZ because PYZ-00.toc is non existent
+5381 INFO: Building PYZ (ZlibArchive) C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\build\ola_mundo\PYZ-00.pyz5481 INFO: Building PYZ (ZlibArchive) C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\build\ola_mundo\PYZ-00.pyz completed successfully.
+5485 INFO: checking PKG
+5485 INFO: Building PKG because PKG-00.toc is non existent
+5485 INFO: Building PKG (CArchive) ola_mundo.pkg
+6800 INFO: Building PKG (CArchive) ola_mundo.pkg completed successfully.
+6801 INFO: Bootloader C:\Users\Mateus\AppData\Local\pypoetry\Cache\virtualenvs\projeto-sistema-interno-mb-vs-kS5L3fJo-py3.12\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+6801 INFO: checking EXE
+6802 INFO: Building EXE because EXE-00.toc is non existent
+6802 INFO: Building EXE from EXE-00.toc
+6802 INFO: Copying bootloader EXE to C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\dist\ola_mundo.exe
+6871 INFO: Copying icon to EXE
+6912 INFO: Copying 0 resources to EXE
+6913 INFO: Embedding manifest in EXE
+6943 INFO: Appending PKG archive to EXE
+6974 INFO: Fixing EXE headers
+7110 INFO: Building EXE from EXE-00.toc completed successfully.
+7111 INFO: Build complete! The results are available in: C:\Users\Mateus\Desktop\PROJETO MB\Projeto_Sistema_Interno_V2\dist
+(projeto-sistema-interno-mb-vs-py3.12) 
