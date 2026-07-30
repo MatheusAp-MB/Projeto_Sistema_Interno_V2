@@ -5,6 +5,7 @@
 # 1 rota já validada em api/postagem_automatica/.
 
 import os
+import re
 import requests
 
 
@@ -20,17 +21,51 @@ def listar_itens(servidor, token, execucao_id):
     return resposta.json()['itens']
 
 
-def baixar_video(servidor, token, item_id, pasta_destino):
+# Função Objetivo: Organiza o download por produto (subpasta por EAN) — cópia
+# LOCAL, independente de Django, da mesma ideia já usada no lado do servidor
+# (agenda_videos/.../drive/arquivador.py). O agente precisa ser 100%
+# autossuficiente — não pode depender de Django estar instalado na máquina
+# de quem só vai operar (a mesma razão de existir toda essa arquitetura).
+def _montar_caminho_local_organizado(pasta_temporaria_raiz, ean, nome_arquivo):
+    pasta_produto = os.path.join(pasta_temporaria_raiz, ean)
+    os.makedirs(pasta_produto, exist_ok=True)
+    return os.path.join(pasta_produto, nome_arquivo)
+
+
+def baixar_video(servidor, token, item_id, ean_produto, pasta_destino):
     resposta = requests.get(
         f'{servidor}/api/postagem-automatica/item/{item_id}/video/', headers=_headers(token),
     )
-    resposta.raise_for_status()
+    if not resposta.ok:
+        try:
+            motivo = resposta.json().get('erro', resposta.text)
+        except ValueError:
+            motivo = resposta.text
+        raise RuntimeError(f'{resposta.status_code}: {motivo}')
 
     drive_file_id = resposta.headers.get('X-Drive-File-Id')
     pasta_videos_id = resposta.headers.get('X-Drive-Pasta-Videos-Id')
 
-    os.makedirs(pasta_destino, exist_ok=True)
-    caminho_local = os.path.join(pasta_destino, f'video_item_{item_id}.mp4')
+    # * [EXPLICAÇÃO] → Corrigido (30/07) — o servidor já manda o nome REAL do
+    #                  arquivo (ex: "Diario_01.mp4") no cabeçalho
+    #                  Content-Disposition (via FileResponse(..., filename=...)
+    #                  no lado do Django) — antes, esse dado era ignorado e
+    #                  um nome genérico era inventado aqui ("video_item_47.mp4"),
+    #                  que acabava sendo o nome exposto até dentro do Mercado
+    #                  Livre. Usa o nome de verdade; só cai no genérico se o
+    #                  cabeçalho não vier por algum motivo.
+    nome_arquivo = f'video_item_{item_id}.mp4'
+    match = re.search(r'filename="?([^";]+)"?', resposta.headers.get('Content-Disposition', ''))
+    if match:
+        nome_arquivo = match.group(1)
+
+    # * [EXPLICAÇÃO] → Corrigido (30/07) — cada produto ganha sua própria
+    #                  subpasta (por EAN), reaproveitando a mesma função já
+    #                  usada pelo fluxo de download antigo. Antes, todos os
+    #                  produtos da mesma execução caíam juntos na pasta raiz
+    #                  — 2 produtos com o mesmo nome de arquivo (ex: os 2 na
+    #                  ocorrência 1 de suas próprias fases) se sobrescreveriam.
+    caminho_local = _montar_caminho_local_organizado(pasta_destino, ean_produto, nome_arquivo)
     with open(caminho_local, 'wb') as arquivo:
         arquivo.write(resposta.content)
 

@@ -5,11 +5,28 @@
 # cada 1 (baixar -> postar -> avisar resultado), com F8/F9 e blindagem de
 # foco. Roda escondido na bandeja do sistema (pystray), sem terminal.
 
+import ctypes
 import os
 import shutil
 import sys
 import tempfile
 import threading
+
+# * [EXPLICAÇÃO] → Corrigido (30/07) — SEM isso, um .exe gerado pelo
+#                  PyInstaller não avisa ao Windows que sabe lidar com
+#                  telas de alta resolução/escala — o Windows então aplica
+#                  uma escala "por trás", sem avisar, fazendo qualquer
+#                  coordenada de tela (como mover o mouse pra cima de um
+#                  botão) ficar deslocada de forma fixa e repetida. Isso
+#                  precisa rodar ANTES de qualquer janela/automação ser
+#                  tocada — por isso é a primeira coisa do arquivo.
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()  # fallback pra versões mais antigas do Windows
+    except Exception:
+        pass
 
 import pystray
 from PIL import Image, ImageDraw
@@ -128,7 +145,7 @@ def _processar_execucao(execucao_id):
 
         try:
             caminho_local, drive_file_id, pasta_videos_id = cliente_api.baixar_video(
-                SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, pasta_temporaria_raiz,
+                SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, item['produto_ean'], pasta_temporaria_raiz,
             )
         except Exception as erro:
             print(f'[AGENTE] Erro ao baixar vídeo do item #{item_id}: {erro}')
@@ -158,6 +175,7 @@ def _processar_execucao(execucao_id):
 
     foi_cancelado = controle.foi_cancelado()
     evento_parar_heartbeat.set()
+
     shutil.rmtree(pasta_temporaria_raiz, ignore_errors=True)
     controle.encerrar()
     aviso.fechar()

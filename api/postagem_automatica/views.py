@@ -55,6 +55,7 @@ def view_listar_itens(request, execucao_id):
             'status_atual': item.status,
             'produto_titulo': produto.titulo,
             'produto_marca': produto.marca,
+            'produto_ean': produto.ean,
             'mlb': mlb,
             'ja_postado_hoje': ja_postado,
         })

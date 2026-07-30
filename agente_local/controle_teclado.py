@@ -31,7 +31,10 @@ class ControleTeclado:
         keyboard.add_hotkey(TECLA_CANCELAR, self._ao_pressionar_cancelar)
 
     def _ao_pressionar_pausa_retoma(self):
+        import datetime
+        agora = datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
         with self._lock:
+            estado_antes = self.status
             if self.status == AGUARDANDO_INICIO:
                 self._janela_referencia = win32gui.GetForegroundWindow()
                 self.status = RODANDO
@@ -40,12 +43,17 @@ class ControleTeclado:
                 self.status = PAUSADO
             elif self.status == PAUSADO:
                 self.status = RODANDO
+            print(f'[TECLADO {agora}] F8 pressionado — estado: {estado_antes} → {self.status}')
 
     def _ao_pressionar_cancelar(self):
+        import datetime
+        agora = datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
         with self._lock:
+            estado_antes = self.status
             if self.status in (AGUARDANDO_INICIO, RODANDO, PAUSADO):
                 self.status = CANCELADO
                 self._evento_iniciado.set()
+            print(f'[TECLADO {agora}] F9 pressionado — estado: {estado_antes} → {self.status}')
 
     def aguardar_inicio(self):
         self._evento_iniciado.wait()
@@ -67,6 +75,13 @@ class ControleTeclado:
 
             if self.status == RODANDO:
                 if self._janela_referencia is not None and win32gui.GetForegroundWindow() != self._janela_referencia:
+                    import datetime
+                    agora = datetime.datetime.now().strftime('%H:%M:%S.%f')[:-3]
+                    janela_atual = win32gui.GetForegroundWindow()
+                    print(
+                        f'[BLINDAGEM {agora}] Foco perdido — janela esperada={self._janela_referencia}, '
+                        f'janela atual={janela_atual} ("{win32gui.GetWindowText(janela_atual)}") — pausando sozinho.'
+                    )
                     self.status = PAUSADO
                     if aviso:
                         aviso.atualizar(

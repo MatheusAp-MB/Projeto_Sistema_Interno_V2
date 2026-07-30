@@ -24,7 +24,7 @@ from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, m
 from agenda_videos.funcoes_auxiliares.drive.parser import parsear_arquivos_produto
 from agente_local.aviso_execucao import AvisoExecucao
 from .controle_teclado import ControleTeclado
-from .postagem_ml import postar_video_no_ml
+from agente_local.postagem_ml import postar_video_no_ml
 
 
 # Função Objetivo: Quem entra na fila — Ativo, pendente de postar hoje, SEM
