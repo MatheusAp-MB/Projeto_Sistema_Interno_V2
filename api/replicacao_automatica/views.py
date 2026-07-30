@@ -82,6 +82,13 @@ def view_marcar_concluido(request, item_id):
 
     produto = item.produto
 
+    try:
+        corpo = json.loads(request.body)
+    except json.JSONDecodeError:
+        corpo = {}
+    mlbs_replicados = corpo.get('mlbs_replicados') or []
+    mlbs_nao_encontrados = corpo.get('mlbs_nao_encontrados') or []
+
     # * [EXPLICAÇÃO] → Replicar, no nosso sistema, corresponde exatamente à
     #                  ação já existente no roadmap (avançar ocorrência,
     #                  marcar Postagem como Replicado) — reaproveitando a
@@ -103,7 +110,9 @@ def view_marcar_concluido(request, item_id):
 
     postagem_atual.status = StatusPostagem.REPLICADO
     postagem_atual.replicado_em = timezone.now()
-    postagem_atual.save(update_fields=['status', 'replicado_em'])
+    postagem_atual.mlbs_replicados = mlbs_replicados
+    postagem_atual.mlbs_nao_encontrados = mlbs_nao_encontrados
+    postagem_atual.save(update_fields=['status', 'replicado_em', 'mlbs_replicados', 'mlbs_nao_encontrados'])
 
     # * [EXPLICAÇÃO] → Assinatura real: recebe SÓ o andamento (não o
     #                  produto), e NÃO salva sozinha — quem chama precisa

@@ -14,12 +14,34 @@
 
 <div class="historico-lista">
     {% for evento in historico.eventos %}
-    <div class="historico-evento historico-evento--{{ evento.tipo }}">
-        <div class="historico-evento-corpo">
+    <div class="historico-evento historico-evento--{{ evento.tipo }}{% if evento.mlbs_replicados %} historico-evento--expansivel{% endif %}">
+        <div class="historico-evento-corpo{% if evento.mlbs_replicados %} historico-evento-corpo-clicavel{% endif %}"
+             {% if evento.mlbs_replicados %}data-historico-expandir{% endif %}>
             <i class="fas {{ evento.icone }} historico-evento-icone"></i>
             <span class="historico-evento-label">{{ evento.label }}</span>
             <span class="historico-evento-data">{{ evento.timestamp|date:"d/m/Y H:i" }}</span>
+            {% if evento.mlbs_replicados %}
+            <i class="fas fa-chevron-down historico-evento-seta"></i>
+            {% endif %}
         </div>
+        {% if evento.mlbs_replicados %}
+        <div class="historico-evento-detalhe">
+            <div class="historico-evento-detalhe-grupo">
+                <span class="historico-evento-detalhe-titulo">Replicado para:</span>
+                {% for mlb in evento.mlbs_replicados %}
+                <span class="badge-tabela historico-mlb-pill historico-mlb-pill--ok">{{ mlb }}</span>
+                {% endfor %}
+            </div>
+            {% if evento.mlbs_nao_encontrados %}
+            <div class="historico-evento-detalhe-grupo">
+                <span class="historico-evento-detalhe-titulo">Não encontrado(s):</span>
+                {% for mlb in evento.mlbs_nao_encontrados %}
+                <span class="badge-tabela historico-mlb-pill historico-mlb-pill--falha">{{ mlb }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
     {% empty %}
     <p class="historico-vazio">Nenhuma atividade registrada ainda.</p>

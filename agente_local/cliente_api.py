@@ -136,10 +136,15 @@ def listar_itens_replicacao(servidor, token, execucao_id):
     return resposta.json()['itens']
 
 
-def marcar_concluido_replicacao(servidor, token, item_id):
+def marcar_concluido_replicacao(servidor, token, item_id, mlbs_replicados=None, mlbs_nao_encontrados=None):
     resposta = requests.post(
         f'{servidor}/api/replicacao-automatica/item/{item_id}/concluido/',
-        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+        headers=_headers(token),
+        json={
+            'mlbs_replicados': mlbs_replicados or [],
+            'mlbs_nao_encontrados': mlbs_nao_encontrados or [],
+        },
+        timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()

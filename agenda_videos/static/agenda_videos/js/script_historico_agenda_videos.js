@@ -35,3 +35,17 @@ document.body.addEventListener('click', function (evento) {
         });
     }
 });
+
+// * [EXPLICAÇÃO] → Expandir/colapsar o detalhe de "Replicado" (30/07) —
+//                  mesmo padrão de delegação acima: só alterna uma classe,
+//                  os MLBs já vêm carregados no HTML (nenhuma ida ao
+//                  servidor).
+document.body.addEventListener('click', function (evento) {
+    var corpo = evento.target.closest('[data-historico-expandir]');
+    if (!corpo) return;
+
+    var item = corpo.closest('.historico-evento');
+    if (!item) return;
+
+    item.classList.toggle('historico-evento--aberto');
+});

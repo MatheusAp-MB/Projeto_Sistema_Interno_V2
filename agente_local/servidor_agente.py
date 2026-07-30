@@ -307,11 +307,11 @@ def _processar_execucao_replicacao(execucao_id):
             break
 
         try:
-            sucesso, mensagem_erro, marcados = replicar_video_no_ml(
+            sucesso, mensagem_erro, marcados, nao_encontrados = replicar_video_no_ml(
                 item['mlb'], item['outros_mlbs'], controle.janela_referencia,
             )
         except Exception as erro:
-            sucesso, mensagem_erro, marcados = False, f'Erro inesperado na automação: {erro}', []
+            sucesso, mensagem_erro, marcados, nao_encontrados = False, f'Erro inesperado na automação: {erro}', [], []
 
         if not sucesso:
             try:
@@ -327,7 +327,7 @@ def _processar_execucao_replicacao(execucao_id):
                 print(f'[AGENTE] Erro ao gravar log de replicação (não impede o fluxo): {erro}')
 
         try:
-            cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id)
+            cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, marcados, nao_encontrados)
             print(f'[AGENTE] Item de replicação #{item_id} concluído.')
         except Exception as erro:
             print(f'[AGENTE] Replicado, mas erro ao avisar o servidor: {erro}')

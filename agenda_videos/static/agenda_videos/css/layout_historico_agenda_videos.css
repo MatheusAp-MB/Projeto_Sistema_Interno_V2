@@ -247,3 +247,71 @@
     padding-top: 10px;
     border-top: 1px solid var(--cor-borda);
 }
+
+/* ================================================
+   DETALHE EXPANSÍVEL — quais MLBs foram replicados (30/07)
+   ================================================ */
+.historico-evento-corpo-clicavel {
+    cursor: pointer;
+}
+
+.historico-evento-seta {
+    color: #9ca3af;
+    font-size: 0.7rem;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+}
+
+.historico-evento--aberto .historico-evento-seta {
+    transform: rotate(180deg);
+}
+
+.historico-evento--aberto .historico-evento-corpo {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.historico-evento-detalhe {
+    display: none;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 10px 14px 12px;
+    margin-top: -1px;
+}
+
+.historico-evento--aberto .historico-evento-detalhe {
+    display: flex;
+}
+
+.historico-evento-detalhe-grupo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.historico-evento-detalhe-titulo {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #667;
+    margin-right: 2px;
+}
+
+.historico-mlb-pill {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+}
+
+.historico-mlb-pill--ok {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.historico-mlb-pill--falha {
+    background: #fee2e2;
+    color: #b91c1c;
+}

@@ -30,7 +30,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
 
     if not outros_mlbs:
         _log('Nenhum outro MLB pra replicar — nada a fazer.')
-        return True, None, []
+        return True, None, [], []
 
     app = Application(backend='uia').connect(handle=janela_handle)
     janela_ml = app.window(handle=janela_handle)
@@ -62,7 +62,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
             break
     if not carregou:
         _log('[DIAGNÓSTICO] Checkpoint 1 falhou — lista de clips não carregou a tempo.')
-        return False, 'Lista de clips do Mercado Livre não carregou a tempo (Checkpoint 1).', []
+        return False, 'Lista de clips do Mercado Livre não carregou a tempo (Checkpoint 1).', [], []
     _log('Checkpoint 1 OK — lista carregada.')
 
     botoes_vertical_dots = [
@@ -70,7 +70,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
     ]
     if not botoes_vertical_dots:
         _log('Nenhum "vertical_dots" encontrado, mesmo após Checkpoint 1 confirmar.')
-        return False, 'Nenhum clip encontrado na lista.', []
+        return False, 'Nenhum clip encontrado na lista.', [], []
 
     _log(f'{len(botoes_vertical_dots)} clip(s) na lista — clicando no mais recente (1º da lista)...')
     botoes_vertical_dots[0].click_input()
@@ -83,7 +83,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
     )
     if botao_mostrar_outros is None:
         _log('[DIAGNÓSTICO] "Mostrar em outros anúncios" não encontrado no menu.')
-        return False, 'Botão "Mostrar em outros anúncios" não encontrado.', []
+        return False, 'Botão "Mostrar em outros anúncios" não encontrado.', [], []
 
     _log('Clicando em "Mostrar em outros anúncios"...')
     botao_mostrar_outros.click_input()
@@ -95,7 +95,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
     )
     if campo_busca is None:
         _log('[DIAGNÓSTICO] Campo de busca não encontrado na tela de "Escolher anúncios".')
-        return False, 'Campo de busca não encontrado na tela de escolher anúncios.', []
+        return False, 'Campo de busca não encontrado na tela de escolher anúncios.', [], []
 
     marcados = []
     nao_encontrados = []
@@ -128,7 +128,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
     _log(f'Resumo — marcados: {marcados}, não encontrados: {nao_encontrados}')
 
     if not marcados:
-        return False, f'Nenhum dos {len(outros_mlbs)} MLB(s) foi encontrado na busca.', []
+        return False, f'Nenhum dos {len(outros_mlbs)} MLB(s) foi encontrado na busca.', [], nao_encontrados
 
     # * [EXPLICAÇÃO] → Sempre limpa a busca por completo antes de localizar
     #                  o botão final — se o ÚLTIMO MLB buscado no loop não
@@ -149,7 +149,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
     )
     if botao_escolher is None:
         _log('[DIAGNÓSTICO] "Escolher anúncios" não encontrado, mesmo depois de limpar a busca.')
-        return False, 'Botão "Escolher anúncios" não encontrado.', []
+        return False, 'Botão "Escolher anúncios" não encontrado.', [], nao_encontrados
 
     # * [EXPLICAÇÃO] → Clique REAL (30/07, decisão explícita do usuário) —
     #                  diferente da Postagem (que continua parando antes de
@@ -162,6 +162,7 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
     time.sleep(1)
     _log(f'Replicação confirmada de verdade no Mercado Livre — {len(marcados)} MLB(s): {marcados}')
 
+    mensagem = None
     if nao_encontrados:
-        return True, f'{len(marcados)} de {len(outros_mlbs)} marcado(s) — não encontrados: {nao_encontrados}', marcados
-    return True, None, marcados
+        mensagem = f'{len(marcados)} de {len(outros_mlbs)} marcado(s) — não encontrados: {nao_encontrados}'
+    return True, mensagem, marcados, nao_encontrados

@@ -44,6 +44,18 @@ class Postagem(models.Model):
     aprovado_ou_recusado_em = models.DateTimeField(blank=True, null=True)
     replicado_em = models.DateTimeField(blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Guardado a partir de 30/07 (Replicação com clique
+    #                  real) — antes disso, só se sabia QUANDO replicou
+    #                  (replicado_em), nunca PRA QUAIS MLBs. Mesmo padrão de
+    #                  JSONField(default=list) já usado em
+    #                  SnapshotArquivosDrive — lista vazia é o "não tem"
+    #                  natural, nunca precisa ser NULL. Postagens replicadas
+    #                  ANTES dessa mudança ficam com listas vazias (dado
+    #                  retroativo não preenchido de propósito — consultar o
+    #                  log em .txt do agente pra esses casos específicos).
+    mlbs_replicados = models.JSONField(default=list)
+    mlbs_nao_encontrados = models.JSONField(default=list)
+
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:

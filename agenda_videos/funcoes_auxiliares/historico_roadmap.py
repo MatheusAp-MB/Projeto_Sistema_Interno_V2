@@ -96,6 +96,8 @@ def montar_linha_do_tempo_produto(produto):
             eventos.append({
                 'timestamp': postagem.replicado_em,
                 'label': f'{rotulo_base} — Replicado', 'tipo': 'replicado', 'icone': 'fa-copy',
+                'mlbs_replicados': postagem.mlbs_replicados,
+                'mlbs_nao_encontrados': postagem.mlbs_nao_encontrados,
             })
 
     eventos.sort(key=lambda evento: evento['timestamp'])
