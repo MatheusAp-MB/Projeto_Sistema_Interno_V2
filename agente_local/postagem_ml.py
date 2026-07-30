@@ -8,10 +8,10 @@
 
 import os
 import time
-import win32api
 import win32gui
-from pywinauto import Application, mouse
+from pywinauto import Application
 from pywinauto.keyboard import send_keys
+from agente_local.posicionar_mouse_com_seguranca import posicionar_mouse_com_seguranca
 
 NOMES_BOTAO_UPLOAD = ['Arraste um vídeo ou busque-o nos seus arquivos', 'Subir archivo']
 NOMES_BOTAO_ENVIAR = ['Enviar clip', 'Anunciar']
@@ -193,55 +193,9 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
     # * [EXPLICAÇÃO] → PARA AQUI DE PROPÓSITO — nunca clica no botão de
     #                  enviar. O vídeo fica processado e pronto na tela,
     #                  aguardando confirmação humana. Decisão do usuário,
-    #                  não limitação técnica.
-    #
-    # * [CORRIGIDO 30/07] → botao_enviar foi localizado LOGO DEPOIS do
-    #                  Checkpoint 1, bem antes do upload/processamento —
-    #                  usar aquela posição aqui no final é confiar numa
-    #                  coordenada potencialmente ANTIGA (se a página rolou
-    #                  ou o layout mudou nesse meio tempo, o que já
-    #                  confirmamos acontecer dependendo do tamanho de tela).
-    #                  Corrigido: força o foco no botão (isso geralmente faz
-    #                  o navegador rolar sozinho até ele ficar visível),
-    #                  busca a posição DE NOVO depois disso, e confere se
-    #                  ela faz sentido antes de mover — nunca move às cegas.
-    try:
-        botao_enviar.set_focus()
-    except Exception:
-        pass  # * setar foco pode falhar silenciosamente em alguns controles — não é fatal
-    time.sleep(0.5)
-
-    retangulo = botao_enviar.rectangle()
-    centro_x = (retangulo.left + retangulo.right) // 2
-    centro_y = (retangulo.top + retangulo.bottom) // 2
-
-    # * [EXPLICAÇÃO] → Corrigido (30/07) — GetSystemMetrics(0)/(1) só
-    #                  devolvem o tamanho da tela PRINCIPAL. Com mais de 1
-    #                  monitor, coordenadas de uma tela secundária podem ser
-    #                  negativas ou maiores que isso — a checagem antiga
-    #                  recusava mover o mouse achando inválido, quando só
-    #                  estava fora do monitor principal. SM_XVIRTUALSCREEN
-    #                  (76) / SM_YVIRTUALSCREEN (77) / SM_CXVIRTUALSCREEN (78)
-    #                  / SM_CYVIRTUALSCREEN (79) consideram TODOS os
-    #                  monitores juntos, no espaço combinado real do Windows.
-    origem_x = win32api.GetSystemMetrics(76)
-    origem_y = win32api.GetSystemMetrics(77)
-    largura_virtual = win32api.GetSystemMetrics(78)
-    altura_virtual = win32api.GetSystemMetrics(79)
-
-    dentro_da_tela = (
-        origem_x <= centro_x <= origem_x + largura_virtual
-        and origem_y <= centro_y <= origem_y + altura_virtual
-    )
-
-    if not dentro_da_tela:
-        print(
-            f'[DIAGNÓSTICO] Posição do botão parece inválida: ({centro_x}, {centro_y}), '
-            f'área virtual de tela é de ({origem_x}, {origem_y}) até '
-            f'({origem_x + largura_virtual}, {origem_y + altura_virtual}) — '
-            f'NÃO vou mover o mouse pra esse ponto.'
-        )
+    #                  não limitação técnica. Posiciona o mouse com a mesma
+    #                  função compartilhada usada em replicacao_ml.py.
+    if not posicionar_mouse_com_seguranca(botao_enviar, _log):
         return True, 'Vídeo processado com sucesso, mas não consegui confirmar a posição do botão na tela.'
 
-    mouse.move(coords=(centro_x, centro_y))
     return True, None

@@ -5,5 +5,8 @@ from .andamento_agenda import AndamentoAgenda, StatusManualAgenda
 from .postagem import Postagem, StatusPostagem
 from .roadmap_agenda import RoadmapAgenda, EstagioAgenda
 from .snapshot_arquivos_drive import SnapshotArquivosDrive, VALIDADE_SNAPSHOT_DRIVE
-from .execucao_postagem_automatica import ExecucaoPostagemAutomatica, StatusExecucao
+from .status_execucao import StatusExecucao
+from .execucao_postagem_automatica import ExecucaoPostagemAutomatica
 from .item_execucao_postagem import ItemExecucaoPostagem, StatusItemExecucao
+from .execucao_replicacao_automatica import ExecucaoReplicacaoAutomatica
+from .item_execucao_replicacao import ItemExecucaoReplicacao, StatusItemExecucaoReplicacao

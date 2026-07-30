@@ -1,0 +1,40 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Replicação Automática — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Execução de Replicação Automática{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_progresso_postagem_automatica.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<p class="progresso-subtitulo">Iniciada às {{ execucao.iniciado_em|date:"H:i" }}</p>
+
+{% if execucao.status == 'aguardando_inicio' %}
+<div id="aviso-agente-offline" style="display:none;" class="progresso-erro-agente">
+    <i class="fas fa-triangle-exclamation"></i>
+    Não consegui avisar o programa local (agente) — confirme se ele está aberto
+    na sua máquina (ícone na bandeja do sistema) e recarregue esta página.
+</div>
+<div class="progresso-erro-agente" style="background:#f3f4f6; color:#4d5b6e; border-color:#d1d5db;">
+    <i class="fas fa-circle-info"></i>
+    Ainda esperando o agente/F8? Se algo deu errado e quer desistir desta execução:
+    <form method="post" action="{% url 'agenda_videos_cancelar_execucao_replicacao_travada' execucao.id %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn-acao">Cancelar esta execução</button>
+    </form>
+</div>
+<script>
+    fetch('http://127.0.0.1:5678/executar-replicacao/{{ execucao.id }}', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => console.log('Agente respondeu:', d))
+        .catch(e => {
+            console.log('Agente não respondeu (pode não estar rodando):', e);
+            document.getElementById('aviso-agente-offline').style.display = 'block';
+        });
+</script>
+{% endif %}
+
+{% include 'agenda_videos/parciais/estrutura_parcial_lista_progresso_replicacao.html' %}
+{% endblock %}  

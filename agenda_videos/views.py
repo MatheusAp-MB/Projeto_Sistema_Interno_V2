@@ -32,7 +32,7 @@ from agenda_videos.models import (
 #                  importação da planilha — fase pulada não exige preparação real.
 ORDEM_FASES = [Fase.DIARIA, Fase.SEMANAL, Fase.MENSAL]
 
-PROXIMA_FASE = {Fase.DIARIA: Fase.SEMANAL, Fase.SEMANAL: Fase.MENSAL}
+from agenda_videos.funcoes_auxiliares.avancar_ocorrencia_ou_fase import avancar_ocorrencia_ou_fase, PROXIMA_FASE
 
 # * [EXPLICAÇÃO] → As 3 chaves cíclicas (têm sub-estado de Postagem) — todo o resto
 #                  clicável usa o modal simples de 1 confirmação.
@@ -99,50 +99,6 @@ def _recarregar_e_renderizar_card(request, produto_id, contexto_extra=None):
     if contexto_extra:
         contexto.update(contexto_extra)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_card_produto.html', contexto)
-
-
-# Função Objetivo: Avança o AndamentoAgenda pra próxima ocorrência ou próxima
-# fase — assume que a ocorrência atual já foi tratada (replicada, ou pulada via
-# "seguir sem repor"), quem chama decide isso antes de chamar esta função.
-# Explicação em detalhe: extraída (26/07) pra ser reaproveitada em 3 lugares —
-# o clique normal de "replicar", o recálculo em massa ao salvar Configuração de
-# Fases, e a ação "seguir sem repor" (Recusada com cota já cumprida).
-# Não chama .save() sozinha — quem chama decide quando persistir.
-def avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas):
-    if ocorrencias_completadas < andamento.fase_atual.periodo:
-        andamento.ocorrencia_atual = ocorrencias_completadas + 1
-    else:
-        proxima_fase = PROXIMA_FASE.get(andamento.fase_atual.fase)
-        if proxima_fase is None:
-            andamento.concluido = True
-            andamento.concluido_em = timezone.now().date()
-            andamento.concluido_marcado_em = timezone.now()
-        else:
-            config_proxima = ConfiguracaoFase.objects.filter(fase=proxima_fase).first()
-            if config_proxima is None:
-                raise ValueError(f'Configuração da fase "{proxima_fase}" ainda não existe.')
-            # * [EXPLICAÇÃO] → Referência é a data REAL do fim da última ocorrência
-            #                  que de fato aconteceu (nunca andamento.fim_fase, que
-            #                  fica desatualizado se o periodo mudar no meio da
-            #                  fase). "ocorrencias_completadas" pode ser a que acabou
-            #                  de ser replicada (clique normal) ou a última que
-            #                  realmente aconteceu antes de pular direto pra próxima
-            #                  fase (recálculo em massa, ver recalcular_andamentos_da_fase).
-            janela_ocorrencia_referencia = calcular_janela_ocorrencia(
-                andamento.fase_atual.fase, andamento.inicio_fase, ocorrencias_completadas,
-            )
-            referencia = janela_ocorrencia_referencia.fim + timedelta(days=1)
-            janela_proxima = calcular_janela_fase(proxima_fase, referencia, config_proxima.periodo)
-            andamento.fase_atual = config_proxima
-            andamento.ocorrencia_atual = 1
-            andamento.inicio_fase = janela_proxima.inicio
-            andamento.fim_fase = janela_proxima.fim
-
-    if not andamento.concluido:
-        janela_ocorrencia_nova = calcular_janela_ocorrencia(
-            andamento.fase_atual.fase, andamento.inicio_fase, andamento.ocorrencia_atual,
-        )
-        andamento.fim_ocorrencia_atual = janela_ocorrencia_nova.fim
 
 
 # Função Objetivo: Reavalia TODO produto Ativo OU Pausado (não Descontinuado,
@@ -674,11 +630,29 @@ def view_historico_agenda_videos(request):
 #                  diferentes coexistindo, e 2 hotkeys F8 registradas juntas
 #                  disparam as 2 ao mesmo tempo). Nunca permite iniciar uma
 #                  2ª enquanto a 1ª não chegou num estado final.
+# * [EXPLICAÇÃO] → Generalizada (30/07) — antes só checava
+#                  ExecucaoPostagemAutomatica; agora checa os 2 tipos, já
+#                  que os 2 disputam a MESMA trava de concorrência no lado
+#                  do agente (mesmo Tkinter/hotkey, mesma máquina). Sem
+#                  isso, alguém conseguiria clicar "Iniciar Replicação"
+#                  pelo site enquanto uma Postagem está rodando — o agente
+#                  recusaria depois, mas o site já teria criado a
+#                  Execução/Itens à toa.
 def _obter_execucao_em_andamento():
-    from agenda_videos.models import ExecucaoPostagemAutomatica, StatusExecucao
-    return ExecucaoPostagemAutomatica.objects.filter(
-        status__in=[StatusExecucao.AGUARDANDO_INICIO, StatusExecucao.RODANDO, StatusExecucao.PAUSADO],
-    ).first()
+    from agenda_videos.models import ExecucaoPostagemAutomatica, ExecucaoReplicacaoAutomatica, StatusExecucao
+    status_em_andamento = [StatusExecucao.AGUARDANDO_INICIO, StatusExecucao.RODANDO, StatusExecucao.PAUSADO]
+
+    execucao_postagem = ExecucaoPostagemAutomatica.objects.filter(status__in=status_em_andamento).first()
+    if execucao_postagem:
+        execucao_postagem.tipo_execucao = 'postagem'
+        return execucao_postagem
+
+    execucao_replicacao = ExecucaoReplicacaoAutomatica.objects.filter(status__in=status_em_andamento).first()
+    if execucao_replicacao:
+        execucao_replicacao.tipo_execucao = 'replicacao'
+        return execucao_replicacao
+
+    return None
 
 
 def view_confirmar_postagem_automatica(request):
@@ -688,6 +662,10 @@ def view_confirmar_postagem_automatica(request):
     if execucao_em_andamento:
         return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_execucao_ja_em_andamento.html', {
             'execucao': execucao_em_andamento,
+            'url_nome_progresso': (
+                'agenda_videos_progresso_postagem_automatica' if execucao_em_andamento.tipo_execucao == 'postagem'
+                else 'agenda_videos_progresso_replicacao_automatica'
+            ),
         })
 
     produtos_elegiveis = listar_produtos_elegiveis()
@@ -714,7 +692,11 @@ def view_iniciar_postagem_automatica(request):
     #                  progresso, através da API.
     execucao_em_andamento = _obter_execucao_em_andamento()
     if execucao_em_andamento:
-        return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao_em_andamento.id]))
+        url_nome = (
+            'agenda_videos_progresso_postagem_automatica' if execucao_em_andamento.tipo_execucao == 'postagem'
+            else 'agenda_videos_progresso_replicacao_automatica'
+        )
+        return redirect(reverse(url_nome, args=[execucao_em_andamento.id]))
 
     produtos_elegiveis = listar_produtos_elegiveis()
 
@@ -770,3 +752,101 @@ def view_cancelar_execucao_travada(request, execucao_id):
     execucao.finalizado_em = timezone.now()
     execucao.save(update_fields=['status', 'finalizado_em'])
     return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao_id]))
+
+
+# ===================================================================
+# Replicação Automática
+# ===================================================================
+
+def view_confirmar_replicacao_automatica(request):
+    from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
+
+    execucao_em_andamento = _obter_execucao_em_andamento()
+    if execucao_em_andamento:
+        return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_execucao_ja_em_andamento.html', {
+            'execucao': execucao_em_andamento,
+            'url_nome_progresso': (
+                'agenda_videos_progresso_postagem_automatica' if execucao_em_andamento.tipo_execucao == 'postagem'
+                else 'agenda_videos_progresso_replicacao_automatica'
+            ),
+        })
+
+    produtos_elegiveis = listar_a_fazer_hoje(
+        filtros={'pendente_agora': ['aguardando_replicar'], 'reestruturacao_manual': ['nao']},
+    )
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_confirmar_replicacao_automatica.html', {
+        'produtos_elegiveis': produtos_elegiveis,
+        'quantidade_elegiveis': len(produtos_elegiveis),
+    })
+
+
+def view_iniciar_replicacao_automatica(request):
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
+    from agenda_videos.models import ExecucaoReplicacaoAutomatica, ItemExecucaoReplicacao
+
+    execucao_em_andamento = _obter_execucao_em_andamento()
+    if execucao_em_andamento:
+        url_nome = (
+            'agenda_videos_progresso_postagem_automatica' if execucao_em_andamento.tipo_execucao == 'postagem'
+            else 'agenda_videos_progresso_replicacao_automatica'
+        )
+        return redirect(reverse(url_nome, args=[execucao_em_andamento.id]))
+
+    produtos_elegiveis = listar_a_fazer_hoje(
+        filtros={'pendente_agora': ['aguardando_replicar'], 'reestruturacao_manual': ['nao']},
+    )
+
+    execucao = ExecucaoReplicacaoAutomatica.objects.create()
+    for ordem, produto in enumerate(produtos_elegiveis, start=1):
+        ItemExecucaoReplicacao.objects.create(execucao=execucao, produto=produto, ordem=ordem)
+
+    return redirect(reverse('agenda_videos_progresso_replicacao_automatica', args=[execucao.id]))
+
+
+def _montar_contexto_progresso_replicacao(execucao):
+    from agenda_videos.models import StatusItemExecucaoReplicacao
+    itens = list(execucao.itens.select_related('produto').all())
+    return {
+        'execucao': execucao,
+        'itens': itens,
+        'total': len(itens),
+        'concluidos': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.CONCLUIDO),
+        'falharam': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.FALHOU),
+        'cancelados': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.CANCELADO),
+        'travada': execucao.travada,
+    }
+
+
+def view_progresso_replicacao_automatica(request, execucao_id):
+    from agenda_videos.models import ExecucaoReplicacaoAutomatica
+    execucao = get_object_or_404(ExecucaoReplicacaoAutomatica, id=execucao_id)
+    return render(
+        request, 'agenda_videos/estrutura_progresso_replicacao_automatica.html',
+        _montar_contexto_progresso_replicacao(execucao),
+    )
+
+
+def view_progresso_replicacao_automatica_parcial(request, execucao_id):
+    from agenda_videos.models import ExecucaoReplicacaoAutomatica
+    execucao = get_object_or_404(ExecucaoReplicacaoAutomatica, id=execucao_id)
+    return render(
+        request, 'agenda_videos/parciais/estrutura_parcial_lista_progresso_replicacao.html',
+        _montar_contexto_progresso_replicacao(execucao),
+    )
+
+
+@require_POST
+def view_cancelar_execucao_replicacao_travada(request, execucao_id):
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from agenda_videos.models import ExecucaoReplicacaoAutomatica, StatusExecucao, StatusItemExecucaoReplicacao
+    execucao = get_object_or_404(ExecucaoReplicacaoAutomatica, id=execucao_id)
+    execucao.itens.filter(
+        status__in=[StatusItemExecucaoReplicacao.AGUARDANDO],
+    ).update(status=StatusItemExecucaoReplicacao.CANCELADO)
+    execucao.status = StatusExecucao.CANCELADO
+    execucao.finalizado_em = timezone.now()
+    execucao.save(update_fields=['status', 'finalizado_em'])
+    return redirect(reverse('agenda_videos_progresso_replicacao_automatica', args=[execucao_id]))

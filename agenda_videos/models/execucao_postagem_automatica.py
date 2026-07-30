@@ -7,14 +7,7 @@
 # verdade que a tela lê via polling.
 
 from django.db import models
-
-
-class StatusExecucao(models.TextChoices):
-    AGUARDANDO_INICIO = 'aguardando_inicio', 'Aguardando você pressionar F8'
-    RODANDO = 'rodando', 'Rodando'
-    PAUSADO = 'pausado', 'Pausado'
-    CANCELADO = 'cancelado', 'Cancelado'
-    CONCLUIDO = 'concluido', 'Concluído'
+from .status_execucao import StatusExecucao
 
 
 class ExecucaoPostagemAutomatica(models.Model):

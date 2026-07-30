@@ -90,6 +90,7 @@ from flask_cors import CORS
 from agente_local.aviso_execucao import AvisoExecucao
 from agente_local.controle_teclado import ControleTeclado
 from agente_local.postagem_ml import postar_video_no_ml
+from agente_local.replicacao_ml import replicar_video_no_ml
 from agente_local import cliente_api
 
 PORTA_LOCAL = 5678
@@ -144,11 +145,14 @@ def _voltar_ao_repouso():
         icone_referencia['obj'].title = f'Agente rodando — conectado a {SERVIDOR_DJANGO}'
 
 
-def _enviar_heartbeat_em_loop(execucao_id, evento_parar):
+# * [EXPLICAÇÃO] → Generalizada (30/07) — recebe QUAL função de heartbeat
+#                  chamar (Postagem ou Replicação), em vez de duplicar essa
+#                  mesma thread pros 2 fluxos.
+def _enviar_heartbeat_em_loop(funcao_heartbeat, execucao_id, evento_parar):
     import time
     while not evento_parar.is_set():
         try:
-            cliente_api.enviar_heartbeat(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+            funcao_heartbeat(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
         except Exception as erro:
             print(f'[AGENTE] Falha ao enviar heartbeat: {erro}')
         evento_parar.wait(10)  # * a cada 10s — bem dentro do limite de 30s do Django
@@ -163,7 +167,8 @@ def _processar_execucao(execucao_id):
 
     evento_parar_heartbeat = threading.Event()
     thread_heartbeat = threading.Thread(
-        target=_enviar_heartbeat_em_loop, args=(execucao_id, evento_parar_heartbeat), daemon=True,
+        target=_enviar_heartbeat_em_loop,
+        args=(cliente_api.enviar_heartbeat, execucao_id, evento_parar_heartbeat), daemon=True,
     )
     thread_heartbeat.start()
 
@@ -242,6 +247,81 @@ def _processar_execucao(execucao_id):
     _voltar_ao_repouso()
 
 
+def _processar_execucao_replicacao(execucao_id):
+    aviso = AvisoExecucao()
+    aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
+
+    controle = ControleTeclado()
+    controle.aguardar_inicio()
+
+    evento_parar_heartbeat = threading.Event()
+    thread_heartbeat = threading.Thread(
+        target=_enviar_heartbeat_em_loop,
+        args=(cliente_api.enviar_heartbeat_replicacao, execucao_id, evento_parar_heartbeat), daemon=True,
+    )
+    thread_heartbeat.start()
+
+    if controle.foi_cancelado():
+        controle.encerrar()
+        aviso.fechar()
+        try:
+            cliente_api.finalizar_execucao_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=True)
+        except Exception as erro:
+            print(f'[AGENTE] Erro ao avisar cancelamento (replicação): {erro}')
+        _voltar_ao_repouso()
+        return
+
+    try:
+        itens = cliente_api.listar_itens_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+    except Exception as erro:
+        print(f'[AGENTE] Erro ao buscar itens da execução de replicação #{execucao_id}: {erro}')
+        controle.encerrar()
+        aviso.fechar()
+        _voltar_ao_repouso()
+        return
+
+    for item in itens:
+        if controle.foi_cancelado():
+            break
+
+        item_id = item['item_id']
+
+        if not controle.verificar_e_aguardar(aviso):
+            break
+
+        try:
+            sucesso, mensagem_erro = replicar_video_no_ml(
+                item['mlb'], item['outros_mlbs'], controle.janela_referencia,
+            )
+        except Exception as erro:
+            sucesso, mensagem_erro = False, f'Erro inesperado na automação: {erro}'
+
+        if not sucesso:
+            try:
+                cliente_api.marcar_falhou_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, mensagem_erro or 'Falha ao replicar.')
+            except Exception:
+                pass
+            continue
+
+        try:
+            cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id)
+            print(f'[AGENTE] Item de replicação #{item_id} concluído.')
+        except Exception as erro:
+            print(f'[AGENTE] Replicado, mas erro ao avisar o servidor: {erro}')
+
+    foi_cancelado = controle.foi_cancelado()
+    evento_parar_heartbeat.set()
+    controle.encerrar()
+    aviso.fechar()
+
+    try:
+        cliente_api.finalizar_execucao_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=foi_cancelado)
+    except Exception as erro:
+        print(f'[AGENTE] Erro ao avisar que a execução de replicação terminou: {erro}')
+
+    _voltar_ao_repouso()
+
+
 @app_flask.route('/executar/<int:execucao_id>', methods=['POST'])
 def executar(execucao_id):
     # * [EXPLICAÇÃO] → Recusa uma 2ª execução enquanto a 1ª ainda roda NESTE
@@ -256,6 +336,28 @@ def executar(execucao_id):
         icone_referencia['obj'].title = f'Execução #{execucao_id} — aguardando F8'
 
     thread = threading.Thread(target=_processar_execucao, args=(execucao_id,), daemon=True)
+    thread.start()
+
+    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id})
+
+
+@app_flask.route('/executar-replicacao/<int:execucao_id>', methods=['POST'])
+def executar_replicacao(execucao_id):
+    # * [EXPLICAÇÃO] → Mesma trava do /executar (Postagem) — execucao_em_andamento
+    #                  é 1 flag SÓ, compartilhado entre os 2 tipos. Isso é
+    #                  de propósito: Postagem e Replicação usam a MESMA
+    #                  infraestrutura de Tkinter/hotkey nesta máquina — 1
+    #                  de cada tipo rodando ao mesmo tempo seria o mesmo
+    #                  crash que já corrigimos antes (2 execuções concorrentes).
+    if execucao_em_andamento['ativo']:
+        return jsonify({'status': 'ocupado', 'mensagem': 'Já existe uma execução rodando neste agente.'}), 409
+
+    execucao_em_andamento['ativo'] = True
+    if icone_referencia['obj'] is not None:
+        icone_referencia['obj'].icon = _criar_imagem('blue')
+        icone_referencia['obj'].title = f'Execução de Replicação #{execucao_id} — aguardando F8'
+
+    thread = threading.Thread(target=_processar_execucao_replicacao, args=(execucao_id,), daemon=True)
     thread.start()
 
     return jsonify({'status': 'iniciado', 'execucao_id': execucao_id})

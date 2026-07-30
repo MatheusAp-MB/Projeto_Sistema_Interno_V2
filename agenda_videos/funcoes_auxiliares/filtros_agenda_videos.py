@@ -70,6 +70,7 @@ OPCOES_PENDENTE_AGORA = [
     ('aguardando_postar', 'Aguardando Postar'),
     ('aguardando_aprovacao', 'Aguardando aprovação do ML'),
     ('recusado', 'Recusado, aguardando decisão'),
+    ('aguardando_replicar', 'Aprovado, aguardando replicar'),
 ]
 
 
@@ -148,6 +149,11 @@ def _condicao_pendencia(chave, hoje):
         return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.AGUARDANDO_APROVACAO)
     if chave == 'recusado':
         return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.RECUSADO)
+    if chave == 'aguardando_replicar':
+        # * [EXPLICAÇÃO] → Mesma categoria nova do lado Python
+        #                  (a_fazer_hoje.py, 30/07) — fonte cruzada, mesmo
+        #                  padrão já estabelecido pras outras categorias.
+        return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.APROVADO)
     raise ValueError(f'Categoria de pendência desconhecida: {chave}')
 
 

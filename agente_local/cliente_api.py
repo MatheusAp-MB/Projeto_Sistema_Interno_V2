@@ -119,3 +119,54 @@ def finalizar_execucao(servidor, token, execucao_id, cancelada=False):
         json={'cancelada': cancelada},
         timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
+
+
+# ===================================================================
+# Replicação Automática — mesmo padrão exato, endpoints diferentes.
+# Sem "baixar_video" aqui — Replicação nunca lida com arquivo, só ação
+# no navegador.
+# ===================================================================
+
+def listar_itens_replicacao(servidor, token, execucao_id):
+    resposta = requests.get(
+        f'{servidor}/api/replicacao-automatica/execucao/{execucao_id}/itens/',
+        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()['itens']
+
+
+def marcar_concluido_replicacao(servidor, token, item_id):
+    resposta = requests.post(
+        f'{servidor}/api/replicacao-automatica/item/{item_id}/concluido/',
+        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()
+
+
+def marcar_falhou_replicacao(servidor, token, item_id, mensagem):
+    resposta = requests.post(
+        f'{servidor}/api/replicacao-automatica/item/{item_id}/falhou/',
+        headers=_headers(token),
+        json={'mensagem': mensagem},
+        timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()
+
+
+def enviar_heartbeat_replicacao(servidor, token, execucao_id):
+    requests.post(
+        f'{servidor}/api/replicacao-automatica/execucao/{execucao_id}/heartbeat/',
+        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+    ).raise_for_status()
+
+
+def finalizar_execucao_replicacao(servidor, token, execucao_id, cancelada=False):
+    requests.post(
+        f'{servidor}/api/replicacao-automatica/execucao/{execucao_id}/finalizar/',
+        headers=_headers(token),
+        json={'cancelada': cancelada},
+        timeout=TIMEOUT_PADRAO,
+    ).raise_for_status()

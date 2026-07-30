@@ -101,6 +101,15 @@ def calcular_pendencias_atuais_produto(produto, andamento, postagem_atual, hoje=
         pendencias.add('aguardando_aprovacao')
     elif postagem_atual.status == StatusPostagem.RECUSADO:
         pendencias.add('recusado')
+    elif postagem_atual.status == StatusPostagem.APROVADO:
+        # * [EXPLICAÇÃO] → Categoria nova (30/07) — "Aprovado" nunca virava
+        #                  nenhuma pendência antes (a cadeia de elif não
+        #                  tinha ramo pra esse status — ele existia no
+        #                  banco, mas não tinha nome nem filtro próprio).
+        #                  É exatamente o estado que a Replicação Automática
+        #                  precisa: postagem já aprovada pelo ML, ainda não
+        #                  replicada pros demais anúncios.
+        pendencias.add('aguardando_replicar')
 
     return pendencias
 

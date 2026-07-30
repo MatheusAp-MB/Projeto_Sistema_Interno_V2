@@ -354,6 +354,11 @@
         hx-target="#modal-roadmap-slot" hx-swap="innerHTML">
     <i class="fas fa-play"></i> Iniciar Postagem Autônoma de Hoje
 </button>
+<button type="button" class="btn-acao-secundario"
+        hx-get="{% url 'agenda_videos_confirmar_replicacao_automatica' %}"
+        hx-target="#modal-roadmap-slot" hx-swap="innerHTML">
+    <i class="fas fa-copy"></i> Iniciar Replicação Automática de Hoje
+</button>
 {% endif %}
 
 <div class="agenda-ordenar-por">
