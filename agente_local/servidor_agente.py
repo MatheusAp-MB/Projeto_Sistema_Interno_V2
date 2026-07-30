@@ -6,11 +6,31 @@
 # foco. Roda escondido na bandeja do sistema (pystray), sem terminal.
 
 import ctypes
+import datetime
 import os
 import shutil
 import sys
 import tempfile
 import threading
+import time
+
+
+# Função Objetivo: Duplica toda saída (print) pro terminal E pra um arquivo
+# de log — garante que os logs sobrevivem mesmo se a janela do terminal
+# fechar sozinha (crash, ou qualquer outro motivo ainda não diagnosticado).
+class _DuplicadorSaida:
+    def __init__(self, saida_original, arquivo_log):
+        self.saida_original = saida_original
+        self.arquivo_log = arquivo_log
+
+    def write(self, texto):
+        self.saida_original.write(texto)
+        self.arquivo_log.write(texto)
+        self.arquivo_log.flush()
+
+    def flush(self):
+        self.saida_original.flush()
+        self.arquivo_log.flush()
 
 # * [EXPLICAÇÃO] → Corrigido (30/07) — SEM isso, um .exe gerado pelo
 #                  PyInstaller não avisa ao Windows que sabe lidar com
@@ -27,6 +47,40 @@ except Exception:
         ctypes.windll.user32.SetProcessDPIAware()  # fallback pra versões mais antigas do Windows
     except Exception:
         pass
+
+
+# * [EXPLICAÇÃO] → Ativa o log em arquivo o mais cedo possível, antes de
+#                  qualquer outra coisa poder falhar — assim até um erro
+#                  bem no início já fica registrado.
+def _pasta_do_executavel_para_log():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+_caminho_log = os.path.join(
+    _pasta_do_executavel_para_log(), f'agente_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.txt',
+)
+_arquivo_log = open(_caminho_log, 'a', encoding='utf-8')
+sys.stdout = _DuplicadorSaida(sys.stdout, _arquivo_log)
+sys.stderr = _DuplicadorSaida(sys.stderr, _arquivo_log)
+print(f'[AGENTE] Log sendo gravado em: {_caminho_log}')
+
+
+# * [EXPLICAÇÃO] → Captura QUALQUER exceção não tratada, em qualquer lugar
+#                  do programa, antes dela conseguir fechar o processo
+#                  silenciosamente. Requisito do usuário: o agente só fecha
+#                  quando ELE decide fechar (menu "Sair"), nunca sozinho.
+#                  Isso não impede 100% dos jeitos de o Windows encerrar um
+#                  processo à força, mas cobre qualquer erro de Python — que
+#                  é a causa mais provável.
+def _capturar_excecao_nao_tratada(tipo, valor, traceback_obj):
+    import traceback
+    print('[AGENTE] ERRO NÃO TRATADO — isso NÃO deveria ter fechado o programa:')
+    traceback.print_exception(tipo, valor, traceback_obj)
+
+
+sys.excepthook = _capturar_excecao_nao_tratada
 
 import pystray
 from PIL import Image, ImageDraw
@@ -208,7 +262,12 @@ def executar(execucao_id):
 
 
 def _rodar_servidor_flask():
-    app_flask.run(host='127.0.0.1', port=PORTA_LOCAL)
+    try:
+        app_flask.run(host='127.0.0.1', port=PORTA_LOCAL)
+    except Exception as erro:
+        print(f'[AGENTE] ERRO — o servidor local (Flask) parou de responder: {erro}')
+        import traceback
+        traceback.print_exc()
 
 
 def _sair(icone, item):
@@ -225,4 +284,17 @@ icone = pystray.Icon(
     menu=pystray.Menu(pystray.MenuItem('Sair', _sair)),
 )
 icone_referencia['obj'] = icone
-icone.run()
+
+try:
+    icone.run()
+except Exception as erro:
+    print(f'[AGENTE] ERRO — o ícone da bandeja parou de funcionar: {erro}')
+    import traceback
+    traceback.print_exc()
+    print('[AGENTE] Aguardando você fechar esta janela manualmente (Ctrl+C ou fechar a janela).')
+    # * [EXPLICAÇÃO] → Se o loop do ícone quebrar mesmo assim (não deveria,
+    #                  com o try/except acima), mantém o PROCESSO vivo de
+    #                  propósito — nunca fecha sozinho, mesmo sem o ícone
+    #                  funcionando mais. Só sai quando o usuário decidir.
+    while True:
+        time.sleep(3600)

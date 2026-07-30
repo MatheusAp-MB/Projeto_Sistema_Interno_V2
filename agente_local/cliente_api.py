@@ -13,9 +13,21 @@ def _headers(token):
     return {'Authorization': f'Bearer {token}'}
 
 
+# * [EXPLICAÇÃO] → timeout adicionado em TODA chamada de rede deste arquivo
+#                  (30/07) — sem isso, o Python espera indefinidamente se o
+#                  servidor não responder. Nunca importou testando em
+#                  localhost/rede local (resposta em milissegundos) — mas
+#                  com o servidor numa máquina genuinamente separada
+#                  (AWS), qualquer instabilidade de rede travaria o agente
+#                  inteiro pra sempre, sem erro nenhum aparecer.
+TIMEOUT_PADRAO = 30
+TIMEOUT_DOWNLOAD_VIDEO = 120  # * vídeo pode demorar mais, especialmente em conexão mais lenta
+
+
 def listar_itens(servidor, token, execucao_id):
     resposta = requests.get(
-        f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/itens/', headers=_headers(token),
+        f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/itens/',
+        headers=_headers(token), timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()['itens']
@@ -34,7 +46,8 @@ def _montar_caminho_local_organizado(pasta_temporaria_raiz, ean, nome_arquivo):
 
 def baixar_video(servidor, token, item_id, ean_produto, pasta_destino):
     resposta = requests.get(
-        f'{servidor}/api/postagem-automatica/item/{item_id}/video/', headers=_headers(token),
+        f'{servidor}/api/postagem-automatica/item/{item_id}/video/',
+        headers=_headers(token), timeout=TIMEOUT_DOWNLOAD_VIDEO,
     )
     if not resposta.ok:
         try:
@@ -77,6 +90,7 @@ def marcar_concluido(servidor, token, item_id, drive_file_id, pasta_videos_id):
         f'{servidor}/api/postagem-automatica/item/{item_id}/concluido/',
         headers=_headers(token),
         json={'drive_file_id': drive_file_id, 'pasta_videos_id': pasta_videos_id},
+        timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()
@@ -87,13 +101,15 @@ def marcar_falhou(servidor, token, item_id, mensagem):
         f'{servidor}/api/postagem-automatica/item/{item_id}/falhou/',
         headers=_headers(token),
         json={'mensagem': mensagem},
+        timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()
 
 def enviar_heartbeat(servidor, token, execucao_id):
     requests.post(
-        f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/heartbeat/', headers=_headers(token),
+        f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/heartbeat/',
+        headers=_headers(token), timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
 
 def finalizar_execucao(servidor, token, execucao_id, cancelada=False):
@@ -101,4 +117,5 @@ def finalizar_execucao(servidor, token, execucao_id, cancelada=False):
         f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/finalizar/',
         headers=_headers(token),
         json={'cancelada': cancelada},
+        timeout=TIMEOUT_PADRAO,
     ).raise_for_status()

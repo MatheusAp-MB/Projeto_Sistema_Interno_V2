@@ -9,9 +9,10 @@
 
 import json
 import os
+import shutil
 import tempfile
 
-from django.http import JsonResponse, FileResponse, HttpResponseForbidden, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
@@ -88,10 +89,28 @@ def view_baixar_video(request, item_id):
     arquivador = ArquivadorDrive()
     try:
         arquivador.baixar_arquivo(arquivo_alvo.drive_file_id, caminho_local)
+
+        # * [EXPLICAÇÃO] → Corrigido (30/07) — antes, o vídeo era servido via
+        #                  FileResponse mantendo o arquivo aberto no disco DO
+        #                  SERVIDOR, sem nunca limpar a pasta temporária
+        #                  depois. Invisível testando na mesma máquina
+        #                  (poucos testes, reinícios frequentes) — mas um
+        #                  vazamento real e sem limite num servidor rodando
+        #                  de verdade (cada postagem de cada pessoa, todo
+        #                  dia, acumulando pasta+vídeo pra sempre). Agora lê
+        #                  os bytes pra memória e apaga a pasta ANTES de
+        #                  responder — os vídeos são pequenos o bastante
+        #                  (poucos MB) pra isso não pesar.
+        with open(caminho_local, 'rb') as arquivo:
+            conteudo = arquivo.read()
     except Exception as erro:
+        shutil.rmtree(pasta_temporaria, ignore_errors=True)
         return JsonResponse({'erro': f'Erro ao baixar do Drive: {erro}'}, status=502)
 
-    resposta = FileResponse(open(caminho_local, 'rb'), as_attachment=True, filename=arquivo_alvo.nome_arquivo)
+    shutil.rmtree(pasta_temporaria, ignore_errors=True)
+
+    resposta = HttpResponse(conteudo, content_type='application/octet-stream')
+    resposta['Content-Disposition'] = f'attachment; filename="{arquivo_alvo.nome_arquivo}"'
     # * [EXPLICAÇÃO] → Devolve os IDs junto, em cabeçalho — o agente repassa
     #                  eles na hora de avisar "concluído", pra mover o
     #                  arquivo certo pra usados/ sem o servidor precisar
