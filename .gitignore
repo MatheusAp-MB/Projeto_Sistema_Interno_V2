@@ -4,6 +4,7 @@
 *.rar
 *.zip
 
+
 Arquivos_API/
 ### excel ###
 
@@ -144,6 +145,7 @@ celerybeat.pid
 
 # Environments
 .env
+*.env
 .venv
 env/
 venv/
