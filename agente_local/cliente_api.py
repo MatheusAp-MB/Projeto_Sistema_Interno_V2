@@ -60,3 +60,10 @@ def enviar_heartbeat(servidor, token, execucao_id):
     requests.post(
         f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/heartbeat/', headers=_headers(token),
     ).raise_for_status()
+
+def finalizar_execucao(servidor, token, execucao_id, cancelada=False):
+    requests.post(
+        f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/finalizar/',
+        headers=_headers(token),
+        json={'cancelada': cancelada},
+    ).raise_for_status()

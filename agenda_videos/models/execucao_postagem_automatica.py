@@ -43,9 +43,19 @@ class ExecucaoPostagemAutomatica(models.Model):
         from django.utils import timezone
         if self.status not in (StatusExecucao.RODANDO, StatusExecucao.PAUSADO):
             return False
-        if self.ultimo_heartbeat_agente is None:
-            return False  # * ainda em "Aguardando Início" — isso é outro aviso, já tratado
-        segundos_sem_noticia = (timezone.now() - self.ultimo_heartbeat_agente).total_seconds()
+
+        # * [EXPLICAÇÃO] → Corrigido (30/07) — "nunca recebi heartbeat" NÃO
+        #                  significa "ainda não começou" (isso já é avisado
+        #                  em outro lugar, quando status ainda é
+        #                  Aguardando Início). Se o status já virou Rodando
+        #                  mas o heartbeat nunca chegou, conta a partir de
+        #                  QUANDO A EXECUÇÃO COMEÇOU, não trata como "tudo
+        #                  bem" pra sempre — foi exatamente esse o caso
+        #                  real encontrado (placeholder rápido demais pra
+        #                  a 1ª thread de heartbeat, de 10 em 10s, disparar
+        #                  sequer 1 vez antes do processamento acabar).
+        referencia = self.ultimo_heartbeat_agente or self.iniciado_em
+        segundos_sem_noticia = (timezone.now() - referencia).total_seconds()
         return segundos_sem_noticia > self.LIMITE_SEGUNDOS_SEM_HEARTBEAT
 
     class Meta:

@@ -177,3 +177,24 @@ def view_heartbeat(request, execucao_id):
     if not atualizados:
         return JsonResponse({'erro': 'Execução não encontrada.'}, status=404)
     return JsonResponse({'status': 'ok'})
+
+@csrf_exempt
+@require_POST
+def view_finalizar_execucao(request, execucao_id):
+    recusado = _exigir_token(request)
+    if recusado:
+        return recusado
+
+    try:
+        corpo = json.loads(request.body)
+        cancelada = corpo.get('cancelada', False)
+    except json.JSONDecodeError:
+        cancelada = False
+
+    status_final = StatusExecucao.CANCELADO if cancelada else StatusExecucao.CONCLUIDO
+    atualizados = ExecucaoPostagemAutomatica.objects.filter(id=execucao_id).update(
+        status=status_final, finalizado_em=timezone.now(),
+    )
+    if not atualizados:
+        return JsonResponse({'erro': 'Execução não encontrada.'}, status=404)
+    return JsonResponse({'status': 'ok', 'status_final': status_final})

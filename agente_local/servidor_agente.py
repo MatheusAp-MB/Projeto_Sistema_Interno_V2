@@ -99,6 +99,10 @@ def _processar_execucao(execucao_id):
     if controle.foi_cancelado():
         controle.encerrar()
         aviso.fechar()
+        try:
+            cliente_api.finalizar_execucao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=True)
+        except Exception as erro:
+            print(f'[AGENTE] Erro ao avisar cancelamento: {erro}')
         _voltar_ao_repouso()
         return
 
@@ -152,10 +156,17 @@ def _processar_execucao(execucao_id):
         except Exception as erro:
             print(f'[AGENTE] Postado, mas erro ao avisar o servidor: {erro}')
 
+    foi_cancelado = controle.foi_cancelado()
     evento_parar_heartbeat.set()
     shutil.rmtree(pasta_temporaria_raiz, ignore_errors=True)
     controle.encerrar()
     aviso.fechar()
+
+    try:
+        cliente_api.finalizar_execucao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=foi_cancelado)
+    except Exception as erro:
+        print(f'[AGENTE] Erro ao avisar que a execução terminou: {erro}')
+
     _voltar_ao_repouso()
 
 

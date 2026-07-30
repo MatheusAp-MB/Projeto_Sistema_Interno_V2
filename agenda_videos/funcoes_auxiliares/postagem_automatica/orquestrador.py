@@ -22,7 +22,7 @@ from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincroni
 from agenda_videos.funcoes_auxiliares.drive.localizador import LocalizadorArquivosProduto
 from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_caminho_local_organizado
 from agenda_videos.funcoes_auxiliares.drive.parser import parsear_arquivos_produto
-from aviso_execucao import AvisoExecucao
+from agente_local.aviso_execucao import AvisoExecucao
 from .controle_teclado import ControleTeclado
 from .postagem_ml import postar_video_no_ml
 

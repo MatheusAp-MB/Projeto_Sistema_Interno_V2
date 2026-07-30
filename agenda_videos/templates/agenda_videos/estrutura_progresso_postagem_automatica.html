@@ -10,5 +10,37 @@
 
 {% block conteudo %}
 <p class="progresso-subtitulo">Iniciada às {{ execucao.iniciado_em|date:"H:i" }}</p>
+
+{% if execucao.status == 'aguardando_inicio' %}
+<div id="aviso-agente-offline" style="display:none;" class="progresso-erro-agente">
+    <i class="fas fa-triangle-exclamation"></i>
+    Não consegui avisar o programa local (agente) — confirme se ele está aberto
+    na sua máquina (ícone na bandeja do sistema) e recarregue esta página.
+</div>
+<div class="progresso-erro-agente" style="background:#f3f4f6; color:#4d5b6e; border-color:#d1d5db;">
+    <i class="fas fa-circle-info"></i>
+    Ainda esperando o agente/F8? Se algo deu errado e quer desistir desta execução:
+    <form method="post" action="{% url 'agenda_videos_cancelar_execucao_travada' execucao.id %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn-acao">Cancelar esta execução</button>
+    </form>
+</div>
+<script>
+    // * [EXPLICAÇÃO] → Corrigido (30/07) — fica FORA do bloco que o HTMX
+    //                  substitui a cada polling (#progresso-lista). Antes,
+    //                  morava dentro dele, e era recriado do zero a cada 2s
+    //                  — o aviso de erro "piscava" (aparecia e sumia)
+    //                  porque o próprio bloco que o continha era substituído
+    //                  antes de você conseguir ler com calma.
+    fetch('http://127.0.0.1:5678/executar/{{ execucao.id }}', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => console.log('Agente respondeu:', d))
+        .catch(e => {
+            console.log('Agente não respondeu (pode não estar rodando):', e);
+            document.getElementById('aviso-agente-offline').style.display = 'block';
+        });
+</script>
+{% endif %}
+
 {% include 'agenda_videos/parciais/estrutura_parcial_lista_progresso_postagem.html' %}
 {% endblock %}

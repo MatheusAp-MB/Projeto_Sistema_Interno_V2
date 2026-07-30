@@ -698,16 +698,20 @@ def view_confirmar_postagem_automatica(request):
 
 
 def view_iniciar_postagem_automatica(request):
-    import threading
     from django.shortcuts import redirect
     from django.urls import reverse
-    from agenda_videos.funcoes_auxiliares.postagem_automatica import (
-        listar_produtos_elegiveis, executar_postagem_automatica,
-    )
+    from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
 
-    # * [EXPLICAÇÃO] → Mesma trava do view_confirmar — checada de novo aqui,
-    #                  porque alguém poderia (por engano ou por 2 abas
-    #                  abertas) enviar o POST direto, sem passar pelo modal.
+    # * [EXPLICAÇÃO] → Corrigido (30/07) — esta view NUNCA MAIS executa nada
+    #                  sozinha. Antes, disparava o orquestrador antigo
+    #                  (executar_postagem_automatica) numa thread dentro do
+    #                  próprio processo Django — rodando por baixo dos
+    #                  panos, independente do agente/.exe existir ou não
+    #                  (foi por isso que o banner do Tkinter apareceu mesmo
+    #                  com o agente fechado). Agora, esta view só CRIA o
+    #                  trabalho (Execucao + Itens) — quem executa é sempre
+    #                  o agente local, avisado pelo JavaScript da tela de
+    #                  progresso, através da API.
     execucao_em_andamento = _obter_execucao_em_andamento()
     if execucao_em_andamento:
         return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao_em_andamento.id]))
@@ -717,11 +721,6 @@ def view_iniciar_postagem_automatica(request):
     execucao = ExecucaoPostagemAutomatica.objects.create()
     for ordem, produto in enumerate(produtos_elegiveis, start=1):
         ItemExecucaoPostagem.objects.create(execucao=execucao, produto=produto, ordem=ordem)
-
-    # * [EXPLICAÇÃO] → daemon=True — se o processo Django morrer, essa thread
-    #                  morre junto (não fica "presa" rodando sozinha).
-    thread = threading.Thread(target=executar_postagem_automatica, args=(execucao.id,), daemon=True)
-    thread.start()
 
     return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao.id]))
 

@@ -4,23 +4,6 @@
      hx-trigger="every 2s" hx-swap="outerHTML"
      {% endif %}>
 
-    {% if execucao.status == 'aguardando_inicio' %}
-    <div id="aviso-agente-offline" style="display:none;" class="progresso-erro-agente">
-        <i class="fas fa-triangle-exclamation"></i>
-        Não consegui avisar o programa local (agente) — confirme se ele está aberto
-        na sua máquina (ícone na bandeja do sistema) e recarregue esta página.
-    </div>
-    <script>
-        fetch('http://127.0.0.1:5678/executar/{{ execucao.id }}', { method: 'POST' })
-            .then(r => r.json())
-            .then(d => console.log('Agente respondeu:', d))
-            .catch(e => {
-                console.log('Agente não respondeu (pode não estar rodando):', e);
-                document.getElementById('aviso-agente-offline').style.display = 'block';
-            });
-    </script>
-    {% endif %}
-
     <p class="progresso-status-geral progresso-status--{{ execucao.status }}">
         {{ execucao.get_status_display }}
     </p>
