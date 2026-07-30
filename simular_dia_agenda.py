@@ -12,7 +12,7 @@ import openpyxl
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
 
-from aviso_execucao import AvisoExecucao
+from agente_local.aviso_execucao import AvisoExecucao
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 CAMINHO_PLANILHA = Path(r"C:\Users\Win10\Desktop\Videos ML\MAGAZINE.XLSX")

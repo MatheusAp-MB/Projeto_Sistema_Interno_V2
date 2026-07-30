@@ -23,6 +23,30 @@ class ExecucaoPostagemAutomatica(models.Model):
     status = models.CharField(
         max_length=20, choices=StatusExecucao.choices, default=StatusExecucao.AGUARDANDO_INICIO,
     )
+    # * [EXPLICAÇÃO] → "Batimento cardíaco" do agente (29/07) — o Django
+    #                  nunca consegue "ir lá" checar se o agente ainda está
+    #                  vivo (não tem como alcançar a máquina dele, ainda
+    #                  mais uma vez na AWS). Em vez disso, o AGENTE avisa
+    #                  periodicamente "ainda aqui" — o Django só percebe o
+    #                  silêncio (ver propriedade `travada`), nunca pergunta
+    #                  ativamente.
+    ultimo_heartbeat_agente = models.DateTimeField(null=True, blank=True)
+
+    # * [EXPLICAÇÃO] → Generoso o bastante pra sobreviver uma variação normal
+    #                  de rede (download de vídeo grande, por exemplo), mas
+    #                  curto o bastante pra detectar rápido um agente
+    #                  realmente morto/fechado no meio do processo.
+    LIMITE_SEGUNDOS_SEM_HEARTBEAT = 30
+
+    @property
+    def travada(self):
+        from django.utils import timezone
+        if self.status not in (StatusExecucao.RODANDO, StatusExecucao.PAUSADO):
+            return False
+        if self.ultimo_heartbeat_agente is None:
+            return False  # * ainda em "Aguardando Início" — isso é outro aviso, já tratado
+        segundos_sem_noticia = (timezone.now() - self.ultimo_heartbeat_agente).total_seconds()
+        return segundos_sem_noticia > self.LIMITE_SEGUNDOS_SEM_HEARTBEAT
 
     class Meta:
         verbose_name = 'Execução de Postagem Automática'

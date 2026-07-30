@@ -2,8 +2,10 @@
 
 from datetime import timedelta
 from django.http import HttpResponseBadRequest
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
+from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import ContextoTelaAgendaVideos
 from agenda_videos.funcoes_auxiliares.roadmap_produto import (
@@ -735,6 +737,7 @@ def _montar_contexto_progresso(execucao):
         'concluidos': sum(1 for i in itens if i.status == StatusItemExecucao.CONCLUIDO),
         'falharam': sum(1 for i in itens if i.status == StatusItemExecucao.FALHOU),
         'cancelados': sum(1 for i in itens if i.status == StatusItemExecucao.CANCELADO),
+        'travada': execucao.travada,
     }
 
 
@@ -756,3 +759,15 @@ def view_progresso_postagem_automatica_parcial(request, execucao_id):
         request, 'agenda_videos/parciais/estrutura_parcial_lista_progresso_postagem.html',
         _montar_contexto_progresso(execucao),
     )
+
+@require_POST
+def view_cancelar_execucao_travada(request, execucao_id):
+    from agenda_videos.models import ExecucaoPostagemAutomatica, StatusExecucao
+    execucao = get_object_or_404(ExecucaoPostagemAutomatica, id=execucao_id)
+    execucao.itens.filter(
+        status__in=[StatusItemExecucao.AGUARDANDO],
+    ).update(status=StatusItemExecucao.CANCELADO)
+    execucao.status = StatusExecucao.CANCELADO
+    execucao.finalizado_em = timezone.now()
+    execucao.save(update_fields=['status', 'finalizado_em'])
+    return redirect(reverse('agenda_videos_progresso_postagem_automatica', args=[execucao_id]))

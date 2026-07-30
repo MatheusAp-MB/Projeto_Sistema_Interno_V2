@@ -16,6 +16,13 @@ LOGIN_URL = '/login/'
 #                  de redirecionamento.
 ROTAS_PUBLICAS = [
     LOGIN_URL,
+    # * [EXPLICAÇÃO] → API usa autenticação por TOKEN (conferida dentro de
+    #                  cada view, via api/autenticacao.py) — nunca por
+    #                  sessão de login. Sem essa exceção, toda chamada do
+    #                  agente seria redirecionada pra tela de login,
+    #                  devolvendo HTML em vez do JSON esperado (foi
+    #                  exatamente esse o sintoma agora).
+    '/api/',
 ]
 
 

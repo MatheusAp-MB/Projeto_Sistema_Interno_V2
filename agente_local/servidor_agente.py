@@ -1,11 +1,25 @@
+# agente_local/servidor_agente.py
+
+# Função Objetivo: O agente de verdade — recebe o aviso do navegador (via
+# rota local /executar/<id>), busca os itens na API do Django, e processa
+# cada 1 (baixar -> postar -> avisar resultado), com F8/F9 e blindagem de
+# foco. Roda escondido na bandeja do sistema (pystray), sem terminal.
+
 import os
+import shutil
 import sys
+import tempfile
 import threading
+
 import pystray
-import requests
 from PIL import Image, ImageDraw
 from flask import Flask, jsonify
 from flask_cors import CORS
+
+from agente_local.aviso_execucao import AvisoExecucao
+from agente_local.controle_teclado import ControleTeclado
+from agente_local.postagem_ml import postar_video_no_ml
+from agente_local import cliente_api
 
 PORTA_LOCAL = 5678
 
@@ -39,13 +53,10 @@ def carregar_configuracao():
 SERVIDOR_DJANGO, TOKEN_AGENTE = carregar_configuracao()
 
 app_flask = Flask(__name__)
-CORS(app_flask, origins=[SERVIDOR_DJANGO])  # * [EXPLICAÇÃO] → Só aceita
-                                             #   chamada vinda do próprio
-                                             #   Django configurado — não
-                                             #   qualquer página aberta na
-                                             #   máquina.
+CORS(app_flask, origins=[SERVIDOR_DJANGO])
 
 icone_referencia = {'obj': None}
+execucao_em_andamento = {'ativo': False}
 
 
 def _criar_imagem(cor):
@@ -55,18 +66,116 @@ def _criar_imagem(cor):
     return imagem
 
 
+def _voltar_ao_repouso():
+    execucao_em_andamento['ativo'] = False
+    if icone_referencia['obj'] is not None:
+        icone_referencia['obj'].icon = _criar_imagem('green')
+        icone_referencia['obj'].title = f'Agente rodando — conectado a {SERVIDOR_DJANGO}'
+
+
+def _enviar_heartbeat_em_loop(execucao_id, evento_parar):
+    import time
+    while not evento_parar.is_set():
+        try:
+            cliente_api.enviar_heartbeat(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+        except Exception as erro:
+            print(f'[AGENTE] Falha ao enviar heartbeat: {erro}')
+        evento_parar.wait(10)  # * a cada 10s — bem dentro do limite de 30s do Django
+
+
+def _processar_execucao(execucao_id):
+    aviso = AvisoExecucao()
+    aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
+
+    controle = ControleTeclado()
+    controle.aguardar_inicio()
+
+    evento_parar_heartbeat = threading.Event()
+    thread_heartbeat = threading.Thread(
+        target=_enviar_heartbeat_em_loop, args=(execucao_id, evento_parar_heartbeat), daemon=True,
+    )
+    thread_heartbeat.start()
+
+    if controle.foi_cancelado():
+        controle.encerrar()
+        aviso.fechar()
+        _voltar_ao_repouso()
+        return
+
+    try:
+        itens = cliente_api.listar_itens(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+    except Exception as erro:
+        print(f'[AGENTE] Erro ao buscar itens da execução #{execucao_id}: {erro}')
+        controle.encerrar()
+        aviso.fechar()
+        _voltar_ao_repouso()
+        return
+
+    pasta_temporaria_raiz = tempfile.mkdtemp(prefix='agente_postagem_')
+
+    for item in itens:
+        if controle.foi_cancelado():
+            break
+        if item['ja_postado_hoje']:
+            print(f'[AGENTE] Item #{item["item_id"]} já postado hoje — pulando.')
+            continue
+
+        item_id = item['item_id']
+
+        try:
+            caminho_local, drive_file_id, pasta_videos_id = cliente_api.baixar_video(
+                SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, pasta_temporaria_raiz,
+            )
+        except Exception as erro:
+            print(f'[AGENTE] Erro ao baixar vídeo do item #{item_id}: {erro}')
+            try:
+                cliente_api.marcar_falhou(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, f'Erro ao baixar: {erro}')
+            except Exception:
+                pass
+            continue
+
+        if not controle.verificar_e_aguardar(aviso):
+            break
+
+        try:
+            sucesso, mensagem_erro = postar_video_no_ml(item['mlb'], caminho_local, controle.janela_referencia)
+        except Exception as erro:
+            sucesso, mensagem_erro = False, f'Erro inesperado na automação: {erro}'
+
+        if not sucesso:
+            cliente_api.marcar_falhou(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, mensagem_erro or 'Falha ao postar.')
+            continue
+
+        try:
+            cliente_api.marcar_concluido(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, drive_file_id, pasta_videos_id)
+            print(f'[AGENTE] Item #{item_id} concluído.')
+        except Exception as erro:
+            print(f'[AGENTE] Postado, mas erro ao avisar o servidor: {erro}')
+
+    evento_parar_heartbeat.set()
+    shutil.rmtree(pasta_temporaria_raiz, ignore_errors=True)
+    controle.encerrar()
+    aviso.fechar()
+    _voltar_ao_repouso()
+
+
 @app_flask.route('/executar/<int:execucao_id>', methods=['POST'])
 def executar(execucao_id):
-    # * [EXPLICAÇÃO] → Ainda placeholder — só confirma que o navegador
-    #                  conseguiu avisar ESTE agente específico, com o ID
-    #                  real da execução que o Django criou. A automação de
-    #                  verdade (buscar itens, baixar, postar) entra aqui
-    #                  depois, chamando SERVIDOR_DJANGO com TOKEN_AGENTE.
-    print(f'Recebi aviso pra executar a Execução #{execucao_id}!')
+    # * [EXPLICAÇÃO] → Recusa uma 2ª execução enquanto a 1ª ainda roda NESTE
+    #                  agente — mesma lição já aprendida (2 execuções
+    #                  concorrentes derrubam Tkinter/hotkey).
+    if execucao_em_andamento['ativo']:
+        return jsonify({'status': 'ocupado', 'mensagem': 'Já existe uma execução rodando neste agente.'}), 409
+
+    execucao_em_andamento['ativo'] = True
     if icone_referencia['obj'] is not None:
         icone_referencia['obj'].icon = _criar_imagem('blue')
-        icone_referencia['obj'].title = f'Executando #{execucao_id}...'
-    return jsonify({'status': 'recebido', 'execucao_id': execucao_id})
+        icone_referencia['obj'].title = f'Execução #{execucao_id} — aguardando F8'
+
+    thread = threading.Thread(target=_processar_execucao, args=(execucao_id,), daemon=True)
+    thread.start()
+
+    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id})
 
 
 def _rodar_servidor_flask():

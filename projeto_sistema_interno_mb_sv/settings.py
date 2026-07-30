@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'amazon',
     'precificacao',
     'agenda_videos',
+    'api',
 ]
 
 MIDDLEWARE = [

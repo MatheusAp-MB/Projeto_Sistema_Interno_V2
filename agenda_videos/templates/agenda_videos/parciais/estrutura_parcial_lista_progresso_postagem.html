@@ -5,22 +5,36 @@
      {% endif %}>
 
     {% if execucao.status == 'aguardando_inicio' %}
+    <div id="aviso-agente-offline" style="display:none;" class="progresso-erro-agente">
+        <i class="fas fa-triangle-exclamation"></i>
+        Não consegui avisar o programa local (agente) — confirme se ele está aberto
+        na sua máquina (ícone na bandeja do sistema) e recarregue esta página.
+    </div>
     <script>
-        // * [EXPLICAÇÃO] → Avisa o agente local (nunca o servidor Django)
-        //                  que existe uma execução esperando — só na 1ª
-        //                  vez que a tela carrega nesse estado. Sem token
-        //                  nenhum aqui: essa conversa nunca sai da própria
-        //                  máquina, o token só existe entre agente e Django.
         fetch('http://127.0.0.1:5678/executar/{{ execucao.id }}', { method: 'POST' })
             .then(r => r.json())
             .then(d => console.log('Agente respondeu:', d))
-            .catch(e => console.log('Agente não respondeu (pode não estar rodando):', e));
+            .catch(e => {
+                console.log('Agente não respondeu (pode não estar rodando):', e);
+                document.getElementById('aviso-agente-offline').style.display = 'block';
+            });
     </script>
     {% endif %}
 
     <p class="progresso-status-geral progresso-status--{{ execucao.status }}">
         {{ execucao.get_status_display }}
     </p>
+
+    {% if travada %}
+    <div class="progresso-erro-agente">
+        <i class="fas fa-triangle-exclamation"></i>
+        Sem notícia do agente há mais de 30 segundos — ele pode ter travado ou sido fechado.
+        <form method="post" action="{% url 'agenda_videos_cancelar_execucao_travada' execucao.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn-acao">Cancelar esta execução</button>
+        </form>
+    </div>
+    {% endif %}
 
     <div class="progresso-itens">
         {% for item in itens %}

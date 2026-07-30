@@ -17,6 +17,7 @@ urlpatterns = [
     path('postagem-automatica/iniciar/', views.view_iniciar_postagem_automatica, name='agenda_videos_iniciar_postagem_automatica'),
     path('postagem-automatica/<int:execucao_id>/progresso/', views.view_progresso_postagem_automatica, name='agenda_videos_progresso_postagem_automatica'),
     path('postagem-automatica/<int:execucao_id>/progresso/parcial/', views.view_progresso_postagem_automatica_parcial, name='agenda_videos_progresso_postagem_automatica_parcial'),
+    path('postagem-automatica/<int:execucao_id>/cancelar-travada/', views.view_cancelar_execucao_travada, name='agenda_videos_cancelar_execucao_travada'),
     path('historico/', views.view_historico_agenda_videos, name='agenda_videos_historico'),
     path('produto/<int:produto_id>/historico/', views.view_historico_produto, name='agenda_videos_historico_produto'),
 ]

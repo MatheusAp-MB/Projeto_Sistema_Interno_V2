@@ -36,7 +36,9 @@ def listar_produtos_elegiveis():
     return listar_a_fazer_hoje(filtros={'pendente_agora': ['aguardando_postar'], 'reestruturacao_manual': ['nao']})
 
 
-def _obter_mlb_do_produto(produto):
+# * [EXPLICAÇÃO] → Não é mais privada (29/07) — a API (api/postagem_automatica/
+#                  views.py) reaproveita esta função, em vez de duplicá-la.
+def obter_mlb_do_produto(produto):
     from mercado_livre.models import VariacaoAnuncioMercadoLivre
     variacao = VariacaoAnuncioMercadoLivre.objects.filter(produto=produto).select_related('anuncio').first()
     return variacao.anuncio.mlb if variacao else None
@@ -45,7 +47,8 @@ def _obter_mlb_do_produto(produto):
 # Função Objetivo: Acha o vídeo EXATO da ocorrência atual (não "o menor
 # número disponível" — decisão já confirmada: AndamentoAgenda.ocorrencia_atual
 # já diz exatamente qual arquivo baixar, sem precisar de cache local à parte).
-def _resolver_arquivo_da_ocorrencia(produto, andamento):
+# * [EXPLICAÇÃO] → Não é mais privada (29/07), mesmo motivo da função acima.
+def resolver_arquivo_da_ocorrencia(produto, andamento):
     localizador = LocalizadorArquivosProduto()
     encontrado, arquivos_brutos, motivo, pasta_videos_id = localizador.localizar_arquivos(produto.marca, produto.ean)
     if not encontrado:
