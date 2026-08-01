@@ -1,76 +1,52 @@
 # agenda_videos/funcoes_auxiliares/prioridade_agenda_videos.py
 
-# Função Objetivo: Regra ÚNICA de prioridade/ordenação de fase, documentada num
-# lugar só — usada em 2 contextos que, por motivo de performance, precisam de
-# 2 implementações diferentes:
-#   - SQL (Case/When) pra listar_produtos_agenda_filtrados (filtros_agenda_videos.py)
-#     — pagina ~2000 produtos, não dá pra calcular em Python antes de paginar.
-#   - Python puro pra listar_a_fazer_hoje (a_fazer_hoje.py) — já calcula em
-#     Python por causa da janela de ocorrência, escala continua pequena
-#     (dezenas de candidatos).
-# NÃO dá pra virar 1 função só rodando nos 2 lugares (paradigmas diferentes),
-# mas as 2 versões ficam aqui, lado a lado — qualquer mudança na regra
-# precisa necessariamente mexer nas 2 juntas, sem risco de uma ficar escondida
-# em outro arquivo (26/07, achado do pente fino).
+# Função Objetivo: Regra ÚNICA de prioridade/ordenação de fase — 2 versões
+# lado a lado (SQL pra listagem paginada, Python pra "A Fazer Hoje"). Qualquer
+# mudança de regra mexe nas 2 juntas, sem exceção.
 #
 # Regra de prioridade (6 níveis, cruza Urgente/Atrasado com "Sem vídeo"):
 #   1. Urgente + Sem vídeo    2. Urgente
 #   3. Atrasado + Sem vídeo   4. Atrasado
 #   5. Sem vídeo              6. Resto
 #
-# Regra de ordenação de fase (grupo intermediário, não critério):
-#   Diária → Semanal → Mensal → (sem fase real: Não Agendado/Pronto p/ Agendar)
+# Regra de ordenação de fase: Simples → Vídeo Mensal → Vídeo Trimestral.
+#
+# Reestruturação completa (30/07) — "atrasado" agora vem direto do cache
+# (IndicadoresAgendaProduto.ciclo_atual_atrasado), não precisa mais de data
+# de referência pra calcular na hora — simplifica a versão SQL.
 
 from django.db.models import Case, When, Value, IntegerField
 from agenda_videos.models import Fase
 
-MAPA_ORDEM_FASE = {Fase.DIARIA: 1, Fase.SEMANAL: 2, Fase.MENSAL: 3}
+MAPA_ORDEM_FASE = {Fase.SIMPLES: 1, Fase.VIDEO_MENSAL: 2, Fase.VIDEO_TRIMESTRAL: 3}
 
 
-# Função Objetivo: Annotation SQL de prioridade — usada por
-# listar_produtos_agenda_filtrados. "hoje" decide o corte de Atrasado.
-def construir_annotation_prioridade(hoje):
+def construir_annotation_prioridade():
     return Case(
-        When(roadmap_agenda__urgente=True, roadmap_agenda__tem_video_reprovado=True, then=Value(1)),
-        When(roadmap_agenda__urgente=True, then=Value(2)),
-        When(
-            andamento_agenda__isnull=False,
-            andamento_agenda__concluido=False,
-            andamento_agenda__fim_ocorrencia_atual__lt=hoje,
-            roadmap_agenda__tem_video_reprovado=True,
-            then=Value(3),
-        ),
-        When(
-            andamento_agenda__isnull=False,
-            andamento_agenda__concluido=False,
-            andamento_agenda__fim_ocorrencia_atual__lt=hoje,
-            then=Value(4),
-        ),
-        When(roadmap_agenda__tem_video_reprovado=True, then=Value(5)),
+        When(participacao_agenda__urgente=True, indicadores_agenda__tem_video_reprovado=True, then=Value(1)),
+        When(participacao_agenda__urgente=True, then=Value(2)),
+        When(indicadores_agenda__ciclo_atual_atrasado=True, indicadores_agenda__tem_video_reprovado=True, then=Value(3)),
+        When(indicadores_agenda__ciclo_atual_atrasado=True, then=Value(4)),
+        When(indicadores_agenda__tem_video_reprovado=True, then=Value(5)),
         default=Value(6),
         output_field=IntegerField(),
     )
 
 
-# Função Objetivo: Annotation SQL de ordenação de fase — usada por
-# listar_produtos_agenda_filtrados.
 def construir_annotation_ordenacao_fase():
     return Case(
-        When(andamento_agenda__fase_atual__fase=Fase.DIARIA, then=Value(1)),
-        When(andamento_agenda__fase_atual__fase=Fase.SEMANAL, then=Value(2)),
-        When(andamento_agenda__fase_atual__fase=Fase.MENSAL, then=Value(3)),
+        When(indicadores_agenda__fase_atual=Fase.SIMPLES, then=Value(1)),
+        When(indicadores_agenda__fase_atual=Fase.VIDEO_MENSAL, then=Value(2)),
+        When(indicadores_agenda__fase_atual=Fase.VIDEO_TRIMESTRAL, then=Value(3)),
         default=Value(4),
         output_field=IntegerField(),
     )
 
 
-# Função Objetivo: Versão Python da MESMA regra de prioridade acima — usada
-# por listar_a_fazer_hoje. MUDOU ALGO ALI EM CIMA? Muda aqui também.
 def calcular_prioridade_produto(produto):
-    roadmap_agenda = getattr(produto, 'roadmap_agenda', None)
-    urgente = roadmap_agenda is not None and roadmap_agenda.urgente
-    sem_video = roadmap_agenda is not None and roadmap_agenda.tem_video_reprovado
-    atrasado = produto.a_fazer_hoje_atrasado
+    urgente = getattr(produto, 'urgente', False)
+    sem_video = getattr(produto, 'sem_video', False)
+    atrasado = getattr(produto, 'a_fazer_hoje_atrasado', False)
 
     if urgente and sem_video:
         return 1
@@ -85,10 +61,6 @@ def calcular_prioridade_produto(produto):
     return 6
 
 
-# Função Objetivo: Versão Python da MESMA regra de ordenação de fase acima —
-# usada por listar_a_fazer_hoje.
 def calcular_ordem_fase_produto(produto):
-    andamento = getattr(produto, 'andamento_agenda', None)
-    if andamento is None:
-        return 4
-    return MAPA_ORDEM_FASE.get(andamento.fase_atual.fase, 4)
+    fase = getattr(produto, 'a_fazer_hoje_fase', None)
+    return MAPA_ORDEM_FASE.get(fase, 4)

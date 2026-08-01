@@ -1,9 +1,7 @@
 from .configuracao_fase import ConfiguracaoFase, Fase
-from .progresso_producao_video import ProgressoProducaoVideo, StatusVideo
-from .preparacao_video_fase import PreparacaoVideoFase
-from .andamento_agenda import AndamentoAgenda, StatusManualAgenda
-from .postagem import Postagem, StatusPostagem
-from .roadmap_agenda import RoadmapAgenda, EstagioAgenda
+from .ciclo_video import CicloVideo, StatusPostagem
+from .participacao_agenda import ParticipacaoAgenda, HistoricoStatusManualAgenda, StatusManualAgenda
+from .indicadores_agenda_produto import IndicadoresAgendaProduto
 from .snapshot_arquivos_drive import SnapshotArquivosDrive, VALIDADE_SNAPSHOT_DRIVE
 from .status_execucao import StatusExecucao
 from .execucao_postagem_automatica import ExecucaoPostagemAutomatica

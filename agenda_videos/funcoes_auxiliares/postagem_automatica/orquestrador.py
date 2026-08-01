@@ -17,8 +17,8 @@ from agenda_videos.models import (
     ExecucaoPostagemAutomatica, StatusExecucao, ItemExecucaoPostagem, StatusItemExecucao,
 )
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao, ja_postou_hoje
-from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import marcar_ciclo_atual_aguardando_aprovacao, ja_postou_hoje
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from agenda_videos.funcoes_auxiliares.drive.localizador import LocalizadorArquivosProduto
 from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_caminho_local_organizado
 from agenda_videos.funcoes_auxiliares.drive.parser import parsear_arquivos_produto
@@ -33,7 +33,7 @@ from agente_local.postagem_ml import postar_video_no_ml
 # prioridade certa — mesma regra que já vale pro resto da Agenda, nenhum
 # filtro novo escrito aqui.
 def listar_produtos_elegiveis():
-    return listar_a_fazer_hoje(filtros={'pendente_agora': ['aguardando_postar'], 'reestruturacao_manual': ['nao']})
+    return listar_a_fazer_hoje(filtros={'pendente_agora': ['postar']})
 
 
 # * [EXPLICAÇÃO] → Não é mais privada (29/07) — a API (api/postagem_automatica/
@@ -44,19 +44,22 @@ def obter_mlb_do_produto(produto):
     return variacao.anuncio.mlb if variacao else None
 
 
-# Função Objetivo: Acha o vídeo EXATO da ocorrência atual (não "o menor
-# número disponível" — decisão já confirmada: AndamentoAgenda.ocorrencia_atual
-# já diz exatamente qual arquivo baixar, sem precisar de cache local à parte).
-# * [EXPLICAÇÃO] → Não é mais privada (29/07), mesmo motivo da função acima.
-def resolver_arquivo_da_ocorrencia(produto, andamento):
+# Função Objetivo: Acha o vídeo EXATO da ocorrência atual (CicloVideo já diz
+# exatamente qual arquivo baixar, sem precisar de cache local à parte).
+# * [PENDENTE] → Assume que a pasta do Drive continua organizada por fase,
+#                com arquivos numerados dentro dela — ainda não confirmado se
+#                isso muda no modelo novo (Base/Completo por OCORRÊNCIA, não
+#                mais por fase inteira). Revisitar quando a estrutura do
+#                Drive for discutida à parte.
+def resolver_arquivo_da_ocorrencia(produto, ciclo):
     localizador = LocalizadorArquivosProduto()
     encontrado, arquivos_brutos, motivo, pasta_videos_id = localizador.localizar_arquivos(produto.marca, produto.ean)
     if not encontrado:
         return None, None, motivo
 
     estrutura = parsear_arquivos_produto(produto.marca, produto.ean, arquivos_brutos)
-    fase = andamento.fase_atual.fase
-    numero_esperado = andamento.ocorrencia_atual
+    fase = ciclo.fase
+    numero_esperado = ciclo.numero_ocorrencia
     completos_da_fase = estrutura.fases[fase].completos
     todos_os_numerados = completos_da_fase.arquivos_validos + completos_da_fase.arquivos_fora_de_sequencia
     arquivo_alvo = next((a for a in todos_os_numerados if a.numero == numero_esperado), None)
@@ -104,15 +107,13 @@ def _marcar_item(item, status, mensagem_erro=None):
 def _processar_1_produto(item, controle_teclado, aviso, arquivador, pasta_temporaria_raiz):
     from produtos.models import Produto
 
-    # * [EXPLICAÇÃO] → Busca fresco, com as relações que vamos precisar —
-    #                  mesmo motivo já documentado em views.py (cache de
-    #                  relação grudado no objeto, entre uma escrita e outra).
-    produto = Produto.objects.select_related(
-        'andamento_agenda', 'andamento_agenda__fase_atual',
-    ).get(id=item.produto_id)
-    andamento = getattr(produto, 'andamento_agenda', None)
-    if andamento is None:
-        _marcar_item(item, StatusItemExecucao.FALHOU, 'Produto sem AndamentoAgenda — não deveria acontecer aqui.')
+    # * [EXPLICAÇÃO] → Busca fresco — mesmo motivo já documentado em views.py
+    #                  (cache de relação grudado no objeto, entre uma escrita
+    #                  e outra).
+    produto = Produto.objects.prefetch_related('ciclos_video').get(id=item.produto_id)
+    ciclo = produto.ciclos_video.first()  # já ordenado por -criado_em
+    if ciclo is None or ciclo.etapa_atual() != 'postar':
+        _marcar_item(item, StatusItemExecucao.FALHOU, 'Produto sem ocorrência pronta pra postar — não deveria acontecer aqui.')
         return
 
     # * [EXPLICAÇÃO] → Checado ANTES de baixar qualquer coisa — evita gastar
@@ -125,14 +126,14 @@ def _processar_1_produto(item, controle_teclado, aviso, arquivador, pasta_tempor
         _marcar_item(item, StatusItemExecucao.JA_POSTADO_HOJE)
         return
 
-    mlb = _obter_mlb_do_produto(produto)
+    mlb = obter_mlb_do_produto(produto)
     if mlb is None:
         _marcar_item(item, StatusItemExecucao.FALHOU, 'Produto sem MLB vinculado (VariacaoAnuncioMercadoLivre).')
         return
 
     # --- Baixando ---
     _marcar_item(item, StatusItemExecucao.BAIXANDO)
-    arquivo_alvo, pasta_videos_id, motivo = _resolver_arquivo_da_ocorrencia(produto, andamento)
+    arquivo_alvo, pasta_videos_id, motivo = resolver_arquivo_da_ocorrencia(produto, ciclo)
     if arquivo_alvo is None:
         _marcar_item(item, StatusItemExecucao.FALHOU, motivo or 'Vídeo não encontrado no Drive.')
         return
@@ -167,8 +168,8 @@ def _processar_1_produto(item, controle_teclado, aviso, arquivador, pasta_tempor
 
     # --- Atualizando Agenda ---
     _marcar_item(item, StatusItemExecucao.ATUALIZANDO_AGENDA)
-    criar_postagem_aguardando_aprovacao(produto, andamento)
-    sincronizar_roadmap_agenda_produto(produto)
+    marcar_ciclo_atual_aguardando_aprovacao(produto)
+    sincronizar_indicadores_agenda_produto(produto)
 
     # --- Arquivando (mover pra usados/) ---
     _marcar_item(item, StatusItemExecucao.ARQUIVANDO)

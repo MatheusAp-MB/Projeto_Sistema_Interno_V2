@@ -19,8 +19,8 @@ from django.views.decorators.http import require_GET, require_POST
 from api.autenticacao import token_valido
 from django.utils import timezone
 from agenda_videos.models import ItemExecucaoPostagem, StatusItemExecucao, ExecucaoPostagemAutomatica, StatusExecucao
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import criar_postagem_aguardando_aprovacao, ja_postou_hoje
-from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import marcar_ciclo_atual_aguardando_aprovacao, ja_postou_hoje
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_caminho_local_organizado
 from agenda_videos.funcoes_auxiliares.postagem_automatica.orquestrador import (
     obter_mlb_do_produto, resolver_arquivo_da_ocorrencia,
@@ -70,16 +70,16 @@ def view_baixar_video(request, item_id):
     if recusado:
         return recusado
 
-    item = ItemExecucaoPostagem.objects.select_related('produto', 'produto__andamento_agenda__fase_atual').filter(id=item_id).first()
+    item = ItemExecucaoPostagem.objects.select_related('produto').filter(id=item_id).first()
     if item is None:
         return JsonResponse({'erro': 'Item não encontrado.'}, status=404)
 
     produto = item.produto
-    andamento = getattr(produto, 'andamento_agenda', None)
-    if andamento is None:
-        return JsonResponse({'erro': 'Produto sem AndamentoAgenda.'}, status=400)
+    ciclo = produto.ciclos_video.first()
+    if ciclo is None or ciclo.etapa_atual() != 'postar':
+        return JsonResponse({'erro': 'Produto sem ocorrência pronta pra postar.'}, status=400)
 
-    arquivo_alvo, pasta_videos_id, motivo = resolver_arquivo_da_ocorrencia(produto, andamento)
+    arquivo_alvo, pasta_videos_id, motivo = resolver_arquivo_da_ocorrencia(produto, ciclo)
     if arquivo_alvo is None:
         return JsonResponse({'erro': motivo or 'Vídeo não encontrado no Drive.'}, status=404)
 
@@ -127,7 +127,7 @@ def view_marcar_concluido(request, item_id):
     if recusado:
         return recusado
 
-    item = ItemExecucaoPostagem.objects.select_related('produto', 'produto__andamento_agenda').filter(id=item_id).first()
+    item = ItemExecucaoPostagem.objects.select_related('produto').filter(id=item_id).first()
     if item is None:
         return JsonResponse({'erro': 'Item não encontrado.'}, status=404)
 
@@ -139,10 +139,9 @@ def view_marcar_concluido(request, item_id):
         return HttpResponseBadRequest('Corpo precisa ter drive_file_id e pasta_videos_id.')
 
     produto = item.produto
-    andamento = produto.andamento_agenda
 
-    criar_postagem_aguardando_aprovacao(produto, andamento)
-    sincronizar_roadmap_agenda_produto(produto)
+    marcar_ciclo_atual_aguardando_aprovacao(produto)
+    sincronizar_indicadores_agenda_produto(produto)
 
     try:
         arquivador = ArquivadorDrive()

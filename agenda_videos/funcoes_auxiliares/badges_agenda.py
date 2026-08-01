@@ -3,16 +3,12 @@
 # * [RESUMO] → Registro único de badges de apresentação (label + classe CSS + ícone) pra
 #              telas da Agenda de Vídeos. Mesmo padrão de mercado_livre/badges.py — nunca
 #              duplicar essas definições em outro lugar.
+# Reestruturação completa (30/07) — BADGES_STATUS_VIDEO (Simples/Base) e os
+# badges de "insuficiente" saem (conceitos retirados). BADGES_ETAPA é novo —
+# cobre as 7 etapas que CicloVideo.etapa_atual() pode devolver.
 
-from agenda_videos.models import StatusManualAgenda, StatusPostagem, StatusVideo
+from agenda_videos.models import StatusManualAgenda, StatusPostagem
 
-# * [EXPLICAÇÃO] → Classes reaproveitadas de core/static/base_compartilhada/css/
-#                  layout_badges.css (regra do projeto: cor vive só nesse arquivo).
-#                  status-ativo/status-pausado/badge-papel/badge-conta-propria/
-#                  badge-listed já existiam (usados pelo Hub de Anúncios) e batem
-#                  semanticamente — reaproveitados em vez de duplicados. Só as
-#                  genuinamente novas (status-descontinuado, postagem-*, video-*)
-#                  foram adicionadas ao arquivo compartilhado.
 BADGES_STATUS_MANUAL = {
     StatusManualAgenda.ATIVO:         {'label': 'Ativo',         'classe': 'status-ativo',         'icone': 'fa-circle-check'},
     StatusManualAgenda.PAUSADO:       {'label': 'Pausado',       'classe': 'status-pausado',       'icone': 'fa-pause'},
@@ -26,22 +22,20 @@ BADGES_STATUS_POSTAGEM = {
     StatusPostagem.REPLICADO:            {'label': 'Replicado',            'classe': 'postagem-replicado',  'icone': 'fa-copy'},
 }
 
-BADGES_STATUS_VIDEO = {
-    StatusVideo.NAO_GERADO: {'label': 'Não gerado', 'classe': 'video-nao-gerado', 'icone': None},
-    StatusVideo.GERADO:     {'label': 'Gerado',      'classe': 'video-gerado',     'icone': 'fa-circle-check'},
+# * [EXPLICAÇÃO] → Nova (30/07) — cobre CicloVideo.etapa_atual(). Classes CSS
+#                  ainda não existem (Frente 4) — nomes já escolhidos aqui
+#                  pra ficarem estáveis quando o CSS for escrito.
+BADGES_ETAPA = {
+    'base':                 {'label': 'Base',                          'classe': 'etapa-base',          'icone': 'fa-video'},
+    'roteiro':               {'label': 'Roteiro',                       'classe': 'etapa-roteiro',       'icone': 'fa-pen'},
+    'completo':              {'label': 'Completo',                      'classe': 'etapa-completo',      'icone': 'fa-film'},
+    'postar':                {'label': 'Aguardando Postar',             'classe': 'etapa-postar',        'icone': 'fa-upload'},
+    'aguardando_aprovacao':  {'label': 'Aguardando aprovação',          'classe': 'postagem-aguardando', 'icone': 'fa-hourglass-half'},
+    'replicar':              {'label': 'Aprovado, aguardando replicar', 'classe': 'postagem-aprovado',   'icone': 'fa-copy'},
+    'concluido':             {'label': 'Concluído',                     'classe': 'etapa-concluido',     'icone': 'fa-circle-check'},
 }
 
-BADGE_URGENTE_ATIVO          = {'label': 'Urgente',                       'classe': 'badge-conta-propria',     'icone': 'fa-triangle-exclamation'}
-# * [EXPLICAÇÃO] → Corrigido (26/07) — usava badge-listed (âmbar), que já é a
-#                  cor de "Risco de Atraso" no mesmo card; colidiria (prazo vs
-#                  conteúdo são coisas diferentes). Agora usa badge-pool-
-#                  insuficiente, cor nova, sem overlap com nada existente.
-BADGE_ROTEIROS_INSUFICIENTES  = {'label': 'Roteiros insuficientes',         'classe': 'badge-pool-insuficiente', 'icone': 'fa-triangle-exclamation'}
-BADGE_COMPLETOS_INSUFICIENTES = {'label': 'Vídeos completos insuficientes', 'classe': 'badge-pool-insuficiente', 'icone': 'fa-triangle-exclamation'}
-# * [EXPLICAÇÃO] → Reaproveita badge-papel (neutro) de propósito — é aviso
-#                  informativo (nada quebrou, nada trava), diferente do rosa
-#                  de "precisa agir" usado acima.
-BADGE_DIVERGENCIA_FASE_CONCLUIDA = {'label': 'Período divergente', 'classe': 'badge-papel', 'icone': 'fa-circle-info'}
+BADGE_URGENTE_ATIVO = {'label': 'Urgente', 'classe': 'badge-conta-propria', 'icone': 'fa-triangle-exclamation'}
 
 BADGE_PADRAO = {'label': '—', 'classe': 'badge-papel', 'icone': None}
 

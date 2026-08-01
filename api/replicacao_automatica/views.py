@@ -19,8 +19,8 @@ from agenda_videos.models import (
     ItemExecucaoReplicacao, StatusItemExecucaoReplicacao,
     ExecucaoReplicacaoAutomatica, StatusExecucao,
 )
-from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_roadmap_agenda_produto
-from agenda_videos.funcoes_auxiliares.avancar_ocorrencia_ou_fase import avancar_ocorrencia_ou_fase
+from agenda_videos.models import CicloVideo, StatusPostagem
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from agenda_videos.funcoes_auxiliares.postagem_automatica.orquestrador import obter_mlb_do_produto
 
 
@@ -89,42 +89,16 @@ def view_marcar_concluido(request, item_id):
     mlbs_replicados = corpo.get('mlbs_replicados') or []
     mlbs_nao_encontrados = corpo.get('mlbs_nao_encontrados') or []
 
-    # * [EXPLICAÇÃO] → Replicar, no nosso sistema, corresponde exatamente à
-    #                  ação já existente no roadmap (avançar ocorrência,
-    #                  marcar Postagem como Replicado) — reaproveitando a
-    #                  MESMA função que o clique manual já usa (extraída de
-    #                  views.py pra cá existir 1 fonte só), nunca uma 2ª
-    #                  implementação da mesma regra de negócio.
-    from agenda_videos.models import Postagem, StatusPostagem
-
-    andamento = getattr(produto, 'andamento_agenda', None)
-    if andamento is None:
-        return JsonResponse({'erro': 'Produto sem AndamentoAgenda.'}, status=400)
-
-    postagem_atual = Postagem.objects.filter(
-        produto=produto, fase=andamento.fase_atual.fase, numero_ocorrencia=andamento.ocorrencia_atual,
-    ).order_by('-criado_em').first()
-
-    if postagem_atual is None or postagem_atual.status != StatusPostagem.APROVADO:
+    # * [EXPLICAÇÃO] → Replicar agora é 1 método só (CicloVideo.marcar_
+    #                  replicado) — ele já cuida de avançar pra próxima
+    #                  ocorrência por dentro, numa transação só. Nunca
+    #                  reimplementar essa regra de negócio aqui de novo.
+    ciclo_atual = produto.ciclos_video.first()
+    if ciclo_atual is None or ciclo_atual.status != StatusPostagem.APROVADO:
         return JsonResponse({'erro': 'Estado inválido — a postagem atual não está Aprovada.'}, status=400)
 
-    postagem_atual.status = StatusPostagem.REPLICADO
-    postagem_atual.replicado_em = timezone.now()
-    postagem_atual.mlbs_replicados = mlbs_replicados
-    postagem_atual.mlbs_nao_encontrados = mlbs_nao_encontrados
-    postagem_atual.save(update_fields=['status', 'replicado_em', 'mlbs_replicados', 'mlbs_nao_encontrados'])
-
-    # * [EXPLICAÇÃO] → Assinatura real: recebe SÓ o andamento (não o
-    #                  produto), e NÃO salva sozinha — quem chama precisa
-    #                  persistir depois (mesmo contrato que views.py já
-    #                  respeita nos outros 3 chamadores).
-    try:
-        avancar_ocorrencia_ou_fase(andamento, ocorrencias_completadas=andamento.ocorrencia_atual)
-    except ValueError as erro:
-        return JsonResponse({'erro': str(erro)}, status=400)
-    andamento.save()
-
-    sincronizar_roadmap_agenda_produto(produto)
+    ciclo_atual.marcar_replicado(mlbs_replicados, mlbs_nao_encontrados)
+    sincronizar_indicadores_agenda_produto(produto)
 
     item.status = StatusItemExecucaoReplicacao.CONCLUIDO
     item.finalizado_em = timezone.now()

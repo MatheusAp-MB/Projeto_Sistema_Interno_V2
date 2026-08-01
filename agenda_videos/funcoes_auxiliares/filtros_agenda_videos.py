@@ -1,192 +1,88 @@
 # agenda_videos/funcoes_auxiliares/filtros_agenda_videos.py
 
 # * [RESUMO] → Busca, filtros e ordenação da tela única "Agenda de Vídeos".
-# Prioridade de ordenação (25/07) — SEMPRE aplicada, em qualquer listagem/
-# estágio, ANTES de paginar. Regra completa e a versão Python equivalente
-# (usada em A Fazer Hoje) vivem em prioridade_agenda_videos.py (26/07,
-# pente fino) — mudou a regra? Mexe nos 2 lugares, documentados cruzados.
-# "Ordenar por" (Nome/Marca/etc.) continua funcionando, mas só como DESEMPATE
-# dentro de cada grupo de prioridade, nunca embaralhando os grupos entre si.
+# Reestruturação completa (30/07) — antes eram 3 tabelas (progresso/preparação
+# por fase/andamento) cruzadas em 9 categorias de "Pendente agora"; agora é só
+# o CicloVideo mais recente de cada produto (via Subquery), e a maior parte já
+# vem pronta em IndicadoresAgendaProduto (cache).
 #
-# Filtros de checkbox/faixa que já existiam (status manual, urgente, vídeo, etc.)
-# continuam aqui intocados por enquanto — serão repensados numa rodada própria
-# (roteiros_gerados/completos_produzidos/roteiros_insuficientes/quantidade_roteiros
-# SEGUEM QUEBRADOS de propósito — decisão do usuário, não mexer até repensar os
-# filtros com calma).
+# Prioridade de ordenação — SEMPRE aplicada, em qualquer listagem, ANTES de
+# paginar. Regra completa e a versão Python equivalente (A Fazer Hoje) vivem
+# em prioridade_agenda_videos.py — mudou a regra? Mexe nos 2 lugares.
 #
-# Filtros novos (26/07): Atrasado/Risco/Sem vídeo viram filtro de verdade (antes
-# só existiam como badge visual); Vencimento (faixa de data sobre
-# fim_ocorrencia_atual, adicionado em CAMPOS_FAIXA); "Pendente agora" (9
-# categorias de fila de trabalho, via Exists()/Subquery — nunca em Python/loop,
-# mesmo motivo de escala já documentado pro resto da tela). A MESMA regra de
-# "Pendente agora" existe em Python, pra A Fazer Hoje (a_fazer_hoje.py,
-# PENDENCIAS_AGORA_PYTHON) — documentada cruzada, mesmo padrão da prioridade.
+# * [PENDENTE] → Filtros de vídeo simples/base/roteiros/completos "soltos"
+# foram removidos — os conceitos que eles checavam (ProgressoProducaoVideo,
+# PreparacaoVideoFase) não existem mais. Repensar com calma quando chegar a
+# vez (mesma pendência que já existia antes da reestruturação).
 
 from datetime import date
-from django.db.models import Q, OuterRef, Subquery, Exists
+from django.db.models import Q, OuterRef, Subquery
 from produtos.models import Produto
-from agenda_videos.models import Postagem, PreparacaoVideoFase, Fase, StatusVideo, StatusPostagem, VALIDADE_SNAPSHOT_DRIVE
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
+from agenda_videos.models import CicloVideo, Fase, StatusPostagem, VALIDADE_SNAPSHOT_DRIVE
 from django.utils import timezone as django_timezone
 from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_ou_hoje, adicionar_dias_uteis
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
     construir_annotation_prioridade, construir_annotation_ordenacao_fase,
 )
-# * [EXPLICAÇÃO] → DIAS_RISCO importado de a_fazer_hoje.py, não duplicado —
-#                  mesma janela de risco (1 dia útil) usada nos 2 lugares
-#                  (26/07, "fonte única de verdade"). Import seguro (a_fazer_hoje.py
-#                  não importa nada daqui, sem risco de import circular).
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import DIAS_RISCO
 from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 
 CAMPOS_ORDENACAO = {
     'titulo': 'titulo', 'marca': 'marca', 'estoque': 'estoque',
-    'ocorrencia_atual': 'andamento_agenda__ocorrencia_atual',
-    'inicio_fase': 'andamento_agenda__inicio_fase',
-    'fim_fase': 'andamento_agenda__fim_fase',
-    'quantidade_roteiros': 'progresso_producao_video__quantidade_roteiros',
+    'numero_ocorrencia': 'numero_ocorrencia_ciclo_atual',
+    'data_devida': 'data_devida_ciclo_atual',
 }
 
 CAMPOS_FAIXA = [
-    'andamento_agenda__ocorrencia_atual',
-    'andamento_agenda__inicio_fase',
-    'andamento_agenda__fim_fase',
-    'andamento_agenda__fim_ocorrencia_atual',
-    'progresso_producao_video__quantidade_roteiros',
+    'numero_ocorrencia_ciclo_atual',
+    'data_devida_ciclo_atual',
 ]
 
-# * [EXPLICAÇÃO] → As 9 categorias de "Pendente agora" — fila de trabalho por
-#                  tipo de tarefa, independente da fase. MESMA lista existe em
-#                  Python, pra A Fazer Hoje (a_fazer_hoje.py,
-#                  PENDENCIAS_AGORA_PYTHON) — documentada cruzada, adicionou
-#                  categoria nova? Bota nas 2.
+OPCOES_ESTAGIO = [
+    ('', 'Não Agendado'),
+    (Fase.SIMPLES, 'Simples'),
+    (Fase.VIDEO_MENSAL, 'Vídeo Mensal'),
+    (Fase.VIDEO_TRIMESTRAL, 'Vídeo Trimestral'),
+]
+
+# * [EXPLICAÇÃO] → 7 categorias agora (eram 10) — não tem mais "por fase"
+#                  (ex-Roteiros-Diária vs ex-Roteiros-Semanal), já que toda
+#                  fase segue a MESMA sequência de 5 passos agora.
 OPCOES_PENDENTE_AGORA = [
-    ('roteiros_diaria', 'Roteiros — Diária'),
-    ('completos_diaria', 'Completos — Diária'),
-    ('roteiros_semanal', 'Roteiros — Semanal'),
-    ('completos_semanal', 'Completos — Semanal'),
-    ('roteiros_mensal', 'Roteiros — Mensal'),
-    ('completos_mensal', 'Completos — Mensal'),
-    ('aguardando_postar', 'Aguardando Postar'),
-    ('aguardando_aprovacao', 'Aguardando aprovação do ML'),
+    ('base', 'Base'),
+    ('roteiro', 'Roteiro'),
+    ('completo', 'Completo'),
     ('recusado', 'Recusado, aguardando decisão'),
-    ('aguardando_replicar', 'Aprovado, aguardando replicar'),
+    ('postar', 'Aguardando Postar'),
+    ('aguardando_aprovacao', 'Aguardando aprovação do ML'),
+    ('replicar', 'Aprovado, aguardando replicar'),
 ]
 
 
-def _condicao_roteiros_pendente_diaria():
-    return Q(
-        progresso_producao_video__video_simples_status=StatusVideo.GERADO,
-        progresso_producao_video__video_base_status=StatusVideo.GERADO,
-    ) & ~Exists(PreparacaoVideoFase.objects.filter(
-        produto=OuterRef('pk'), fase=Fase.DIARIA, roteiros_gerados=True,
-    ))
-
-
-def _condicao_completos_pendente_diaria():
-    return Exists(PreparacaoVideoFase.objects.filter(
-        produto=OuterRef('pk'), fase=Fase.DIARIA, roteiros_gerados=True, completos_produzidos=False,
-    ))
-
-
-def _condicao_roteiros_pendente_fase(fase):
-    return Q(andamento_agenda__fase_atual__fase=fase) & ~Exists(PreparacaoVideoFase.objects.filter(
-        produto=OuterRef('pk'), fase=fase, roteiros_gerados=True,
-    ))
-
-
-def _condicao_completos_pendente_fase(fase):
-    return Q(andamento_agenda__fase_atual__fase=fase) & Exists(PreparacaoVideoFase.objects.filter(
-        produto=OuterRef('pk'), fase=fase, roteiros_gerados=True, completos_produzidos=False,
-    ))
-
-
-# * [EXPLICAÇÃO] → Pool pronto = roteiros E completos da fase ATUAL do
-#                  produto já feitos — base de "Aguardando Postar".
-def _condicao_pool_pronto_fase_atual():
-    return Exists(PreparacaoVideoFase.objects.filter(
-        produto=OuterRef('pk'), fase=OuterRef('andamento_agenda__fase_atual__fase'),
-        roteiros_gerados=True, completos_produzidos=True,
-    ))
-
-
-# Função Objetivo: Traduz 1 categoria de "Pendente agora" na condição Q
-# correspondente. "status_postagem_ocorrencia_atual" precisa já estar
-# anotado no queryset por quem chama (ver listar_produtos_agenda_filtrados).
-def _condicao_pendencia(chave, hoje):
-    andamento_ativo = Q(andamento_agenda__isnull=False, andamento_agenda__concluido=False)
-
-    if chave == 'roteiros_diaria':
-        return _condicao_roteiros_pendente_diaria()
-    if chave == 'completos_diaria':
-        return _condicao_completos_pendente_diaria()
-    if chave == 'roteiros_semanal':
-        return _condicao_roteiros_pendente_fase(Fase.SEMANAL)
-    if chave == 'completos_semanal':
-        return _condicao_completos_pendente_fase(Fase.SEMANAL)
-    if chave == 'roteiros_mensal':
-        return _condicao_roteiros_pendente_fase(Fase.MENSAL)
-    if chave == 'completos_mensal':
-        return _condicao_completos_pendente_fase(Fase.MENSAL)
-    if chave == 'aguardando_postar':
-        # * [EXPLICAÇÃO] → Mesma regra do lado Python (a_fazer_hoje.py, 29/07)
-        #                  — e mesma correção de fuso (não usa "__date", pelo
-        #                  mesmo motivo: depende do MySQL converter fuso
-        #                  horário via CONVERT_TZ(), que falha silenciosamente
-        #                  sem as tabelas de fuso carregadas no servidor).
-        from django.utils import timezone as django_timezone
-        import datetime as datetime_module
-        inicio_do_dia = django_timezone.make_aware(datetime_module.datetime.combine(hoje, datetime_module.time.min))
-        fim_do_dia = django_timezone.make_aware(datetime_module.datetime.combine(hoje, datetime_module.time.max))
-        ja_postou_hoje_condicao = ~Exists(Postagem.objects.filter(
-            produto=OuterRef('pk'), aguardando_aprovacao_em__gte=inicio_do_dia, aguardando_aprovacao_em__lte=fim_do_dia,
-        ))
-        return (
-            andamento_ativo & _condicao_pool_pronto_fase_atual()
-            & Q(status_postagem_ocorrencia_atual__isnull=True) & ja_postou_hoje_condicao
-        )
-    if chave == 'aguardando_aprovacao':
-        return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.AGUARDANDO_APROVACAO)
+def _condicao_pendencia(chave):
     if chave == 'recusado':
-        return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.RECUSADO)
-    if chave == 'aguardando_replicar':
-        # * [EXPLICAÇÃO] → Mesma categoria nova do lado Python
-        #                  (a_fazer_hoje.py, 30/07) — fonte cruzada, mesmo
-        #                  padrão já estabelecido pras outras categorias.
-        return andamento_ativo & Q(status_postagem_ocorrencia_atual=StatusPostagem.APROVADO)
-    raise ValueError(f'Categoria de pendência desconhecida: {chave}')
+        return Q(status_ciclo_atual=StatusPostagem.RECUSADO)
+    if chave == 'completo':
+        # * [EXPLICAÇÃO] → etapa_atual() devolve 'completo' pros 2 casos (nunca
+        #                  feito OU recusado, precisa refazer) — aqui separa,
+        #                  pra "Completo" e "Recusado" serem categorias distintas.
+        return Q(indicadores_agenda__etapa_atual='completo') & ~Q(status_ciclo_atual=StatusPostagem.RECUSADO)
+    return Q(indicadores_agenda__etapa_atual=chave)
 
 
 def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo', data_referencia=None):
     filtros = filtros or {}
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
 
-    # * [EXPLICAÇÃO] → Escopada na ocorrência ATUAL (fase + número certos) —
-    #                  corrigido (26/07): existia uma versão anterior
-    #                  (status_postagem_recente) que pegava a Postagem mais
-    #                  recente do produto INTEIRO, qualquer fase/ocorrência.
-    #                  Bug real encontrado em teste: um produto que passou
-    #                  por "Seguir sem repor" (Recusada deixada de propósito
-    #                  no histórico, sem nunca ser resolvida) continuava
-    #                  aparecendo no filtro "Recusado" muito depois de já ter
-    #                  avançado de fase — a Postagem antiga, abandonada, ainda
-    #                  era "a mais recente do produto", mesmo sem relevância
-    #                  nenhuma pro presente. Removida — nada mais usa ela.
-    postagem_ocorrencia_atual = Postagem.objects.filter(
-        produto=OuterRef('pk'),
-        fase=OuterRef('andamento_agenda__fase_atual__fase'),
-        numero_ocorrencia=OuterRef('andamento_agenda__ocorrencia_atual'),
-    ).order_by('-criado_em')
+    ciclo_mais_recente = CicloVideo.objects.filter(produto=OuterRef('pk')).order_by('-criado_em')
 
-    # * [EXPLICAÇÃO] → Base NÃO exige mais AndamentoAgenda (diferente da antiga
-    #                  tela "Diários") — "Não Agendado"/"Pronto para Agendar"
-    #                  ainda não têm esse registro, e precisam aparecer também.
     qs = Produto.objects.select_related(
-        'andamento_agenda', 'andamento_agenda__fase_atual',
-        'progresso_producao_video', 'roadmap_agenda', 'snapshot_drive',
+        'participacao_agenda', 'indicadores_agenda', 'snapshot_drive',
     ).annotate(
-        status_postagem_ocorrencia_atual=Subquery(postagem_ocorrencia_atual.values('status')[:1]),
-        prioridade_ordenacao=construir_annotation_prioridade(hoje),
+        status_ciclo_atual=Subquery(ciclo_mais_recente.values('status')[:1]),
+        data_devida_ciclo_atual=Subquery(ciclo_mais_recente.values('data_devida')[:1]),
+        numero_ocorrencia_ciclo_atual=Subquery(ciclo_mais_recente.values('numero_ocorrencia')[:1]),
+        prioridade_ordenacao=construir_annotation_prioridade(),
         ordenacao_fase=construir_annotation_ordenacao_fase(),
     )
 
@@ -198,23 +94,16 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
             )
 
     if filtros.get('estagio'):
-        qs = qs.filter(roadmap_agenda__estagio_atual__in=filtros['estagio'])
-
+        qs = qs.filter(indicadores_agenda__fase_atual__in=filtros['estagio'])
     if filtros.get('marcas'):
         qs = qs.filter(marca__in=filtros['marcas'])
     if filtros.get('status_manual'):
-        qs = qs.filter(andamento_agenda__status_manual__in=filtros['status_manual'])
+        qs = qs.filter(indicadores_agenda__status_manual__in=filtros['status_manual'])
     if filtros.get('urgente'):
-        qs = qs.filter(roadmap_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
+        qs = qs.filter(participacao_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
     if filtros.get('sem_video'):
-        qs = qs.filter(roadmap_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
-    if filtros.get('reestruturacao_manual'):
-        qs = qs.filter(roadmap_agenda__reestruturacao_manual__in=[v == 'sim' for v in filtros['reestruturacao_manual']])
+        qs = qs.filter(indicadores_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
 
-    # * [EXPLICAÇÃO] → "Sincronizado" = tem snapshot E ele está dentro da
-    #                  validade (8h) — mesmo critério do badge/diagnóstico
-    #                  (calcular_diagnostico_preparo_drive), só que aqui
-    #                  vira condição de busca, não só exibição.
     if filtros.get('sincronizado_drive'):
         limite_snapshot = django_timezone.now() - VALIDADE_SNAPSHOT_DRIVE
         condicao_sincronizado = Q(
@@ -225,28 +114,11 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
             qs = qs.filter(condicao_sincronizado)
         elif 'nao' in valores and 'sim' not in valores:
             qs = qs.exclude(condicao_sincronizado)
-    if filtros.get('video_simples_status'):
-        qs = qs.filter(progresso_producao_video__video_simples_status__in=filtros['video_simples_status'])
-    if filtros.get('video_base_status'):
-        qs = qs.filter(progresso_producao_video__video_base_status__in=filtros['video_base_status'])
-    if filtros.get('roteiros_gerados'):
-        qs = qs.filter(progresso_producao_video__roteiros_gerados__in=[v == 'sim' for v in filtros['roteiros_gerados']])
-    if filtros.get('completos_produzidos'):
-        qs = qs.filter(progresso_producao_video__completos_produzidos__in=[v == 'sim' for v in filtros['completos_produzidos']])
-    if filtros.get('roteiros_insuficientes'):
-        qs = qs.filter(progresso_producao_video__roteiros_insuficientes__in=[v == 'sim' for v in filtros['roteiros_insuficientes']])
-    if filtros.get('status_postagem'):
-        qs = qs.filter(status_postagem_ocorrencia_atual__in=filtros['status_postagem'])
 
-    # * [EXPLICAÇÃO] → Atrasado/Risco eram só badge visual até 26/07 — mesma
-    #                  regra que já existe em calcular_indicadores_atraso
-    #                  (a_fazer_hoje.py), expressa aqui como Q pra funcionar em
-    #                  SQL. "Sim" filtra, "Não" exclui; os 2 marcados juntos
-    #                  (ou nenhum) não filtra nada.
-    condicao_atrasado = Q(
-        andamento_agenda__isnull=False, andamento_agenda__concluido=False,
-        andamento_agenda__fim_ocorrencia_atual__lt=hoje,
-    )
+    if filtros.get('status_postagem'):
+        qs = qs.filter(status_ciclo_atual__in=filtros['status_postagem'])
+
+    condicao_atrasado = Q(indicadores_agenda__ciclo_atual_atrasado=True)
     if filtros.get('atrasado'):
         valores = filtros['atrasado']
         if 'sim' in valores and 'nao' not in valores:
@@ -257,9 +129,8 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     if filtros.get('risco'):
         limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
         condicao_risco = (
-            Q(andamento_agenda__isnull=False, andamento_agenda__concluido=False) &
-            ~Q(andamento_agenda__fase_atual__fase=Fase.DIARIA) &
-            Q(andamento_agenda__fim_ocorrencia_atual__gte=hoje, andamento_agenda__fim_ocorrencia_atual__lte=limite_risco) &
+            Q(indicadores_agenda__etapa_atual__in=['base', 'roteiro', 'completo']) &
+            Q(data_devida_ciclo_atual__lte=limite_risco) &
             ~condicao_atrasado
         )
         valores = filtros['risco']
@@ -268,13 +139,10 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
         elif 'nao' in valores and 'sim' not in valores:
             qs = qs.exclude(condicao_risco)
 
-    # * [EXPLICAÇÃO] → "Pendente agora" — cada categoria marcada vira 1 OR (o
-    #                  produto aparece se estiver em QUALQUER uma das
-    #                  marcadas), nunca AND.
     if filtros.get('pendente_agora'):
         condicao_combinada = Q()
         for chave in filtros['pendente_agora']:
-            condicao_combinada |= _condicao_pendencia(chave, hoje)
+            condicao_combinada |= _condicao_pendencia(chave)
         qs = qs.filter(condicao_combinada)
 
     for campo in CAMPOS_FAIXA:
@@ -284,7 +152,4 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     if ordenar.startswith('-'):
         campo_ordenacao = f'-{campo_ordenacao}'
 
-    # * [EXPLICAÇÃO] → Prioridade primeiro, depois o grupo de fase
-    #                  (Diária/Semanal/Mensal), e só então "Ordenar por" desempata
-    #                  dentro de cada combinação — nunca embaralha os grupos entre si.
     return qs.order_by('prioridade_ordenacao', 'ordenacao_fase', campo_ordenacao)
