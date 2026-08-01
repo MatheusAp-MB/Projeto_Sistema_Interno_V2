@@ -5,7 +5,7 @@ from core.management.commands.popular_banco_suporte.sincronizar_roadmap_agenda i
 
 
 class Command(BaseCommand):
-    help = 'Garante que todo Produto tenha um RoadmapAgenda — roda sozinho, fora do popular_banco.'
+    help = 'Garante que todo Produto tenha um IndicadoresAgendaProduto — roda sozinho, fora do popular_banco.'
 
     def handle(self, *args, **options):
         sincronizar_roadmap_agenda(self.stdout, self.style)
