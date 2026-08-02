@@ -22,6 +22,7 @@ from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     Badge, OpcaoComBadge, BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_ETAPA, montar_opcoes_com_badge,
 )
+from agenda_videos.funcoes_auxiliares.roadmap_produto import EstadoVisualRoadmap
 from core.funcoes_auxiliares.cabecalhos_ordenaveis import ConstrutorCabecalhosOrdenacao
 
 LABELS_COLUNAS = {
@@ -218,4 +219,5 @@ class ContextoTelaAgendaVideos:
             'opcoes_sim_nao': OPCOES_SIM_NAO,
             'opcoes_pendente_agora': OPCOES_PENDENTE_AGORA,
             'querystring_sem_pagina': self._montar_querystring_sem_pagina(),
+            'legenda_estados': EstadoVisualRoadmap.choices,
         }

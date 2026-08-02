@@ -1,27 +1,28 @@
 <!--
-* [RESUMO] → 5 variações de modal, controladas por "tipo_acao". Padrão de texto
-* (24/07): "Ao marcar/confirmar X, você assume/confirma que Y". Alvo da troca é
-* SEMPRE #agenda-card-{{ produto_id }} (card inteiro, 25/07) — nunca só o roadmap.
+* [RESUMO] → 5 variações de modal, controladas por "tipo_acao" (calculado em
+* view_confirmar_ponto_roadmap). Reescrito por completo (01/08) — removidas 2
+* variações mortas: "escolher_fase_inicial" (agendar produto não usa mais
+* modal) e "recusado_cota_cumprida" (a view atual nunca gera esse tipo_acao —
+* ver observação enviada ao usuário sobre "seguir sem repor" ficar órfã).
+* Alvo da troca é SEMPRE #agenda-card-{{ produto_id }} (card inteiro) — nunca
+* só o roadmap.
 * hx-on usa a sintaxe ANTIGA (htmx:afterRequest, sem "::") de propósito — a
-* versão 1.9.10 travada no projeto não reconhece a sintaxe nova (hx-on::after-
-* request), e ela falha SILENCIOSAMENTE (sem erro), fazendo o modal nunca fechar
-* sozinho. Já corrigido 2x nesta mesma seção — checar sempre os 5 blocos juntos
-* ao editar este arquivo, nunca 1 de cada vez.
-* Todos os botões de ação carregam "simular_data" via hx-vals (25/07) — "se eu tô
-* simulando, quero que TUDO use a data simulada", sem isso o clique final sempre
-* recalculava com a data real, ignorando a simulação no último passo.
+* versão 1.9.10 travada no projeto não reconhece a sintaxe nova, e ela falha
+* SILENCIOSAMENTE, fazendo o modal nunca fechar sozinho. Checar sempre os 5
+* blocos juntos ao editar este arquivo.
+* Todos os botões carregam "simular_data" via hx-vals — sem isso o clique
+* final sempre recalculava com a data real, ignorando a simulação.
 -->
+{% load agenda_videos_tags %}
+{% rotulo_rodada_de ciclo as rotulo %}
+{% with etapa=chave|badge_etapa %}
 <div class="modal-roadmap-fundo" data-fechar-modal-roadmap>
     <div class="modal-roadmap-caixa">
 
         {% if tipo_acao == 'confirmar_simples' %}
-        <h3 class="modal-roadmap-titulo">Marcar como concluído?</h3>
+        <h3 class="modal-roadmap-titulo">Marcar {{ etapa.label }} como concluído?</h3>
         <p class="modal-roadmap-texto">
-            {% if periodo_fase %}
-            {{ ponto.texto_confirmacao }} {{ periodo_fase }} roteiros de narração/legenda — 1 pra cada ocorrência dessa fase.
-            {% else %}
-            {{ ponto.texto_confirmacao }}
-            {% endif %}
+            Ao confirmar, você assume que {{ etapa.label }} já foi feito para {{ rotulo }}.
         </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
@@ -37,44 +38,10 @@
             </button>
         </div>
 
-        {% elif tipo_acao == 'escolher_fase_inicial' %}
-        <h3 class="modal-roadmap-titulo">Em qual fase esse produto começa?</h3>
-        <p class="modal-roadmap-texto">
-            Fases anteriores à escolhida são marcadas como já preparadas automaticamente
-            (sem exigir roteiros/vídeos reais delas) — escolha com cuidado.
-        </p>
-        <p class="modal-roadmap-aviso">
-            <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
-        </p>
-        <div class="modal-roadmap-acoes">
-            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
-            <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_agendar_produto' produto_id 'diaria' %}"
-                    hx-vals='{"simular_data": "{{ simular_data }}"}'
-                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
-                Diária
-            </button>
-            <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_agendar_produto' produto_id 'semanal' %}"
-                    hx-vals='{"simular_data": "{{ simular_data }}"}'
-                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
-                Semanal
-            </button>
-            <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_agendar_produto' produto_id 'mensal' %}"
-                    hx-vals='{"simular_data": "{{ simular_data }}"}'
-                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
-                Mensal
-            </button>
-        </div>
-
         {% elif tipo_acao == 'postar' %}
         <h3 class="modal-roadmap-titulo">Confirmar postagem de hoje?</h3>
         <p class="modal-roadmap-texto">
-            Ao confirmar a postagem de {{ ponto.contador }}, você assume que o vídeo já foi publicado no anúncio e está aguardando a aprovação do Mercado Livre.
+            Ao confirmar a postagem de {{ rotulo }}, você assume que o vídeo já foi publicado no anúncio e está aguardando a aprovação do Mercado Livre.
         </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
@@ -82,7 +49,7 @@
         <div class="modal-roadmap-acoes">
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'postar' %}"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id 'postar' %}"
                     hx-vals='{"simular_data": "{{ simular_data }}"}'
                     hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
@@ -93,7 +60,7 @@
         {% elif tipo_acao == 'resolver_aprovacao' %}
         <h3 class="modal-roadmap-titulo">O Mercado Livre já validou?</h3>
         <p class="modal-roadmap-texto">
-            {{ ponto.contador }} está aguardando aprovação. Ao marcar <strong>Aprovado</strong>, você confirma que o Mercado Livre já validou o vídeo, e ele pode ser replicado pros demais anúncios. Ao marcar <strong>Recusado</strong>, você confirma que o vídeo foi rejeitado, e será preciso produzir e subir um novo.
+            {{ rotulo }} está aguardando aprovação. Ao marcar <strong>Aprovado</strong>, você confirma que o Mercado Livre já validou o vídeo, e ele pode ser replicado pros demais anúncios. Ao marcar <strong>Recusado</strong>, você confirma que o vídeo foi rejeitado, e será preciso produzir e subir um novo.
         </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
@@ -101,14 +68,14 @@
         <div class="modal-roadmap-acoes">
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-recusar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'recusado' %}"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id 'recusado' %}"
                     hx-vals='{"simular_data": "{{ simular_data }}"}'
                     hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Recusado
             </button>
             <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'aprovado' %}"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id 'aprovado' %}"
                     hx-vals='{"simular_data": "{{ simular_data }}"}'
                     hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
@@ -119,7 +86,7 @@
         {% elif tipo_acao == 'replicar' %}
         <h3 class="modal-roadmap-titulo">Já replicou?</h3>
         <p class="modal-roadmap-texto">
-            Ao confirmar a réplica de {{ ponto.contador }}, você assume que já usou a opção "Replicar" do Mercado Livre pra aplicar esse vídeo aprovado em todos os demais anúncios do produto.
+            Ao confirmar a réplica de {{ rotulo }}, você assume que já usou a opção "Replicar" do Mercado Livre pra aplicar esse vídeo aprovado em todos os demais anúncios do produto.
         </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — ao confirmar, avança pra próxima ocorrência (ou fase, se era a última), só ajustando pelo admin depois.
@@ -127,7 +94,7 @@
         <div class="modal-roadmap-acoes">
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'replicar' %}"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id 'replicar' %}"
                     hx-vals='{"simular_data": "{{ simular_data }}"}'
                     hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
@@ -138,7 +105,7 @@
         {% elif tipo_acao == 'nova_tentativa' %}
         <h3 class="modal-roadmap-titulo">Refez e subiu de novo?</h3>
         <p class="modal-roadmap-texto">
-            Ao confirmar a nova tentativa de {{ ponto.contador }}, você assume que já corrigiu o problema e subiu um novo vídeo no lugar do que foi recusado — ele volta a aguardar aprovação do Mercado Livre.
+            Ao confirmar a nova tentativa de {{ rotulo }}, você assume que já corrigiu o problema e subiu um novo vídeo no lugar do que foi recusado — ele volta a aguardar aprovação do Mercado Livre.
         </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
@@ -146,40 +113,15 @@
         <div class="modal-roadmap-acoes">
             <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'nova_tentativa' %}"
+                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id 'nova_tentativa' %}"
                     hx-vals='{"simular_data": "{{ simular_data }}"}'
                     hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar
             </button>
         </div>
-
-        {% elif tipo_acao == 'recusado_cota_cumprida' %}
-        <h3 class="modal-roadmap-titulo">Recusado — e a cota desta fase já foi cumprida</h3>
-        <p class="modal-roadmap-texto">
-            {{ ponto.contador }} foi recusado, mas o período configurado pra essa fase já foi cumprido por outras ocorrências (a configuração mudou nesse meio tempo). Você pode <strong>tentar novamente</strong> (produzir e subir um novo vídeo pra essa ocorrência) ou <strong>seguir sem repor</strong> (avança pra próxima fase agora, deixando essa ocorrência recusada no histórico, sem repor).
-        </p>
-        <p class="modal-roadmap-aviso">
-            <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
-        </p>
-        <div class="modal-roadmap-acoes">
-            <button type="button" class="btn-acao" data-fechar-modal-roadmap>Cancelar</button>
-            <button type="button" class="btn-acao btn-acao-recusar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'seguir' %}"
-                    hx-vals='{"simular_data": "{{ simular_data }}"}'
-                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
-                Seguir sem repor
-            </button>
-            <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id chave 'nova_tentativa' %}"
-                    hx-vals='{"simular_data": "{{ simular_data }}"}'
-                    hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
-                    hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
-                Tentar novamente
-            </button>
-        </div>
         {% endif %}
 
     </div>
 </div>
+{% endwith %}

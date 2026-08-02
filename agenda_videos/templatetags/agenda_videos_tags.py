@@ -15,6 +15,7 @@ from agenda_videos.models import Fase
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     BADGES_STATUS_MANUAL, BADGES_ETAPA, BADGES_STATUS_POSTAGEM, buscar_badge_de,
 )
+from agenda_videos.funcoes_auxiliares.roadmap_produto import montar_rotulo_rodada
 
 register = template.Library()
 
@@ -47,3 +48,11 @@ def badge_status_postagem(valor_bruto):
 @register.simple_tag
 def ciclo_atual_de(produto):
     return produto.ciclos_video.first()
+
+
+# Função Objetivo: Rótulo legível de 1 ciclo (ex: "Vídeo Mensal #2") — sempre
+# via montar_rotulo_rodada, único dono dessa tradução (nunca reimplementar
+# "if fase == simples" solto dentro de um template).
+@register.simple_tag
+def rotulo_rodada_de(ciclo):
+    return montar_rotulo_rodada(ciclo.fase, ciclo.numero_ocorrencia)

@@ -1,27 +1,41 @@
-/* * [RESUMO] → Visual do roadmap de produto (9 pontos) + modal de confirmação —
- *              cores validadas no mockup: verde=concluído, coral=atual (com anel
- *              tracejado nas fases cíclicas), cinza=futuro. Compartilhado por
- *              qualquer tela que inclua a template tag {% roadmap_produto %}.
+/* * [RESUMO] → Visual do roadmap de produto (Frente 4, 01/08) — esteira de
+ *              rodadas (histórico + atual + previstas) + detalhe dos 5 passos
+ *              da rodada em andamento. Reescrito por completo — layout antigo
+ *              (9-13 pontos numa fileira só) não existe mais; agora são 2
+ *              fileiras (esteira compacta em cima, detalhe da rodada atual
+ *              embaixo). Cores mantidas do padrão já validado: verde=concluído,
+ *              azul=atual, cinza=futuro, âmbar=aguardando aprovação,
+ *              vermelho=recusado, verde-claro=aprovado (ainda não replicado).
+ *              Compartilhado por qualquer tela que inclua a template tag
+ *              {% roadmap_produto %}.
  */
 
-.roadmap-produto {
+.roadmap-produto-corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1 1 100%;
+}
+
+.esteira {
     display: flex;
     align-items: flex-start;
     gap: 0;
     flex-wrap: nowrap;
+    margin-bottom: 0;
 }
 
-.roadmap-ponto {
+.rodada-ponto {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    min-width: 58px;
+    min-width: 64px;
 }
 
-.roadmap-bolinha {
-    width: 36px;
-    height: 36px;
+.rodada-bolinha {
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -29,93 +43,209 @@
     color: #fff;
     font-size: 0.68rem;
     font-weight: 600;
-    border: none;
-    padding: 0;
     position: relative;
-}
-
-.roadmap-ponto-concluido .roadmap-bolinha {
-    background: #3B6D11;
-}
-
-.roadmap-ponto-atual .roadmap-bolinha {
-    background: #2563eb;
-}
-
-/* * [EXPLICAÇÃO] → "Otimizado" no estado atual = fim de linha, sem ação esperando
- *                  — visualmente igual a "concluído" (verde), não "atual" (a cor
- *                  de "precisa agir"). */
-.roadmap-ponto-otimizado.roadmap-ponto-atual .roadmap-bolinha {
-    background: #3B6D11;
-}
-
-/* * [EXPLICAÇÃO] → Sub-estado da Postagem em andamento — sobrescreve a cor "atual"
- *                  (coral) padrão, pra nunca parecer travado sem o usuário entender
- *                  que precisa clicar de novo pra avançar. */
-.roadmap-ponto-postagem-aguardando .roadmap-bolinha {
-    background: #d97706;
-}
-
-.roadmap-ponto-postagem-recusado .roadmap-bolinha {
-    background: #dc2626;
-}
-
-/* * [EXPLICAÇÃO] → Verde CLARO, de propósito — ainda falta clicar "já repliquei"
- *                  antes de virar o check verde escuro padrão (roadmap-ponto-
- *                  concluido). Aprovado ≠ Replicado. */
-.roadmap-ponto-postagem-aprovado .roadmap-bolinha {
-    background: #86efac;
-}
-
-.roadmap-ponto-futuro .roadmap-bolinha {
     background: #e8e6e0;
-    color: #8a887f;
 }
 
-.roadmap-ponto-ciclico .roadmap-bolinha::after {
+.rodada-bolinha.concluido      { background: #3B6D11; }
+.rodada-bolinha.atual          { background: #2563eb; }
+.rodada-bolinha.aguardando     { background: #d97706; }
+.rodada-bolinha.recusado       { background: #dc2626; }
+.rodada-bolinha.aprovado-claro { background: #86efac; }
+.rodada-bolinha.futuro         { background: #e8e6e0; color: #8a887f; }
+
+.rodada-ponto.ciclica .rodada-bolinha::after {
     content: '';
     position: absolute;
-    inset: -6px;
+    inset: -5px;
     border-radius: 50%;
     border: 1.5px dashed #c7c5bd;
 }
 
-.roadmap-ponto-ciclico.roadmap-ponto-atual .roadmap-bolinha::after {
+.rodada-ponto.ciclica.estado-atual .rodada-bolinha::after,
+.rodada-ponto.ciclica.estado-aguardando .rodada-bolinha::after,
+.rodada-ponto.ciclica.estado-recusado .rodada-bolinha::after,
+.rodada-ponto.ciclica.estado-aprovado-claro .rodada-bolinha::after {
     border-color: #2563eb;
 }
 
-.roadmap-bolinha-clicavel {
+.rodada-rotulo {
+    font-size: 0.7rem;
+    color: #445;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.rodada-ponto.estado-futuro .rodada-rotulo {
+    color: #8a887f;
+}
+
+.rodada-legenda {
+    font-size: 0.64rem;
+    color: #778;
+    text-align: center;
+}
+
+.rodada-linha {
+    width: 16px;
+    height: 1px;
+    background: #c3ccd8;
+    margin-top: 14px;
+    flex-shrink: 0;
+}
+
+.rodada-bolinha-clicavel {
     cursor: pointer;
     transition: box-shadow 0.15s ease;
 }
 
-.roadmap-bolinha-clicavel:hover {
+.rodada-bolinha-clicavel:hover {
     box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
-.roadmap-ponto-rotulo {
+/* ================================================
+   DETALHE DA RODADA ATUAL (5 etapas)
+   ================================================ */
+
+.detalhe-cabecalho {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.detalhe-titulo {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1b2534;
+}
+
+.detalhe-vencimento {
+    font-size: 0.78rem;
+    color: #667;
+}
+
+.etapas {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    flex-wrap: nowrap;
+}
+
+.etapa-ponto {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 58px;
+}
+
+.etapa-bolinha {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.8rem;
+    border: none;
+    padding: 0;
+    background: #e8e6e0;
+}
+
+.etapa-bolinha.concluido      { background: #3B6D11; }
+.etapa-bolinha.atual          { background: #2563eb; }
+.etapa-bolinha.aguardando     { background: #d97706; }
+.etapa-bolinha.recusado       { background: #dc2626; }
+.etapa-bolinha.aprovado-claro { background: #86efac; color: #14532d; }
+.etapa-bolinha.futuro         { background: #e8e6e0; color: #8a887f; }
+
+.etapa-bolinha-clicavel {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease;
+}
+
+.etapa-bolinha-clicavel:hover {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+.etapa-rotulo {
     font-size: 0.72rem;
     color: #445;
     text-align: center;
     line-height: 1.2;
 }
 
-.roadmap-ponto-futuro .roadmap-ponto-rotulo {
-    color: #8a887f;
-}
-
-.roadmap-ponto-contador {
-    font-size: 0.68rem;
-    color: #778;
-}
-
-.roadmap-linha {
+.etapa-linha {
     width: 18px;
     height: 1px;
     background: #c3ccd8;
     margin-top: 17px;
     flex-shrink: 0;
 }
+
+.roadmap-cartao {
+    background: #f7f8fa;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+
+.roadmap-cartao-titulo {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #556;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.roadmap-aviso-continua {
+    font-size: 0.72rem;
+    color: #778;
+    border-top: 1px dashed #dcdfe4;
+    margin-top: 12px;
+    padding-top: 8px;
+}
+
+.roadmap-legenda-global {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.76rem;
+    color: #556;
+    margin-bottom: 12px;
+}
+
+.roadmap-legenda-titulo {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legenda-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legenda-bolinha {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    background: #e8e6e0;
+}
+
+.legenda-bolinha.concluido      { background: #3B6D11; }
+.legenda-bolinha.atual          { background: #2563eb; }
+.legenda-bolinha.aguardando     { background: #d97706; }
+.legenda-bolinha.recusado       { background: #dc2626; }
+.legenda-bolinha.aprovado-claro { background: #86efac; }
+.legenda-bolinha.futuro         { background: #e8e6e0; }
 
 /* ================================================
    MODAL DE CONFIRMAÇÃO

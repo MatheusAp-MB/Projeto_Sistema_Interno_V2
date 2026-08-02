@@ -8,20 +8,24 @@
 * mostrando "Replicado" do dia anterior mesmo depois de avançar pro dia seguinte.
 * O roadmap (cor da bolinha do ponto cíclico) já conta essa história corretamente,
 * sempre relativo à ocorrência ATUAL — esse badge virou redundante e impreciso.
+* Reescrito (01/08) — produto.roadmap_agenda/andamento_agenda (models antigos,
+* não existem mais), pool_insuficiente_tipo e divergencia_fase_concluida
+* (sistema de pool antigo) e reestruturacao_manual (conceito retirado) saem.
 -->
 {% load roadmap_tags %}
-{% load andamento_tags %}
+{% load agenda_videos_tags %}
+{% ciclo_atual_de produto as ciclo_atual %}
 <div class="agenda-card" id="agenda-card-{{ produto.id }}" data-simular-data="{{ data_simulada|date:'Y-m-d'|default:'' }}">
 
     <div class="agenda-card-identidade">
         {% include 'agenda_videos/parciais/estrutura_parcial_identidade_produto.html' %}
 
         <!-- * [EXPLICAÇÃO] → Toggle de Urgente — SEMPRE visível, qualquer estágio
-             (urgente mora em RoadmapAgenda agora, existe pra todo produto). Sem
+             (urgente mora em ParticipacaoAgenda, existe pra todo produto). Sem
              modal — clique liga/desliga direto (reversível, baixo risco). -->
         <button type="button"
-                class="agenda-urgente-toggle {% if produto.roadmap_agenda.urgente %}agenda-urgente-ativo{% endif %}"
-                title="{% if produto.roadmap_agenda.urgente %}Desmarcar urgente{% else %}Marcar como urgente{% endif %}"
+                class="agenda-urgente-toggle {% if produto.participacao_agenda.urgente %}agenda-urgente-ativo{% endif %}"
+                title="{% if produto.participacao_agenda.urgente %}Desmarcar urgente{% else %}Marcar como urgente{% endif %}"
                 hx-post="{% url 'agenda_videos_alternar_urgente' produto.id %}"
                 hx-vals='js:{simular_data: document.getElementById("agenda-card-{{ produto.id }}").dataset.simularData}'
                 hx-target="#agenda-card-{{ produto.id }}" hx-swap="outerHTML">
@@ -33,7 +37,7 @@
                 hx-target="#modal-roadmap-slot" hx-swap="innerHTML">
             <i class="fas fa-clock-rotate-left"></i>
         </button>
-        {% if not produto.andamento_agenda.concluido %}
+        {% if ciclo_atual %}
         <button type="button" class="agenda-verificar-drive-toggle"
                 title="Verificar arquivos no Google Drive"
                 hx-post="{% url 'agenda_videos_verificar_drive' produto.id %}"
@@ -50,7 +54,7 @@
     <p class="agenda-erro-drive"><i class="fas fa-triangle-exclamation"></i> {{ erro_verificacao_drive }}</p>
     {% endif %}
 
-    {% if produto.andamento_agenda %}
+    {% if ciclo_atual %}
     <div class="agenda-card-meta">
         {% include 'agenda_videos/parciais/estrutura_parcial_meta_produto.html' %}
     </div>
@@ -63,39 +67,15 @@
         <span class="badge-tabela badge-listed"><i class="fas fa-triangle-exclamation"></i> Risco de Atraso</span>
         {% endif %}
 
-        {% if produto.roadmap_agenda.tem_video_reprovado %}
+        {% if produto.indicadores_agenda.tem_video_reprovado %}
         <span class="badge-tabela badge-sem-clipes" title="Reprovado no critério de vídeo do Mercado Livre (UP_HAS_SHORTS)">
             <i class="fas fa-video-slash"></i> Sem clipes
         </span>
         {% endif %}
 
-        {% if produto.pool_insuficiente_tipo == 'roteiros' %}
-        <span class="badge-tabela badge-pool-insuficiente" title="A quantidade de roteiros feita não cobre mais o período atual da fase — precisa gerar os que faltam.">
-            <i class="fas fa-triangle-exclamation"></i> Roteiros insuficientes
-        </span>
-        {% elif produto.pool_insuficiente_tipo == 'completos' %}
-        <span class="badge-tabela badge-pool-insuficiente" title="A quantidade de vídeos completos feita não cobre mais o período atual da fase — precisa produzir os que faltam.">
-            <i class="fas fa-triangle-exclamation"></i> Vídeos completos insuficientes
-        </span>
-        {% endif %}
-
-        {% for divergencia in produto.divergencia_fase_concluida %}
-        <span class="badge-tabela badge-papel" title="Concluída com {{ divergencia.real }} — a configuração atual pede {{ divergencia.atual }}. O período mudou depois que essa fase já tinha terminado.">
-            <i class="fas fa-circle-info"></i>
-            {% if divergencia.fase == 'diaria' %}Diária{% elif divergencia.fase == 'semanal' %}Semanal{% else %}Mensal{% endif %}
-            concluída com período diferente
-        </span>
-        {% endfor %}
-
         {% if produto.diagnostico_drive %}
         <span class="badge-tabela badge-diagnostico-drive" title="{{ produto.diagnostico_drive.mensagem }}">
             <i class="fas fa-cloud"></i> {{ produto.diagnostico_drive.mensagem }}
-        </span>
-        {% endif %}
-
-        {% if produto.roadmap_agenda.reestruturacao_manual %}
-        <span class="badge-tabela badge-reestruturacao-manual" title="Diária finalizada manualmente pela equipe — histórico do processo antigo não é rastreável pelo sistema.">
-            <i class="fas fa-hammer"></i> Reestruturação Manual
         </span>
         {% endif %}
 
