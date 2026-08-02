@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from produtos.models import Produto
 from agenda_videos.models import Fase, ConfiguracaoFase, CicloVideo, StatusPostagem
-from agenda_videos.tests.apoio_visual import registrar_resultado
+from testes_apoio.apoio_visual import registrar_resultado
 
 pytestmark = pytest.mark.django_db
 
