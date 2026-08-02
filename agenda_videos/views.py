@@ -89,7 +89,15 @@ def view_confirmar_ponto_roadmap(request: HttpRequest, produto_id: int, chave: s
     ciclo = _buscar_ciclo_atual(produto)
 
     if ciclo is None:
-        return HttpResponseBadRequest('Este produto ainda não entrou na Agenda.')
+        # * [EXPLICAÇÃO] → Simples não precisa mais de clique pra existir —
+        #                  o único ponto alcançável sem nenhum CicloVideo no
+        #                  banco é Base. Instância NÃO salva, só pra exibir o
+        #                  modal — a criação real acontece em
+        #                  view_marcar_ponto_roadmap (visualizar nunca
+        #                  escreve no banco).
+        if chave != 'base':
+            return HttpResponseBadRequest('Esse ponto não pode ser confirmado agora.')
+        ciclo = CicloVideo(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
 
     if ciclo.status == StatusPostagem.RECUSADO and chave == 'completo':
         tipo_acao = 'nova_tentativa'
@@ -118,7 +126,13 @@ def view_marcar_ponto_roadmap(request: HttpRequest, produto_id: int, chave: str)
     produto = get_object_or_404(Produto, id=produto_id)
     ciclo = _buscar_ciclo_atual(produto)
 
-    if ciclo is None or chave not in ('base', 'roteiro', 'completo') or ciclo.etapa_atual() != chave:
+    if ciclo is None:
+        # * [EXPLICAÇÃO] → 1º clique real de qualquer produto — cria o
+        #                  Simples sozinho, aqui (nunca na exibição do modal).
+        if chave != 'base':
+            return HttpResponseBadRequest('Esse ponto não pode ser confirmado agora.')
+        ciclo = CicloVideo.iniciar_agenda(produto)
+    elif chave not in ('base', 'roteiro', 'completo') or ciclo.etapa_atual() != chave:
         return HttpResponseBadRequest('Esse ponto não pode ser confirmado agora.')
 
     agora = timezone.now()
@@ -129,16 +143,18 @@ def view_marcar_ponto_roadmap(request: HttpRequest, produto_id: int, chave: str)
     return _recarregar_e_renderizar_card(request, produto.id)
 
 
-# Função Objetivo: Agenda o produto formalmente — cria o 1º CicloVideo
-# (Simples #1). Não existe mais "escolher fase inicial" (decisão da
-# reestruturação, 30/07) — todo produto sempre começa do zero, no Simples.
+# Função Objetivo: Agenda formalmente o início do ciclo recorrente (Vídeo
+# Mensal #1) — só permitido depois do Simples estar replicado. Substituiu
+# (02/08) o antigo "criar o Simples" — Simples agora nasce sozinho, no
+# primeiro clique de Base (ver view_marcar_ponto_roadmap).
 def view_agendar_produto(request: HttpRequest, produto_id: int) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
+    ciclo = _buscar_ciclo_atual(produto)
 
-    if produto.ciclos_video.exists():
-        return HttpResponseBadRequest('Este produto já está na Agenda.')
+    if ciclo is None or ciclo.fase != Fase.SIMPLES or ciclo.etapa_atual() != 'concluido':
+        return HttpResponseBadRequest('Só é possível agendar depois do Simples replicado.')
 
-    CicloVideo.iniciar_agenda(produto)
+    ciclo.agendar_apos_simples()
     return _recarregar_e_renderizar_card(request, produto.id)
 
 

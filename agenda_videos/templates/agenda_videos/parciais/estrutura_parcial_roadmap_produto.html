@@ -1,56 +1,65 @@
 <!--
-* [RESUMO] → Esteira de rodadas (anteriores+atual+previstas) + detalhe dos 5
-* passos da rodada atual — reescrito por completo (01/08) pro modelo novo,
-* baseado no mockup validado com o usuário. Só a etapa "atual" é clicável —
-* abre o modal de confirmação (#modal-roadmap-slot, já existe no card). A
-* esteira é só informativa, nunca clicável (decisão do mockup).
+* [RESUMO] → Esteira de rodadas (caminho fixo inteiro: Simples, cada Vídeo
+* Mensal, Vídeo Trimestral contínua) + detalhe dos 5 passos da rodada atual.
+* Reescrito (02/08) — Simples deixa de precisar de clique pra existir
+* (aparece direto como "atual" mesmo sem CicloVideo no banco, Base clicável
+* de cara); ganha 1 ponto extra clicável ("Agendar"), só visível na janela
+* entre Simples replicado e Vídeo Mensal #1 ainda não criado — clique
+* dispara CicloVideo.agendar_apos_simples(). Legenda de cores fica 1x por
+* página (estrutura_agenda_videos.html), não repete em cada card.
 -->
 {% load agenda_videos_tags %}
-{% if not roadmap.tem_rodada_atual %}
-<button type="button" class="btn-acao btn-acao-confirmar"
-        hx-post="{% url 'agenda_videos_agendar_produto' produto.id %}"
-        hx-target="#agenda-card-{{ produto.id }}" hx-swap="outerHTML">
-    Agendar na Agenda de Vídeos
-</button>
-{% else %}
-<div class="esteira">
-    {% for rodada in roadmap.rodadas %}
-    <div class="rodada-ponto{% if rodada.ciclica %} ciclica{% endif %} estado-{{ rodada.estado }}">
-        <div class="rodada-bolinha {{ rodada.estado }}">
-            {% if rodada.estado == 'concluido' %}<i class="fas fa-check"></i>
-            {% elif rodada.estado == 'recusado' %}<i class="fas fa-xmark"></i>
-            {% endif %}
+<div class="roadmap-produto-corpo">
+<div class="roadmap-cartao">
+    <div class="roadmap-cartao-titulo"><i class="fas fa-diagram-project"></i> Esteira de rodadas (visão compacta)</div>
+    <div class="esteira">
+        {% for rodada in roadmap.rodadas %}
+        <div class="rodada-ponto{% if rodada.ciclica %} ciclica{% endif %} estado-{{ rodada.estado }}">
+            <div class="rodada-bolinha {{ rodada.estado }}{% if rodada.clicavel %} rodada-bolinha-clicavel{% endif %}"
+                 {% if rodada.clicavel %}
+                 hx-post="{% url 'agenda_videos_agendar_produto' produto.id %}"
+                 hx-target="#agenda-card-{{ produto.id }}" hx-swap="outerHTML"
+                 {% endif %}>
+                {% if rodada.estado == 'concluido' %}<i class="fas fa-check"></i>
+                {% elif rodada.estado == 'recusado' %}<i class="fas fa-xmark"></i>
+                {% elif rodada.clicavel %}<i class="fas fa-calendar-plus"></i>
+                {% endif %}
+            </div>
+            <div class="rodada-rotulo">{{ rodada.label }}</div>
+            {% if rodada.legenda %}<div class="rodada-legenda">{{ rodada.legenda }}</div>{% endif %}
         </div>
-        <div class="rodada-rotulo">{{ rodada.label }}</div>
-        {% if rodada.legenda %}<div class="rodada-legenda">{{ rodada.legenda }}</div>{% endif %}
+        {% if not forloop.last %}<div class="rodada-linha"></div>{% endif %}
+        {% endfor %}
     </div>
-    {% if not forloop.last %}<div class="rodada-linha"></div>{% endif %}
-    {% endfor %}
+    {% if roadmap.aviso_transicao_continua %}
+    <div class="roadmap-aviso-continua">{{ roadmap.aviso_transicao_continua }}</div>
+    {% endif %}
 </div>
 
-<div class="detalhe-cabecalho">
-    <span class="detalhe-titulo">{{ roadmap.rodada_atual_label }}</span>
-    <span class="detalhe-vencimento">{{ roadmap.rodada_atual_legenda }}</span>
-</div>
-<div class="etapas">
-    {% for etapa in roadmap.etapas_rodada_atual %}
-    {% with badge=etapa.chave_badge|badge_etapa %}
-    <div class="etapa-ponto">
-        <div class="etapa-bolinha {{ etapa.estado }}"
-             {% if etapa.chave_acao %}
-             hx-get="{% url 'agenda_videos_roadmap_confirmar' produto.id etapa.chave_acao %}"
-             hx-target="#modal-roadmap-slot" hx-swap="innerHTML"
-             style="cursor:pointer;"
-             {% endif %}>
-            {% if etapa.estado == 'concluido' %}<i class="fas fa-check"></i>
-            {% elif etapa.estado == 'recusado' %}<i class="fas fa-xmark"></i>
-            {% else %}<i class="fas {{ badge.icone }}"></i>
-            {% endif %}
-        </div>
-        <div class="etapa-rotulo">{{ etapa.nome }}</div>
+<div class="roadmap-cartao">
+    <div class="detalhe-cabecalho">
+        <span class="detalhe-titulo">{{ roadmap.rodada_atual_label }}</span>
+        <span class="detalhe-vencimento">{{ roadmap.rodada_atual_legenda }}</span>
     </div>
-    {% endwith %}
-    {% if not forloop.last %}<div class="etapa-linha"></div>{% endif %}
-    {% endfor %}
+    <div class="etapas">
+        {% for etapa in roadmap.etapas_rodada_atual %}
+        {% with badge=etapa.chave_badge|badge_etapa %}
+        <div class="etapa-ponto">
+            <div class="etapa-bolinha {{ etapa.estado }}{% if etapa.chave_acao %} etapa-bolinha-clicavel{% endif %}"
+                 {% if etapa.chave_acao %}
+                 hx-get="{% url 'agenda_videos_roadmap_confirmar' produto.id etapa.chave_acao %}"
+                 hx-target="#modal-roadmap-slot" hx-swap="innerHTML"
+                 {% endif %}>
+                {% if etapa.estado == 'concluido' %}<i class="fas fa-check"></i>
+                {% elif etapa.estado == 'recusado' %}<i class="fas fa-xmark"></i>
+                {% else %}<i class="fas {{ badge.icone }}"></i>
+                {% endif %}
+            </div>
+            <div class="etapa-rotulo">{{ etapa.nome }}</div>
+        </div>
+        {% endwith %}
+        {% if not forloop.last %}<div class="etapa-linha"></div>{% endif %}
+        {% endfor %}
+    </div>
 </div>
-{% endif %}
+</div>

@@ -31,3 +31,15 @@ def adicionar_dias_uteis(data_base: date, avancar_quantidade: int) -> date:
         if data_atual.weekday() < 5:
             dias_avancados += 1
     return data_atual
+
+
+# Função Objetivo: Avança pro PRÓXIMO dia útil — sempre avança pelo menos 1
+# dia (nunca fica na própria data_base, mesmo se ela já for útil). Usado
+# quando uma ação MANUAL (ex: clicar em "Agendar") precisa de vencimento com
+# folga mínima de 1 dia — diferente de ultimo_dia_util_ou_hoje (que só
+# corrige fim de semana, pode devolver a própria data_base).
+def proximo_dia_util(data_base: date) -> date:
+    data_atual = data_base + timedelta(days=1)
+    while data_atual.weekday() >= 5:
+        data_atual += timedelta(days=1)
+    return data_atual

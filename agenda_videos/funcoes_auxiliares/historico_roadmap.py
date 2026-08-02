@@ -147,8 +147,8 @@ def montar_historico_produto(produto: Produto) -> HistoricoProduto:
     resumo = [
         ResumoEtapa(
             valor=etapa_valor,
-            label=BADGES_ETAPA[etapa_valor]['label'],
-            classe=BADGES_ETAPA[etapa_valor]['classe'],
+            label=buscar_badge_de(BADGES_ETAPA, etapa_valor).label,
+            classe=buscar_badge_de(BADGES_ETAPA, etapa_valor).classe,
             quantidade=quantidade,
         )
         for etapa_valor, quantidade in contagem_por_etapa.items()

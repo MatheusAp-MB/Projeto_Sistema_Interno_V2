@@ -34,6 +34,7 @@ def calcular_indicadores_ciclo(produto: Produto, ciclo: CicloVideo, data_referen
     produto.a_fazer_hoje_risco = (
         not produto.a_fazer_hoje_atrasado
         and etapa in ETAPAS_EM_PRODUCAO
+        and ciclo.data_devida is not None
         and ciclo.data_devida <= limite_risco
     )
     produto.a_fazer_hoje_vencimento = ciclo.data_devida

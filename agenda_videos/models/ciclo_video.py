@@ -30,7 +30,9 @@ class CicloVideo(models.Model):
 
     fase = models.CharField(max_length=20, choices=Fase.choices)
     numero_ocorrencia = models.PositiveIntegerField()
-    data_devida = models.DateField()
+    # * [EXPLICAÇÃO] → Nulo só pra Simples (02/08) — ele não tem vencimento,
+    #                  produzido sem prazo. Toda outra fase sempre preenche.
+    data_devida = models.DateField(null=True, blank=True)
 
     base_concluido_em = models.DateTimeField(null=True, blank=True)
     roteiro_concluido_em = models.DateTimeField(null=True, blank=True)
@@ -82,6 +84,8 @@ class CicloVideo(models.Model):
     #                  postado, o prazo já foi cumprido, mesmo que Replicar
     #                  ainda esteja pendente (Replicar não tem trava de data).
     def esta_atrasado(self):
+        if self.data_devida is None:
+            return False
         if self.aguardando_aprovacao_em is not None:
             return False
         return timezone.localdate() > self.data_devida
@@ -129,13 +133,40 @@ class CicloVideo(models.Model):
             self.mlbs_replicados = mlbs_replicados
             self.mlbs_nao_encontrados = mlbs_nao_encontrados
             self.save(update_fields=['status', 'replicado_em', 'mlbs_replicados', 'mlbs_nao_encontrados'])
+            # * [EXPLICAÇÃO] → Simples não dispara o próximo ciclo sozinho —
+            #                  ele não tem vencimento, então sua conclusão não
+            #                  pode ser gatilho automático. Fica esperando o
+            #                  clique manual em "Agendar" (agendar_apos_simples).
+            if self.fase == Fase.SIMPLES:
+                return None
             return self.criar_proximo()
 
-    # * [EXPLICAÇÃO] → Único ponto de entrada do produto na Agenda — Simples #1
-    #                  sempre libera imediatamente (sem trava de data).
+    # * [EXPLICAÇÃO] → Único ponto de entrada do produto na Agenda — criado
+    #                  sozinho, no 1º clique real de ação (marcar Base feito),
+    #                  nunca a partir de um clique de "agendar" separado
+    #                  (decisão da reestruturação, 02/08). Simples nunca tem
+    #                  vencimento (data_devida=None).
     @classmethod
     def iniciar_agenda(cls, produto):
-        from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_ou_hoje
+        return cls.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1, data_devida=None)
 
-        hoje = ultimo_dia_util_ou_hoje(timezone.localdate())
-        return cls.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1, data_devida=hoje)
+    # * [EXPLICAÇÃO] → Único ponto de transição MANUAL do sistema — todas as
+    #                  outras são automáticas (dentro de marcar_replicado).
+    #                  Simples não tem vencimento, então sua conclusão não
+    #                  pode disparar o próximo ciclo sozinha; alguém precisa
+    #                  clicar em "Agendar". Data do Vídeo Mensal #1 conta a
+    #                  partir de AGORA (o clique), nunca de replicado_em —
+    #                  pode ter passado dias entre o Simples terminar e
+    #                  alguém clicar.
+    def agendar_apos_simples(self):
+        from agenda_videos.funcoes_auxiliares.calculo_datas_fase import proximo_dia_util
+
+        if self.fase != Fase.SIMPLES or self.etapa_atual() != 'concluido':
+            raise ValueError('Só é possível agendar depois do Simples replicado.')
+
+        proxima_fase = ConfiguracaoFase.objects.get(fase=Fase.SIMPLES).proxima_fase
+        data_devida = proximo_dia_util(timezone.localdate())
+
+        return CicloVideo.objects.create(
+            produto=self.produto, fase=proxima_fase.fase, numero_ocorrencia=1, data_devida=data_devida,
+        )
