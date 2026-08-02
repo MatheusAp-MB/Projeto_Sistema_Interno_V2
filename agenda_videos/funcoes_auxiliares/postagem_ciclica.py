@@ -7,7 +7,11 @@
 # nunca criar um novo (diferente de como funcionava antes).
 
 import datetime
+from datetime import date
+
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
+
 from agenda_videos.models import CicloVideo
 
 
@@ -31,3 +35,14 @@ def marcar_ciclo_atual_aguardando_aprovacao(produto):
     ciclo = produto.ciclos_video.first()  # já ordenado por -criado_em
     ciclo.marcar_aguardando_aprovacao()
     return ciclo
+
+
+# Função Objetivo: Condição SQL "já postou hoje" — pra filtrar queryset.
+# Espelha ja_postou_hoje() acima: mudou a regra, mexe nas 2 juntas.
+def construir_condicao_postou_hoje(data_referencia: date | None = None) -> Exists:
+    dia = data_referencia or timezone.localtime(timezone.now()).date()
+    inicio_do_dia = timezone.make_aware(datetime.datetime.combine(dia, datetime.time.min))
+    fim_do_dia = timezone.make_aware(datetime.datetime.combine(dia, datetime.time.max))
+    return Exists(CicloVideo.objects.filter(
+        produto=OuterRef('pk'), aguardando_aprovacao_em__gte=inicio_do_dia, aguardando_aprovacao_em__lte=fim_do_dia,
+    ))

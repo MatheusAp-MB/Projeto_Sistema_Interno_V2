@@ -6,10 +6,12 @@
 # Reestruturação completa (30/07) — filtros de vídeo simples/base/roteiros/
 # completos soltos e reestruturação_manual saem (conceitos retirados).
 
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import date, datetime
+
 from django.conf import settings
-from django.core.paginator import Paginator
+from django.core.paginator import Page, Paginator
+
 from produtos.models import Produto
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
     listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA, OPCOES_PENDENTE_AGORA, OPCOES_ESTAGIO,
@@ -18,7 +20,7 @@ from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje, c
 from agenda_videos.funcoes_auxiliares.drive import calcular_diagnostico_preparo_drive
 from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
-    BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_ETAPA, opcoes_com_badge,
+    Badge, OpcaoComBadge, BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_ETAPA, montar_opcoes_com_badge,
 )
 from core.funcoes_auxiliares.cabecalhos_ordenaveis import ConstrutorCabecalhosOrdenacao
 
@@ -33,8 +35,8 @@ LABELS_CAMPOS_FAIXA = {
 }
 
 OPCOES_SIM_NAO = [
-    {'valor': 'sim', 'label': 'Sim', 'classe': None, 'icone': None},
-    {'valor': 'nao', 'label': 'Não', 'classe': None, 'icone': None},
+    OpcaoComBadge(valor='sim', label='Sim', classe=None, icone=None),
+    OpcaoComBadge(valor='nao', label='Não', classe=None, icone=None),
 ]
 
 
@@ -45,10 +47,10 @@ class ParametrosBuscaAgendaVideos:
     ordenar: str
     numero_pagina: int
     filtros: dict = field(default_factory=dict)
-    data_simulada: object = None
+    data_simulada: date | None = None
 
     @classmethod
-    def a_partir_da_requisicao(cls, request):
+    def a_partir_da_requisicao(cls, request) -> 'ParametrosBuscaAgendaVideos':
         busca = request.GET.get('busca', '').strip()
 
         por_pagina_bruto = request.GET.get('por_pagina', '25')
@@ -103,28 +105,28 @@ class ParametrosBuscaAgendaVideos:
 
 class ConstrutorChipsAtivosAgendaVideos:
 
-    def __init__(self, filtros):
+    def __init__(self, filtros: dict) -> None:
         self.filtros = filtros
 
-    def _chip_simples(self, label):
-        return {'label': label, 'classe': None, 'icone': None}
+    def _montar_chip_simples(self, label: str) -> Badge:
+        return Badge(label=label, classe=None, icone=None)
 
-    def _chips_checkbox(self):
+    def _montar_chips_checkbox(self) -> list[Badge]:
         mapa_labels_estagio = dict(OPCOES_ESTAGIO)
         mapa_labels_pendencia = dict(OPCOES_PENDENTE_AGORA)
-        chips = [self._chip_simples(mapa_labels_estagio.get(v, v)) for v in self.filtros['estagio']]
-        chips += [self._chip_simples(m) for m in self.filtros['marcas']]
+        chips = [self._montar_chip_simples(mapa_labels_estagio.get(v, v)) for v in self.filtros['estagio']]
+        chips += [self._montar_chip_simples(m) for m in self.filtros['marcas']]
         chips += [BADGES_STATUS_MANUAL[v] for v in self.filtros['status_manual'] if v in BADGES_STATUS_MANUAL]
-        chips += [self._chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
-        chips += [self._chip_simples('Sem vídeo' if v == 'sim' else 'Com vídeo') for v in self.filtros['sem_video']]
-        chips += [self._chip_simples('Sincronizado com o Drive' if v == 'sim' else 'Não sincronizado com o Drive') for v in self.filtros['sincronizado_drive']]
-        chips += [self._chip_simples('Atrasado' if v == 'sim' else 'Não atrasado') for v in self.filtros['atrasado']]
-        chips += [self._chip_simples('Risco de atraso' if v == 'sim' else 'Sem risco') for v in self.filtros['risco']]
-        chips += [self._chip_simples(mapa_labels_pendencia.get(v, v)) for v in self.filtros['pendente_agora']]
+        chips += [self._montar_chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
+        chips += [self._montar_chip_simples('Sem vídeo' if v == 'sim' else 'Com vídeo') for v in self.filtros['sem_video']]
+        chips += [self._montar_chip_simples('Sincronizado com o Drive' if v == 'sim' else 'Não sincronizado com o Drive') for v in self.filtros['sincronizado_drive']]
+        chips += [self._montar_chip_simples('Atrasado' if v == 'sim' else 'Não atrasado') for v in self.filtros['atrasado']]
+        chips += [self._montar_chip_simples('Risco de atraso' if v == 'sim' else 'Sem risco') for v in self.filtros['risco']]
+        chips += [self._montar_chip_simples(mapa_labels_pendencia.get(v, v)) for v in self.filtros['pendente_agora']]
         chips += [BADGES_STATUS_POSTAGEM[v] for v in self.filtros['status_postagem'] if v in BADGES_STATUS_POSTAGEM]
         return chips
 
-    def _chips_faixa(self):
+    def _montar_chips_faixa(self) -> list[Badge]:
         chips = []
         for campo in CAMPOS_FAIXA:
             minimo = self.filtros.get(f'{campo}_min')
@@ -133,56 +135,35 @@ class ConstrutorChipsAtivosAgendaVideos:
                 continue
             label = LABELS_CAMPOS_FAIXA.get(campo, campo)
             if minimo and maximo:
-                chips.append(self._chip_simples(f'{label}: {minimo} até {maximo}'))
+                chips.append(self._montar_chip_simples(f'{label}: {minimo} até {maximo}'))
             elif minimo:
-                chips.append(self._chip_simples(f'{label}: a partir de {minimo}'))
+                chips.append(self._montar_chip_simples(f'{label}: a partir de {minimo}'))
             else:
-                chips.append(self._chip_simples(f'{label}: até {maximo}'))
+                chips.append(self._montar_chip_simples(f'{label}: até {maximo}'))
         return chips
 
-    def montar(self):
-        return self._chips_checkbox() + self._chips_faixa()
+    def montar(self) -> list[Badge]:
+        return self._montar_chips_checkbox() + self._montar_chips_faixa()
 
 
 class ContextoTelaAgendaVideos:
 
-    def __init__(self, request):
+    def __init__(self, request) -> None:
         self.request = request
         self.parametros = ParametrosBuscaAgendaVideos.a_partir_da_requisicao(request)
 
-    def _querystring_base(self):
+    def _montar_querystring_base(self) -> str:
         qs = self.request.GET.copy()
         qs.pop('ordenar', None)
         qs.pop('pagina', None)
         return qs.urlencode()
 
-    def _querystring_sem_pagina(self):
+    def _montar_querystring_sem_pagina(self) -> str:
         qs = self.request.GET.copy()
         qs.pop('pagina', None)
         return qs.urlencode()
 
-    def _montar_pagina(self):
-        if self.parametros.filtros.get('a_fazer_hoje'):
-            produtos = listar_a_fazer_hoje(
-                busca=self.parametros.busca or None,
-                filtros=self.parametros.filtros,
-                data_referencia=self.parametros.data_simulada,
-            )
-            paginator = Paginator(produtos, self.parametros.por_pagina)
-            return paginator.get_page(self.parametros.numero_pagina)
-
-        produtos = listar_produtos_agenda_filtrados(
-            busca=self.parametros.busca or None,
-            filtros=self.parametros.filtros,
-            ordenar=self.parametros.ordenar,
-            data_referencia=self.parametros.data_simulada,
-        )
-        paginator = Paginator(produtos, self.parametros.por_pagina)
-        pagina = paginator.get_page(self.parametros.numero_pagina)
-
-        # * [EXPLICAÇÃO] → Aplica o cálculo de Atrasado/Risco SÓ na página atual
-        #                  (25 produtos, não a lista inteira). Reaproveita a
-        #                  mesma função de A Fazer Hoje, sem duplicar a conta.
+    def _enriquecer_pagina(self, pagina: Page) -> None:
         for produto in pagina:
             ciclo = produto.ciclos_video.first()
             if ciclo is not None:
@@ -190,11 +171,26 @@ class ContextoTelaAgendaVideos:
                 produto.ja_postou_hoje = ja_postou_hoje(produto, data_referencia=self.parametros.data_simulada)
             produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
 
+    def _montar_pagina(self) -> Page:
+        if self.parametros.filtros.get('a_fazer_hoje'):
+            produtos = listar_a_fazer_hoje(
+                busca=self.parametros.busca or None, filtros=self.parametros.filtros,
+                data_referencia=self.parametros.data_simulada,
+            )
+        else:
+            produtos = listar_produtos_agenda_filtrados(
+                busca=self.parametros.busca or None, filtros=self.parametros.filtros,
+                ordenar=self.parametros.ordenar, data_referencia=self.parametros.data_simulada,
+            )
+
+        paginator = Paginator(produtos, self.parametros.por_pagina)
+        pagina = paginator.get_page(self.parametros.numero_pagina)
+        self._enriquecer_pagina(pagina)
         return pagina
 
-    def montar(self):
+    def montar(self) -> dict:
         cabecalhos = ConstrutorCabecalhosOrdenacao(
-            self.parametros.ordenar, self._querystring_base(),
+            self.parametros.ordenar, self._montar_querystring_base(),
         ).montar(LABELS_COLUNAS)
 
         chips_ativos = ConstrutorChipsAtivosAgendaVideos(self.parametros.filtros).montar()
@@ -215,11 +211,11 @@ class ContextoTelaAgendaVideos:
             'cabecalhos': cabecalhos,
             'chips_ativos': chips_ativos,
             'marcas_disponiveis': marcas_disponiveis,
-            'opcoes_estagio': [{'valor': v, 'label': l} for v, l in OPCOES_ESTAGIO],
-            'opcoes_status_manual': opcoes_com_badge(BADGES_STATUS_MANUAL),
-            'opcoes_etapa': opcoes_com_badge(BADGES_ETAPA),
-            'opcoes_status_postagem': opcoes_com_badge(BADGES_STATUS_POSTAGEM),
+            'opcoes_estagio': [OpcaoComBadge(valor=v, label=l, classe=None, icone=None) for v, l in OPCOES_ESTAGIO],
+            'opcoes_status_manual': montar_opcoes_com_badge(BADGES_STATUS_MANUAL),
+            'opcoes_etapa': montar_opcoes_com_badge(BADGES_ETAPA),
+            'opcoes_status_postagem': montar_opcoes_com_badge(BADGES_STATUS_POSTAGEM),
             'opcoes_sim_nao': OPCOES_SIM_NAO,
             'opcoes_pendente_agora': OPCOES_PENDENTE_AGORA,
-            'querystring_sem_pagina': self._querystring_sem_pagina(),
+            'querystring_sem_pagina': self._montar_querystring_sem_pagina(),
         }

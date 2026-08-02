@@ -1,59 +1,36 @@
 # agenda_videos/funcoes_auxiliares/a_fazer_hoje.py
 
-# Função Objetivo: Lista produtos "A Fazer Hoje" — pelo estado do CicloVideo
-# mais recente de cada produto (ainda não concluído).
-# Reestruturação completa (30/07) — antes precisava juntar 3 tabelas pra saber
-# a pendência (progresso/preparação/andamento); agora é só o CicloVideo mais
-# recente. "Pool insuficiente" e "Divergência de fase concluída" deixaram de
-# existir (não tem mais pool reaproveitado pra ficar insuficiente).
-#
-# * [ATENÇÃO DE ESCALA] → Calculado em Python, não em SQL — mesma decisão de
-# sempre (volume pequeno, dezenas de produtos ativos na Agenda).
-#
-# * [PENDENTE] → Diagnóstico do Drive (calcular_diagnostico_preparo_drive)
-# removido daqui por enquanto (30/07) — a estrutura de pastas/nomes de
-# arquivo no Drive ainda assume 1 vídeo por FASE, não por ocorrência. Precisa
-# de conversa própria antes de reimplementar. produto.diagnostico_drive fica
-# sempre None até lá.
+# Função Objetivo: Lista produtos "A Fazer Hoje" — mesma queryset anotada da
+# listagem paginada, com exclusões a mais (concluído, "postar" ainda não
+# devido, já postou hoje).
+# Reestruturação completa (30/07): virou queryset (era loop Python) porque
+# IndicadoresAgendaProduto já guarda etapa_atual em cache.
+# * [CORREÇÃO] → filtro de faixa usava chaves erradas ("vencimento_min/max")
+# — nunca funcionava. Corrigido reaproveitando aplicar_filtro_faixa.
 
-from datetime import date, datetime
-from django.db.models import Q
+from datetime import date
+
+from django.db.models import OuterRef, Q, QuerySet, Subquery
+
 from produtos.models import Produto
-from agenda_videos.models import StatusManualAgenda, VALIDADE_SNAPSHOT_DRIVE
-from agenda_videos.funcoes_auxiliares.calculo_datas_fase import adicionar_dias_uteis, ultimo_dia_util_ou_hoje
+from agenda_videos.models import CicloVideo, StatusManualAgenda
+from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_ou_hoje, adicionar_dias_uteis
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
-    calcular_prioridade_produto, calcular_ordem_fase_produto,
+    construir_annotation_prioridade, construir_annotation_ordenacao_fase,
 )
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
+from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import DIAS_RISCO, CAMPOS_FAIXA, condicao_pendencia_agora
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import construir_condicao_postou_hoje
+from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 
-DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
-ETAPAS_EM_PRODUCAO = {'base', 'roteiro', 'completo'}
-
-
-def _parse_data_faixa(valor):
-    if not valor:
-        return None
-    try:
-        return datetime.strptime(valor, '%Y-%m-%d').date()
-    except ValueError:
-        return None
+ETAPAS_EM_PRODUCAO = ['base', 'roteiro', 'completo']
 
 
-# Função Objetivo: Calcula os indicadores de 1 produto a partir do CicloVideo
-# mais recente — atrasado, risco, vencimento e fase, tudo numa função só
-# (antes vinham de 3 tabelas diferentes).
-def calcular_indicadores_ciclo(produto, ciclo, data_referencia=None):
+def calcular_indicadores_ciclo(produto: Produto, ciclo: CicloVideo, data_referencia: date | None = None) -> str:
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
     limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
     etapa = ciclo.etapa_atual()
 
     produto.a_fazer_hoje_atrasado = ciclo.esta_atrasado()
-    # * [EXPLICAÇÃO] → Risco redefinido (30/07, pedido do usuário): não é mais
-    #                  "a janela tá acabando" (não existe mais janela de
-    #                  vários dias — toda fase agora é 1 dia exato, como a
-    #                  Diária antiga) — é "a produção ainda não terminou e o
-    #                  prazo pra postar tá perto". Avisa o pool não estar
-    #                  pronto a tempo, antes de virar atraso de verdade.
     produto.a_fazer_hoje_risco = (
         not produto.a_fazer_hoje_atrasado
         and etapa in ETAPAS_EM_PRODUCAO
@@ -64,106 +41,75 @@ def calcular_indicadores_ciclo(produto, ciclo, data_referencia=None):
     return etapa
 
 
-def listar_a_fazer_hoje(busca=None, filtros=None, data_referencia=None):
-    # * [EXPLICAÇÃO] → "data_referencia" existe só pra permitir simular outra
-    #                  data em teste — a view real nunca passa, sempre usa a
-    #                  data de hoje de verdade.
+def listar_a_fazer_hoje(busca: str | None = None, filtros: dict | None = None, data_referencia: date | None = None) -> QuerySet:
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
+    limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
     filtros = filtros or {}
 
-    vencimento_de = _parse_data_faixa(filtros.get('vencimento_min'))
-    vencimento_ate = _parse_data_faixa(filtros.get('vencimento_max'))
+    ciclo_mais_recente = CicloVideo.objects.filter(produto=OuterRef('pk')).order_by('-criado_em')
 
-    candidatos = Produto.objects.filter(
+    qs = Produto.objects.filter(
         ciclos_video__isnull=False,
     ).exclude(
         indicadores_agenda__status_manual__in=[StatusManualAgenda.PAUSADO, StatusManualAgenda.DESCONTINUADO],
+    ).exclude(
+        indicadores_agenda__etapa_atual='concluido',
     ).select_related(
         'participacao_agenda', 'indicadores_agenda', 'snapshot_drive',
-    ).prefetch_related('ciclos_video').distinct()
+    ).distinct().annotate(
+        status_ciclo_atual=Subquery(ciclo_mais_recente.values('status')[:1]),
+        data_devida_ciclo_atual=Subquery(ciclo_mais_recente.values('data_devida')[:1]),
+        postou_hoje=construir_condicao_postou_hoje(data_referencia=hoje),
+        prioridade_ordenacao=construir_annotation_prioridade(),
+        ordenacao_fase=construir_annotation_ordenacao_fase(),
+    )
+
+    qs = qs.exclude(Q(indicadores_agenda__etapa_atual='postar') & Q(data_devida_ciclo_atual__gt=hoje))
+    qs = qs.exclude(Q(indicadores_agenda__etapa_atual='postar') & Q(postou_hoje=True))
 
     if busca:
         for termo in busca.split():
-            candidatos = candidatos.filter(
+            qs = qs.filter(
                 Q(titulo__icontains=termo) | Q(ean__icontains=termo) |
                 Q(sku__icontains=termo) | Q(cod_fabricante__icontains=termo)
             )
 
     if filtros.get('marcas'):
-        candidatos = candidatos.filter(marca__in=filtros['marcas'])
+        qs = qs.filter(marca__in=filtros['marcas'])
     if filtros.get('status_manual'):
-        candidatos = candidatos.filter(indicadores_agenda__status_manual__in=filtros['status_manual'])
+        qs = qs.filter(indicadores_agenda__status_manual__in=filtros['status_manual'])
     if filtros.get('urgente'):
-        candidatos = candidatos.filter(participacao_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
+        qs = qs.filter(participacao_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
     if filtros.get('sem_video'):
-        candidatos = candidatos.filter(
-            indicadores_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
-    if filtros.get('sincronizado_drive'):
-        from django.utils import timezone as django_timezone
-        limite_snapshot = django_timezone.now() - VALIDADE_SNAPSHOT_DRIVE
-        condicao_sincronizado = Q(
-            snapshot_drive__isnull=False, snapshot_drive__atualizado_em__gte=limite_snapshot,
-        )
-        valores = filtros['sincronizado_drive']
+        qs = qs.filter(indicadores_agenda__tem_video_reprovado__in=[v == 'sim' for v in filtros['sem_video']])
+
+    condicao_atrasado = Q(indicadores_agenda__ciclo_atual_atrasado=True)
+    if filtros.get('atrasado'):
+        valores = filtros['atrasado']
         if 'sim' in valores and 'nao' not in valores:
-            candidatos = candidatos.filter(condicao_sincronizado)
+            qs = qs.filter(condicao_atrasado)
         elif 'nao' in valores and 'sim' not in valores:
-            candidatos = candidatos.exclude(condicao_sincronizado)
+            qs = qs.exclude(condicao_atrasado)
 
-    resultado = []
-    for produto in candidatos:
-        ciclos = list(produto.ciclos_video.all())  # já ordenado por -criado_em (prefetch)
-        ciclo_atual = ciclos[0] if ciclos else None
-        if ciclo_atual is None or ciclo_atual.etapa_atual() == 'concluido':
-            continue  # nada pendente nesse produto agora
+    if filtros.get('risco'):
+        condicao_risco = (
+            Q(indicadores_agenda__etapa_atual__in=ETAPAS_EM_PRODUCAO) &
+            Q(data_devida_ciclo_atual__lte=limite_risco) &
+            ~condicao_atrasado
+        )
+        valores = filtros['risco']
+        if 'sim' in valores and 'nao' not in valores:
+            qs = qs.filter(condicao_risco)
+        elif 'nao' in valores and 'sim' not in valores:
+            qs = qs.exclude(condicao_risco)
 
-        etapa = calcular_indicadores_ciclo(produto, ciclo_atual, data_referencia=hoje)
+    if filtros.get('pendente_agora'):
+        condicao_combinada = Q()
+        for chave in filtros['pendente_agora']:
+            condicao_combinada |= condicao_pendencia_agora(chave)
+        qs = qs.filter(condicao_combinada)
 
-        # * [EXPLICAÇÃO] → "Postar" é a ÚNICA etapa com trava de data — Base/
-        #                  Roteiro/Completo podem ser feitos com antecedência
-        #                  (decisão confirmada), nunca escondidos por data.
-        if etapa == 'postar' and hoje < ciclo_atual.data_devida:
-            continue
+    for campo in CAMPOS_FAIXA:
+        qs = aplicar_filtro_faixa(qs, filtros, campo)
 
-        produto.pendencia_atual = etapa
-        produto.ja_postou_hoje = ja_postou_hoje(produto, data_referencia=hoje)
-        # * [EXPLICAÇÃO] → "1 vídeo por dia por produto" (28/07) — fonte única
-        #                  usada pela tela humana e pela Postagem Automática.
-        if etapa == 'postar' and produto.ja_postou_hoje:
-            continue
-
-        if filtros.get('atrasado'):
-            valores = filtros['atrasado']
-            if 'sim' in valores and 'nao' not in valores and not produto.a_fazer_hoje_atrasado:
-                continue
-            if 'nao' in valores and 'sim' not in valores and produto.a_fazer_hoje_atrasado:
-                continue
-        if filtros.get('risco'):
-            valores = filtros['risco']
-            if 'sim' in valores and 'nao' not in valores and not produto.a_fazer_hoje_risco:
-                continue
-            if 'nao' in valores and 'sim' not in valores and produto.a_fazer_hoje_risco:
-                continue
-        if filtros.get('pendente_agora') and etapa not in filtros['pendente_agora']:
-            continue
-        if vencimento_de and produto.a_fazer_hoje_vencimento < vencimento_de:
-            continue
-        if vencimento_ate and produto.a_fazer_hoje_vencimento > vencimento_ate:
-            continue
-
-        participacao = getattr(produto, 'participacao_agenda', None)
-        produto.urgente = participacao is not None and participacao.urgente
-        indicadores = getattr(produto, 'indicadores_agenda', None)
-        produto.sem_video = indicadores is not None and indicadores.tem_video_reprovado
-
-        # * [PENDENTE] → ver cabeçalho do arquivo.
-        produto.diagnostico_drive = None
-
-        resultado.append(produto)
-
-    for produto in resultado:
-        produto.prioridade_ordenacao = calcular_prioridade_produto(produto)
-        produto.ordenacao_fase = calcular_ordem_fase_produto(produto)
-
-    resultado.sort(key=lambda p: (p.prioridade_ordenacao, p.ordenacao_fase, p.a_fazer_hoje_vencimento))
-    return resultado
+    return qs.order_by('prioridade_ordenacao', 'ordenacao_fase', 'data_devida_ciclo_atual')

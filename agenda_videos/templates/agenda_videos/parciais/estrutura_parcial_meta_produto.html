@@ -1,12 +1,19 @@
 <!--
-* [RESUMO] → Status manual + fase atual + ocorrência + janela de 1
-* produto — extraído (26/07) do card principal pra reaproveitar no
-* cabeçalho de cada grupo do Histórico. Só inclua isso se o produto já
-* tiver AndamentoAgenda — quem inclui decide o { % if % } por fora.
+* [RESUMO] → Status manual + fase atual + ocorrência + vencimento de 1
+* produto — reaproveitado no card da Agenda de Vídeos e no cabeçalho de
+* cada grupo do Histórico. Só inclua isso se o produto já tiver
+* IndicadoresAgendaProduto — quem inclui decide o {% if %} por fora.
+* Reestruturado (01/08) — AndamentoAgenda não existe mais (modelo antigo).
+* Sem mais "janela" (início→fim) — cada ocorrência agora tem só 1
+* vencimento (ver [[Sequencia Travada de 5 Passos por Ocorrencia]]).
 -->
-{% load andamento_tags %}
-<span class="badge-tabela status-{{ produto.andamento_agenda.status_manual }}">{{ produto.andamento_agenda.get_status_manual_display }}</span>
-<span class="badge-tabela badge-papel">{{ produto.andamento_agenda.fase_atual.get_fase_display }}</span>
-<span class="agenda-ocorrencia">{{ produto.andamento_agenda.ocorrencia_atual }} de {{ produto.andamento_agenda.fase_atual.periodo }}</span>
-{% janela_ocorrencia_atual produto as janela_atual %}
-<span class="agenda-datas">{{ janela_atual.inicio|date:"d/m" }} → {{ janela_atual.fim|date:"d/m" }}</span>
+{% load agenda_videos_tags %}
+{% ciclo_atual_de produto as ciclo_atual %}
+{% with badge_manual=produto.indicadores_agenda.status_manual|badge_status_manual %}
+<span class="badge-tabela {{ badge_manual.classe }}">{{ badge_manual.label }}</span>
+{% endwith %}
+<span class="badge-tabela badge-papel">{{ produto.indicadores_agenda.fase_atual|rotulo_fase }}</span>
+{% if ciclo_atual %}
+<span class="agenda-ocorrencia">Ocorrência #{{ ciclo_atual.numero_ocorrencia }}</span>
+<span class="agenda-datas">Vence {{ ciclo_atual.data_devida|date:"d/m" }}</span>
+{% endif %}

@@ -24,7 +24,7 @@ from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_
 from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
     construir_annotation_prioridade, construir_annotation_ordenacao_fase,
 )
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import DIAS_RISCO
+
 from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 
 CAMPOS_ORDENACAO = {
@@ -37,6 +37,8 @@ CAMPOS_FAIXA = [
     'numero_ocorrencia_ciclo_atual',
     'data_devida_ciclo_atual',
 ]
+
+DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 
 OPCOES_ESTAGIO = [
     ('', 'Não Agendado'),
@@ -59,7 +61,7 @@ OPCOES_PENDENTE_AGORA = [
 ]
 
 
-def _condicao_pendencia(chave):
+def condicao_pendencia_agora(chave):
     if chave == 'recusado':
         return Q(status_ciclo_atual=StatusPostagem.RECUSADO)
     if chave == 'completo':
@@ -142,7 +144,7 @@ def listar_produtos_agenda_filtrados(busca=None, filtros=None, ordenar='titulo',
     if filtros.get('pendente_agora'):
         condicao_combinada = Q()
         for chave in filtros['pendente_agora']:
-            condicao_combinada |= _condicao_pendencia(chave)
+            condicao_combinada |= condicao_pendencia_agora(chave)
         qs = qs.filter(condicao_combinada)
 
     for campo in CAMPOS_FAIXA:

@@ -1,36 +1,56 @@
 <!--
-* [RESUMO] → Parcial reaproveitável do roadmap de produto — 9 pontos (4 editáveis +
-* 5 automáticos). Tooltip nativo via atributo title (sem JS). Só o ponto "atual", entre
-* os 4 primeiros, é clicável — dispara hx-get pro modal de confirmação, que renderiza
-* dentro de #modal-roadmap-slot (a página que inclui este parcial precisa ter esse
-* slot em algum lugar, 1 vez só, mesmo com vários roadmaps na tela).
+* [RESUMO] → Esteira de rodadas (anteriores+atual+previstas) + detalhe dos 5
+* passos da rodada atual — reescrito por completo (01/08) pro modelo novo,
+* baseado no mockup validado com o usuário. Só a etapa "atual" é clicável —
+* abre o modal de confirmação (#modal-roadmap-slot, já existe no card). A
+* esteira é só informativa, nunca clicável (decisão do mockup).
 -->
-<div class="roadmap-produto" id="roadmap-produto-{{ roadmap.produto_id }}">
-    {% for ponto in roadmap.pontos %}
-    <div class="roadmap-ponto roadmap-ponto-{{ ponto.estado.value }} roadmap-ponto-{{ ponto.chave }} {% if ponto.chave == 'diaria' or ponto.chave == 'semanal' or ponto.chave == 'mensal' %}roadmap-ponto-ciclico{% endif %} {% if ponto.sub_estado_postagem %}roadmap-ponto-postagem-{{ ponto.sub_estado_postagem }}{% endif %}"
-         title="{{ ponto.explicacao }}">
-
-        {% if ponto.clicavel %}
-        <button type="button" class="roadmap-bolinha roadmap-bolinha-clicavel"
-                hx-get="{% url 'agenda_videos_roadmap_confirmar' roadmap.produto_id ponto.chave %}"
-                hx-vals='js:{simular_data: document.getElementById("agenda-card-{{ roadmap.produto_id }}").dataset.simularData}'
-                hx-target="#modal-roadmap-slot"
-                hx-swap="innerHTML">
-        </button>
-        {% else %}
-        <span class="roadmap-bolinha">
-            {% if ponto.estado == 'concluido' or ponto.chave == 'otimizado' and ponto.estado == 'atual' %}<i class="fas fa-check"></i>{% endif %}
-        </span>
-        {% endif %}
-
-        <span class="roadmap-ponto-rotulo">{{ ponto.rotulo }}</span>
-        {% if ponto.contador %}
-        <span class="roadmap-ponto-contador">{{ ponto.contador }}</span>
-        {% endif %}
+{% load agenda_videos_tags %}
+{% if not roadmap.tem_rodada_atual %}
+<button type="button" class="btn-acao btn-acao-confirmar"
+        hx-post="{% url 'agenda_videos_agendar_produto' produto.id %}"
+        hx-target="#agenda-card-{{ produto.id }}" hx-swap="outerHTML">
+    Agendar na Agenda de Vídeos
+</button>
+{% else %}
+<div class="esteira">
+    {% for rodada in roadmap.rodadas %}
+    <div class="rodada-ponto{% if rodada.ciclica %} ciclica{% endif %} estado-{{ rodada.estado }}">
+        <div class="rodada-bolinha {{ rodada.estado }}">
+            {% if rodada.estado == 'concluido' %}<i class="fas fa-check"></i>
+            {% elif rodada.estado == 'recusado' %}<i class="fas fa-xmark"></i>
+            {% endif %}
+        </div>
+        <div class="rodada-rotulo">{{ rodada.label }}</div>
+        {% if rodada.legenda %}<div class="rodada-legenda">{{ rodada.legenda }}</div>{% endif %}
     </div>
-
-    {% if not forloop.last %}
-    <div class="roadmap-linha"></div>
-    {% endif %}
+    {% if not forloop.last %}<div class="rodada-linha"></div>{% endif %}
     {% endfor %}
 </div>
+
+<div class="detalhe-cabecalho">
+    <span class="detalhe-titulo">{{ roadmap.rodada_atual_label }}</span>
+    <span class="detalhe-vencimento">{{ roadmap.rodada_atual_legenda }}</span>
+</div>
+<div class="etapas">
+    {% for etapa in roadmap.etapas_rodada_atual %}
+    {% with badge=etapa.chave_badge|badge_etapa %}
+    <div class="etapa-ponto">
+        <div class="etapa-bolinha {{ etapa.estado }}"
+             {% if etapa.chave_acao %}
+             hx-get="{% url 'agenda_videos_roadmap_confirmar' produto.id etapa.chave_acao %}"
+             hx-target="#modal-roadmap-slot" hx-swap="innerHTML"
+             style="cursor:pointer;"
+             {% endif %}>
+            {% if etapa.estado == 'concluido' %}<i class="fas fa-check"></i>
+            {% elif etapa.estado == 'recusado' %}<i class="fas fa-xmark"></i>
+            {% else %}<i class="fas {{ badge.icone }}"></i>
+            {% endif %}
+        </div>
+        <div class="etapa-rotulo">{{ etapa.nome }}</div>
+    </div>
+    {% endwith %}
+    {% if not forloop.last %}<div class="etapa-linha"></div>{% endif %}
+    {% endfor %}
+</div>
+{% endif %}

@@ -11,113 +11,166 @@
 # existir — não tem mais "fase pulada automaticamente" no agendamento, então
 # toda etapa concluída sempre tem timestamp real, por construção.
 
-from django.db.models import Q
+from dataclasses import dataclass
+from datetime import datetime
+
+from django.db import models
+from django.db.models import Q, QuerySet
+
 from produtos.models import Produto
 from agenda_videos.models import CicloVideo, StatusPostagem
-from agenda_videos.funcoes_auxiliares.roadmap_produto import rotulo_rodada
-from agenda_videos.funcoes_auxiliares.badges_agenda import BADGES_STATUS_POSTAGEM, BADGES_ETAPA, badge_de
+from agenda_videos.funcoes_auxiliares.roadmap_produto import montar_rotulo_rodada
+from agenda_videos.funcoes_auxiliares.badges_agenda import BADGES_STATUS_POSTAGEM, BADGES_ETAPA, buscar_badge_de
+
+
+# * [EXPLICAÇÃO] → Categoria de evento na linha do tempo (cor/ícone no
+#                  template) — valor fixo repetido, nunca string solta.
+class TipoEventoHistorico(models.TextChoices):
+    MARCO = 'marco', 'Marco'
+    AGUARDANDO_APROVACAO = 'aguardando_aprovacao', 'Aguardando Aprovação'
+    RECUSADO = 'recusado', 'Recusado'
+    APROVADO = 'aprovado', 'Aprovado'
+    REPLICADO = 'replicado', 'Replicado'
+
+
+# Objeto de domínio/processo — 1 linha da linha do tempo.
+@dataclass(frozen=True)
+class EventoHistorico:
+    timestamp: datetime
+    label: str
+    tipo: TipoEventoHistorico
+    icone: str
+    mlbs_replicados: list[str] | None = None
+    mlbs_nao_encontrados: list[str] | None = None
+
+
+# Objeto de domínio/processo — retorno único de montar_linha_do_tempo_produto.
+@dataclass(frozen=True)
+class LinhaDoTempoProduto:
+    eventos: list[EventoHistorico]
+    aviso_gap: str | None = None
+
+
+# Objeto de domínio/processo — 1 linha do resumo por etapa (pills do modal).
+@dataclass(frozen=True)
+class ResumoEtapa:
+    valor: str
+    label: str
+    classe: str
+    quantidade: int
+
+
+# Objeto de domínio/processo — retorno único de montar_historico_produto.
+@dataclass(frozen=True)
+class HistoricoProduto:
+    produto: Produto
+    ciclos: list[CicloVideo]
+    total: int
+    resumo: list[ResumoEtapa]
+    eventos: list[EventoHistorico]
+    aviso_gap: str | None = None
 
 
 # Função Objetivo: Monta a linha do tempo COMPLETA e ÚNICA de 1 produto —
 # desde "Entrou na Agenda" até o evento mais recente, tudo misturado em
 # ordem cronológica. Cada CicloVideo contribui com até 6 eventos (Base/
 # Roteiro/Completo concluídos, Postado, Aprovado-ou-Recusado, Replicado).
-def montar_linha_do_tempo_produto(produto):
-    eventos = []
+def montar_linha_do_tempo_produto(produto: Produto) -> LinhaDoTempoProduto:
+    eventos: list[EventoHistorico] = []
 
     participacao = getattr(produto, 'participacao_agenda', None)
     if participacao and participacao.agendado_em:
-        eventos.append({
-            'timestamp': participacao.agendado_em, 'label': 'Entrou na Agenda de Vídeos',
-            'tipo': 'marco', 'icone': 'fa-calendar-check',
-        })
+        eventos.append(EventoHistorico(
+            timestamp=participacao.agendado_em, label='Entrou na Agenda de Vídeos',
+            tipo=TipoEventoHistorico.MARCO, icone='fa-calendar-check',
+        ))
 
     for ciclo in produto.ciclos_video.all():
-        rotulo_base = rotulo_rodada(ciclo.fase, ciclo.numero_ocorrencia)
+        rotulo_base = montar_rotulo_rodada(ciclo.fase, ciclo.numero_ocorrencia)
 
         if ciclo.base_concluido_em:
-            eventos.append({
-                'timestamp': ciclo.base_concluido_em, 'label': f'Base concluída ({rotulo_base})',
-                'tipo': 'marco', 'icone': 'fa-video',
-            })
+            eventos.append(EventoHistorico(
+                timestamp=ciclo.base_concluido_em, label=f'Base concluída ({rotulo_base})',
+                tipo=TipoEventoHistorico.MARCO, icone='fa-video',
+            ))
         if ciclo.roteiro_concluido_em:
-            eventos.append({
-                'timestamp': ciclo.roteiro_concluido_em, 'label': f'Roteiro concluído ({rotulo_base})',
-                'tipo': 'marco', 'icone': 'fa-pen',
-            })
+            eventos.append(EventoHistorico(
+                timestamp=ciclo.roteiro_concluido_em, label=f'Roteiro concluído ({rotulo_base})',
+                tipo=TipoEventoHistorico.MARCO, icone='fa-pen',
+            ))
         if ciclo.completo_concluido_em:
-            eventos.append({
-                'timestamp': ciclo.completo_concluido_em, 'label': f'Completo concluído ({rotulo_base})',
-                'tipo': 'marco', 'icone': 'fa-film',
-            })
+            eventos.append(EventoHistorico(
+                timestamp=ciclo.completo_concluido_em, label=f'Completo concluído ({rotulo_base})',
+                tipo=TipoEventoHistorico.MARCO, icone='fa-film',
+            ))
         if ciclo.aguardando_aprovacao_em:
-            eventos.append({
-                'timestamp': ciclo.aguardando_aprovacao_em, 'label': f'{rotulo_base} — Postado',
-                'tipo': 'aguardando_aprovacao', 'icone': 'fa-upload',
-            })
+            eventos.append(EventoHistorico(
+                timestamp=ciclo.aguardando_aprovacao_em, label=f'{rotulo_base} — Postado',
+                tipo=TipoEventoHistorico.AGUARDANDO_APROVACAO, icone='fa-upload',
+            ))
         if ciclo.aprovado_ou_recusado_em:
             if ciclo.status == StatusPostagem.RECUSADO:
-                tipo, acao = 'recusado', 'Recusado'
+                tipo, acao = TipoEventoHistorico.RECUSADO, 'Recusado'
             else:
-                tipo, acao = 'aprovado', 'Aprovado'
-            eventos.append({
-                'timestamp': ciclo.aprovado_ou_recusado_em, 'label': f'{rotulo_base} — {acao}',
-                'tipo': tipo, 'icone': 'fa-gavel',
-            })
+                tipo, acao = TipoEventoHistorico.APROVADO, 'Aprovado'
+            eventos.append(EventoHistorico(
+                timestamp=ciclo.aprovado_ou_recusado_em, label=f'{rotulo_base} — {acao}',
+                tipo=tipo, icone='fa-gavel',
+            ))
         if ciclo.replicado_em:
-            eventos.append({
-                'timestamp': ciclo.replicado_em, 'label': f'{rotulo_base} — Replicado',
-                'tipo': 'replicado', 'icone': 'fa-copy',
-                'mlbs_replicados': ciclo.mlbs_replicados, 'mlbs_nao_encontrados': ciclo.mlbs_nao_encontrados,
-            })
+            eventos.append(EventoHistorico(
+                timestamp=ciclo.replicado_em, label=f'{rotulo_base} — Replicado',
+                tipo=TipoEventoHistorico.REPLICADO, icone='fa-copy',
+                mlbs_replicados=ciclo.mlbs_replicados, mlbs_nao_encontrados=ciclo.mlbs_nao_encontrados,
+            ))
 
-    eventos.sort(key=lambda evento: evento['timestamp'])
-    return {'eventos': eventos, 'aviso_gap': None}
+    eventos.sort(key=lambda evento: evento.timestamp)
+    return LinhaDoTempoProduto(eventos=eventos)
 
 
 # Função Objetivo: Monta o histórico completo (todas as fases/ocorrências) de
 # 1 produto — SEMPRE completo, nunca filtrado, mesmo quando chamado a partir
 # da tela com filtro ativo (o filtro estreita QUAIS produtos aparecem no
 # relatório, nunca esconde ciclo de dentro de um produto já mostrado).
-def montar_historico_produto(produto):
+def montar_historico_produto(produto: Produto) -> HistoricoProduto:
     ciclos = list(CicloVideo.objects.filter(produto=produto).order_by('-criado_em'))
 
-    contagem_por_etapa = {}
+    contagem_por_etapa: dict[str, int] = {}
     for ciclo in ciclos:
         etapa = ciclo.etapa_atual()
         # * [EXPLICAÇÃO] → Badge de status (Aguardando/Aprovado/Recusado/
         #                  Replicado) quando já tem status; senão, badge da
         #                  etapa de produção (Base/Roteiro/Completo).
-        ciclo.badge = badge_de(BADGES_STATUS_POSTAGEM, ciclo.status) if ciclo.status else badge_de(BADGES_ETAPA, etapa)
+        ciclo.badge = buscar_badge_de(BADGES_STATUS_POSTAGEM, ciclo.status) if ciclo.status else buscar_badge_de(BADGES_ETAPA, etapa)
         contagem_por_etapa[etapa] = contagem_por_etapa.get(etapa, 0) + 1
 
     resumo = [
-        {
-            'valor': etapa_valor,
-            'label': BADGES_ETAPA[etapa_valor]['label'],
-            'classe': BADGES_ETAPA[etapa_valor]['classe'],
-            'quantidade': quantidade,
-        }
+        ResumoEtapa(
+            valor=etapa_valor,
+            label=BADGES_ETAPA[etapa_valor]['label'],
+            classe=BADGES_ETAPA[etapa_valor]['classe'],
+            quantidade=quantidade,
+        )
         for etapa_valor, quantidade in contagem_por_etapa.items()
     ]
 
     linha_do_tempo = montar_linha_do_tempo_produto(produto)
 
-    return {
-        'produto': produto,
-        'postagens': ciclos,  # nome mantido — o template ainda espera essa chave (Frente 4 renomeia)
-        'total': len(ciclos),
-        'resumo': resumo,
-        'eventos': linha_do_tempo['eventos'],
-        'aviso_gap': linha_do_tempo['aviso_gap'],
-    }
+    return HistoricoProduto(
+        produto=produto,
+        ciclos=ciclos,
+        total=len(ciclos),
+        resumo=resumo,
+        eventos=linha_do_tempo.eventos,
+        aviso_gap=linha_do_tempo.aviso_gap,
+    )
 
 
-# Função Objetivo: Busca de PRODUTOS que têm pelo menos 1 CicloVideo batendo
-# com os filtros (fase/status/intervalo de data) + busca por nome/EAN/SKU.
-# Devolve só os PRODUTOS — o conteúdo de cada um vem de
-# montar_historico_produto, sempre completo.
-def listar_produtos_com_historico(busca=None, filtros=None):
+# Função Objetivo: Busca PRODUTOS que têm pelo menos 1 CicloVideo batendo com
+# os filtros (fase/status/intervalo de data) + busca por nome/EAN/SKU. Devolve
+# só os PRODUTOS — o conteúdo de cada um vem de montar_historico_produto,
+# sempre completo.
+def listar_produtos_com_historico(busca: str | None = None, filtros: dict | None = None) -> QuerySet:
     filtros = filtros or {}
 
     ciclos = CicloVideo.objects.all()

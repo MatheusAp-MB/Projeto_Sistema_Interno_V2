@@ -1,38 +1,56 @@
 # agenda_videos/views.py
 
-from django.http import HttpResponseBadRequest
+# Função Objetivo: Views das 4 telas do app agenda_videos — Agenda de Vídeos
+# (tela principal), Configurações (regras de cada fase), Histórico (relatório
+# e modal por produto) e Postagem/Replicação Automática (execução em lote).
+# Views de Postagem/Replicação Automática ainda não passaram por revisão de
+# regras — só limpeza de import aqui; reescrita fica pra quando auditarmos
+# agenda_videos/funcoes_auxiliares/postagem_automatica/orquestrador.py.
+
+from datetime import date, datetime
+
+from django.conf import settings
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from produtos.models import Produto
 from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import ContextoTelaAgendaVideos
 from agenda_videos.funcoes_auxiliares.drive import (
     calcular_diagnostico_preparo_drive, verificar_produto_no_drive, verificar_todos_no_drive,
 )
 from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
-from agenda_videos.models import ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo
+from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo, listar_a_fazer_hoje
+from agenda_videos.funcoes_auxiliares.historico_roadmap import listar_produtos_com_historico, montar_historico_produto
+from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
 from agenda_videos.models import (
     StatusPostagem, Fase, ConfiguracaoFase, CicloVideo, StatusManualAgenda, ParticipacaoAgenda,
+    ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao,
+    ExecucaoReplicacaoAutomatica, ItemExecucaoReplicacao, StatusExecucao, StatusItemExecucaoReplicacao,
 )
 
 
-def view_agenda_videos(request):
+# ===================================================================
+# Agenda de Vídeos
+# ===================================================================
+
+def view_agenda_videos(request: HttpRequest) -> HttpResponse:
     contexto = ContextoTelaAgendaVideos(request).montar()
     return render(request, 'agenda_videos/estrutura_agenda_videos.html', contexto)
 
 
-def _buscar_ciclo_atual(produto):
+def _buscar_ciclo_atual(produto: Produto) -> CicloVideo | None:
     return produto.ciclos_video.first()
 
 
 # Função Objetivo: Lê a data simulada — só funciona com DEBUG=True, igual a tela
 # principal (mesma regra de segurança: nunca em produção, mesmo que forjada na URL).
-def _resolver_data_simulada(request):
-    from datetime import datetime
-    from django.conf import settings
+def _resolver_data_simulada(request: HttpRequest) -> date | None:
     if not settings.DEBUG:
         return None
     valor_bruto = request.POST.get('simular_data') or request.GET.get('simular_data', '')
@@ -48,8 +66,7 @@ def _resolver_data_simulada(request):
 # Função Objetivo: Rebusca o produto do zero, sincroniza os indicadores e
 # renderiza o parcial do card — usado por TODA ação que muda estado e precisa
 # devolver o card atualizado.
-def _recarregar_e_renderizar_card(request, produto_id, contexto_extra=None):
-    from produtos.models import Produto
+def _recarregar_e_renderizar_card(request: HttpRequest, produto_id: int, contexto_extra: dict | None = None) -> HttpResponse:
     produto = Produto.objects.get(id=produto_id)
     sincronizar_indicadores_agenda_produto(produto)
     data_simulada = _resolver_data_simulada(request)
@@ -67,8 +84,7 @@ def _recarregar_e_renderizar_card(request, produto_id, contexto_extra=None):
 # Função Objetivo: Modal de confirmação antes de marcar qualquer ponto —
 # revalida que a etapa pedida ainda é a etapa REAL atual (evita agir em cima
 # de estado desatualizado, ex: 2 abas abertas).
-def view_confirmar_ponto_roadmap(request, produto_id, chave):
-    from produtos.models import Produto
+def view_confirmar_ponto_roadmap(request: HttpRequest, produto_id: int, chave: str) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
     ciclo = _buscar_ciclo_atual(produto)
 
@@ -98,8 +114,7 @@ def view_confirmar_ponto_roadmap(request, produto_id, chave):
 
 # Função Objetivo: Marca Base/Roteiro/Completo como feito — sem trava de
 # data (podem ser feitos com antecedência, decisão confirmada na Frente 1).
-def view_marcar_ponto_roadmap(request, produto_id, chave):
-    from produtos.models import Produto
+def view_marcar_ponto_roadmap(request: HttpRequest, produto_id: int, chave: str) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
     ciclo = _buscar_ciclo_atual(produto)
 
@@ -117,8 +132,7 @@ def view_marcar_ponto_roadmap(request, produto_id, chave):
 # Função Objetivo: Agenda o produto formalmente — cria o 1º CicloVideo
 # (Simples #1). Não existe mais "escolher fase inicial" (decisão da
 # reestruturação, 30/07) — todo produto sempre começa do zero, no Simples.
-def view_agendar_produto(request, produto_id):
-    from produtos.models import Produto
+def view_agendar_produto(request: HttpRequest, produto_id: int) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
 
     if produto.ciclos_video.exists():
@@ -135,7 +149,7 @@ def view_agendar_produto(request, produto_id):
 # agora) → HttpResponseBadRequest em erro, ou None em sucesso.
 # ===================================================================
 
-def _acao_postar(produto, ciclo, agora):
+def _acao_postar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.etapa_atual() != 'postar':
         return HttpResponseBadRequest('Esse produto não está pronto pra postar agora.')
     if ja_postou_hoje(produto):
@@ -144,7 +158,7 @@ def _acao_postar(produto, ciclo, agora):
     return None
 
 
-def _acao_marcar_aprovado_ou_recusado(ciclo, agora, novo_status):
+def _acao_marcar_aprovado_ou_recusado(ciclo: CicloVideo, agora: datetime, novo_status: str) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.AGUARDANDO_APROVACAO:
         return HttpResponseBadRequest('Estado inválido — não há postagem aguardando aprovação.')
     ciclo.status = novo_status
@@ -153,18 +167,18 @@ def _acao_marcar_aprovado_ou_recusado(ciclo, agora, novo_status):
     return None
 
 
-def _acao_aprovar(produto, ciclo, agora):
+def _acao_aprovar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     return _acao_marcar_aprovado_ou_recusado(ciclo, agora, StatusPostagem.APROVADO)
 
 
-def _acao_recusar(produto, ciclo, agora):
+def _acao_recusar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     return _acao_marcar_aprovado_ou_recusado(ciclo, agora, StatusPostagem.RECUSADO)
 
 
 # Função Objetivo: Recusado precisa refazer o Completo antes de postar de
 # novo (regra confirmada na Frente 1) — reabre pra edição; o usuário marca
 # "Completo" de novo antes de poder postar.
-def _acao_nova_tentativa(produto, ciclo, agora):
+def _acao_nova_tentativa(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.RECUSADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
     ciclo.status = None
@@ -177,7 +191,7 @@ def _acao_nova_tentativa(produto, ciclo, agora):
 # cumprida (periodo encolheu no meio do caminho, edge case raro). Nunca
 # resolve a recusada — ela fica no histórico exatamente como ficou, sem
 # resolução, e o produto avança pra próxima fase mesmo assim.
-def _acao_seguir_sem_repor(produto, ciclo, agora):
+def _acao_seguir_sem_repor(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.RECUSADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
 
@@ -195,7 +209,7 @@ def _acao_seguir_sem_repor(produto, ciclo, agora):
     return None
 
 
-def _acao_replicar(produto, ciclo, agora):
+def _acao_replicar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.APROVADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi aprovada.')
     # * [EXPLICAÇÃO] → Clique manual (não é o agente) — não sabe quais MLBs
@@ -216,8 +230,7 @@ ACOES_CICLICAS = {
 }
 
 
-def view_executar_acao_ciclica(request, produto_id, acao):
-    from produtos.models import Produto
+def view_executar_acao_ciclica(request: HttpRequest, produto_id: int, acao: str) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
     ciclo = _buscar_ciclo_atual(produto)
 
@@ -238,8 +251,7 @@ def view_executar_acao_ciclica(request, produto_id, acao):
 
 # Função Objetivo: Liga/desliga "Urgente" — qualquer produto, sem confirmação
 # (reversível, baixo risco).
-def view_alternar_urgente(request, produto_id):
-    from produtos.models import Produto
+def view_alternar_urgente(request: HttpRequest, produto_id: int) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
 
     participacao, _ = ParticipacaoAgenda.objects.get_or_create(produto=produto)
@@ -254,8 +266,7 @@ def view_alternar_urgente(request, produto_id):
 # * [PENDENTE] → Ainda desativado (ver drive/verificador.py) — a chamada
 # abaixo não faz nada de verdade até a estrutura de pastas ser redesenhada
 # pro modelo novo.
-def view_verificar_produto_drive(request, produto_id):
-    from produtos.models import Produto
+def view_verificar_produto_drive(request: HttpRequest, produto_id: int) -> HttpResponse:
     get_object_or_404(Produto, id=produto_id)
     try:
         verificar_produto_no_drive(produto_id)
@@ -271,9 +282,7 @@ def view_verificar_produto_drive(request, produto_id):
 
 # Função Objetivo: Verifica TODO o catálogo de uma vez.
 # * [PENDENTE] → Mesmo motivo acima — desativado até o redesenho do Drive.
-def view_verificar_todos_drive(request):
-    from django.contrib import messages
-
+def view_verificar_todos_drive(request: HttpRequest) -> HttpResponse:
     try:
         resumo_por_produto, sem_produto_no_banco = verificar_todos_no_drive()
     except Exception:
@@ -299,7 +308,11 @@ def view_verificar_todos_drive(request):
     return redirect(reverse('agenda_videos_principal'))
 
 
-def _validar_inteiro_positivo(valor):
+# ===================================================================
+# Configurações
+# ===================================================================
+
+def _validar_inteiro_positivo(valor: str | None) -> int | None:
     try:
         numero = int(valor)
     except (TypeError, ValueError):
@@ -312,9 +325,7 @@ def _validar_inteiro_positivo(valor):
 # * [PENDENTE] → proxima_fase (a sequência entre fases) não é editável por
 # aqui ainda — é fixa/rara de mudar, configurada direto no banco/admin por
 # enquanto. Formulário real (HTML) também pendente — Frente 4.
-def view_configuracoes_agenda_videos(request):
-    from django.contrib import messages
-
+def view_configuracoes_agenda_videos(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         algum_salvo = False
 
@@ -366,14 +377,12 @@ def view_configuracoes_agenda_videos(request):
     })
 
 
-# Função Objetivo: Modal de histórico de 1 produto (Formato A).
-# * [PENDENTE] → historico_roadmap.py ainda não foi migrado pro modelo
-# novo (próximo item da fila) — essa view só quebra se for chamada de
-# verdade, não trava o import do resto do sistema.
-def view_historico_produto(request, produto_id):
-    from produtos.models import Produto
-    from agenda_videos.funcoes_auxiliares.historico_roadmap import montar_historico_produto
+# ===================================================================
+# Histórico
+# ===================================================================
 
+# Função Objetivo: Modal de histórico de 1 produto (Formato A).
+def view_historico_produto(request: HttpRequest, produto_id: int) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
     historico = montar_historico_produto(produto)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_historico_produto.html', {
@@ -381,8 +390,7 @@ def view_historico_produto(request, produto_id):
     })
 
 
-def _validar_data(valor):
-    from datetime import datetime
+def _validar_data(valor: str) -> date | None:
     if not valor:
         return None
     try:
@@ -392,14 +400,7 @@ def _validar_data(valor):
 
 
 # Função Objetivo: Tela de relatório (Formato B).
-# * [PENDENTE] → mesmo motivo da view acima — historico_roadmap.py ainda
-# não migrado.
-def view_historico_agenda_videos(request):
-    from django.core.paginator import Paginator
-    from agenda_videos.funcoes_auxiliares.historico_roadmap import (
-        listar_produtos_com_historico, montar_historico_produto,
-    )
-
+def view_historico_agenda_videos(request: HttpRequest) -> HttpResponse:
     busca = request.GET.get('busca', '').strip()
     filtros = {
         'fase': request.GET.getlist('fase'),
@@ -425,7 +426,6 @@ def view_historico_agenda_videos(request):
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
 
-    from produtos.models import Produto
     marcas_disponiveis = (
         Produto.objects
         .exclude(marca__isnull=True).exclude(marca='')
@@ -446,15 +446,10 @@ def view_historico_agenda_videos(request):
 
 
 # ===================================================================
-# Postagem Automática
+# Postagem Automática — corpo intacto, só sem imports locais redundantes
 # ===================================================================
 
-# * [EXPLICAÇÃO] → Trava contra execução concorrente — 2 execuções rodando ao
-#                  mesmo tempo derrubam o servidor inteiro do agente. Checa os
-#                  2 tipos (Postagem e Replicação), já que disputam a MESMA
-#                  trava de concorrência no lado do agente.
 def _obter_execucao_em_andamento():
-    from agenda_videos.models import ExecucaoPostagemAutomatica, ExecucaoReplicacaoAutomatica, StatusExecucao
     status_em_andamento = [StatusExecucao.AGUARDANDO_INICIO, StatusExecucao.RODANDO, StatusExecucao.PAUSADO]
 
     execucao_postagem = ExecucaoPostagemAutomatica.objects.filter(status__in=status_em_andamento).first()
@@ -471,8 +466,6 @@ def _obter_execucao_em_andamento():
 
 
 def view_confirmar_postagem_automatica(request):
-    from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
-
     execucao_em_andamento = _obter_execucao_em_andamento()
     if execucao_em_andamento:
         return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_execucao_ja_em_andamento.html', {
@@ -491,8 +484,6 @@ def view_confirmar_postagem_automatica(request):
 
 
 def view_iniciar_postagem_automatica(request):
-    from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
-
     execucao_em_andamento = _obter_execucao_em_andamento()
     if execucao_em_andamento:
         url_nome = (
@@ -541,7 +532,6 @@ def view_progresso_postagem_automatica_parcial(request, execucao_id):
 
 @require_POST
 def view_cancelar_execucao_travada(request, execucao_id):
-    from agenda_videos.models import ExecucaoPostagemAutomatica, StatusExecucao
     execucao = get_object_or_404(ExecucaoPostagemAutomatica, id=execucao_id)
     execucao.itens.filter(
         status__in=[StatusItemExecucao.AGUARDANDO],
@@ -553,12 +543,10 @@ def view_cancelar_execucao_travada(request, execucao_id):
 
 
 # ===================================================================
-# Replicação Automática
+# Replicação Automática — corpo intacto, só sem imports locais redundantes
 # ===================================================================
 
 def view_confirmar_replicacao_automatica(request):
-    from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
-
     execucao_em_andamento = _obter_execucao_em_andamento()
     if execucao_em_andamento:
         return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_execucao_ja_em_andamento.html', {
@@ -577,9 +565,6 @@ def view_confirmar_replicacao_automatica(request):
 
 
 def view_iniciar_replicacao_automatica(request):
-    from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
-    from agenda_videos.models import ExecucaoReplicacaoAutomatica, ItemExecucaoReplicacao
-
     execucao_em_andamento = _obter_execucao_em_andamento()
     if execucao_em_andamento:
         url_nome = (
@@ -598,7 +583,6 @@ def view_iniciar_replicacao_automatica(request):
 
 
 def _montar_contexto_progresso_replicacao(execucao):
-    from agenda_videos.models import StatusItemExecucaoReplicacao
     itens = list(execucao.itens.select_related('produto').all())
     return {
         'execucao': execucao,
@@ -612,7 +596,6 @@ def _montar_contexto_progresso_replicacao(execucao):
 
 
 def view_progresso_replicacao_automatica(request, execucao_id):
-    from agenda_videos.models import ExecucaoReplicacaoAutomatica
     execucao = get_object_or_404(ExecucaoReplicacaoAutomatica, id=execucao_id)
     return render(
         request, 'agenda_videos/estrutura_progresso_replicacao_automatica.html',
@@ -621,7 +604,6 @@ def view_progresso_replicacao_automatica(request, execucao_id):
 
 
 def view_progresso_replicacao_automatica_parcial(request, execucao_id):
-    from agenda_videos.models import ExecucaoReplicacaoAutomatica
     execucao = get_object_or_404(ExecucaoReplicacaoAutomatica, id=execucao_id)
     return render(
         request, 'agenda_videos/parciais/estrutura_parcial_lista_progresso_replicacao.html',
@@ -631,7 +613,6 @@ def view_progresso_replicacao_automatica_parcial(request, execucao_id):
 
 @require_POST
 def view_cancelar_execucao_replicacao_travada(request, execucao_id):
-    from agenda_videos.models import ExecucaoReplicacaoAutomatica, StatusExecucao, StatusItemExecucaoReplicacao
     execucao = get_object_or_404(ExecucaoReplicacaoAutomatica, id=execucao_id)
     execucao.itens.filter(
         status__in=[StatusItemExecucaoReplicacao.AGUARDANDO],

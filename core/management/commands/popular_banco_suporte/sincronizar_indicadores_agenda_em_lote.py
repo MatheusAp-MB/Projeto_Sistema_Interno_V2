@@ -1,4 +1,6 @@
-# core/management/commands/popular_banco_suporte/sincronizar_roadmap_agenda.py
+# core/management/commands/popular_banco_suporte/sincronizar_indicadores_agenda_em_lote.py
+
+from dataclasses import asdict
 
 from produtos.models import Produto
 from agenda_videos.models import IndicadoresAgendaProduto
@@ -8,7 +10,7 @@ from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 CAMPOS_INDICADORES = ['etapa_atual', 'fase_atual', 'ciclo_atual_atrasado', 'tem_video_reprovado', 'status_manual']
 
 
-def sincronizar_roadmap_agenda(stdout, style):
+def sincronizar_indicadores_agenda_em_lote(stdout, style):
     stdout.write('[INDICADORES AGENDA] Sincronizando...')
 
     produtos = list(
@@ -28,13 +30,13 @@ def sincronizar_roadmap_agenda(stdout, style):
         ciclos = list(produto.ciclos_video.all())  # já veio do prefetch, sem query nova
         ciclo_mais_recente = ciclos[0] if ciclos else None
         valores = calcular_indicadores(produto, ciclo_mais_recente)
-        contagem_por_etapa[valores['etapa_atual']] = contagem_por_etapa.get(valores['etapa_atual'], 0) + 1
+        contagem_por_etapa[valores.etapa_atual] = contagem_por_etapa.get(valores.etapa_atual, 0) + 1
 
         existente = existentes.get(produto.id)
         if existente is None:
-            para_criar.append(IndicadoresAgendaProduto(produto=produto, **valores))
-        elif any(getattr(existente, campo) != valor for campo, valor in valores.items()):
-            for campo, valor in valores.items():
+            para_criar.append(IndicadoresAgendaProduto(produto=produto, **asdict(valores)))
+        elif any(getattr(existente, campo) != valor for campo, valor in asdict(valores).items()):
+            for campo, valor in asdict(valores).items():
                 setattr(existente, campo, valor)
             para_atualizar.append(existente)
 

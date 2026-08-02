@@ -11,4 +11,4 @@ register = template.Library()
 
 @register.inclusion_tag('agenda_videos/parciais/estrutura_parcial_roadmap_produto.html')
 def roadmap_produto(produto):
-    return {'roadmap': calcular_roadmap_produto(produto)}
+    return {'roadmap': calcular_roadmap_produto(produto), 'produto': produto}
