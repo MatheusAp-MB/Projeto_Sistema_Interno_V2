@@ -322,3 +322,8 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/django,python,windows,visualstudiocode
+
+
+.coverage
+htmlcov/
+coverage.json
