@@ -18,9 +18,11 @@ from django.db import models
 from django.db.models import Q, QuerySet
 
 from produtos.models import Produto
-from agenda_videos.models import CicloVideo, StatusPostagem
+from agenda_videos.models import CicloVideo, StatusManualAgenda, StatusPostagem
 from agenda_videos.funcoes_auxiliares.roadmap_produto import montar_rotulo_rodada
-from agenda_videos.funcoes_auxiliares.badges_agenda import BADGES_STATUS_POSTAGEM, BADGES_ETAPA, buscar_badge_de
+from agenda_videos.funcoes_auxiliares.badges_agenda import (
+    Badge, BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_ETAPA, buscar_badge_de,
+)
 
 
 # * [EXPLICAÇÃO] → Categoria de evento na linha do tempo (cor/ícone no
@@ -68,6 +70,7 @@ class HistoricoProduto:
     total: int
     resumo: list[ResumoEtapa]
     eventos: list[EventoHistorico]
+    status_manual_atual: Badge
     aviso_gap: str | None = None
 
 
@@ -81,11 +84,15 @@ def montar_linha_do_tempo_produto(produto: Produto) -> LinhaDoTempoProduto:
     participacao = getattr(produto, 'participacao_agenda', None)
     if participacao and participacao.agendado_em:
         eventos.append(EventoHistorico(
-            timestamp=participacao.agendado_em, label='Entrou na Agenda de Vídeos',
+            timestamp=participacao.agendado_em, label='Agendado — Vídeo Mensal Iniciado',
             tipo=TipoEventoHistorico.MARCO, icone='fa-calendar-check',
         ))
 
-    for ciclo in produto.ciclos_video.all():
+    # Ordem determinística mesmo com timestamps empatados — Python's
+    # sort() é estável (documentado na linguagem), então visitar os
+    # ciclos sempre na mesma ordem garante que eventos empatados no
+    # timestamp saiam sempre na mesma posição relativa, nunca embaralhado.
+    for ciclo in produto.ciclos_video.order_by('criado_em', 'id'):
         rotulo_base = montar_rotulo_rodada(ciclo.fase, ciclo.numero_ocorrencia)
 
         if ciclo.base_concluido_em:
@@ -133,7 +140,10 @@ def montar_linha_do_tempo_produto(produto: Produto) -> LinhaDoTempoProduto:
 # da tela com filtro ativo (o filtro estreita QUAIS produtos aparecem no
 # relatório, nunca esconde ciclo de dentro de um produto já mostrado).
 def montar_historico_produto(produto: Produto) -> HistoricoProduto:
-    ciclos = list(CicloVideo.objects.filter(produto=produto).order_by('-criado_em'))
+    # Desempate por '-id' — 2 CicloVideo criados muito próximos podem
+    # empatar no timestamp de criado_em (comum no Windows); id sempre
+    # cresce na ordem de criação, nunca empata.
+    ciclos = list(CicloVideo.objects.filter(produto=produto).order_by('-criado_em', '-id'))
 
     contagem_por_etapa: dict[str, int] = {}
     for ciclo in ciclos:
@@ -156,12 +166,19 @@ def montar_historico_produto(produto: Produto) -> HistoricoProduto:
 
     linha_do_tempo = montar_linha_do_tempo_produto(produto)
 
+    # Mesmo padrão de calcular_indicadores() (a_fazer_hoje): produto sem
+    # ParticipacaoAgenda ainda nunca foi tocado por nenhuma ação manual —
+    # conta como Ativo, o próprio default do campo, nunca fica sem status.
+    participacao = getattr(produto, 'participacao_agenda', None)
+    status_manual = participacao.status_manual_atual() if participacao else StatusManualAgenda.ATIVO
+
     return HistoricoProduto(
         produto=produto,
         ciclos=ciclos,
         total=len(ciclos),
         resumo=resumo,
         eventos=linha_do_tempo.eventos,
+        status_manual_atual=buscar_badge_de(BADGES_STATUS_MANUAL, status_manual),
         aviso_gap=linha_do_tempo.aviso_gap,
     )
 
@@ -187,7 +204,17 @@ def listar_produtos_com_historico(busca: str | None = None, filtros: dict | None
     produtos = Produto.objects.filter(id__in=ids_produtos)
 
     if filtros.get('urgente'):
-        produtos = produtos.filter(participacao_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
+        # Produto sem ParticipacaoAgenda nunca teve o botão "Urgente"
+        # clicado — conta como "não urgente" (mesmo default do campo),
+        # nunca deve ficar de fora do filtro "não urgente" só por não ter
+        # o registro relacionado criado ainda.
+        valores_urgente = {v == 'sim' for v in filtros['urgente']}
+        condicao = Q()
+        if True in valores_urgente:
+            condicao |= Q(participacao_agenda__urgente=True)
+        if False in valores_urgente:
+            condicao |= Q(participacao_agenda__urgente=False) | Q(participacao_agenda__isnull=True)
+        produtos = produtos.filter(condicao)
     if filtros.get('marcas'):
         produtos = produtos.filter(marca__in=filtros['marcas'])
     if filtros.get('status_manual'):

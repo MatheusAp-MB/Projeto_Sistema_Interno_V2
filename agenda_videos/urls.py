@@ -25,4 +25,5 @@ urlpatterns = [
     path('replicacao-automatica/<int:execucao_id>/cancelar-travada/', views.view_cancelar_execucao_replicacao_travada, name='agenda_videos_cancelar_execucao_replicacao_travada'),
     path('historico/', views.view_historico_agenda_videos, name='agenda_videos_historico'),
     path('produto/<int:produto_id>/historico/', views.view_historico_produto, name='agenda_videos_historico_produto'),
+    path('produto/<int:produto_id>/status-agenda/alternar/', views.view_alternar_pausado_agenda, name='agenda_videos_alternar_pausado'),
 ]

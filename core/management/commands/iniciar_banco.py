@@ -11,6 +11,7 @@ from core.management.commands.iniciar_banco_suporte.popular_configuracao_mercado
 from core.management.commands.iniciar_banco_suporte.popular_tabela_comissao_shopee import popular_tabela_comissao_shopee
 from core.management.commands.iniciar_banco_suporte.popular_tabela_comissao_tiktok import popular_tabela_comissao_tiktok
 from core.management.commands.iniciar_banco_suporte.popular_taxa_kg_adicional_amazon import popular_taxa_kg_adicional_amazon
+from core.management.commands.iniciar_banco_suporte.popular_regua_fases_agenda_videos import popular_regua_fases_agenda_videos
 
 class Command(BaseCommand):
     help = 'Popula dados iniciais do sistema (seed)'
@@ -30,4 +31,6 @@ class Command(BaseCommand):
         popular_tabela_comissao_tiktok(self.stdout, self.style)
         self.stdout.write('')
         popular_taxa_kg_adicional_amazon(self.stdout, self.style)
+        self.stdout.write('')
+        popular_regua_fases_agenda_videos(self.stdout, self.style)
         self.stdout.write(self.style.SUCCESS('\nSeed concluído!'))

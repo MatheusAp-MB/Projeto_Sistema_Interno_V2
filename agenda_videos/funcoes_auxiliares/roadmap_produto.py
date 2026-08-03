@@ -193,7 +193,10 @@ def calcular_roadmap_produto(produto: Produto) -> RoadmapProduto:
     #                  banco só de exibir a tela (instância não salva, só de
     #                  leitura — a criação real acontece no 1º clique real,
     #                  em view_marcar_ponto_roadmap).
-    ciclos = list(produto.ciclos_video.order_by('criado_em'))
+    # Desempate por 'id' — 2 CicloVideo criados muito próximos podem
+    # empatar no timestamp de criado_em (comum no Windows); id sempre
+    # cresce na ordem de criação, nunca empata.
+    ciclos = list(produto.ciclos_video.order_by('criado_em', 'id'))
     ciclo_atual = ciclos[-1] if ciclos else CicloVideo(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
 
     caminho = _montar_caminho_completo_fases()

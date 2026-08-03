@@ -1,3 +1,125 @@
+=== Nível 0 — badges_agenda (buscar_badge_de / montar_opcoes_com_badge) ===
+
+[PASSOU] buscar_badge_de_aguardando_aprovacao
+  Entrada:  aguardando_aprovacao
+  Esperado: Aguardando aprovação
+  Motivo:   'aguardando_aprovacao' é 1 dos 7 valores de etapa_atual() — mesmo badge visual do status de postagem homônimo.
+  Obtido:   Aguardando aprovação
+
+[PASSOU] buscar_badge_de_base
+  Entrada:  base
+  Esperado: Base
+  Motivo:   'base' é 1 dos 7 valores que CicloVideo.etapa_atual() pode devolver.
+  Obtido:   Base
+
+[PASSOU] buscar_badge_de_completo
+  Entrada:  completo
+  Esperado: Completo
+  Motivo:   'completo' é 1 dos 7 valores de etapa_atual().
+  Obtido:   Completo
+
+[PASSOU] buscar_badge_de_concluido
+  Entrada:  concluido
+  Esperado: Concluído
+  Motivo:   'concluido' é 1 dos 7 valores de etapa_atual().
+  Obtido:   Concluído
+
+[PASSOU] buscar_badge_de_postar
+  Entrada:  postar
+  Esperado: Aguardando Postar
+  Motivo:   'postar' é 1 dos 7 valores de etapa_atual().
+  Obtido:   Aguardando Postar
+
+[PASSOU] buscar_badge_de_replicar
+  Entrada:  replicar
+  Esperado: Aprovado, aguardando replicar
+  Motivo:   'replicar' é 1 dos 7 valores de etapa_atual().
+  Obtido:   Aprovado, aguardando replicar
+
+[PASSOU] buscar_badge_de_roteiro
+  Entrada:  roteiro
+  Esperado: Roteiro
+  Motivo:   'roteiro' é 1 dos 7 valores de etapa_atual().
+  Obtido:   Roteiro
+
+[PASSOU] buscar_badge_de_xyz_invalido
+  Entrada:  xyz_invalido
+  Esperado: —
+  Motivo:   Valor bruto não existe em nenhum dicionário — cai no BADGE_PADRAO em vez de lançar KeyError.
+  Obtido:   —
+
+[PASSOU] buscar_badge_de_None
+  Entrada:  None
+  Esperado: —
+  Motivo:   None não é chave de nenhum dicionário — mesmo fallback do valor desconhecido, prova que .get() nunca quebra com entrada nula.
+  Obtido:   —
+
+[PASSOU] buscar_badge_de_ativo
+  Entrada:  ativo
+  Esperado: Ativo
+  Motivo:   'Ativo' é chave real de BADGES_STATUS_MANUAL — badge exato, não cai no fallback.
+  Obtido:   Ativo
+
+[PASSOU] buscar_badge_de_descontinuado
+  Entrada:  descontinuado
+  Esperado: Descontinuado
+  Motivo:   'Descontinuado' é chave real de BADGES_STATUS_MANUAL.
+  Obtido:   Descontinuado
+
+[PASSOU] buscar_badge_de_pausado
+  Entrada:  pausado
+  Esperado: Pausado
+  Motivo:   'Pausado' é chave real de BADGES_STATUS_MANUAL.
+  Obtido:   Pausado
+
+[PASSOU] buscar_badge_de_aguardando_aprovacao
+  Entrada:  aguardando_aprovacao
+  Esperado: Aguardando aprovação
+  Motivo:   'Aguardando aprovação' é chave real de BADGES_STATUS_POSTAGEM.
+  Obtido:   Aguardando aprovação
+
+[PASSOU] buscar_badge_de_aprovado
+  Entrada:  aprovado
+  Esperado: Aprovado
+  Motivo:   'Aprovado' é chave real de BADGES_STATUS_POSTAGEM.
+  Obtido:   Aprovado
+
+[PASSOU] buscar_badge_de_recusado
+  Entrada:  recusado
+  Esperado: Recusado
+  Motivo:   'Recusado' é chave real de BADGES_STATUS_POSTAGEM.
+  Obtido:   Recusado
+
+[PASSOU] buscar_badge_de_replicado
+  Entrada:  replicado
+  Esperado: Replicado
+  Motivo:   'Replicado' é chave real de BADGES_STATUS_POSTAGEM.
+  Obtido:   Replicado
+
+[PASSOU] montar_opcoes_com_badge_7_itens
+  Entrada:  7 chave(s) de entrada
+  Esperado: 7 opção(ões), ordem: ['Base', 'Roteiro', 'Completo', 'Aguardando Postar', 'Aguardando aprovação', 'Aprovado, aguardando replicar', 'Concluído']
+  Motivo:   7 chaves reais de BADGES_ETAPA, mesma ordem de declaração do dict.
+  Obtido:   7 opção(ões), ordem: ['Base', 'Roteiro', 'Completo', 'Aguardando Postar', 'Aguardando aprovação', 'Aprovado, aguardando replicar', 'Concluído']
+
+[PASSOU] montar_opcoes_com_badge_3_itens
+  Entrada:  3 chave(s) de entrada
+  Esperado: 3 opção(ões), ordem: ['Ativo', 'Pausado', 'Descontinuado']
+  Motivo:   3 chaves reais de BADGES_STATUS_MANUAL — cada uma vira 1 OpcaoComBadge, na mesma ordem de declaração do dict.
+  Obtido:   3 opção(ões), ordem: ['Ativo', 'Pausado', 'Descontinuado']
+
+[PASSOU] montar_opcoes_com_badge_4_itens
+  Entrada:  4 chave(s) de entrada
+  Esperado: 4 opção(ões), ordem: ['Aguardando aprovação', 'Aprovado', 'Recusado', 'Replicado']
+  Motivo:   4 chaves reais de BADGES_STATUS_POSTAGEM, mesma ordem de declaração do dict.
+  Obtido:   4 opção(ões), ordem: ['Aguardando aprovação', 'Aprovado', 'Recusado', 'Replicado']
+
+[PASSOU] montar_opcoes_com_badge_0_itens
+  Entrada:  0 chave(s) de entrada
+  Esperado: 0 opção(ões), ordem: []
+  Motivo:   Dicionário vazio — nenhum BADGES_* real é vazio hoje, mas é o limite estrutural da função — lista de opções também vem vazia, sem erro.
+  Obtido:   0 opção(ões), ordem: []
+
 === Nível 0 — cálculo puro de dia útil ===
 
 [PASSOU] adicionar_dias_uteis_06-08_mais_2
@@ -65,6 +187,74 @@
   Esperado: 31/07
   Motivo:   sábado volta pra sexta anterior
   Obtido:   31/07
+
+=== Nível 0 — roadmap_produto (montar_rotulo_rodada / _traduzir_status_em_estado_visual) ===
+
+[PASSOU] montar_rotulo_rodada_simples_1
+  Entrada:  fase=simples, numero_ocorrencia=1
+  Esperado: Simples
+  Motivo:   Simples só existe 1 vez — nunca numera, mesmo recebendo numero_ocorrencia=1.
+  Obtido:   Simples
+
+[PASSOU] montar_rotulo_rodada_video_mensal_1
+  Entrada:  fase=video_mensal, numero_ocorrencia=1
+  Esperado: Vídeo Mensal #1
+  Motivo:   Vídeo Mensal numera normalmente — 1ª ocorrência.
+  Obtido:   Vídeo Mensal #1
+
+[PASSOU] montar_rotulo_rodada_video_mensal_4
+  Entrada:  fase=video_mensal, numero_ocorrencia=4
+  Esperado: Vídeo Mensal #4
+  Motivo:   Vídeo Mensal numera normalmente — última ocorrência da régua (período de 4).
+  Obtido:   Vídeo Mensal #4
+
+[PASSOU] montar_rotulo_rodada_video_trimestral_1
+  Entrada:  fase=video_trimestral, numero_ocorrencia=1
+  Esperado: Vídeo Trimestral #1
+  Motivo:   Vídeo Trimestral numera normalmente — a função não sabe que essa fase é contínua, só formata o que recebe.
+  Obtido:   Vídeo Trimestral #1
+
+[PASSOU] montar_rotulo_rodada_video_trimestral_7
+  Entrada:  fase=video_trimestral, numero_ocorrencia=7
+  Esperado: Vídeo Trimestral #7
+  Motivo:   Número alto, sem teto — prova que a função não limita a numeração.
+  Obtido:   Vídeo Trimestral #7
+
+[PASSOU] traduzir_status_aguardando_aprovacao
+  Entrada:  aguardando_aprovacao
+  Esperado: Aguardando aprovação
+  Motivo:   Aguardando aprovação do marketplace — bolinha fica Aguardando.
+  Obtido:   Aguardando aprovação
+
+[PASSOU] traduzir_status_aprovado
+  Entrada:  aprovado
+  Esperado: Aprovado, aguardando replicar
+  Motivo:   Aprovado, falta só o clique de Replicar — bolinha fica Aprovado, aguardando replicar.
+  Obtido:   Aprovado, aguardando replicar
+
+[PASSOU] traduzir_status_xyz_invalido
+  Entrada:  xyz_invalido
+  Esperado: Atual
+  Motivo:   Valor desconhecido (defensivo — StatusPostagem é fechado, mas nunca deve quebrar) — cai no mesmo fallback do None, Atual.
+  Obtido:   Atual
+
+[PASSOU] traduzir_status_recusado
+  Entrada:  recusado
+  Esperado: Recusado
+  Motivo:   Postagem recusada pelo marketplace — bolinha fica Recusado.
+  Obtido:   Recusado
+
+[PASSOU] traduzir_status_replicado
+  Entrada:  replicado
+  Esperado: Concluído
+  Motivo:   Replicado — rodada encerrada, bolinha fica Concluído.
+  Obtido:   Concluído
+
+[PASSOU] traduzir_status_None
+  Entrada:  None
+  Esperado: Atual
+  Motivo:   Sem status (nenhuma postagem ainda) — estado visual é Atual.
+  Obtido:   Atual
 
 === Nível 2 — calcular_indicadores_ciclo() ===
 
@@ -200,6 +390,94 @@
   Obtido:   concluido
   Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.REPLICADO}
 
+=== Nível 2 — roadmap_produto (_localizar_indice_atual / _montar_etapas_rodada_atual) ===
+
+[PASSOU] fase_nao_existe_no_caminho_cai_no_ultimo
+  Entrada:  fase=fase_inexistente_xyz, numero_ocorrencia=1
+  Esperado: 5
+  Motivo:   Fase que não existe em nenhum ponto do caminho — fallback de segurança cai no último índice (len(pontos)-1 = 5).
+  Obtido:   5
+
+[PASSOU] simples_e_o_primeiro_ponto
+  Entrada:  fase=simples, numero_ocorrencia=1
+  Esperado: 0
+  Motivo:   Simples#1 é o 1º ponto do caminho fixo — índice 0.
+  Obtido:   0
+
+[PASSOU] video_mensal_no_meio
+  Entrada:  fase=video_mensal, numero_ocorrencia=2
+  Esperado: 2
+  Motivo:   Vídeo Mensal#2 é o 3º ponto do caminho (índice 2) — pula Simples e Mensal#1 antes de achar.
+  Obtido:   2
+
+[PASSOU] video_mensal_ultimo_antes_do_continuo
+  Entrada:  fase=video_mensal, numero_ocorrencia=4
+  Esperado: 4
+  Motivo:   Vídeo Mensal#4 é o último ponto finito antes do contínuo — índice 4.
+  Obtido:   4
+
+[PASSOU] video_trimestral_casa_so_pela_fase
+  Entrada:  fase=video_trimestral, numero_ocorrencia=9
+  Esperado: 5
+  Motivo:   Ponto contínuo (numero=None) casa só pela fase — número 9 do ciclo é ignorado, sempre índice 5.
+  Obtido:   5
+
+[PASSOU] etapa_aguardando_aprovacao
+  Entrada:  produção feita | status: Aguardando Aprovação
+  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'aguardando', 'aguardando_aprovacao'), ('replicar', 'futuro', None)]
+  Motivo:   Mesma posição 3 do caso anterior, mas status=Aguardando aprovação muda a aparência e a chave_acao (nunca "postar" de novo).
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'aguardando', 'aguardando_aprovacao'), ('replicar', 'futuro', None)]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.AGUARDANDO_APROVACAO}
+
+[PASSOU] etapa_base
+  Entrada:  nenhuma etapa feita ainda
+  Esperado: [('base', 'atual', 'base'), ('roteiro', 'futuro', None), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Motivo:   Nada feito ainda — Base é a posição 0, fica Atual; resto Futuro.
+  Obtido:   [('base', 'atual', 'base'), ('roteiro', 'futuro', None), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Dado bruto: {}
+
+[PASSOU] etapa_completo
+  Entrada:  Base: feito | Roteiro: feito | Completo: pendente | status: nenhum
+  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'atual', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Motivo:   Base/Roteiro concluídos, Completo é a posição 2 — sem status, fica Atual (não Recusado).
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'atual', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
+
+[PASSOU] etapa_completo_recusado
+  Entrada:  produção feita | status: Recusado (volta pra Completo)
+  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'recusado', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Motivo:   Mesma posição 2 do caso anterior (etapa_atual() também devolve "completo"), mas status=Recusado muda a aparência pra Recusado.
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'recusado', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.RECUSADO}
+
+[PASSOU] etapa_concluido
+  Entrada:  produção feita | status: Replicado
+  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'concluido', None)]
+  Motivo:   Replicado — índice interno vira 5, fora do range de 0-4 — os 5 passos viram Concluído, NENHUM fica marcado como atual.
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'concluido', None)]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.REPLICADO}
+
+[PASSOU] etapa_postar
+  Entrada:  produção feita | status: nenhum
+  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'atual', 'postar'), ('replicar', 'futuro', None)]
+  Motivo:   Produção pronta, sem status ainda — Postar é a posição 3, fica Atual.
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'atual', 'postar'), ('replicar', 'futuro', None)]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
+
+[PASSOU] etapa_replicar
+  Entrada:  produção feita | status: Aprovado
+  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'aprovado-claro', 'replicar')]
+  Motivo:   Aprovado — Replicar é a última posição (4), fica Aprovado/aguardando replicar.
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'aprovado-claro', 'replicar')]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.APROVADO}
+
+[PASSOU] etapa_roteiro
+  Entrada:  Base: feito | Roteiro: pendente
+  Esperado: [('base', 'concluido', None), ('roteiro', 'atual', 'roteiro'), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Motivo:   Base concluído (posição 0), Roteiro é a posição 1 — fica Atual; resto Futuro.
+  Obtido:   [('base', 'concluido', None), ('roteiro', 'atual', 'roteiro'), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
+
 === Nível 2 — CicloVideo.__str__() ===
 
 [PASSOU] str_monta_texto_legivel
@@ -277,6 +555,98 @@
   Esperado: video_trimestral #3, 02/11
   Motivo:   fase contínua — nunca esgota período, sempre a mesma distância de 90 dias
   Obtido:   video_trimestral #3, 02/11
+
+=== Nível 3 — historico_roadmap (montar_linha_do_tempo_produto / montar_historico_produto) ===
+
+[PASSOU] ciclo_com_status_usa_badge_de_status
+  Entrada:  CicloVideo com status=Aprovado
+  Esperado: badge='Aprovado' (vem de BADGES_STATUS_POSTAGEM)
+  Motivo:   ciclo.status é truthy — usa BADGES_STATUS_POSTAGEM, nunca BADGES_ETAPA, mesmo a etapa sendo "replicar".
+  Obtido:   badge='Aprovado'
+
+[PASSOU] ciclo_sem_status_usa_badge_de_etapa
+  Entrada:  CicloVideo sem status, etapa_atual()="roteiro"
+  Esperado: badge='Roteiro' (vem de BADGES_ETAPA)
+  Motivo:   ciclo.status é None (falsy) — usa BADGES_ETAPA com a etapa atual.
+  Obtido:   badge='Roteiro'
+
+[PASSOU] ordenacao_timestamps_claramente_diferentes
+  Entrada:  ciclo_antigo (01/2026) e ciclo_recente (06/2026)
+  Esperado: ciclos[0] = ciclo_recente (Vídeo Mensal#1)
+  Motivo:   order_by("-criado_em", "-id") — mais recente primeiro, sem ambiguidade nesse caso.
+  Obtido:   ciclos[0].fase='video_mensal'
+
+[PASSOU] ordenacao_timestamps_empatados_desempate_por_id
+  Entrada:  ciclo_antigo e ciclo_recente com criado_em IDÊNTICO (2026-01-01 12:00:00-03:00)
+  Esperado: ciclos[0] = ciclo_recente (id maior, criado por último)
+  Motivo:   Timestamps empatados de propósito (simula o empate real, comum no Windows) — só "-id" desempata certo.
+  Obtido:   ciclos[0].pk=21, ciclo_recente.pk=21
+
+[PASSOU] resumo_agrupa_por_etapa_mesmo_com_status_diferente
+  Entrada:  2 ciclos, ambos etapa_atual()="completo" (1 sem status, 1 recusado)
+  Esperado: resumo=[ResumoEtapa(valor='completo', label='Completo', quantidade=2)]
+  Motivo:   O resumo agrupa por ETAPA sempre via BADGES_ETAPA — nunca mistura com o rótulo de status individual de cada ciclo.
+  Obtido:   [ResumoEtapa(valor='completo', label='Completo', classe='etapa-completo', quantidade=2)]
+
+[PASSOU] historico_sem_nenhum_ciclo
+  Entrada:  Produto sem nenhum CicloVideo
+  Esperado: total=0, ciclos=[], resumo=[]
+  Motivo:   Sem ciclo nenhum, tudo fica vazio — nenhuma etapa pra contar no resumo.
+  Obtido:   total=0, ciclos=[], resumo=[]
+
+[PASSOU] ciclo_com_todas_as_6_marcas_aprovado
+  Entrada:  CicloVideo com as 6 marcas + status=Aprovado
+  Esperado: 6 eventos, nessa ordem cronológica
+  Motivo:   Cada campo preenchido vira 1 evento — status=Aprovado usa o branch "else" (tipo=APROVADO, ação=Aprovado).
+  Obtido:   6 evento(s)
+
+[PASSOU] ciclo_recusado_gera_evento_recusado
+  Entrada:  CicloVideo com status=Recusado (branch "if" do RECUSADO)
+  Esperado: último evento = 'Simples — Recusado', tipo=RECUSADO
+  Motivo:   status=Recusado usa o branch "if" (tipo=RECUSADO, ação=Recusado) — diferente do caso Aprovado (branch "else").
+  Obtido:   5 evento(s), último=EventoHistorico(timestamp=datetime.datetime(2026, 1, 5, 11, 0, tzinfo=datetime.timezone.utc), label='Simples — Recusado', tipo=TipoEventoHistorico.RECUSADO, icone='fa-gavel', mlbs_replicados=None, mlbs_nao_encontrados=None)
+
+[PASSOU] ciclo_replicado_carrega_mlbs
+  Entrada:  replicado_em preenchido, mlbs_replicados=['MLB111','MLB222'], mlbs_nao_encontrados=['MLB333']
+  Esperado: evento carrega as 2 listas junto
+  Motivo:   O evento de Replicado é o único que carrega mlbs_replicados/mlbs_nao_encontrados — os outros 5 tipos não têm esses campos.
+  Obtido:   [EventoHistorico(timestamp=datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc), label='Simples — Replicado', tipo=TipoEventoHistorico.REPLICADO, icone='fa-copy', mlbs_replicados=['MLB111', 'MLB222'], mlbs_nao_encontrados=['MLB333'])]
+
+[PASSOU] ciclo_so_com_base
+  Entrada:  CicloVideo Simples#1, só base_concluido_em preenchido
+  Esperado: 1 evento 'Base concluída (Simples)'
+  Motivo:   Só o campo preenchido vira evento — os outros 5 ifs não batem.
+  Obtido:   1 evento(s)
+
+[PASSOU] com_participacao_e_agendado_em
+  Entrada:  ParticipacaoAgenda.agendado_em preenchido
+  Esperado: 1 evento 'Agendado — Vídeo Mensal Iniciado'
+  Motivo:   Participação existe E agendado_em preenchido — as 2 condições precisam ser verdadeiras.
+  Obtido:   1 evento(s)
+
+[PASSOU] com_participacao_sem_agendado_em
+  Entrada:  ParticipacaoAgenda existe, agendado_em=None
+  Esperado: 0 eventos
+  Motivo:   Participação existe mas agendado_em vazio — a condição "participacao and participacao.agendado_em" falha na 2ª parte.
+  Obtido:   0 evento(s)
+
+[PASSOU] dois_ciclos_ordenados_cronologicamente
+  Entrada:  2 ciclos com eventos entremeados no tempo
+  Esperado: ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)', 'Roteiro concluído (Vídeo Mensal #1)', 'Roteiro concluído (Simples)']
+  Motivo:   A ordenação final é por timestamp GLOBAL — mistura eventos de ciclos diferentes, nunca agrupa por ciclo primeiro.
+  Obtido:   ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)', 'Roteiro concluído (Vídeo Mensal #1)', 'Roteiro concluído (Simples)']
+
+[PASSOU] dois_ciclos_timestamps_empatados_ordem_deterministica
+  Entrada:  2 ciclos, mesmo timestamp=2026-01-01 09:00:00-03:00, ciclo_simples criado antes (id menor)
+  Esperado: ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)'] — sempre nessa ordem
+  Motivo:   Timestamps IDÊNTICOS de propósito — sem o order_by(criado_em, id) no laço de ciclos, a ordem relativa seria indefinida.
+  Obtido:   ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)']
+
+[PASSOU] sem_participacao_e_sem_ciclos
+  Entrada:  Produto sem ParticipacaoAgenda, sem CicloVideo
+  Esperado: 0 eventos
+  Motivo:   Nada pra mostrar — nem entrada na agenda nem marco de produção.
+  Obtido:   0 evento(s)
 
 === Nível 3 — iniciar_agenda() e agendar_apos_simples() ===
 
@@ -430,7 +800,7 @@
   Entrada:  A: urgente+sem vídeo (prioridade 1) | B: resto+Trimestral | C: resto+Simples
   Esperado: A, C, B (nessa ordem)
   Motivo:   prioridade decide 1º (A vence) — entre B e C (mesma prioridade), fase decide (Simples antes de Trimestral)
-  Obtido:   [47, 49, 48]
+  Obtido:   [62, 64, 63]
 
 [PASSOU] listar_pendente_agora_categoria_simples
   Entrada:  A: etapa=roteiro | B: etapa=base, filtro pendente_agora=[roteiro]
@@ -494,6 +864,68 @@
   Motivo:   Simples nunca dispara o próximo ciclo sozinho — espera o clique manual de "Agendar"
   Obtido:   retornou=None, status=replicado
 
+=== Nível 3 — roadmap_produto (_montar_caminho_completo_fases / calcular_roadmap_produto) ===
+
+[PASSOU] legenda_mostra_data_devida_quando_nao_ha_legenda_fixa
+  Entrada:  Vídeo Mensal#1, produção completa, sem status, data_devida=10/08/2026
+  Esperado: legenda='vence 10/08'
+  Motivo:   Estado Atual não está no mapa fixo de legendas — cai no fallback de data, mostrando "vence DD/MM".
+  Obtido:   legenda='vence 10/08'
+
+[PASSOU] legenda_usa_mapa_quando_estado_tem_legenda_fixa
+  Entrada:  Vídeo Mensal#1, produção completa, status=Aguardando Aprovação
+  Esperado: legenda='aguardando aprovação' (vem do mapa fixo, não da data)
+  Motivo:   Estado visual Aguardando está em LEGENDAS_POR_ESTADO_VISUAL — a legenda usa o texto fixo do mapa, nunca chega a olhar data_devida.
+  Obtido:   legenda='aguardando aprovação'
+
+[PASSOU] timestamps_claramente_diferentes
+  Entrada:  ciclo_antigo(Simples, criado_em=2026-01-01 00:00:00, id menor), ciclo_recente(Vídeo Mensal#1, criado_em=2026-06-01 00:00:00, id maior)
+  Esperado: rodada_atual_id='video_mensal_1'
+  Motivo:   Timestamps bem distintos — nenhuma ambiguidade, o mais recente por data já é suficiente.
+  Obtido:   rodada_atual_id='video_mensal_1'
+
+[PASSOU] timestamps_empatados_desempate_por_id
+  Entrada:  ciclo_antigo(Simples, criado_em=2026-01-01 12:00:00, id menor), ciclo_recente(Vídeo Mensal#1, criado_em=2026-01-01 12:00:00, id maior)
+  Esperado: rodada_atual_id='video_mensal_1'
+  Motivo:   Timestamps IDÊNTICOS de propósito (simula o empate real, comum no Windows) — só o desempate por id (ciclo_recente criado depois, id maior) garante escolher o certo. Prova a correção em order_by("criado_em", "id").
+  Obtido:   rodada_atual_id='video_mensal_1'
+
+[PASSOU] ponto_agendar_aparece_apos_simples_replicado
+  Entrada:  Simples#1 replicado, sem Vídeo Mensal#1 ainda
+  Esperado: 'agendar' presente, na posição 1
+  Motivo:   Janela específica: Simples concluído mas próxima fase ainda não criada — ponto extra clicável "Agendar" aparece logo depois do Simples.
+  Obtido:   ids=['simples_1', 'agendar', 'video_mensal_1', 'video_mensal_2', 'video_mensal_3', 'video_mensal_4', 'video_trimestral_continua']
+
+[PASSOU] timestamps_claramente_diferentes
+  Entrada:  ciclo_simples(criado_em=2026-01-01 00:00:00, id menor), ciclo_mensal(criado_em=2026-06-01 00:00:00, id maior)
+  Esperado: 'agendar' ausente
+  Motivo:   Timestamps bem distintos — o Vídeo Mensal#1 é claramente o mais recente.
+  Obtido:   ids=['simples_1', 'video_mensal_1', 'video_mensal_2', 'video_mensal_3', 'video_mensal_4', 'video_trimestral_continua']
+
+[PASSOU] timestamps_empatados_desempate_por_id
+  Entrada:  ciclo_simples(criado_em=2026-01-01 12:00:00, id menor), ciclo_mensal(criado_em=2026-01-01 12:00:00, id maior)
+  Esperado: 'agendar' ausente
+  Motivo:   Timestamps IDÊNTICOS de propósito — só o desempate por id garante que o Mensal#1 (criado depois, id maior) vença, escondendo o ponto "Agendar" corretamente mesmo no empate.
+  Obtido:   ids=['simples_1', 'video_mensal_1', 'video_mensal_2', 'video_mensal_3', 'video_mensal_4', 'video_trimestral_continua']
+
+[PASSOU] produto_sem_nenhum_ciclo_video
+  Entrada:  Produto novo, 0 CicloVideo no banco
+  Esperado: rodada_atual_id='simples_1', legenda='', 0 CicloVideo no banco
+  Motivo:   Sem nenhum ciclo salvo, a função monta um Simples#1 EM MEMÓRIA só pra exibir — nunca cria nada no banco só de olhar a tela. Simples nunca vence, então a legenda cai no else (vazia).
+  Obtido:   rodada_atual_id='simples_1', legenda='', 0 CicloVideo no banco
+
+[PASSOU] regua_quebrada_sem_proxima_fase
+  Entrada:  Simples(periodo=1), proxima_fase=None, não contínua
+  Esperado: 1 ponto, aviso vazio
+  Motivo:   Régua incompleta (fase finita sem próxima configurada) — a função para no lugar, sem travar nem lançar erro, e sem aviso (nunca chegou numa fase contínua).
+  Obtido:   1 ponto(s), aviso=vazio
+
+[PASSOU] regua_real_completa
+  Entrada:  Simples(periodo=1) -> Vídeo Mensal(periodo=4) -> Vídeo Trimestral(contínua)
+  Esperado: 6 pontos, aviso preenchido
+  Motivo:   Régua real e completa — cada fase finita aponta pra próxima, a última é contínua. Percorre a régua inteira até achar o ponto contínuo.
+  Obtido:   6 pontos, aviso=preenchido
+
 === Nível 3 — sincronizar_indicadores_agenda_produto() ===
 
 [PASSOU] sincronizar_atualiza_registro_existente
@@ -524,17 +956,17 @@
 
 === RESUMO DA SESSÃO ===
 
-passed: 82
+passed: 151
 
 === COVERAGE ===
 
-______________________________________________________________ coverage: platform win32, python 3.12.4-final-0 ______________________________________________________________
+___________________________________________ coverage: platform win32, python 3.12.10-final-0 ___________________________________________
 
-Name                                               Stmts   Miss Branch BrPart  Cover   Missing
-----------------------------------------------------------------------------------------------
-agenda_videos\funcoes_auxiliares\a_fazer_hoje.py      61      0     30      0   100%
-----------------------------------------------------------------------------------------------
-TOTAL                                                 61      0     30      0   100%
+Name                                                    Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------------------------------------------
+agenda_videos\funcoes_auxiliares\historico_roadmap.py     106     28     42      0    66%   191-230
+---------------------------------------------------------------------------------------------------
+TOTAL                                                     106     28     42      0    66%
 Coverage HTML written to dir resultados_coverage/htmlcov
 Coverage JSON written to file resultados_coverage/coverage.json
 

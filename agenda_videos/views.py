@@ -30,6 +30,7 @@ from agenda_videos.funcoes_auxiliares.historico_roadmap import listar_produtos_c
 from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
 from agenda_videos.models import (
     StatusPostagem, Fase, ConfiguracaoFase, CicloVideo, StatusManualAgenda, ParticipacaoAgenda,
+    HistoricoStatusManualAgenda,
     ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao,
     ExecucaoReplicacaoAutomatica, ItemExecucaoReplicacao, StatusExecucao, StatusItemExecucaoReplicacao,
 )
@@ -155,6 +156,15 @@ def view_agendar_produto(request: HttpRequest, produto_id: int) -> HttpResponse:
         return HttpResponseBadRequest('Só é possível agendar depois do Simples replicado.')
 
     ciclo.agendar_apos_simples()
+
+    # Marca o momento real da transição Simples → Mensal — é isso que
+    # agendado_em representa, nunca a criação do produto nem o 1º clique
+    # de Base. Idempotente: uma vez agendado, sempre agendado.
+    participacao, _ = ParticipacaoAgenda.objects.get_or_create(produto=produto)
+    if participacao.agendado_em is None:
+        participacao.agendado_em = timezone.now()
+        participacao.save(update_fields=['agendado_em'])
+
     return _recarregar_e_renderizar_card(request, produto.id)
 
 
@@ -400,6 +410,27 @@ def view_configuracoes_agenda_videos(request: HttpRequest) -> HttpResponse:
 # Função Objetivo: Modal de histórico de 1 produto (Formato A).
 def view_historico_produto(request: HttpRequest, produto_id: int) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
+    historico = montar_historico_produto(produto)
+    return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_historico_produto.html', {
+        'historico': historico,
+    })
+
+
+# Função Objetivo: Liga/desliga "Pausado" no status manual da agenda deste
+# produto — cria um novo registro de histórico (nunca edita o antigo,
+# preserva quando cada mudança aconteceu). Nunca gera Descontinuado — esse
+# valor existe no model mas não tem ação manual (decisão: exclusão da
+# agenda nunca é manual; se um dia for preciso tirar produtos da agenda, o
+# ajuste é no FILTRO de entrada, não no status de 1 produto por vez).
+def view_alternar_pausado_agenda(request: HttpRequest, produto_id: int) -> HttpResponse:
+    produto = get_object_or_404(Produto, id=produto_id)
+
+    participacao = getattr(produto, 'participacao_agenda', None)
+    status_atual = participacao.status_manual_atual() if participacao else StatusManualAgenda.ATIVO
+    novo_status = StatusManualAgenda.ATIVO if status_atual == StatusManualAgenda.PAUSADO else StatusManualAgenda.PAUSADO
+    HistoricoStatusManualAgenda.objects.create(produto=produto, status=novo_status)
+
+    sincronizar_indicadores_agenda_produto(produto)
     historico = montar_historico_produto(produto)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_historico_produto.html', {
         'historico': historico,

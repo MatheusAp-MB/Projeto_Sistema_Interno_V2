@@ -8,6 +8,16 @@
     <div class="modal-roadmap-caixa modal-historico-caixa">
         <div class="modal-historico-cabecalho">
             <h3 class="modal-roadmap-titulo">Histórico — {{ historico.produto.obter_dados_identificacao.titulo }}</h3>
+            <span class="badge-tabela {{ historico.status_manual_atual.classe }}">
+                <i class="fas {{ historico.status_manual_atual.icone }}"></i> {{ historico.status_manual_atual.label }}
+            </span>
+            <button type="button"
+                    class="btn-acao btn-alternar-pausado"
+                    hx-post="{% url 'agenda_videos_alternar_pausado' historico.produto.id %}"
+                    hx-target="closest .modal-historico-caixa"
+                    hx-swap="outerHTML">
+                {% if historico.status_manual_atual.classe == 'status-pausado' %}Retomar{% else %}Pausar{% endif %}
+            </button>
             <button type="button" class="modal-historico-fechar" data-fechar-modal-roadmap>
                 <i class="fas fa-xmark"></i>
             </button>
