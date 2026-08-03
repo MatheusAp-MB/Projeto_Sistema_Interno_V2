@@ -26,11 +26,12 @@ ETAPAS_EM_PRODUCAO = ['base', 'roteiro', 'completo']
 
 
 def calcular_indicadores_ciclo(produto: Produto, ciclo: CicloVideo, data_referencia: date | None = None) -> str:
-    hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
+    data_referencia = data_referencia or date.today()
+    hoje = ultimo_dia_util_ou_hoje(data_referencia)
     limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
     etapa = ciclo.etapa_atual()
 
-    produto.a_fazer_hoje_atrasado = ciclo.esta_atrasado()
+    produto.a_fazer_hoje_atrasado = ciclo.esta_atrasado(data_referencia)
     produto.a_fazer_hoje_risco = (
         not produto.a_fazer_hoje_atrasado
         and etapa in ETAPAS_EM_PRODUCAO

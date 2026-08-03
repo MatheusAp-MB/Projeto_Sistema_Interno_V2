@@ -1,0 +1,260 @@
+=== Nível 0 — cálculo puro de dia útil ===
+
+[PASSOU] adicionar_dias_uteis_06-08_mais_2
+  Entrada:  06/08 (Thursday) + 2 dia(s) útil(eis)
+  Esperado: 10/08
+  Motivo:   quinta + 2 dias úteis: sexta(1) -> pula fim de semana -> segunda(2)
+  Obtido:   10/08
+
+[PASSOU] adicionar_dias_uteis_03-08_mais_1
+  Entrada:  03/08 (Monday) + 1 dia(s) útil(eis)
+  Esperado: 04/08
+  Motivo:   segunda + 1 dia útil = terça, sem fim de semana no meio
+  Obtido:   04/08
+
+[PASSOU] adicionar_dias_uteis_07-08_mais_1
+  Entrada:  07/08 (Friday) + 1 dia(s) útil(eis)
+  Esperado: 10/08
+  Motivo:   sexta + 1 dia útil pula sáb/dom, cai segunda
+  Obtido:   10/08
+
+[PASSOU] adicionar_dias_uteis_03-08_mais_0
+  Entrada:  03/08 (Monday) + 0 dia(s) útil(eis)
+  Esperado: 03/08
+  Motivo:   0 dias úteis não move a data
+  Obtido:   03/08
+
+[PASSOU] proximo_dia_util_03-08
+  Entrada:  03/08 (Monday)
+  Esperado: 04/08
+  Motivo:   segunda avança pra terça — nunca fica no mesmo dia, mesmo já sendo útil
+  Obtido:   04/08
+
+[PASSOU] proximo_dia_util_02-08
+  Entrada:  02/08 (Sunday)
+  Esperado: 03/08
+  Motivo:   domingo pula pro dia útil seguinte, segunda
+  Obtido:   03/08
+
+[PASSOU] proximo_dia_util_01-08
+  Entrada:  01/08 (Saturday)
+  Esperado: 03/08
+  Motivo:   sábado pula pro dia útil seguinte, segunda
+  Obtido:   03/08
+
+[PASSOU] proximo_dia_util_07-08
+  Entrada:  07/08 (Friday)
+  Esperado: 10/08
+  Motivo:   sexta pula sáb/dom, cai segunda
+  Obtido:   10/08
+
+[PASSOU] ultimo_dia_util_03-08
+  Entrada:  03/08 (Monday)
+  Esperado: 03/08
+  Motivo:   segunda já é dia útil, não mexe
+  Obtido:   03/08
+
+[PASSOU] ultimo_dia_util_02-08
+  Entrada:  02/08 (Sunday)
+  Esperado: 31/07
+  Motivo:   domingo volta pra sexta anterior
+  Obtido:   31/07
+
+[PASSOU] ultimo_dia_util_01-08
+  Entrada:  01/08 (Saturday)
+  Esperado: 31/07
+  Motivo:   sábado volta pra sexta anterior
+  Obtido:   31/07
+
+=== Nível 2 — CicloVideo.esta_atrasado() ===
+
+[PASSOU] aguardando_aprovacao_nunca_atrasa
+  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=sim, hoje=10/08
+  Esperado: False
+  Motivo:   aguardando aprovação: prazo já foi cumprido, não conta atraso mesmo depois da data
+  Obtido:   False
+
+[PASSOU] antes_do_prazo_nao_atrasado
+  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=não, hoje=06/08
+  Esperado: False
+  Motivo:   quinta, 1 dia antes do prazo (sexta) — ainda não venceu
+  Obtido:   False
+
+[PASSOU] depois_do_prazo_atrasado
+  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=não, hoje=08/08
+  Esperado: True
+  Motivo:   sábado, 1 dia depois do prazo — atrasado
+  Obtido:   True
+
+[PASSOU] no_dia_do_prazo_nao_atrasado
+  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=não, hoje=07/08
+  Esperado: False
+  Motivo:   no próprio dia do prazo — ainda dentro do prazo, não atrasado
+  Obtido:   False
+
+[PASSOU] sem_data_devida_nunca_atrasa
+  Entrada:  data_devida=None, aguardando_aprovacao=não, hoje=10/08
+  Esperado: False
+  Motivo:   Simples nunca tem vencimento — sem data_devida, nunca atrasa
+  Obtido:   False
+
+=== Nível 2 — CicloVideo.etapa_atual() ===
+
+[PASSOU] aguardando_aprovacao_do_marketplace
+  Entrada:  produção feita | status: Aguardando Aprovação
+  Esperado: aguardando_aprovacao
+  Motivo:   postado, esperando o marketplace aprovar ou recusar
+  Obtido:   aguardando_aprovacao
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.AGUARDANDO_APROVACAO}
+
+[PASSOU] aprovado_pronto_pra_replicar
+  Entrada:  produção feita | status: Aprovado
+  Esperado: replicar
+  Motivo:   aprovado pelo marketplace — só falta o clique manual de Replicar
+  Obtido:   replicar
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.APROVADO}
+
+[PASSOU] base_e_roteiro_feitos_falta_completo
+  Entrada:  Base: feito | Roteiro: feito | Completo: pendente
+  Esperado: completo
+  Motivo:   Base e Roteiro concluídos, Completo ainda não
+  Obtido:   completo
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
+
+[PASSOU] base_feito_falta_roteiro
+  Entrada:  Base: feito | Roteiro: pendente
+  Esperado: roteiro
+  Motivo:   Base concluído, Roteiro ainda não — avança pra próxima etapa da sequência travada
+  Obtido:   roteiro
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
+
+[PASSOU] nada_feito_comeca_em_base
+  Entrada:  nenhuma etapa feita ainda
+  Esperado: base
+  Motivo:   nenhum campo preenchido — toda ocorrência nova começa em Base
+  Obtido:   base
+  Dado bruto: {}
+
+[PASSOU] producao_pronta_falta_postar
+  Entrada:  Base/Roteiro/Completo: feitos | status: nenhum
+  Esperado: postar
+  Motivo:   produção inteira concluída, sem status de postagem ainda — pronto pra Postar
+  Obtido:   postar
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
+
+[PASSOU] recusado_volta_pra_completo
+  Entrada:  produção feita | status: Recusado
+  Esperado: completo
+  Motivo:   recusado NUNCA fica travado em Postar — precisa refazer o Completo e postar de novo
+  Obtido:   completo
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.RECUSADO}
+
+[PASSOU] replicado_conclui_a_ocorrencia
+  Entrada:  produção feita | status: Replicado
+  Esperado: concluido
+  Motivo:   replicado — esta ocorrência específica está encerrada (o ciclo como um todo pode continuar)
+  Obtido:   concluido
+  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.REPLICADO}
+
+=== Nível 2 — CicloVideo.__str__() ===
+
+[PASSOU] str_monta_texto_legivel
+  Entrada:  sku=ABC123, fase=Simples, numero_ocorrencia=1, sem campos de produção
+  Esperado: ABC123 — Simples #1 (base)
+  Motivo:   __str__ junta sku + fase + numero + etapa_atual() num texto só, sempre no mesmo formato
+  Obtido:   ABC123 — Simples #1 (base)
+
+=== Nível 3 — criar_proximo(): régua completa de transição de fase ===
+
+[PASSOU] criar_proximo_aplica_ajuste_de_dia_util
+  Entrada:  Trimestral #1, replicado segunda 03/08 + 90 dias corridos
+  Esperado: 30/10 (sexta) — 01/11 seria domingo, ajusta pra trás 2 dias
+  Motivo:   ultimo_dia_util_ou_hoje ajusta pra trás se a data calculada cair em fim de semana
+  Obtido:   30/10 (Friday)
+
+[PASSOU] mensal_1_para_2_trinta_dias
+  Entrada:  video_mensal #1, replicado 04/08
+  Esperado: video_mensal #2, 03/09
+  Motivo:   dentro do período (2 <= 4) — distância normal de 30 dias corridos
+  Obtido:   video_mensal #2, 03/09
+
+[PASSOU] mensal_4_para_trimestral_1_noventa_dias
+  Entrada:  video_mensal #4, replicado 04/08
+  Esperado: video_trimestral #1, 02/11
+  Motivo:   esgotou o período de 4 do Mensal — 1ª ocorrência Trimestral também espera 90 dias
+  Obtido:   video_trimestral #1, 02/11
+
+[PASSOU] simples_para_mensal_1_sem_espera
+  Entrada:  simples #1, replicado 04/08
+  Esperado: video_mensal #1, 04/08
+  Motivo:   Vídeo Mensal #1 libera assim que o Simples é replicado — +0 dias, sem espera
+  Obtido:   video_mensal #1, 04/08
+
+[PASSOU] trimestral_n_para_n_mais_1_noventa_dias
+  Entrada:  video_trimestral #2, replicado 04/08
+  Esperado: video_trimestral #3, 02/11
+  Motivo:   fase contínua — nunca esgota período, sempre a mesma distância de 90 dias
+  Obtido:   video_trimestral #3, 02/11
+
+=== Nível 3 — iniciar_agenda() e agendar_apos_simples() ===
+
+[PASSOU] etapa_nao_concluida_levanta_erro
+  Entrada:  fase=simples, etapa_concluida=False
+  Esperado: levanta ValueError
+  Motivo:   Simples ainda não foi replicado — não dá pra agendar o que vem depois antes de terminar
+  Obtido:   levantou ValueError
+
+[PASSOU] fase_errada_levanta_erro
+  Entrada:  fase=video_mensal, etapa_concluida=True
+  Esperado: levanta ValueError
+  Motivo:   só é possível agendar a partir do Simples — qualquer outra fase é erro de uso
+  Obtido:   levantou ValueError
+
+[PASSOU] agendar_apos_simples_sucesso
+  Entrada:  Simples replicado, agendado numa segunda (03/08)
+  Esperado: Vídeo Mensal #1, vence terça (04/08)
+  Motivo:   proximo_dia_util nunca fica no mesmo dia — reaproveita a regra já testada no Nível 0
+  Obtido:   video_mensal #1, data_devida=2026-08-04
+
+[PASSOU] iniciar_agenda
+  Entrada:  produto novo, sem CicloVideo nenhum
+  Esperado: Simples #1, sem data_devida
+  Motivo:   único ponto de entrada do produto na Agenda — Simples nunca tem vencimento
+  Obtido:   simples #1, data_devida=None
+
+=== Nível 3 — marcar_aguardando_aprovacao() e marcar_replicado() ===
+
+[PASSOU] marcar_aguardando_aprovacao
+  Entrada:  CicloVideo sem status
+  Esperado: status=AGUARDANDO_APROVACAO, timestamp preenchido
+  Motivo:   marcar_aguardando_aprovacao() só registra o status e o momento — não decide mais nada
+  Obtido:   status=aguardando_aprovacao, timestamp=preenchido
+
+[PASSOU] marcar_replicado_fase_normal_dispara_proximo
+  Entrada:  CicloVideo fase=Vídeo Mensal #1
+  Esperado: retorna a nova ocorrência (Vídeo Mensal #2)
+  Motivo:   qualquer fase que não seja Simples dispara criar_proximo() automaticamente
+  Obtido:   retornou=video_mensal #2
+
+[PASSOU] marcar_replicado_simples_nao_dispara_proximo
+  Entrada:  CicloVideo fase=Simples
+  Esperado: retorna None, mas o próprio ciclo fica marcado REPLICADO
+  Motivo:   Simples nunca dispara o próximo ciclo sozinho — espera o clique manual de "Agendar"
+  Obtido:   retornou=None, status=replicado
+
+=== RESUMO DA SESSÃO ===
+
+passed: 37
+
+=== COVERAGE ===
+
+______________________________________ coverage: platform win32, python 3.12.4-final-0 ______________________________________
+
+Name                                  Stmts   Miss Branch BrPart  Cover   Missing
+---------------------------------------------------------------------------------
+agenda_videos\models\ciclo_video.py      92      0     24      0   100%
+---------------------------------------------------------------------------------
+TOTAL                                    92      0     24      0   100%
+Coverage HTML written to dir resultados_coverage/htmlcov
+Coverage JSON written to file resultados_coverage/coverage.json
+

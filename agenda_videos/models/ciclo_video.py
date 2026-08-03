@@ -9,8 +9,7 @@
 # criados) — preservam o que era verdade no momento exato desta ocorrência,
 # mesmo que ConfiguracaoFase mude depois.
 
-from datetime import timedelta
-
+from datetime import date, timedelta
 from django.db import models, transaction
 from django.utils import timezone
 
@@ -83,12 +82,13 @@ class CicloVideo(models.Model):
     #                  com data-trava — confirmado com o usuário). Depois de
     #                  postado, o prazo já foi cumprido, mesmo que Replicar
     #                  ainda esteja pendente (Replicar não tem trava de data).
-    def esta_atrasado(self):
+    def esta_atrasado(self, data_referencia: date | None = None):
         if self.data_devida is None:
             return False
         if self.aguardando_aprovacao_em is not None:
             return False
-        return timezone.localdate() > self.data_devida
+        hoje = data_referencia or timezone.localdate()
+        return hoje > self.data_devida
 
     # * [EXPLICAÇÃO] → Encapsula a ÚNICA regra de "o que vem depois" — nunca deve
     #                  ser reimplementada em nenhum outro lugar do código.
@@ -158,14 +158,14 @@ class CicloVideo(models.Model):
     #                  partir de AGORA (o clique), nunca de replicado_em —
     #                  pode ter passado dias entre o Simples terminar e
     #                  alguém clicar.
-    def agendar_apos_simples(self):
+    def agendar_apos_simples(self, data_referencia: date | None = None):
         from agenda_videos.funcoes_auxiliares.calculo_datas_fase import proximo_dia_util
 
         if self.fase != Fase.SIMPLES or self.etapa_atual() != 'concluido':
             raise ValueError('Só é possível agendar depois do Simples replicado.')
 
         proxima_fase = ConfiguracaoFase.objects.get(fase=Fase.SIMPLES).proxima_fase
-        data_devida = proximo_dia_util(timezone.localdate())
+        data_devida = proximo_dia_util(data_referencia or timezone.localdate())
 
         return CicloVideo.objects.create(
             produto=self.produto, fase=proxima_fase.fase, numero_ocorrencia=1, data_devida=data_devida,
