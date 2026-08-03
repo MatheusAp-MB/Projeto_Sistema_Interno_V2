@@ -25,7 +25,8 @@ from agenda_videos.funcoes_auxiliares.drive import (
 )
 from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo, listar_a_fazer_hoje
+from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo
+from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import Tela, listar_produtos_agenda_filtrados
 from agenda_videos.funcoes_auxiliares.historico_roadmap import listar_produtos_com_historico, montar_historico_produto
 from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
 from agenda_videos.models import (
@@ -604,7 +605,7 @@ def view_confirmar_replicacao_automatica(request):
             ),
         })
 
-    produtos_elegiveis = listar_a_fazer_hoje(filtros={'pendente_agora': ['replicar']})
+    produtos_elegiveis = listar_produtos_agenda_filtrados(tela=Tela.A_FAZER_HOJE, filtros={'motivo_a_fazer_hoje': ['replicar']})
     return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_confirmar_replicacao_automatica.html', {
         'produtos_elegiveis': produtos_elegiveis,
         'quantidade_elegiveis': len(produtos_elegiveis),
@@ -620,7 +621,7 @@ def view_iniciar_replicacao_automatica(request):
         )
         return redirect(reverse(url_nome, args=[execucao_em_andamento.id]))
 
-    produtos_elegiveis = listar_a_fazer_hoje(filtros={'pendente_agora': ['replicar']})
+    produtos_elegiveis = listar_produtos_agenda_filtrados(tela=Tela.A_FAZER_HOJE, filtros={'motivo_a_fazer_hoje': ['replicar']})
 
     execucao = ExecucaoReplicacaoAutomatica.objects.create()
     for ordem, produto in enumerate(produtos_elegiveis, start=1):

@@ -10,14 +10,23 @@
 import os
 import shutil
 import tempfile
+from datetime import date
 
 from django.db import close_old_connections
+from django.db.models import OuterRef, Subquery
 from django.utils import timezone
+from produtos.models import Produto
 from agenda_videos.models import (
+    CicloVideo, StatusManualAgenda,
     ExecucaoPostagemAutomatica, StatusExecucao, ItemExecucaoPostagem, StatusItemExecucao,
 )
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje
-from agenda_videos.funcoes_auxiliares.postagem_ciclica import marcar_ciclo_atual_aguardando_aprovacao, ja_postou_hoje
+from agenda_videos.funcoes_auxiliares.calculo_datas_fase import ultimo_dia_util_ou_hoje
+from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
+    construir_annotation_prioridade, construir_annotation_ordenacao_fase,
+)
+from agenda_videos.funcoes_auxiliares.postagem_ciclica import (
+    construir_condicao_postou_hoje, marcar_ciclo_atual_aguardando_aprovacao, ja_postou_hoje,
+)
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from agenda_videos.funcoes_auxiliares.drive.localizador import LocalizadorArquivosProduto
 from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_caminho_local_organizado
@@ -27,13 +36,25 @@ from .controle_teclado import ControleTeclado
 from agente_local.postagem_ml import postar_video_no_ml
 
 
-# Função Objetivo: Quem entra na fila — Ativo, pendente de postar hoje, SEM
-# Reestruturação Manual (esses a equipe finaliza manualmente; postar de novo
-# duplicaria conteúdo já publicado pelo processo antigo), já na ordem de
-# prioridade certa — mesma regra que já vale pro resto da Agenda, nenhum
-# filtro novo escrito aqui.
+# Função Objetivo: Quem entra na fila — etapa 'postar' com vencimento hoje
+# OU atrasado (o bot processa o pool inteiro do dia, atrasado incluso),
+# excluindo Pausado/Descontinuado e quem já postou hoje (cache pode estar
+# desatualizado), já na ordem de prioridade certa. Não usa Tela.A_FAZER_HOJE
+# porque essa tela é só Mensal/Trimestral — a fila de postagem cobre
+# qualquer fase com 'postar' pronto, Simples incluso.
 def listar_produtos_elegiveis():
-    return listar_a_fazer_hoje(filtros={'pendente_agora': ['postar']})
+    hoje = ultimo_dia_util_ou_hoje(date.today())
+    ciclo_mais_recente = CicloVideo.objects.filter(produto=OuterRef('pk')).order_by('-criado_em')
+    return Produto.objects.exclude(
+        indicadores_agenda__status_manual__in=[StatusManualAgenda.PAUSADO, StatusManualAgenda.DESCONTINUADO],
+    ).annotate(
+        data_devida_ciclo_atual=Subquery(ciclo_mais_recente.values('data_devida')[:1]),
+        postou_hoje=construir_condicao_postou_hoje(data_referencia=hoje),
+        prioridade_ordenacao=construir_annotation_prioridade(),
+        ordenacao_fase=construir_annotation_ordenacao_fase(),
+    ).filter(
+        indicadores_agenda__etapa_atual='postar', data_devida_ciclo_atual__lte=hoje, postou_hoje=False,
+    ).order_by('prioridade_ordenacao', 'ordenacao_fase', 'data_devida_ciclo_atual')
 
 
 # * [EXPLICAÇÃO] → Não é mais privada (29/07) — a API (api/postagem_automatica/

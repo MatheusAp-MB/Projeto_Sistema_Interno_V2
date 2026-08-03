@@ -1,7 +1,9 @@
 <!--
-* [RESUMO] → Tela ÚNICA "Agenda de Vídeos" — mostra qualquer produto, com o filtro
-* de Estágio (Não Agendado / Simples / Vídeo Mensal / Vídeo Trimestral) no topo,
-* em destaque, e "A Fazer Hoje" como padrão da tela.
+* [RESUMO] → As 5 telas da Agenda de Vídeos (Não Agendado / Simples / Vídeo
+* Mensal / Vídeo Trimestral / A Fazer Hoje) — navegação por link no topo,
+* "A Fazer Hoje" como padrão na 1ª visita. Chip-contador clicável (03/08):
+* etapa (telas de fase) ou motivo de urgência (A Fazer Hoje) sempre visível,
+* nunca escondido em "Mais filtros".
 * Card de produto extraído em parcial reaproveitável (25/07) —
 * estrutura_parcial_card_produto.html — usado aqui via { % include % } e também
 * devolvido inteiro pelas views de clique do roadmap (identidade + meta + roadmap
@@ -22,7 +24,6 @@
 
 {% block scripts %}
 <script src="{% static 'agenda_videos/js/script_roadmap_produto.js' %}"></script>
-<script src="{% static 'agenda_videos/js/script_agenda_videos.js' %}"></script>
 <script src="{% static 'agenda_videos/js/script_historico_agenda_videos.js' %}"></script>
 <script src="{% static 'agenda_videos/js/script_busca_interna_filtros.js' %}"></script>
 {% endblock %}
@@ -30,6 +31,7 @@
 {% block conteudo %}
 
 <form method="get" class="agenda-barra-busca">
+    <input type="hidden" name="tela" value="{{ tela_atual }}">
     <input
         type="text"
         name="busca"
@@ -58,21 +60,41 @@
     </div>
     {% endif %}
 
-    <!-- Estágio + "A Fazer Hoje" — filtro em destaque, o conceito central da tela.
-         Mutuamente exclusivos (ver script_agenda_videos.js) — marcar um desmarca
-         o outro automaticamente, antes de enviar. -->
-    <div class="agenda-estagio-destaque">
-        <label class="agenda-estagio-opcao {% if filtros.a_fazer_hoje %}agenda-estagio-ativo{% endif %}">
-            <input type="checkbox" name="a_fazer_hoje" value="1" {% if filtros.a_fazer_hoje %}checked{% endif %} onchange="agendaAlternarAFazerHoje(this)">
-            <span><i class="fas fa-bolt"></i> A Fazer Hoje</span>
-        </label>
-        {% for opcao in opcoes_estagio %}
-        <label class="agenda-estagio-opcao {% if opcao.valor in filtros.estagio %}agenda-estagio-ativo{% endif %}">
-            <input type="checkbox" name="estagio" value="{{ opcao.valor }}" {% if opcao.valor in filtros.estagio %}checked{% endif %} onchange="agendaAlternarEstagio(this)">
-            <span>{{ opcao.label }}</span>
+    <!-- As 5 telas da Agenda de Vídeos — navegação simples (link, não
+         checkbox: só 1 tela ativa por vez, nada de exclusão mútua via JS).
+         "A Fazer Hoje" é o padrão na 1ª visita (ver ParametrosBuscaAgendaVideos). -->
+    <div class="agenda-tela-nav">
+        {% for opcao in opcoes_tela %}
+        <a href="?tela={{ opcao.valor }}&{{ querystring_sem_tela_nem_pagina }}"
+           class="agenda-tela-opcao {% if opcao.valor == tela_atual %}agenda-tela-ativo{% endif %}">
+            {% if opcao.valor == 'a_fazer_hoje' %}<i class="fas fa-bolt"></i>{% endif %} {{ opcao.label }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Chip-contador clicável (03/08) — mesma lista de "Pendente Agora"/
+         "Motivo da Urgência" de antes, só que sempre visível (não mais
+         escondida em "Mais filtros") e com a contagem ao lado de cada opção,
+         pra servir de filtro E de resumo rápido ao mesmo tempo. -->
+    {% if tela_atual == 'a_fazer_hoje' %}
+    <div class="agenda-chip-contador-linha">
+        {% for valor, label in opcoes_motivo_a_fazer_hoje %}
+        <label class="agenda-chip-contador {% if valor in filtros.motivo_a_fazer_hoje %}agenda-chip-contador-ativo{% endif %}">
+            <input type="checkbox" name="motivo_a_fazer_hoje" value="{{ valor }}" {% if valor in filtros.motivo_a_fazer_hoje %}checked{% endif %} onchange="this.form.submit()">
+            <span>{{ label }} <span class="agenda-chip-contador-numero">{{ contadores_chips|get_item:valor|default:0 }}</span></span>
         </label>
         {% endfor %}
     </div>
+    {% elif tela_atual != 'nao_agendado' %}
+    <div class="agenda-chip-contador-linha">
+        {% for valor, label in opcoes_pendente_agora %}
+        <label class="agenda-chip-contador {% if valor in filtros.pendente_agora %}agenda-chip-contador-ativo{% endif %}">
+            <input type="checkbox" name="pendente_agora" value="{{ valor }}" {% if valor in filtros.pendente_agora %}checked{% endif %} onchange="this.form.submit()">
+            <span>{{ label }} <span class="agenda-chip-contador-numero">{{ contadores_chips|get_item:valor|default:0 }}</span></span>
+        </label>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     {% if data_simulada %}
     <div class="agenda-aviso-simulacao">
@@ -226,22 +248,7 @@
                 </div>
             </div>
 
-            <div class="filtro-secao-card">
-                <div class="filtro-secao-titulo">Pendente Agora</div>
-                <div class="filtro-subgrupo">
-                    <span class="filtro-subgrupo-titulo">Fila de trabalho por tipo de tarefa (marque quantos quiser)</span>
-                    <div class="filtro-opcoes-lista">
-                        {% for valor, label in opcoes_pendente_agora %}
-                        <label class="filtro-opcao">
-                            <input type="checkbox" name="pendente_agora" value="{{ valor }}" {% if valor in filtros.pendente_agora %}checked{% endif %}>
-                            <span>{{ label }}</span>
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
             </div>
-
-        </div>
 
         <div class="agenda-filtros-acoes">
             <button type="submit" class="btn-acao">Aplicar filtros</button>
@@ -257,7 +264,7 @@
     </button>
 </form>
 
-{% if filtros.a_fazer_hoje %}
+{% if tela_atual == 'a_fazer_hoje' %}
 <!-- * [EXPLICAÇÃO] → Só aparece em "A Fazer Hoje" (29/07) — é exatamente a
      mesma fonte de dados que essa tela já mostra pro humano; fora daqui, o
      botão apareceria descolado de qualquer contexto real. -->
@@ -300,8 +307,8 @@
         <p class="agenda-vazio-titulo">Nenhum produto bate com esses filtros</p>
         <p class="agenda-vazio-subtitulo">Tenta limpar a busca ou os filtros ativos.</p>
         {% else %}
-        <p class="agenda-vazio-titulo">Nenhum produto neste estágio ainda</p>
-        <p class="agenda-vazio-subtitulo">Marque outro estágio no filtro acima, ou aguarde produtos avançarem.</p>
+        <p class="agenda-vazio-titulo">Nenhum produto nesta tela ainda</p>
+        <p class="agenda-vazio-subtitulo">Escolha outra tela no topo, ou aguarde produtos avançarem.</p>
         {% endif %}
     </div>
     {% endfor %}

@@ -674,175 +674,211 @@
   Motivo:   único ponto de entrada do produto na Agenda — Simples nunca tem vencimento
   Obtido:   simples #1, data_devida=None
 
-=== Nível 3 — listar_a_fazer_hoje() ===
+=== Nível 3 — listar_produtos_agenda_filtrados() ===
 
-[PASSOU] listar_busca_acha_por_titulo
+[PASSOU] test_a_fazer_hoje_exclui_pausado_e_descontinuado_incondicionalmente
+  Entrada:  Pausado atrasado=True | Descontinuado atrasado=True
+  Esperado: (False, False)
+  Motivo:   A Fazer Hoje é lista de ação — pausado/descontinuado nunca é "pra fazer", mesmo urgente
+  Obtido:   (False, False)
+
+[PASSOU] test_a_fazer_hoje_nao_pega_concluido
+  Entrada:  Mensal, etapa_atual=concluido, prazo longe, não atrasado
+  Esperado: False
+  Motivo:   nada pendente numa ocorrência concluída
+  Obtido:   False
+
+[PASSOU] test_a_fazer_hoje_nao_pega_postar_ja_postado_hoje
+  Entrada:  Mensal, etapa=postar (cache), prazo=hoje, mas já postou hoje às 15h
+  Esperado: False
+  Motivo:   postou_hoje protege contra o cache de etapa_atual ficar desatualizado
+  Obtido:   False
+
+[PASSOU] test_a_fazer_hoje_nao_pega_postar_prazo_futuro
+  Entrada:  Mensal, etapa=postar, prazo=10/08 (futuro), não atrasado
+  Esperado: False
+  Motivo:   só aparece pra postar quando o prazo é hoje (ou já está atrasado)
+  Obtido:   False
+
+[PASSOU] test_a_fazer_hoje_nao_pega_producao_sem_risco_nem_atraso
+  Entrada:  Mensal, etapa=base, prazo=20/08 (longe), não atrasado
+  Esperado: False
+  Motivo:   produção em dia, sem risco — o bug antigo mostrava isso aqui; agora não aparece mais
+  Obtido:   False
+
+[PASSOU] test_a_fazer_hoje_nunca_pega_simples
+  Entrada:  Simples, ciclo_atual_atrasado=True
+  Esperado: False
+  Motivo:   A Fazer Hoje é só Mensal/Trimestral — Simples não tem prazo, nunca entra aqui
+  Obtido:   False
+
+[PASSOU] test_a_fazer_hoje_ordena_por_prioridade_fase_prazo_ignorando_ordenar
+  Entrada:  A: urgente+sem vídeo (prioridade máxima) | B: só atrasado. ordenar=-titulo pedido de propósito
+  Esperado: A antes de B
+  Motivo:   A Fazer Hoje sempre ordena prioridade→fase→prazo — "ordenar" do usuário não tem efeito aqui
+  Obtido:   [38, 39]
+
+[PASSOU] test_a_fazer_hoje_pedir_pausado_nunca_traz_nada
+  Entrada:  Pausado, atrasado=True, filtro status_manual=[Pausado]
+  Esperado: False
+  Motivo:   exclusão incondicional de A Fazer Hoje roda ANTES do filtro do dict — pedir pausado sempre dá vazio aqui
+  Obtido:   False
+
+[PASSOU] test_a_fazer_hoje_pega_aguardando_aprovacao_e_replicar_sem_checar_prazo
+  Entrada:  aguardando_aprovacao e replicar, ambos prazo=20/08 (longe)
+  Esperado: (True, True)
+  Motivo:   "se não foi replicado ainda é porque tem ação pendente a ser feita" — contam sempre
+  Obtido:   (True, True)
+
+[PASSOU] test_a_fazer_hoje_pega_atrasado
+  Entrada:  Mensal, ciclo_atual_atrasado=True, etapa=base
+  Esperado: True
+  Motivo:   atrasado é urgência real, independente da etapa
+  Obtido:   True
+
+[PASSOU] test_a_fazer_hoje_pega_postar_hoje
+  Entrada:  Mensal, etapa=postar, data_devida=hoje, não postou
+  Esperado: True
+  Motivo:   prazo de postar chegou e ainda não postou
+  Obtido:   True
+
+[PASSOU] test_a_fazer_hoje_pega_recusado_sem_checar_prazo
+  Entrada:  Mensal, etapa=completo, status_ciclo=Recusado, prazo=20/08 (longe)
+  Esperado: True
+  Motivo:   recusado também é ação pendente em aberto, conta sempre
+  Obtido:   True
+
+[PASSOU] test_a_fazer_hoje_pega_risco
+  Entrada:  Mensal, etapa=roteiro, não atrasado, prazo=04/08 (limite de 1 dia útil)
+  Esperado: True
+  Motivo:   produção não terminou + prazo a ≤1 dia útil de distância = risco
+  Obtido:   True
+
+[PASSOU] test_filtro_atrasado_sim_fora_de_a_fazer_hoje
+  Entrada:  A atrasado=True | B atrasado=False, tela Mensal, filtro atrasado=[sim]
+  Esperado: (True, False)
+  Motivo:   smoke test — filtro de atrasado continua ligado fora de A Fazer Hoje
+  Obtido:   (True, False)
+
+[PASSOU] test_filtro_busca_por_titulo
   Entrada:  título="Fone Bluetooth XPTO", busca="XPTO"
   Esperado: True
-  Motivo:   termo aparece no título — acha
+  Motivo:   smoke test — busca continua ligada na query nova
   Obtido:   True
 
-[PASSOU] listar_busca_dois_termos_ambos_batem_acha
-  Entrada:  título tem "XPTO", cod_fabricante tem "ABC999", busca="XPTO ABC999"
-  Esperado: True
-  Motivo:   múltiplos termos = E — os 2 batem (em campos diferentes), acha
-  Obtido:   True
-
-[PASSOU] listar_busca_dois_termos_um_nao_bate_nao_acha
-  Entrada:  título tem "XPTO", busca="XPTO ZZZINEXISTENTE"
-  Esperado: False
-  Motivo:   múltiplos termos = E — 1 dos 2 não bate em nenhum campo, não acha
-  Obtido:   False
-
-[PASSOU] listar_busca_nao_acha_termo_ausente
-  Entrada:  título="Fone Bluetooth XPTO", busca="ZZZINEXISTENTE"
-  Esperado: False
-  Motivo:   termo não aparece em nenhum dos 4 campos — não acha
-  Obtido:   False
-
-[PASSOU] listar_etapa_concluido_nao_aparece
-  Entrada:  etapa_atual=concluido
-  Esperado: False
-  Motivo:   nada a fazer numa ocorrência já concluída
-  Obtido:   False
-
-[PASSOU] listar_etapa_postar_ja_postou_hoje_nao_aparece
-  Entrada:  etapa=postar, prazo=hoje, já postado hoje às 15h
-  Esperado: False
-  Motivo:   já foi postado hoje — não precisa reaparecer no "a fazer hoje"
-  Obtido:   False
-
-[PASSOU] listar_etapa_postar_prazo_chegou_nao_postou_aparece
-  Entrada:  etapa=postar, data_devida=hoje (03/08), ainda não postou
-  Esperado: True
-  Motivo:   prazo chegou e ainda não postou — precisa aparecer pra postar hoje
-  Obtido:   True
-
-[PASSOU] listar_etapa_postar_prazo_futuro_nao_aparece
-  Entrada:  etapa=postar, data_devida=10/08 (depois de hoje 03/08)
-  Esperado: False
-  Motivo:   só aparece pra postar quando o prazo realmente chegou
-  Obtido:   False
-
-[PASSOU] listar_faixa_data_devida
-  Entrada:  A: vencimento 20/08 | B: vencimento 01/08, filtro data_devida_ciclo_atual_min=10/08
+[PASSOU] test_filtro_faixa_numero_ocorrencia
+  Entrada:  A ocorrência #5 | B ocorrência #1, filtro numero_ocorrencia_ciclo_atual_min=3
   Esperado: (True, False)
-  Motivo:   mesmo DOC de faixa, aplicado em campo de data — __gte funciona igual pra data e número
+  Motivo:   smoke test (DOC de outro app) — filtro de faixa continua ligado no campo certo
   Obtido:   (True, False)
 
-[PASSOU] listar_faixa_numero_ocorrencia
-  Entrada:  A: ocorrência #5 | B: ocorrência #1, filtro numero_ocorrencia_ciclo_atual_min=3
+[PASSOU] test_filtro_marca
+  Entrada:  A marca=Samsung | B marca=LG, filtro marcas=[Samsung]
   Esperado: (True, False)
-  Motivo:   aplicar_filtro_faixa (DOC de outro app) — só confirma que o parâmetro chega certo
+  Motivo:   smoke test — filtro de marca continua ligado
   Obtido:   (True, False)
 
-[PASSOU] listar_filtro_atrasado_ambiguo_nao_filtra
-  Entrada:  produto A atrasado=True, produto B=False, filtro atrasado=['sim','nao']
+[PASSOU] test_filtro_sem_video
+  Entrada:  A tem_video_reprovado=True | B=False, filtro sem_video=[sim]
+  Esperado: (True, False)
+  Motivo:   smoke test — filtro de vídeo reprovado continua ligado
+  Obtido:   (True, False)
+
+[PASSOU] test_filtro_urgente
+  Entrada:  A urgente=True | B urgente=False, filtro urgente=[sim]
+  Esperado: (True, False)
+  Motivo:   smoke test — filtro de urgente continua ligado
+  Obtido:   (True, False)
+
+[PASSOU] test_mensal_filtra_so_pela_fase
+  Entrada:  Mensal | Simples | Trimestral, todos etapa=base
+  Esperado: (True, False, False)
+  Motivo:   tela de fase é filtro puro por fase_atual, qualquer etapa entra
+  Obtido:   (True, False, False)
+
+[PASSOU] test_mensal_pedir_pausado_traz_o_produto_de_volta
+  Entrada:  Pausado, tela Mensal, filtro status_manual=[Pausado]
+  Esperado: True
+  Motivo:   decisão de 03/08: fora de A Fazer Hoje, pausado só some se o usuário filtrar de propósito
+  Obtido:   True
+
+[PASSOU] test_mensal_respeita_ordenar_escolhido_pelo_usuario
+  Entrada:  A="AAA Produto" | Z="ZZZ Produto", ordenar=-titulo
+  Esperado: Z antes de A (ordem decrescente)
+  Motivo:   nas 4 telas de listagem, a coluna escolhida pelo usuário manda, igual antes do redesenho
+  Obtido:   [63, 62]
+
+[PASSOU] test_mensal_sem_filtro_mostra_pausado_junto_com_o_resto
+  Entrada:  Ativo | Pausado, sem filtro de status_manual
   Esperado: (True, True)
-  Motivo:   os 2 valores marcados ao mesmo tempo — comportamento é NÃO filtrar nada
+  Motivo:   as 4 telas de listagem mostram tudo por padrão, pausado incluso — só A Fazer Hoje esconde sempre
   Obtido:   (True, True)
 
-[PASSOU] listar_filtro_atrasado_nao
-  Entrada:  produto A atrasado=True, produto B=False, filtro atrasado=[nao]
-  Esperado: (False, True)
-  Motivo:   'nao' sem 'sim' junto — exclui os atrasados, deixa só o resto
-  Obtido:   (False, True)
-
-[PASSOU] listar_filtro_atrasado_sim
-  Entrada:  produto A atrasado=True, produto B=False, filtro atrasado=[sim]
+[PASSOU] test_motivo_a_fazer_hoje_estreita_para_1_motivo
+  Entrada:  A: atrasado=True | B: em risco. Filtro motivo_a_fazer_hoje=[atrasado]
   Esperado: (True, False)
-  Motivo:   'sim' sem 'nao' junto — filtra só os atrasados
+  Motivo:   clicar no chip "Atrasado" mostra só quem está atrasado, mesmo os 2 estando na tela
   Obtido:   (True, False)
 
-[PASSOU] listar_filtro_marcas
-  Entrada:  produto A marca=Samsung, produto B marca=LG, filtro marcas=[Samsung]
-  Esperado: (True, False)
-  Motivo:   filtro direto — só a marca escolhida aparece
-  Obtido:   (True, False)
-
-[PASSOU] listar_filtro_risco_ambiguo_nao_filtra
-  Entrada:  A: em risco | B: fora de risco. Filtro risco=['sim','nao']
-  Esperado: (True, True)
-  Motivo:   os 2 valores marcados ao mesmo tempo — comportamento é NÃO filtrar nada
-  Obtido:   (True, True)
-
-[PASSOU] listar_filtro_risco_nao
-  Entrada:  A: em risco (bate as 3 condições) | B: fora de risco (etapa=postar). Filtro risco=[nao]
-  Esperado: (False, True)
-  Motivo:   'nao' sem 'sim' junto — exclui quem está em risco
-  Obtido:   (False, True)
-
-[PASSOU] listar_filtro_risco_sim_reusa_regra_da_camada_a
-  Entrada:  A: etapa=base+não atrasado+prazo=04/08 (limite) | B: etapa=postar (fora de produção)
-  Esperado: (True, False)
-  Motivo:   mesma condição de 3 partes da Camada A, agora em SQL — precisam bater
-  Obtido:   (True, False)
-
-[PASSOU] listar_filtro_sem_video
-  Entrada:  produto A tem_video_reprovado=True, produto B=False, filtro sem_video=[sim]
-  Esperado: (True, False)
-  Motivo:   filtro direto — só quem tem vídeo reprovado aparece
-  Obtido:   (True, False)
-
-[PASSOU] listar_filtro_status_manual_so_deixa_passar_ativo
-  Entrada:  produto Ativo, filtro status_manual=[Pausado]
+[PASSOU] test_nao_agendado_nao_pega_mensal
+  Entrada:  Vídeo Mensal, etapa_atual=base
   Esperado: False
-  Motivo:   exclusão incondicional de pausado/descontinuado roda ANTES do filtro — pedir esses 2 valores sempre dá vazio
+  Motivo:   já agendado — não é mais candidato a Não Agendado
   Obtido:   False
 
-[PASSOU] listar_filtro_urgente
-  Entrada:  produto A urgente=True, produto B urgente=False, filtro urgente=[sim]
-  Esperado: (True, False)
-  Motivo:   filtro direto — só o urgente aparece
-  Obtido:   (True, False)
+[PASSOU] test_nao_agendado_nao_pega_simples_em_andamento
+  Entrada:  Simples, etapa_atual=roteiro
+  Esperado: False
+  Motivo:   Simples em produção pertence à tela Simples, não Não Agendado — bug antigo que motivou o redesenho
+  Obtido:   False
 
-[PASSOU] listar_ordenacao_prioridade_fase_data
-  Entrada:  A: urgente+sem vídeo (prioridade 1) | B: resto+Trimestral | C: resto+Simples
-  Esperado: A, C, B (nessa ordem)
-  Motivo:   prioridade decide 1º (A vence) — entre B e C (mesma prioridade), fase decide (Simples antes de Trimestral)
-  Obtido:   [62, 64, 63]
-
-[PASSOU] listar_pendente_agora_categoria_simples
-  Entrada:  A: etapa=roteiro | B: etapa=base, filtro pendente_agora=[roteiro]
-  Esperado: (True, False)
-  Motivo:   categoria direta — Q(indicadores_agenda__etapa_atual='roteiro')
-  Obtido:   (True, False)
-
-[PASSOU] listar_pendente_agora_completo_exclui_recusado
-  Entrada:  A: etapa=completo, nunca recusado | B: etapa=completo, mas recusado. Filtro pendente_agora=[completo]
-  Esperado: (True, False)
-  Motivo:   'completo' exclui quem foi recusado — senão as 2 categorias se misturam
-  Obtido:   (True, False)
-
-[PASSOU] listar_pendente_agora_recusado
-  Entrada:  A: etapa=completo + status=Recusado | B: etapa=completo, sem recusa. Filtro pendente_agora=[recusado]
-  Esperado: (True, False)
-  Motivo:   categoria especial — usa status_ciclo_atual, não etapa_atual
-  Obtido:   (True, False)
-
-[PASSOU] listar_produto_normal_aparece
-  Entrada:  ciclo válido, etapa=base, status=Ativo
+[PASSOU] test_nao_agendado_pega_simples_concluido
+  Entrada:  Simples, etapa_atual=concluido
   Esperado: True
-  Motivo:   caso feliz — nenhuma regra de exclusão bate
+  Motivo:   fila estreita de Não Agendado: Simples pronto, só falta Agendar
   Obtido:   True
 
-[PASSOU] listar_sem_ciclo_nenhum_nao_aparece
-  Entrada:  produto sem nenhum CicloVideo
+[PASSOU] test_pendente_agora_estreita_tela_de_fase
+  Entrada:  Mensal: A etapa=completo | B etapa=base. Filtro pendente_agora=[completo]
+  Esperado: (True, False)
+  Motivo:   clicar no chip "Completo" mostra só quem está em completo, dentro da tela Mensal
+  Obtido:   (True, False)
+
+[PASSOU] test_produto_sem_indicadores_nenhum_nao_aparece_em_nenhuma_tela
+  Entrada:  produto sem CicloVideo e sem IndicadoresAgendaProduto, nas 5 telas
+  Esperado: {'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
+  Motivo:   sem sincronização nenhuma ainda, o produto não é candidato a tela alguma
+  Obtido:   {'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
+
+[PASSOU] test_simples_nao_pega_concluido
+  Entrada:  Simples, etapa_atual=concluido
   Esperado: False
-  Motivo:   ciclos_video__isnull=False é a regra básica de entrada — sem ciclo, nunca aparece
+  Motivo:   concluído pertence a Não Agendado, nunca aos 2 ao mesmo tempo
   Obtido:   False
 
-[PASSOU] listar_status_descontinuado_nao_aparece
-  Entrada:  status_manual=Descontinuado
-  Esperado: False
-  Motivo:   produto descontinuado nunca aparece no dashboard, mesmo com ciclo válido
-  Obtido:   False
+[PASSOU] test_simples_nao_pega_outras_fases
+  Entrada:  Vídeo Mensal etapa=base | Vídeo Trimestral etapa=base
+  Esperado: (False, False)
+  Motivo:   tela Simples é só fase Simples
+  Obtido:   (False, False)
 
-[PASSOU] listar_status_pausado_nao_aparece
-  Entrada:  status_manual=Pausado
-  Esperado: False
-  Motivo:   produto pausado nunca aparece no dashboard, mesmo com ciclo válido
-  Obtido:   False
+[PASSOU] test_simples_pega_nunca_tocado
+  Entrada:  sem nenhum CicloVideo, cache etapa_atual=nao_agendado (sintético)
+  Esperado: True
+  Motivo:   decisão de arquitetura #2 do mapa — "nunca tocado" e "base em andamento" são a mesma ação pendente
+  Obtido:   True
+
+[PASSOU] test_simples_pega_qualquer_etapa_exceto_concluido
+  Entrada:  Simples etapa=base | Simples etapa=aguardando_aprovacao
+  Esperado: (True, True)
+  Motivo:   qualquer etapa não-concluído entra — mesmo mecanismo booleano pras 2 pontas
+  Obtido:   (True, True)
+
+[PASSOU] test_trimestral_filtra_so_pela_fase
+  Entrada:  Trimestral | Mensal, ambos etapa=postar
+  Esperado: (True, False)
+  Motivo:   mesmo mecanismo do Mensal, espelhado pro Trimestral
+  Obtido:   (True, False)
 
 === Nível 3 — marcar_aguardando_aprovacao() e marcar_replicado() ===
 
@@ -956,7 +992,7 @@
 
 === RESUMO DA SESSÃO ===
 
-passed: 151
+passed: 157
 
 === COVERAGE ===
 

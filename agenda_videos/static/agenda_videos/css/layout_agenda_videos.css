@@ -28,8 +28,94 @@
 }
 
 /* ================================================
-   ESTÁGIO — filtro em destaque (o conceito central)
+   TELA — navegação das 5 telas (link, não checkbox)
    ================================================ */
+.agenda-tela-nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 10px;
+    background: #eef2f8;
+    border: 1px solid #ccd8e8;
+    border-radius: 10px;
+}
+
+.agenda-tela-opcao {
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #ccd3de;
+    font-size: 0.82rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.agenda-tela-opcao:hover {
+    background: #dff5ffbd;
+}
+
+.agenda-tela-ativo,
+.agenda-tela-ativo:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+/* ================================================
+   CHIP-CONTADOR — etapa (telas de fase) ou motivo de
+   urgência (A Fazer Hoje), sempre visível, com contagem
+   ================================================ */
+.agenda-chip-contador-linha {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 10px;
+    background: #f7f9fc;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+}
+
+.agenda-chip-contador {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #ccd3de;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.agenda-chip-contador input {
+    display: none;
+}
+
+.agenda-chip-contador-ativo {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.agenda-chip-contador-numero {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.agenda-chip-contador-ativo .agenda-chip-contador-numero {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* [OBSOLETO 03/08] — .agenda-estagio-* não é mais usado (virou .agenda-tela-*
+   acima); deixado aqui só pra não quebrar nada que eventualmente ainda
+   referencie, pode limpar quando confirmar que não sobrou nenhum uso. */
 .agenda-estagio-destaque {
     display: flex;
     gap: 8px;

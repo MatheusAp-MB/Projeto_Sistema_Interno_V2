@@ -1,8 +1,9 @@
 # agenda_videos/funcoes_auxiliares/contexto_tela_agenda_videos.py
 
-# Função Objetivo: Monta todo o contexto da tela única "Agenda de Vídeos".
-# Estágio padrão ("A Fazer Hoje") só se aplica na 1ª visita — depois disso,
-# respeita exatamente o que o usuário escolheu.
+# Função Objetivo: Monta todo o contexto das 5 telas da Agenda de Vídeos.
+# Tela padrão ("A Fazer Hoje") só se aplica na 1ª visita — depois disso,
+# respeita exatamente o que o usuário escolheu (ver [[Estrutura de Telas
+# da Agenda de Videos]]).
 # Reestruturação completa (30/07) — filtros de vídeo simples/base/roteiros/
 # completos soltos e reestruturação_manual saem (conceitos retirados).
 
@@ -14,9 +15,11 @@ from django.core.paginator import Page, Paginator
 
 from produtos.models import Produto
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
-    listar_produtos_agenda_filtrados, CAMPOS_ORDENACAO, CAMPOS_FAIXA, OPCOES_PENDENTE_AGORA, OPCOES_ESTAGIO,
+    Tela, OPCOES_TELA, listar_produtos_agenda_filtrados, construir_queryset_tela, contar_por_condicoes,
+    condicao_pendencia_agora, condicao_motivo_a_fazer_hoje,
+    CAMPOS_ORDENACAO, CAMPOS_FAIXA, OPCOES_PENDENTE_AGORA, OPCOES_MOTIVO_A_FAZER_HOJE,
 )
-from agenda_videos.funcoes_auxiliares.a_fazer_hoje import listar_a_fazer_hoje, calcular_indicadores_ciclo
+from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo
 from agenda_videos.funcoes_auxiliares.drive import calcular_diagnostico_preparo_drive
 from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
@@ -47,6 +50,7 @@ class ParametrosBuscaAgendaVideos:
     por_pagina: int
     ordenar: str
     numero_pagina: int
+    tela: str
     filtros: dict = field(default_factory=dict)
     data_simulada: date | None = None
 
@@ -65,8 +69,8 @@ class ParametrosBuscaAgendaVideos:
             ordenar = 'titulo'
 
         eh_primeira_visita = len(request.GET) == 0
-        a_fazer_hoje = eh_primeira_visita or request.GET.get('a_fazer_hoje') is not None
-        estagio = [] if a_fazer_hoje else request.GET.getlist('estagio')
+        tela_bruta = Tela.A_FAZER_HOJE if eh_primeira_visita else request.GET.get('tela', Tela.A_FAZER_HOJE)
+        tela = tela_bruta if tela_bruta in Tela.values else Tela.A_FAZER_HOJE
 
         # * [EXPLICAÇÃO] → Só funciona com DEBUG=True — existe só pra testar
         #                  "A Fazer Hoje"/Atrasado/Risco com datas diferentes
@@ -81,8 +85,8 @@ class ParametrosBuscaAgendaVideos:
                     data_simulada = None
 
         filtros = {
-            'a_fazer_hoje': a_fazer_hoje,
-            'estagio': estagio,
+            'pendente_agora': request.GET.getlist('pendente_agora'),
+            'motivo_a_fazer_hoje': request.GET.getlist('motivo_a_fazer_hoje'),
             'marcas': request.GET.getlist('marca'),
             'status_manual': request.GET.getlist('status_manual'),
             'urgente': request.GET.getlist('urgente'),
@@ -90,7 +94,6 @@ class ParametrosBuscaAgendaVideos:
             'sincronizado_drive': request.GET.getlist('sincronizado_drive'),
             'atrasado': request.GET.getlist('atrasado'),
             'risco': request.GET.getlist('risco'),
-            'pendente_agora': request.GET.getlist('pendente_agora'),
             'status_postagem': request.GET.getlist('status_postagem'),
         }
         for campo in CAMPOS_FAIXA:
@@ -99,7 +102,7 @@ class ParametrosBuscaAgendaVideos:
 
         return cls(
             busca=busca, por_pagina=por_pagina, ordenar=ordenar,
-            numero_pagina=request.GET.get('pagina', 1), filtros=filtros,
+            numero_pagina=request.GET.get('pagina', 1), tela=tela, filtros=filtros,
             data_simulada=data_simulada,
         )
 
@@ -113,10 +116,9 @@ class ConstrutorChipsAtivosAgendaVideos:
         return Badge(label=label, classe=None, icone=None)
 
     def _montar_chips_checkbox(self) -> list[Badge]:
-        mapa_labels_estagio = dict(OPCOES_ESTAGIO)
         mapa_labels_pendencia = dict(OPCOES_PENDENTE_AGORA)
-        chips = [self._montar_chip_simples(mapa_labels_estagio.get(v, v)) for v in self.filtros['estagio']]
-        chips += [self._montar_chip_simples(m) for m in self.filtros['marcas']]
+        mapa_labels_motivo = dict(OPCOES_MOTIVO_A_FAZER_HOJE)
+        chips = [self._montar_chip_simples(m) for m in self.filtros['marcas']]
         chips += [BADGES_STATUS_MANUAL[v] for v in self.filtros['status_manual'] if v in BADGES_STATUS_MANUAL]
         chips += [self._montar_chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
         chips += [self._montar_chip_simples('Sem vídeo' if v == 'sim' else 'Com vídeo') for v in self.filtros['sem_video']]
@@ -124,6 +126,7 @@ class ConstrutorChipsAtivosAgendaVideos:
         chips += [self._montar_chip_simples('Atrasado' if v == 'sim' else 'Não atrasado') for v in self.filtros['atrasado']]
         chips += [self._montar_chip_simples('Risco de atraso' if v == 'sim' else 'Sem risco') for v in self.filtros['risco']]
         chips += [self._montar_chip_simples(mapa_labels_pendencia.get(v, v)) for v in self.filtros['pendente_agora']]
+        chips += [self._montar_chip_simples(mapa_labels_motivo.get(v, v)) for v in self.filtros['motivo_a_fazer_hoje']]
         chips += [BADGES_STATUS_POSTAGEM[v] for v in self.filtros['status_postagem'] if v in BADGES_STATUS_POSTAGEM]
         return chips
 
@@ -164,6 +167,15 @@ class ContextoTelaAgendaVideos:
         qs.pop('pagina', None)
         return qs.urlencode()
 
+    def _montar_querystring_sem_tela_nem_pagina(self) -> str:
+        # Função Objetivo: base do link de navegação entre as 5 telas —
+        # preserva busca/marca/etc., descarta a tela atual (o próprio link
+        # define a nova) e a página (troca de tela sempre volta pra 1ª).
+        qs = self.request.GET.copy()
+        qs.pop('tela', None)
+        qs.pop('pagina', None)
+        return qs.urlencode()
+
     def _enriquecer_pagina(self, pagina: Page) -> None:
         for produto in pagina:
             ciclo = produto.ciclos_video.first()
@@ -173,21 +185,34 @@ class ContextoTelaAgendaVideos:
             produto.diagnostico_drive = calcular_diagnostico_preparo_drive(produto)
 
     def _montar_pagina(self) -> Page:
-        if self.parametros.filtros.get('a_fazer_hoje'):
-            produtos = listar_a_fazer_hoje(
-                busca=self.parametros.busca or None, filtros=self.parametros.filtros,
-                data_referencia=self.parametros.data_simulada,
-            )
-        else:
-            produtos = listar_produtos_agenda_filtrados(
-                busca=self.parametros.busca or None, filtros=self.parametros.filtros,
-                ordenar=self.parametros.ordenar, data_referencia=self.parametros.data_simulada,
-            )
-
+        produtos = listar_produtos_agenda_filtrados(
+            tela=self.parametros.tela, busca=self.parametros.busca or None,
+            filtros=self.parametros.filtros, ordenar=self.parametros.ordenar,
+            data_referencia=self.parametros.data_simulada,
+        )
         paginator = Paginator(produtos, self.parametros.por_pagina)
         pagina = paginator.get_page(self.parametros.numero_pagina)
         self._enriquecer_pagina(pagina)
         return pagina
+
+    def _montar_contadores_chips(self) -> dict[str, int]:
+        # Função Objetivo: 1 contagem por chip da tela atual — etapa
+        # (telas 2-4) ou motivo de urgência (tela 5) — sobre o queryset
+        # SEM esse filtro aplicado, senão o chip clicado zeraria a própria
+        # contagem. 1 query agregada, nunca 1 por chip.
+        filtros_sem_chip_etapa = {
+            chave: valor for chave, valor in self.parametros.filtros.items()
+            if chave not in ('pendente_agora', 'motivo_a_fazer_hoje')
+        }
+        qs_base, hoje = construir_queryset_tela(
+            self.parametros.tela, busca=self.parametros.busca or None,
+            filtros=filtros_sem_chip_etapa, data_referencia=self.parametros.data_simulada,
+        )
+        if self.parametros.tela == Tela.A_FAZER_HOJE:
+            condicoes = {chave: condicao_motivo_a_fazer_hoje(chave, hoje) for chave, _ in OPCOES_MOTIVO_A_FAZER_HOJE}
+        else:
+            condicoes = {chave: condicao_pendencia_agora(chave) for chave, _ in OPCOES_PENDENTE_AGORA}
+        return contar_por_condicoes(qs_base, condicoes)
 
     def montar(self) -> dict:
         cabecalhos = ConstrutorCabecalhosOrdenacao(
@@ -208,16 +233,20 @@ class ContextoTelaAgendaVideos:
             'debug_ativo': settings.DEBUG,
             'data_simulada': self.parametros.data_simulada,
             'por_pagina': self.parametros.por_pagina,
+            'tela_atual': self.parametros.tela,
             'filtros': self.parametros.filtros,
             'cabecalhos': cabecalhos,
             'chips_ativos': chips_ativos,
             'marcas_disponiveis': marcas_disponiveis,
-            'opcoes_estagio': [OpcaoComBadge(valor=v, label=l, classe=None, icone=None) for v, l in OPCOES_ESTAGIO],
+            'opcoes_tela': [OpcaoComBadge(valor=v, label=l, classe=None, icone=None) for v, l in OPCOES_TELA],
             'opcoes_status_manual': montar_opcoes_com_badge(BADGES_STATUS_MANUAL),
             'opcoes_etapa': montar_opcoes_com_badge(BADGES_ETAPA),
             'opcoes_status_postagem': montar_opcoes_com_badge(BADGES_STATUS_POSTAGEM),
             'opcoes_sim_nao': OPCOES_SIM_NAO,
             'opcoes_pendente_agora': OPCOES_PENDENTE_AGORA,
+            'opcoes_motivo_a_fazer_hoje': OPCOES_MOTIVO_A_FAZER_HOJE,
+            'contadores_chips': self._montar_contadores_chips(),
             'querystring_sem_pagina': self._montar_querystring_sem_pagina(),
+            'querystring_sem_tela_nem_pagina': self._montar_querystring_sem_tela_nem_pagina(),
             'legenda_estados': EstadoVisualRoadmap.choices,
         }
