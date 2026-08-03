@@ -61,6 +61,7 @@ def listar_a_fazer_hoje(busca: str | None = None, filtros: dict | None = None, d
     ).distinct().annotate(
         status_ciclo_atual=Subquery(ciclo_mais_recente.values('status')[:1]),
         data_devida_ciclo_atual=Subquery(ciclo_mais_recente.values('data_devida')[:1]),
+        numero_ocorrencia_ciclo_atual=Subquery(ciclo_mais_recente.values('numero_ocorrencia')[:1]),
         postou_hoje=construir_condicao_postou_hoje(data_referencia=hoje),
         prioridade_ordenacao=construir_annotation_prioridade(),
         ordenacao_fase=construir_annotation_ordenacao_fase(),

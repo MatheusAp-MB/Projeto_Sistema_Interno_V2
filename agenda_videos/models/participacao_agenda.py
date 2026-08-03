@@ -23,7 +23,12 @@ class HistoricoStatusManualAgenda(models.Model):
     class Meta:
         verbose_name = 'Histórico de Status Manual'
         verbose_name_plural = 'Históricos de Status Manual'
-        ordering = ['-alterado_em']
+        # * [CORREÇÃO] → "-alterado_em" sozinho não é confiável: 2 registros
+        #                criados muito próximos no tempo podem empatar (resolução
+        #                do relógio do sistema), e sem desempate a ordem fica
+        #                indefinida. "-id" garante que o criado por último sempre
+        #                vence, mesmo empatando no timestamp.
+        ordering = ['-alterado_em', '-id']
 
     def __str__(self):
         return f'{self.produto.sku} — {self.get_status_display()} em {self.alterado_em:%d/%m/%Y}'

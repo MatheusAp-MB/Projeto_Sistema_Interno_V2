@@ -66,6 +66,50 @@
   Motivo:   sábado volta pra sexta anterior
   Obtido:   31/07
 
+=== Nível 2 — calcular_indicadores_ciclo() ===
+
+[PASSOU] atrasado_usa_data_referencia_informada
+  Entrada:  data_devida=31/12/2029, data_referencia simulada=01/01/2030
+  Esperado: True
+  Motivo:   só bate se a função propagar data_referencia de verdade pro DOC, não a data real do sistema
+  Obtido:   True
+
+[PASSOU] risco_false_quando_atrasado
+  Entrada:  data_devida=31/07/2026, etapa=base
+  Esperado: False
+  Motivo:   prazo já passou — "não atrasado" falha, mesmo com etapa em produção e dentro do limite
+  Obtido:   False
+
+[PASSOU] risco_false_quando_etapa_fora_de_producao
+  Entrada:  data_devida=03/08/2026, etapa=postar
+  Esperado: False
+  Motivo:   produção inteira concluída (etapa vira "postar") — "postar" não é etapa de produção
+  Obtido:   False
+
+[PASSOU] risco_false_quando_prazo_ainda_longe
+  Entrada:  data_devida=10/08/2026, etapa=base
+  Esperado: False
+  Motivo:   prazo muito depois do limite de risco — ainda não é hora de alertar
+  Obtido:   False
+
+[PASSOU] risco_false_quando_sem_data_devida
+  Entrada:  data_devida=None, etapa=base
+  Esperado: False
+  Motivo:   Simples nunca tem vencimento — sem data_devida, risco nunca é True mesmo em produção
+  Obtido:   False
+
+[PASSOU] risco_true_no_limite_exato
+  Entrada:  data_devida=04/08/2026, etapa=base
+  Esperado: True
+  Motivo:   prazo exatamente igual ao limite de risco (hoje + 1 dia útil) — regra usa <=
+  Obtido:   True
+
+[PASSOU] risco_true_quando_tudo_bate
+  Entrada:  data_devida=03/08/2026, etapa=base
+  Esperado: True
+  Motivo:   etapa base (produção) + não atrasado + prazo dentro do limite (hoje)
+  Obtido:   True
+
 === Nível 2 — CicloVideo.esta_atrasado() ===
 
 [PASSOU] aguardando_aprovacao_nunca_atrasa
@@ -164,6 +208,44 @@
   Motivo:   __str__ junta sku + fase + numero + etapa_atual() num texto só, sempre no mesmo formato
   Obtido:   ABC123 — Simples #1 (base)
 
+=== Nível 3 — calcular_indicadores() ===
+
+[PASSOU] calcular_indicadores_com_ciclo_passthrough
+  Entrada:  CicloVideo real, fase=Vídeo Mensal, sem produção nem data_devida
+  Esperado: ('base', 'video_mensal', False)
+  Motivo:   passthrough direto de etapa_atual()/fase/esta_atrasado() — DOC já testados no Nível 2
+  Obtido:   ('base', Fase.VIDEO_MENSAL, False)
+
+[PASSOU] calcular_indicadores_com_participacao_usa_historico
+  Entrada:  produto com ParticipacaoAgenda + histórico Pausado
+  Esperado: pausado
+  Motivo:   delega pra status_manual_atual() (DOC já testado) — não reimplementa a regra aqui
+  Obtido:   pausado
+
+[PASSOU] calcular_indicadores_sem_ciclo_nenhum
+  Entrada:  ciclo_mais_recente=None
+  Esperado: ('nao_agendado', '')
+  Motivo:   produto sem nenhum ciclo — etapa e fase ganham valor especial, não vêm de etapa_atual()
+  Obtido:   ('nao_agendado', '')
+
+[PASSOU] calcular_indicadores_sem_participacao_agenda
+  Entrada:  produto sem ParticipacaoAgenda
+  Esperado: ativo
+  Motivo:   getattr(produto, "participacao_agenda", None) é None — default Ativo direto
+  Obtido:   ativo
+
+[PASSOU] calcular_indicadores_video_reprovado_false_sem_dados_relacionados
+  Entrada:  produto sem nenhuma VariacaoAnuncioMercadoLivre/QualidadeAnuncio
+  Esperado: False
+  Motivo:   sem linha relacionada, o .exists() da consulta é sempre False
+  Obtido:   False
+
+[PASSOU] calcular_indicadores_video_reprovado_true_criterio_reprovado
+  Entrada:  critério UP_HAS_SHORTS avaliado como Não aprovado
+  Esperado: True
+  Motivo:   existe avaliação reprovada pra esse critério nesse produto — .exists() vira True
+  Obtido:   True
+
 === Nível 3 — criar_proximo(): régua completa de transição de fase ===
 
 [PASSOU] criar_proximo_aplica_ajuste_de_dia_util
@@ -222,6 +304,176 @@
   Motivo:   único ponto de entrada do produto na Agenda — Simples nunca tem vencimento
   Obtido:   simples #1, data_devida=None
 
+=== Nível 3 — listar_a_fazer_hoje() ===
+
+[PASSOU] listar_busca_acha_por_titulo
+  Entrada:  título="Fone Bluetooth XPTO", busca="XPTO"
+  Esperado: True
+  Motivo:   termo aparece no título — acha
+  Obtido:   True
+
+[PASSOU] listar_busca_dois_termos_ambos_batem_acha
+  Entrada:  título tem "XPTO", cod_fabricante tem "ABC999", busca="XPTO ABC999"
+  Esperado: True
+  Motivo:   múltiplos termos = E — os 2 batem (em campos diferentes), acha
+  Obtido:   True
+
+[PASSOU] listar_busca_dois_termos_um_nao_bate_nao_acha
+  Entrada:  título tem "XPTO", busca="XPTO ZZZINEXISTENTE"
+  Esperado: False
+  Motivo:   múltiplos termos = E — 1 dos 2 não bate em nenhum campo, não acha
+  Obtido:   False
+
+[PASSOU] listar_busca_nao_acha_termo_ausente
+  Entrada:  título="Fone Bluetooth XPTO", busca="ZZZINEXISTENTE"
+  Esperado: False
+  Motivo:   termo não aparece em nenhum dos 4 campos — não acha
+  Obtido:   False
+
+[PASSOU] listar_etapa_concluido_nao_aparece
+  Entrada:  etapa_atual=concluido
+  Esperado: False
+  Motivo:   nada a fazer numa ocorrência já concluída
+  Obtido:   False
+
+[PASSOU] listar_etapa_postar_ja_postou_hoje_nao_aparece
+  Entrada:  etapa=postar, prazo=hoje, já postado hoje às 15h
+  Esperado: False
+  Motivo:   já foi postado hoje — não precisa reaparecer no "a fazer hoje"
+  Obtido:   False
+
+[PASSOU] listar_etapa_postar_prazo_chegou_nao_postou_aparece
+  Entrada:  etapa=postar, data_devida=hoje (03/08), ainda não postou
+  Esperado: True
+  Motivo:   prazo chegou e ainda não postou — precisa aparecer pra postar hoje
+  Obtido:   True
+
+[PASSOU] listar_etapa_postar_prazo_futuro_nao_aparece
+  Entrada:  etapa=postar, data_devida=10/08 (depois de hoje 03/08)
+  Esperado: False
+  Motivo:   só aparece pra postar quando o prazo realmente chegou
+  Obtido:   False
+
+[PASSOU] listar_faixa_data_devida
+  Entrada:  A: vencimento 20/08 | B: vencimento 01/08, filtro data_devida_ciclo_atual_min=10/08
+  Esperado: (True, False)
+  Motivo:   mesmo DOC de faixa, aplicado em campo de data — __gte funciona igual pra data e número
+  Obtido:   (True, False)
+
+[PASSOU] listar_faixa_numero_ocorrencia
+  Entrada:  A: ocorrência #5 | B: ocorrência #1, filtro numero_ocorrencia_ciclo_atual_min=3
+  Esperado: (True, False)
+  Motivo:   aplicar_filtro_faixa (DOC de outro app) — só confirma que o parâmetro chega certo
+  Obtido:   (True, False)
+
+[PASSOU] listar_filtro_atrasado_ambiguo_nao_filtra
+  Entrada:  produto A atrasado=True, produto B=False, filtro atrasado=['sim','nao']
+  Esperado: (True, True)
+  Motivo:   os 2 valores marcados ao mesmo tempo — comportamento é NÃO filtrar nada
+  Obtido:   (True, True)
+
+[PASSOU] listar_filtro_atrasado_nao
+  Entrada:  produto A atrasado=True, produto B=False, filtro atrasado=[nao]
+  Esperado: (False, True)
+  Motivo:   'nao' sem 'sim' junto — exclui os atrasados, deixa só o resto
+  Obtido:   (False, True)
+
+[PASSOU] listar_filtro_atrasado_sim
+  Entrada:  produto A atrasado=True, produto B=False, filtro atrasado=[sim]
+  Esperado: (True, False)
+  Motivo:   'sim' sem 'nao' junto — filtra só os atrasados
+  Obtido:   (True, False)
+
+[PASSOU] listar_filtro_marcas
+  Entrada:  produto A marca=Samsung, produto B marca=LG, filtro marcas=[Samsung]
+  Esperado: (True, False)
+  Motivo:   filtro direto — só a marca escolhida aparece
+  Obtido:   (True, False)
+
+[PASSOU] listar_filtro_risco_ambiguo_nao_filtra
+  Entrada:  A: em risco | B: fora de risco. Filtro risco=['sim','nao']
+  Esperado: (True, True)
+  Motivo:   os 2 valores marcados ao mesmo tempo — comportamento é NÃO filtrar nada
+  Obtido:   (True, True)
+
+[PASSOU] listar_filtro_risco_nao
+  Entrada:  A: em risco (bate as 3 condições) | B: fora de risco (etapa=postar). Filtro risco=[nao]
+  Esperado: (False, True)
+  Motivo:   'nao' sem 'sim' junto — exclui quem está em risco
+  Obtido:   (False, True)
+
+[PASSOU] listar_filtro_risco_sim_reusa_regra_da_camada_a
+  Entrada:  A: etapa=base+não atrasado+prazo=04/08 (limite) | B: etapa=postar (fora de produção)
+  Esperado: (True, False)
+  Motivo:   mesma condição de 3 partes da Camada A, agora em SQL — precisam bater
+  Obtido:   (True, False)
+
+[PASSOU] listar_filtro_sem_video
+  Entrada:  produto A tem_video_reprovado=True, produto B=False, filtro sem_video=[sim]
+  Esperado: (True, False)
+  Motivo:   filtro direto — só quem tem vídeo reprovado aparece
+  Obtido:   (True, False)
+
+[PASSOU] listar_filtro_status_manual_so_deixa_passar_ativo
+  Entrada:  produto Ativo, filtro status_manual=[Pausado]
+  Esperado: False
+  Motivo:   exclusão incondicional de pausado/descontinuado roda ANTES do filtro — pedir esses 2 valores sempre dá vazio
+  Obtido:   False
+
+[PASSOU] listar_filtro_urgente
+  Entrada:  produto A urgente=True, produto B urgente=False, filtro urgente=[sim]
+  Esperado: (True, False)
+  Motivo:   filtro direto — só o urgente aparece
+  Obtido:   (True, False)
+
+[PASSOU] listar_ordenacao_prioridade_fase_data
+  Entrada:  A: urgente+sem vídeo (prioridade 1) | B: resto+Trimestral | C: resto+Simples
+  Esperado: A, C, B (nessa ordem)
+  Motivo:   prioridade decide 1º (A vence) — entre B e C (mesma prioridade), fase decide (Simples antes de Trimestral)
+  Obtido:   [47, 49, 48]
+
+[PASSOU] listar_pendente_agora_categoria_simples
+  Entrada:  A: etapa=roteiro | B: etapa=base, filtro pendente_agora=[roteiro]
+  Esperado: (True, False)
+  Motivo:   categoria direta — Q(indicadores_agenda__etapa_atual='roteiro')
+  Obtido:   (True, False)
+
+[PASSOU] listar_pendente_agora_completo_exclui_recusado
+  Entrada:  A: etapa=completo, nunca recusado | B: etapa=completo, mas recusado. Filtro pendente_agora=[completo]
+  Esperado: (True, False)
+  Motivo:   'completo' exclui quem foi recusado — senão as 2 categorias se misturam
+  Obtido:   (True, False)
+
+[PASSOU] listar_pendente_agora_recusado
+  Entrada:  A: etapa=completo + status=Recusado | B: etapa=completo, sem recusa. Filtro pendente_agora=[recusado]
+  Esperado: (True, False)
+  Motivo:   categoria especial — usa status_ciclo_atual, não etapa_atual
+  Obtido:   (True, False)
+
+[PASSOU] listar_produto_normal_aparece
+  Entrada:  ciclo válido, etapa=base, status=Ativo
+  Esperado: True
+  Motivo:   caso feliz — nenhuma regra de exclusão bate
+  Obtido:   True
+
+[PASSOU] listar_sem_ciclo_nenhum_nao_aparece
+  Entrada:  produto sem nenhum CicloVideo
+  Esperado: False
+  Motivo:   ciclos_video__isnull=False é a regra básica de entrada — sem ciclo, nunca aparece
+  Obtido:   False
+
+[PASSOU] listar_status_descontinuado_nao_aparece
+  Entrada:  status_manual=Descontinuado
+  Esperado: False
+  Motivo:   produto descontinuado nunca aparece no dashboard, mesmo com ciclo válido
+  Obtido:   False
+
+[PASSOU] listar_status_pausado_nao_aparece
+  Entrada:  status_manual=Pausado
+  Esperado: False
+  Motivo:   produto pausado nunca aparece no dashboard, mesmo com ciclo válido
+  Obtido:   False
+
 === Nível 3 — marcar_aguardando_aprovacao() e marcar_replicado() ===
 
 [PASSOU] marcar_aguardando_aprovacao
@@ -242,19 +494,47 @@
   Motivo:   Simples nunca dispara o próximo ciclo sozinho — espera o clique manual de "Agendar"
   Obtido:   retornou=None, status=replicado
 
+=== Nível 3 — sincronizar_indicadores_agenda_produto() ===
+
+[PASSOU] sincronizar_atualiza_registro_existente
+  Entrada:  indicador antigo dizia "base", ciclo real já está em "postar"
+  Esperado: (1, 'postar')
+  Motivo:   update_or_create ATUALIZA o mesmo registro — nunca duplica, e reflete o estado atual
+  Obtido:   (1, 'postar')
+
+[PASSOU] sincronizar_cria_registro_novo
+  Entrada:  produto novo, 1 ciclo Simples, sem indicador ainda
+  Esperado: base
+  Motivo:   nenhum registro existia — update_or_create cria o 1º
+  Obtido:   base
+
+=== Nível 3 — ParticipacaoAgenda.status_manual_atual() ===
+
+[PASSOU] status_manual_atual_sem_historico_e_ativo
+  Entrada:  ParticipacaoAgenda sem nenhum HistoricoStatusManualAgenda
+  Esperado: ativo
+  Motivo:   sem histórico registrado, o default é sempre Ativo
+  Obtido:   ativo
+
+[PASSOU] status_manual_atual_usa_o_registro_mais_recente
+  Entrada:  2 registros: Descontinuado (1º) -> Pausado (2º, mais recente)
+  Esperado: pausado
+  Motivo:   ordenado por -alterado_em — sempre o mais recente vale, nunca o primeiro
+  Obtido:   pausado
+
 === RESUMO DA SESSÃO ===
 
-passed: 37
+passed: 82
 
 === COVERAGE ===
 
-______________________________________ coverage: platform win32, python 3.12.4-final-0 ______________________________________
+______________________________________________________________ coverage: platform win32, python 3.12.4-final-0 ______________________________________________________________
 
-Name                                  Stmts   Miss Branch BrPart  Cover   Missing
----------------------------------------------------------------------------------
-agenda_videos\models\ciclo_video.py      92      0     24      0   100%
----------------------------------------------------------------------------------
-TOTAL                                    92      0     24      0   100%
+Name                                               Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------------------------
+agenda_videos\funcoes_auxiliares\a_fazer_hoje.py      61      0     30      0   100%
+----------------------------------------------------------------------------------------------
+TOTAL                                                 61      0     30      0   100%
 Coverage HTML written to dir resultados_coverage/htmlcov
 Coverage JSON written to file resultados_coverage/coverage.json
 

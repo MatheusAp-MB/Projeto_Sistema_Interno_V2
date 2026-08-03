@@ -68,7 +68,14 @@ def condicao_pendencia_agora(chave):
         # * [EXPLICAÇÃO] → etapa_atual() devolve 'completo' pros 2 casos (nunca
         #                  feito OU recusado, precisa refazer) — aqui separa,
         #                  pra "Completo" e "Recusado" serem categorias distintas.
-        return Q(indicadores_agenda__etapa_atual='completo') & ~Q(status_ciclo_atual=StatusPostagem.RECUSADO)
+        # * [CORREÇÃO] → status_ciclo_atual é NULL no caso mais comum (nunca
+        #                  chegou a ser postado) — "NOT (NULL = valor)" em SQL
+        #                  dá NULL, não True, então ~Q sozinho excluía TODOS os
+        #                  "nunca feito". Precisa tratar NULL como "não recusado"
+        #                  explicitamente.
+        return Q(indicadores_agenda__etapa_atual='completo') & (
+            Q(status_ciclo_atual__isnull=True) | ~Q(status_ciclo_atual=StatusPostagem.RECUSADO)
+        )
     return Q(indicadores_agenda__etapa_atual=chave)
 
 

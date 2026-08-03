@@ -22,8 +22,11 @@ class RegistradorDeResultados:
         self.linhas = []
 
     def adicionar(self, teste, entrada, esperado, motivo, obtido, passou, dado_bruto=None):
+        # A tabela do Rich só aceita texto (ou outro objeto "renderável") em
+        # cada célula — nunca bool/int/None crus. Converte só pra tabela; o
+        # .txt guarda o valor original (linhas.append), sem conversão.
         status = '[green]✓ PASSOU[/green]' if passou else '[red]✗ FALHOU[/red]'
-        self.tabela.add_row(teste, entrada, esperado, motivo, obtido, status)
+        self.tabela.add_row(str(teste), str(entrada), str(esperado), str(motivo), str(obtido), status)
         self.linhas.append({
             'teste': teste, 'entrada': entrada, 'esperado': esperado,
             'motivo': motivo, 'obtido': obtido, 'passou': passou,
