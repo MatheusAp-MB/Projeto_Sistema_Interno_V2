@@ -1166,6 +1166,140 @@
   Motivo:   ordenado por -alterado_em — sempre o mais recente vale, nunca o primeiro
   Obtido:   pausado
 
+=== Nível 4 — view_agenda_videos(): tela principal via HTTP ===
+
+[PASSOU] por_pagina=1 com 2 produtos → 2 páginas
+  Entrada:  2 produtos na tela Todos, ?por_pagina=1
+  Esperado: paginator.num_pages == 2
+  Motivo:   Confirma que o parâmetro de paginação da URL chega até o Paginator real
+  Obtido:   status=200, num_pages=2
+
+[PASSOU] sem querystring → tela padrão é A Fazer Hoje
+  Entrada:  GET / (sem parâmetros)
+  Esperado: tela_atual == Tela.A_FAZER_HOJE
+  Motivo:   Comportamento padrão documentado em ParametrosBuscaAgendaVideos
+  Obtido:   status=200, tela_atual=a_fazer_hoje
+
+[PASSOU] tela inválida na querystring → cai no padrão
+  Entrada:  ?tela=essa-tela-nao-existe
+  Esperado: tela_atual == Tela.A_FAZER_HOJE
+  Motivo:   Fallback de segurança contra valor forjado/desatualizado na URL
+  Obtido:   status=200, tela_atual=a_fazer_hoje
+
+[PASSOU] tela Simples: chip "base" reflete produto real no contexto
+  Entrada:  1 produto sincronizado, etapa_atual=base, ?tela=simples
+  Esperado: contadores_chips["base"] >= 1
+  Motivo:   Confirma que o pipeline de chip-contador chega inteiro na página via HTTP
+  Obtido:   status=200, contadores_chips={'base': 1, 'roteiro': 0, 'completo': 0, 'recusado': 0, 'postar': 0, 'aguardando_aprovacao': 0, 'replicar': 0}
+
+[PASSOU] tela Todos mostra produto sem cache de indicadores
+  Entrada:  produto sem IndicadoresAgendaProduto, ?tela=todos
+  Esperado: produto aparece, contadores_chips={}
+  Motivo:   Todos é a única tela sem depender do cache via INNER JOIN — regressão do bug real de 03/08
+  Obtido:   status=200, contadores_chips={}, produto_na_pagina=True
+
+=== Nível 4 — view_agendar_produto(): Simples → Vídeo Mensal via HTTP ===
+
+[PASSOU] agendado_em já preenchido → não é sobrescrito
+  Entrada:  ParticipacaoAgenda já existe com agendado_em de 10 dias atrás
+  Esperado: agendado_em continua o valor original
+  Motivo:   Idempotente: uma vez agendado, sempre agendado — nunca reseta o marco real
+  Obtido:   status=200, agendado_em=2026-07-25 14:34:40.507835+00:00
+
+[PASSOU] ciclo concluído mas fase=Vídeo Mensal → 400
+  Entrada:  etapa_atual()=concluido, fase=Vídeo Mensal (não Simples)
+  Esperado: status_code == 400
+  Motivo:   A trava exige fase==Simples E etapa==concluido — as 2 juntas, nunca só uma
+  Obtido:   status=400
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade
+  Obtido:   status=404
+
+[PASSOU] produto nunca tocado (sem ciclo) → 400
+  Entrada:  produto sem nenhum CicloVideo
+  Esperado: status_code == 400
+  Motivo:   ciclo is None entra na mesma trava de "não pode agendar ainda"
+  Obtido:   status=400
+
+[PASSOU] Simples concluído → agenda com sucesso
+  Entrada:  CicloVideo Simples com status=Replicado
+  Esperado: cria Vídeo Mensal #1, ParticipacaoAgenda.agendado_em preenchido
+  Motivo:   Transição formal Simples → Vídeo Mensal, marcando o momento real
+  Obtido:   status=200, mensal_1_existe=True, agendado_em=2026-08-04 14:34:40.760831+00:00
+
+[PASSOU] Simples não concluído (ainda em Base) → 400
+  Entrada:  CicloVideo Simples etapa_atual()=base
+  Esperado: 400, nenhum ciclo novo, nenhuma ParticipacaoAgenda
+  Motivo:   Só é possível agendar depois do Simples replicado
+  Obtido:   status=400, ainda_1_ciclo=True, sem_participacao=True
+
+=== Nível 4 — view_alternar_pausado_agenda(): toggle de status manual via HTTP ===
+
+[PASSOU] com ParticipacaoAgenda, Ativo → toggle pausa
+  Entrada:  ParticipacaoAgenda existe, sem histórico ainda
+  Esperado: 200, status_manual_atual.label == "Pausado"
+  Motivo:   Mesmo caminho, agora com ParticipacaoAgenda existindo de verdade
+  Obtido:   status=200, badge=Badge(label='Pausado', classe='status-pausado', icone='fa-pause')
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade
+  Obtido:   status=404
+
+[PASSOU] produto pausado → toggle volta pra Ativo
+  Entrada:  HistoricoStatusManualAgenda(status=PAUSADO) já existe
+  Esperado: 200, status_manual_atual.label == "Ativo"
+  Motivo:   Toggle simétrico — Pausado vira Ativo
+  Obtido:   status=200, badge=Badge(label='Ativo', classe='status-ativo', icone='fa-circle-check')
+
+[PASSOU] sem ParticipacaoAgenda → 1º toggle pausa
+  Entrada:  produto sem ParticipacaoAgenda, nunca pausado
+  Esperado: 200, status_manual_atual.label == "Pausado"
+  Motivo:   status_manual_atual_do_produto() lê o histórico direto — nunca depende de ParticipacaoAgenda existir
+  Obtido:   status=200, badge=Badge(label='Pausado', classe='status-pausado', icone='fa-pause')
+
+[PASSOU] sem ParticipacaoAgenda → 2º toggle volta pra Ativo (regressão do bug)
+  Entrada:  produto sem ParticipacaoAgenda, já pausado por 1 clique anterior
+  Esperado: status_manual_atual.label == "Ativo", 2 registros no histórico
+  Motivo:   Antes do fix, ficava travado sempre criando Pausado — nunca voltava
+  Obtido:   status=200, badge=Badge(label='Ativo', classe='status-ativo', icone='fa-circle-check'), total_registros=2
+
+[PASSOU] toggle sincroniza o cache pra Pausado
+  Entrada:  produto sem cache prévio, pausa
+  Esperado: IndicadoresAgendaProduto.status_manual == PAUSADO
+  Motivo:   sincronizar_indicadores_agenda_produto() roda depois de criar o histórico — cache precisa refletir na hora
+  Obtido:   status=200, status_manual_no_cache=pausado
+
+=== Nível 4 — view_alternar_urgente(): toggle de urgência via HTTP ===
+
+[PASSOU] urgente=True → toggle vira False
+  Entrada:  ParticipacaoAgenda existente, urgente=True
+  Esperado: 200, urgente=False
+  Motivo:   Toggle simples — inverte o valor atual
+  Obtido:   status=200, urgente=False
+
+[PASSOU] 2 toggles seguidos → volta ao estado original
+  Entrada:  produto sem ParticipacaoAgenda, 2 cliques em sequência
+  Esperado: urgente=False (voltou ao default)
+  Motivo:   Round-trip: False -> True -> False
+  Obtido:   status=200, urgente=False
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade
+  Obtido:   status=404
+
+[PASSOU] sem ParticipacaoAgenda → toggle cria e marca urgente
+  Entrada:  produto sem ParticipacaoAgenda
+  Esperado: 200, ParticipacaoAgenda criada com urgente=True
+  Motivo:   get_or_create cria o registro na hora, default urgente=False, primeiro toggle vira True
+  Obtido:   status=200, participacao_existe=True, urgente=True
+
 === Nível 4 — view_confirmar_ponto_roadmap(): modal de confirmação via HTTP ===
 
 [PASSOU] ciclo aguardando aprovação + chave certa → confirma
@@ -1222,6 +1356,136 @@
   Motivo:   O único ponto alcançável sem CicloVideo é "base" — qualquer outra chave é estado impossível
   Obtido:   status=400
 
+=== Nível 4 — view_executar_acao_ciclica(): postar/aprovar/recusar/replicar via HTTP ===
+
+[PASSOU] ação desconhecida → 400
+  Entrada:  acao=essa_acao_nao_existe (fora do dict ACOES_CICLICAS)
+  Esperado: status_code == 400
+  Motivo:   ACOES_CICLICAS.get(acao) devolve None — tratado, não KeyError
+  Obtido:   status=400
+
+[PASSOU] aprovado: sem aguardar aprovação → 400
+  Entrada:  status=None (nem foi postado ainda)
+  Esperado: 400, status continua None
+  Motivo:   Guard compartilhado com recusado — só testo 1 vez, é a mesma função
+  Obtido:   status=400, ciclo_status=None
+
+[PASSOU] aprovado: sucesso
+  Entrada:  status=AGUARDANDO_APROVACAO
+  Esperado: 200, status=APROVADO, timestamp preenchido
+  Motivo:   Caminho normal de aprovação
+  Obtido:   status=200, ciclo_status=aprovado
+
+[PASSOU] nova_tentativa: status != RECUSADO → 400
+  Entrada:  status=APROVADO
+  Esperado: 400, status continua APROVADO
+  Motivo:   Nova tentativa só existe pra recusada
+  Obtido:   status=400, ciclo_status=aprovado
+
+[PASSOU] nova_tentativa: sucesso reabre Completo
+  Entrada:  status=RECUSADO
+  Esperado: 200, status=None, completo_concluido_em=None
+  Motivo:   Recusado precisa refazer o Completo antes de postar de novo
+  Obtido:   status=200, ciclo_status=None, completo_concluido_em=None
+
+[PASSOU] postar: etapa errada (ainda em Base) → 400
+  Entrada:  etapa_atual()=base
+  Esperado: 400, status continua None
+  Motivo:   Só pode postar quem está na etapa "postar"
+  Obtido:   status=400, ciclo_status=None
+
+[PASSOU] postar: já postou hoje → 400
+  Entrada:  etapa_atual()=postar, mas aguardando_aprovacao_em já é de hoje
+  Esperado: 400, status continua None
+  Motivo:   1 vídeo por dia por produto — trava de segurança contra duplo-clique
+  Obtido:   status=400, ciclo_status=None
+
+[PASSOU] postar: sucesso marca aguardando aprovação
+  Entrada:  etapa_atual()=postar, nunca postou hoje
+  Esperado: 200, status=AGUARDANDO_APROVACAO
+  Motivo:   Caminho normal de postar
+  Obtido:   status=200, ciclo_status=aguardando_aprovacao
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade
+  Obtido:   status=404
+
+[PASSOU] produto sem nenhum ciclo → 400
+  Entrada:  produto nunca tocado, acao=postar
+  Esperado: status_code == 400
+  Motivo:   Guard mais externo — roda antes de olhar qual ação foi pedida
+  Obtido:   status=400
+
+[PASSOU] recusado: sucesso
+  Entrada:  status=AGUARDANDO_APROVACAO
+  Esperado: 200, status=RECUSADO
+  Motivo:   Caminho normal de recusa — mesma função de guard de aprovado, ação diferente
+  Obtido:   status=200, ciclo_status=recusado
+
+[PASSOU] replicar: status != APROVADO → 400
+  Entrada:  status=AGUARDANDO_APROVACAO
+  Esperado: 400, status continua AGUARDANDO_APROVACAO
+  Motivo:   Só pode replicar quem já foi aprovado
+  Obtido:   status=400, ciclo_status=aguardando_aprovacao
+
+[PASSOU] replicar: sucesso dispara o próximo ciclo
+  Entrada:  status=APROVADO, fase=Vídeo Mensal #1
+  Esperado: 200, status=REPLICADO, cria Mensal #2
+  Motivo:   Qualquer fase que não seja Simples dispara criar_proximo() automaticamente
+  Obtido:   status=200, ciclo_status=replicado, proximo_existe=True
+
+[PASSOU] seguir: cota ainda não cumprida → 400
+  Entrada:  Mensal #2 recusado, período=4 (ainda restam 2 rodadas)
+  Esperado: 400, nenhum ciclo novo criado
+  Motivo:   Não pode pular pra próxima fase enquanto a cota atual não foi cumprida
+  Obtido:   status=400, ciclo_novo_criado=False
+
+[PASSOU] seguir: cota cumprida mas sem próxima fase configurada → 400
+  Entrada:  Simples#1 recusado, período=1 (cumprido), proxima_fase=None
+  Esperado: status_code == 400
+  Motivo:   Régua incompleta — não trava com erro cru, devolve 400 tratado
+  Obtido:   status=400
+
+[PASSOU] seguir: cota cumprida → cria a próxima fase
+  Entrada:  Mensal #4 recusado, período=4 (cumprido)
+  Esperado: 200, cria Vídeo Trimestral #1
+  Motivo:   Cota já cumprida — segue pra próxima fase sem repor a rodada recusada
+  Obtido:   status=200, trimestral_1_existe=True
+
+=== Nível 4 — view_historico_agenda_videos(): relatório via HTTP ===
+
+[PASSOU] busca via querystring filtra o produto certo
+  Entrada:  2 produtos, ?busca=XPTO
+  Esperado: só o produto com XPTO no título aparece
+  Motivo:   Confirma que o parâmetro de busca da URL chega até listar_produtos_com_historico
+  Obtido:   status=200, ids_nos_grupos=[177]
+
+[PASSOU] marcas_disponiveis exclui vazia e nula
+  Entrada:  marcas: Samsung, "" (vazia), None
+  Esperado: marcas_disponiveis == ["Samsung"]
+  Motivo:   exclude(marca__isnull=True).exclude(marca="") precisa filtrar os 2 casos, não só 1
+  Obtido:   status=200, marcas=['Samsung']
+
+[PASSOU] por_pagina=1 com 2 produtos → 2 páginas
+  Entrada:  2 produtos com ciclo, ?por_pagina=1
+  Esperado: paginator.num_pages == 2
+  Motivo:   Confirma que o parâmetro de paginação da URL chega até o Paginator real
+  Obtido:   status=200, num_pages=2
+
+[PASSOU] por_pagina inválido → fallback 25
+  Entrada:  ?por_pagina=abc (não é número)
+  Esperado: paginator.per_page == 25
+  Motivo:   int("abc") levanta ValueError — a view precisa capturar isso e cair no padrão, não quebrar
+  Obtido:   status=200, per_page=25
+
+[PASSOU] sem filtro nenhum → lista produto com ciclo
+  Entrada:  1 produto com 1 CicloVideo, GET sem parâmetros
+  Esperado: 200, 1 grupo, produto certo
+  Motivo:   Confirma que a view entrega o histórico do produto certo, ponta a ponta
+  Obtido:   status=200, len(grupos)=1
+
 === Nível 4 — view_historico_produto(): modal individual via HTTP ===
 
 [PASSOU] produto com 1 ciclo em Base → aparece no resumo
@@ -1248,9 +1512,53 @@
   Motivo:   View não pode quebrar pro caso mais comum (produto nunca tocado)
   Obtido:   status=200, total=0, eventos=[]
 
+=== Nível 4 — view_marcar_ponto_roadmap(): marcar Base/Roteiro/Completo via HTTP ===
+
+[PASSOU] ciclo em Roteiro + chave=roteiro → marca
+  Entrada:  base já concluída, etapa_atual()=roteiro, chave=roteiro
+  Esperado: 200, roteiro_concluido_em preenchido
+  Motivo:   Etapa pedida bate com a etapa real do ciclo
+  Obtido:   status=200, roteiro_concluido_em=2026-08-04 14:34:42.686947+00:00
+
+[PASSOU] ciclo em Base + chave=completo (divergente) → 400, nada marcado
+  Entrada:  etapa_atual()=base, chave pedida=completo
+  Esperado: 400, completo_concluido_em continua None
+  Motivo:   Revalidação contra estado desatualizado — não pode marcar campo fora de ordem
+  Obtido:   status=400, completo_concluido_em=None
+
+[PASSOU] etapa_atual()=postar + chave=postar → 400 (fora do escopo desta view)
+  Entrada:  produção completa, etapa_atual()=postar, chave=postar
+  Esperado: status_code == 400
+  Motivo:   view_marcar_ponto_roadmap só marca base/roteiro/completo — postar é outra view
+  Obtido:   status=400
+
+[PASSOU] marcar Base sincroniza o cache pra etapa Roteiro
+  Entrada:  produto sem cache prévio, marca base
+  Esperado: IndicadoresAgendaProduto.etapa_atual == "roteiro"
+  Motivo:   Base acabou de ser concluída — a próxima etapa real já é Roteiro, e o cache precisa refletir isso na hora
+  Obtido:   status=200, etapa_atual_no_cache=roteiro
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade
+  Obtido:   status=404
+
+[PASSOU] sem ciclo + chave=base → cria Simples e marca
+  Entrada:  produto sem nenhum CicloVideo, chave=base
+  Esperado: CicloVideo criado (Simples), base_concluido_em preenchido
+  Motivo:   1º clique real de um produto nunca tocado — cria o Simples sozinho
+  Obtido:   status=200, ciclo_existe=True, base_concluido_em=2026-08-04 14:34:42.881528+00:00
+
+[PASSOU] sem ciclo + chave=roteiro → 400, nada criado
+  Entrada:  produto sem nenhum CicloVideo, chave=roteiro
+  Esperado: 400, 0 CicloVideo no banco
+  Motivo:   O único ponto alcançável sem CicloVideo é base
+  Obtido:   status=400, nada_criado=True
+
 === RESUMO DA SESSÃO ===
 
-passed: 199
+passed: 248
 
 === COVERAGE ===
 

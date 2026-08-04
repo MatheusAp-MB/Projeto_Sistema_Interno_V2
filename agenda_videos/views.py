@@ -31,7 +31,7 @@ from agenda_videos.funcoes_auxiliares.historico_roadmap import listar_produtos_c
 from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
 from agenda_videos.models import (
     StatusPostagem, Fase, ConfiguracaoFase, CicloVideo, StatusManualAgenda, ParticipacaoAgenda,
-    HistoricoStatusManualAgenda,
+    HistoricoStatusManualAgenda, status_manual_atual_do_produto,
     ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao,
     ExecucaoReplicacaoAutomatica, ItemExecucaoReplicacao, StatusExecucao, StatusItemExecucaoReplicacao,
 )
