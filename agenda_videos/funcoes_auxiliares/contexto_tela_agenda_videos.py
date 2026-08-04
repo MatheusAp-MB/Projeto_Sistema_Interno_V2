@@ -197,9 +197,15 @@ class ContextoTelaAgendaVideos:
 
     def _montar_contadores_chips(self) -> dict[str, int]:
         # Função Objetivo: 1 contagem por chip da tela atual — etapa
-        # (telas 2-4) ou motivo de urgência (tela 5) — sobre o queryset
-        # SEM esse filtro aplicado, senão o chip clicado zeraria a própria
-        # contagem. 1 query agregada, nunca 1 por chip.
+        # (Simples/Mensal/Trimestral) ou motivo de urgência (A Fazer Hoje)
+        # — sobre o queryset SEM esse filtro aplicado, senão o chip
+        # clicado zeraria a própria contagem. 1 query agregada, nunca 1
+        # por chip. Não Agendado e Todos não têm chip nenhum (fila única
+        # ou cruza fases demais pra um chip de etapa fazer sentido) — nem
+        # calcula, pra não gastar query à toa.
+        if self.parametros.tela in (Tela.NAO_AGENDADO, Tela.TODOS):
+            return {}
+
         filtros_sem_chip_etapa = {
             chave: valor for chave, valor in self.parametros.filtros.items()
             if chave not in ('pendente_agora', 'motivo_a_fazer_hoje')

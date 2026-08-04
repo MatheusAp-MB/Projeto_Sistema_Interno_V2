@@ -1,8 +1,15 @@
 <!--
-* [RESUMO] → Tela de Configuração das fases de postagem (Diária/Semanal/
-* Mensal) — substitui o Django Admin como forma de editar ConfiguracaoFase.
+* [RESUMO] → Tela de Configuração das fases (Simples/Vídeo Mensal/Vídeo
+* Trimestral) — substitui o Admin como forma de editar ConfiguracaoFase.
+* Reescrita em 03/08 pra bater com o modelo real pós-reestruturação de
+* 30/07 (periodo_continuo/periodo/distancia_dias_corridos/distancia_dias_
+* ao_entrar_na_fase) — a versão anterior ainda era da era Diária/Semanal/
+* Mensal, extinta, e nunca salvava nada de verdade (campos do form não
+* batiam com o que a view esperava).
 * Sempre mostra as 3 fases fixas, mesmo que uma ainda não tenha registro
-* no banco (nesse caso aparece vazia, com badge "não configurado ainda").
+* no banco (nesse caso aparece com badge "não configurado ainda").
+* proxima_fase (a sequência entre fases) continua só editável no admin —
+* fixa/rara de mudar, decisão já tomada (ver comentário na view).
 * Avisos de sucesso/aviso vêm do sistema global de messages (ver
 * estrutura_base_global.html) — não tem banner local aqui.
 -->
@@ -20,14 +27,16 @@
 
 <form method="post" class="config-agenda-card">
     {% csrf_token %}
-    <div class="config-agenda-card-header">Duração de cada fase</div>
+    <div class="config-agenda-card-header">Régua de cada fase</div>
     <div class="config-agenda-tabela-wrapper">
         <table class="config-agenda-tabela">
             <thead>
                 <tr>
                     <th>Fase</th>
-                    <th>Vídeos obrigatórios no período</th>
-                    <th>Duração do período</th>
+                    <th>Contínua<br><small>nunca avança (ex: Trimestral)</small></th>
+                    <th>Ocorrências antes de avançar<br><small>ignorado se contínua</small></th>
+                    <th>Distância entre ocorrências<br><small>dias corridos</small></th>
+                    <th>Espera ao entrar na fase<br><small>dias corridos, vindo da fase anterior</small></th>
                 </tr>
             </thead>
             <tbody>
@@ -39,25 +48,29 @@
                         <span class="config-agenda-badge-nao-configurado">não configurado ainda</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <input type="number" min="1" step="1"
-                               name="{{ fase.valor }}_quantidade_postagens"
-                               value="{{ fase.quantidade_postagens }}"
-                               class="config-agenda-input">
-                        vídeos
+                    <td class="config-agenda-celula-checkbox">
+                        <input type="checkbox"
+                               name="{{ fase.valor }}_periodo_continuo"
+                               {% if fase.periodo_continuo %}checked{% endif %}
+                               class="config-agenda-checkbox">
                     </td>
                     <td>
                         <input type="number" min="1" step="1"
                                name="{{ fase.valor }}_periodo"
                                value="{{ fase.periodo }}"
                                class="config-agenda-input">
-                        {% if fase.valor == 'diaria' %}
-                            dias úteis
-                        {% elif fase.valor == 'semanal' %}
-                            semanas
-                        {% elif fase.valor == 'mensal' %}
-                            meses
-                        {% endif %}
+                    </td>
+                    <td>
+                        <input type="number" min="1" step="1"
+                               name="{{ fase.valor }}_distancia_dias_corridos"
+                               value="{{ fase.distancia_dias_corridos }}"
+                               class="config-agenda-input">
+                    </td>
+                    <td>
+                        <input type="number" min="0" step="1"
+                               name="{{ fase.valor }}_distancia_dias_ao_entrar_na_fase"
+                               value="{{ fase.distancia_dias_ao_entrar_na_fase }}"
+                               class="config-agenda-input">
                     </td>
                 </tr>
                 {% endfor %}

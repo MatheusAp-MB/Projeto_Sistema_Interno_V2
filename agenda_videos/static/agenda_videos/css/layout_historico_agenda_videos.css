@@ -239,6 +239,13 @@
     flex-shrink: 0;
 }
 
+.modal-historico-fechar i {
+    /* * [CORREÇÃO] → Sem isso, clicar no ícone faz o evento mirar o <i>
+       em vez do <button>, e o listener de fechar (que checa o elemento
+       exato clicado, não os ancestrais) nunca dispara. */
+    pointer-events: none;
+}
+
 .modal-historico-corpo {
     flex: 1 1 auto;
     min-height: 0;

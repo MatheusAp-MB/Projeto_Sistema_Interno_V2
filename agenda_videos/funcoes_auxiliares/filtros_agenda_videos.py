@@ -35,12 +35,12 @@ from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 #                  "produto sem nenhum ciclo" com "produto ainda em
 #                  Simples" (2 coisas que deveriam ser a mesma tela).
 class Tela(models.TextChoices):
+    TODOS = 'todos', 'Todos'
     NAO_AGENDADO = 'nao_agendado', 'Não Agendado'
     SIMPLES = 'simples', 'Simples'
     VIDEO_MENSAL = 'video_mensal', 'Vídeo Mensal'
     VIDEO_TRIMESTRAL = 'video_trimestral', 'Vídeo Trimestral'
     A_FAZER_HOJE = 'a_fazer_hoje', 'A Fazer Hoje'
-
 
 OPCOES_TELA = Tela.choices
 
@@ -206,6 +206,15 @@ def contar_por_condicoes(qs: QuerySet, condicoes: dict[str, Q]) -> dict[str, int
     return qs.aggregate(**aggregates)
 
 
+def _condicao_todos() -> Q:
+    # Função Objetivo: nenhuma restrição de fase/etapa — mostra literalmente
+    # todo produto, cache sincronizado ou não (útil pra enxergar quem ainda
+    # não sincronizou, em vez de escondê-lo em silêncio). Reintroduz a
+    # capacidade "ver tudo" que o sistema antigo tinha quando nenhuma
+    # caixinha de estágio era marcada, perdida no redesenho das 5 telas.
+    return Q()
+
+
 def condicao_tela(tela: str, hoje: date) -> Q:
     # Função Objetivo: 1 condição por tela — fonte única de "quem aparece
     # onde", reaproveitada tanto pela listagem quanto pela contagem de
@@ -213,6 +222,8 @@ def condicao_tela(tela: str, hoje: date) -> Q:
     # data_devida_ciclo_atual, ciclo_atual_atrasado e postou_hoje (ver
     # listar_produtos_agenda_filtrados()).
     match tela:
+        case Tela.TODOS:
+            return _condicao_todos()
         case Tela.NAO_AGENDADO:
             return _condicao_nao_agendado()
         case Tela.SIMPLES:

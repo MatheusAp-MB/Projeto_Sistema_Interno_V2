@@ -85,7 +85,7 @@
         </label>
         {% endfor %}
     </div>
-    {% elif tela_atual != 'nao_agendado' %}
+    {% elif tela_atual != 'nao_agendado' and tela_atual != 'todos' %}
     <div class="agenda-chip-contador-linha">
         {% for valor, label in opcoes_pendente_agora %}
         <label class="agenda-chip-contador {% if valor in filtros.pendente_agora %}agenda-chip-contador-ativo{% endif %}">

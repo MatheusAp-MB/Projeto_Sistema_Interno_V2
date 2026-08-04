@@ -183,3 +183,28 @@ def test_calcular_indicadores_video_reprovado_true_criterio_reprovado(tabela_res
     assert resultado.tem_video_reprovado == esperado
 
     # TearDown: nada a desmontar.
+
+def test_calcular_indicadores_sem_participacao_mas_com_historico(tabela_resultados):
+    # Setup: produto SEM ParticipacaoAgenda (nunca teve Urgente marcado nem
+    # foi Agendado), mas COM histórico de status manual (foi pausado em
+    # algum momento). Antes da correção de 04/08 isso sempre devolvia
+    # Ativo, ignorando o histórico real — bug achado via teste de view
+    # (Nível 4, view_alternar_pausado_agenda).
+    produto = _criar_produto('sem_participacao_com_historico')
+    ciclo = CicloVideo.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
+    HistoricoStatusManualAgenda.objects.create(produto=produto, status=StatusManualAgenda.PAUSADO)
+
+    # Exercise: chama o SUT de verdade.
+    resultado = calcular_indicadores(produto, ciclo)
+
+    # Assert: o histórico vale, mesmo sem ParticipacaoAgenda existir.
+    esperado = StatusManualAgenda.PAUSADO
+    registrar_resultado(
+        tabela_resultados, 'calcular_indicadores_sem_participacao_mas_com_historico',
+        'produto SEM ParticipacaoAgenda, COM histórico (Pausado)',
+        esperado, 'status_manual_atual_do_produto() lê o histórico direto do produto — nunca depende de ParticipacaoAgenda existir',
+        resultado.status_manual, resultado.status_manual == esperado,
+    )
+    assert resultado.status_manual == esperado
+
+    # TearDown: nada a desmontar.

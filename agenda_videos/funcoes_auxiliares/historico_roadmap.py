@@ -18,7 +18,7 @@ from django.db import models
 from django.db.models import Q, QuerySet
 
 from produtos.models import Produto
-from agenda_videos.models import CicloVideo, StatusManualAgenda, StatusPostagem
+from agenda_videos.models import CicloVideo, StatusPostagem, status_manual_atual_do_produto
 from agenda_videos.funcoes_auxiliares.roadmap_produto import montar_rotulo_rodada
 from agenda_videos.funcoes_auxiliares.badges_agenda import (
     Badge, BADGES_STATUS_MANUAL, BADGES_STATUS_POSTAGEM, BADGES_ETAPA, buscar_badge_de,
@@ -169,8 +169,7 @@ def montar_historico_produto(produto: Produto) -> HistoricoProduto:
     # Mesmo padrão de calcular_indicadores() (a_fazer_hoje): produto sem
     # ParticipacaoAgenda ainda nunca foi tocado por nenhuma ação manual —
     # conta como Ativo, o próprio default do campo, nunca fica sem status.
-    participacao = getattr(produto, 'participacao_agenda', None)
-    status_manual = participacao.status_manual_atual() if participacao else StatusManualAgenda.ATIVO
+    status_manual = status_manual_atual_do_produto(produto)
 
     return HistoricoProduto(
         produto=produto,

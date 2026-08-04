@@ -365,7 +365,11 @@ def view_configuracoes_agenda_videos(request: HttpRequest) -> HttpResponse:
             ) or 0
             config_existente = ConfiguracaoFase.objects.filter(fase=fase_valor).first()
 
-            if distancia is None or (not periodo_continuo and periodo is None):
+            # * [CORREÇÃO] → Simples tem só 1 ocorrência (não existe "distância
+            # entre ocorrências" quando não há segunda ocorrência) — o campo já
+            # é null=True no banco pra ela. Só Mensal/Trimestral exigem esse valor.
+            distancia_obrigatoria = fase_valor != Fase.SIMPLES
+            if (distancia_obrigatoria and distancia is None) or (not periodo_continuo and periodo is None):
                 if config_existente is None:
                     messages.warning(request, f'{fase_label}: valor inválido — não foi possível criar a configuração.')
                 else:
@@ -426,8 +430,7 @@ def view_historico_produto(request: HttpRequest, produto_id: int) -> HttpRespons
 def view_alternar_pausado_agenda(request: HttpRequest, produto_id: int) -> HttpResponse:
     produto = get_object_or_404(Produto, id=produto_id)
 
-    participacao = getattr(produto, 'participacao_agenda', None)
-    status_atual = participacao.status_manual_atual() if participacao else StatusManualAgenda.ATIVO
+    status_atual = status_manual_atual_do_produto(produto)
     novo_status = StatusManualAgenda.ATIVO if status_atual == StatusManualAgenda.PAUSADO else StatusManualAgenda.PAUSADO
     HistoricoStatusManualAgenda.objects.create(produto=produto, status=novo_status)
 

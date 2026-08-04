@@ -270,11 +270,13 @@ def test_trimestral_filtra_so_pela_fase(tabela_resultados):
     # TearDown: nada a desmontar.
 
 
-def test_produto_sem_indicadores_nenhum_nao_aparece_em_nenhuma_tela(tabela_resultados):
+def test_produto_sem_indicadores_nenhum_so_aparece_em_todos(tabela_resultados):
     # Setup: produto "cru" — nem CicloVideo, nem IndicadoresAgendaProduto.
-    # Sanity check estrutural: toda condicao_tela() filtra via
-    # indicadores_agenda__X, que faz INNER JOIN — sem a linha de cache,
-    # nunca aparece em tela nenhuma.
+    # Sanity check estrutural: Não Agendado/Simples/Mensal/Trimestral/A
+    # Fazer Hoje filtram via indicadores_agenda__X (INNER JOIN) — sem a
+    # linha de cache, nunca aparecem nelas. "Todos" é a exceção deliberada
+    # (Q() sem restrição nenhuma) — é exatamente o propósito dela: mostrar
+    # quem ainda não sincronizou, em vez de escondê-lo em silêncio.
     produto = _criar_produto('cru_sem_cache')
 
     aparece_em = {
@@ -282,11 +284,11 @@ def test_produto_sem_indicadores_nenhum_nao_aparece_em_nenhuma_tela(tabela_resul
         for tela in Tela.values
     }
 
-    esperado = {tela: False for tela in Tela.values}
+    esperado = {tela: (tela == Tela.TODOS) for tela in Tela.values}
     registrar_resultado(
-        tabela_resultados, 'test_produto_sem_indicadores_nenhum_nao_aparece_em_nenhuma_tela',
-        'produto sem CicloVideo e sem IndicadoresAgendaProduto, nas 5 telas',
-        esperado, 'sem sincronização nenhuma ainda, o produto não é candidato a tela alguma',
+        tabela_resultados, 'test_produto_sem_indicadores_nenhum_so_aparece_em_todos',
+        'produto sem CicloVideo e sem IndicadoresAgendaProduto, nas 6 telas',
+        esperado, 'Todos mostra tudo (Q() sem filtro) — as outras 5 exigem cache sincronizado',
         aparece_em, aparece_em == esperado,
     )
     assert aparece_em == esperado

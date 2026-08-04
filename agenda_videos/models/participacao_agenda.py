@@ -15,6 +15,20 @@ class StatusManualAgenda(models.TextChoices):
     DESCONTINUADO = 'descontinuado', 'Descontinuado'
 
 
+# Função Objetivo: Fonte única do "status manual atual" — nunca depende de
+# ParticipacaoAgenda existir, porque HistoricoStatusManualAgenda tem FK
+# direta pro Produto, sem relação nenhuma com ParticipacaoAgenda. Um produto
+# pode ter sido Pausado sem NUNCA ter tido Urgente marcado ou sido Agendado
+# (as 2 únicas ações que criam ParticipacaoAgenda) — o código antigo usava
+# getattr(produto, 'participacao_agenda', None) como guarda em 3 lugares e
+# jogava fora o histórico real nesse caso, sempre respondendo Ativo (bug
+# real, achado em 04/08 via teste automatizado de view_alternar_pausado_
+# agenda — o próprio botão de pausar ficava travado, nunca voltava a Ativo).
+def status_manual_atual_do_produto(produto) -> str:
+    ultimo = produto.historico_status_manual.first()
+    return ultimo.status if ultimo else StatusManualAgenda.ATIVO
+
+
 class HistoricoStatusManualAgenda(models.Model):
     produto = models.ForeignKey(Produto, on_delete=models.CASCADE, related_name='historico_status_manual')
     status = models.CharField(max_length=15, choices=StatusManualAgenda.choices)
@@ -44,8 +58,9 @@ class ParticipacaoAgenda(models.Model):
         verbose_name_plural = 'Participações na Agenda'
 
     def status_manual_atual(self):
-        ultimo = self.produto.historico_status_manual.first()
-        return ultimo.status if ultimo else StatusManualAgenda.ATIVO
+        # Atalho de conveniência pra quem já tem a instância em mãos — nunca
+        # duplica a regra, delega 100% pra status_manual_atual_do_produto().
+        return status_manual_atual_do_produto(self.produto)
 
     def __str__(self):
         return f'{self.produto.sku} — {self.status_manual_atual()}'

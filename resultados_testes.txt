@@ -512,6 +512,12 @@
   Motivo:   getattr(produto, "participacao_agenda", None) é None — default Ativo direto
   Obtido:   ativo
 
+[PASSOU] calcular_indicadores_sem_participacao_mas_com_historico
+  Entrada:  produto SEM ParticipacaoAgenda, COM histórico (Pausado)
+  Esperado: pausado
+  Motivo:   status_manual_atual_do_produto() lê o histórico direto do produto — nunca depende de ParticipacaoAgenda existir
+  Obtido:   pausado
+
 [PASSOU] calcular_indicadores_video_reprovado_false_sem_dados_relacionados
   Entrada:  produto sem nenhuma VariacaoAnuncioMercadoLivre/QualidadeAnuncio
   Esperado: False
@@ -580,7 +586,7 @@
   Entrada:  ciclo_antigo e ciclo_recente com criado_em IDÊNTICO (2026-01-01 12:00:00-03:00)
   Esperado: ciclos[0] = ciclo_recente (id maior, criado por último)
   Motivo:   Timestamps empatados de propósito (simula o empate real, comum no Windows) — só "-id" desempata certo.
-  Obtido:   ciclos[0].pk=21, ciclo_recente.pk=21
+  Obtido:   ciclos[0].pk=22, ciclo_recente.pk=22
 
 [PASSOU] resumo_agrupa_por_etapa_mesmo_com_status_diferente
   Entrada:  2 ciclos, ambos etapa_atual()="completo" (1 sem status, 1 recusado)
@@ -716,7 +722,7 @@
   Entrada:  A: urgente+sem vídeo (prioridade máxima) | B: só atrasado. ordenar=-titulo pedido de propósito
   Esperado: A antes de B
   Motivo:   A Fazer Hoje sempre ordena prioridade→fase→prazo — "ordenar" do usuário não tem efeito aqui
-  Obtido:   [38, 39]
+  Obtido:   [39, 40]
 
 [PASSOU] test_a_fazer_hoje_pedir_pausado_nunca_traz_nada
   Entrada:  Pausado, atrasado=True, filtro status_manual=[Pausado]
@@ -806,7 +812,7 @@
   Entrada:  A="AAA Produto" | Z="ZZZ Produto", ordenar=-titulo
   Esperado: Z antes de A (ordem decrescente)
   Motivo:   nas 4 telas de listagem, a coluna escolhida pelo usuário manda, igual antes do redesenho
-  Obtido:   [63, 62]
+  Obtido:   [64, 63]
 
 [PASSOU] test_mensal_sem_filtro_mostra_pausado_junto_com_o_resto
   Entrada:  Ativo | Pausado, sem filtro de status_manual
@@ -844,11 +850,11 @@
   Motivo:   clicar no chip "Completo" mostra só quem está em completo, dentro da tela Mensal
   Obtido:   (True, False)
 
-[PASSOU] test_produto_sem_indicadores_nenhum_nao_aparece_em_nenhuma_tela
-  Entrada:  produto sem CicloVideo e sem IndicadoresAgendaProduto, nas 5 telas
-  Esperado: {'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
-  Motivo:   sem sincronização nenhuma ainda, o produto não é candidato a tela alguma
-  Obtido:   {'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
+[PASSOU] test_produto_sem_indicadores_nenhum_so_aparece_em_todos
+  Entrada:  produto sem CicloVideo e sem IndicadoresAgendaProduto, nas 6 telas
+  Esperado: {'todos': True, 'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
+  Motivo:   Todos mostra tudo (Q() sem filtro) — as outras 5 exigem cache sincronizado
+  Obtido:   {'todos': True, 'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
 
 [PASSOU] test_simples_nao_pega_concluido
   Entrada:  Simples, etapa_atual=concluido
@@ -879,6 +885,176 @@
   Esperado: (True, False)
   Motivo:   mesmo mecanismo do Mensal, espelhado pro Trimestral
   Obtido:   (True, False)
+
+=== Nível 3 — listar_produtos_com_historico() ===
+
+[PASSOU] test_busca_multi_termo_precisa_bater_todos
+  Entrada:  título="Fone Bluetooth XPTO ABC999", busca="XPTO ABC999"
+  Esperado: True
+  Motivo:   os 2 termos batem (cada um em qualquer campo) — produto entra
+  Obtido:   True
+
+[PASSOU] test_busca_multi_termo_um_nao_bate_exclui
+  Entrada:  título="Fone Bluetooth XPTO", busca="XPTO ZZZINEXISTENTE"
+  Esperado: False
+  Motivo:   1 dos 2 termos não bate em campo nenhum — produto some, mesmo o outro termo batendo
+  Obtido:   False
+
+[PASSOU] test_busca_por_cod_fabricante
+  Entrada:  cod_fabricante="FAB-XPTO-9", busca="FAB-XPTO"
+  Esperado: True
+  Motivo:   termo bate no código do fabricante
+  Obtido:   True
+
+[PASSOU] test_busca_por_ean
+  Entrada:  ean="7891234500019", busca="7891234500019"
+  Esperado: True
+  Motivo:   termo bate no EAN
+  Obtido:   True
+
+[PASSOU] test_busca_por_sku
+  Entrada:  sku="SKU-XPTO-001", busca="SKU-XPTO"
+  Esperado: True
+  Motivo:   termo bate no SKU
+  Obtido:   True
+
+[PASSOU] test_busca_por_titulo
+  Entrada:  título="Fone Bluetooth XPTO", busca="XPTO"
+  Esperado: True
+  Motivo:   termo bate no título
+  Obtido:   True
+
+[PASSOU] test_combinacao_marca_e_urgente_e_status_manual_juntos
+  Entrada:  A bate marca+urgente+status_manual | B só bate urgente+status_manual (marca errada)
+  Esperado: (True, False)
+  Motivo:   os 3 filtros de produto são aplicados em sequência (AND) — precisa bater todos
+  Obtido:   (True, False)
+
+[PASSOU] test_fase_e_status_juntos_precisam_bater_no_mesmo_ciclo
+  Entrada:  ciclo 1: Simples/sem status | ciclo 2: Mensal/Aprovado. Filtro fase=[Simples]+status=[Aprovado]
+  Esperado: False
+  Motivo:   fase e status aplicados na MESMA queryset de ciclos — precisam bater no mesmo ciclo, não em ciclos diferentes do produto
+  Obtido:   False
+
+[PASSOU] test_fase_e_status_juntos_quando_combinacao_existe_no_mesmo_ciclo
+  Entrada:  mesmo par de ciclos. Filtro fase=[Vídeo Mensal]+status=[Aprovado]
+  Esperado: True
+  Motivo:   agora a combinação pedida bate de verdade no ciclo 2 — aparece
+  Obtido:   True
+
+[PASSOU] test_filtro_data_ate_sozinho
+  Entrada:  A: ciclo criado 01/08 | B: ciclo criado 20/08, filtro data_ate=10/08
+  Esperado: (True, False)
+  Motivo:   data_ate é __lte — só quem foi criado até ali entra
+  Obtido:   (True, False)
+
+[PASSOU] test_filtro_data_de_e_data_ate_juntos_formam_janela
+  Entrada:  A: 05/08 (dentro) | B: 01/07 (antes) | C: 01/09 (depois), janela 01/08-10/08
+  Esperado: (True, False, False)
+  Motivo:   os 2 filtros juntos formam uma janela fechada — só quem cai dentro entra
+  Obtido:   (True, False, False)
+
+[PASSOU] test_filtro_data_de_sozinho
+  Entrada:  A: ciclo criado 10/08 | B: ciclo criado 01/07, filtro data_de=01/08
+  Esperado: (True, False)
+  Motivo:   data_de é __gte — só quem foi criado a partir dali entra
+  Obtido:   (True, False)
+
+[PASSOU] test_filtro_fase_exclui_quando_nao_bate
+  Entrada:  ciclo fase=Simples, filtro fase=[Vídeo Mensal]
+  Esperado: False
+  Motivo:   único ciclo do produto não bate a fase pedida — fica de fora
+  Obtido:   False
+
+[PASSOU] test_filtro_fase_inclui_quando_bate
+  Entrada:  ciclo fase=Vídeo Mensal, filtro fase=[Vídeo Mensal]
+  Esperado: True
+  Motivo:   ciclo bate a fase pedida — produto entra
+  Obtido:   True
+
+[PASSOU] test_filtro_fase_multiplas_fases_e_uniao
+  Entrada:  A: Simples | B: Trimestral | C: Mensal, filtro fase=[Simples, Trimestral]
+  Esperado: (True, True, False)
+  Motivo:   fase__in é união — qualquer uma das fases pedidas entra
+  Obtido:   (True, True, False)
+
+[PASSOU] test_filtro_marcas
+  Entrada:  A marca=Samsung | B marca=LG, filtro marcas=[Samsung]
+  Esperado: (True, False)
+  Motivo:   filtro direto por marca
+  Obtido:   (True, False)
+
+[PASSOU] test_filtro_status_exclui_quando_nao_bate
+  Entrada:  ciclo status=Recusado, filtro status=[Aprovado]
+  Esperado: False
+  Motivo:   único ciclo do produto não bate o status pedido — fica de fora
+  Obtido:   False
+
+[PASSOU] test_filtro_status_inclui_quando_bate
+  Entrada:  ciclo status=Aprovado, filtro status=[Aprovado]
+  Esperado: True
+  Motivo:   ciclo bate o status pedido — produto entra
+  Obtido:   True
+
+[PASSOU] test_filtro_status_manual_exclui_produto_sem_cache
+  Entrada:  produto com ciclo mas sem IndicadoresAgendaProduto, filtro status_manual=[Ativo]
+  Esperado: False
+  Motivo:   join INNER via indicadores_agenda — sem cache, o filtro nunca traz esse produto de volta
+  Obtido:   False
+
+[PASSOU] test_filtro_status_manual_inclui_quando_bate
+  Entrada:  cache status_manual=Ativo, filtro status_manual=[Ativo]
+  Esperado: True
+  Motivo:   filtro direto por status manual
+  Obtido:   True
+
+[PASSOU] test_filtro_urgente_ambiguo_nao_filtra
+  Entrada:  A urgente=True | B sem participação, filtro urgente=[sim, nao]
+  Esperado: (True, True)
+  Motivo:   os 2 valores marcados ao mesmo tempo — comportamento é não filtrar nada
+  Obtido:   (True, True)
+
+[PASSOU] test_filtro_urgente_nao_pega_false_explicito
+  Entrada:  urgente=False (registro existe), filtro urgente=[nao]
+  Esperado: True
+  Motivo:   caso direto — False bate "não urgente"
+  Obtido:   True
+
+[PASSOU] test_filtro_urgente_nao_pega_quem_nunca_teve_participacao
+  Entrada:  sem nenhum ParticipacaoAgenda, filtro urgente=[nao]
+  Esperado: True
+  Motivo:   fix de NULL: quem nunca clicou "Urgente" conta como não urgente, não fica de fora do filtro
+  Obtido:   True
+
+[PASSOU] test_filtro_urgente_sim_pega_so_true
+  Entrada:  A urgente=True | B urgente=False, filtro urgente=[sim]
+  Esperado: (True, False)
+  Motivo:   filtro direto — só quem tem urgente=True aparece
+  Obtido:   (True, False)
+
+[PASSOU] test_ordenacao_por_titulo
+  Entrada:  A="AAA Produto" | Z="ZZZ Produto"
+  Esperado: A antes de Z (ordem alfabética)
+  Motivo:   order_by(titulo) — sempre alfabética, sem opção de escolha nesta função
+  Obtido:   [118, 117]
+
+[PASSOU] test_produto_sem_ciclo_nenhum_nunca_aparece
+  Entrada:  produto sem nenhum CicloVideo, sem filtro nenhum
+  Esperado: False
+  Motivo:   entrada no relatório é via ids_produtos vindo dos ciclos — zero ciclo nunca aparece
+  Obtido:   False
+
+[PASSOU] test_sem_filtro_nenhum_retorna_quem_tem_ciclo
+  Entrada:  produto com 1 ciclo, sem busca nem filtro nenhum
+  Esperado: True
+  Motivo:   sem filtro nenhum, todo produto com pelo menos 1 ciclo aparece
+  Obtido:   True
+
+[PASSOU] test_sem_filtro_status_manual_nao_exige_cache
+  Entrada:  produto com ciclo, sem IndicadoresAgendaProduto, SEM filtro de status_manual
+  Esperado: True
+  Motivo:   sem o filtro aplicado, a ausência de cache não exclui ninguém — só acontece quando o filtro é usado de propósito
+  Obtido:   True
 
 === Nível 3 — marcar_aguardando_aprovacao() e marcar_replicado() ===
 
@@ -990,19 +1166,101 @@
   Motivo:   ordenado por -alterado_em — sempre o mais recente vale, nunca o primeiro
   Obtido:   pausado
 
+=== Nível 4 — view_confirmar_ponto_roadmap(): modal de confirmação via HTTP ===
+
+[PASSOU] ciclo aguardando aprovação + chave certa → confirma
+  Entrada:  status=AGUARDANDO_APROVACAO, chave=aguardando_aprovacao
+  Esperado: 200, tipo_acao=resolver_aprovacao
+  Motivo:   Etapa pedida bate com a etapa real do ciclo
+  Obtido:   status=200, tipo_acao=resolver_aprovacao
+
+[PASSOU] ciclo concluído + chave=concluido → 400
+  Entrada:  etapa_atual()=concluido, chave=concluido
+  Esperado: status_code == 400
+  Motivo:   "Concluído" é um estado resultante, não uma ação com modal de confirmação própria
+  Obtido:   status=400
+
+[PASSOU] ciclo real em Base + chave=base → confirma
+  Entrada:  CicloVideo salvo, etapa_atual()=base, chave=base
+  Esperado: 200, tipo_acao=confirmar_simples
+  Motivo:   Etapa pedida bate com a etapa real do ciclo
+  Obtido:   status=200, tipo_acao=confirmar_simples
+
+[PASSOU] ciclo em etapa postar + chave=postar → confirma
+  Entrada:  Base/Roteiro/Completo concluídos, status=None, chave=postar
+  Esperado: 200, tipo_acao=postar
+  Motivo:   Etapa pedida bate com a etapa real do ciclo
+  Obtido:   status=200, tipo_acao=postar
+
+[PASSOU] ciclo recusado + chave=completo → nova_tentativa
+  Entrada:  status=RECUSADO, chave=completo
+  Esperado: 200, tipo_acao=nova_tentativa
+  Motivo:   Recusado precisa refazer o Completo — caminho dedicado, checado antes do match genérico
+  Obtido:   status=200, tipo_acao=nova_tentativa
+
+[PASSOU] ciclo em Base + chave=postar (estado divergente) → 400
+  Entrada:  etapa_atual()=base, chave pedida=postar
+  Esperado: status_code == 400
+  Motivo:   Revalidação contra estado desatualizado — a razão de a view existir
+  Obtido:   status=400
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade
+  Obtido:   status=404
+
+[PASSOU] sem ciclo + chave=base → confirma, sem salvar nada
+  Entrada:  produto sem nenhum CicloVideo, chave=base
+  Esperado: 200, tipo_acao=confirmar_simples, 0 CicloVideo no banco
+  Motivo:   Só visualizar o modal nunca pode escrever no banco
+  Obtido:   status=200, tipo_acao=confirmar_simples, existe_no_banco=False
+
+[PASSOU] sem ciclo + chave=roteiro → 400
+  Entrada:  produto sem nenhum CicloVideo, chave=roteiro
+  Esperado: status_code == 400
+  Motivo:   O único ponto alcançável sem CicloVideo é "base" — qualquer outra chave é estado impossível
+  Obtido:   status=400
+
+=== Nível 4 — view_historico_produto(): modal individual via HTTP ===
+
+[PASSOU] produto com 1 ciclo em Base → aparece no resumo
+  Entrada:  1 CicloVideo, etapa_atual=base
+  Esperado: total=1, resumo tem "base" com quantidade=1
+  Motivo:   Confirma que a view passa o produto certo pra montar_historico_produto
+  Obtido:   total=1, resumo=[ResumoEtapa(valor='base', label='Base', classe='etapa-base', quantidade=1)]
+
+[PASSOU] produto_id inexistente → 404
+  Entrada:  produto_id=999999 (não existe)
+  Esperado: status_code == 404
+  Motivo:   get_object_or_404 precisa disparar 404 de verdade, não deixar exceção vazar
+  Obtido:   status=404
+
+[PASSOU] produto pausado → badge "Pausado" no contexto
+  Entrada:  1 HistoricoStatusManualAgenda(status=PAUSADO)
+  Esperado: status_manual_atual.label == "Pausado"
+  Motivo:   Garante que a view não usa um valor cacheado/desatualizado do status manual
+  Obtido:   status_manual_atual=Badge(label='Pausado', classe='status-pausado', icone='fa-pause')
+
+[PASSOU] produto sem ciclo → histórico vazio, sem erro
+  Entrada:  produto recém-criado, 0 CicloVideo
+  Esperado: 200, total=0, eventos=[]
+  Motivo:   View não pode quebrar pro caso mais comum (produto nunca tocado)
+  Obtido:   status=200, total=0, eventos=[]
+
 === RESUMO DA SESSÃO ===
 
-passed: 157
+passed: 199
 
 === COVERAGE ===
 
-___________________________________________ coverage: platform win32, python 3.12.10-final-0 ___________________________________________
+___________________________ coverage: platform win32, python 3.12.10-final-0 ___________________________
 
 Name                                                    Stmts   Miss Branch BrPart  Cover   Missing
 ---------------------------------------------------------------------------------------------------
-agenda_videos\funcoes_auxiliares\historico_roadmap.py     106     28     42      0    66%   191-230
+agenda_videos\funcoes_auxiliares\historico_roadmap.py     105      0     42      0   100%
 ---------------------------------------------------------------------------------------------------
-TOTAL                                                     106     28     42      0    66%
+TOTAL                                                     105      0     42      0   100%
 Coverage HTML written to dir resultados_coverage/htmlcov
 Coverage JSON written to file resultados_coverage/coverage.json
 

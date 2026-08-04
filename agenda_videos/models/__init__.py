@@ -1,6 +1,8 @@
 from .configuracao_fase import ConfiguracaoFase, Fase
 from .ciclo_video import CicloVideo, StatusPostagem
-from .participacao_agenda import ParticipacaoAgenda, HistoricoStatusManualAgenda, StatusManualAgenda
+from .participacao_agenda import (
+    ParticipacaoAgenda, HistoricoStatusManualAgenda, StatusManualAgenda, status_manual_atual_do_produto,
+)
 from .indicadores_agenda_produto import IndicadoresAgendaProduto
 from .snapshot_arquivos_drive import SnapshotArquivosDrive, VALIDADE_SNAPSHOT_DRIVE
 from .status_execucao import StatusExecucao

@@ -10,7 +10,7 @@
 from dataclasses import asdict, dataclass
 
 from produtos.models import Produto
-from agenda_videos.models import CicloVideo, IndicadoresAgendaProduto, StatusManualAgenda
+from agenda_videos.models import CicloVideo, IndicadoresAgendaProduto, status_manual_atual_do_produto
 
 
 @dataclass(frozen=True)
@@ -45,8 +45,7 @@ def calcular_indicadores(produto: Produto, ciclo_mais_recente: CicloVideo | None
         etapa = ciclo_mais_recente.etapa_atual()
         atrasado = ciclo_mais_recente.esta_atrasado()
 
-    participacao = getattr(produto, 'participacao_agenda', None)
-    status_manual = participacao.status_manual_atual() if participacao else StatusManualAgenda.ATIVO
+    status_manual = status_manual_atual_do_produto(produto)
 
     return IndicadoresCalculados(
         etapa_atual=etapa,

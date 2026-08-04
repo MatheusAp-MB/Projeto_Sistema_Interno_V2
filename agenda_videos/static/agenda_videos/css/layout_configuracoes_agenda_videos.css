@@ -40,8 +40,25 @@ form.config-agenda-card {
     color: #556;
     text-align: left;
     padding: 10px 16px;
-    white-space: nowrap;
     border-bottom: 2px solid var(--cor-borda);
+}
+
+.config-agenda-tabela th small {
+    display: block;
+    font-weight: 400;
+    color: #8a94a6;
+    font-size: 0.7rem;
+    margin-top: 2px;
+}
+
+.config-agenda-celula-checkbox {
+    text-align: center;
+}
+
+.config-agenda-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
 }
 
 .config-agenda-tabela td {
