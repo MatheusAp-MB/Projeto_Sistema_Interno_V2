@@ -1,3 +1,23 @@
+=== Integração real — leitura do Google Drive (sem mock, só leitura) ===
+
+[PASSOU] montar_arvore_por_ean() contra a estrutura real de hoje
+  Entrada:  989 itens reais, raiz=1GT_lYwKVmrcxPS7wRqI_uZghsczvcK_X
+  Esperado: dict {ean: {marca, arquivos_videos, arquivos_usados}}
+  Motivo:   Prova que a navegação marca→ean→Videos→arquivos funciona contra pastas reais, não uma lista fabricada
+  Obtido:   total_eans_reconhecidos=23
+
+[PASSOU] Conexão real com o Drive + listagem paginada
+  Entrada:  credencial real (C:\Users\Win10\Desktop\CODIGOS\Github\Credenciais GOOGLE\agenda-videos-mb-sv-771152092507.json)
+  Esperado: lista não vazia de itens reais
+  Motivo:   Se a credencial ou a API estiverem quebradas, isso já falha aqui, antes de qualquer lógica nossa
+  Obtido:   total_itens=989
+
+[PASSOU] sincronizar_snapshots_drive() contra o Drive real
+  Entrada:  Drive real + banco de teste vazio
+  Esperado: roda sem exceção; SnapshotArquivosDrive criado só pros EANs que já têm Produto no banco de teste
+  Motivo:   Prova a função de orquestração inteira, ponta a ponta, sem mock nenhum
+  Obtido:   atualizados=0, sem_produto_no_banco=23, snapshots_no_banco=0
+
 === Nível 0 — badges_agenda (buscar_badge_de / montar_opcoes_com_badge) ===
 
 [PASSOU] buscar_badge_de_aguardando_aprovacao
@@ -1166,6 +1186,20 @@
   Motivo:   ordenado por -alterado_em — sempre o mais recente vale, nunca o primeiro
   Obtido:   pausado
 
+=== Nível 4 — Integração: config mudada pela tela afeta o próximo ciclo real ===
+
+[PASSOU] POST muda distância (30→45d) e criar_proximo() usa o valor novo
+  Entrada:  ciclo criado com a régua antiga (30d), config mudada DEPOIS pra 45d
+  Esperado: data_devida == 2026-09-18 (usa 45d, não 30d)
+  Motivo:   ConfiguracaoFase é lida ao vivo por criar_proximo() — não existe cache pra ficar desatualizado
+  Obtido:   fase=video_mensal, numero_ocorrencia=2, data_devida=2026-09-18
+
+[PASSOU] POST muda período (4→2) e criar_proximo() já transiciona de fase mais cedo
+  Entrada:  ciclo #2 replicado com período antigo (4), config mudada DEPOIS pra período 2
+  Esperado: ocorrência #3 não fica mais dentro do período → cria Vídeo Trimestral #1
+  Motivo:   dentro_do_periodo() é avaliado contra a ConfiguracaoFase atual, lida na hora — não contra o valor que existia quando o ciclo foi criado
+  Obtido:   fase=video_trimestral, numero_ocorrencia=1, data_devida=2026-11-02
+
 === Nível 4 — view_agenda_videos(): tela principal via HTTP ===
 
 [PASSOU] por_pagina=1 com 2 produtos → 2 páginas
@@ -1204,7 +1238,7 @@
   Entrada:  ParticipacaoAgenda já existe com agendado_em de 10 dias atrás
   Esperado: agendado_em continua o valor original
   Motivo:   Idempotente: uma vez agendado, sempre agendado — nunca reseta o marco real
-  Obtido:   status=200, agendado_em=2026-07-25 14:34:40.507835+00:00
+  Obtido:   status=200, agendado_em=2026-07-26 14:50:07.575132+00:00
 
 [PASSOU] ciclo concluído mas fase=Vídeo Mensal → 400
   Entrada:  etapa_atual()=concluido, fase=Vídeo Mensal (não Simples)
@@ -1228,7 +1262,7 @@
   Entrada:  CicloVideo Simples com status=Replicado
   Esperado: cria Vídeo Mensal #1, ParticipacaoAgenda.agendado_em preenchido
   Motivo:   Transição formal Simples → Vídeo Mensal, marcando o momento real
-  Obtido:   status=200, mensal_1_existe=True, agendado_em=2026-08-04 14:34:40.760831+00:00
+  Obtido:   status=200, mensal_1_existe=True, agendado_em=2026-08-05 14:50:07.876055+00:00
 
 [PASSOU] Simples não concluído (ainda em Base) → 400
   Entrada:  CicloVideo Simples etapa_atual()=base
@@ -1299,6 +1333,68 @@
   Esperado: 200, ParticipacaoAgenda criada com urgente=True
   Motivo:   get_or_create cria o registro na hora, default urgente=False, primeiro toggle vira True
   Obtido:   status=200, participacao_existe=True, urgente=True
+
+=== Nível 4 — view_configuracoes_agenda_videos(): GET/POST via HTTP ===
+
+[PASSOU] GET com Vídeo Mensal já configurado
+  Entrada:  ConfiguracaoFase(Vídeo Mensal, periodo=4, distancia=30)
+  Esperado: contexto reflete os valores reais só pra essa fase
+  Motivo:   As outras fases sem registro continuam com o padrão em branco
+  Obtido:   mensal={'valor': 'video_mensal', 'label': 'Vídeo Mensal', 'periodo_continuo': False, 'periodo': 4, 'distancia_dias_corridos': 30, 'distancia_dias_ao_entrar_na_fase': 0, 'configurado': True}
+
+[PASSOU] GET sem nenhuma ConfiguracaoFase
+  Entrada:  banco vazio
+  Esperado: 3 fases no contexto, todas configurado=False e em branco
+  Motivo:   Sem registro salvo, a view precisa devolver valores padrão sem quebrar
+  Obtido:   status=200, configuradas=[False, False, False]
+
+[PASSOU] POST atualiza Vídeo Mensal já configurado
+  Entrada:  config existente (periodo=4) + POST com periodo=6
+  Esperado: 1 registro só, com os valores novos
+  Motivo:   update_or_create nunca deve duplicar o registro por fase (fase é unique)
+  Obtido:   total=1, config=Vídeo Mensal — 6x, a cada 45d
+
+[PASSOU] POST distância-de-entrada em branco
+  Entrada:  video_mensal_distancia_dias_ao_entrar_na_fase=""
+  Esperado: distancia_dias_ao_entrar_na_fase == 0
+  Motivo:   Esse campo nunca é obrigatório — em branco cai no padrão 0
+  Obtido:   config=Vídeo Mensal — 4x, a cada 30d
+
+[PASSOU] Nenhuma fase válida na submissão
+  Entrada:  as 3 fases com dado obrigatório faltando
+  Esperado: nenhum registro criado, ainda assim redireciona (302)
+  Motivo:   View sempre redireciona no final, com ou sem sucesso — nunca 400
+  Obtido:   status=302, total_no_banco=0
+
+[PASSOU] POST Vídeo Trimestral com periodo_continuo=on
+  Entrada:  video_trimestral_periodo_continuo="on", sem período
+  Esperado: periodo_continuo=True, periodo=None
+  Motivo:   Quando contínuo, período nunca é lido nem exigido
+  Obtido:   config=Vídeo Trimestral — contínua, a cada 90d
+
+[PASSOU] POST sem periodo_continuo e sem período preenchido
+  Entrada:  video_mensal_periodo=""
+  Esperado: nada criado pra Vídeo Mensal
+  Motivo:   Sem periodo_continuo, período é obrigatório
+  Obtido:   status=302, config=None
+
+[PASSOU] POST Simples com distância em branco
+  Entrada:  simples_distancia_dias_corridos=""
+  Esperado: ConfiguracaoFase(Simples) criada, distancia_dias_corridos=None
+  Motivo:   Simples é a única fase que não exige esse campo — travar contra o bug já corrigido
+  Obtido:   status=302, config=Simples — 1x, a cada Noned
+
+[PASSOU] 1 fase inválida (Mensal) entre 2 válidas na mesma submissão
+  Entrada:  só video_mensal_distancia_dias_corridos em branco
+  Esperado: Simples e Trimestral salvam, só Mensal fica sem
+  Motivo:   O loop processa cada fase de forma independente — 1 falha não deve travar as outras
+  Obtido:   simples=True, mensal=False, trimestral=True
+
+[PASSOU] POST Vídeo Mensal sem distância (obrigatória pra ela)
+  Entrada:  video_mensal_distancia_dias_corridos=""
+  Esperado: nada criado pra Vídeo Mensal
+  Motivo:   Diferente de Simples, Mensal exige distância entre ocorrências
+  Obtido:   status=302, config=None
 
 === Nível 4 — view_confirmar_ponto_roadmap(): modal de confirmação via HTTP ===
 
@@ -1460,7 +1556,7 @@
   Entrada:  2 produtos, ?busca=XPTO
   Esperado: só o produto com XPTO no título aparece
   Motivo:   Confirma que o parâmetro de busca da URL chega até listar_produtos_com_historico
-  Obtido:   status=200, ids_nos_grupos=[177]
+  Obtido:   status=200, ids_nos_grupos=[179]
 
 [PASSOU] marcas_disponiveis exclui vazia e nula
   Entrada:  marcas: Samsung, "" (vazia), None
@@ -1518,7 +1614,7 @@
   Entrada:  base já concluída, etapa_atual()=roteiro, chave=roteiro
   Esperado: 200, roteiro_concluido_em preenchido
   Motivo:   Etapa pedida bate com a etapa real do ciclo
-  Obtido:   status=200, roteiro_concluido_em=2026-08-04 14:34:42.686947+00:00
+  Obtido:   status=200, roteiro_concluido_em=2026-08-05 14:50:10.333070+00:00
 
 [PASSOU] ciclo em Base + chave=completo (divergente) → 400, nada marcado
   Entrada:  etapa_atual()=base, chave pedida=completo
@@ -1548,7 +1644,7 @@
   Entrada:  produto sem nenhum CicloVideo, chave=base
   Esperado: CicloVideo criado (Simples), base_concluido_em preenchido
   Motivo:   1º clique real de um produto nunca tocado — cria o Simples sozinho
-  Obtido:   status=200, ciclo_existe=True, base_concluido_em=2026-08-04 14:34:42.881528+00:00
+  Obtido:   status=200, ciclo_existe=True, base_concluido_em=2026-08-05 14:50:10.643347+00:00
 
 [PASSOU] sem ciclo + chave=roteiro → 400, nada criado
   Entrada:  produto sem nenhum CicloVideo, chave=roteiro
@@ -1558,7 +1654,7 @@
 
 === RESUMO DA SESSÃO ===
 
-passed: 248
+passed: 263
 
 === COVERAGE ===
 
