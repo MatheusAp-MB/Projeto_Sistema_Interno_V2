@@ -93,6 +93,35 @@ def test_tela_todos_mostra_produto_sem_cache_de_indicadores(client, tabela_resul
     assert passou
 
 
+def test_tela_todos_mostra_botao_de_verificar_drive_mesmo_sem_ciclo(client, tabela_resultados, regua_de_fases):
+    # Função Objetivo: regressão do Bug 1 (ver "Botao de Verificar Drive
+    # Individual Tinha 3 Bugs Reais" no vault) — o botão de verificar Drive
+    # não pode ficar escondido atrás do ciclo_atual, porque a view que ele
+    # chama não depende de ciclo nenhum pra funcionar.
+    # Setup:
+    produto = _criar_produto('SKU-TODOS-02')  # sem nenhum CicloVideo, de propósito
+
+    # Exercise:
+    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.TODOS})
+
+    # Assert:
+    html = resposta.content.decode()
+    passou = (
+        resposta.status_code == 200
+        and f'agenda-card-{produto.id}' in html
+        and 'agenda-verificar-drive-toggle' in html
+    )
+    registrar_resultado(
+        tabela_resultados, teste='card sem ciclo_atual ainda mostra o botão de verificar Drive',
+        entrada='produto sem nenhum CicloVideo, ?tela=todos',
+        esperado='card renderiza e contém o botão agenda-verificar-drive-toggle',
+        motivo='view_verificar_produto_drive só depende de produto_id — botão não pode ficar preso ao ciclo_atual',
+        obtido=f'status={resposta.status_code}, card_presente={f"agenda-card-{produto.id}" in html}, botao_presente={"agenda-verificar-drive-toggle" in html}',
+        passou=passou,
+    )
+    assert passou
+
+
 def test_tela_invalida_cai_no_padrao_a_fazer_hoje(client, tabela_resultados):
     # Exercise:
     resposta = client.get(reverse('agenda_videos_principal'), {'tela': 'essa-tela-nao-existe'})

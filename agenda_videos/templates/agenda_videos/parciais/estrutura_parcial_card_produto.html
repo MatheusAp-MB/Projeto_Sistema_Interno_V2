@@ -37,7 +37,10 @@
                 hx-target="#modal-roadmap-slot" hx-swap="innerHTML">
             <i class="fas fa-clock-rotate-left"></i>
         </button>
-        {% if ciclo_atual %}
+        <!-- * [EXPLICAÇÃO] → Verificar Drive — SEMPRE visível, qualquer estágio
+             (a view só depende de produto_id, não de ciclo_atual existir; ficar
+             preso ao ciclo escondia o botão bem na fase Simples/Base, que é
+             quando checar arquivo no Drive mais importa). -->
         <button type="button" class="agenda-verificar-drive-toggle"
                 title="Verificar arquivos no Google Drive"
                 hx-post="{% url 'agenda_videos_verificar_drive' produto.id %}"
@@ -47,7 +50,6 @@
             <i class="fas fa-cloud-arrow-down agenda-verificar-drive-icone-padrao"></i>
             <i class="fas fa-spinner fa-spin agenda-verificar-drive-icone-carregando"></i>
         </button>
-        {% endif %}
     </div>
 
     {% if erro_verificacao_drive %}

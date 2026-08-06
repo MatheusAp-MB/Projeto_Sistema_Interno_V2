@@ -67,6 +67,7 @@ def avaliar_etapa_no_drive(ciclo, estrutura_drive):
 # PRONTA (nenhuma chamada de rede aqui dentro).
 def _avancar_etapas_com_estrutura(produto_id, estrutura_drive):
     from produtos.models import Produto
+    from agenda_videos.models import CicloVideo
     from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 
     etapas_marcadas = []
@@ -77,7 +78,18 @@ def _avancar_etapas_com_estrutura(produto_id, estrutura_drive):
         produto = Produto.objects.get(id=produto_id)
         ciclo = produto.ciclos_video.first()
         if ciclo is None:
-            break
+            # * [EXPLICAÇÃO] → Produto sem nenhum CicloVideo ainda (Simples
+            #                  pré-criação) — a sincronização cria o 1º ciclo
+            #                  sozinha (mesmo caminho do clique manual,
+            #                  CicloVideo.iniciar_agenda), mas só se o Drive já
+            #                  comprovar o arquivo Base pronto. Nunca cria um
+            #                  ciclo travado em Base sem arquivo.
+            ciclo_hipotetico = CicloVideo(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
+            satisfeito, diagnostico_etapa = avaliar_etapa_no_drive(ciclo_hipotetico, estrutura_drive)
+            if not satisfeito:
+                diagnostico = diagnostico_etapa
+                break
+            ciclo = CicloVideo.iniciar_agenda(produto)
 
         etapa = ciclo.etapa_atual()
         if etapa not in ETAPAS_QUE_DEPENDEM_DE_ARQUIVO:
@@ -101,14 +113,35 @@ def _avancar_etapas_com_estrutura(produto_id, estrutura_drive):
 
 def verificar_produto_no_drive(produto_id):
     from produtos.models import Produto
+    from agenda_videos.models import SnapshotArquivosDrive
 
     produto = Produto.objects.get(id=produto_id)
     localizador = LocalizadorArquivosProduto()
-    encontrado, arquivos_brutos, motivo, _ = localizador.localizar_arquivos(produto.marca, produto.ean)
+    encontrado, arquivos_brutos, motivo, pasta_videos_id = localizador.localizar_arquivos(produto.marca, produto.ean)
 
     if not encontrado:
+        # * [EXPLICAÇÃO] → Grava o snapshot mesmo quando não encontra — mesmo
+        #                  princípio do comentário do model: verificação
+        #                  individual também é um dos 2 caminhos que mantêm
+        #                  o snapshot fresco, não só a varredura completa.
+        SnapshotArquivosDrive.objects.update_or_create(
+            produto=produto,
+            defaults={
+                'pasta_encontrada': False, 'motivo_nao_encontrado': motivo,
+                'arquivos_videos': [], 'arquivos_usados': [],
+            },
+        )
         estrutura_drive = montar_produto_nao_encontrado(produto.marca, produto.ean, motivo)
         return [], estrutura_drive, DiagnosticoBloqueio('pasta', motivo)
+
+    arquivos_usados = localizador.listar_arquivos_usados(pasta_videos_id)
+    SnapshotArquivosDrive.objects.update_or_create(
+        produto=produto,
+        defaults={
+            'pasta_encontrada': True, 'motivo_nao_encontrado': None,
+            'arquivos_videos': arquivos_brutos, 'arquivos_usados': arquivos_usados,
+        },
+    )
 
     estrutura_drive = parsear_arquivos_produto(produto.marca, produto.ean, arquivos_brutos)
     etapas_marcadas, diagnostico = _avancar_etapas_com_estrutura(produto_id, estrutura_drive)
