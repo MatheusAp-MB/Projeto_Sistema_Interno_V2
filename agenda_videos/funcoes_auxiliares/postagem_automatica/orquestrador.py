@@ -13,7 +13,7 @@ import tempfile
 from datetime import date
 
 from django.db import close_old_connections
-from django.db.models import OuterRef, Subquery
+from django.db.models import OuterRef, Subquery, Q
 from django.utils import timezone
 from produtos.models import Produto
 from agenda_videos.models import (
@@ -53,7 +53,8 @@ def listar_produtos_elegiveis():
         prioridade_ordenacao=construir_annotation_prioridade(),
         ordenacao_fase=construir_annotation_ordenacao_fase(),
     ).filter(
-        indicadores_agenda__etapa_atual='postar', data_devida_ciclo_atual__lte=hoje, postou_hoje=False,
+        Q(data_devida_ciclo_atual__lte=hoje) | Q(data_devida_ciclo_atual__isnull=True),
+        indicadores_agenda__etapa_atual='postar', postou_hoje=False,
     ).order_by('prioridade_ordenacao', 'ordenacao_fase', 'data_devida_ciclo_atual')
 
 
@@ -65,13 +66,14 @@ def obter_mlb_do_produto(produto):
     return variacao.anuncio.mlb if variacao else None
 
 
-# Função Objetivo: Acha o vídeo EXATO da ocorrência atual (CicloVideo já diz
-# exatamente qual arquivo baixar, sem precisar de cache local à parte).
-# * [PENDENTE] → Assume que a pasta do Drive continua organizada por fase,
-#                com arquivos numerados dentro dela — ainda não confirmado se
-#                isso muda no modelo novo (Base/Completo por OCORRÊNCIA, não
-#                mais por fase inteira). Revisitar quando a estrutura do
-#                Drive for discutida à parte.
+# Função Objetivo: Acha o vídeo Completo EXATO da ocorrência atual (CicloVideo
+# já diz exatamente qual arquivo baixar, sem precisar de cache local à parte).
+# * [CORREÇÃO] → Corrigido (06/08) — ainda usava o formato ANTIGO do parser
+#                (estrutura.fases[fase].completos.arquivos_validos), que não
+#                existe mais desde a reescrita do Drive pro modelo Base/
+#                Roteiro/Completo por OCORRÊNCIA. Nunca tinha sido exercitado
+#                por nenhum teste até agora, por isso ficou quebrado sem
+#                ninguém notar.
 def resolver_arquivo_da_ocorrencia(produto, ciclo):
     localizador = LocalizadorArquivosProduto()
     encontrado, arquivos_brutos, motivo, pasta_videos_id = localizador.localizar_arquivos(produto.marca, produto.ean)
@@ -79,14 +81,12 @@ def resolver_arquivo_da_ocorrencia(produto, ciclo):
         return None, None, motivo
 
     estrutura = parsear_arquivos_produto(produto.marca, produto.ean, arquivos_brutos)
-    fase = ciclo.fase
-    numero_esperado = ciclo.numero_ocorrencia
-    completos_da_fase = estrutura.fases[fase].completos
-    todos_os_numerados = completos_da_fase.arquivos_validos + completos_da_fase.arquivos_fora_de_sequencia
-    arquivo_alvo = next((a for a in todos_os_numerados if a.numero == numero_esperado), None)
+    fase_estrutura = estrutura.obter_fase(ciclo.fase)
+    ocorrencia = fase_estrutura.obter_ocorrencia(ciclo.numero_ocorrencia)
+    arquivo_alvo = ocorrencia.completo if ocorrencia else None
 
     if arquivo_alvo is None:
-        return None, pasta_videos_id, f'Vídeo da ocorrência {numero_esperado} não encontrado em Videos/.'
+        return None, pasta_videos_id, f'Vídeo Completo da ocorrência {ciclo.numero_ocorrencia} não encontrado em Videos/.'
 
     return arquivo_alvo, pasta_videos_id, None
 
