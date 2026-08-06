@@ -327,3 +327,6 @@ $RECYCLE.BIN/
 .coverage
 htmlcov/
 coverage.json
+
+
+scripts_exploracao_ERP/saidas/
