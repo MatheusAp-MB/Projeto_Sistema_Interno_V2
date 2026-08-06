@@ -54,7 +54,7 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
 
             pasta_videos = next(
                 (f for f in filhos_de.get(pasta_ean['id'], [])
-                 if f['name'] == NOME_PASTA_VIDEOS and f['mimeType'] == MIME_PASTA),
+                 if f['name'].lower() == NOME_PASTA_VIDEOS.lower() and f['mimeType'] == MIME_PASTA),
                 None,
             )
             if pasta_videos is None:
@@ -63,7 +63,7 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
             conteudo_videos = filhos_de.get(pasta_videos['id'], [])
             pasta_usados = next(
                 (f for f in conteudo_videos
-                 if f['name'] == NOME_PASTA_USADOS and f['mimeType'] == MIME_PASTA),
+                 if f['name'].lower() == NOME_PASTA_USADOS.lower() and f['mimeType'] == MIME_PASTA),
                 None,
             )
             arquivos_videos = [
