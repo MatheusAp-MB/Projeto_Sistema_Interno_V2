@@ -58,3 +58,21 @@ class ImpostosEntradaXML:
 
         corpo = {'datainicial': data_inicial, 'datafinal': data_final, 'offset': offset}
         return self._cliente.chamar('listarManifestoNotaEntrada', corpo)
+
+    def listar_periodo_completo(self, data_inicial, data_final, data_referencia=None):
+        if data_referencia is None:
+            data_referencia = date.today()
+
+        todos_os_registros = []
+        offset = 0
+        while True:
+            pagina = self.listar_por_periodo(
+                data_inicial, data_final, offset=str(offset), data_referencia=data_referencia
+            )
+            registros_da_pagina = pagina['retorno']
+            if not registros_da_pagina:
+                break
+            todos_os_registros.extend(registros_da_pagina)
+            offset += len(registros_da_pagina)
+
+        return {'retorno': todos_os_registros}
