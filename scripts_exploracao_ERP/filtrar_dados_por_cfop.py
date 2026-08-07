@@ -8,10 +8,15 @@ _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')
 NOME_ARQUIVO_SAIDA = 'dados_filtrados.json'
 
+# * [ATUALIZAÇÃO 07/08/2026] → lista definitiva pós-reunião com o superior:
+#   1.403/2.403 entrou (compra sob substituição tributária, ICMS-ST); 1.916/
+#   2.916 saiu (retorno de conserto não é compra nem bonificação). Ver
+#   "Lista de CFOP Relevantes para Precificacao" no vault pro histórico
+#   completo da decisão.
 CFOPS_PARA_MANTER = (
     '1.102', '2.102',  # compra para revenda
+    '1.403', '2.403',  # compra para revenda sob substituição tributária (ICMS-ST)
     '1.910', '2.910',  # bonificação, doação ou brinde (sem custo real de aquisição)
-    '1.916', '2.916',  # retorno de remessa para conserto ou reparo (checar se carrega valor)
 )
 
 
