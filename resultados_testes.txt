@@ -1,2260 +1,286 @@
-=== Nível 0 — badges_agenda (buscar_badge_de / montar_opcoes_com_badge) ===
+=== Nível 0 — api_sysemp (ApiSysemp) ===
 
-[PASSOU] buscar_badge_de_aguardando_aprovacao
-  Entrada:  aguardando_aprovacao
-  Esperado: Aguardando aprovação
-  Motivo:   'aguardando_aprovacao' é 1 dos 7 valores de etapa_atual() — mesmo badge visual do status de postagem homônimo.
-  Obtido:   Aguardando aprovação
-
-[PASSOU] buscar_badge_de_base
-  Entrada:  base
-  Esperado: Base
-  Motivo:   'base' é 1 dos 7 valores que CicloVideo.etapa_atual() pode devolver.
-  Obtido:   Base
-
-[PASSOU] buscar_badge_de_completo
-  Entrada:  completo
-  Esperado: Completo
-  Motivo:   'completo' é 1 dos 7 valores de etapa_atual().
-  Obtido:   Completo
-
-[PASSOU] buscar_badge_de_concluido
-  Entrada:  concluido
-  Esperado: Concluído
-  Motivo:   'concluido' é 1 dos 7 valores de etapa_atual().
-  Obtido:   Concluído
-
-[PASSOU] buscar_badge_de_postar
-  Entrada:  postar
-  Esperado: Aguardando Postar
-  Motivo:   'postar' é 1 dos 7 valores de etapa_atual().
-  Obtido:   Aguardando Postar
-
-[PASSOU] buscar_badge_de_replicar
-  Entrada:  replicar
-  Esperado: Aprovado, aguardando replicar
-  Motivo:   'replicar' é 1 dos 7 valores de etapa_atual().
-  Obtido:   Aprovado, aguardando replicar
-
-[PASSOU] buscar_badge_de_roteiro
-  Entrada:  roteiro
-  Esperado: Roteiro
-  Motivo:   'roteiro' é 1 dos 7 valores de etapa_atual().
-  Obtido:   Roteiro
-
-[PASSOU] buscar_badge_de_xyz_invalido
-  Entrada:  xyz_invalido
-  Esperado: —
-  Motivo:   Valor bruto não existe em nenhum dicionário — cai no BADGE_PADRAO em vez de lançar KeyError.
-  Obtido:   —
-
-[PASSOU] buscar_badge_de_None
-  Entrada:  None
-  Esperado: —
-  Motivo:   None não é chave de nenhum dicionário — mesmo fallback do valor desconhecido, prova que .get() nunca quebra com entrada nula.
-  Obtido:   —
-
-[PASSOU] buscar_badge_de_ativo
-  Entrada:  ativo
-  Esperado: Ativo
-  Motivo:   'Ativo' é chave real de BADGES_STATUS_MANUAL — badge exato, não cai no fallback.
-  Obtido:   Ativo
-
-[PASSOU] buscar_badge_de_descontinuado
-  Entrada:  descontinuado
-  Esperado: Descontinuado
-  Motivo:   'Descontinuado' é chave real de BADGES_STATUS_MANUAL.
-  Obtido:   Descontinuado
-
-[PASSOU] buscar_badge_de_pausado
-  Entrada:  pausado
-  Esperado: Pausado
-  Motivo:   'Pausado' é chave real de BADGES_STATUS_MANUAL.
-  Obtido:   Pausado
-
-[PASSOU] buscar_badge_de_aguardando_aprovacao
-  Entrada:  aguardando_aprovacao
-  Esperado: Aguardando aprovação
-  Motivo:   'Aguardando aprovação' é chave real de BADGES_STATUS_POSTAGEM.
-  Obtido:   Aguardando aprovação
-
-[PASSOU] buscar_badge_de_aprovado
-  Entrada:  aprovado
-  Esperado: Aprovado
-  Motivo:   'Aprovado' é chave real de BADGES_STATUS_POSTAGEM.
-  Obtido:   Aprovado
-
-[PASSOU] buscar_badge_de_recusado
-  Entrada:  recusado
-  Esperado: Recusado
-  Motivo:   'Recusado' é chave real de BADGES_STATUS_POSTAGEM.
-  Obtido:   Recusado
-
-[PASSOU] buscar_badge_de_replicado
-  Entrada:  replicado
-  Esperado: Replicado
-  Motivo:   'Replicado' é chave real de BADGES_STATUS_POSTAGEM.
-  Obtido:   Replicado
-
-[PASSOU] montar_opcoes_com_badge_7_itens
-  Entrada:  7 chave(s) de entrada
-  Esperado: 7 opção(ões), ordem: ['Base', 'Roteiro', 'Completo', 'Aguardando Postar', 'Aguardando aprovação', 'Aprovado, aguardando replicar', 'Concluído']
-  Motivo:   7 chaves reais de BADGES_ETAPA, mesma ordem de declaração do dict.
-  Obtido:   7 opção(ões), ordem: ['Base', 'Roteiro', 'Completo', 'Aguardando Postar', 'Aguardando aprovação', 'Aprovado, aguardando replicar', 'Concluído']
-
-[PASSOU] montar_opcoes_com_badge_3_itens
-  Entrada:  3 chave(s) de entrada
-  Esperado: 3 opção(ões), ordem: ['Ativo', 'Pausado', 'Descontinuado']
-  Motivo:   3 chaves reais de BADGES_STATUS_MANUAL — cada uma vira 1 OpcaoComBadge, na mesma ordem de declaração do dict.
-  Obtido:   3 opção(ões), ordem: ['Ativo', 'Pausado', 'Descontinuado']
-
-[PASSOU] montar_opcoes_com_badge_4_itens
-  Entrada:  4 chave(s) de entrada
-  Esperado: 4 opção(ões), ordem: ['Aguardando aprovação', 'Aprovado', 'Recusado', 'Replicado']
-  Motivo:   4 chaves reais de BADGES_STATUS_POSTAGEM, mesma ordem de declaração do dict.
-  Obtido:   4 opção(ões), ordem: ['Aguardando aprovação', 'Aprovado', 'Recusado', 'Replicado']
-
-[PASSOU] montar_opcoes_com_badge_0_itens
-  Entrada:  0 chave(s) de entrada
-  Esperado: 0 opção(ões), ordem: []
-  Motivo:   Dicionário vazio — nenhum BADGES_* real é vazio hoje, mas é o limite estrutural da função — lista de opções também vem vazia, sem erro.
-  Obtido:   0 opção(ões), ordem: []
-
-=== Nível 0 — cálculo puro de dia útil ===
-
-[PASSOU] adicionar_dias_uteis_06-08_mais_2
-  Entrada:  06/08 (Thursday) + 2 dia(s) útil(eis)
-  Esperado: 10/08
-  Motivo:   quinta + 2 dias úteis: sexta(1) -> pula fim de semana -> segunda(2)
-  Obtido:   10/08
-
-[PASSOU] adicionar_dias_uteis_03-08_mais_1
-  Entrada:  03/08 (Monday) + 1 dia(s) útil(eis)
-  Esperado: 04/08
-  Motivo:   segunda + 1 dia útil = terça, sem fim de semana no meio
-  Obtido:   04/08
-
-[PASSOU] adicionar_dias_uteis_07-08_mais_1
-  Entrada:  07/08 (Friday) + 1 dia(s) útil(eis)
-  Esperado: 10/08
-  Motivo:   sexta + 1 dia útil pula sáb/dom, cai segunda
-  Obtido:   10/08
-
-[PASSOU] adicionar_dias_uteis_03-08_mais_0
-  Entrada:  03/08 (Monday) + 0 dia(s) útil(eis)
-  Esperado: 03/08
-  Motivo:   0 dias úteis não move a data
-  Obtido:   03/08
-
-[PASSOU] proximo_dia_util_03-08
-  Entrada:  03/08 (Monday)
-  Esperado: 04/08
-  Motivo:   segunda avança pra terça — nunca fica no mesmo dia, mesmo já sendo útil
-  Obtido:   04/08
-
-[PASSOU] proximo_dia_util_02-08
-  Entrada:  02/08 (Sunday)
-  Esperado: 03/08
-  Motivo:   domingo pula pro dia útil seguinte, segunda
-  Obtido:   03/08
-
-[PASSOU] proximo_dia_util_01-08
-  Entrada:  01/08 (Saturday)
-  Esperado: 03/08
-  Motivo:   sábado pula pro dia útil seguinte, segunda
-  Obtido:   03/08
-
-[PASSOU] proximo_dia_util_07-08
-  Entrada:  07/08 (Friday)
-  Esperado: 10/08
-  Motivo:   sexta pula sáb/dom, cai segunda
-  Obtido:   10/08
-
-[PASSOU] ultimo_dia_util_03-08
-  Entrada:  03/08 (Monday)
-  Esperado: 03/08
-  Motivo:   segunda já é dia útil, não mexe
-  Obtido:   03/08
-
-[PASSOU] ultimo_dia_util_02-08
-  Entrada:  02/08 (Sunday)
-  Esperado: 31/07
-  Motivo:   domingo volta pra sexta anterior
-  Obtido:   31/07
-
-[PASSOU] ultimo_dia_util_01-08
-  Entrada:  01/08 (Saturday)
-  Esperado: 31/07
-  Motivo:   sábado volta pra sexta anterior
-  Obtido:   31/07
-
-=== test_nivel_0__parser ===
-
-[PASSOU] montar_produto_nao_encontrado
-  Entrada:  marca='Marca X', ean='123', motivo='Pasta da marca não encontrada'
-  Esperado: pasta_encontrada=False, motivo preenchido, 3 fases vazias
-  Motivo:   Placeholder seguro pra quando a pasta não existe no Drive
-  Obtido:   pasta_encontrada=False, motivo='Pasta da marca não encontrada'
-
-[PASSOU] obter_fase — chave inválida levanta ValueError
-  Entrada:  chave_fase='fase_que_nao_existe'
-  Esperado: levanta ValueError
-  Motivo:   Fix de 05/08: getattr sem guard levantava AttributeError cru — trocado por validação explícita
-  Obtido:   levantou_value_error=True
-
-[PASSOU] obter_fase — chave válida
-  Entrada:  chave_fase='video_trimestral'
-  Esperado: devolve o mesmo objeto de produto_drive.video_trimestral
-  Motivo:   getattr correto — 3 chaves reais mapeiam 1:1 pros 3 campos da dataclass
-  Obtido:   fase_e_o_mesmo_objeto=True
-
-[PASSOU] obter_ocorrencia — número existente
-  Entrada:  ocorrencias=[#1, #2], busca #2
-  Esperado: devolve a ocorrência #2
-  Motivo:   Busca direta pelo número, sem depender de índice de lista
-  Obtido:   encontrada=ArquivosOcorrencia(numero=2, base=None, roteiro=None, completo=None)
-
-[PASSOU] obter_ocorrencia — número inexistente
-  Entrada:  ocorrencias=[#1], busca #99
-  Esperado: None
-  Motivo:   Número fora da lista nunca levanta erro — só não acha
-  Obtido:   encontrada=None
-
-[PASSOU] parsear_arquivos_produto — case-insensitive
-  Entrada:  MENSAL_01_BASE.MP4 (tudo caixa alta)
-  Esperado: reconhecido igual a Mensal_01_Base.mp4
-  Motivo:   Reconhecimento insensível a maiúscula/minúscula, rígido só no formato
-  Obtido:   ocorrencia=ArquivosOcorrencia(numero=1, base=ArquivoDrive(nome_arquivo='MENSAL_01_BASE.MP4', drive_file_id='id_z'), roteiro=None, completo=None)
-
-[PASSOU] parsear_arquivos_produto — não reconhecidos ordenados por nome
-  Entrada:  zzz_arquivo.pdf chega antes de aaa_arquivo.pdf
-  Esperado: saída ordenada: [aaa_arquivo.pdf, zzz_arquivo.pdf]
-  Motivo:   Ordem determinística, não depende da ordem de chegada do Drive
-  Obtido:   nao_reconhecidos=[ArquivoDrive(nome_arquivo='aaa_arquivo.pdf', drive_file_id='id_aaa'), ArquivoDrive(nome_arquivo='zzz_arquivo.pdf', drive_file_id='id_zzz')]
-
-[PASSOU] parsear_arquivos_produto — nome certo, extensão errada
-  Entrada:  Simples_Base.txt (Base deveria ser .mp4)
-  Esperado: simples.ocorrencias=[], vai pra não reconhecidos
-  Motivo:   Extensão errada nunca é aceita por engano, mesmo com nome certo
-  Obtido:   simples_ocorrencias=[], nao_reconhecidos=[ArquivoDrive(nome_arquivo='Simples_Base.txt', drive_file_id='id_x')]
-
-[PASSOU] parsear_arquivos_produto — nome fora do padrão
-  Entrada:  arquivo_qualquer.pdf
-  Esperado: vai pra não reconhecidos
-  Motivo:   Nenhum dos 2 padrões (Simples/numerado) bate
-  Obtido:   nao_reconhecidos=[ArquivoDrive(nome_arquivo='arquivo_qualquer.pdf', drive_file_id='id_v')]
-
-[PASSOU] parsear_arquivos_produto — numerado, extensão errada
-  Entrada:  Mensal_01_Base.txt (Base deveria ser .mp4)
-  Esperado: vai pra não reconhecidos, nenhuma ocorrência criada
-  Motivo:   Mesma regra do Simples, aplicada ao ramo Numerado (Mensal/Trimestral)
-  Obtido:   video_mensal_ocorrencias=[], nao_reconhecidos=[ArquivoDrive(nome_arquivo='Mensal_01_Base.txt', drive_file_id='id_y')]
-
-[PASSOU] parsear_arquivos_produto — número sem 2 dígitos
-  Entrada:  Mensal_1_Base.mp4 (1 dígito, não "01")
-  Esperado: não reconhecido — regex exige 2 dígitos exatos
-  Motivo:   Formato rígido é intencional — evita ambiguidade de numeração
-  Obtido:   video_mensal_ocorrencias=[], nao_reconhecidos=[ArquivoDrive(nome_arquivo='Mensal_1_Base.mp4', drive_file_id='id_w')]
-
-[PASSOU] parsear_arquivos_produto — números com buraco (só #2 e #4)
-  Entrada:  2 arquivos: Mensal_02_Base.mp4, Mensal_04_Base.mp4
-  Esperado: ocorrências=[2, 4], sem #1 nem #3 inventados
-  Motivo:   Time pré-produz vídeos fora de ordem (pool) — parser precisa refletir isso fielmente
-  Obtido:   numeros=[2, 4]
-
-[PASSOU] parsear_arquivos_produto — ocorrência incompleta (só Base)
-  Entrada:  1 arquivo: Mensal_01_Base.mp4
-  Esperado: ocorrência #1 com base preenchido, roteiro=None, completo=None
-  Motivo:   Arquivo que falta nunca trava o parser nem inventa dado — só fica None
-  Obtido:   ocorrencia=ArquivosOcorrencia(numero=1, base=ArquivoDrive(nome_arquivo='Mensal_01_Base.mp4', drive_file_id='id_base'), roteiro=None, completo=None)
-
-[PASSOU] parsear_arquivos_produto — pasta completa e válida
-  Entrada:  18 arquivos: Simples + Mensal 01-04 + Trimestral 01, trio completo em cada
-  Esperado: simples=1 ocorrência completa, mensal=[1,2,3,4] completas, trimestral=1 ocorrência, 0 não reconhecidos
-  Motivo:   Caminho feliz — mesmo formato da pasta de referência real validada no Drive (QUIMIVIDA)
-  Obtido:   simples_ok=True, numeros_mensal=[1, 2, 3, 4], mensal_completo_ok=True, trimestral_ok=True, nao_reconhecidos=[]
-
-[PASSOU] parsear_arquivos_produto — pasta vazia
-  Entrada:  lista vazia de arquivos
-  Esperado: 3 fases vazias, não reconhecidos vazio, pasta_encontrada=True
-  Motivo:   Pasta existir vazia é diferente de pasta não encontrada — não deve travar
-  Obtido:   pasta_encontrada=True, simples=[], mensal=[], trimestral=[]
-
-=== Nível 0 — roadmap_produto (montar_rotulo_rodada / _traduzir_status_em_estado_visual) ===
-
-[PASSOU] montar_rotulo_rodada_simples_1
-  Entrada:  fase=simples, numero_ocorrencia=1
-  Esperado: Simples
-  Motivo:   Simples só existe 1 vez — nunca numera, mesmo recebendo numero_ocorrencia=1.
-  Obtido:   Simples
-
-[PASSOU] montar_rotulo_rodada_video_mensal_1
-  Entrada:  fase=video_mensal, numero_ocorrencia=1
-  Esperado: Vídeo Mensal #1
-  Motivo:   Vídeo Mensal numera normalmente — 1ª ocorrência.
-  Obtido:   Vídeo Mensal #1
-
-[PASSOU] montar_rotulo_rodada_video_mensal_4
-  Entrada:  fase=video_mensal, numero_ocorrencia=4
-  Esperado: Vídeo Mensal #4
-  Motivo:   Vídeo Mensal numera normalmente — última ocorrência da régua (período de 4).
-  Obtido:   Vídeo Mensal #4
-
-[PASSOU] montar_rotulo_rodada_video_trimestral_1
-  Entrada:  fase=video_trimestral, numero_ocorrencia=1
-  Esperado: Vídeo Trimestral #1
-  Motivo:   Vídeo Trimestral numera normalmente — a função não sabe que essa fase é contínua, só formata o que recebe.
-  Obtido:   Vídeo Trimestral #1
-
-[PASSOU] montar_rotulo_rodada_video_trimestral_7
-  Entrada:  fase=video_trimestral, numero_ocorrencia=7
-  Esperado: Vídeo Trimestral #7
-  Motivo:   Número alto, sem teto — prova que a função não limita a numeração.
-  Obtido:   Vídeo Trimestral #7
-
-[PASSOU] traduzir_status_aguardando_aprovacao
-  Entrada:  aguardando_aprovacao
-  Esperado: Aguardando aprovação
-  Motivo:   Aguardando aprovação do marketplace — bolinha fica Aguardando.
-  Obtido:   Aguardando aprovação
-
-[PASSOU] traduzir_status_aprovado
-  Entrada:  aprovado
-  Esperado: Aprovado, aguardando replicar
-  Motivo:   Aprovado, falta só o clique de Replicar — bolinha fica Aprovado, aguardando replicar.
-  Obtido:   Aprovado, aguardando replicar
-
-[PASSOU] traduzir_status_xyz_invalido
-  Entrada:  xyz_invalido
-  Esperado: Atual
-  Motivo:   Valor desconhecido (defensivo — StatusPostagem é fechado, mas nunca deve quebrar) — cai no mesmo fallback do None, Atual.
-  Obtido:   Atual
-
-[PASSOU] traduzir_status_recusado
-  Entrada:  recusado
-  Esperado: Recusado
-  Motivo:   Postagem recusada pelo marketplace — bolinha fica Recusado.
-  Obtido:   Recusado
-
-[PASSOU] traduzir_status_replicado
-  Entrada:  replicado
-  Esperado: Concluído
-  Motivo:   Replicado — rodada encerrada, bolinha fica Concluído.
-  Obtido:   Concluído
-
-[PASSOU] traduzir_status_None
-  Entrada:  None
-  Esperado: Atual
-  Motivo:   Sem status (nenhuma postagem ainda) — estado visual é Atual.
-  Obtido:   Atual
-
-=== Nível 2 — calcular_indicadores_ciclo() ===
-
-[PASSOU] atrasado_usa_data_referencia_informada
-  Entrada:  data_devida=31/12/2029, data_referencia simulada=01/01/2030
+[PASSOU] impostos_entrada_e_cacheado
+  Entrada:  2 acessos seguidos a api.impostos_entrada
   Esperado: True
-  Motivo:   só bate se a função propagar data_referencia de verdade pro DOC, não a data real do sistema
+  Motivo:   Cria 1 instância só e reaproveita — não faz sentido recriar o contexto a cada acesso.
   Obtido:   True
 
-[PASSOU] risco_false_quando_atrasado
-  Entrada:  data_devida=31/07/2026, etapa=base
-  Esperado: False
-  Motivo:   prazo já passou — "não atrasado" falha, mesmo com etapa em produção e dentro do limite
-  Obtido:   False
-
-[PASSOU] risco_false_quando_etapa_fora_de_producao
-  Entrada:  data_devida=03/08/2026, etapa=postar
-  Esperado: False
-  Motivo:   produção inteira concluída (etapa vira "postar") — "postar" não é etapa de produção
-  Obtido:   False
-
-[PASSOU] risco_false_quando_prazo_ainda_longe
-  Entrada:  data_devida=10/08/2026, etapa=base
-  Esperado: False
-  Motivo:   prazo muito depois do limite de risco — ainda não é hora de alertar
-  Obtido:   False
-
-[PASSOU] risco_false_quando_sem_data_devida
-  Entrada:  data_devida=None, etapa=base
-  Esperado: False
-  Motivo:   Simples nunca tem vencimento — sem data_devida, risco nunca é True mesmo em produção
-  Obtido:   False
-
-[PASSOU] risco_true_no_limite_exato
-  Entrada:  data_devida=04/08/2026, etapa=base
+[FALHOU] impostos_entrada_caso_de_falha_proposital
+  Entrada:  api.impostos_entrada comparado com uma instância nova e solta
   Esperado: True
-  Motivo:   prazo exatamente igual ao limite de risco (hoje + 1 dia útil) — regra usa <=
-  Obtido:   True
-
-[PASSOU] risco_true_quando_tudo_bate
-  Entrada:  data_devida=03/08/2026, etapa=base
-  Esperado: True
-  Motivo:   etapa base (produção) + não atrasado + prazo dentro do limite (hoje)
-  Obtido:   True
-
-=== Nível 2 — CicloVideo.esta_atrasado() ===
-
-[PASSOU] aguardando_aprovacao_nunca_atrasa
-  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=sim, hoje=10/08
-  Esperado: False
-  Motivo:   aguardando aprovação: prazo já foi cumprido, não conta atraso mesmo depois da data
+  Motivo:   Propositalmente errado — existe só pra provar que a tabela mostra FALHOU corretamente.
   Obtido:   False
 
-[PASSOU] antes_do_prazo_nao_atrasado
-  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=não, hoje=06/08
-  Esperado: False
-  Motivo:   quinta, 1 dia antes do prazo (sexta) — ainda não venceu
-  Obtido:   False
+[PASSOU] impostos_entrada_retorna_tipo_correto
+  Entrada:  ApiSysemp(token='token-de-teste').impostos_entrada
+  Esperado: <class 'api_sysemp.impostos_entrada_xml.ImpostosEntradaXML'>
+  Motivo:   A propriedade precisa devolver o contexto certo — é o único jeito de acessar impostos de entrada a partir da API.
+  Obtido:   <class 'api_sysemp.impostos_entrada_xml.ImpostosEntradaXML'>
 
-[PASSOU] depois_do_prazo_atrasado
-  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=não, hoje=08/08
-  Esperado: True
-  Motivo:   sábado, 1 dia depois do prazo — atrasado
-  Obtido:   True
+[PASSOU] init_com_token_explicito
+  Entrada:  token='token-explicito-de-teste', sem SYSEMP_API_TOKEN no ambiente
+  Esperado: token-explicito-de-teste
+  Motivo:   Token passado explicitamente nunca precisa consultar o .env — usa exatamente o que foi injetado.
+  Obtido:   token-explicito-de-teste
 
-[PASSOU] no_dia_do_prazo_nao_atrasado
-  Entrada:  data_devida=2026-08-07, aguardando_aprovacao=não, hoje=07/08
-  Esperado: False
-  Motivo:   no próprio dia do prazo — ainda dentro do prazo, não atrasado
-  Obtido:   False
+[PASSOU] init_sem_token_e_sem_env
+  Entrada:  token=None, SYSEMP_API_TOKEN ausente do ambiente
+  Esperado: <class 'RuntimeError'>
+  Motivo:   Sem token nenhum disponível (nem explícito, nem .env) — recusa na hora, com mensagem clara de como corrigir.
+  Obtido:   <class 'RuntimeError'>
 
-[PASSOU] sem_data_devida_nunca_atrasa
-  Entrada:  data_devida=None, aguardando_aprovacao=não, hoje=10/08
-  Esperado: False
-  Motivo:   Simples nunca tem vencimento — sem data_devida, nunca atrasa
-  Obtido:   False
+[PASSOU] init_sem_token_carrega_do_env
+  Entrada:  token=None, SYSEMP_API_TOKEN=token-do-env-de-teste no ambiente
+  Esperado: token-do-env-de-teste
+  Motivo:   Sem token explícito, cai pro .env da raiz do repo — mesmo token que estiver lá.
+  Obtido:   token-do-env-de-teste
 
-=== Nível 2 — CicloVideo.etapa_atual() ===
+=== Nível 0 — api_sysemp.core.cliente ===
 
-[PASSOU] aguardando_aprovacao_do_marketplace
-  Entrada:  produção feita | status: Aguardando Aprovação
-  Esperado: aguardando_aprovacao
-  Motivo:   postado, esperando o marketplace aprovar ou recusar
-  Obtido:   aguardando_aprovacao
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.AGUARDANDO_APROVACAO}
-
-[PASSOU] aprovado_pronto_pra_replicar
-  Entrada:  produção feita | status: Aprovado
-  Esperado: replicar
-  Motivo:   aprovado pelo marketplace — só falta o clique manual de Replicar
-  Obtido:   replicar
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.APROVADO}
-
-[PASSOU] base_e_roteiro_feitos_falta_completo
-  Entrada:  Base: feito | Roteiro: feito | Completo: pendente
-  Esperado: completo
-  Motivo:   Base e Roteiro concluídos, Completo ainda não
-  Obtido:   completo
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
-
-[PASSOU] base_feito_falta_roteiro
-  Entrada:  Base: feito | Roteiro: pendente
-  Esperado: roteiro
-  Motivo:   Base concluído, Roteiro ainda não — avança pra próxima etapa da sequência travada
-  Obtido:   roteiro
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
-
-[PASSOU] nada_feito_comeca_em_base
-  Entrada:  nenhuma etapa feita ainda
-  Esperado: base
-  Motivo:   nenhum campo preenchido — toda ocorrência nova começa em Base
-  Obtido:   base
-  Dado bruto: {}
-
-[PASSOU] producao_pronta_falta_postar
-  Entrada:  Base/Roteiro/Completo: feitos | status: nenhum
-  Esperado: postar
-  Motivo:   produção inteira concluída, sem status de postagem ainda — pronto pra Postar
-  Obtido:   postar
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
-
-[PASSOU] recusado_volta_pra_completo
-  Entrada:  produção feita | status: Recusado
-  Esperado: completo
-  Motivo:   recusado NUNCA fica travado em Postar — precisa refazer o Completo e postar de novo
-  Obtido:   completo
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.RECUSADO}
-
-[PASSOU] replicado_conclui_a_ocorrencia
-  Entrada:  produção feita | status: Replicado
-  Esperado: concluido
-  Motivo:   replicado — esta ocorrência específica está encerrada (o ciclo como um todo pode continuar)
-  Obtido:   concluido
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.REPLICADO}
-
-=== Nível 2 — roadmap_produto (_localizar_indice_atual / _montar_etapas_rodada_atual) ===
-
-[PASSOU] fase_nao_existe_no_caminho_cai_no_ultimo
-  Entrada:  fase=fase_inexistente_xyz, numero_ocorrencia=1
-  Esperado: 5
-  Motivo:   Fase que não existe em nenhum ponto do caminho — fallback de segurança cai no último índice (len(pontos)-1 = 5).
-  Obtido:   5
-
-[PASSOU] simples_e_o_primeiro_ponto
-  Entrada:  fase=simples, numero_ocorrencia=1
-  Esperado: 0
-  Motivo:   Simples#1 é o 1º ponto do caminho fixo — índice 0.
-  Obtido:   0
-
-[PASSOU] video_mensal_no_meio
-  Entrada:  fase=video_mensal, numero_ocorrencia=2
+[FALHOU] chamar_caso_de_falha_proposital
+  Entrada:  sucesso de primeira (1 chamada de verdade)
   Esperado: 2
-  Motivo:   Vídeo Mensal#2 é o 3º ponto do caminho (índice 2) — pula Simples e Mensal#1 antes de achar.
-  Obtido:   2
+  Motivo:   Propositalmente errado — só houve 1 chamada, nunca 2. Existe só pra provar que a tabela mostra FALHOU corretamente.
+  Obtido:   1
 
-[PASSOU] video_mensal_ultimo_antes_do_continuo
-  Entrada:  fase=video_mensal, numero_ocorrencia=4
-  Esperado: 4
-  Motivo:   Vídeo Mensal#4 é o último ponto finito antes do contínuo — índice 4.
-  Obtido:   4
+[PASSOU] chamar_erro_nao_passageiro_400
+  Entrada:  status_code=400
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroNegocioSysemp'>, 1)
+  Motivo:   Parâmetro inválido não se resolve tentando de novo — falha na hora, sem retentativa.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroNegocioSysemp'>, 1)
 
-[PASSOU] video_trimestral_casa_so_pela_fase
-  Entrada:  fase=video_trimestral, numero_ocorrencia=9
+[PASSOU] chamar_erro_nao_passageiro_401
+  Entrada:  status_code=401
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
+  Motivo:   Token inválido não se resolve tentando de novo — falha na hora, sem retentativa.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
+
+[PASSOU] chamar_erro_nao_passageiro_403
+  Entrada:  status_code=403
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
+  Motivo:   Mesmo caso de 401, só que proibido em vez de não-autenticado — mesma ação: falha na hora.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
+
+[PASSOU] chamar_erro_passageiro_esgota_429
+  Entrada:  status_code=429 em todas as tentativas
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroLimiteRequisicoesSysemp'>, 4)
+  Motivo:   Limite de requisições é passageiro — tenta até o máximo, mas se nunca melhorar, desiste no final.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroLimiteRequisicoesSysemp'>, 4)
+
+[PASSOU] chamar_erro_passageiro_esgota_500
+  Entrada:  status_code=500 em todas as tentativas
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroServidorSysemp'>, 4)
+  Motivo:   Erro de servidor é passageiro — mesma lógica de retentativa até o máximo.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroServidorSysemp'>, 4)
+
+[PASSOU] chamar_falha_de_rede_esgota_tentativas
+  Entrada:  requests.post sempre levanta ConnectionError
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroRedeSysemp'>, 4)
+  Motivo:   Exceção crua do requests nunca escapa sem reembrulhar — é passageira, tenta até o máximo, depois vira ErroRedeSysemp.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroRedeSysemp'>, 4)
+
+[PASSOU] chamar_recupera_apos_erro_passageiro
+  Entrada:  429, 429, 200 (nessa ordem)
+  Esperado: ({'ok': True}, 3)
+  Motivo:   Erro passageiro que para de acontecer antes do limite de tentativas resulta em sucesso — o retry de fato recupera, não só desiste.
+  Obtido:   ({'ok': True}, 3)
+
+[PASSOU] chamar_le_retry_after_e_recupera
+  Entrada:  429 com header Retry-After='2', depois 200
+  Esperado: ({'ok': True}, 2)
+  Motivo:   Quando a própria API informa Retry-After, o cliente lê e segue — o valor exato de segundos é coberto em test_nivel_0__protecao.py.
+  Obtido:   ({'ok': True}, 2)
+
+[PASSOU] chamar_status_inesperado_404
+  Entrada:  status_code=404 (não mapeado)
+  Esperado: (<class 'api_sysemp.core.excecoes.ErroAPISysemp'>, 1)
+  Motivo:   404 não é nenhuma categoria conhecida — sobe o erro genérico da hierarquia, sem retentativa.
+  Obtido:   (<class 'api_sysemp.core.excecoes.ErroAPISysemp'>, 1)
+
+[PASSOU] chamar_sucesso_primeira_tentativa
+  Entrada:  status_code=200 de primeira
+  Esperado: ({'ok': True, 'itens': [1, 2]}, 1)
+  Motivo:   Caminho feliz — sucesso de primeira nunca aciona retentativa nem espera de backoff.
+  Obtido:   ({'ok': True, 'itens': [1, 2]}, 1)
+
+[PASSOU] extrair_tempo_espera_sugerido
+  Entrada:  headers={}
+  Esperado: None
+  Motivo:   Sem header nenhum — não há tempo sugerido, cliente cai pro cálculo exponencial.
+  Obtido:   None
+
+[PASSOU] extrair_tempo_espera_sugerido
+  Entrada:  headers={'Retry-After': 'nao-eh-numero'}
+  Esperado: None
+  Motivo:   Header presente mas não numérico — trata como se não tivesse vindo nada, nunca quebra.
+  Obtido:   None
+
+[PASSOU] extrair_tempo_espera_sugerido
+  Entrada:  headers={'Retry-After': '2'}
+  Esperado: 2.0
+  Motivo:   Header presente e numérico — usa o valor exato informado pela API.
+  Obtido:   2.0
+
+[PASSOU] init_recusa_token_invalido
+  Entrada:  token=None
+  Esperado: <class 'ValueError'>
+  Motivo:   Sem token não tem como autenticar — a guarda de entrada recusa na hora, antes de qualquer chamada.
+  Obtido:   <class 'ValueError'>
+
+[PASSOU] init_recusa_token_invalido
+  Entrada:  token=''
+  Esperado: <class 'ValueError'>
+  Motivo:   Sem token não tem como autenticar — a guarda de entrada recusa na hora, antes de qualquer chamada.
+  Obtido:   <class 'ValueError'>
+
+=== Nível 0 — api_sysemp.impostos_entrada_xml ===
+
+[PASSOU] listar_por_periodo_aceita_limite_exato
+  Entrada:  data_final='2026-08-07', data_referencia=2026-08-06 (limite exato)
+  Esperado: {'status': True, 'qtde': 0, 'retorno': []}
+  Motivo:   A margem de 1 dia é inclusiva — no limite exato ainda é aceito, só além dele é recusado.
+  Obtido:   {'status': True, 'qtde': 0, 'retorno': []}
+
+[FALHOU] listar_por_periodo_caso_de_falha_proposital
+  Entrada:  período válido (2026-08-01 a 2026-08-05)
+  Esperado: <class 'ValueError'>
+  Motivo:   Propositalmente errado — período válido nunca levanta ValueError. Existe só pra provar que a tabela mostra FALHOU corretamente.
+  Obtido:   <class 'NoneType'>
+
+[PASSOU] listar_por_periodo_chama_cliente_com_corpo_correto
+  Entrada:  data_inicial='2026-07-01', data_final='2026-08-01', offset='5'
+  Esperado: ({'status': True, 'qtde': 1, 'retorno': [{'chave': 'nfe-1'}]}, [{'datainicial': '2026-07-01', 'datafinal': '2026-08-01', 'offset': '5'}])
+  Motivo:   Confirma que o corpo enviado usa os nomes de campo que a API espera (datainicial/datafinal/offset) — retry/exceção já cobertos na camada de baixo.
+  Obtido:   ({'status': True, 'qtde': 1, 'retorno': [{'chave': 'nfe-1'}]}, [{'datainicial': '2026-07-01', 'datafinal': '2026-08-01', 'offset': '5'}])
+
+[PASSOU] listar_por_periodo_recusa_data_futura
+  Entrada:  data_final='2026-08-08', data_referencia=2026-08-06
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   Mais de 1 dia no futuro em relação à referência — passa do limite com margem.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_offset_'abc'
+  Entrada:  offset='abc'
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   Offset não numérico não representa uma página válida — recusado antes de qualquer rede.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_offset_'-1'
+  Entrada:  offset='-1'
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   Offset negativo não faz sentido como página — recusado antes de qualquer rede.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_offset_''
+  Entrada:  offset=''
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   Offset vazio já quebrou a API antes (achado real) — recusado antes de qualquer rede.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_2026-08-01_não-é-data
+  Entrada:  data_inicial='2026-08-01', data_final='não-é-data'
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   data_final em formato inválido — recusado antes de qualquer rede.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_não-é-data_2026-08-01
+  Entrada:  data_inicial='não-é-data', data_final='2026-08-01'
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   data_inicial em formato inválido — recusado antes de qualquer rede.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_2026-08-01_2026-08-01
+  Entrada:  data_inicial='2026-08-01', data_final='2026-08-01'
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   data_inicial igual a data_final — precisa ser estritamente anterior.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_recusa_2026-08-05_2026-08-01
+  Entrada:  data_inicial='2026-08-05', data_final='2026-08-01'
+  Esperado: (<class 'ValueError'>, 0)
+  Motivo:   data_inicial depois de data_final — período invertido.
+  Obtido:   (<class 'ValueError'>, 0)
+
+[PASSOU] listar_por_periodo_usa_hoje_quando_nao_informada
+  Entrada:  data_referencia não informada, 'hoje' travado em 2026-08-06
+  Esperado: {'status': True, 'qtde': 0, 'retorno': []}
+  Motivo:   Em uso real (fora de teste) data_referencia nunca é passada — precisa cair certo no date.today().
+  Obtido:   {'status': True, 'qtde': 0, 'retorno': []}
+
+=== Nível 0 — api_sysemp.core.protecao ===
+
+[PASSOU] aguardar_chamada_apos_intervalo_ja_passado_nao_dorme
+  Entrada:  1ª em t=100.0, 2ª em t=101.5, intervalo mínimo 1.0
+  Esperado: []
+  Motivo:   Já se passaram 1.5s, mais que o intervalo mínimo de 1.0s — tempo_restante fica negativo, não dorme.
+  Obtido:   []
+
+[PASSOU] aguardar_chamada_rapida_demais_dorme_o_restante
+  Entrada:  1ª em t=100.0, 2ª em t=100.25, intervalo mínimo 1.0
+  Esperado: [0.75]
+  Motivo:   Só 0.25s se passou entre as 2 chamadas — falta dormir exatamente 1.0 - 0.25 = 0.75s pra completar o intervalo mínimo.
+  Obtido:   [0.75]
+
+[PASSOU] aguardar_primeira_chamada_nao_dorme_nada
+  Entrada:  nenhuma chamada anterior
+  Esperado: []
+  Motivo:   Sem chamada anterior registrada, não há o que esperar — a 1ª chamada sempre passa direto.
+  Obtido:   []
+
+[FALHOU] calcular_espera_backoff_caso_de_falha_proposital
+  Entrada:  tempo_sugerido_pela_api=999
+  Esperado: 31
+  Motivo:   Propositalmente errado — o teto real é 30, nunca 31. Existe só pra provar que a tabela mostra FALHOU corretamente.
+  Obtido:   30
+
+[PASSOU] calcular_espera_backoff_sugerido_5
+  Entrada:  tempo_sugerido_pela_api=5
   Esperado: 5
-  Motivo:   Ponto contínuo (numero=None) casa só pela fase — número 9 do ciclo é ignorado, sempre índice 5.
+  Motivo:   Tempo sugerido pela própria API (5s) está abaixo do teto (30s) — usa exatamente o valor sugerido.
   Obtido:   5
 
-[PASSOU] etapa_aguardando_aprovacao
-  Entrada:  produção feita | status: Aguardando Aprovação
-  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'aguardando', 'aguardando_aprovacao'), ('replicar', 'futuro', None)]
-  Motivo:   Mesma posição 3 do caso anterior, mas status=Aguardando aprovação muda a aparência e a chave_acao (nunca "postar" de novo).
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'aguardando', 'aguardando_aprovacao'), ('replicar', 'futuro', None)]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.AGUARDANDO_APROVACAO}
-
-[PASSOU] etapa_base
-  Entrada:  nenhuma etapa feita ainda
-  Esperado: [('base', 'atual', 'base'), ('roteiro', 'futuro', None), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Motivo:   Nada feito ainda — Base é a posição 0, fica Atual; resto Futuro.
-  Obtido:   [('base', 'atual', 'base'), ('roteiro', 'futuro', None), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Dado bruto: {}
-
-[PASSOU] etapa_completo
-  Entrada:  Base: feito | Roteiro: feito | Completo: pendente | status: nenhum
-  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'atual', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Motivo:   Base/Roteiro concluídos, Completo é a posição 2 — sem status, fica Atual (não Recusado).
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'atual', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
-
-[PASSOU] etapa_completo_recusado
-  Entrada:  produção feita | status: Recusado (volta pra Completo)
-  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'recusado', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Motivo:   Mesma posição 2 do caso anterior (etapa_atual() também devolve "completo"), mas status=Recusado muda a aparência pra Recusado.
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'recusado', 'completo'), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.RECUSADO}
-
-[PASSOU] etapa_concluido
-  Entrada:  produção feita | status: Replicado
-  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'concluido', None)]
-  Motivo:   Replicado — índice interno vira 5, fora do range de 0-4 — os 5 passos viram Concluído, NENHUM fica marcado como atual.
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'concluido', None)]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.REPLICADO}
-
-[PASSOU] etapa_postar
-  Entrada:  produção feita | status: nenhum
-  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'atual', 'postar'), ('replicar', 'futuro', None)]
-  Motivo:   Produção pronta, sem status ainda — Postar é a posição 3, fica Atual.
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'atual', 'postar'), ('replicar', 'futuro', None)]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
-
-[PASSOU] etapa_replicar
-  Entrada:  produção feita | status: Aprovado
-  Esperado: [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'aprovado-claro', 'replicar')]
-  Motivo:   Aprovado — Replicar é a última posição (4), fica Aprovado/aguardando replicar.
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'concluido', None), ('completo', 'concluido', None), ('postar', 'concluido', None), ('replicar', 'aprovado-claro', 'replicar')]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'roteiro_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'completo_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo')), 'status': StatusPostagem.APROVADO}
-
-[PASSOU] etapa_roteiro
-  Entrada:  Base: feito | Roteiro: pendente
-  Esperado: [('base', 'concluido', None), ('roteiro', 'atual', 'roteiro'), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Motivo:   Base concluído (posição 0), Roteiro é a posição 1 — fica Atual; resto Futuro.
-  Obtido:   [('base', 'concluido', None), ('roteiro', 'atual', 'roteiro'), ('completo', 'futuro', None), ('postar', 'futuro', None), ('replicar', 'futuro', None)]
-  Dado bruto: {'base_concluido_em': datetime.datetime(2026, 8, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='America/Sao_Paulo'))}
-
-=== Nível 2 — CicloVideo.__str__() ===
-
-[PASSOU] str_monta_texto_legivel
-  Entrada:  sku=ABC123, fase=Simples, numero_ocorrencia=1, sem campos de produção
-  Esperado: ABC123 — Simples #1 (base)
-  Motivo:   __str__ junta sku + fase + numero + etapa_atual() num texto só, sempre no mesmo formato
-  Obtido:   ABC123 — Simples #1 (base)
-
-=== test_nivel_2__verificador ===
-
-[PASSOU] avaliar_etapa_no_drive — arquivo existe
-  Entrada:  etapa_atual()=base, Mensal_01_Base.mp4 presente na estrutura
-  Esperado: (True, None)
-  Motivo:   Arquivo esperado está lá — etapa liberada
-  Obtido:   satisfeito=True, diagnostico=None
-
-[PASSOU] avaliar_etapa_no_drive — ocorrência existe, arquivo None
-  Entrada:  etapa_atual()=base, ocorrência #1 existe mas campo base=None
-  Esperado: (False, DiagnosticoBloqueio(etapa='base', mensagem='Aguardando Base — "Mensal_01_Base.mp4" não encontrado.'))
-  Motivo:   Arquivo esperado não está lá — bloqueia com mensagem e nome corretos
-  Obtido:   satisfeito=False, diagnostico=DiagnosticoBloqueio(etapa='base', mensagem='Aguardando Base — "Mensal_01_Base.mp4" não encontrado.')
-
-[PASSOU] avaliar_etapa_no_drive — ocorrência nem existe na lista
-  Entrada:  etapa_atual()=roteiro, numero_ocorrencia=2, estrutura só tem a ocorrência #1
-  Esperado: (False, DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Mensal_02_Roteiro.txt" não encontrado.'))
-  Motivo:   obter_ocorrencia() devolve None — arquivo vira None do mesmo jeito, bloqueio idêntico
-  Obtido:   satisfeito=False, diagnostico=DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Mensal_02_Roteiro.txt" não encontrado.')
-
-[PASSOU] avaliar_etapa_no_drive — etapa sem depender de arquivo (postar)
-  Entrada:  etapa_atual()=postar, estrutura do Drive vazia
-  Esperado: (True, None) — libera mesmo sem arquivo nenhum no Drive
-  Motivo:   postar/aguardando_aprovacao/etc. nunca dependem de arquivo — fora de ETAPAS_QUE_DEPENDEM_DE_ARQUIVO
-  Obtido:   satisfeito=True, diagnostico=None
-  Dado bruto: "etapa_atual()='postar'"
-
-[PASSOU] _montar_nome_esperado — Mensal/base
-  Entrada:  fase=Vídeo Mensal, numero_ocorrencia=1, etapa=base
-  Esperado: Mensal_01_Base.mp4
-  Motivo:   Mensal numera com 2 dígitos fixos — bate com o padrão real do parser
-  Obtido:   nome='Mensal_01_Base.mp4'
-
-[PASSOU] _montar_nome_esperado — Simples/base
-  Entrada:  fase=Simples, numero_ocorrencia=1, etapa=base
-  Esperado: Simples_Base.mp4
-  Motivo:   Simples nunca numera — sem número no nome, mesmo recebendo numero_ocorrencia
-  Obtido:   nome='Simples_Base.mp4'
-
-[PASSOU] _montar_nome_esperado — Simples/roteiro
-  Entrada:  fase=Simples, etapa=roteiro
-  Esperado: Simples_Roteiro.txt
-  Motivo:   Roteiro é a única etapa com extensão .txt — Base/Completo são .mp4
-  Obtido:   nome='Simples_Roteiro.txt'
-
-[PASSOU] _montar_nome_esperado — Trimestral/completo, número alto
-  Entrada:  fase=Vídeo Trimestral, numero_ocorrencia=7, etapa=completo
-  Esperado: Trimestral_07_Completo.mp4
-  Motivo:   Fase contínua — função não limita a numeração, só formata o que recebe
-  Obtido:   nome='Trimestral_07_Completo.mp4'
-
-=== Nível 3 — calcular_indicadores() ===
-
-[PASSOU] calcular_indicadores_com_ciclo_passthrough
-  Entrada:  CicloVideo real, fase=Vídeo Mensal, sem produção nem data_devida
-  Esperado: ('base', 'video_mensal', False)
-  Motivo:   passthrough direto de etapa_atual()/fase/esta_atrasado() — DOC já testados no Nível 2
-  Obtido:   ('base', Fase.VIDEO_MENSAL, False)
-
-[PASSOU] calcular_indicadores_com_participacao_usa_historico
-  Entrada:  produto com ParticipacaoAgenda + histórico Pausado
-  Esperado: pausado
-  Motivo:   delega pra status_manual_atual() (DOC já testado) — não reimplementa a regra aqui
-  Obtido:   pausado
-
-[PASSOU] calcular_indicadores_sem_ciclo_nenhum
-  Entrada:  ciclo_mais_recente=None
-  Esperado: ('nao_agendado', '')
-  Motivo:   produto sem nenhum ciclo — etapa e fase ganham valor especial, não vêm de etapa_atual()
-  Obtido:   ('nao_agendado', '')
-
-[PASSOU] calcular_indicadores_sem_participacao_agenda
-  Entrada:  produto sem ParticipacaoAgenda
-  Esperado: ativo
-  Motivo:   getattr(produto, "participacao_agenda", None) é None — default Ativo direto
-  Obtido:   ativo
-
-[PASSOU] calcular_indicadores_sem_participacao_mas_com_historico
-  Entrada:  produto SEM ParticipacaoAgenda, COM histórico (Pausado)
-  Esperado: pausado
-  Motivo:   status_manual_atual_do_produto() lê o histórico direto do produto — nunca depende de ParticipacaoAgenda existir
-  Obtido:   pausado
-
-[PASSOU] calcular_indicadores_video_reprovado_false_sem_dados_relacionados
-  Entrada:  produto sem nenhuma VariacaoAnuncioMercadoLivre/QualidadeAnuncio
-  Esperado: False
-  Motivo:   sem linha relacionada, o .exists() da consulta é sempre False
-  Obtido:   False
-
-[PASSOU] calcular_indicadores_video_reprovado_true_criterio_reprovado
-  Entrada:  critério UP_HAS_SHORTS avaliado como Não aprovado
-  Esperado: True
-  Motivo:   existe avaliação reprovada pra esse critério nesse produto — .exists() vira True
-  Obtido:   True
-
-=== Nível 3 — criar_proximo(): régua completa de transição de fase ===
-
-[PASSOU] criar_proximo_aplica_ajuste_de_dia_util
-  Entrada:  Trimestral #1, replicado segunda 03/08 + 90 dias corridos
-  Esperado: 30/10 (sexta) — 01/11 seria domingo, ajusta pra trás 2 dias
-  Motivo:   ultimo_dia_util_ou_hoje ajusta pra trás se a data calculada cair em fim de semana
-  Obtido:   30/10 (Friday)
-
-[PASSOU] mensal_1_para_2_trinta_dias
-  Entrada:  video_mensal #1, replicado 04/08
-  Esperado: video_mensal #2, 03/09
-  Motivo:   dentro do período (2 <= 4) — distância normal de 30 dias corridos
-  Obtido:   video_mensal #2, 03/09
-
-[PASSOU] mensal_4_para_trimestral_1_noventa_dias
-  Entrada:  video_mensal #4, replicado 04/08
-  Esperado: video_trimestral #1, 02/11
-  Motivo:   esgotou o período de 4 do Mensal — 1ª ocorrência Trimestral também espera 90 dias
-  Obtido:   video_trimestral #1, 02/11
-
-[PASSOU] simples_para_mensal_1_sem_espera
-  Entrada:  simples #1, replicado 04/08
-  Esperado: video_mensal #1, 04/08
-  Motivo:   Vídeo Mensal #1 libera assim que o Simples é replicado — +0 dias, sem espera
-  Obtido:   video_mensal #1, 04/08
-
-[PASSOU] trimestral_n_para_n_mais_1_noventa_dias
-  Entrada:  video_trimestral #2, replicado 04/08
-  Esperado: video_trimestral #3, 02/11
-  Motivo:   fase contínua — nunca esgota período, sempre a mesma distância de 90 dias
-  Obtido:   video_trimestral #3, 02/11
-
-=== Nível 3 — historico_roadmap (montar_linha_do_tempo_produto / montar_historico_produto) ===
-
-[PASSOU] ciclo_com_status_usa_badge_de_status
-  Entrada:  CicloVideo com status=Aprovado
-  Esperado: badge='Aprovado' (vem de BADGES_STATUS_POSTAGEM)
-  Motivo:   ciclo.status é truthy — usa BADGES_STATUS_POSTAGEM, nunca BADGES_ETAPA, mesmo a etapa sendo "replicar".
-  Obtido:   badge='Aprovado'
-
-[PASSOU] ciclo_sem_status_usa_badge_de_etapa
-  Entrada:  CicloVideo sem status, etapa_atual()="roteiro"
-  Esperado: badge='Roteiro' (vem de BADGES_ETAPA)
-  Motivo:   ciclo.status é None (falsy) — usa BADGES_ETAPA com a etapa atual.
-  Obtido:   badge='Roteiro'
-
-[PASSOU] ordenacao_timestamps_claramente_diferentes
-  Entrada:  ciclo_antigo (01/2026) e ciclo_recente (06/2026)
-  Esperado: ciclos[0] = ciclo_recente (Vídeo Mensal#1)
-  Motivo:   order_by("-criado_em", "-id") — mais recente primeiro, sem ambiguidade nesse caso.
-  Obtido:   ciclos[0].fase='video_mensal'
-
-[PASSOU] ordenacao_timestamps_empatados_desempate_por_id
-  Entrada:  ciclo_antigo e ciclo_recente com criado_em IDÊNTICO (2026-01-01 12:00:00-03:00)
-  Esperado: ciclos[0] = ciclo_recente (id maior, criado por último)
-  Motivo:   Timestamps empatados de propósito (simula o empate real, comum no Windows) — só "-id" desempata certo.
-  Obtido:   ciclos[0].pk=22, ciclo_recente.pk=22
-
-[PASSOU] resumo_agrupa_por_etapa_mesmo_com_status_diferente
-  Entrada:  2 ciclos, ambos etapa_atual()="completo" (1 sem status, 1 recusado)
-  Esperado: resumo=[ResumoEtapa(valor='completo', label='Completo', quantidade=2)]
-  Motivo:   O resumo agrupa por ETAPA sempre via BADGES_ETAPA — nunca mistura com o rótulo de status individual de cada ciclo.
-  Obtido:   [ResumoEtapa(valor='completo', label='Completo', classe='etapa-completo', quantidade=2)]
-
-[PASSOU] historico_sem_nenhum_ciclo
-  Entrada:  Produto sem nenhum CicloVideo
-  Esperado: total=0, ciclos=[], resumo=[]
-  Motivo:   Sem ciclo nenhum, tudo fica vazio — nenhuma etapa pra contar no resumo.
-  Obtido:   total=0, ciclos=[], resumo=[]
-
-[PASSOU] ciclo_com_todas_as_6_marcas_aprovado
-  Entrada:  CicloVideo com as 6 marcas + status=Aprovado
-  Esperado: 6 eventos, nessa ordem cronológica
-  Motivo:   Cada campo preenchido vira 1 evento — status=Aprovado usa o branch "else" (tipo=APROVADO, ação=Aprovado).
-  Obtido:   6 evento(s)
-
-[PASSOU] ciclo_recusado_gera_evento_recusado
-  Entrada:  CicloVideo com status=Recusado (branch "if" do RECUSADO)
-  Esperado: último evento = 'Simples — Recusado', tipo=RECUSADO
-  Motivo:   status=Recusado usa o branch "if" (tipo=RECUSADO, ação=Recusado) — diferente do caso Aprovado (branch "else").
-  Obtido:   5 evento(s), último=EventoHistorico(timestamp=datetime.datetime(2026, 1, 5, 11, 0, tzinfo=datetime.timezone.utc), label='Simples — Recusado', tipo=TipoEventoHistorico.RECUSADO, icone='fa-gavel', mlbs_replicados=None, mlbs_nao_encontrados=None)
-
-[PASSOU] ciclo_replicado_carrega_mlbs
-  Entrada:  replicado_em preenchido, mlbs_replicados=['MLB111','MLB222'], mlbs_nao_encontrados=['MLB333']
-  Esperado: evento carrega as 2 listas junto
-  Motivo:   O evento de Replicado é o único que carrega mlbs_replicados/mlbs_nao_encontrados — os outros 5 tipos não têm esses campos.
-  Obtido:   [EventoHistorico(timestamp=datetime.datetime(2026, 1, 1, 12, 0, tzinfo=datetime.timezone.utc), label='Simples — Replicado', tipo=TipoEventoHistorico.REPLICADO, icone='fa-copy', mlbs_replicados=['MLB111', 'MLB222'], mlbs_nao_encontrados=['MLB333'])]
-
-[PASSOU] ciclo_so_com_base
-  Entrada:  CicloVideo Simples#1, só base_concluido_em preenchido
-  Esperado: 1 evento 'Base concluída (Simples)'
-  Motivo:   Só o campo preenchido vira evento — os outros 5 ifs não batem.
-  Obtido:   1 evento(s)
-
-[PASSOU] com_participacao_e_agendado_em
-  Entrada:  ParticipacaoAgenda.agendado_em preenchido
-  Esperado: 1 evento 'Agendado — Vídeo Mensal Iniciado'
-  Motivo:   Participação existe E agendado_em preenchido — as 2 condições precisam ser verdadeiras.
-  Obtido:   1 evento(s)
-
-[PASSOU] com_participacao_sem_agendado_em
-  Entrada:  ParticipacaoAgenda existe, agendado_em=None
-  Esperado: 0 eventos
-  Motivo:   Participação existe mas agendado_em vazio — a condição "participacao and participacao.agendado_em" falha na 2ª parte.
-  Obtido:   0 evento(s)
-
-[PASSOU] dois_ciclos_ordenados_cronologicamente
-  Entrada:  2 ciclos com eventos entremeados no tempo
-  Esperado: ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)', 'Roteiro concluído (Vídeo Mensal #1)', 'Roteiro concluído (Simples)']
-  Motivo:   A ordenação final é por timestamp GLOBAL — mistura eventos de ciclos diferentes, nunca agrupa por ciclo primeiro.
-  Obtido:   ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)', 'Roteiro concluído (Vídeo Mensal #1)', 'Roteiro concluído (Simples)']
-
-[PASSOU] dois_ciclos_timestamps_empatados_ordem_deterministica
-  Entrada:  2 ciclos, mesmo timestamp=2026-01-01 09:00:00-03:00, ciclo_simples criado antes (id menor)
-  Esperado: ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)'] — sempre nessa ordem
-  Motivo:   Timestamps IDÊNTICOS de propósito — sem o order_by(criado_em, id) no laço de ciclos, a ordem relativa seria indefinida.
-  Obtido:   ['Base concluída (Simples)', 'Base concluída (Vídeo Mensal #1)']
-
-[PASSOU] sem_participacao_e_sem_ciclos
-  Entrada:  Produto sem ParticipacaoAgenda, sem CicloVideo
-  Esperado: 0 eventos
-  Motivo:   Nada pra mostrar — nem entrada na agenda nem marco de produção.
-  Obtido:   0 evento(s)
-
-=== Nível 3 — iniciar_agenda() e agendar_apos_simples() ===
-
-[PASSOU] etapa_nao_concluida_levanta_erro
-  Entrada:  fase=simples, etapa_concluida=False
-  Esperado: levanta ValueError
-  Motivo:   Simples ainda não foi replicado — não dá pra agendar o que vem depois antes de terminar
-  Obtido:   levantou ValueError
-
-[PASSOU] fase_errada_levanta_erro
-  Entrada:  fase=video_mensal, etapa_concluida=True
-  Esperado: levanta ValueError
-  Motivo:   só é possível agendar a partir do Simples — qualquer outra fase é erro de uso
-  Obtido:   levantou ValueError
-
-[PASSOU] agendar_apos_simples_sucesso
-  Entrada:  Simples replicado, agendado numa segunda (03/08)
-  Esperado: Vídeo Mensal #1, vence terça (04/08)
-  Motivo:   proximo_dia_util nunca fica no mesmo dia — reaproveita a regra já testada no Nível 0
-  Obtido:   video_mensal #1, data_devida=2026-08-04
-
-[PASSOU] iniciar_agenda
-  Entrada:  produto novo, sem CicloVideo nenhum
-  Esperado: Simples #1, sem data_devida
-  Motivo:   único ponto de entrada do produto na Agenda — Simples nunca tem vencimento
-  Obtido:   simples #1, data_devida=None
-
-=== Nível 3 — listar_produtos_agenda_filtrados() ===
-
-[PASSOU] test_a_fazer_hoje_exclui_pausado_e_descontinuado_incondicionalmente
-  Entrada:  Pausado atrasado=True | Descontinuado atrasado=True
-  Esperado: (False, False)
-  Motivo:   A Fazer Hoje é lista de ação — pausado/descontinuado nunca é "pra fazer", mesmo urgente
-  Obtido:   (False, False)
-
-[PASSOU] test_a_fazer_hoje_nao_pega_concluido
-  Entrada:  Mensal, etapa_atual=concluido, prazo longe, não atrasado
-  Esperado: False
-  Motivo:   nada pendente numa ocorrência concluída
-  Obtido:   False
-
-[PASSOU] test_a_fazer_hoje_nao_pega_postar_ja_postado_hoje
-  Entrada:  Mensal, etapa=postar (cache), prazo=hoje, mas já postou hoje às 15h
-  Esperado: False
-  Motivo:   postou_hoje protege contra o cache de etapa_atual ficar desatualizado
-  Obtido:   False
-
-[PASSOU] test_a_fazer_hoje_nao_pega_postar_prazo_futuro
-  Entrada:  Mensal, etapa=postar, prazo=10/08 (futuro), não atrasado
-  Esperado: False
-  Motivo:   só aparece pra postar quando o prazo é hoje (ou já está atrasado)
-  Obtido:   False
-
-[PASSOU] test_a_fazer_hoje_nao_pega_producao_sem_risco_nem_atraso
-  Entrada:  Mensal, etapa=base, prazo=20/08 (longe), não atrasado
-  Esperado: False
-  Motivo:   produção em dia, sem risco — o bug antigo mostrava isso aqui; agora não aparece mais
-  Obtido:   False
-
-[PASSOU] test_a_fazer_hoje_nunca_pega_simples
-  Entrada:  Simples, ciclo_atual_atrasado=True
-  Esperado: False
-  Motivo:   A Fazer Hoje é só Mensal/Trimestral — Simples não tem prazo, nunca entra aqui
-  Obtido:   False
-
-[PASSOU] test_a_fazer_hoje_ordena_por_prioridade_fase_prazo_ignorando_ordenar
-  Entrada:  A: urgente+sem vídeo (prioridade máxima) | B: só atrasado. ordenar=-titulo pedido de propósito
-  Esperado: A antes de B
-  Motivo:   A Fazer Hoje sempre ordena prioridade→fase→prazo — "ordenar" do usuário não tem efeito aqui
-  Obtido:   [39, 40]
-
-[PASSOU] test_a_fazer_hoje_pedir_pausado_nunca_traz_nada
-  Entrada:  Pausado, atrasado=True, filtro status_manual=[Pausado]
-  Esperado: False
-  Motivo:   exclusão incondicional de A Fazer Hoje roda ANTES do filtro do dict — pedir pausado sempre dá vazio aqui
-  Obtido:   False
-
-[PASSOU] test_a_fazer_hoje_pega_aguardando_aprovacao_e_replicar_sem_checar_prazo
-  Entrada:  aguardando_aprovacao e replicar, ambos prazo=20/08 (longe)
-  Esperado: (True, True)
-  Motivo:   "se não foi replicado ainda é porque tem ação pendente a ser feita" — contam sempre
-  Obtido:   (True, True)
-
-[PASSOU] test_a_fazer_hoje_pega_atrasado
-  Entrada:  Mensal, ciclo_atual_atrasado=True, etapa=base
-  Esperado: True
-  Motivo:   atrasado é urgência real, independente da etapa
-  Obtido:   True
-
-[PASSOU] test_a_fazer_hoje_pega_postar_hoje
-  Entrada:  Mensal, etapa=postar, data_devida=hoje, não postou
-  Esperado: True
-  Motivo:   prazo de postar chegou e ainda não postou
-  Obtido:   True
-
-[PASSOU] test_a_fazer_hoje_pega_recusado_sem_checar_prazo
-  Entrada:  Mensal, etapa=completo, status_ciclo=Recusado, prazo=20/08 (longe)
-  Esperado: True
-  Motivo:   recusado também é ação pendente em aberto, conta sempre
-  Obtido:   True
-
-[PASSOU] test_a_fazer_hoje_pega_risco
-  Entrada:  Mensal, etapa=roteiro, não atrasado, prazo=04/08 (limite de 1 dia útil)
-  Esperado: True
-  Motivo:   produção não terminou + prazo a ≤1 dia útil de distância = risco
-  Obtido:   True
-
-[PASSOU] test_filtro_atrasado_sim_fora_de_a_fazer_hoje
-  Entrada:  A atrasado=True | B atrasado=False, tela Mensal, filtro atrasado=[sim]
-  Esperado: (True, False)
-  Motivo:   smoke test — filtro de atrasado continua ligado fora de A Fazer Hoje
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_busca_por_titulo
-  Entrada:  título="Fone Bluetooth XPTO", busca="XPTO"
-  Esperado: True
-  Motivo:   smoke test — busca continua ligada na query nova
-  Obtido:   True
-
-[PASSOU] test_filtro_faixa_numero_ocorrencia
-  Entrada:  A ocorrência #5 | B ocorrência #1, filtro numero_ocorrencia_ciclo_atual_min=3
-  Esperado: (True, False)
-  Motivo:   smoke test (DOC de outro app) — filtro de faixa continua ligado no campo certo
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_marca
-  Entrada:  A marca=Samsung | B marca=LG, filtro marcas=[Samsung]
-  Esperado: (True, False)
-  Motivo:   smoke test — filtro de marca continua ligado
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_sem_video
-  Entrada:  A tem_video_reprovado=True | B=False, filtro sem_video=[sim]
-  Esperado: (True, False)
-  Motivo:   smoke test — filtro de vídeo reprovado continua ligado
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_urgente
-  Entrada:  A urgente=True | B urgente=False, filtro urgente=[sim]
-  Esperado: (True, False)
-  Motivo:   smoke test — filtro de urgente continua ligado
-  Obtido:   (True, False)
-
-[PASSOU] test_mensal_filtra_so_pela_fase
-  Entrada:  Mensal | Simples | Trimestral, todos etapa=base
-  Esperado: (True, False, False)
-  Motivo:   tela de fase é filtro puro por fase_atual, qualquer etapa entra
-  Obtido:   (True, False, False)
-
-[PASSOU] test_mensal_pedir_pausado_traz_o_produto_de_volta
-  Entrada:  Pausado, tela Mensal, filtro status_manual=[Pausado]
-  Esperado: True
-  Motivo:   decisão de 03/08: fora de A Fazer Hoje, pausado só some se o usuário filtrar de propósito
-  Obtido:   True
-
-[PASSOU] test_mensal_respeita_ordenar_escolhido_pelo_usuario
-  Entrada:  A="AAA Produto" | Z="ZZZ Produto", ordenar=-titulo
-  Esperado: Z antes de A (ordem decrescente)
-  Motivo:   nas 4 telas de listagem, a coluna escolhida pelo usuário manda, igual antes do redesenho
-  Obtido:   [64, 63]
-
-[PASSOU] test_mensal_sem_filtro_mostra_pausado_junto_com_o_resto
-  Entrada:  Ativo | Pausado, sem filtro de status_manual
-  Esperado: (True, True)
-  Motivo:   as 4 telas de listagem mostram tudo por padrão, pausado incluso — só A Fazer Hoje esconde sempre
-  Obtido:   (True, True)
-
-[PASSOU] test_motivo_a_fazer_hoje_estreita_para_1_motivo
-  Entrada:  A: atrasado=True | B: em risco. Filtro motivo_a_fazer_hoje=[atrasado]
-  Esperado: (True, False)
-  Motivo:   clicar no chip "Atrasado" mostra só quem está atrasado, mesmo os 2 estando na tela
-  Obtido:   (True, False)
-
-[PASSOU] test_nao_agendado_nao_pega_mensal
-  Entrada:  Vídeo Mensal, etapa_atual=base
-  Esperado: False
-  Motivo:   já agendado — não é mais candidato a Não Agendado
-  Obtido:   False
-
-[PASSOU] test_nao_agendado_nao_pega_simples_em_andamento
-  Entrada:  Simples, etapa_atual=roteiro
-  Esperado: False
-  Motivo:   Simples em produção pertence à tela Simples, não Não Agendado — bug antigo que motivou o redesenho
-  Obtido:   False
-
-[PASSOU] test_nao_agendado_pega_simples_concluido
-  Entrada:  Simples, etapa_atual=concluido
-  Esperado: True
-  Motivo:   fila estreita de Não Agendado: Simples pronto, só falta Agendar
-  Obtido:   True
-
-[PASSOU] test_pendente_agora_estreita_tela_de_fase
-  Entrada:  Mensal: A etapa=completo | B etapa=base. Filtro pendente_agora=[completo]
-  Esperado: (True, False)
-  Motivo:   clicar no chip "Completo" mostra só quem está em completo, dentro da tela Mensal
-  Obtido:   (True, False)
-
-[PASSOU] test_produto_sem_indicadores_nenhum_so_aparece_em_todos
-  Entrada:  produto sem CicloVideo e sem IndicadoresAgendaProduto, nas 6 telas
-  Esperado: {'todos': True, 'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
-  Motivo:   Todos mostra tudo (Q() sem filtro) — as outras 5 exigem cache sincronizado
-  Obtido:   {'todos': True, 'nao_agendado': False, 'simples': False, 'video_mensal': False, 'video_trimestral': False, 'a_fazer_hoje': False}
-
-[PASSOU] test_simples_nao_pega_concluido
-  Entrada:  Simples, etapa_atual=concluido
-  Esperado: False
-  Motivo:   concluído pertence a Não Agendado, nunca aos 2 ao mesmo tempo
-  Obtido:   False
-
-[PASSOU] test_simples_nao_pega_outras_fases
-  Entrada:  Vídeo Mensal etapa=base | Vídeo Trimestral etapa=base
-  Esperado: (False, False)
-  Motivo:   tela Simples é só fase Simples
-  Obtido:   (False, False)
-
-[PASSOU] test_simples_pega_nunca_tocado
-  Entrada:  sem nenhum CicloVideo, cache etapa_atual=nao_agendado (sintético)
-  Esperado: True
-  Motivo:   decisão de arquitetura #2 do mapa — "nunca tocado" e "base em andamento" são a mesma ação pendente
-  Obtido:   True
-
-[PASSOU] test_simples_pega_qualquer_etapa_exceto_concluido
-  Entrada:  Simples etapa=base | Simples etapa=aguardando_aprovacao
-  Esperado: (True, True)
-  Motivo:   qualquer etapa não-concluído entra — mesmo mecanismo booleano pras 2 pontas
-  Obtido:   (True, True)
-
-[PASSOU] test_trimestral_filtra_so_pela_fase
-  Entrada:  Trimestral | Mensal, ambos etapa=postar
-  Esperado: (True, False)
-  Motivo:   mesmo mecanismo do Mensal, espelhado pro Trimestral
-  Obtido:   (True, False)
-
-=== Nível 3 — listar_produtos_com_historico() ===
-
-[PASSOU] test_busca_multi_termo_precisa_bater_todos
-  Entrada:  título="Fone Bluetooth XPTO ABC999", busca="XPTO ABC999"
-  Esperado: True
-  Motivo:   os 2 termos batem (cada um em qualquer campo) — produto entra
-  Obtido:   True
-
-[PASSOU] test_busca_multi_termo_um_nao_bate_exclui
-  Entrada:  título="Fone Bluetooth XPTO", busca="XPTO ZZZINEXISTENTE"
-  Esperado: False
-  Motivo:   1 dos 2 termos não bate em campo nenhum — produto some, mesmo o outro termo batendo
-  Obtido:   False
-
-[PASSOU] test_busca_por_cod_fabricante
-  Entrada:  cod_fabricante="FAB-XPTO-9", busca="FAB-XPTO"
-  Esperado: True
-  Motivo:   termo bate no código do fabricante
-  Obtido:   True
-
-[PASSOU] test_busca_por_ean
-  Entrada:  ean="7891234500019", busca="7891234500019"
-  Esperado: True
-  Motivo:   termo bate no EAN
-  Obtido:   True
-
-[PASSOU] test_busca_por_sku
-  Entrada:  sku="SKU-XPTO-001", busca="SKU-XPTO"
-  Esperado: True
-  Motivo:   termo bate no SKU
-  Obtido:   True
-
-[PASSOU] test_busca_por_titulo
-  Entrada:  título="Fone Bluetooth XPTO", busca="XPTO"
-  Esperado: True
-  Motivo:   termo bate no título
-  Obtido:   True
-
-[PASSOU] test_combinacao_marca_e_urgente_e_status_manual_juntos
-  Entrada:  A bate marca+urgente+status_manual | B só bate urgente+status_manual (marca errada)
-  Esperado: (True, False)
-  Motivo:   os 3 filtros de produto são aplicados em sequência (AND) — precisa bater todos
-  Obtido:   (True, False)
-
-[PASSOU] test_fase_e_status_juntos_precisam_bater_no_mesmo_ciclo
-  Entrada:  ciclo 1: Simples/sem status | ciclo 2: Mensal/Aprovado. Filtro fase=[Simples]+status=[Aprovado]
-  Esperado: False
-  Motivo:   fase e status aplicados na MESMA queryset de ciclos — precisam bater no mesmo ciclo, não em ciclos diferentes do produto
-  Obtido:   False
-
-[PASSOU] test_fase_e_status_juntos_quando_combinacao_existe_no_mesmo_ciclo
-  Entrada:  mesmo par de ciclos. Filtro fase=[Vídeo Mensal]+status=[Aprovado]
-  Esperado: True
-  Motivo:   agora a combinação pedida bate de verdade no ciclo 2 — aparece
-  Obtido:   True
-
-[PASSOU] test_filtro_data_ate_sozinho
-  Entrada:  A: ciclo criado 01/08 | B: ciclo criado 20/08, filtro data_ate=10/08
-  Esperado: (True, False)
-  Motivo:   data_ate é __lte — só quem foi criado até ali entra
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_data_de_e_data_ate_juntos_formam_janela
-  Entrada:  A: 05/08 (dentro) | B: 01/07 (antes) | C: 01/09 (depois), janela 01/08-10/08
-  Esperado: (True, False, False)
-  Motivo:   os 2 filtros juntos formam uma janela fechada — só quem cai dentro entra
-  Obtido:   (True, False, False)
-
-[PASSOU] test_filtro_data_de_sozinho
-  Entrada:  A: ciclo criado 10/08 | B: ciclo criado 01/07, filtro data_de=01/08
-  Esperado: (True, False)
-  Motivo:   data_de é __gte — só quem foi criado a partir dali entra
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_fase_exclui_quando_nao_bate
-  Entrada:  ciclo fase=Simples, filtro fase=[Vídeo Mensal]
-  Esperado: False
-  Motivo:   único ciclo do produto não bate a fase pedida — fica de fora
-  Obtido:   False
-
-[PASSOU] test_filtro_fase_inclui_quando_bate
-  Entrada:  ciclo fase=Vídeo Mensal, filtro fase=[Vídeo Mensal]
-  Esperado: True
-  Motivo:   ciclo bate a fase pedida — produto entra
-  Obtido:   True
-
-[PASSOU] test_filtro_fase_multiplas_fases_e_uniao
-  Entrada:  A: Simples | B: Trimestral | C: Mensal, filtro fase=[Simples, Trimestral]
-  Esperado: (True, True, False)
-  Motivo:   fase__in é união — qualquer uma das fases pedidas entra
-  Obtido:   (True, True, False)
-
-[PASSOU] test_filtro_marcas
-  Entrada:  A marca=Samsung | B marca=LG, filtro marcas=[Samsung]
-  Esperado: (True, False)
-  Motivo:   filtro direto por marca
-  Obtido:   (True, False)
-
-[PASSOU] test_filtro_status_exclui_quando_nao_bate
-  Entrada:  ciclo status=Recusado, filtro status=[Aprovado]
-  Esperado: False
-  Motivo:   único ciclo do produto não bate o status pedido — fica de fora
-  Obtido:   False
-
-[PASSOU] test_filtro_status_inclui_quando_bate
-  Entrada:  ciclo status=Aprovado, filtro status=[Aprovado]
-  Esperado: True
-  Motivo:   ciclo bate o status pedido — produto entra
-  Obtido:   True
-
-[PASSOU] test_filtro_status_manual_exclui_produto_sem_cache
-  Entrada:  produto com ciclo mas sem IndicadoresAgendaProduto, filtro status_manual=[Ativo]
-  Esperado: False
-  Motivo:   join INNER via indicadores_agenda — sem cache, o filtro nunca traz esse produto de volta
-  Obtido:   False
-
-[PASSOU] test_filtro_status_manual_inclui_quando_bate
-  Entrada:  cache status_manual=Ativo, filtro status_manual=[Ativo]
-  Esperado: True
-  Motivo:   filtro direto por status manual
-  Obtido:   True
-
-[PASSOU] test_filtro_urgente_ambiguo_nao_filtra
-  Entrada:  A urgente=True | B sem participação, filtro urgente=[sim, nao]
-  Esperado: (True, True)
-  Motivo:   os 2 valores marcados ao mesmo tempo — comportamento é não filtrar nada
-  Obtido:   (True, True)
-
-[PASSOU] test_filtro_urgente_nao_pega_false_explicito
-  Entrada:  urgente=False (registro existe), filtro urgente=[nao]
-  Esperado: True
-  Motivo:   caso direto — False bate "não urgente"
-  Obtido:   True
-
-[PASSOU] test_filtro_urgente_nao_pega_quem_nunca_teve_participacao
-  Entrada:  sem nenhum ParticipacaoAgenda, filtro urgente=[nao]
-  Esperado: True
-  Motivo:   fix de NULL: quem nunca clicou "Urgente" conta como não urgente, não fica de fora do filtro
-  Obtido:   True
-
-[PASSOU] test_filtro_urgente_sim_pega_so_true
-  Entrada:  A urgente=True | B urgente=False, filtro urgente=[sim]
-  Esperado: (True, False)
-  Motivo:   filtro direto — só quem tem urgente=True aparece
-  Obtido:   (True, False)
-
-[PASSOU] test_ordenacao_por_titulo
-  Entrada:  A="AAA Produto" | Z="ZZZ Produto"
-  Esperado: A antes de Z (ordem alfabética)
-  Motivo:   order_by(titulo) — sempre alfabética, sem opção de escolha nesta função
-  Obtido:   [118, 117]
-
-[PASSOU] test_produto_sem_ciclo_nenhum_nunca_aparece
-  Entrada:  produto sem nenhum CicloVideo, sem filtro nenhum
-  Esperado: False
-  Motivo:   entrada no relatório é via ids_produtos vindo dos ciclos — zero ciclo nunca aparece
-  Obtido:   False
-
-[PASSOU] test_sem_filtro_nenhum_retorna_quem_tem_ciclo
-  Entrada:  produto com 1 ciclo, sem busca nem filtro nenhum
-  Esperado: True
-  Motivo:   sem filtro nenhum, todo produto com pelo menos 1 ciclo aparece
-  Obtido:   True
-
-[PASSOU] test_sem_filtro_status_manual_nao_exige_cache
-  Entrada:  produto com ciclo, sem IndicadoresAgendaProduto, SEM filtro de status_manual
-  Esperado: True
-  Motivo:   sem o filtro aplicado, a ausência de cache não exclui ninguém — só acontece quando o filtro é usado de propósito
-  Obtido:   True
-
-=== Nível 3 — marcar_aguardando_aprovacao() e marcar_replicado() ===
-
-[PASSOU] marcar_aguardando_aprovacao
-  Entrada:  CicloVideo sem status
-  Esperado: status=AGUARDANDO_APROVACAO, timestamp preenchido
-  Motivo:   marcar_aguardando_aprovacao() só registra o status e o momento — não decide mais nada
-  Obtido:   status=aguardando_aprovacao, timestamp=preenchido
-
-[PASSOU] marcar_replicado_fase_normal_dispara_proximo
-  Entrada:  CicloVideo fase=Vídeo Mensal #1
-  Esperado: retorna a nova ocorrência (Vídeo Mensal #2)
-  Motivo:   qualquer fase que não seja Simples dispara criar_proximo() automaticamente
-  Obtido:   retornou=video_mensal #2
-
-[PASSOU] marcar_replicado_simples_nao_dispara_proximo
-  Entrada:  CicloVideo fase=Simples
-  Esperado: retorna None, mas o próprio ciclo fica marcado REPLICADO
-  Motivo:   Simples nunca dispara o próximo ciclo sozinho — espera o clique manual de "Agendar"
-  Obtido:   retornou=None, status=replicado
-
-=== Nível 3 — orquestrador da Postagem Automática: listar_produtos_elegiveis() e obter_mlb_do_produto() ===
-
-[PASSOU] obter_mlb_do_produto com 1 variação vinculada
-  Entrada:  VariacaoAnuncioMercadoLivre(produto, anuncio.mlb=MLB0012)
-  Esperado: mlb=MLB0012
-  Motivo:   Caminho feliz — precisa devolver o MLB real, não None
-  Obtido:   mlb=MLB0012
-
-[PASSOU] obter_mlb_do_produto sem nenhuma variação
-  Entrada:  produto sem VariacaoAnuncioMercadoLivre
-  Esperado: mlb=None
-  Motivo:   Nunca deve estourar exceção — produto pode não ter anúncio vinculado ainda
-  Obtido:   mlb=None
-
-[PASSOU] produto Descontinuado
-  Entrada:  status_manual=DESCONTINUADO
-  Esperado: produto NÃO aparece
-  Motivo:   Mesma trava de Pausado, pro outro status manual que também exclui
-  Obtido:   apareceu=False
-
-[PASSOU] produto ainda em Roteiro (não chegou em Postar)
-  Entrada:  etapa_atual()=roteiro
-  Esperado: produto NÃO aparece
-  Motivo:   Fila é só pra quem já tem vídeo pronto, esperando o clique de postar
-  Obtido:   apareceu=False
-
-[PASSOU] produto Simples pronto pra postar (data_devida=None)
-  Entrada:  fase=Simples, etapa=postar, data_devida=None
-  Esperado: produto aparece (comentário do código promete isso)
-  Motivo:   Simples não tem vencimento — filtro de data não pode excluir ela por causa disso
-  Obtido:   apareceu=True
-
-[PASSOU] produto Pausado, mesmo com vídeo pronto pra postar
-  Entrada:  status_manual=PAUSADO
-  Esperado: produto NÃO aparece
-  Motivo:   Bot nunca posta produto que o time pausou manualmente
-  Obtido:   apareceu=False
-
-[PASSOU] produto pronto pra postar, vencimento atrasado
-  Entrada:  etapa=postar, data_devida=2026-08-03 (passado)
-  Esperado: produto aparece (atrasado também é elegível)
-  Motivo:   Fila cobre hoje-ou-atrasado, nunca só hoje
-  Obtido:   apareceu=True
-
-[PASSOU] produto pronto pra postar, vencimento no futuro
-  Entrada:  etapa=postar, data_devida=2026-08-09
-  Esperado: produto NÃO aparece ainda
-  Motivo:   Fila não deve antecipar postagem antes do vencimento
-  Obtido:   apareceu=False
-
-[PASSOU] produto pronto pra postar, vencimento hoje
-  Entrada:  etapa=postar, data_devida=2026-08-06
-  Esperado: produto aparece na lista
-  Motivo:   Caso básico — vencimento exatamente hoje precisa entrar
-  Obtido:   apareceu=True
-
-[PASSOU] produto já postou hoje, mesmo com outra ocorrência pronta
-  Entrada:  ciclo antigo com aguardando_aprovacao_em=hoje + ciclo novo pronto pra postar
-  Esperado: produto NÃO aparece (trava de 1x/dia)
-  Motivo:   Protege contra rodar a Postagem Automática 2x no mesmo dia
-  Obtido:   apareceu=False
-
-[PASSOU] produto com ciclo pronto mas cache nunca sincronizado
-  Entrada:  sem IndicadoresAgendaProduto
-  Esperado: produto NÃO aparece (filtro é INNER JOIN no cache)
-  Motivo:   Mesmo padrão já visto nas 6 telas — sem cache sincronizado, invisível
-  Obtido:   apareceu=False
-
-[PASSOU] ordenação real aplicada — urgente antes de comum
-  Entrada:  2 produtos elegíveis, 1 urgente
-  Esperado: urgente aparece primeiro
-  Motivo:   Confirma que a annotation de prioridade é de fato usada no order_by (a regra dos 6 níveis já é testada à parte)
-  Obtido:   posição urgente=0, posição comum=1
-
-=== Nível 3 — roadmap_produto (_montar_caminho_completo_fases / calcular_roadmap_produto) ===
-
-[PASSOU] legenda_mostra_data_devida_quando_nao_ha_legenda_fixa
-  Entrada:  Vídeo Mensal#1, produção completa, sem status, data_devida=10/08/2026
-  Esperado: legenda='vence 10/08'
-  Motivo:   Estado Atual não está no mapa fixo de legendas — cai no fallback de data, mostrando "vence DD/MM".
-  Obtido:   legenda='vence 10/08'
-
-[PASSOU] legenda_usa_mapa_quando_estado_tem_legenda_fixa
-  Entrada:  Vídeo Mensal#1, produção completa, status=Aguardando Aprovação
-  Esperado: legenda='aguardando aprovação' (vem do mapa fixo, não da data)
-  Motivo:   Estado visual Aguardando está em LEGENDAS_POR_ESTADO_VISUAL — a legenda usa o texto fixo do mapa, nunca chega a olhar data_devida.
-  Obtido:   legenda='aguardando aprovação'
-
-[PASSOU] timestamps_claramente_diferentes
-  Entrada:  ciclo_antigo(Simples, criado_em=2026-01-01 00:00:00, id menor), ciclo_recente(Vídeo Mensal#1, criado_em=2026-06-01 00:00:00, id maior)
-  Esperado: rodada_atual_id='video_mensal_1'
-  Motivo:   Timestamps bem distintos — nenhuma ambiguidade, o mais recente por data já é suficiente.
-  Obtido:   rodada_atual_id='video_mensal_1'
-
-[PASSOU] timestamps_empatados_desempate_por_id
-  Entrada:  ciclo_antigo(Simples, criado_em=2026-01-01 12:00:00, id menor), ciclo_recente(Vídeo Mensal#1, criado_em=2026-01-01 12:00:00, id maior)
-  Esperado: rodada_atual_id='video_mensal_1'
-  Motivo:   Timestamps IDÊNTICOS de propósito (simula o empate real, comum no Windows) — só o desempate por id (ciclo_recente criado depois, id maior) garante escolher o certo. Prova a correção em order_by("criado_em", "id").
-  Obtido:   rodada_atual_id='video_mensal_1'
-
-[PASSOU] ponto_agendar_aparece_apos_simples_replicado
-  Entrada:  Simples#1 replicado, sem Vídeo Mensal#1 ainda
-  Esperado: 'agendar' presente, na posição 1
-  Motivo:   Janela específica: Simples concluído mas próxima fase ainda não criada — ponto extra clicável "Agendar" aparece logo depois do Simples.
-  Obtido:   ids=['simples_1', 'agendar', 'video_mensal_1', 'video_mensal_2', 'video_mensal_3', 'video_mensal_4', 'video_trimestral_continua']
-
-[PASSOU] timestamps_claramente_diferentes
-  Entrada:  ciclo_simples(criado_em=2026-01-01 00:00:00, id menor), ciclo_mensal(criado_em=2026-06-01 00:00:00, id maior)
-  Esperado: 'agendar' ausente
-  Motivo:   Timestamps bem distintos — o Vídeo Mensal#1 é claramente o mais recente.
-  Obtido:   ids=['simples_1', 'video_mensal_1', 'video_mensal_2', 'video_mensal_3', 'video_mensal_4', 'video_trimestral_continua']
-
-[PASSOU] timestamps_empatados_desempate_por_id
-  Entrada:  ciclo_simples(criado_em=2026-01-01 12:00:00, id menor), ciclo_mensal(criado_em=2026-01-01 12:00:00, id maior)
-  Esperado: 'agendar' ausente
-  Motivo:   Timestamps IDÊNTICOS de propósito — só o desempate por id garante que o Mensal#1 (criado depois, id maior) vença, escondendo o ponto "Agendar" corretamente mesmo no empate.
-  Obtido:   ids=['simples_1', 'video_mensal_1', 'video_mensal_2', 'video_mensal_3', 'video_mensal_4', 'video_trimestral_continua']
-
-[PASSOU] produto_sem_nenhum_ciclo_video
-  Entrada:  Produto novo, 0 CicloVideo no banco
-  Esperado: rodada_atual_id='simples_1', legenda='', 0 CicloVideo no banco
-  Motivo:   Sem nenhum ciclo salvo, a função monta um Simples#1 EM MEMÓRIA só pra exibir — nunca cria nada no banco só de olhar a tela. Simples nunca vence, então a legenda cai no else (vazia).
-  Obtido:   rodada_atual_id='simples_1', legenda='', 0 CicloVideo no banco
-
-[PASSOU] regua_quebrada_sem_proxima_fase
-  Entrada:  Simples(periodo=1), proxima_fase=None, não contínua
-  Esperado: 1 ponto, aviso vazio
-  Motivo:   Régua incompleta (fase finita sem próxima configurada) — a função para no lugar, sem travar nem lançar erro, e sem aviso (nunca chegou numa fase contínua).
-  Obtido:   1 ponto(s), aviso=vazio
-
-[PASSOU] regua_real_completa
-  Entrada:  Simples(periodo=1) -> Vídeo Mensal(periodo=4) -> Vídeo Trimestral(contínua)
-  Esperado: 6 pontos, aviso preenchido
-  Motivo:   Régua real e completa — cada fase finita aponta pra próxima, a última é contínua. Percorre a régua inteira até achar o ponto contínuo.
-  Obtido:   6 pontos, aviso=preenchido
-
-=== Nível 3 — sincronizar_indicadores_agenda_produto() ===
-
-[PASSOU] sincronizar_atualiza_registro_existente
-  Entrada:  indicador antigo dizia "base", ciclo real já está em "postar"
-  Esperado: (1, 'postar')
-  Motivo:   update_or_create ATUALIZA o mesmo registro — nunca duplica, e reflete o estado atual
-  Obtido:   (1, 'postar')
-
-[PASSOU] sincronizar_cria_registro_novo
-  Entrada:  produto novo, 1 ciclo Simples, sem indicador ainda
-  Esperado: base
-  Motivo:   nenhum registro existia — update_or_create cria o 1º
-  Obtido:   base
-
-=== Nível 3 — ParticipacaoAgenda.status_manual_atual() ===
-
-[PASSOU] status_manual_atual_sem_historico_e_ativo
-  Entrada:  ParticipacaoAgenda sem nenhum HistoricoStatusManualAgenda
-  Esperado: ativo
-  Motivo:   sem histórico registrado, o default é sempre Ativo
-  Obtido:   ativo
-
-[PASSOU] status_manual_atual_usa_o_registro_mais_recente
-  Entrada:  2 registros: Descontinuado (1º) -> Pausado (2º, mais recente)
-  Esperado: pausado
-  Motivo:   ordenado por -alterado_em — sempre o mais recente vale, nunca o primeiro
-  Obtido:   pausado
-
-=== test_nivel_3__verificador ===
-
-[PASSOU] _avancar_etapas_com_estrutura — avança as 3 em sequência
-  Entrada:  Drive tem Base + Roteiro + Completo
-  Esperado: (['base','roteiro','completo'], None), cache sincronizado pra 'postar'
-  Motivo:   Loop continua enquanto a etapa depender de arquivo e o arquivo existir
-  Obtido:   etapas_marcadas=['base', 'roteiro', 'completo'], diagnostico=None, etapa_no_cache=postar
-
-[PASSOU] _avancar_etapas_com_estrutura — etapa fora do escopo (postar)
-  Entrada:  etapa_atual()=postar, estrutura do Drive vazia
-  Esperado: ([], None), timestamps intocados, sem cache criado
-  Motivo:   postar não depende de arquivo — loop quebra antes de olhar o Drive
-  Obtido:   etapas_marcadas=[], diagnostico=None
-
-[PASSOU] _avancar_etapas_com_estrutura — marca 1 e trava na próxima
-  Entrada:  Drive só tem Simples_Base.mp4
-  Esperado: (['base'], DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Simples_Roteiro.txt" não encontrado.'))
-  Motivo:   Avança o que existe, trava exatamente no primeiro que falta
-  Obtido:   etapas_marcadas=['base'], diagnostico=DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Simples_Roteiro.txt" não encontrado.'), base_concluido_em=2026-08-06 13:05:01.363307+00:00, roteiro_concluido_em=None
-
-[PASSOU] _avancar_etapas_com_estrutura — cria o 1º ciclo quando Base está pronta
-  Entrada:  produto sem nenhum CicloVideo, Drive com Simples_Base.mp4
-  Esperado: (['base'], DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Simples_Roteiro.txt" não encontrado.')), CicloVideo criado com Base marcada
-  Motivo:   Sincronização deve fazer o papel do clique manual quando o Drive já comprova
-  Obtido:   etapas_marcadas=['base'], diagnostico=DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Simples_Roteiro.txt" não encontrado.'), ciclo_criado=True, base_concluido_em=2026-08-06 13:05:01.398398+00:00
-
-[PASSOU] _avancar_etapas_com_estrutura — produto sem ciclo, Drive sem Base
-  Entrada:  produto sem nenhum CicloVideo, Drive sem Simples_Base.mp4
-  Esperado: ([], DiagnosticoBloqueio("base", ...)), nenhum CicloVideo criado
-  Motivo:   Nunca cria ciclo travado sem arquivo — só avisa o que falta
-  Obtido:   etapas_marcadas=[], diagnostico=DiagnosticoBloqueio(etapa='base', mensagem='Aguardando Base — "Simples_Base.mp4" não encontrado.'), ciclo_existe=False
-
-[PASSOU] verificar_produto_no_drive (simulado) — avança ponta a ponta
-  Entrada:  Localizador mockado devolve [Simples_Base.mp4]
-  Esperado: (['base'], pasta_encontrada=True, DiagnosticoBloqueio('roteiro', ...))
-  Motivo:   Mock só na borda de rede — parser, avanço e banco rodam de verdade
-  Obtido:   etapas_marcadas=['base'], pasta_encontrada=True, diagnostico=DiagnosticoBloqueio(etapa='roteiro', mensagem='Aguardando Roteiro — "Simples_Roteiro.txt" não encontrado.'), base_concluido_em=2026-08-06 13:05:01.526447+00:00
-
-[PASSOU] verificar_produto_no_drive (simulado) — grava snapshot quando encontra
-  Entrada:  Localizador mockado devolve pasta encontrada + arquivos
-  Esperado: SnapshotArquivosDrive criado com pasta_encontrada=True e os arquivos certos
-  Motivo:   Verificação individual também é 1 dos 2 caminhos que mantêm o snapshot fresco
-  Obtido:   snapshot_existe=True, pasta_encontrada=True, arquivos_videos=[{'id': 'id_base', 'name': 'Simples_Base.mp4'}], arquivos_usados=[{'id': 'id_antigo', 'name': 'Simples_Base_antigo.mp4'}]
-
-[PASSOU] verificar_produto_no_drive (simulado) — grava snapshot quando não encontra
-  Entrada:  Localizador mockado devolve encontrado=False
-  Esperado: SnapshotArquivosDrive criado com pasta_encontrada=False e o motivo
-  Motivo:   Não encontrar também precisa atualizar o snapshot, não só o caso de sucesso
-  Obtido:   snapshot_existe=True, pasta_encontrada=False, motivo_nao_encontrado=Pasta da marca não encontrada no Drive
-
-[PASSOU] verificar_produto_no_drive (simulado) — pasta não encontrada
-  Entrada:  Localizador mockado devolve encontrado=False
-  Esperado: ([], estrutura não encontrada, DiagnosticoBloqueio("pasta", motivo))
-  Motivo:   Pasta ausente é um bloqueio próprio, nem chega a parsear nem avançar
-  Obtido:   etapas_marcadas=[], pasta_encontrada=False, diagnostico=DiagnosticoBloqueio(etapa='pasta', mensagem='Pasta da marca não encontrada no Drive')
-
-[PASSOU] verificar_todos_no_drive (simulado) — 1 produto avança
-  Entrada:  sincronizar_snapshots_drive mockado devolve 1 produto_id, snapshot real com Simples_Base.mp4
-  Esperado: resumo=[(produto_id, ['base'])], sem_produto_no_banco repassado igual
-  Motivo:   Mock só na borda de rede — leitura do snapshot, parser e avanço rodam de verdade
-  Obtido:   resumo=[(159, ['base'])], sem_produto_no_banco=['EAN-inexistente-no-banco'], base_concluido_em=2026-08-06 13:05:01.863950+00:00
-
-[PASSOU] verificar_todos_no_drive (simulado) — produto sem avanço fica fora do resumo
-  Entrada:  snapshot com arquivos_videos=[] (Drive vazio)
-  Esperado: resumo=[] — produto não aparece
-  Motivo:   Filtro "if etapas_marcadas:" exclui quem não avançou nada
-  Obtido:   resumo=[], sem_produto_no_banco=[]
-
-=== Nível 4 — Integração: config mudada pela tela afeta o próximo ciclo real ===
-
-[PASSOU] POST muda distância (30→45d) e criar_proximo() usa o valor novo
-  Entrada:  ciclo criado com a régua antiga (30d), config mudada DEPOIS pra 45d
-  Esperado: data_devida == 2026-09-18 (usa 45d, não 30d)
-  Motivo:   ConfiguracaoFase é lida ao vivo por criar_proximo() — não existe cache pra ficar desatualizado
-  Obtido:   fase=video_mensal, numero_ocorrencia=2, data_devida=2026-09-18
-
-[PASSOU] POST muda período (4→2) e criar_proximo() já transiciona de fase mais cedo
-  Entrada:  ciclo #2 replicado com período antigo (4), config mudada DEPOIS pra período 2
-  Esperado: ocorrência #3 não fica mais dentro do período → cria Vídeo Trimestral #1
-  Motivo:   dentro_do_periodo() é avaliado contra a ConfiguracaoFase atual, lida na hora — não contra o valor que existia quando o ciclo foi criado
-  Obtido:   fase=video_trimestral, numero_ocorrencia=1, data_devida=2026-11-02
-
-=== Nível 4 — view_agenda_videos(): tela principal via HTTP ===
-
-[PASSOU] por_pagina=1 com 2 produtos → 2 páginas
-  Entrada:  2 produtos na tela Todos, ?por_pagina=1
-  Esperado: paginator.num_pages == 2
-  Motivo:   Confirma que o parâmetro de paginação da URL chega até o Paginator real
-  Obtido:   status=200, num_pages=2
-
-[PASSOU] sem querystring → tela padrão é A Fazer Hoje
-  Entrada:  GET / (sem parâmetros)
-  Esperado: tela_atual == Tela.A_FAZER_HOJE
-  Motivo:   Comportamento padrão documentado em ParametrosBuscaAgendaVideos
-  Obtido:   status=200, tela_atual=a_fazer_hoje
-
-[PASSOU] tela inválida na querystring → cai no padrão
-  Entrada:  ?tela=essa-tela-nao-existe
-  Esperado: tela_atual == Tela.A_FAZER_HOJE
-  Motivo:   Fallback de segurança contra valor forjado/desatualizado na URL
-  Obtido:   status=200, tela_atual=a_fazer_hoje
-
-[PASSOU] tela Simples: chip "base" reflete produto real no contexto
-  Entrada:  1 produto sincronizado, etapa_atual=base, ?tela=simples
-  Esperado: contadores_chips["base"] >= 1
-  Motivo:   Confirma que o pipeline de chip-contador chega inteiro na página via HTTP
-  Obtido:   status=200, contadores_chips={'base': 1, 'roteiro': 0, 'completo': 0, 'recusado': 0, 'postar': 0, 'aguardando_aprovacao': 0, 'replicar': 0}
-
-[PASSOU] card sem ciclo_atual ainda mostra o botão de verificar Drive
-  Entrada:  produto sem nenhum CicloVideo, ?tela=todos
-  Esperado: card renderiza e contém o botão agenda-verificar-drive-toggle
-  Motivo:   view_verificar_produto_drive só depende de produto_id — botão não pode ficar preso ao ciclo_atual
-  Obtido:   status=200, card_presente=True, botao_presente=True
-
-[PASSOU] tela Todos mostra produto sem cache de indicadores
-  Entrada:  produto sem IndicadoresAgendaProduto, ?tela=todos
-  Esperado: produto aparece, contadores_chips={}
-  Motivo:   Todos é a única tela sem depender do cache via INNER JOIN — regressão do bug real de 03/08
-  Obtido:   status=200, contadores_chips={}, produto_na_pagina=True
-
-=== Nível 4 — view_agendar_produto(): Simples → Vídeo Mensal via HTTP ===
-
-[PASSOU] agendado_em já preenchido → não é sobrescrito
-  Entrada:  ParticipacaoAgenda já existe com agendado_em de 10 dias atrás
-  Esperado: agendado_em continua o valor original
-  Motivo:   Idempotente: uma vez agendado, sempre agendado — nunca reseta o marco real
-  Obtido:   status=200, agendado_em=2026-07-27 13:05:02.968222+00:00
-
-[PASSOU] ciclo concluído mas fase=Vídeo Mensal → 400
-  Entrada:  etapa_atual()=concluido, fase=Vídeo Mensal (não Simples)
-  Esperado: status_code == 400
-  Motivo:   A trava exige fase==Simples E etapa==concluido — as 2 juntas, nunca só uma
-  Obtido:   status=400
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade
-  Obtido:   status=404
-
-[PASSOU] produto nunca tocado (sem ciclo) → 400
-  Entrada:  produto sem nenhum CicloVideo
-  Esperado: status_code == 400
-  Motivo:   ciclo is None entra na mesma trava de "não pode agendar ainda"
-  Obtido:   status=400
-
-[PASSOU] Simples concluído → agenda com sucesso
-  Entrada:  CicloVideo Simples com status=Replicado
-  Esperado: cria Vídeo Mensal #1, ParticipacaoAgenda.agendado_em preenchido
-  Motivo:   Transição formal Simples → Vídeo Mensal, marcando o momento real
-  Obtido:   status=200, mensal_1_existe=True, agendado_em=2026-08-06 13:05:03.111202+00:00
-
-[PASSOU] Simples não concluído (ainda em Base) → 400
-  Entrada:  CicloVideo Simples etapa_atual()=base
-  Esperado: 400, nenhum ciclo novo, nenhuma ParticipacaoAgenda
-  Motivo:   Só é possível agendar depois do Simples replicado
-  Obtido:   status=400, ainda_1_ciclo=True, sem_participacao=True
-
-=== Nível 4 — view_alternar_pausado_agenda(): toggle de status manual via HTTP ===
-
-[PASSOU] com ParticipacaoAgenda, Ativo → toggle pausa
-  Entrada:  ParticipacaoAgenda existe, sem histórico ainda
-  Esperado: 200, status_manual_atual.label == "Pausado"
-  Motivo:   Mesmo caminho, agora com ParticipacaoAgenda existindo de verdade
-  Obtido:   status=200, badge=Badge(label='Pausado', classe='status-pausado', icone='fa-pause')
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade
-  Obtido:   status=404
-
-[PASSOU] produto pausado → toggle volta pra Ativo
-  Entrada:  HistoricoStatusManualAgenda(status=PAUSADO) já existe
-  Esperado: 200, status_manual_atual.label == "Ativo"
-  Motivo:   Toggle simétrico — Pausado vira Ativo
-  Obtido:   status=200, badge=Badge(label='Ativo', classe='status-ativo', icone='fa-circle-check')
-
-[PASSOU] sem ParticipacaoAgenda → 1º toggle pausa
-  Entrada:  produto sem ParticipacaoAgenda, nunca pausado
-  Esperado: 200, status_manual_atual.label == "Pausado"
-  Motivo:   status_manual_atual_do_produto() lê o histórico direto — nunca depende de ParticipacaoAgenda existir
-  Obtido:   status=200, badge=Badge(label='Pausado', classe='status-pausado', icone='fa-pause')
-
-[PASSOU] sem ParticipacaoAgenda → 2º toggle volta pra Ativo (regressão do bug)
-  Entrada:  produto sem ParticipacaoAgenda, já pausado por 1 clique anterior
-  Esperado: status_manual_atual.label == "Ativo", 2 registros no histórico
-  Motivo:   Antes do fix, ficava travado sempre criando Pausado — nunca voltava
-  Obtido:   status=200, badge=Badge(label='Ativo', classe='status-ativo', icone='fa-circle-check'), total_registros=2
-
-[PASSOU] toggle sincroniza o cache pra Pausado
-  Entrada:  produto sem cache prévio, pausa
-  Esperado: IndicadoresAgendaProduto.status_manual == PAUSADO
-  Motivo:   sincronizar_indicadores_agenda_produto() roda depois de criar o histórico — cache precisa refletir na hora
-  Obtido:   status=200, status_manual_no_cache=pausado
-
-=== Nível 4 — view_alternar_urgente(): toggle de urgência via HTTP ===
-
-[PASSOU] urgente=True → toggle vira False
-  Entrada:  ParticipacaoAgenda existente, urgente=True
-  Esperado: 200, urgente=False
-  Motivo:   Toggle simples — inverte o valor atual
-  Obtido:   status=200, urgente=False
-
-[PASSOU] 2 toggles seguidos → volta ao estado original
-  Entrada:  produto sem ParticipacaoAgenda, 2 cliques em sequência
-  Esperado: urgente=False (voltou ao default)
-  Motivo:   Round-trip: False -> True -> False
-  Obtido:   status=200, urgente=False
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade
-  Obtido:   status=404
-
-[PASSOU] sem ParticipacaoAgenda → toggle cria e marca urgente
-  Entrada:  produto sem ParticipacaoAgenda
-  Esperado: 200, ParticipacaoAgenda criada com urgente=True
-  Motivo:   get_or_create cria o registro na hora, default urgente=False, primeiro toggle vira True
-  Obtido:   status=200, participacao_existe=True, urgente=True
-
-=== Nível 4 — view_configuracoes_agenda_videos(): GET/POST via HTTP ===
-
-[PASSOU] GET com Vídeo Mensal já configurado
-  Entrada:  ConfiguracaoFase(Vídeo Mensal, periodo=4, distancia=30)
-  Esperado: contexto reflete os valores reais só pra essa fase
-  Motivo:   As outras fases sem registro continuam com o padrão em branco
-  Obtido:   mensal={'valor': 'video_mensal', 'label': 'Vídeo Mensal', 'periodo_continuo': False, 'periodo': 4, 'distancia_dias_corridos': 30, 'distancia_dias_ao_entrar_na_fase': 0, 'configurado': True}
-
-[PASSOU] GET sem nenhuma ConfiguracaoFase
-  Entrada:  banco vazio
-  Esperado: 3 fases no contexto, todas configurado=False e em branco
-  Motivo:   Sem registro salvo, a view precisa devolver valores padrão sem quebrar
-  Obtido:   status=200, configuradas=[False, False, False]
-
-[PASSOU] POST atualiza Vídeo Mensal já configurado
-  Entrada:  config existente (periodo=4) + POST com periodo=6
-  Esperado: 1 registro só, com os valores novos
-  Motivo:   update_or_create nunca deve duplicar o registro por fase (fase é unique)
-  Obtido:   total=1, config=Vídeo Mensal — 6x, a cada 45d
-
-[PASSOU] POST distância-de-entrada em branco
-  Entrada:  video_mensal_distancia_dias_ao_entrar_na_fase=""
-  Esperado: distancia_dias_ao_entrar_na_fase == 0
-  Motivo:   Esse campo nunca é obrigatório — em branco cai no padrão 0
-  Obtido:   config=Vídeo Mensal — 4x, a cada 30d
-
-[PASSOU] Nenhuma fase válida na submissão
-  Entrada:  as 3 fases com dado obrigatório faltando
-  Esperado: nenhum registro criado, ainda assim redireciona (302)
-  Motivo:   View sempre redireciona no final, com ou sem sucesso — nunca 400
-  Obtido:   status=302, total_no_banco=0
-
-[PASSOU] POST Vídeo Trimestral com periodo_continuo=on
-  Entrada:  video_trimestral_periodo_continuo="on", sem período
-  Esperado: periodo_continuo=True, periodo=None
-  Motivo:   Quando contínuo, período nunca é lido nem exigido
-  Obtido:   config=Vídeo Trimestral — contínua, a cada 90d
-
-[PASSOU] POST sem periodo_continuo e sem período preenchido
-  Entrada:  video_mensal_periodo=""
-  Esperado: nada criado pra Vídeo Mensal
-  Motivo:   Sem periodo_continuo, período é obrigatório
-  Obtido:   status=302, config=None
-
-[PASSOU] POST Simples com distância em branco
-  Entrada:  simples_distancia_dias_corridos=""
-  Esperado: ConfiguracaoFase(Simples) criada, distancia_dias_corridos=None
-  Motivo:   Simples é a única fase que não exige esse campo — travar contra o bug já corrigido
-  Obtido:   status=302, config=Simples — 1x, a cada Noned
-
-[PASSOU] 1 fase inválida (Mensal) entre 2 válidas na mesma submissão
-  Entrada:  só video_mensal_distancia_dias_corridos em branco
-  Esperado: Simples e Trimestral salvam, só Mensal fica sem
-  Motivo:   O loop processa cada fase de forma independente — 1 falha não deve travar as outras
-  Obtido:   simples=True, mensal=False, trimestral=True
-
-[PASSOU] POST Vídeo Mensal sem distância (obrigatória pra ela)
-  Entrada:  video_mensal_distancia_dias_corridos=""
-  Esperado: nada criado pra Vídeo Mensal
-  Motivo:   Diferente de Simples, Mensal exige distância entre ocorrências
-  Obtido:   status=302, config=None
-
-=== Nível 4 — view_confirmar_ponto_roadmap(): modal de confirmação via HTTP ===
-
-[PASSOU] ciclo aguardando aprovação + chave certa → confirma
-  Entrada:  status=AGUARDANDO_APROVACAO, chave=aguardando_aprovacao
-  Esperado: 200, tipo_acao=resolver_aprovacao
-  Motivo:   Etapa pedida bate com a etapa real do ciclo
-  Obtido:   status=200, tipo_acao=resolver_aprovacao
-
-[PASSOU] ciclo concluído + chave=concluido → 400
-  Entrada:  etapa_atual()=concluido, chave=concluido
-  Esperado: status_code == 400
-  Motivo:   "Concluído" é um estado resultante, não uma ação com modal de confirmação própria
-  Obtido:   status=400
-
-[PASSOU] ciclo real em Base + chave=base → confirma
-  Entrada:  CicloVideo salvo, etapa_atual()=base, chave=base
-  Esperado: 200, tipo_acao=confirmar_simples
-  Motivo:   Etapa pedida bate com a etapa real do ciclo
-  Obtido:   status=200, tipo_acao=confirmar_simples
-
-[PASSOU] ciclo em etapa postar + chave=postar → confirma
-  Entrada:  Base/Roteiro/Completo concluídos, status=None, chave=postar
-  Esperado: 200, tipo_acao=postar
-  Motivo:   Etapa pedida bate com a etapa real do ciclo
-  Obtido:   status=200, tipo_acao=postar
-
-[PASSOU] ciclo recusado + chave=completo → nova_tentativa
-  Entrada:  status=RECUSADO, chave=completo
-  Esperado: 200, tipo_acao=nova_tentativa
-  Motivo:   Recusado precisa refazer o Completo — caminho dedicado, checado antes do match genérico
-  Obtido:   status=200, tipo_acao=nova_tentativa
-
-[PASSOU] ciclo em Base + chave=postar (estado divergente) → 400
-  Entrada:  etapa_atual()=base, chave pedida=postar
-  Esperado: status_code == 400
-  Motivo:   Revalidação contra estado desatualizado — a razão de a view existir
-  Obtido:   status=400
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade
-  Obtido:   status=404
-
-[PASSOU] sem ciclo + chave=base → confirma, sem salvar nada
-  Entrada:  produto sem nenhum CicloVideo, chave=base
-  Esperado: 200, tipo_acao=confirmar_simples, 0 CicloVideo no banco
-  Motivo:   Só visualizar o modal nunca pode escrever no banco
-  Obtido:   status=200, tipo_acao=confirmar_simples, existe_no_banco=False
-
-[PASSOU] sem ciclo + chave=roteiro → 400
-  Entrada:  produto sem nenhum CicloVideo, chave=roteiro
-  Esperado: status_code == 400
-  Motivo:   O único ponto alcançável sem CicloVideo é "base" — qualquer outra chave é estado impossível
-  Obtido:   status=400
-
-=== Nível 4 — view_executar_acao_ciclica(): postar/aprovar/recusar/replicar via HTTP ===
-
-[PASSOU] ação desconhecida → 400
-  Entrada:  acao=essa_acao_nao_existe (fora do dict ACOES_CICLICAS)
-  Esperado: status_code == 400
-  Motivo:   ACOES_CICLICAS.get(acao) devolve None — tratado, não KeyError
-  Obtido:   status=400
-
-[PASSOU] aprovado: sem aguardar aprovação → 400
-  Entrada:  status=None (nem foi postado ainda)
-  Esperado: 400, status continua None
-  Motivo:   Guard compartilhado com recusado — só testo 1 vez, é a mesma função
-  Obtido:   status=400, ciclo_status=None
-
-[PASSOU] aprovado: sucesso
-  Entrada:  status=AGUARDANDO_APROVACAO
-  Esperado: 200, status=APROVADO, timestamp preenchido
-  Motivo:   Caminho normal de aprovação
-  Obtido:   status=200, ciclo_status=aprovado
-
-[PASSOU] nova_tentativa: status != RECUSADO → 400
-  Entrada:  status=APROVADO
-  Esperado: 400, status continua APROVADO
-  Motivo:   Nova tentativa só existe pra recusada
-  Obtido:   status=400, ciclo_status=aprovado
-
-[PASSOU] nova_tentativa: sucesso reabre Completo
-  Entrada:  status=RECUSADO
-  Esperado: 200, status=None, completo_concluido_em=None
-  Motivo:   Recusado precisa refazer o Completo antes de postar de novo
-  Obtido:   status=200, ciclo_status=None, completo_concluido_em=None
-
-[PASSOU] postar: etapa errada (ainda em Base) → 400
-  Entrada:  etapa_atual()=base
-  Esperado: 400, status continua None
-  Motivo:   Só pode postar quem está na etapa "postar"
-  Obtido:   status=400, ciclo_status=None
-
-[PASSOU] postar: já postou hoje → 400
-  Entrada:  etapa_atual()=postar, mas aguardando_aprovacao_em já é de hoje
-  Esperado: 400, status continua None
-  Motivo:   1 vídeo por dia por produto — trava de segurança contra duplo-clique
-  Obtido:   status=400, ciclo_status=None
-
-[PASSOU] postar: sucesso marca aguardando aprovação
-  Entrada:  etapa_atual()=postar, nunca postou hoje
-  Esperado: 200, status=AGUARDANDO_APROVACAO
-  Motivo:   Caminho normal de postar
-  Obtido:   status=200, ciclo_status=aguardando_aprovacao
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade
-  Obtido:   status=404
-
-[PASSOU] produto sem nenhum ciclo → 400
-  Entrada:  produto nunca tocado, acao=postar
-  Esperado: status_code == 400
-  Motivo:   Guard mais externo — roda antes de olhar qual ação foi pedida
-  Obtido:   status=400
-
-[PASSOU] recusado: sucesso
-  Entrada:  status=AGUARDANDO_APROVACAO
-  Esperado: 200, status=RECUSADO
-  Motivo:   Caminho normal de recusa — mesma função de guard de aprovado, ação diferente
-  Obtido:   status=200, ciclo_status=recusado
-
-[PASSOU] replicar: status != APROVADO → 400
-  Entrada:  status=AGUARDANDO_APROVACAO
-  Esperado: 400, status continua AGUARDANDO_APROVACAO
-  Motivo:   Só pode replicar quem já foi aprovado
-  Obtido:   status=400, ciclo_status=aguardando_aprovacao
-
-[PASSOU] replicar: sucesso dispara o próximo ciclo
-  Entrada:  status=APROVADO, fase=Vídeo Mensal #1
-  Esperado: 200, status=REPLICADO, cria Mensal #2
-  Motivo:   Qualquer fase que não seja Simples dispara criar_proximo() automaticamente
-  Obtido:   status=200, ciclo_status=replicado, proximo_existe=True
-
-[PASSOU] seguir: cota ainda não cumprida → 400
-  Entrada:  Mensal #2 recusado, período=4 (ainda restam 2 rodadas)
-  Esperado: 400, nenhum ciclo novo criado
-  Motivo:   Não pode pular pra próxima fase enquanto a cota atual não foi cumprida
-  Obtido:   status=400, ciclo_novo_criado=False
-
-[PASSOU] seguir: cota cumprida mas sem próxima fase configurada → 400
-  Entrada:  Simples#1 recusado, período=1 (cumprido), proxima_fase=None
-  Esperado: status_code == 400
-  Motivo:   Régua incompleta — não trava com erro cru, devolve 400 tratado
-  Obtido:   status=400
-
-[PASSOU] seguir: cota cumprida → cria a próxima fase
-  Entrada:  Mensal #4 recusado, período=4 (cumprido)
-  Esperado: 200, cria Vídeo Trimestral #1
-  Motivo:   Cota já cumprida — segue pra próxima fase sem repor a rodada recusada
-  Obtido:   status=200, trimestral_1_existe=True
-
-=== Nível 4 — view_historico_agenda_videos(): relatório via HTTP ===
-
-[PASSOU] busca via querystring filtra o produto certo
-  Entrada:  2 produtos, ?busca=XPTO
-  Esperado: só o produto com XPTO no título aparece
-  Motivo:   Confirma que o parâmetro de busca da URL chega até listar_produtos_com_historico
-  Obtido:   status=200, ids_nos_grupos=[204]
-
-[PASSOU] marcas_disponiveis exclui vazia e nula
-  Entrada:  marcas: Samsung, "" (vazia), None
-  Esperado: marcas_disponiveis == ["Samsung"]
-  Motivo:   exclude(marca__isnull=True).exclude(marca="") precisa filtrar os 2 casos, não só 1
-  Obtido:   status=200, marcas=['Samsung']
-
-[PASSOU] por_pagina=1 com 2 produtos → 2 páginas
-  Entrada:  2 produtos com ciclo, ?por_pagina=1
-  Esperado: paginator.num_pages == 2
-  Motivo:   Confirma que o parâmetro de paginação da URL chega até o Paginator real
-  Obtido:   status=200, num_pages=2
-
-[PASSOU] por_pagina inválido → fallback 25
-  Entrada:  ?por_pagina=abc (não é número)
-  Esperado: paginator.per_page == 25
-  Motivo:   int("abc") levanta ValueError — a view precisa capturar isso e cair no padrão, não quebrar
-  Obtido:   status=200, per_page=25
-
-[PASSOU] sem filtro nenhum → lista produto com ciclo
-  Entrada:  1 produto com 1 CicloVideo, GET sem parâmetros
-  Esperado: 200, 1 grupo, produto certo
-  Motivo:   Confirma que a view entrega o histórico do produto certo, ponta a ponta
-  Obtido:   status=200, len(grupos)=1
-
-=== Nível 4 — view_historico_produto(): modal individual via HTTP ===
-
-[PASSOU] produto com 1 ciclo em Base → aparece no resumo
-  Entrada:  1 CicloVideo, etapa_atual=base
-  Esperado: total=1, resumo tem "base" com quantidade=1
-  Motivo:   Confirma que a view passa o produto certo pra montar_historico_produto
-  Obtido:   total=1, resumo=[ResumoEtapa(valor='base', label='Base', classe='etapa-base', quantidade=1)]
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade, não deixar exceção vazar
-  Obtido:   status=404
-
-[PASSOU] produto pausado → badge "Pausado" no contexto
-  Entrada:  1 HistoricoStatusManualAgenda(status=PAUSADO)
-  Esperado: status_manual_atual.label == "Pausado"
-  Motivo:   Garante que a view não usa um valor cacheado/desatualizado do status manual
-  Obtido:   status_manual_atual=Badge(label='Pausado', classe='status-pausado', icone='fa-pause')
-
-[PASSOU] produto sem ciclo → histórico vazio, sem erro
-  Entrada:  produto recém-criado, 0 CicloVideo
-  Esperado: 200, total=0, eventos=[]
-  Motivo:   View não pode quebrar pro caso mais comum (produto nunca tocado)
-  Obtido:   status=200, total=0, eventos=[]
-
-=== Nível 4 — view_marcar_ponto_roadmap(): marcar Base/Roteiro/Completo via HTTP ===
-
-[PASSOU] ciclo em Roteiro + chave=roteiro → marca
-  Entrada:  base já concluída, etapa_atual()=roteiro, chave=roteiro
-  Esperado: 200, roteiro_concluido_em preenchido
-  Motivo:   Etapa pedida bate com a etapa real do ciclo
-  Obtido:   status=200, roteiro_concluido_em=2026-08-06 13:05:05.258042+00:00
-
-[PASSOU] ciclo em Base + chave=completo (divergente) → 400, nada marcado
-  Entrada:  etapa_atual()=base, chave pedida=completo
-  Esperado: 400, completo_concluido_em continua None
-  Motivo:   Revalidação contra estado desatualizado — não pode marcar campo fora de ordem
-  Obtido:   status=400, completo_concluido_em=None
-
-[PASSOU] etapa_atual()=postar + chave=postar → 400 (fora do escopo desta view)
-  Entrada:  produção completa, etapa_atual()=postar, chave=postar
-  Esperado: status_code == 400
-  Motivo:   view_marcar_ponto_roadmap só marca base/roteiro/completo — postar é outra view
-  Obtido:   status=400
-
-[PASSOU] marcar Base sincroniza o cache pra etapa Roteiro
-  Entrada:  produto sem cache prévio, marca base
-  Esperado: IndicadoresAgendaProduto.etapa_atual == "roteiro"
-  Motivo:   Base acabou de ser concluída — a próxima etapa real já é Roteiro, e o cache precisa refletir isso na hora
-  Obtido:   status=200, etapa_atual_no_cache=roteiro
-
-[PASSOU] produto_id inexistente → 404
-  Entrada:  produto_id=999999 (não existe)
-  Esperado: status_code == 404
-  Motivo:   get_object_or_404 precisa disparar 404 de verdade
-  Obtido:   status=404
-
-[PASSOU] sem ciclo + chave=base → cria Simples e marca
-  Entrada:  produto sem nenhum CicloVideo, chave=base
-  Esperado: CicloVideo criado (Simples), base_concluido_em preenchido
-  Motivo:   1º clique real de um produto nunca tocado — cria o Simples sozinho
-  Obtido:   status=200, ciclo_existe=True, base_concluido_em=2026-08-06 13:05:05.423149+00:00
-
-[PASSOU] sem ciclo + chave=roteiro → 400, nada criado
-  Entrada:  produto sem nenhum CicloVideo, chave=roteiro
-  Esperado: 400, 0 CicloVideo no banco
-  Motivo:   O único ponto alcançável sem CicloVideo é base
-  Obtido:   status=400, nada_criado=True
-
-=== Integração real — leitura do Google Drive (sem mock, só leitura) ===
-
-[PASSOU] montar_arvore_por_ean() contra a estrutura real de hoje
-  Entrada:  989 itens reais, raiz=1GT_lYwKVmrcxPS7wRqI_uZghsczvcK_X
-  Esperado: dict {ean: {marca, arquivos_videos, arquivos_usados}}
-  Motivo:   Prova que a navegação marca→ean→Videos→arquivos funciona contra pastas reais, não uma lista fabricada
-  Obtido:   total_eans_reconhecidos=33
-
-[PASSOU] Conexão real com o Drive + listagem paginada
-  Entrada:  credencial real (C:\Users\Win10\Desktop\CODIGOS\Github\Credenciais GOOGLE\agenda-videos-mb-sv-771152092507.json)
-  Esperado: lista não vazia de itens reais
-  Motivo:   Se a credencial ou a API estiverem quebradas, isso já falha aqui, antes de qualquer lógica nossa
-  Obtido:   total_itens=989
-
-[PASSOU] sincronizar_snapshots_drive() contra o Drive real
-  Entrada:  Drive real + banco de teste vazio
-  Esperado: roda sem exceção; SnapshotArquivosDrive criado só pros EANs que já têm Produto no banco de teste
-  Motivo:   Prova a função de orquestração inteira, ponta a ponta, sem mock nenhum
-  Obtido:   atualizados=0, sem_produto_no_banco=33, snapshots_no_banco=0
-
-=== Integração real — verificador.py contra o Google Drive (EAN de referência QUIMIVIDA) ===
-
-[PASSOU] verificar_produto_no_drive (Drive real) — avança Base/Roteiro/Completo
-  Entrada:  marca='QUIMIVIDA', ean='0789888395162', ciclo Simples#1 recém criado
-  Esperado: (['base','roteiro','completo'], None) — pasta de referência 100% coerente
-  Motivo:   Prova a cadeia inteira contra o Drive de verdade — se falhar aqui mas passar no simulado, o problema é dado/permissão do Drive
-  Obtido:   etapas_marcadas=['base', 'roteiro', 'completo'], diagnostico=None, pasta_encontrada=True
-
-[PASSOU] verificar_todos_no_drive (Drive real) — encontra e avança o QUIMIVIDA
-  Entrada:  único Produto no banco de teste é o QUIMIVIDA — Drive real tem centenas de outros EANs
-  Esperado: resumo=[(produto_id, ['base','roteiro','completo'])] — resto do catálogo real vira sem_produto_no_banco
-  Motivo:   sem_produto_no_banco depende do estado vivo do Drive (não controlamos) — só checamos o tipo; o produto nosso é exato
-  Obtido:   resumo=[(223, ['base', 'roteiro', 'completo'])], total_sem_produto_no_banco=32
-
-=== Nível 4 (Simulado) — api/postagem_automatica: view_baixar_video / view_marcar_concluido ===
-
-[PASSOU] baixar_video Drive simulado sem o arquivo da ocorrência certa
-  Entrada:  ciclo pede ocorrência 1, Drive simulado só tem a 2
-  Esperado: 404
-  Motivo:   Nunca baixar o arquivo errado só porque "tem algum" na pasta
-  Obtido:   status=404
-
-[PASSOU] baixar_video erro real ao baixar do Drive
-  Entrada:  ArquivadorDrive.baixar_arquivo levanta exceção
-  Esperado: 502
-  Motivo:   Erro de rede não pode virar 500 genérico nem 200 com lixo
-  Obtido:   status=502
-
-[PASSOU] baixar_video item_id inexistente
-  Entrada:  item_id=999999
-  Esperado: 404
-  Motivo:   ItemExecucaoPostagem precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] baixar_video produto sem nenhum CicloVideo
-  Entrada:  produto sem ciclo
-  Esperado: 400
-  Motivo:   Não existe vídeo pra baixar sem ocorrência pronta pra postar
-  Obtido:   status=400
-
-[PASSOU] baixar_video sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token de toda a API do agente
-  Obtido:   status=403
-
-[PASSOU] baixar_video sucesso — baixa o Completo certo da ocorrência
-  Entrada:  ciclo Mensal #1 pronto + Drive simulado com Mensal_01_Completo.mp4
-  Esperado: 200, conteúdo do arquivo, headers com os IDs do Drive
-  Motivo:   resolver_arquivo_da_ocorrencia() (recém-corrigida) precisa achar o arquivo certo, não qualquer um
-  Obtido:   status=200, file_id=drive-id-completo
-
-[PASSOU] marcar_concluido sem drive_file_id/pasta_videos_id no corpo
-  Entrada:  corpo vazio
-  Esperado: 400
-  Motivo:   Sem os IDs do Drive não tem como arquivar o arquivo certo depois
-  Obtido:   status=400
-
-[PASSOU] marcar_concluido falha ao arquivar — ainda conclui, só avisa
-  Entrada:  mover_para_usados levanta exceção
-  Esperado: status=concluido_com_aviso, item ainda Concluído
-  Motivo:   Fingir que não postou seria pior — a Agenda já foi atualizada antes do arquivamento
-  Obtido:   resposta={'status': 'concluido_com_aviso', 'aviso': 'Falha simulada ao mover pra usados/'}, item.status=concluido
-
-[PASSOU] marcar_concluido item_id inexistente
-  Entrada:  item_id=999999
-  Esperado: 404
-  Motivo:   ItemExecucaoPostagem precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] marcar_concluido sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token
-  Obtido:   status=403
-
-[PASSOU] marcar_concluido sucesso — marca aguardando aprovação + arquiva
-  Entrada:  corpo com drive_file_id/pasta_videos_id, arquivamento simulado sem erro
-  Esperado: item=Concluído, ciclo=Aguardando aprovação, mover_para_usados chamado com os IDs certos
-  Motivo:   Confirma a ordem real: primeiro atualiza a Agenda, só depois tenta arquivar
-  Obtido:   item.status=concluido, ciclo.status=aguardando_aprovacao, chamadas=[('drive-id-completo', 'pasta-videos-fake')]
-
-=== Nível 4 — api/postagem_automatica (sem Drive): listar_itens, marcar_falhou, heartbeat, finalizar_execucao ===
-
-[PASSOU] finalizar_execucao execucao_id inexistente
-  Entrada:  execucao_id=999999
-  Esperado: 404
-  Motivo:   ExecucaoPostagemAutomatica precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] finalizar_execucao sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token
-  Obtido:   status=403
-
-[PASSOU] finalizar_execucao com "cancelada": true
-  Entrada:  corpo {"cancelada": true}
-  Esperado: status=Cancelado
-  Motivo:   Distingue fim normal de cancelamento
-  Obtido:   status=cancelado
-
-[PASSOU] finalizar_execucao sem "cancelada" no corpo
-  Entrada:  corpo vazio
-  Esperado: status=Concluído
-  Motivo:   Padrão de "cancelada" precisa ser False, nunca None/erro
-  Obtido:   status=concluido
-
-[PASSOU] heartbeat execucao_id inexistente
-  Entrada:  execucao_id=999999
-  Esperado: 404
-  Motivo:   ExecucaoPostagemAutomatica precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] heartbeat sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token
-  Obtido:   status=403
-
-[PASSOU] heartbeat sucesso — atualiza timestamp e status RODANDO
-  Entrada:  execução recém-criada
-  Esperado: status=RODANDO, heartbeat preenchido
-  Motivo:   Único jeito do Django saber que o agente ainda está vivo
-  Obtido:   status=rodando, heartbeat=2026-08-06 13:05:21.715038+00:00
-
-[PASSOU] listar_itens produto que já postou hoje (checagem em tempo real)
-  Entrada:  CicloVideo com aguardando_aprovacao_em=agora
-  Esperado: ja_postado_hoje=True
-  Motivo:   Protege contra postar manualmente 1 produto que também está na fila automática
-  Obtido:   ja_postado_hoje=True
-
-[PASSOU] listar_itens produto que ainda não postou hoje
-  Entrada:  sem nenhum CicloVideo aguardando_aprovacao hoje
-  Esperado: mlb correto, ja_postado_hoje=False
-  Motivo:   Caminho normal — a maioria dos itens da fila não postou ainda
-  Obtido:   mlb=MLB0102, ja_postado_hoje=False
-
-[PASSOU] listar_itens sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token de toda a API do agente
-  Obtido:   status=403
-
-[PASSOU] marcar_falhou sem corpo JSON válido
-  Entrada:  sem corpo (JSONDecodeError)
-  Esperado: mensagem_erro cai no padrão "Falha não especificada."
-  Motivo:   Corpo malformado não pode impedir o registro da falha
-  Obtido:   mensagem_erro='Falha não especificada.'
-
-[PASSOU] marcar_falhou item_id inexistente
-  Entrada:  item_id=999999
-  Esperado: 404
-  Motivo:   ItemExecucaoPostagem precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] marcar_falhou sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token
-  Obtido:   status=403
-
-[PASSOU] marcar_falhou sucesso — grava status e mensagem reais
-  Entrada:  corpo com mensagem de erro real
-  Esperado: item.status=Falhou, mensagem gravada
-  Motivo:   Mensagem real precisa chegar até o banco
-  Obtido:   status_item=falhou, mensagem=Checkpoint 1 falhou — página não carregou.
-
-=== Nível 4 — api/replicacao_automatica: as 5 views via HTTP (token, puro banco) ===
-
-[PASSOU] finalizar_execucao execucao_id inexistente
-  Entrada:  execucao_id=999999
-  Esperado: 404
-  Motivo:   ExecucaoReplicacaoAutomatica precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] finalizar_execucao sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token de toda a API
-  Obtido:   status=403
-
-[PASSOU] finalizar_execucao com "cancelada": true
-  Entrada:  corpo {"cancelada": true}
-  Esperado: status=Cancelado
-  Motivo:   Distingue fim normal de cancelamento — usado no dashboard/relatório depois
-  Obtido:   status=cancelado
-
-[PASSOU] finalizar_execucao sem "cancelada" no corpo
-  Entrada:  corpo vazio
-  Esperado: status=Concluído
-  Motivo:   Padrão de "cancelada" precisa ser False, nunca None/erro
-  Obtido:   status=concluido
-
-[PASSOU] heartbeat execucao_id inexistente
-  Entrada:  execucao_id=999999
-  Esperado: 404
-  Motivo:   ExecucaoReplicacaoAutomatica precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] heartbeat sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token de toda a API
-  Obtido:   status=403
-
-[PASSOU] heartbeat sucesso — atualiza timestamp e status RODANDO
-  Entrada:  execução recém-criada (status padrão AGUARDANDO_INICIO)
-  Esperado: status=RODANDO, ultimo_heartbeat_agente preenchido
-  Motivo:   É o único jeito do Django saber que o agente ainda está vivo
-  Obtido:   status=rodando, heartbeat=2026-08-06 13:05:22.126197+00:00
-
-[PASSOU] listar_itens devolve mlb + outros_mlbs (exclui o próprio)
-  Entrada:  produto com 2 VariacaoAnuncioMercadoLivre
-  Esperado: mlb = 1 dos 2, outros_mlbs = o outro
-  Motivo:   _obter_outros_mlbs precisa excluir o MLB que já recebeu o clip
-  Obtido:   mlb=MLB001, outros_mlbs=['MLB002']
-
-[PASSOU] listar_itens produto sem nenhuma VariacaoAnuncioMercadoLivre
-  Entrada:  produto sem MLB vinculado
-  Esperado: mlb=None, outros_mlbs=[]
-  Motivo:   obter_mlb_do_produto() precisa devolver None sem quebrar, não estourar exceção
-  Obtido:   mlb=None, outros_mlbs=[]
-
-[PASSOU] listar_itens sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   API do agente é por token, nunca por sessão de navegador
-  Obtido:   status=403
-
-[PASSOU] marcar_concluido ciclo ainda Aguardando aprovação (não Aprovado)
-  Entrada:  ciclo.status=AGUARDANDO_APROVACAO
-  Esperado: 400 — estado inválido
-  Motivo:   Só pode confirmar replicação de uma postagem já Aprovada
-  Obtido:   status=400
-
-[PASSOU] marcar_concluido sem corpo JSON válido
-  Entrada:  sem corpo (JSONDecodeError)
-  Esperado: cai no padrão [] / [], ainda marca concluído
-  Motivo:   Corpo malformado não pode impedir a confirmação de uma postagem já Aprovada
-  Obtido:   status=200, mlbs_replicados=[]
-
-[PASSOU] marcar_concluido item_id inexistente
-  Entrada:  item_id=999999
-  Esperado: 404
-  Motivo:   ItemExecucaoReplicacao precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] marcar_concluido produto sem nenhum CicloVideo
-  Entrada:  produto sem ciclo
-  Esperado: 400 — estado inválido
-  Motivo:   Não existe "postagem aprovada" pra confirmar replicação sem ciclo
-  Obtido:   status=400
-
-[PASSOU] marcar_concluido sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Guard de token precisa vir antes de qualquer outra checagem
-  Obtido:   status=403
-
-[PASSOU] marcar_concluido sucesso — item concluído + CicloVideo replicado de verdade
-  Entrada:  ciclo Aprovado + corpo com mlbs_replicados/mlbs_nao_encontrados
-  Esperado: item=Concluído, ciclo=Replicado, MLBs salvos no ciclo
-  Motivo:   marcar_replicado() é a única fonte da regra de negócio — a view nunca deve reimplementar isso
-  Obtido:   item.status=concluido, ciclo.status=replicado, mlbs_replicados=['MLB001', 'MLB002']
-
-[PASSOU] marcar_falhou sem corpo JSON válido
-  Entrada:  sem corpo (JSONDecodeError)
-  Esperado: mensagem_erro cai no padrão "Falha não especificada."
-  Motivo:   Corpo malformado não pode impedir o registro da falha, só perde o detalhe da mensagem
-  Obtido:   mensagem_erro='Falha não especificada.'
-
-[PASSOU] marcar_falhou item_id inexistente
-  Entrada:  item_id=999999
-  Esperado: 404
-  Motivo:   ItemExecucaoReplicacao precisa existir de verdade
-  Obtido:   status=404
-
-[PASSOU] marcar_falhou sem token válido
-  Entrada:  Authorization: Bearer token-errado
-  Esperado: 403
-  Motivo:   Mesmo guard de token de toda a API
-  Obtido:   status=403
-
-[PASSOU] marcar_falhou sucesso — grava status e mensagem reais
-  Entrada:  corpo com mensagem de erro real
-  Esperado: item.status=Falhou, mensagem gravada, finalizado_em preenchido
-  Motivo:   Mensagem real precisa chegar até o banco, não só o status
-  Obtido:   status_item=falhou, mensagem=MLB não encontrado na busca do ML.
+[PASSOU] calcular_espera_backoff_sugerido_999
+  Entrada:  tempo_sugerido_pela_api=999
+  Esperado: 30
+  Motivo:   Tempo sugerido pela API (999s) passa do teto — nunca deixa a espera crescer sem limite, capa em 30s.
+  Obtido:   30
+
+[PASSOU] calcular_espera_backoff_exponencial_tentativa_1
+  Entrada:  numero_tentativa=1, jitter=0.0
+  Esperado: 2.0
+  Motivo:   Sem sugestão da API: exponencial puro (2**1=2) + jitter travado em 0 pra ficar exato.
+  Obtido:   2.0
+
+[PASSOU] calcular_espera_backoff_exponencial_tentativa_3
+  Entrada:  numero_tentativa=3, jitter=0.5
+  Esperado: 8.5
+  Motivo:   Exponencial (2**3=8) + jitter travado em 0.5 — 8.5, ainda abaixo do teto de 30s.
+  Obtido:   8.5
+
+[PASSOU] calcular_espera_backoff_exponencial_tentativa_10
+  Entrada:  numero_tentativa=10, jitter=0.0
+  Esperado: 30
+  Motivo:   Exponencial (2**10=1024) explode muito acima do teto — capado em 30s mesmo com jitter zero.
+  Obtido:   30
 
 === RESUMO DA SESSÃO ===
 
-passed: 357
+passed: 39
+xfailed: 4
 
 === COVERAGE ===
 
-___________________________ coverage: platform win32, python 3.12.10-final-0 ___________________________
+_______________________________ coverage: platform win32, python 3.12.4-final-0 ________________________________
 
-Name                                    Stmts   Miss Branch BrPart  Cover   Missing
------------------------------------------------------------------------------------
-api\__init__.py                             0      0      0      0   100%
-api\apps.py                                 4      0      0      0   100%
-api\autenticacao.py                         5      0      0      0   100%
-api\postagem_automatica\__init__.py         0      0      0      0   100%
-api\postagem_automatica\urls.py             3      0      0      0   100%
-api\postagem_automatica\views.py          135      0     30      0   100%
-api\replicacao_automatica\__init__.py       0      0      0      0   100%
-api\replicacao_automatica\urls.py           3      0      0      0   100%
-api\replicacao_automatica\views.py        101      0     24      0   100%
-api\urls.py                                 2      0      0      0   100%
------------------------------------------------------------------------------------
-TOTAL                                     253      0     54      0   100%
-Coverage HTML written to dir resultados_coverage/htmlcov
-Coverage JSON written to file resultados_coverage/coverage.json
+Name                                                        Stmts   Miss Branch BrPart  Cover   Missing
+-------------------------------------------------------------------------------------------------------
+scripts_exploracao_ERP\api_sysemp\__init__.py                  22      0      6      0   100%
+scripts_exploracao_ERP\api_sysemp\core\__init__.py              0      0      0      0   100%
+scripts_exploracao_ERP\api_sysemp\core\cliente.py              62      0     16      0   100%
+scripts_exploracao_ERP\api_sysemp\core\excecoes.py             17      0      0      0   100%
+scripts_exploracao_ERP\api_sysemp\core\protecao.py             20      0      6      0   100%
+scripts_exploracao_ERP\api_sysemp\impostos_entrada_xml.py      28      0      8      0   100%
+-------------------------------------------------------------------------------------------------------
+TOTAL                                                         149      0     36      0   100%
 
