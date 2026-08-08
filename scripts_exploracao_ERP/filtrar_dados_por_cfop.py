@@ -8,6 +8,8 @@ _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')
 NOME_ARQUIVO_SAIDA = 'dados_filtrados.json'
 
+CAMPO_ITENS_NF = 'itens_nf'
+
 # * [ATUALIZAÇÃO 07/08/2026] → lista definitiva pós-reunião com o superior:
 #   1.403/2.403 entrou (compra sob substituição tributária, ICMS-ST); 1.916/
 #   2.916 saiu (retorno de conserto não é compra nem bonificação). Ver
@@ -28,11 +30,26 @@ def _arquivo_json_mais_recente():
     return max(arquivos, key=os.path.getmtime)
 
 
+def _linhas_planas(notas):
+    # [ATUALIZAÇÃO 07/08/2026] API remodelada pela Sysemp: "retorno" agora
+    # agrupa por NOTA, com os itens dentro de "itens_nf". Achata aqui pra 1
+    # linha = 1 item (como era antes da remodelagem), juntando os campos da
+    # nota (NF, Emissão, Data Entrada da Nota, Fornecedor...) em cada item —
+    # assim o resto do script (e o `dados_filtrados.json` de saída) não
+    # precisa mudar de formato.
+    linhas = []
+    for nota in notas:
+        campos_da_nota = {chave: valor for chave, valor in nota.items() if chave != CAMPO_ITENS_NF}
+        for item in nota.get(CAMPO_ITENS_NF, []):
+            linhas.append({**campos_da_nota, **item})
+    return linhas
+
+
 caminho_json = _arquivo_json_mais_recente()
 with open(caminho_json, encoding='utf-8') as arquivo:
     dado_bruto = json.load(arquivo)
 
-df = pd.DataFrame(dado_bruto['retorno'])
+df = pd.DataFrame(_linhas_planas(dado_bruto['retorno']))
 df_filtrado = df[df['CFOP'].isin(CFOPS_PARA_MANTER)]
 
 print(f'Lendo: {caminho_json}')
