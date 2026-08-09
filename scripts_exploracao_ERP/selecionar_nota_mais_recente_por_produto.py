@@ -9,6 +9,11 @@
 # 1 fornecedor). Mantém TODOS os campos da nota escolhida — ainda não se sabe
 # quais impostos serão usados, então nada é descartado aqui; a redução de
 # campos vem depois, quando os testes de imposto definirem o que é necessário.
+#
+# Exibição pensada pra escala (09/08/2026) — em vez de 1 tabela gigante
+# produto a produto e 1 aviso por empate, mostra um resumo da execução
+# (contagens, período coberto) e uma amostra pequena — o resto vai só pro
+# json de saída, não pra tela.
 
 import json
 import os
@@ -26,6 +31,8 @@ CAMPO_CODIGO_PRODUTO = 'Código Barras'
 CAMPO_NF = 'NR NF'
 CAMPO_DATA_ENTRADA_NOTA = 'Data Entrada da Nota'
 
+TAMANHO_AMOSTRA = 10
+
 console = Console()
 
 caminho_entrada = os.path.join(PASTA_SAIDAS, NOME_ARQUIVO_ENTRADA)
@@ -38,24 +45,39 @@ df[CAMPO_NF] = df[CAMPO_NF].astype(int)
 
 df_ordenado = df.sort_values([CAMPO_DATA_ENTRADA_NOTA, CAMPO_NF], ascending=False, na_position='last')
 
+# Função Objetivo: Conta empates (mesma data mais recente, >1 nota) sem
+# imprimir 1 linha por produto — em escala isso lotava a tela e escondia
+# o que importa. Vira 1 número só no resumo, não 1 aviso por produto.
+produtos_com_empate = []
 for codigo_produto, grupo in df_ordenado.groupby(CAMPO_CODIGO_PRODUTO):
     data_mais_recente = grupo.iloc[0][CAMPO_DATA_ENTRADA_NOTA]
     empatados = grupo[grupo[CAMPO_DATA_ENTRADA_NOTA] == data_mais_recente]
     if len(empatados) > 1:
-        console.print(
-            f'[yellow][AVISO][/yellow] Produto {codigo_produto} teve {len(empatados)} notas '
-            f'na mesma data mais recente ({data_mais_recente.date()}) — usando a de maior NF '
-            f'({empatados.iloc[0][CAMPO_NF]}) como mais recente.'
-        )
+        produtos_com_empate.append(codigo_produto)
 
 selecionados = df_ordenado.groupby(CAMPO_CODIGO_PRODUTO, as_index=False).head(1)
 selecionados = selecionados.sort_values(CAMPO_CODIGO_PRODUTO)
 
-console.print(f'Lendo: [bold]{caminho_entrada}[/bold]')
-console.print(f'Total de registros filtrados: {len(df)}')
-console.print(f'Total de produtos distintos: {len(selecionados)}\n')
+# ========== Resumo da execução ==========
 
-tabela = Table(title=f'Nota Mais Recente por Produto ({len(selecionados)} produtos)')
+resumo = Table(title='Resumo da Execução', show_header=False)
+resumo.add_column('Campo', style='cyan')
+resumo.add_column('Valor', style='green')
+resumo.add_row('Arquivo lido', caminho_entrada)
+resumo.add_row('Total de registros filtrados', str(len(df)))
+resumo.add_row('Total de produtos distintos', str(len(selecionados)))
+resumo.add_row('Produtos com empate de data (resolvido por maior NF)', str(len(produtos_com_empate)))
+resumo.add_row(
+    'Período coberto (Data Entrada da Nota)',
+    f'{df[CAMPO_DATA_ENTRADA_NOTA].min().date()} a {df[CAMPO_DATA_ENTRADA_NOTA].max().date()}',
+)
+console.print(resumo)
+console.print()
+
+# ========== Amostra ==========
+
+amostra = selecionados.head(TAMANHO_AMOSTRA)
+tabela = Table(title=f'Amostra ({len(amostra)} de {len(selecionados)} produtos)')
 tabela.add_column('Código Barras', style='green')
 tabela.add_column('Produto')
 tabela.add_column('NR NF')
@@ -64,7 +86,7 @@ tabela.add_column('Data Entrada da Nota')
 tabela.add_column('CFOP')
 tabela.add_column('Custo Unitário', justify='right')
 
-for _, linha in selecionados.iterrows():
+for _, linha in amostra.iterrows():
     tabela.add_row(
         str(linha[CAMPO_CODIGO_PRODUTO]),
         str(linha.get('Produto', '')),

@@ -1,23 +1,18 @@
 # scripts_exploracao_ERP/duble_precificacao_ml.py
 
-# Função Objetivo: "Dublê" da FormulaPrecificacao real do Mercado Livre,
-# construído de baixo pra cima (Etapa 1 → 10, ver "Plano em Etapas do Duble
-# de Precificacao ML" no vault). Só leitura no banco, nenhuma escrita.
-# 3 pontos que estavam "em aberto" no plano foram resolvidos aqui com uma
-# escolha explícita, marcada em comentário — ainda precisam de validação:
-#   Etapa 7: redução de ICMS/ICMS ST usada como vem da API, sem confirmar
-#            empiricamente com produto real ≠ 0 (só PIS/COFINS validados).
-#   Etapa 8: PIS e COFINS entram como 2 créditos SEPARADOS no FIXO (não
-#            combinados) — escolha, não decisão fechada com o usuário.
-#   Etapa 9: ICMS/PIS-COFINS de SAÍDA continuam vindo direto do Produto
-#            real (banco) — o manifesto de entrada não cobre isso.
+# Função Objetivo: Passo a passo didático de como cada valor da precificação
+# ML é obtido — Produto → Dimensões → Custo Unitário → Impostos → Custo
+# Final → Coleta → Armazenagem → FIXO → Taxa/Denominador → Preço Final. Só
+# leitura no banco, nenhuma escrita. A Etapa 4 é o ÚNICO lugar que CALCULA
+# cada imposto (ICMS, ICMS ST, IPI, PIS, COFINS) — tudo depois dela só
+# CONSOME esses valores já prontos, nunca recalcula. PIS e COFINS seguem
+# separados até o fim (decisão definitiva, não mais "em aberto").
 
 import json
 import os
 import sys
 from dataclasses import dataclass, fields
 from decimal import Decimal
-
 
 def _adicionar_raiz_do_projeto_ao_path():
     caminho_atual = os.path.dirname(os.path.abspath(__file__))
@@ -38,28 +33,29 @@ django.setup()
 
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
 
 from produtos.models import Produto
-from produtos.funcoes_auxiliares.dimensoes_fisicas import metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao
 from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
-from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre, FreteML
-from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem
-from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
-from dados_xml_nf import (
-    IdentificacaoNF, DadosNF, Custos, IdentificadorRegra, IcmsSt, Icms, IcmsRet, Ipi, Pis, Cofins,
+from produtos.funcoes_auxiliares.dimensoes_fisicas import (
+    metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao,
 )
+from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
+from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem
+from mercado_livre.models import FreteML, TipoDeAnuncioMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre
+from dados_xml_nf import Custos, IcmsSt, Icms, Ipi, Pis, Cofins
 
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')
 NOME_ARQUIVO_ENTRADA_XML = 'nota_mais_recente_por_produto.json'
 
-EAN_TESTADO = '7908050719121'
+EAN_TESTADO = '7908050700174'
 
-console = Console()
+console = Console(record=True)
 
 
-# Função Objetivo: Imprime qualquer dataclass do dublê como tabela Rich —
-# 1 linha por campo, reaproveitada por todas as etapas.
+# Função Objetivo: Imprime qualquer dataclass simples como tabela Rich —
+# 1 linha por campo, reaproveitada pelas Etapas 1, 2 e 3.
 def _imprimir_etapa(titulo, dado):
     tabela = Table(title=titulo)
     tabela.add_column('Campo', style='cyan', no_wrap=True)
@@ -69,7 +65,7 @@ def _imprimir_etapa(titulo, dado):
     console.print(tabela)
 
 
-# ========== Etapa 1 — Identificação do Produto (banco real, sem XML) ==========
+# ========== Etapa 1 — Qual é o produto? (banco real) ==========
 
 @dataclass(frozen=True)
 class IdentificacaoProdutoBanco:
@@ -92,78 +88,34 @@ class IdentificacaoProdutoBanco:
 
 produto = Produto.objects.get(ean=EAN_TESTADO)
 identificacao = IdentificacaoProdutoBanco.a_partir_do_produto(produto)
-_imprimir_etapa('Etapa 1 — Identificação do Produto (banco real)', identificacao)
+_imprimir_etapa('Etapa 1 — Qual é o produto? (banco real)', identificacao)
 
 
-# ========== Etapa 2 — Custo de Coleta (banco/config real, sem XML) ==========
-
-@dataclass(frozen=True)
-class CustoDeColeta:
-    altura: Decimal
-    largura: Decimal
-    comprimento: Decimal
-    peso: Decimal
-    origem_dimensao: str
-    metro_cubico: Decimal
-    fator_coleta: Decimal
-    coleta: Decimal
-
-    @classmethod
-    def a_partir_do_produto(cls, produto) -> 'CustoDeColeta':
-        dim = resolver_dimensoes_efetivas(produto, variacao=None)
-        config_geral = ConfiguracaoOperacional.obter()
-        metro_cubico = metro_cubico_de_dimensoes(dim.altura, dim.largura, dim.comprimento)
-        coleta = metro_cubico * config_geral.fator_coleta
-        return cls(
-            altura=dim.altura, largura=dim.largura, comprimento=dim.comprimento, peso=dim.peso,
-            origem_dimensao=dim.origem.value,
-            metro_cubico=metro_cubico, fator_coleta=config_geral.fator_coleta, coleta=coleta,
-        )
-
-
-custo_coleta = CustoDeColeta.a_partir_do_produto(produto)
-_imprimir_etapa('Etapa 2 — Custo de Coleta (banco/config real)', custo_coleta)
-
-
-# ========== Etapa 3 — Custo de Armazenagem (banco/config real, sem XML) ==========
+# ========== Etapa 2 — Quais são as dimensões desse produto? (banco real) ==========
 
 @dataclass(frozen=True)
-class CustoDeArmazenagem:
+class DimensoesDoProduto:
+    altura: float
+    largura: float
+    comprimento: float
+    peso: float
     origem: str
-    periodo_armazenagem: Decimal
-    armazenagem: Decimal
 
     @classmethod
-    def a_partir_do_produto(cls, produto, custo_coleta) -> 'CustoDeArmazenagem':
-        config_geral = ConfiguracaoOperacional.obter()
-
-        if produto.armazenagem_planilha is not None:
-            return cls(
-                origem='planilha',
-                periodo_armazenagem=config_geral.periodo_armazenagem,
-                armazenagem=produto.armazenagem_planilha,
-            )
-
-        faixas = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
-        faixa_usada = selecionar_faixa_por_dimensao(
-            custo_coleta.altura, custo_coleta.largura, custo_coleta.comprimento, faixas
-        )
-        armazenagem = (
-            faixa_usada.valor_diario * config_geral.periodo_armazenagem
-            if faixa_usada else Decimal('0')
-        )
+    def a_partir_do_produto(cls, produto) -> 'DimensoesDoProduto':
+        dim = resolver_dimensoes_efetivas(produto, variacao=None)
         return cls(
-            origem='faixa_dimensao',
-            periodo_armazenagem=config_geral.periodo_armazenagem,
-            armazenagem=armazenagem,
+            altura=float(dim.altura), largura=float(dim.largura),
+            comprimento=float(dim.comprimento), peso=float(dim.peso),
+            origem=dim.origem.value,
         )
 
 
-custo_armazenagem = CustoDeArmazenagem.a_partir_do_produto(produto, custo_coleta)
-_imprimir_etapa('Etapa 3 — Custo de Armazenagem (banco/config real)', custo_armazenagem)
+dimensoes = DimensoesDoProduto.a_partir_do_produto(produto)
+_imprimir_etapa('Etapa 2 — Quais são as dimensões desse produto? (banco real)', dimensoes)
 
 
-# ========== Carrega o registro do XML (Sysemp) — base das Etapas 4, 5, 6 ==========
+# ========== Etapa 3 — Qual é o custo unitário desse produto? (XML) ==========
 
 def _carregar_registro_xml(ean):
     caminho = os.path.join(PASTA_SAIDAS, NOME_ARQUIVO_ENTRADA_XML)
@@ -177,223 +129,498 @@ def _carregar_registro_xml(ean):
     return registro
 
 
+@dataclass(frozen=True)
+class CustoUnitarioDoXML:
+    custo_total_nota: float
+    quantidade_nota: float
+    custo_unitario: float
+
+    @classmethod
+    def a_partir_do_registro(cls, registro) -> 'CustoUnitarioDoXML':
+        custos = Custos.a_partir_do_registro(registro)
+        return cls(
+            custo_total_nota=custos.total,
+            quantidade_nota=float(registro['Qtde']),
+            custo_unitario=custos.unitario,
+        )
+
+
 registro_xml = _carregar_registro_xml(EAN_TESTADO)
-qtde_nota = float(registro_xml['Qtde'])
+custo_unitario_xml = CustoUnitarioDoXML.a_partir_do_registro(registro_xml)
+_imprimir_etapa('Etapa 3 — Qual é o custo unitário desse produto? (XML)', custo_unitario_xml)
 
 
-# ========== Etapa 4 — Identificação da Nota Fiscal (XML) ==========
+# ========== Etapa 4 — Impostos, imposto por imposto (didático) ==========
+# * [EXPLICAÇÃO] → Único lugar que CALCULA imposto. Tudo depois consome
+#                   os `valor` devolvidos aqui — nunca recalcula.
 
-identificacao_nf = IdentificacaoNF.a_partir_do_registro(registro_xml)
-dados_nf = DadosNF.a_partir_do_registro(registro_xml)
-_imprimir_etapa('Etapa 4 — Identificação da Nota Fiscal (XML)', identificacao_nf)
-_imprimir_etapa('Etapa 4 — Dados da Nota Fiscal (XML)', dados_nf)
-
-
-# ========== Etapa 5 — Custo vindo do XML ==========
-
-custos_xml = Custos.a_partir_do_registro(registro_xml)
-_imprimir_etapa('Etapa 5 — Custo vindo do XML', custos_xml)
+@dataclass(frozen=True)
+class EntradaUsada:
+    campo: str
+    valor: str
+    origem: str
 
 
-# ========== Etapa 6 — Impostos vindos do XML, brutos ==========
+@dataclass(frozen=True)
+class PassoDeCalculo:
+    etapa: int
+    formula_abstrata: str
+    formula_real: str
+    resultado: str
 
-identificador_regra = IdentificadorRegra.a_partir_do_registro(registro_xml)
+
+def _imprimir_entradas_usadas(entradas):
+    tabela = Table(title='Entradas Usadas')
+    tabela.add_column('Campo', style='cyan')
+    tabela.add_column('Valor')
+    tabela.add_column('De onde veio', style='dim')
+    for entrada in entradas:
+        tabela.add_row(entrada.campo, entrada.valor, entrada.origem)
+    console.print(tabela)
+
+
+def _imprimir_processamento(titulo, passos):
+    tabela = Table(title=titulo)
+    tabela.add_column('Etapa', justify='right')
+    tabela.add_column('Fórmula (abstrata)')
+    tabela.add_column('Fórmula (valores reais)')
+    tabela.add_column('Resultado', style='bold')
+    for passo in passos:
+        tabela.add_row(str(passo.etapa), passo.formula_abstrata, passo.formula_real, passo.resultado)
+    console.print(tabela)
+
+
+def _imprimir_resultado_final(rotulo, valor):
+    console.print(Panel(f'[bold green]R$ {valor:.2f}[/bold green]', title=rotulo, border_style='green'))
+
+
+# Função Objetivo: Mostra o cálculo de 1 imposto por completo, na ordem em
+# que os dados de fato aparecem: primeiro TODAS as entradas usadas (cru,
+# com origem — incluindo Base de Cálculo/Custo Total quando a redução for
+# calculada por nós), depois o cálculo da redução (se houver), depois o
+# processamento do imposto em si, depois o resultado final.
+def _exibir_calculo_didatico_do_imposto(
+    nome_imposto, aliquota, reducao, origem_reducao, custo_unitario, calculo_da_reducao=None,
+):
+    console.rule(f'[bold]{nome_imposto}[/bold]')
+
+    entradas = [
+        EntradaUsada('Custo Unitário', f'R$ {custo_unitario:.2f}', 'XML — Custo Unitário da nota mais recente'),
+        EntradaUsada('Alíquota', f'{aliquota:.2f}%', 'XML — direto da nota'),
+    ]
+    if calculo_da_reducao is not None:
+        base_calculo_bruta, custo_total_nota = calculo_da_reducao
+        entradas.append(EntradaUsada(
+            f'Base de Cálculo {nome_imposto} (nota)', f'R$ {base_calculo_bruta:.2f}',
+            f'XML — Base de Cálculo {nome_imposto} da nota',
+        ))
+        entradas.append(EntradaUsada('Custo Total (nota)', f'R$ {custo_total_nota:.2f}', 'XML — Custo Total da nota'))
+    entradas.append(EntradaUsada('Redução', f'{reducao:.2f}%', origem_reducao))
+
+    _imprimir_entradas_usadas(entradas)
+    console.print()
+
+    if calculo_da_reducao is not None:
+        _imprimir_processamento('Como a Redução foi calculada', [
+            PassoDeCalculo(
+                1, 'Redução = (1 − Base de Cálculo ÷ Custo Total) × 100',
+                f'(1 − R$ {base_calculo_bruta:.2f} ÷ R$ {custo_total_nota:.2f}) × 100',
+                f'{reducao:.2f}%',
+            ),
+        ])
+        console.print()
+
+    base_calculo = custo_unitario * (1 - reducao / 100)
+    valor = base_calculo * aliquota / 100
+
+    _imprimir_processamento('Processamento', [
+        PassoDeCalculo(1, 'Base = Custo Unitário', f'Base = R$ {custo_unitario:.2f}', f'R$ {custo_unitario:.2f}'),
+        PassoDeCalculo(
+            2, 'Base reduzida = Base × (1 − Redução)',
+            f'R$ {custo_unitario:.2f} × (1 − {reducao:.2f}%)', f'R$ {base_calculo:.2f}',
+        ),
+        PassoDeCalculo(
+            3, 'Valor = Base reduzida × Alíquota',
+            f'R$ {base_calculo:.2f} × {aliquota:.2f}%', f'R$ {valor:.2f}',
+        ),
+    ])
+
+    _imprimir_resultado_final(f'Valor {nome_imposto} a pagar (por unidade)', valor)
+    console.print()
+
+    return valor
+
+
+# Função Objetivo: ICMS ST não segue o mesmo padrão dos outros impostos —
+# a base não é derivável do custo unitário (o fornecedor já embute margem
+# agregada/MVA antes da redução) e o valor não é base × alíquota isolado,
+# é líquido do ICMS normal (lógica de substituição tributária). Por isso
+# usa o campo bruto da nota como base, e recebe o valor do ICMS normal já
+# calculado como parâmetro — dependência explícita, não recalculada por
+# fora. [EXPLICAÇÃO] Validado com produto real de alíquota ≠ 0 (08/08) —
+# aguardando validação do tributário/superior mesmo assim.
+def _exibir_calculo_didatico_icms_st(icms_st, quantidade_nota, valor_icms_normal_unitario):
+    console.rule('[bold]ICMS ST[/bold]')
+
+    # * [EXPLICAÇÃO] → Bug encontrado em 09/08 comparando com a planilha real:
+    #                   quando a nota NÃO tem ICMS ST (produto não é substituição
+    #                   tributária), Base de Cálculo ICMS ST = 0. Sem essa guarda,
+    #                   a fórmula abaixo calculava valor_bruto=0 e ainda subtraía
+    #                   o ICMS normal (valor_liquido = 0 − valor_icms_normal),
+    #                   virando um crédito negativo fantasma que reduzia o Custo
+    #                   Final indevidamente. Mesmo critério de "é ST?" da Etapa 8.
+    if not (icms_st.valor > 0 or icms_st.base_calculo > 0):
+        console.print('[dim]Nota sem ICMS ST (Base de Cálculo = 0) — produto não está sob substituição tributária nesta nota.[/dim]')
+        console.print()
+        _imprimir_resultado_final('Valor ICMS ST a pagar (por unidade)', 0.0)
+        console.print()
+        return 0.0
+
+    entradas = [
+        EntradaUsada(
+            'Base de Cálculo ICMS ST (nota)', f'R$ {icms_st.base_calculo:.2f}',
+            'XML — Base de Cálculo ICMS ST da nota (já reduzida pelo fornecedor)',
+        ),
+        EntradaUsada('Quantidade (nota)', f'{quantidade_nota:.2f}', 'XML — Qtde da nota'),
+        EntradaUsada('Alíquota ICMS ST', f'{icms_st.aliquota:.2f}%', 'XML — direto da nota'),
+        EntradaUsada(
+            'Redução ICMS ST (informativo)', f'{icms_st.reducao:.2f}%',
+            'XML — já aplicada na Base de Cálculo acima, não recalculamos',
+        ),
+        EntradaUsada(
+            'Valor ICMS (normal, por unidade)', f'R$ {valor_icms_normal_unitario:.2f}',
+            'Calculado na etapa anterior (ICMS normal desta mesma nota)',
+        ),
+    ]
+    _imprimir_entradas_usadas(entradas)
+    console.print()
+
+    base_unitaria = icms_st.base_calculo / quantidade_nota
+    valor_bruto = base_unitaria * icms_st.aliquota / 100
+    valor_liquido = valor_bruto - valor_icms_normal_unitario
+
+    _imprimir_processamento('Processamento', [
+        PassoDeCalculo(
+            1, 'Base (unitária) = Base de Cálculo ICMS ST (nota) ÷ Quantidade',
+            f'R$ {icms_st.base_calculo:.2f} ÷ {quantidade_nota:.2f}', f'R$ {base_unitaria:.2f}',
+        ),
+        PassoDeCalculo(
+            2, 'Valor bruto = Base × Alíquota',
+            f'R$ {base_unitaria:.2f} × {icms_st.aliquota:.2f}%', f'R$ {valor_bruto:.2f}',
+        ),
+        PassoDeCalculo(
+            3, 'Valor líquido = Valor bruto − Valor ICMS (normal)',
+            f'R$ {valor_bruto:.2f} − R$ {valor_icms_normal_unitario:.2f}', f'R$ {valor_liquido:.2f}',
+        ),
+    ])
+
+    _imprimir_resultado_final('Valor ICMS ST a pagar (por unidade)', valor_liquido)
+    console.print()
+
+    return valor_liquido
+
+
 icms_st = IcmsSt.a_partir_do_registro(registro_xml)
 icms = Icms.a_partir_do_registro(registro_xml)
-icms_ret = IcmsRet.a_partir_do_registro(registro_xml)
 ipi = Ipi.a_partir_do_registro(registro_xml)
-pis = Pis.a_partir_do_registro(registro_xml, custos_xml.total)
-cofins = Cofins.a_partir_do_registro(registro_xml, custos_xml.total)
+pis = Pis.a_partir_do_registro(registro_xml, custo_unitario_xml.custo_total_nota)
+cofins = Cofins.a_partir_do_registro(registro_xml, custo_unitario_xml.custo_total_nota)
 
-_imprimir_etapa('Etapa 6 — Identificador de Regra (XML)', identificador_regra)
-_imprimir_etapa('Etapa 6 — ICMS ST (XML, bruto)', icms_st)
-_imprimir_etapa('Etapa 6 — ICMS (XML, bruto)', icms)
-_imprimir_etapa('Etapa 6 — ICMS RET (XML, bruto)', icms_ret)
-_imprimir_etapa('Etapa 6 — IPI (XML, bruto)', ipi)
-_imprimir_etapa('Etapa 6 — PIS (XML, bruto)', pis)
-_imprimir_etapa('Etapa 6 — COFINS (XML, bruto)', cofins)
+console.print('[bold]Etapa 4 — Impostos, imposto por imposto[/bold]\n')
 
-
-# ========== Etapa 7 — Cálculo individual de cada imposto, por unidade ==========
-
-@dataclass(frozen=True)
-class ImpostoPorUnidade:
-    nome: str
-    base_calculo: Decimal
-    aliquota: Decimal
-    reducao: Decimal
-    valor: Decimal
-
-    @classmethod
-    def calcular(cls, nome, aliquota, reducao, custo_unitario) -> 'ImpostoPorUnidade':
-        # * [EXPLICAÇÃO] → base_calculo derivada do custo_unitário + redução
-        # (algebricamente igual a dividir a base bruta do XML pela Qtde da
-        # nota — ver "Calculo de Reducao PIS e COFINS..." no vault). Pra
-        # ICMS/ICMS ST a redução vem direto da API, ainda sem validação
-        # empírica com produto real ≠ 0.
-        custo = Decimal(str(custo_unitario))
-        aliquota_dec = Decimal(str(aliquota))
-        reducao_dec = Decimal(str(reducao))
-        base_calculo = custo * (Decimal('1') - reducao_dec / 100)
-        valor = base_calculo * aliquota_dec / 100
-        return cls(nome=nome, base_calculo=base_calculo, aliquota=aliquota_dec, reducao=reducao_dec, valor=valor)
-
-
-@dataclass(frozen=True)
-class IcmsRetPorUnidade:
-    base: Decimal
-    valor: Decimal
-
-    @classmethod
-    def calcular(cls, icms_ret, qtde) -> 'IcmsRetPorUnidade':
-        # * [EXPLICAÇÃO] → ICMS RET não tem aliquota/redução no nosso
-        # modelo — divide direto pela Qtde da nota, sem passar pela fórmula
-        # de base_calculo × aliquota usada nos outros impostos.
-        qtde_dec = Decimal(str(qtde))
-        return cls(base=Decimal(str(icms_ret.base)) / qtde_dec, valor=Decimal(str(icms_ret.valor)) / qtde_dec)
-
-
-icms_st_unitario = ImpostoPorUnidade.calcular('ICMS ST', icms_st.aliquota, icms_st.reducao, custos_xml.unitario)
-icms_unitario = ImpostoPorUnidade.calcular('ICMS', icms.aliquota, icms.reducao, custos_xml.unitario)
-ipi_unitario = ImpostoPorUnidade.calcular('IPI', ipi.aliquota, 0, custos_xml.unitario)
-pis_unitario = ImpostoPorUnidade.calcular('PIS', pis.aliquota, pis.reducao, custos_xml.unitario)
-cofins_unitario = ImpostoPorUnidade.calcular('COFINS', cofins.aliquota, cofins.reducao, custos_xml.unitario)
-icms_ret_unitario = IcmsRetPorUnidade.calcular(icms_ret, qtde_nota)
-
-_imprimir_etapa('Etapa 7 — ICMS ST por unidade', icms_st_unitario)
-_imprimir_etapa('Etapa 7 — ICMS por unidade', icms_unitario)
-_imprimir_etapa('Etapa 7 — IPI por unidade', ipi_unitario)
-_imprimir_etapa('Etapa 7 — PIS por unidade', pis_unitario)
-_imprimir_etapa('Etapa 7 — COFINS por unidade', cofins_unitario)
-_imprimir_etapa('Etapa 7 — ICMS RET por unidade', icms_ret_unitario)
-
-
-# ========== Etapa 8 — Cálculo do FIXO ==========
-
-@dataclass(frozen=True)
-class CalculoFixo:
-    custo_unitario: Decimal
-    ipi_valor: Decimal
-    frete_cif_fob_percentual: Decimal
-    frete_cif_fob_valor: Decimal
-    st_valor: Decimal
-    custo_final: Decimal
-    coleta: Decimal
-    armazenagem: Decimal
-    credito_icms_entrada: Decimal
-    credito_pis: Decimal
-    credito_cofins: Decimal
-    fixo: Decimal
-
-    @classmethod
-    def calcular(cls, produto, custos_xml, ipi_unitario, icms_st_unitario, icms_unitario,
-                 pis_unitario, cofins_unitario, custo_coleta, custo_armazenagem) -> 'CalculoFixo':
-        custo_unitario = Decimal(str(custos_xml.unitario))
-        frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')  # * [REAL] não vem do Sysemp Entrada
-        frete_cif_fob_valor = custo_unitario * (frete_cif_fob_percentual / 100)
-
-        custo_final = custo_unitario + ipi_unitario.valor + frete_cif_fob_valor + icms_st_unitario.valor
-
-        # * [EXPLICAÇÃO] → escolha (etapa 8 "em aberto"): PIS e COFINS
-        # entram como 2 créditos SEPARADOS, não combinados — a confirmar.
-        fixo = (
-            custo_coleta.coleta + custo_armazenagem.armazenagem + custo_final
-            - (icms_unitario.valor + pis_unitario.valor + cofins_unitario.valor)
-        )
-
-        return cls(
-            custo_unitario=custo_unitario, ipi_valor=ipi_unitario.valor,
-            frete_cif_fob_percentual=frete_cif_fob_percentual, frete_cif_fob_valor=frete_cif_fob_valor,
-            st_valor=icms_st_unitario.valor, custo_final=custo_final,
-            coleta=custo_coleta.coleta, armazenagem=custo_armazenagem.armazenagem,
-            credito_icms_entrada=icms_unitario.valor, credito_pis=pis_unitario.valor,
-            credito_cofins=cofins_unitario.valor, fixo=fixo,
-        )
-
-
-calculo_fixo = CalculoFixo.calcular(
-    produto, custos_xml, ipi_unitario, icms_st_unitario, icms_unitario,
-    pis_unitario, cofins_unitario, custo_coleta, custo_armazenagem,
+valor_icms = _exibir_calculo_didatico_do_imposto(
+    'ICMS', icms.aliquota, icms.reducao, 'XML — direto da nota (Redução ICMS)', custo_unitario_xml.custo_unitario
 )
-_imprimir_etapa('Etapa 8 — Cálculo do FIXO', calculo_fixo)
+valor_icms_st = _exibir_calculo_didatico_icms_st(
+    icms_st, custo_unitario_xml.quantidade_nota, valor_icms
+)
+
+valor_ipi = _exibir_calculo_didatico_do_imposto(
+    'IPI', ipi.aliquota, 0, 'Não existe esse campo na API — assumido 0%', custo_unitario_xml.custo_unitario
+)
+valor_pis = _exibir_calculo_didatico_do_imposto(
+    'PIS', pis.aliquota, pis.reducao,
+    'Calculado — ver cálculo abaixo', custo_unitario_xml.custo_unitario,
+    calculo_da_reducao=(pis.base_calculo, custo_unitario_xml.custo_total_nota),
+)
+valor_cofins = _exibir_calculo_didatico_do_imposto(
+    'COFINS', cofins.aliquota, cofins.reducao,
+    'Calculado — ver cálculo abaixo', custo_unitario_xml.custo_unitario,
+    calculo_da_reducao=(cofins.base_calculo, custo_unitario_xml.custo_total_nota),
+)
 
 
-# ========== Etapa 9 — Cálculo do Denominador ==========
+# ========== Etapa 5 — Custo Final (por unidade) ==========
+# * [EXPLICAÇÃO] → custo_com_boni foi abandonado (decisão do usuário,
+#                   09/08) — não faz sentido precificar com custo 0. Usa
+#                   custo_unitário direto no lugar. Frete CIF/FOB segue
+#                   vindo do banco/planilha (fora do escopo desta troca,
+#                   ver [[Escopo Final]] no vault) — IPI e ICMS ST vêm
+#                   já calculados da Etapa 4.
+def _exibir_custo_final(custo_unitario, valor_ipi, valor_icms_st, frete_cif_fob_percentual):
+    console.rule('[bold]Etapa 5 — Custo Final (por unidade)[/bold]')
 
-TipoAnuncio = TipoDeAnuncioMercadoLivre.TipoAnuncio
-config_tipo = ConfiguracaoTipoAnuncioMercadoLivre.objects.get(tipo_anuncio=TipoAnuncio.CLASSICO)
-MARGEM_ALVO_TESTADA = config_tipo.margem_padrao
+    entradas = [
+        EntradaUsada('Custo Unitário', f'R$ {custo_unitario:.2f}', 'XML — Etapa 3'),
+        EntradaUsada('Valor IPI', f'R$ {valor_ipi:.2f}', 'XML — Etapa 4, já calculado'),
+        EntradaUsada('Valor ICMS ST', f'R$ {valor_icms_st:.2f}', 'XML — Etapa 4, já calculado (líquido do ICMS normal)'),
+        EntradaUsada('Frete CIF/FOB (%)', f'{frete_cif_fob_percentual:.2f}%', 'Banco/planilha — segue como está, fora do escopo desta troca'),
+    ]
+    _imprimir_entradas_usadas(entradas)
+    console.print()
 
+    frete_cif_fob_valor = custo_unitario * frete_cif_fob_percentual / 100
+    custo_final = custo_unitario + valor_ipi + frete_cif_fob_valor + valor_icms_st
 
-@dataclass(frozen=True)
-class CalculoDenominador:
-    comissao_percentual: Decimal
-    icms_saida_percentual: Decimal
-    pis_cofins_saida_percentual: Decimal
-    taxa_percentual: Decimal
-    margem_alvo_percentual: Decimal
-    denominador: Decimal
-
-    @classmethod
-    def calcular(cls, produto, config_tipo, margem_alvo_percentual) -> 'CalculoDenominador':
-        # * [EXPLICAÇÃO] → ICMS/PIS-COFINS de SAÍDA continuam vindo do
-        # Produto real (banco) — o manifesto de entrada não cobre saída.
-        comissao_percentual = config_tipo.comissao
-        icms_saida_percentual = produto.icms_saida_media or Decimal('0')
-        pis_cofins_saida_percentual = produto.pis_cofins or Decimal('0')
-
-        taxa_fracao = (comissao_percentual + icms_saida_percentual + pis_cofins_saida_percentual) / 100
-        margem_dec = Decimal(str(margem_alvo_percentual))
-        denominador = Decimal('1') - taxa_fracao - (margem_dec / 100)
-
-        return cls(
-            comissao_percentual=comissao_percentual, icms_saida_percentual=icms_saida_percentual,
-            pis_cofins_saida_percentual=pis_cofins_saida_percentual, taxa_percentual=taxa_fracao * 100,
-            margem_alvo_percentual=margem_dec, denominador=denominador,
-        )
-
-
-calculo_denominador = CalculoDenominador.calcular(produto, config_tipo, MARGEM_ALVO_TESTADA)
-_imprimir_etapa('Etapa 9 — Cálculo do Denominador', calculo_denominador)
-
-
-# ========== Etapa 10 — Resto do fluxo real (frete + goal-seek) ==========
-
-@dataclass(frozen=True)
-class ResultadoFinal:
-    preco_final: Decimal
-    frete_usado: Decimal
-    margem_valor: Decimal
-    margem_percentual_obtida: Decimal
-
-    @classmethod
-    def calcular(cls, fixo, denominador, custo_coleta, custos_xml) -> 'ResultadoFinal':
-        frete_todas = list(FreteML.objects.all())
-        peso = custo_coleta.peso
-        faixas_candidatas = sorted(
-            (f for f in frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
-            key=lambda f: f.preco_min,
-        )
-
-        resultado = resolver_preco_por_margem(
-            fixo=fixo.fixo,
-            taxa_percentual=denominador.taxa_percentual / 100,
-            margem_alvo_fracao=denominador.margem_alvo_percentual / 100,
-            custo_produto=Decimal(str(custos_xml.unitario)),
-            faixas_frete_candidatas=faixas_candidatas,
-            rebate_valor=Decimal('0'),
-        )
-
-        if resultado is None:
-            raise RuntimeError('Meta de margem inatingível com os dados atuais — sem cálculo possível.')
-
-        return cls(
-            preco_final=resultado['preco_calculado'],
-            frete_usado=resultado['frete_usado'],
-            margem_valor=resultado['detalhamento']['margem_valor'],
-            margem_percentual_obtida=resultado['margem_percentual_obtida'],
-        )
+    _imprimir_processamento('Processamento', [
+        PassoDeCalculo(
+            1, 'Frete CIF/FOB = Custo Unitário × Frete CIF/FOB %',
+            f'R$ {custo_unitario:.2f} × {frete_cif_fob_percentual:.2f}%', f'R$ {frete_cif_fob_valor:.2f}',
+        ),
+        PassoDeCalculo(
+            2, 'Custo Final = Custo Unitário + IPI + Frete CIF/FOB + ICMS ST',
+            f'R$ {custo_unitario:.2f} + R$ {valor_ipi:.2f} + R$ {frete_cif_fob_valor:.2f} + R$ {valor_icms_st:.2f}',
+            f'R$ {custo_final:.2f}',
+        ),
+    ])
+    _imprimir_resultado_final('Custo Final (por unidade)', custo_final)
+    console.print()
+    return custo_final
 
 
-resultado_final = ResultadoFinal.calcular(calculo_fixo, calculo_denominador, custo_coleta, custos_xml)
-_imprimir_etapa(f'Etapa 10 — Resultado Final (margem-alvo {MARGEM_ALVO_TESTADA}%, Clássico)', resultado_final)
+custo_final = _exibir_custo_final(
+    custo_unitario_xml.custo_unitario, valor_ipi, valor_icms_st, float(produto.frete_cif_fob or 0)
+)
+
+
+# ========== Etapa 6 — Custo de Coleta ==========
+# * [EXPLICAÇÃO] → Sem dado fiscal, real 100%: dimensões (Etapa 2) ×
+#                   fator_coleta (Configuração Operacional real).
+def _exibir_coleta(dimensoes, config_geral):
+    console.rule('[bold]Etapa 6 — Custo de Coleta[/bold]')
+
+    fator_coleta = float(config_geral.fator_coleta)
+    entradas = [
+        EntradaUsada('Altura', f'{dimensoes.altura:.2f} cm', 'Banco — Etapa 2'),
+        EntradaUsada('Largura', f'{dimensoes.largura:.2f} cm', 'Banco — Etapa 2'),
+        EntradaUsada('Comprimento', f'{dimensoes.comprimento:.2f} cm', 'Banco — Etapa 2'),
+        EntradaUsada('Fator de Coleta', f'R$ {fator_coleta:.2f}/m³', 'Configuração Operacional real'),
+    ]
+    _imprimir_entradas_usadas(entradas)
+    console.print()
+
+    metro_cubico = float(metro_cubico_de_dimensoes(dimensoes.altura, dimensoes.largura, dimensoes.comprimento))
+    coleta = metro_cubico * fator_coleta
+
+    _imprimir_processamento('Processamento', [
+        PassoDeCalculo(
+            1, 'Metro Cúbico = (Altura÷100) × (Largura÷100) × (Comprimento÷100)',
+            f'({dimensoes.altura:.2f}÷100) × ({dimensoes.largura:.2f}÷100) × ({dimensoes.comprimento:.2f}÷100)',
+            f'{metro_cubico:.4f} m³',
+        ),
+        PassoDeCalculo(
+            2, 'Coleta = Metro Cúbico × Fator de Coleta',
+            f'{metro_cubico:.4f} × R$ {fator_coleta:.2f}', f'R$ {coleta:.2f}',
+        ),
+    ])
+    _imprimir_resultado_final('Custo de Coleta (por unidade)', coleta)
+    console.print()
+    return coleta
+
+
+config_geral = ConfiguracaoOperacional.obter()
+coleta = _exibir_coleta(dimensoes, config_geral)
+
+
+# ========== Etapa 7 — Custo de Armazenagem ==========
+# * [EXPLICAÇÃO] → Não vem mais de planilha (confirmado pelo usuário,
+#                   09/08) — sistema já calcula por faixa dinâmica. Segue
+#                   a mesma checagem do código real (produto.armazenagem_
+#                   planilha is not None) só pra não quebrar produto
+#                   legado que ainda tenha esse campo preenchido.
+def _exibir_armazenagem(produto, dimensoes, config_geral, faixas_armazenagem):
+    console.rule('[bold]Etapa 7 — Custo de Armazenagem[/bold]')
+
+    if produto.armazenagem_planilha is not None:
+        armazenagem = float(produto.armazenagem_planilha)
+        _imprimir_entradas_usadas([
+            EntradaUsada('Armazenagem (planilha)', f'R$ {armazenagem:.2f}', 'Banco — produto.armazenagem_planilha (legado)'),
+        ])
+        console.print()
+        _imprimir_processamento('Processamento', [
+            PassoDeCalculo(1, 'Armazenagem = valor direto da planilha (legado)', f'R$ {armazenagem:.2f}', f'R$ {armazenagem:.2f}'),
+        ])
+        origem = 'planilha (legado)'
+    else:
+        faixa = selecionar_faixa_por_dimensao(dimensoes.altura, dimensoes.largura, dimensoes.comprimento, faixas_armazenagem)
+        valor_diario = float(faixa.valor_diario) if faixa else 0.0
+        periodo = config_geral.periodo_armazenagem
+
+        _imprimir_entradas_usadas([
+            EntradaUsada('Altura/Largura/Comprimento', f'{dimensoes.altura:.2f} / {dimensoes.largura:.2f} / {dimensoes.comprimento:.2f} cm', 'Banco — Etapa 2'),
+            EntradaUsada('Faixa selecionada', faixa.nome if faixa else 'nenhuma', 'Faixa de Armazenagem real (sistema, faixa dinâmica)'),
+            EntradaUsada('Valor Diário da Faixa', f'R$ {valor_diario:.4f}', 'Faixa de Armazenagem real'),
+            EntradaUsada('Período de Armazenagem', f'{periodo} dias', 'Configuração Operacional real'),
+        ])
+        console.print()
+
+        armazenagem = valor_diario * periodo
+        _imprimir_processamento('Processamento', [
+            PassoDeCalculo(
+                1, 'Armazenagem = Valor Diário da Faixa × Período',
+                f'R$ {valor_diario:.4f} × {periodo}', f'R$ {armazenagem:.2f}',
+            ),
+        ])
+        origem = 'faixa dinâmica'
+
+    _imprimir_resultado_final(f'Custo de Armazenagem (por unidade — origem: {origem})', armazenagem)
+    console.print()
+    return armazenagem
+
+
+faixas_armazenagem = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
+armazenagem = _exibir_armazenagem(produto, dimensoes, config_geral, faixas_armazenagem)
+
+
+# ========== Etapa 8 — FIXO ==========
+# * [EXPLICAÇÃO] → Só consome — Coleta/Armazenagem/Custo Final (5-7) e os
+#                   3 créditos de imposto (Etapa 4) já vêm prontos. PIS e
+#                   COFINS entram SEPARADOS (decisão definitiva, 09/08) —
+#                   nunca mais somados num campo "pis_cofins" só.
+def _exibir_fixo(coleta, armazenagem, custo_final, valor_icms, valor_pis, valor_cofins, eh_regime_st):
+    console.rule('[bold]Etapa 8 — FIXO[/bold]')
+
+    # * [EXPLICAÇÃO] → Hipótese de diferimento (09/08, não confirmada pelo
+    #                   tributário/superior): produto com ICMS ST na nota
+    #                   já teve o ICMS normal descontado POR DENTRO do
+    #                   cálculo líquido do ST (Etapa 4) — dar esse crédito
+    #                   de novo aqui seria creditar 2x o mesmo imposto.
+    #                   Ver [[Hipotese de Diferimento do Credito de ICMS
+    #                   Entrada em Produtos ST]] no vault.
+    credito_icms_entrada = 0.0 if eh_regime_st else valor_icms
+    origem_credito_icms = (
+        'Zerado — regime ST detectado (hipótese de diferimento, aguardando validação do tributário)'
+        if eh_regime_st else 'Etapa 4, já calculado'
+    )
+
+    entradas = [
+        EntradaUsada('Coleta', f'R$ {coleta:.2f}', 'Etapa 6, já calculado'),
+        EntradaUsada('Armazenagem', f'R$ {armazenagem:.2f}', 'Etapa 7, já calculado'),
+        EntradaUsada('Custo Final', f'R$ {custo_final:.2f}', 'Etapa 5, já calculado'),
+        EntradaUsada('Regime ST (nota)?', 'Sim' if eh_regime_st else 'Não', 'XML — Base/Valor ICMS ST da nota > 0'),
+        EntradaUsada('Crédito ICMS (entrada)', f'R$ {credito_icms_entrada:.2f}', origem_credito_icms),
+        EntradaUsada('Crédito PIS', f'R$ {valor_pis:.2f}', 'Etapa 4, já calculado'),
+        EntradaUsada('Crédito COFINS', f'R$ {valor_cofins:.2f}', 'Etapa 4, já calculado'),
+    ]
+    _imprimir_entradas_usadas(entradas)
+    console.print()
+
+    creditos = credito_icms_entrada + valor_pis + valor_cofins
+    fixo = coleta + armazenagem + custo_final - creditos
+
+    _imprimir_processamento('Processamento', [
+        PassoDeCalculo(
+            1, 'Créditos = ICMS + PIS + COFINS',
+            f'R$ {credito_icms_entrada:.2f} + R$ {valor_pis:.2f} + R$ {valor_cofins:.2f}', f'R$ {creditos:.2f}',
+        ),
+        PassoDeCalculo(
+            2, 'FIXO = Coleta + Armazenagem + Custo Final − Créditos',
+            f'R$ {coleta:.2f} + R$ {armazenagem:.2f} + R$ {custo_final:.2f} − R$ {creditos:.2f}',
+            f'R$ {fixo:.2f}',
+        ),
+    ])
+    _imprimir_resultado_final('FIXO (por unidade)', fixo)
+    console.print()
+    return fixo
+
+
+eh_regime_st = icms_st.valor > 0 or icms_st.base_calculo > 0
+fixo = _exibir_fixo(coleta, armazenagem, custo_final, valor_icms, valor_pis, valor_cofins, eh_regime_st)
+
+
+# ========== Etapa 9 — Taxa, Denominador e Preço Final ==========
+# * [EXPLICAÇÃO] → ICMS de saída e PIS/COFINS de saída seguem vindo do
+#                   banco/planilha (fora do escopo desta troca — API de
+#                   saída da Sysemp ainda não existe, ver [[Escopo Final]]
+#                   no vault). Mostra só a margem PADRÃO do Clássico —
+#                   Mínima/Máxima/Competição seria a mesma função com
+#                   margem_alvo_percentual diferente.
+def _exibir_denominador_e_resultado(fixo, custo_unitario, peso, config_tipo, produto, frete_todas):
+    console.rule('[bold]Etapa 9 — Taxa, Denominador e Preço Final[/bold]')
+
+    comissao_percentual = float(config_tipo.comissao)
+    icms_saida_percentual = float(produto.icms_saida_media or 0)
+    pis_cofins_saida_percentual = float(produto.pis_cofins or 0)
+    margem_alvo_percentual = float(config_tipo.margem_padrao)
+
+    entradas = [
+        EntradaUsada('Comissão', f'{comissao_percentual:.2f}%', 'Configuração real do tipo de anúncio (Clássico)'),
+        EntradaUsada('ICMS de Saída', f'{icms_saida_percentual:.2f}%', 'Banco/planilha — segue como está'),
+        EntradaUsada('PIS/COFINS de Saída', f'{pis_cofins_saida_percentual:.2f}%', 'Banco/planilha — segue como está'),
+        EntradaUsada('Margem-alvo (padrão)', f'{margem_alvo_percentual:.2f}%', 'Configuração real do tipo de anúncio'),
+        EntradaUsada('FIXO', f'R$ {fixo:.2f}', 'Etapa 8, já calculado'),
+    ]
+    _imprimir_entradas_usadas(entradas)
+    console.print()
+
+    taxa_percentual_fracao = (comissao_percentual + icms_saida_percentual + pis_cofins_saida_percentual) / 100
+    denominador = 1 - taxa_percentual_fracao - (margem_alvo_percentual / 100)
+
+    _imprimir_processamento('Como a Taxa e o Denominador foram calculados', [
+        PassoDeCalculo(
+            1, 'Taxa = Comissão + ICMS Saída + PIS/COFINS Saída',
+            f'{comissao_percentual:.2f}% + {icms_saida_percentual:.2f}% + {pis_cofins_saida_percentual:.2f}%',
+            f'{taxa_percentual_fracao * 100:.2f}%',
+        ),
+        PassoDeCalculo(
+            2, 'Denominador = 1 − Taxa − Margem-alvo',
+            f'1 − {taxa_percentual_fracao * 100:.2f}% − {margem_alvo_percentual:.2f}%',
+            f'{denominador:.4f}',
+        ),
+    ])
+    console.print()
+
+    faixas_candidatas = sorted(
+        (f for f in frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
+        key=lambda f: f.preco_min,
+    )
+
+    resultado = resolver_preco_por_margem(
+        fixo=fixo, taxa_percentual=Decimal(str(taxa_percentual_fracao)),
+        margem_alvo_fracao=Decimal(str(margem_alvo_percentual / 100)),
+        custo_produto=custo_unitario, faixas_frete_candidatas=faixas_candidatas,
+    )
+
+    if resultado is None:
+        console.print('[bold red]Nenhuma faixa de frete gerou solução consistente — sem preço final.[/bold red]')
+        return None
+
+    d = resultado['detalhamento']
+    _imprimir_processamento('Resolução do Preço (busca de faixa de frete real)', [
+        PassoDeCalculo(1, 'Frete usado (faixa encontrada)', f'peso {peso:.2f}kg', f'R$ {d["frete_usado"]:.2f}'),
+        PassoDeCalculo(
+            2, 'Preço exato = (Frete + FIXO) ÷ Denominador',
+            f'(R$ {d["frete_usado"]:.2f} + R$ {fixo:.2f}) ÷ {denominador:.4f}',
+            f'R$ {d["preco_exato_antes_arredondar"]:.2f}',
+        ),
+        PassoDeCalculo(
+            3, 'Preço Final = RoundUp90 (sempre pra cima)',
+            f'R$ {d["preco_exato_antes_arredondar"]:.2f} → ,90', f'R$ {d["preco_calculado"]:.2f}',
+        ),
+    ])
+
+    _imprimir_resultado_final('Preço Final (Clássico, margem padrão)', d['preco_calculado'])
+    console.print(f'[dim]Margem obtida: {d["margem_percentual_obtida"]:.2f}% (meta: {margem_alvo_percentual:.2f}%)[/dim]')
+    console.print()
+    return resultado
+
+
+config_tipo = ConfiguracaoTipoAnuncioMercadoLivre.objects.get(
+    tipo_anuncio=TipoDeAnuncioMercadoLivre.TipoAnuncio.CLASSICO
+)
+frete_todas = list(FreteML.objects.all())
+_exibir_denominador_e_resultado(fixo, custo_unitario_xml.custo_unitario, dimensoes.peso, config_tipo, produto, frete_todas)
+
+CAMINHO_LOG = os.path.join(PASTA_SAIDAS, f'duble_{EAN_TESTADO}.txt')
+console.print(f'\n[dim]Log completo salvo em: {CAMINHO_LOG}[/dim]')
+console.save_text(CAMINHO_LOG)
