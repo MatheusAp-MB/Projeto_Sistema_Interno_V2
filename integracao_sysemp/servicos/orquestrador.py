@@ -74,6 +74,29 @@ def _cronometrar(relatorio: RelatorioDeSincronizacao, campo: str):
         setattr(relatorio, campo, time.perf_counter() - inicio)
 
 
+def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: RelatorioDeSincronizacao) -> None:
+    """Único ponto que persiste os registros já selecionados (1 nota mais
+    recente por produto) no banco — usado tanto pelo pipeline completo
+    (sincronizar_impostos_entrada_xml) quanto por qualquer reprocessamento
+    a partir de um json já salvo em disco, sem tocar API nem watermark
+    (ver management command reprocessar_impostos_entrada_de_json)."""
+    for registro in selecionados:
+        codigo_barras = registro[CAMPO_CODIGO_PRODUTO]
+        produto = Produto.objects.filter(ean=codigo_barras).first()
+        if produto is None:
+            relatorio.produtos_sem_correspondencia += 1
+            continue  # produto ainda não cadastrado no sistema — não é erro
+        try:
+            dados = DadosXmlNF.a_partir_do_registro(registro)
+            ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+        except (KeyError, ValueError, TypeError) as erro:
+            registrar_erro(codigo_barras, etapa='parse_ou_persistencia', mensagem=str(erro))
+            relatorio.produtos_com_erro += 1
+            continue
+        remover_erro(codigo_barras)
+        relatorio.produtos_sincronizados += 1
+
+
 def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincronizacao:
     """Executa a sincronização de ponta a ponta. Devolve o relatório de
     tempo/contagens — só mede, não decide nem aplica nenhuma otimização
@@ -142,21 +165,7 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
 
     _informar(f'Persistindo no banco ({len(selecionados)} produtos selecionados)...')
     with _cronometrar(relatorio, 'persistencia_no_banco'):
-        for registro in selecionados:
-            codigo_barras = registro[CAMPO_CODIGO_PRODUTO]
-            produto = Produto.objects.filter(ean=codigo_barras).first()
-            if produto is None:
-                relatorio.produtos_sem_correspondencia += 1
-                continue  # produto ainda não cadastrado no sistema — não é erro
-            try:
-                dados = DadosXmlNF.a_partir_do_registro(registro)
-                ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
-            except (KeyError, ValueError, TypeError) as erro:
-                registrar_erro(codigo_barras, etapa='parse_ou_persistencia', mensagem=str(erro))
-                relatorio.produtos_com_erro += 1
-                continue
-            remover_erro(codigo_barras)
-            relatorio.produtos_sincronizados += 1
+        persistir_selecionados_no_banco(selecionados, relatorio)
 
     registro_watermark.registrar_sincronizacao_bem_sucedida(data_inicial, data_final)
     _informar('Sincronização concluída.')

@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
@@ -41,6 +42,38 @@ def _converter_para_decimal(valor: float) -> Decimal:
     return Decimal(str(valor))
 
 
+# Função Objetivo: Representa 1 linha da tabela de exibição de impostos de
+# entrada (modal de Produto) — 1 imposto por linha, já padronizado.
+@dataclass
+class LinhaImpostoEntrada:
+    # * [EXPLICAÇÃO] → Nem todo imposto tem os 5 campos (ex: ICMS Retido não
+    #                  tem cst/alíquota/redução; IPI não tem redução). Campo
+    #                  ausente = None — o template decide como exibir, nunca
+    #                  inventa ou recalcula valor por fora. base_calculo e
+    #                  valor aqui já vêm POR UNIDADE (decisão do usuário,
+    #                  10/08/2026) — nunca o valor bruto da nota. Ficam None
+    #                  quando o produto ainda não tem quantidade_nota/
+    #                  custo_unitario sincronizados (pendente resync).
+    nome: str
+    cst: int | None
+    base_calculo: Decimal | None
+    aliquota: Decimal | None
+    reducao: Decimal | None
+    valor: Decimal | None
+
+
+# Função Objetivo: Agrupa os dados de impostos de entrada (XML) de 1 produto,
+# já padronizados pra exibição — cabeçalho da nota + 1 linha por imposto.
+@dataclass
+class DetalhesImpostosEntradaProduto:
+    nr_nf: str
+    data_entrada_nota: date | None
+    emissao: date | None
+    fornecedor: str
+    custo_unitario: Decimal | None
+    linhas: list[LinhaImpostoEntrada]
+
+
 class ImpostoComAliquota(models.Model):
     # * [EXPLICAÇÃO] → Classe-base abstrata só com os 3 campos que se
     #                  repetem de verdade em 5 dos 6 impostos (ICMS, ICMS
@@ -62,6 +95,18 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
     produto = models.OneToOneField(Produto, on_delete=models.CASCADE, related_name='impostos_entrada')
     nr_nf = models.CharField(max_length=20)
     data_entrada_nota = models.DateField(null=True, blank=True)
+    # * [EXPLICAÇÃO] → Data de emissão da nota — campo novo (10/08/2026),
+    #                  mesma situação de quantidade_nota/custo_unitario: já
+    #                  vinha parseado em dados.identificacao_nf.emissao, só
+    #                  nunca tinha sido persistido. Guardado como texto cru
+    #                  (CharField), igual a dataclass IdentificacaoNF já faz
+    #                  — nunca confirmamos o formato exato desse campo na
+    #                  API pra arriscar converter em date.
+    # * [EXPLICAÇÃO] → Atualizado (10/08/2026): confirmado com dado real
+    #                  ("2026-08-04") que a API entrega em ISO — mesmo
+    #                  formato de data_entrada_nota. Convertido pra DateField
+    #                  de verdade, igual o campo irmão, em vez de texto cru.
+    emissao = models.DateField(null=True, blank=True)
     fornecedor = models.CharField(max_length=255)
 
     # * [EXPLICAÇÃO] → Não é imposto — é apoio: PisEntradaProduto e
@@ -71,6 +116,18 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
     #                  aqui porque é dado de nível de NOTA, não de 1
     #                  imposto específico — nenhum dos 2 é dono exclusivo.
     custo_total = models.DecimalField(max_digits=12, decimal_places=2)
+
+    # * [EXPLICAÇÃO] → Achado real (10/08/2026): faltava guardar isso — sem
+    #                  quantidade/custo unitário não tem como converter
+    #                  base/valor de "por nota" pra "por unidade", que é
+    #                  como o dublê de precificação (e qualquer fórmula
+    #                  real) trabalha. Os 2 já vêm parseados do XML em
+    #                  dados.identificacao_produto.qtde e dados.custos.unitario
+    #                  — só nunca tinham sido persistidos aqui. null=True
+    #                  porque produtos já sincronizados antes desta mudança
+    #                  não têm esse dado até serem resincronizados.
+    quantidade_nota = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    custo_unitario = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     class Meta:
         verbose_name = 'Impostos e Custos de Entrada (XML) do Produto'
@@ -86,6 +143,8 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
         juntas, mesmo as com valor zero (nunca deixa 1 delas ausente)."""
         data_entrada = date.fromisoformat(dados.identificacao_nf.data_entrada_nota) \
             if dados.identificacao_nf.data_entrada_nota else None
+        emissao = date.fromisoformat(dados.identificacao_nf.emissao) \
+            if dados.identificacao_nf.emissao else None
 
         with transaction.atomic():
             guarda_chuva, _ = cls.objects.update_or_create(
@@ -93,8 +152,11 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
                 defaults={
                     'nr_nf': dados.identificacao_nf.nr_nf,
                     'data_entrada_nota': data_entrada,
+                    'emissao': emissao,
                     'fornecedor': dados.dados_nf.fornecedor,
                     'custo_total': _converter_para_decimal(dados.custos.total),
+                    'quantidade_nota': _converter_para_decimal(dados.identificacao_produto.qtde),
+                    'custo_unitario': _converter_para_decimal(dados.custos.unitario),
                 },
             )
             IcmsEntradaProduto.objects.update_or_create(
@@ -153,6 +215,56 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
                 },
             )
         return guarda_chuva
+
+    # Função Objetivo: Devolve os 6 impostos de entrada já padronizados pra
+    # exibição (aba "Impostos" do modal de Produto) — 1 linha por imposto.
+    def obter_detalhes_para_exibicao(self) -> DetalhesImpostosEntradaProduto:
+        # * [EXPLICAÇÃO] → Base/Valor no XML vêm em nível de NOTA (pra
+        #                  quantidade inteira comprada), não por unidade —
+        #                  achado real comparando com o dublê de
+        #                  precificação (10/08/2026). Converte pra unidade
+        #                  aqui, 1 vez só — quem consome (template) nunca
+        #                  recalcula por fora.
+        quantidade = self.quantidade_nota
+
+        def _por_unidade(valor_da_nota: Decimal | None) -> Decimal | None:
+            if valor_da_nota is None or not quantidade:
+                return None
+            return valor_da_nota / quantidade
+
+        return DetalhesImpostosEntradaProduto(
+            nr_nf=self.nr_nf,
+            data_entrada_nota=self.data_entrada_nota,
+            emissao=self.emissao,
+            fornecedor=self.fornecedor,
+            custo_unitario=self.custo_unitario,
+            linhas=[
+                LinhaImpostoEntrada(
+                    nome='ICMS', cst=self.icms.cst, base_calculo=_por_unidade(self.icms.base_calculo),
+                    aliquota=self.icms.aliquota, reducao=self.icms.reducao, valor=_por_unidade(self.icms.valor),
+                ),
+                LinhaImpostoEntrada(
+                    nome='ICMS ST', cst=None, base_calculo=_por_unidade(self.icms_st.base_calculo),
+                    aliquota=self.icms_st.aliquota, reducao=self.icms_st.reducao, valor=_por_unidade(self.icms_st.valor),
+                ),
+                LinhaImpostoEntrada(
+                    nome='ICMS Retido', cst=None, base_calculo=_por_unidade(self.icms_ret.base),
+                    aliquota=None, reducao=None, valor=_por_unidade(self.icms_ret.valor),
+                ),
+                LinhaImpostoEntrada(
+                    nome='IPI', cst=self.ipi.cst, base_calculo=_por_unidade(self.ipi.base_calculo),
+                    aliquota=self.ipi.aliquota, reducao=None, valor=_por_unidade(self.ipi.valor),
+                ),
+                LinhaImpostoEntrada(
+                    nome='PIS', cst=self.pis.cst, base_calculo=_por_unidade(self.pis.base_calculo),
+                    aliquota=self.pis.aliquota, reducao=self.pis.reducao, valor=_por_unidade(self.pis.valor),
+                ),
+                LinhaImpostoEntrada(
+                    nome='COFINS', cst=self.cofins.cst, base_calculo=_por_unidade(self.cofins.base_calculo),
+                    aliquota=self.cofins.aliquota, reducao=self.cofins.reducao, valor=_por_unidade(self.cofins.valor),
+                ),
+            ],
+        )
 
 
 class IcmsEntradaProduto(ImpostoComAliquota):
