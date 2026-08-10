@@ -25,11 +25,11 @@ from django.db import models, transaction
 from produtos.models import Produto
 
 if TYPE_CHECKING:
-    # * [EXPLICAÇÃO] → Só pra tipagem (mypy/IDE) — nunca importado em tempo
-    #                  de execução. scripts_exploracao_ERP/ é pasta
-    #                  temporária de exploração, não um pacote Django; este
-    #                  app oficial não pode depender dela em runtime.
-    from scripts_exploracao_ERP.dados_xml_nf import DadosXmlNF
+    # * [EXPLICAÇÃO] → Só pra tipagem (mypy/IDE) — dados_xml_nf não depende
+    #                  de Django nem de impostos, então importar de
+    #                  verdade aqui seria seguro, mas mantemos só type
+    #                  hint por enquanto, sem necessidade real de mudar.
+    from integracao_sysemp.servicos.dados_xml_nf import DadosXmlNF
 
 
 def _converter_para_decimal(valor: float) -> Decimal:

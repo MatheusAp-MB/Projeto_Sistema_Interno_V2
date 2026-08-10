@@ -43,13 +43,13 @@ from produtos.funcoes_auxiliares.dimensoes_fisicas import (
 from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
 from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem
 from mercado_livre.models import FreteML, TipoDeAnuncioMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre
-from dados_xml_nf import Custos, IcmsSt, Icms, Ipi, Pis, Cofins
+from integracao_sysemp.servicos.dados_xml_nf import Custos, IcmsSt, Icms, Ipi, Pis, Cofins
 
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')
 NOME_ARQUIVO_ENTRADA_XML = 'nota_mais_recente_por_produto.json'
 
-EAN_TESTADO = '7908050700174'
+EAN_TESTADO = '7908050719121'
 
 console = Console(record=True)
 

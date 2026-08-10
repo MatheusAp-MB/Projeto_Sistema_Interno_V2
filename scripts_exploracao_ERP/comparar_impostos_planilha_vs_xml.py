@@ -33,7 +33,7 @@ from rich.console import Console
 from rich.table import Table
 
 from produtos.models import Produto
-from dados_xml_nf import DadosXmlNF
+from integracao_sysemp.servicos.dados_xml_nf import DadosXmlNF
 
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')

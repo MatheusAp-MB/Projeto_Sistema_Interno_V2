@@ -7,10 +7,24 @@
 
 import json
 import os
+import sys
 
 from rich.console import Console
 
-from dados_xml_nf import DadosXmlNF
+
+def _adicionar_raiz_do_projeto_ao_path():
+    caminho_atual = os.path.dirname(os.path.abspath(__file__))
+    while caminho_atual != os.path.dirname(caminho_atual):
+        if os.path.exists(os.path.join(caminho_atual, 'manage.py')):
+            sys.path.insert(0, caminho_atual)
+            return
+        caminho_atual = os.path.dirname(caminho_atual)
+    raise RuntimeError('Não foi possível encontrar manage.py subindo a partir deste script.')
+
+
+_adicionar_raiz_do_projeto_ao_path()
+
+from integracao_sysemp.servicos.dados_xml_nf import DadosXmlNF
 
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')

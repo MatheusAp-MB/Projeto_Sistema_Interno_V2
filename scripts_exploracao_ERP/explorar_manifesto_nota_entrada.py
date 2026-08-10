@@ -1,14 +1,34 @@
 import json
 import os
+import sys
 from datetime import datetime
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+
+
+# Função Objetivo: garante que a raiz do projeto esteja no sys.path antes de
+# importar api_sysemp — ao rodar este script direto (python caminho/script.py),
+# o Python só coloca a PASTA DO SCRIPT no sys.path, não a raiz do projeto
+# (onde api_sysemp mora hoje, oficializado fora de scripts_exploracao_ERP/).
+# Mesmo padrão já usado em duble_precificacao_ml.py.
+def _adicionar_raiz_do_projeto_ao_path():
+    caminho_atual = os.path.dirname(os.path.abspath(__file__))
+    while caminho_atual != os.path.dirname(caminho_atual):
+        if os.path.exists(os.path.join(caminho_atual, 'manage.py')):
+            sys.path.insert(0, caminho_atual)
+            return
+        caminho_atual = os.path.dirname(caminho_atual)
+    raise RuntimeError('Não foi possível encontrar manage.py subindo a partir deste script.')
+
+
+_adicionar_raiz_do_projeto_ao_path()
+
 from api_sysemp import ApiSysemp
 
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 
-DATA_INICIAL = '2020-05-01'
-DATA_FINAL = '2021-01-01'
+DATA_INICIAL = '2026-01-01'
+DATA_FINAL = '2026-08-10'
 
 
 console = Console()

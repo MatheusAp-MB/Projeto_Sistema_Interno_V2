@@ -25,6 +25,24 @@ def _calcular_percentual_de_reducao(base_calculo: float, custo_total: float) -> 
     return round((1.0 - quanto_a_base_representa_do_total) * 100, 2)
 
 
+def _float_ou_zero(valor) -> float:
+    # * [EXPLICAÇÃO] → decisão do usuário (10/08/2026): campo de IMPOSTO que
+    # vem null da API (dado incompleto do lado da Sysemp — não é "imposto
+    # zero de verdade", ver achado no vault) passa a virar 0 explicitamente,
+    # e só aqui — nunca um if solto em outro lugar do pipeline. Sem isso, o
+    # null ou estoura na hora (float(None)) ou se propaga como problema pra
+    # tratar em cada cálculo/soma adiante. Só usado nos 6 impostos — Custo
+    # Total/Unitário e Qtde continuam com float() direto de propósito,
+    # porque null ali é mais grave e não deve ser mascarado.
+    return float(valor) if valor is not None else 0.0
+
+
+def _int_ou_zero(valor) -> int:
+    # * [EXPLICAÇÃO] → mesma decisão acima, pra campo inteiro de imposto
+    # (CST) — mesmo escopo, nunca usado fora dos 6 impostos.
+    return int(valor) if valor is not None else 0
+
+
 @dataclass(frozen=True)
 class IdentificacaoProduto:
     id_produto: int
@@ -105,10 +123,10 @@ class IcmsSt:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'IcmsSt':
         return cls(
-            base_calculo=float(registro['Base Calculo ICMS ST']),
-            aliquota=float(registro['Aliquota ICMS ST']),
-            reducao=float(registro['Redução ICMS ST']),
-            valor=float(registro['Valor ICMS ST']),
+            base_calculo=_float_ou_zero(registro['Base Calculo ICMS ST']),
+            aliquota=_float_ou_zero(registro['Aliquota ICMS ST']),
+            reducao=_float_ou_zero(registro['Redução ICMS ST']),
+            valor=_float_ou_zero(registro['Valor ICMS ST']),
         )
 
 
@@ -123,11 +141,11 @@ class Icms:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'Icms':
         return cls(
-            cst=int(registro['CST ICMS']),
-            base_calculo=float(registro['Base Calculo ICMS']),
-            aliquota=float(registro['Aliquota ICMS']),
-            reducao=float(registro['Redução ICMS']),
-            valor=float(registro['Valor ICMS']),
+            cst=_int_ou_zero(registro['CST ICMS']),
+            base_calculo=_float_ou_zero(registro['Base Calculo ICMS']),
+            aliquota=_float_ou_zero(registro['Aliquota ICMS']),
+            reducao=_float_ou_zero(registro['Redução ICMS']),
+            valor=_float_ou_zero(registro['Valor ICMS']),
         )
 
 
@@ -139,8 +157,8 @@ class IcmsRet:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'IcmsRet':
         return cls(
-            base=float(registro['Base ICMS Ret']),
-            valor=float(registro['Valor ICMS Ret']),
+            base=_float_ou_zero(registro['Base ICMS Ret']),
+            valor=_float_ou_zero(registro['Valor ICMS Ret']),
         )
 
 
@@ -154,10 +172,10 @@ class Ipi:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'Ipi':
         return cls(
-            cst=int(registro['CST IPI']),
-            base_calculo=float(registro['Base Calculo IPI']),
-            aliquota=float(registro['Aliquota IPI']),
-            valor=float(registro['Valor IPI']),
+            cst=_int_ou_zero(registro['CST IPI']),
+            base_calculo=_float_ou_zero(registro['Base Calculo IPI']),
+            aliquota=_float_ou_zero(registro['Aliquota IPI']),
+            valor=_float_ou_zero(registro['Valor IPI']),
         )
 
 
@@ -171,13 +189,13 @@ class Pis:
 
     @classmethod
     def a_partir_do_registro(cls, registro: dict, custo_total: float) -> 'Pis':
-        base_calculo = float(registro['Base Calculo PIS'])
+        base_calculo = _float_ou_zero(registro['Base Calculo PIS'])
         return cls(
-            cst=int(registro['CST PIS']),
+            cst=_int_ou_zero(registro['CST PIS']),
             base_calculo=base_calculo,
-            aliquota=float(registro['Aliquota PIS']),
+            aliquota=_float_ou_zero(registro['Aliquota PIS']),
             reducao=_calcular_percentual_de_reducao(base_calculo, custo_total),
-            valor=float(registro['Valor PIS']),
+            valor=_float_ou_zero(registro['Valor PIS']),
         )
 
 
@@ -191,13 +209,13 @@ class Cofins:
 
     @classmethod
     def a_partir_do_registro(cls, registro: dict, custo_total: float) -> 'Cofins':
-        base_calculo = float(registro['Base Calculo COFINS'])
+        base_calculo = _float_ou_zero(registro['Base Calculo COFINS'])
         return cls(
-            cst=int(registro['CST COFINS']),
+            cst=_int_ou_zero(registro['CST COFINS']),
             base_calculo=base_calculo,
-            aliquota=float(registro['Aliquota COFINS']),
+            aliquota=_float_ou_zero(registro['Aliquota COFINS']),
             reducao=_calcular_percentual_de_reducao(base_calculo, custo_total),
-            valor=float(registro['Valor COFINS']),
+            valor=_float_ou_zero(registro['Valor COFINS']),
         )
 
 

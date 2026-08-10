@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from api_sysemp import ApiSysemp
 from api_sysemp.core.excecoes import ErroAPISysemp
 from produtos.models import Produto
-from scripts_exploracao_ERP.dados_xml_nf import DadosXmlNF
 
 from impostos.models import ImpostosECustosXMLEntradaProduto
 from integracao_sysemp.models import SincronizacaoXmlManifestoNotaEntrada
@@ -33,6 +32,7 @@ from .arquivos_retorno_api import (
     NOME_ARQUIVO_NOTAS_MAIS_RECENTES,
     salvar_json,
 )
+from .dados_xml_nf import DadosXmlNF
 from .erros_sincronizacao import registrar_erro, remover_erro
 from .filtro_cfop import filtrar_por_cfop
 from .selecao_nota_recente import selecionar_nota_mais_recente_por_produto

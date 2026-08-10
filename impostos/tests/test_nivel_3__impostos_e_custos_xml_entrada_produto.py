@@ -17,7 +17,7 @@ from impostos.models import (
     ImpostosECustosXMLEntradaProduto, IcmsEntradaProduto, IcmsStEntradaProduto,
     IcmsRetEntradaProduto, IpiEntradaProduto, PisEntradaProduto, CofinsEntradaProduto,
 )
-from scripts_exploracao_ERP.dados_xml_nf import (
+from integracao_sysemp.servicos.dados_xml_nf import (
     DadosXmlNF, IdentificacaoProduto, IdentificacaoNF, DadosNF, IdentificadorRegra,
     IcmsSt, Icms, IcmsRet, Ipi, Pis, Cofins, Custos,
 )
