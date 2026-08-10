@@ -109,6 +109,31 @@ def test_data_entrada_nota_ausente_perde_para_data_real(tabela_resultados):
     # TearDown: nada a desmontar.
 
 
+def test_nota_mais_antiga_depois_da_mais_recente_nao_substitui(tabela_resultados):
+    # Setup: mesmo produto, mas a nota mais recente aparece PRIMEIRO na
+    # lista, e a mais antiga vem depois — precisa continuar valendo a
+    # mais recente (não é só "pegar a última processada").
+    linhas = [
+        _linha('111', '1002', '2026-06-01'),
+        _linha('111', '1001', '2026-01-01'),
+    ]
+
+    # Exercise
+    resultado = selecionar_nota_mais_recente_por_produto(linhas)
+
+    # Assert
+    bateu = len(resultado) == 1 and resultado[0]['NR NF'] == '1002'
+    registrar_resultado(
+        tabela_resultados, 'nota_mais_antiga_depois_nao_substitui',
+        'NF 1002 (2026-06-01) processada antes de NF 1001 (2026-01-01), mesmo produto', 'só NF 1002',
+        'Comparação real, não "pega a última vista" — nota mais antiga processada depois não pode substituir a mais recente',
+        f'{[l["NR NF"] for l in resultado]}', bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
 @pytest.mark.xfail(reason='Falha de propósito — prova visual da linha FALHOU na tabela')
 def test_caso_de_falha_proposital(tabela_resultados):
     # Setup: valor esperado ERRADO de propósito.

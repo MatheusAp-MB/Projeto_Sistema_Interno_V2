@@ -1,103 +1,230 @@
-=== Nível 3 — SincronizacaoXmlManifestoNotaEntrada ===
-
-[PASSOU] calcular_janela_com_cobertura
-  Entrada:  cobertura até 2026-08-01, referência 2026-08-10
-  Esperado: (2026-07-25, 2026-08-10)
-  Motivo:   Com cobertura registrada, a janela reaplica a mesma margem de 7 dias de esta_desatualizada()
-  Obtido:   (2026-07-25, 2026-08-10)
-
-[PASSOU] calcular_janela_primeira_vez
-  Entrada:  data_final_cobertura=None, referência 2026-08-10
-  Esperado: (2020-05-01, 2026-08-10)
-  Motivo:   Sem cobertura nenhuma, a janela começa na data mínima real de dados úteis do sistema
-  Obtido:   (2020-05-01, 2026-08-10)
-
-[PASSOU] calcular_janela_usa_hoje_quando_nao_informada
-  Entrada:  data_referencia não informada, nunca sincronizado
-  Esperado: (2020-05-01, 2026-08-10)
-  Motivo:   Sem data_referencia, o método cai pra date.today() real
-  Obtido:   (2020-05-01, 2026-08-10)
-
-[PASSOU] esta_desatualizada_ref_2026-08-20
-  Entrada:  cobertura até 2026-08-01, referência 2026-08-20
-  Esperado: True
-  Motivo:   Margem de 7 dias: só considera desatualizado depois de cobertura + margem
-  Obtido:   True
-
-[PASSOU] esta_desatualizada_ref_2026-08-05
-  Entrada:  cobertura até 2026-08-01, referência 2026-08-05
-  Esperado: False
-  Motivo:   Margem de 7 dias: só considera desatualizado depois de cobertura + margem
-  Obtido:   False
-
-[PASSOU] esta_desatualizada_nunca_sincronizado
-  Entrada:  data_final_cobertura=None
-  Esperado: True
-  Motivo:   Sem cobertura nenhuma, é sempre considerado desatualizado
-  Obtido:   True
-
-[PASSOU] esta_desatualizada_usa_hoje_quando_nao_informada
-  Entrada:  data_referencia não informada, cobertura até hoje-10d
-  Esperado: True
-  Motivo:   Sem data_referencia, o método cai pra date.today() — cobertura de 10 dias atrás já passou da margem de 7 dias
-  Obtido:   True
-
-[PASSOU] obter_cria_linha_vazia
-  Entrada:  tabela vazia
-  Esperado: todos os campos em branco/nulos
-  Motivo:   Antes da 1ª sincronização não pode haver erro, só estado zerado
-  Obtido:   inicial=None, final=None, status=''
-
-[PASSOU] registrar_falha_nao_altera_cobertura
-  Entrada:  falha depois de cobertura já existente
-  Esperado: cobertura intocada, status=Falha, motivo preenchido
-  Motivo:   Falha nunca move data de cobertura — só marca quando e por quê
-  Obtido:   inicial=2020-05-01, final=2021-05-01, status='falha', motivo='Erro de rede simulado'
-
-[PASSOU] registrar_falha_usa_agora_atual_quando_nao_informado
-  Entrada:  agora não informado
-  Esperado: entre 2026-08-10 03:25:41.328518+00:00 e 2026-08-10 03:25:41.329018+00:00
-  Motivo:   Sem agora explícito, registrar_falha também usa timezone.now() real — mesma prova por intervalo
-  Obtido:   2026-08-10 03:25:41.328518+00:00
+=== Nível 0 — arquivos_retorno_api ===
 
 [FALHOU] caso_de_falha_proposital
-  Entrada:  2021-05-01
-  Esperado: 2099-01-01
+  Entrada:  {'x': 1}
+  Esperado: {"x": 999} (errado de propósito)
   Motivo:   Propositalmente errado — prova que a tabela mostra FALHOU corretamente.
-  Obtido:   2021-05-01
+  Obtido:   {'x': 1}
 
-[PASSOU] primeira_sincronizacao_preenche_inicial_e_final
-  Entrada:  2020-05-01 → 2021-05-01
-  Esperado: inicial=2020-05-01, final=2021-05-01, status=Sincronizado
-  Motivo:   Primeira sincronização de todas — os 2 campos de cobertura nascem juntos
-  Obtido:   inicial=2020-05-01, final=2021-05-01, status='sincronizado'
+[PASSOU] ler_json_inexistente_devolve_padrao
+  Entrada:  arquivo nunca criado, padrao={"vazio": True}
+  Esperado: {"vazio": True}
+  Motivo:   Antes da 1ª execução não existe arquivo nenhum — não pode quebrar
+  Obtido:   {'vazio': True}
 
-[PASSOU] segunda_sincronizacao_nao_regride_inicial
-  Entrada:  parâmetro da 2ª chamada = 2021-04-20 → 2022-05-01
-  Esperado: inicial continua 2020-05-01, final avança para 2022-05-01
-  Motivo:   data_inicial_cobertura só escreve na 1ª vez — nunca regride depois
-  Obtido:   inicial=2020-05-01, final=2022-05-01
+[PASSOU] salvar_e_ler_json
+  Entrada:  {'a': 1, 'b': [1, 2, 3]}
+  Esperado: {'a': 1, 'b': [1, 2, 3]}
+  Motivo:   O que foi salvo precisa voltar exatamente igual
+  Obtido:   {'a': 1, 'b': [1, 2, 3]}
 
-[PASSOU] registrar_sincronizacao_usa_agora_atual_quando_nao_informado
-  Entrada:  agora não informado
-  Esperado: entre 2026-08-10 03:25:41.442018+00:00 e 2026-08-10 03:25:41.442519+00:00
-  Motivo:   Sem agora explícito, o método usa timezone.now() real — só dá pra provar por intervalo, nunca valor exato
-  Obtido:   2026-08-10 03:25:41.442018+00:00
+=== Nível 0 — erros_sincronizacao ===
+
+[FALHOU] caso_de_falha_proposital
+  Entrada:  erro real
+  Esperado: mensagem errada de propósito
+  Motivo:   Propositalmente errado — prova que a tabela mostra FALHOU corretamente.
+  Obtido:   erro real
+
+[PASSOU] registrar_erro_cria_pendencia
+  Entrada:  Código Barras 111, etapa parse
+  Esperado: pendência criada com etapa e mensagem
+  Motivo:   Erro registrado precisa ficar rastreável — etapa e motivo, não só o código
+  Obtido:   {'etapa': 'parse', 'mensagem': 'campo ausente', 'quando': '2026-08-10T01:28:41.200981'}
+
+[PASSOU] registrar_erro_sobrescreve
+  Entrada:  2ª chamada pro mesmo Código Barras
+  Esperado: 1 só pendência, com a mensagem mais recente
+  Motivo:   Pendência é sobre o estado atual do produto, não um log — não duplica
+  Obtido:   1 pendência(s), mensagem='erro novo'
+
+[PASSOU] remover_erro_sem_pendencia_nao_quebra
+  Entrada:  Código Barras sem pendência nenhuma
+  Esperado: nenhuma exceção levantada
+  Motivo:   remover_erro precisa ser idempotente — chamada de sobra não pode quebrar
+  Obtido:   nenhuma exceção levantada
+
+[PASSOU] remover_erro_remove_pendencia
+  Entrada:  pendência existente pro Código Barras 111
+  Esperado: pendência removida
+  Motivo:   Produto que voltou a sincronizar bem não pode continuar marcado como erro
+  Obtido:   {}
+
+=== Nível 0 — filtro_cfop ===
+
+[PASSOU] achata_nota_varios_itens
+  Entrada:  1 nota, 2 itens em itens_nf
+  Esperado: 2 linhas, cada 1 com os campos da nota + do item
+  Motivo:   Achatamento não pode perder item nem misturar campos entre notas
+  Obtido:   2 linha(s): [{'NR NF': '1001', 'Fornecedor': 'Fornecedor Teste', 'Código Barras': '111', 'CFOP': '1.102'}, {'NR NF': '1001', 'Fornecedor': 'Fornecedor Teste', 'Código Barras': '222', 'CFOP': '1.102'}]
+
+[FALHOU] caso_de_falha_proposital
+  Entrada:  1 linha(s)
+  Esperado: 99 linhas (errado de propósito)
+  Motivo:   Propositalmente errado — prova que a tabela mostra FALHOU corretamente.
+  Obtido:   1 linha(s)
+
+[PASSOU] cfop_da_lista_mantido
+  Entrada:  CFOP 1.102 (compra para revenda)
+  Esperado: 1 linha
+  Motivo:   CFOP validado precisa passar pelo filtro sem ser descartado por engano
+  Obtido:   1 linha(s)
+
+[PASSOU] cfop_fora_da_lista_descartado
+  Entrada:  CFOP 1.916 (retorno de conserto)
+  Esperado: 0 linhas
+  Motivo:   CFOP fora da lista validada não é compra nem bonificação — não representa custo real
+  Obtido:   0 linha(s)
+
+[PASSOU] lista_vazia_devolve_vazia
+  Entrada:  []
+  Esperado: []
+  Motivo:   Período sem nenhuma nota não pode quebrar o pipeline
+  Obtido:   []
+
+=== Nível 0 — selecao_nota_recente ===
+
+[FALHOU] caso_de_falha_proposital
+  Entrada:  1 produto(s)
+  Esperado: 99 produtos (errado de propósito)
+  Motivo:   Propositalmente errado — prova que a tabela mostra FALHOU corretamente.
+  Obtido:   1 produto(s)
+
+[PASSOU] data_ausente_perde_para_data_real
+  Entrada:  NF 1001 sem data, NF 1002 com 2026-01-01
+  Esperado: só NF 1002
+  Motivo:   Nota sem Data Entrada da Nota nunca pode vencer uma com data real
+  Obtido:   ['1002']
+
+[PASSOU] mantem_nota_mais_recente
+  Entrada:  NF 1001 (2026-01-01) e NF 1002 (2026-06-01), mesmo produto
+  Esperado: só NF 1002
+  Motivo:   Data mais recente vence — a antiga não pode sobrar no resultado
+  Obtido:   ['1002']
+
+[PASSOU] mesma_data_desempata_maior_nf
+  Entrada:  NF 1001 e NF 1005, mesma data 2026-06-01
+  Esperado: só NF 1005
+  Motivo:   Empate de data resolve pelo maior número de NF
+  Obtido:   ['1005']
+
+[PASSOU] nota_mais_antiga_depois_nao_substitui
+  Entrada:  NF 1002 (2026-06-01) processada antes de NF 1001 (2026-01-01), mesmo produto
+  Esperado: só NF 1002
+  Motivo:   Comparação real, não "pega a última vista" — nota mais antiga processada depois não pode substituir a mais recente
+  Obtido:   ['1002']
+
+[PASSOU] produtos_diferentes_separados
+  Entrada:  2 produtos distintos, 1 nota cada
+  Esperado: 2 linhas no resultado, 1 por produto
+  Motivo:   Produto diferente não pode se misturar nem sumir do resultado
+  Obtido:   ['111', '222']
+
+=== Nível 3 — orquestrador (sincronizar_impostos_entrada_xml) ===
+
+[FALHOU] caso_de_falha_proposital
+  Entrada:  persistiu=True
+  Esperado: persistiu=False (errado de propósito)
+  Motivo:   Propositalmente errado — prova que a tabela mostra FALHOU corretamente.
+  Obtido:   persistiu=True
+
+[PASSOU] codigo_barras_sem_produto_e_pulado
+  Entrada:  EAN 0000000000000 sem Produto cadastrado
+  Esperado: pulado, sem erro registrado, watermark avança
+  Motivo:   Produto ainda não cadastrado no sistema é esperado — não é anomalia
+  Obtido:   persistiu=False, tem_erro=False, status='sincronizado'
+
+[PASSOU] erro_na_api_registra_falha
+  Entrada:  ErroAPISysemp na busca
+  Esperado: status=Falha, cobertura intocada, nenhum json gravado
+  Motivo:   Falha total (rede/API) nunca pode avançar o watermark nem deixar rastro de dado incompleto
+  Obtido:   status='falha', final=None, bruto_existe=False
+
+[PASSOU] informar_fase_chamado_em_ordem
+  Entrada:  1 produto real, sincronização completa
+  Esperado: ('Buscando manifesto', 'Filtrando por CFOP', 'Selecionando a nota mais recente', 'Persistindo no banco', 'concluída') aparecem em ordem
+  Motivo:   Usuário rodando às cegas precisa ver em que fase está — sem isso, silêncio parece travamento
+  Obtido:   ['Buscando manifesto na API (2020-05-01 → 2026-08-10)...', 'Filtrando por CFOP (1 notas brutas)...', 'Selecionando a nota mais recente por produto (1 registros filtrados)...', 'Persistindo no banco (1 produtos selecionados)...', 'Sincronização concluída.']
+
+[PASSOU] informar_fase_erro_na_api
+  Entrada:  ErroAPISysemp na busca
+  Esperado: mensagem de falha com o motivo real
+  Motivo:   Usuário precisa saber POR QUE falhou, não só que parou
+  Obtido:   ['Buscando manifesto na API (2020-05-01 → 2026-08-10)...', 'Falha na busca da API: erro de rede simulado']
+
+[PASSOU] informar_fase_nao_desatualizado
+  Entrada:  watermark dentro da margem, early return
+  Esperado: 1 mensagem só, "nada a fazer"
+  Motivo:   Não avisar nada aqui também deixaria o usuário sem saber se rodou ou não
+  Obtido:   ['Dados já atualizados — nada a fazer.']
+
+[PASSOU] nao_desatualizado_nao_chama_api
+  Entrada:  watermark sincronizado dentro da margem
+  Esperado: nenhuma chamada à API, nenhum json gravado
+  Motivo:   Guarda de esta_desatualizada() evita chamada de rede sem necessidade
+  Obtido:   bruto_existe=False
+
+[PASSOU] pendencia_antiga_removida_ao_sincronizar_bem
+  Entrada:  pendência prévia + sincronização bem-sucedida do mesmo EAN
+  Esperado: pendência removida
+  Motivo:   Produto que voltou a sincronizar bem não pode continuar marcado como erro
+  Obtido:   {}
+
+[PASSOU] progresso_de_pagina_repassado
+  Entrada:  2 páginas simuladas via ao_avancar_pagina
+  Esperado: mensagens de página 1 e página 2, com os totais certos
+  Motivo:   Sem isso, a fase mais lenta (busca paginada) fica muda de novo — mesmo bug que motivou essa rodada
+  Obtido:   ['Buscando manifesto na API (2020-05-01 → 2026-08-10)...', 'Buscando na API — página 1 (+100, total 100)', 'Buscando na API — página 2 (+42, total 142)', 'Filtrando por CFOP (1 notas brutas)...', 'Selecionando a nota mais recente por produto (1 registros filtrados)...', 'Persistindo no banco (1 produtos selecionados)...', 'Sincronização concluída.']
+
+[PASSOU] registro_malformado_vai_pros_erros
+  Entrada:  1 item válido + 1 sem CST ICMS
+  Esperado: válido persiste, malformado vira pendência, watermark avança
+  Motivo:   Erro em 1 produto não pode travar os outros 999 do mesmo lote
+  Obtido:   valido=True, malformado_persistiu=False, tem_pendencia=True, status='sincronizado'
+
+[PASSOU] relatorio_de_sucesso_tem_todas_as_fases
+  Entrada:  1 produto real, sincronização completa
+  Esperado: 8 fases preenchidas, 1 selecionado, 1 sincronizado, 0/0 nas outras
+  Motivo:   Relatório precisa refletir de verdade todas as fases que rodaram, não só devolver algo genérico
+  Obtido:   tempos=(1.5400000847876072e-05, 0.0017816999461501837, 2.1400046534836292e-05, 0.0025320000713691115, 1.079996582120657e-05, 0.0017006000271067023, 0.014637199928984046, 0.022802599938586354), selecionados=1, sincronizados=1, sem_correspondencia=0, com_erro=0
+
+[PASSOU] relatorio_erro_na_api_tem_busca_api_mas_nao_seguintes
+  Entrada:  ErroAPISysemp na busca
+  Esperado: busca_api preenchido, filtro_cfop=None, total preenchido
+  Motivo:   O tempo da fase que rodou não pode se perder no retorno antecipado — prova o cuidado com a ordem cronômetro/return
+  Obtido:   busca_api=0.0007201000116765499, filtro_cfop=None, total=0.00260899995919317
+
+[PASSOU] relatorio_nao_desatualizado_so_tem_total
+  Entrada:  watermark dentro da margem, early return
+  Esperado: busca_api=None, persistencia_no_banco=None, total preenchido
+  Motivo:   Fase que nunca rodou não pode aparecer como se tivesse rodado (0.0 seria mentira, não é "instantâneo")
+  Obtido:   busca_api=None, persistencia_no_banco=None, total=0.0007194000063464046
+
+[PASSOU] sincroniza_com_sucesso
+  Entrada:  1 produto real, API devolve 1 nota válida
+  Esperado: jsons gravados, impostos persistido, watermark sincronizado
+  Motivo:   Fluxo feliz de ponta a ponta precisa costurar todas as peças já testadas isoladamente
+  Obtido:   filtrado=1, selecionados=1, persistiu=True, status='sincronizado'
 
 === RESUMO DA SESSÃO ===
 
-passed: 13
-xfailed: 1
+passed: 28
+xfailed: 5
 
 === COVERAGE ===
 
 ______________________________________________________________ coverage: platform win32, python 3.12.4-final-0 ______________________________________________________________
 
-Name                          Stmts   Miss Branch BrPart  Cover   Missing
--------------------------------------------------------------------------
-integracao_sysemp\models.py      54      0     14      0   100%
--------------------------------------------------------------------------
-TOTAL                            54      0     14      0   100%
+Name                                                 Stmts   Miss Branch BrPart  Cover   Missing
+------------------------------------------------------------------------------------------------
+integracao_sysemp\servicos\__init__.py                   0      0      0      0   100%
+integracao_sysemp\servicos\arquivos_retorno_api.py      19      0      2      0   100%
+integracao_sysemp\servicos\erros_sincronizacao.py       13      0      2      0   100%
+integracao_sysemp\servicos\filtro_cfop.py               12      0      4      0   100%
+integracao_sysemp\servicos\orquestrador.py              96      0     10      0   100%
+integracao_sysemp\servicos\selecao_nota_recente.py      16      0      4      0   100%
+------------------------------------------------------------------------------------------------
+TOTAL                                                  156      0     22      0   100%
 Coverage HTML written to dir resultados_coverage/htmlcov
 Coverage JSON written to file resultados_coverage/coverage.json
 
