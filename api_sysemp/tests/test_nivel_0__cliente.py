@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/tests/test_nivel_0__cliente.py
+# api_sysemp/tests/test_nivel_0__cliente.py
 
 # Função Objetivo: Nível 0 (zero dependência de banco/Django) do cliente
 # HTTP do Sysemp — cobre como cada categoria de resposta é tratada
@@ -10,11 +10,6 @@
 # test_nivel_0__impostos_entrada_xml.py). `requests.post` é a única borda
 # substituída. Nunca bate na API real. Ver "Padrao de Robustez para
 # Clientes de API Externa" no vault.
-
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 import requests

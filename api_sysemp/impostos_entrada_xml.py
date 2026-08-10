@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/impostos_entrada_xml.py
+# api_sysemp/impostos_entrada_xml.py
 
 # Função Objetivo: Contexto "Obter impostos de entrada vindos do XML" —
 # sabe tudo que o ClienteApiSysemp (transporte puro) não deve saber: qual

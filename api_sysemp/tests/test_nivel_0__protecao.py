@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/tests/test_nivel_0__protecao.py
+# api_sysemp/tests/test_nivel_0__protecao.py
 
 # Função Objetivo: Nível 0 (função pura, zero dependência de banco/Django)
 # da camada de proteção do cliente Sysemp — EspacadorDeChamadas (throttle
@@ -7,14 +7,6 @@
 # lib de congelar tempo nova, só substitui a função dentro do próprio
 # módulo (mesmo padrão já usado no projeto pra evitar dependência nova).
 # Ver "Padrao de Robustez para Clientes de API Externa" no vault.
-
-import sys
-from pathlib import Path
-
-# scripts_exploracao_ERP/ não é pacote Django — garante que a pasta certa
-# esteja no sys.path antes do import local, sem depender de como o pytest
-# decide o rootdir pra este arquivo.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 

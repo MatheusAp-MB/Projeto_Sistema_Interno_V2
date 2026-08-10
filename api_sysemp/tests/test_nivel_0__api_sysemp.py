@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/tests/test_nivel_0__api_sysemp.py
+# api_sysemp/tests/test_nivel_0__api_sysemp.py
 
 # Função Objetivo: Nível 0 (zero dependência de banco/Django) do ponto
 # único de entrada da API Sysemp — cobre a resolução de token (explícito
@@ -6,11 +6,6 @@
 # reaproveita depois). Nunca lê o .env real da máquina — SYSEMP_API_TOKEN
 # controlado só via monkeypatch, pra não depender do que existir de
 # verdade no ambiente de quem roda o teste.
-
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 

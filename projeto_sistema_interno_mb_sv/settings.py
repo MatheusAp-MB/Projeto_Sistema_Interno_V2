@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     'precificacao',
     'agenda_videos',
     'api',
+    'integracao_sysemp',
+    'impostos',
 ]
 
 MIDDLEWARE = [

@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/tests/test_nivel_0__impostos_entrada_xml.py
+# api_sysemp/tests/test_nivel_0__impostos_entrada_xml.py
 
 # Função Objetivo: Nível 0 (zero dependência de banco/Django) do contexto
 # "Obter impostos de entrada vindos do XML" — cobre a validação de período
@@ -9,11 +9,6 @@
 # aqui a exaustão de retry/backoff/exceção. Usa o ClienteApiSysemp real,
 # monkeypatch só em requests.post. Nunca bate na API real. Ver "Padrao de
 # Robustez para Clientes de API Externa" no vault.
-
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from datetime import date
 

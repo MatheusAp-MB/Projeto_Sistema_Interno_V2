@@ -1,286 +1,103 @@
-=== Nível 0 — api_sysemp (ApiSysemp) ===
+=== Nível 3 — SincronizacaoXmlManifestoNotaEntrada ===
 
-[PASSOU] impostos_entrada_e_cacheado
-  Entrada:  2 acessos seguidos a api.impostos_entrada
+[PASSOU] calcular_janela_com_cobertura
+  Entrada:  cobertura até 2026-08-01, referência 2026-08-10
+  Esperado: (2026-07-25, 2026-08-10)
+  Motivo:   Com cobertura registrada, a janela reaplica a mesma margem de 7 dias de esta_desatualizada()
+  Obtido:   (2026-07-25, 2026-08-10)
+
+[PASSOU] calcular_janela_primeira_vez
+  Entrada:  data_final_cobertura=None, referência 2026-08-10
+  Esperado: (2020-05-01, 2026-08-10)
+  Motivo:   Sem cobertura nenhuma, a janela começa na data mínima real de dados úteis do sistema
+  Obtido:   (2020-05-01, 2026-08-10)
+
+[PASSOU] calcular_janela_usa_hoje_quando_nao_informada
+  Entrada:  data_referencia não informada, nunca sincronizado
+  Esperado: (2020-05-01, 2026-08-10)
+  Motivo:   Sem data_referencia, o método cai pra date.today() real
+  Obtido:   (2020-05-01, 2026-08-10)
+
+[PASSOU] esta_desatualizada_ref_2026-08-20
+  Entrada:  cobertura até 2026-08-01, referência 2026-08-20
   Esperado: True
-  Motivo:   Cria 1 instância só e reaproveita — não faz sentido recriar o contexto a cada acesso.
+  Motivo:   Margem de 7 dias: só considera desatualizado depois de cobertura + margem
   Obtido:   True
 
-[FALHOU] impostos_entrada_caso_de_falha_proposital
-  Entrada:  api.impostos_entrada comparado com uma instância nova e solta
-  Esperado: True
-  Motivo:   Propositalmente errado — existe só pra provar que a tabela mostra FALHOU corretamente.
+[PASSOU] esta_desatualizada_ref_2026-08-05
+  Entrada:  cobertura até 2026-08-01, referência 2026-08-05
+  Esperado: False
+  Motivo:   Margem de 7 dias: só considera desatualizado depois de cobertura + margem
   Obtido:   False
 
-[PASSOU] impostos_entrada_retorna_tipo_correto
-  Entrada:  ApiSysemp(token='token-de-teste').impostos_entrada
-  Esperado: <class 'api_sysemp.impostos_entrada_xml.ImpostosEntradaXML'>
-  Motivo:   A propriedade precisa devolver o contexto certo — é o único jeito de acessar impostos de entrada a partir da API.
-  Obtido:   <class 'api_sysemp.impostos_entrada_xml.ImpostosEntradaXML'>
+[PASSOU] esta_desatualizada_nunca_sincronizado
+  Entrada:  data_final_cobertura=None
+  Esperado: True
+  Motivo:   Sem cobertura nenhuma, é sempre considerado desatualizado
+  Obtido:   True
 
-[PASSOU] init_com_token_explicito
-  Entrada:  token='token-explicito-de-teste', sem SYSEMP_API_TOKEN no ambiente
-  Esperado: token-explicito-de-teste
-  Motivo:   Token passado explicitamente nunca precisa consultar o .env — usa exatamente o que foi injetado.
-  Obtido:   token-explicito-de-teste
+[PASSOU] esta_desatualizada_usa_hoje_quando_nao_informada
+  Entrada:  data_referencia não informada, cobertura até hoje-10d
+  Esperado: True
+  Motivo:   Sem data_referencia, o método cai pra date.today() — cobertura de 10 dias atrás já passou da margem de 7 dias
+  Obtido:   True
 
-[PASSOU] init_sem_token_e_sem_env
-  Entrada:  token=None, SYSEMP_API_TOKEN ausente do ambiente
-  Esperado: <class 'RuntimeError'>
-  Motivo:   Sem token nenhum disponível (nem explícito, nem .env) — recusa na hora, com mensagem clara de como corrigir.
-  Obtido:   <class 'RuntimeError'>
+[PASSOU] obter_cria_linha_vazia
+  Entrada:  tabela vazia
+  Esperado: todos os campos em branco/nulos
+  Motivo:   Antes da 1ª sincronização não pode haver erro, só estado zerado
+  Obtido:   inicial=None, final=None, status=''
 
-[PASSOU] init_sem_token_carrega_do_env
-  Entrada:  token=None, SYSEMP_API_TOKEN=token-do-env-de-teste no ambiente
-  Esperado: token-do-env-de-teste
-  Motivo:   Sem token explícito, cai pro .env da raiz do repo — mesmo token que estiver lá.
-  Obtido:   token-do-env-de-teste
+[PASSOU] registrar_falha_nao_altera_cobertura
+  Entrada:  falha depois de cobertura já existente
+  Esperado: cobertura intocada, status=Falha, motivo preenchido
+  Motivo:   Falha nunca move data de cobertura — só marca quando e por quê
+  Obtido:   inicial=2020-05-01, final=2021-05-01, status='falha', motivo='Erro de rede simulado'
 
-=== Nível 0 — api_sysemp.core.cliente ===
+[PASSOU] registrar_falha_usa_agora_atual_quando_nao_informado
+  Entrada:  agora não informado
+  Esperado: entre 2026-08-10 03:25:41.328518+00:00 e 2026-08-10 03:25:41.329018+00:00
+  Motivo:   Sem agora explícito, registrar_falha também usa timezone.now() real — mesma prova por intervalo
+  Obtido:   2026-08-10 03:25:41.328518+00:00
 
-[FALHOU] chamar_caso_de_falha_proposital
-  Entrada:  sucesso de primeira (1 chamada de verdade)
-  Esperado: 2
-  Motivo:   Propositalmente errado — só houve 1 chamada, nunca 2. Existe só pra provar que a tabela mostra FALHOU corretamente.
-  Obtido:   1
+[FALHOU] caso_de_falha_proposital
+  Entrada:  2021-05-01
+  Esperado: 2099-01-01
+  Motivo:   Propositalmente errado — prova que a tabela mostra FALHOU corretamente.
+  Obtido:   2021-05-01
 
-[PASSOU] chamar_erro_nao_passageiro_400
-  Entrada:  status_code=400
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroNegocioSysemp'>, 1)
-  Motivo:   Parâmetro inválido não se resolve tentando de novo — falha na hora, sem retentativa.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroNegocioSysemp'>, 1)
+[PASSOU] primeira_sincronizacao_preenche_inicial_e_final
+  Entrada:  2020-05-01 → 2021-05-01
+  Esperado: inicial=2020-05-01, final=2021-05-01, status=Sincronizado
+  Motivo:   Primeira sincronização de todas — os 2 campos de cobertura nascem juntos
+  Obtido:   inicial=2020-05-01, final=2021-05-01, status='sincronizado'
 
-[PASSOU] chamar_erro_nao_passageiro_401
-  Entrada:  status_code=401
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
-  Motivo:   Token inválido não se resolve tentando de novo — falha na hora, sem retentativa.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
+[PASSOU] segunda_sincronizacao_nao_regride_inicial
+  Entrada:  parâmetro da 2ª chamada = 2021-04-20 → 2022-05-01
+  Esperado: inicial continua 2020-05-01, final avança para 2022-05-01
+  Motivo:   data_inicial_cobertura só escreve na 1ª vez — nunca regride depois
+  Obtido:   inicial=2020-05-01, final=2022-05-01
 
-[PASSOU] chamar_erro_nao_passageiro_403
-  Entrada:  status_code=403
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
-  Motivo:   Mesmo caso de 401, só que proibido em vez de não-autenticado — mesma ação: falha na hora.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroAutenticacaoSysemp'>, 1)
-
-[PASSOU] chamar_erro_passageiro_esgota_429
-  Entrada:  status_code=429 em todas as tentativas
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroLimiteRequisicoesSysemp'>, 4)
-  Motivo:   Limite de requisições é passageiro — tenta até o máximo, mas se nunca melhorar, desiste no final.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroLimiteRequisicoesSysemp'>, 4)
-
-[PASSOU] chamar_erro_passageiro_esgota_500
-  Entrada:  status_code=500 em todas as tentativas
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroServidorSysemp'>, 4)
-  Motivo:   Erro de servidor é passageiro — mesma lógica de retentativa até o máximo.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroServidorSysemp'>, 4)
-
-[PASSOU] chamar_falha_de_rede_esgota_tentativas
-  Entrada:  requests.post sempre levanta ConnectionError
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroRedeSysemp'>, 4)
-  Motivo:   Exceção crua do requests nunca escapa sem reembrulhar — é passageira, tenta até o máximo, depois vira ErroRedeSysemp.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroRedeSysemp'>, 4)
-
-[PASSOU] chamar_recupera_apos_erro_passageiro
-  Entrada:  429, 429, 200 (nessa ordem)
-  Esperado: ({'ok': True}, 3)
-  Motivo:   Erro passageiro que para de acontecer antes do limite de tentativas resulta em sucesso — o retry de fato recupera, não só desiste.
-  Obtido:   ({'ok': True}, 3)
-
-[PASSOU] chamar_le_retry_after_e_recupera
-  Entrada:  429 com header Retry-After='2', depois 200
-  Esperado: ({'ok': True}, 2)
-  Motivo:   Quando a própria API informa Retry-After, o cliente lê e segue — o valor exato de segundos é coberto em test_nivel_0__protecao.py.
-  Obtido:   ({'ok': True}, 2)
-
-[PASSOU] chamar_status_inesperado_404
-  Entrada:  status_code=404 (não mapeado)
-  Esperado: (<class 'api_sysemp.core.excecoes.ErroAPISysemp'>, 1)
-  Motivo:   404 não é nenhuma categoria conhecida — sobe o erro genérico da hierarquia, sem retentativa.
-  Obtido:   (<class 'api_sysemp.core.excecoes.ErroAPISysemp'>, 1)
-
-[PASSOU] chamar_sucesso_primeira_tentativa
-  Entrada:  status_code=200 de primeira
-  Esperado: ({'ok': True, 'itens': [1, 2]}, 1)
-  Motivo:   Caminho feliz — sucesso de primeira nunca aciona retentativa nem espera de backoff.
-  Obtido:   ({'ok': True, 'itens': [1, 2]}, 1)
-
-[PASSOU] extrair_tempo_espera_sugerido
-  Entrada:  headers={}
-  Esperado: None
-  Motivo:   Sem header nenhum — não há tempo sugerido, cliente cai pro cálculo exponencial.
-  Obtido:   None
-
-[PASSOU] extrair_tempo_espera_sugerido
-  Entrada:  headers={'Retry-After': 'nao-eh-numero'}
-  Esperado: None
-  Motivo:   Header presente mas não numérico — trata como se não tivesse vindo nada, nunca quebra.
-  Obtido:   None
-
-[PASSOU] extrair_tempo_espera_sugerido
-  Entrada:  headers={'Retry-After': '2'}
-  Esperado: 2.0
-  Motivo:   Header presente e numérico — usa o valor exato informado pela API.
-  Obtido:   2.0
-
-[PASSOU] init_recusa_token_invalido
-  Entrada:  token=None
-  Esperado: <class 'ValueError'>
-  Motivo:   Sem token não tem como autenticar — a guarda de entrada recusa na hora, antes de qualquer chamada.
-  Obtido:   <class 'ValueError'>
-
-[PASSOU] init_recusa_token_invalido
-  Entrada:  token=''
-  Esperado: <class 'ValueError'>
-  Motivo:   Sem token não tem como autenticar — a guarda de entrada recusa na hora, antes de qualquer chamada.
-  Obtido:   <class 'ValueError'>
-
-=== Nível 0 — api_sysemp.impostos_entrada_xml ===
-
-[PASSOU] listar_por_periodo_aceita_limite_exato
-  Entrada:  data_final='2026-08-07', data_referencia=2026-08-06 (limite exato)
-  Esperado: {'status': True, 'qtde': 0, 'retorno': []}
-  Motivo:   A margem de 1 dia é inclusiva — no limite exato ainda é aceito, só além dele é recusado.
-  Obtido:   {'status': True, 'qtde': 0, 'retorno': []}
-
-[FALHOU] listar_por_periodo_caso_de_falha_proposital
-  Entrada:  período válido (2026-08-01 a 2026-08-05)
-  Esperado: <class 'ValueError'>
-  Motivo:   Propositalmente errado — período válido nunca levanta ValueError. Existe só pra provar que a tabela mostra FALHOU corretamente.
-  Obtido:   <class 'NoneType'>
-
-[PASSOU] listar_por_periodo_chama_cliente_com_corpo_correto
-  Entrada:  data_inicial='2026-07-01', data_final='2026-08-01', offset='5'
-  Esperado: ({'status': True, 'qtde': 1, 'retorno': [{'chave': 'nfe-1'}]}, [{'datainicial': '2026-07-01', 'datafinal': '2026-08-01', 'offset': '5'}])
-  Motivo:   Confirma que o corpo enviado usa os nomes de campo que a API espera (datainicial/datafinal/offset) — retry/exceção já cobertos na camada de baixo.
-  Obtido:   ({'status': True, 'qtde': 1, 'retorno': [{'chave': 'nfe-1'}]}, [{'datainicial': '2026-07-01', 'datafinal': '2026-08-01', 'offset': '5'}])
-
-[PASSOU] listar_por_periodo_recusa_data_futura
-  Entrada:  data_final='2026-08-08', data_referencia=2026-08-06
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   Mais de 1 dia no futuro em relação à referência — passa do limite com margem.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_offset_'abc'
-  Entrada:  offset='abc'
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   Offset não numérico não representa uma página válida — recusado antes de qualquer rede.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_offset_'-1'
-  Entrada:  offset='-1'
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   Offset negativo não faz sentido como página — recusado antes de qualquer rede.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_offset_''
-  Entrada:  offset=''
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   Offset vazio já quebrou a API antes (achado real) — recusado antes de qualquer rede.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_2026-08-01_não-é-data
-  Entrada:  data_inicial='2026-08-01', data_final='não-é-data'
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   data_final em formato inválido — recusado antes de qualquer rede.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_não-é-data_2026-08-01
-  Entrada:  data_inicial='não-é-data', data_final='2026-08-01'
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   data_inicial em formato inválido — recusado antes de qualquer rede.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_2026-08-01_2026-08-01
-  Entrada:  data_inicial='2026-08-01', data_final='2026-08-01'
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   data_inicial igual a data_final — precisa ser estritamente anterior.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_recusa_2026-08-05_2026-08-01
-  Entrada:  data_inicial='2026-08-05', data_final='2026-08-01'
-  Esperado: (<class 'ValueError'>, 0)
-  Motivo:   data_inicial depois de data_final — período invertido.
-  Obtido:   (<class 'ValueError'>, 0)
-
-[PASSOU] listar_por_periodo_usa_hoje_quando_nao_informada
-  Entrada:  data_referencia não informada, 'hoje' travado em 2026-08-06
-  Esperado: {'status': True, 'qtde': 0, 'retorno': []}
-  Motivo:   Em uso real (fora de teste) data_referencia nunca é passada — precisa cair certo no date.today().
-  Obtido:   {'status': True, 'qtde': 0, 'retorno': []}
-
-=== Nível 0 — api_sysemp.core.protecao ===
-
-[PASSOU] aguardar_chamada_apos_intervalo_ja_passado_nao_dorme
-  Entrada:  1ª em t=100.0, 2ª em t=101.5, intervalo mínimo 1.0
-  Esperado: []
-  Motivo:   Já se passaram 1.5s, mais que o intervalo mínimo de 1.0s — tempo_restante fica negativo, não dorme.
-  Obtido:   []
-
-[PASSOU] aguardar_chamada_rapida_demais_dorme_o_restante
-  Entrada:  1ª em t=100.0, 2ª em t=100.25, intervalo mínimo 1.0
-  Esperado: [0.75]
-  Motivo:   Só 0.25s se passou entre as 2 chamadas — falta dormir exatamente 1.0 - 0.25 = 0.75s pra completar o intervalo mínimo.
-  Obtido:   [0.75]
-
-[PASSOU] aguardar_primeira_chamada_nao_dorme_nada
-  Entrada:  nenhuma chamada anterior
-  Esperado: []
-  Motivo:   Sem chamada anterior registrada, não há o que esperar — a 1ª chamada sempre passa direto.
-  Obtido:   []
-
-[FALHOU] calcular_espera_backoff_caso_de_falha_proposital
-  Entrada:  tempo_sugerido_pela_api=999
-  Esperado: 31
-  Motivo:   Propositalmente errado — o teto real é 30, nunca 31. Existe só pra provar que a tabela mostra FALHOU corretamente.
-  Obtido:   30
-
-[PASSOU] calcular_espera_backoff_sugerido_5
-  Entrada:  tempo_sugerido_pela_api=5
-  Esperado: 5
-  Motivo:   Tempo sugerido pela própria API (5s) está abaixo do teto (30s) — usa exatamente o valor sugerido.
-  Obtido:   5
-
-[PASSOU] calcular_espera_backoff_sugerido_999
-  Entrada:  tempo_sugerido_pela_api=999
-  Esperado: 30
-  Motivo:   Tempo sugerido pela API (999s) passa do teto — nunca deixa a espera crescer sem limite, capa em 30s.
-  Obtido:   30
-
-[PASSOU] calcular_espera_backoff_exponencial_tentativa_1
-  Entrada:  numero_tentativa=1, jitter=0.0
-  Esperado: 2.0
-  Motivo:   Sem sugestão da API: exponencial puro (2**1=2) + jitter travado em 0 pra ficar exato.
-  Obtido:   2.0
-
-[PASSOU] calcular_espera_backoff_exponencial_tentativa_3
-  Entrada:  numero_tentativa=3, jitter=0.5
-  Esperado: 8.5
-  Motivo:   Exponencial (2**3=8) + jitter travado em 0.5 — 8.5, ainda abaixo do teto de 30s.
-  Obtido:   8.5
-
-[PASSOU] calcular_espera_backoff_exponencial_tentativa_10
-  Entrada:  numero_tentativa=10, jitter=0.0
-  Esperado: 30
-  Motivo:   Exponencial (2**10=1024) explode muito acima do teto — capado em 30s mesmo com jitter zero.
-  Obtido:   30
+[PASSOU] registrar_sincronizacao_usa_agora_atual_quando_nao_informado
+  Entrada:  agora não informado
+  Esperado: entre 2026-08-10 03:25:41.442018+00:00 e 2026-08-10 03:25:41.442519+00:00
+  Motivo:   Sem agora explícito, o método usa timezone.now() real — só dá pra provar por intervalo, nunca valor exato
+  Obtido:   2026-08-10 03:25:41.442018+00:00
 
 === RESUMO DA SESSÃO ===
 
-passed: 39
-xfailed: 4
+passed: 13
+xfailed: 1
 
 === COVERAGE ===
 
-_______________________________ coverage: platform win32, python 3.12.4-final-0 ________________________________
+______________________________________________________________ coverage: platform win32, python 3.12.4-final-0 ______________________________________________________________
 
-Name                                                        Stmts   Miss Branch BrPart  Cover   Missing
--------------------------------------------------------------------------------------------------------
-scripts_exploracao_ERP\api_sysemp\__init__.py                  22      0      6      0   100%
-scripts_exploracao_ERP\api_sysemp\core\__init__.py              0      0      0      0   100%
-scripts_exploracao_ERP\api_sysemp\core\cliente.py              62      0     16      0   100%
-scripts_exploracao_ERP\api_sysemp\core\excecoes.py             17      0      0      0   100%
-scripts_exploracao_ERP\api_sysemp\core\protecao.py             20      0      6      0   100%
-scripts_exploracao_ERP\api_sysemp\impostos_entrada_xml.py      28      0      8      0   100%
--------------------------------------------------------------------------------------------------------
-TOTAL                                                         149      0     36      0   100%
+Name                          Stmts   Miss Branch BrPart  Cover   Missing
+-------------------------------------------------------------------------
+integracao_sysemp\models.py      54      0     14      0   100%
+-------------------------------------------------------------------------
+TOTAL                            54      0     14      0   100%
+Coverage HTML written to dir resultados_coverage/htmlcov
+Coverage JSON written to file resultados_coverage/coverage.json
 

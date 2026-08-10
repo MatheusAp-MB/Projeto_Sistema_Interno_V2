@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/core/cliente.py
+# api_sysemp/core/cliente.py
 
 # Função Objetivo: Cliente HTTP fino pra API do ERP Sysemp — encapsula a
 # URL base e o header de autenticação (nome de header não-padrão: "Token",

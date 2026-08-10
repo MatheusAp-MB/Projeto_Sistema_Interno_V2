@@ -10,6 +10,7 @@ _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 DATA_INICIAL = '2020-05-01'
 DATA_FINAL = '2021-01-01'
 
+
 console = Console()
 api = ApiSysemp()
 

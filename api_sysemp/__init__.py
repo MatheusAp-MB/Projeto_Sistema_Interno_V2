@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/__init__.py
+# api_sysemp/__init__.py
 
 # Função Objetivo: Ponto único de entrada pra API do Sysemp — ao
 # instanciar, já resolve a autenticação (token do .env da raiz do repo, ou

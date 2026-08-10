@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/core/protecao.py
+# api_sysemp/core/protecao.py
 
 # Função Objetivo: As 2 peças da blindagem contra chamada excessiva —
 # separadas e testáveis isoladamente (composição, não uma classe só fazendo

@@ -1,4 +1,4 @@
-# scripts_exploracao_ERP/api_sysemp/core/excecoes.py
+# api_sysemp/core/excecoes.py
 
 # Função Objetivo: Hierarquia de exceção própria da API Sysemp — nunca erro
 # genérico. Cada subclasse corresponde a 1 categoria de falha, porque cada
