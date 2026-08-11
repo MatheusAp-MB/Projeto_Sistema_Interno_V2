@@ -69,6 +69,7 @@ class DetalhesImpostosEntradaProduto:
     nr_nf: str
     data_entrada_nota: date | None
     emissao: date | None
+    ncm: str | None
     fornecedor: str
     custo_unitario: Decimal | None
     linhas: list[LinhaImpostoEntrada]
@@ -107,6 +108,14 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
     #                  formato de data_entrada_nota. Convertido pra DateField
     #                  de verdade, igual o campo irmão, em vez de texto cru.
     emissao = models.DateField(null=True, blank=True)
+    # * [EXPLICAÇÃO] → NCM da NOTA (dados.identificador_regra.ncm) — pode
+    #                  divergir do NCM cadastrado no Produto (dado
+    #                  cadastral, não fiscal). Migrado de Visão Geral pra
+    #                  aqui (10/08/2026): decisão do usuário de que a fonte
+    #                  fiscal é a do XML, não a do cadastro. Mesma situação
+    #                  de emissao/quantidade_nota/custo_unitario — já vinha
+    #                  parseado, nunca tinha sido persistido.
+    ncm = models.CharField(max_length=20, null=True, blank=True)
     fornecedor = models.CharField(max_length=255)
 
     # * [EXPLICAÇÃO] → Não é imposto — é apoio: PisEntradaProduto e
@@ -153,6 +162,7 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
                     'nr_nf': dados.identificacao_nf.nr_nf,
                     'data_entrada_nota': data_entrada,
                     'emissao': emissao,
+                    'ncm': dados.identificador_regra.ncm,
                     'fornecedor': dados.dados_nf.fornecedor,
                     'custo_total': _converter_para_decimal(dados.custos.total),
                     'quantidade_nota': _converter_para_decimal(dados.identificacao_produto.qtde),
@@ -236,6 +246,7 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
             nr_nf=self.nr_nf,
             data_entrada_nota=self.data_entrada_nota,
             emissao=self.emissao,
+            ncm=self.ncm,
             fornecedor=self.fornecedor,
             custo_unitario=self.custo_unitario,
             linhas=[

@@ -538,7 +538,7 @@
 
 .modal-grid-nota-referencia {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 2fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
     gap: 1px;
     background-color: rgb(180, 210, 240);
 }
