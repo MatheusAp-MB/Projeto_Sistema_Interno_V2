@@ -85,7 +85,7 @@ def _calcular_espera_backoff(tentativa: int, resposta) -> float:
     return min(espera_calculada, TETO_ESPERA_SEGUNDOS)
 
 
-def chamar_api(metodo: str, endpoint: str, pasta_logs, params: dict = None, json_body: dict = None, max_tentativas: int = 5):
+def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5):
     """
     Ponto único de chamada à API do ML.
 
@@ -97,7 +97,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, params: dict = None, json
     url = f"{BASE_URL}{endpoint}"
 
     for tentativa in range(max_tentativas):
-        token = obter_token_valido()
+        token = obter_token_valido(conta)
         headers = {"Authorization": f"Bearer {token}"}
 
         _log_seguro(logger, f"Chamando {metodo} {_mascarar_endpoint(endpoint)}", {
@@ -124,7 +124,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, params: dict = None, json
             logger.warning(
                 f"206 (parcial) em {_mascarar_endpoint(endpoint)}. Retentando em {ESPERA_RETRY_206_SEGUNDOS}s...")
             time.sleep(ESPERA_RETRY_206_SEGUNDOS)
-            token = obter_token_valido()
+            token = obter_token_valido(conta)
             headers = {"Authorization": f"Bearer {token}"}
             resposta_retry = requests.request(
                 metodo, url, headers=headers, params=params, json=json_body,

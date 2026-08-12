@@ -1,21 +1,31 @@
 """
-teste_conexao.py — Teste isolado de conexão, sem depender do
-gerenciador_token.py (que ainda não suporta múltiplas contas).
-Não modifica nenhum arquivo existente do projeto.
+teste_conexao.py — Teste de conexão com a API do Mercado Livre, via o
+gerenciador_token.py oficial (já com suporte a múltiplas contas). Não
+modifica nenhum outro arquivo do projeto — só lê e, se precisar, renova
+o token daquela conta.
 """
 
-import os
-from dotenv import load_dotenv
+import sys
+from pathlib import Path
+
 import requests
 
-load_dotenv()
+# Permite rodar este script direto (python scripts_exploracao_ML/teste_conexao.py),
+# de qualquer diretório, sem depender do CWD pra achar o pacote api_mercado_livre.
+_RAIZ_DO_PROJETO = Path(__file__).resolve().parent.parent
+if str(_RAIZ_DO_PROJETO) not in sys.path:
+    sys.path.insert(0, str(_RAIZ_DO_PROJETO))
+
+from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao, obter_token_valido
 
 CONTA = "MB"  # troque para "SV" para testar a outra
+CONTA = "SV"  # troque para "MB" para testar a outra
 
-access_token = os.getenv(f"{CONTA}_ACCESS_TOKEN")
 
-if not access_token:
-    print(f"{CONTA}_ACCESS_TOKEN não encontrado no .env — confirme se a migração de pasta trouxe o .env junto.")
+try:
+    access_token = obter_token_valido(CONTA)
+except FalhaAutenticacao as erro:
+    print(erro)
 else:
     resposta = requests.get(
         "https://api.mercadolibre.com/users/me",
