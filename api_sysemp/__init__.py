@@ -30,7 +30,7 @@ class ApiSysemp:
     @staticmethod
     def _carregar_token_do_env():
         load_dotenv('.env')
-        token = os.environ.get('SYSEMP_API_TOKEN')
+        token = os.environ.get('MB_SYSEMP_API_TOKEN')
         if not token:
             raise RuntimeError(
                 'SYSEMP_API_TOKEN não encontrado no .env da raiz do repo — '
