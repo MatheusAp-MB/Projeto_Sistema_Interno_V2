@@ -113,42 +113,7 @@
     background: rgba(255, 255, 255, 0.25);
 }
 
-/* [OBSOLETO 03/08] — .agenda-estagio-* não é mais usado (virou .agenda-tela-*
-   acima); deixado aqui só pra não quebrar nada que eventualmente ainda
-   referencie, pode limpar quando confirmar que não sobrou nenhum uso. */
-.agenda-estagio-destaque {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    width: 100%;
-    padding: 10px;
-    background: #eef2f8;
-    border: 1px solid #ccd8e8;
-    border-radius: 10px;
-}
 
-.agenda-estagio-opcao {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 999px;
-    background: #fff;
-    border: 1px solid #ccd3de;
-    font-size: 0.82rem;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.agenda-estagio-opcao input {
-    display: none;
-}
-
-.agenda-estagio-ativo {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
-    color: #fff;
-}
 
 .agenda-simular-data {
     display: flex;
@@ -459,9 +424,7 @@
     flex-wrap: wrap;
 }
 
-.agenda-status-postagem {
-    margin-left: auto;
-}
+
 
 .agenda-vazio {
     text-align: center;
