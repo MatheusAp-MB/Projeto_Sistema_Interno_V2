@@ -259,7 +259,7 @@
     align-items: center;
     gap: 6px;
     flex-wrap: wrap;
-    margin: 0 0 20px;
+    margin: 20px 0px;
 }
 
 .agenda-ordenar-rotulo {
@@ -623,3 +623,116 @@
     background: #eff6ff;
 }
 
+/* ================================================
+   TELA — número de contagem ao lado do nome (12/08)
+   ================================================ */
+.agenda-tela-contagem {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-left: 2px;
+}
+
+.agenda-tela-ativo .agenda-tela-contagem {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* ================================================
+   PERÍODO — só Geral e A Fazer Hoje (12/08). Clique
+   único (link), visual mais discreto que a nav de tela
+   (é o 2º nível, não o principal).
+   ================================================ */
+.agenda-periodo-linha {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+    padding: 8px 10px;
+    background: #f7f9fc;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+}
+
+.agenda-periodo-opcao {
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #ccd3de;
+    font-size: 0.78rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.agenda-periodo-opcao:hover {
+    background: #dff5ffbd;
+}
+
+.agenda-periodo-ativo,
+.agenda-periodo-ativo:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+/* ================================================
+   SUB-ABAS — Postar/Replicar, dentro da tela Aguardando
+   Postar/Replicar (12/08). Clique único (link), mesmo
+   padrão visual do Período.
+   ================================================ */
+.agenda-sub-abas {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 10px;
+    background: #f7f9fc;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+}
+
+.agenda-sub-aba {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #ccd3de;
+    font-size: 0.8rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.agenda-sub-aba:hover {
+    background: #dff5ffbd;
+}
+
+.agenda-sub-aba-ativa,
+.agenda-sub-aba-ativa:hover {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.agenda-sub-aba .agenda-chip-contador-numero {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.agenda-sub-aba-ativa .agenda-chip-contador-numero {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.agenda-acoes-automacao {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+
+}
+
+.agenda-verificar-todos-form {
+    display: contents;
+}

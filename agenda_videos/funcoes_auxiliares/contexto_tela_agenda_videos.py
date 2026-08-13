@@ -1,11 +1,12 @@
 # agenda_videos/funcoes_auxiliares/contexto_tela_agenda_videos.py
 
-# Função Objetivo: Monta todo o contexto das 5 telas da Agenda de Vídeos.
+# Função Objetivo: Monta todo o contexto das 6 telas da Agenda de Vídeos.
 # Tela padrão ("A Fazer Hoje") só se aplica na 1ª visita — depois disso,
-# respeita exatamente o que o usuário escolheu (ver [[Estrutura de Telas
-# da Agenda de Videos]]).
-# Reestruturação completa (30/07) — filtros de vídeo simples/base/roteiros/
-# completos soltos e reestruturação_manual saem (conceitos retirados).
+# respeita exatamente o que o usuário escolheu.
+# Reestruturação completa (12/08) — pendente_agora/motivo_a_fazer_hoje saem
+# (sistema antigo de 6 telas); entram periodo/etapa/aba, e contadores de
+# navegação (1 por tela, sempre calculados — decisão explícita do usuário,
+# mesmo sabendo do custo de 6 consultas extras por carga de página).
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -15,9 +16,9 @@ from django.core.paginator import Page, Paginator
 
 from produtos.models import Produto
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import (
-    Tela, OPCOES_TELA, listar_produtos_agenda_filtrados, construir_queryset_tela, contar_por_condicoes,
-    condicao_pendencia_agora, condicao_motivo_a_fazer_hoje,
-    CAMPOS_ORDENACAO, CAMPOS_FAIXA, OPCOES_PENDENTE_AGORA, OPCOES_MOTIVO_A_FAZER_HOJE,
+    Tela, OPCOES_TELA, Periodo, OPCOES_PERIODO, OPCOES_ETAPA, OPCOES_ABA, ETAPAS_FABRICA,
+    listar_produtos_agenda_filtrados, construir_queryset_tela, contar_por_condicoes, condicao_etapa,
+    CAMPOS_ORDENACAO, CAMPOS_FAIXA,
 )
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo
 from agenda_videos.funcoes_auxiliares.drive import calcular_diagnostico_preparo_drive
@@ -84,9 +85,18 @@ class ParametrosBuscaAgendaVideos:
                 except ValueError:
                     data_simulada = None
 
+        periodo = request.GET.get('periodo', Periodo.TODOS)
+        if periodo not in Periodo.values:
+            periodo = Periodo.TODOS
+
+        aba = request.GET.get('aba', 'postar')
+        if aba not in ('postar', 'replicar'):
+            aba = 'postar'
+
         filtros = {
-            'pendente_agora': request.GET.getlist('pendente_agora'),
-            'motivo_a_fazer_hoje': request.GET.getlist('motivo_a_fazer_hoje'),
+            'periodo': periodo,
+            'etapa': request.GET.getlist('etapa'),
+            'aba': aba,
             'marcas': request.GET.getlist('marca'),
             'status_manual': request.GET.getlist('status_manual'),
             'urgente': request.GET.getlist('urgente'),
@@ -116,8 +126,8 @@ class ConstrutorChipsAtivosAgendaVideos:
         return Badge(label=label, classe=None, icone=None)
 
     def _montar_chips_checkbox(self) -> list[Badge]:
-        mapa_labels_pendencia = dict(OPCOES_PENDENTE_AGORA)
-        mapa_labels_motivo = dict(OPCOES_MOTIVO_A_FAZER_HOJE)
+        mapa_labels_etapa = dict(OPCOES_ETAPA)
+        mapa_labels_periodo = dict(OPCOES_PERIODO)
         chips = [self._montar_chip_simples(m) for m in self.filtros['marcas']]
         chips += [BADGES_STATUS_MANUAL[v] for v in self.filtros['status_manual'] if v in BADGES_STATUS_MANUAL]
         chips += [self._montar_chip_simples('Urgente' if v == 'sim' else 'Não urgente') for v in self.filtros['urgente']]
@@ -125,9 +135,10 @@ class ConstrutorChipsAtivosAgendaVideos:
         chips += [self._montar_chip_simples('Sincronizado com o Drive' if v == 'sim' else 'Não sincronizado com o Drive') for v in self.filtros['sincronizado_drive']]
         chips += [self._montar_chip_simples('Atrasado' if v == 'sim' else 'Não atrasado') for v in self.filtros['atrasado']]
         chips += [self._montar_chip_simples('Risco de atraso' if v == 'sim' else 'Sem risco') for v in self.filtros['risco']]
-        chips += [self._montar_chip_simples(mapa_labels_pendencia.get(v, v)) for v in self.filtros['pendente_agora']]
-        chips += [self._montar_chip_simples(mapa_labels_motivo.get(v, v)) for v in self.filtros['motivo_a_fazer_hoje']]
+        chips += [self._montar_chip_simples(mapa_labels_etapa.get(v, v)) for v in self.filtros['etapa']]
         chips += [BADGES_STATUS_POSTAGEM[v] for v in self.filtros['status_postagem'] if v in BADGES_STATUS_POSTAGEM]
+        if self.filtros.get('periodo') and self.filtros['periodo'] != Periodo.TODOS:
+            chips.append(self._montar_chip_simples(mapa_labels_periodo.get(self.filtros['periodo'], self.filtros['periodo'])))
         return chips
 
     def _montar_chips_faixa(self) -> list[Badge]:
@@ -168,11 +179,31 @@ class ContextoTelaAgendaVideos:
         return qs.urlencode()
 
     def _montar_querystring_sem_tela_nem_pagina(self) -> str:
-        # Função Objetivo: base do link de navegação entre as 5 telas —
-        # preserva busca/marca/etc., descarta a tela atual (o próprio link
-        # define a nova) e a página (troca de tela sempre volta pra 1ª).
+        # Função Objetivo: base do link de navegação entre as 6 telas —
+        # preserva busca (única coisa que faz sentido cruzar de 1 tela pra
+        # outra); período/etapa/aba são específicos de cada tela e nunca
+        # devem "vazar" pra outra ao trocar de aba.
         qs = self.request.GET.copy()
         qs.pop('tela', None)
+        qs.pop('pagina', None)
+        qs.pop('periodo', None)
+        qs.pop('etapa', None)
+        qs.pop('aba', None)
+        return qs.urlencode()
+
+    def _montar_querystring_sem_periodo_nem_pagina(self) -> str:
+        # Função Objetivo: base do link de Período (Geral/A Fazer Hoje) —
+        # troca só o período, preserva tela/etapa/busca.
+        qs = self.request.GET.copy()
+        qs.pop('periodo', None)
+        qs.pop('pagina', None)
+        return qs.urlencode()
+
+    def _montar_querystring_sem_aba_nem_pagina(self) -> str:
+        # Função Objetivo: base do link de aba (Aguardando Postar/Replicar)
+        # — troca só a aba, preserva tela/busca.
+        qs = self.request.GET.copy()
+        qs.pop('aba', None)
         qs.pop('pagina', None)
         return qs.urlencode()
 
@@ -196,29 +227,39 @@ class ContextoTelaAgendaVideos:
         return pagina
 
     def _montar_contadores_chips(self) -> dict[str, int]:
-        # Função Objetivo: 1 contagem por chip da tela atual — etapa
-        # (Simples/Mensal/Trimestral) ou motivo de urgência (A Fazer Hoje)
-        # — sobre o queryset SEM esse filtro aplicado, senão o chip
-        # clicado zeraria a própria contagem. 1 query agregada, nunca 1
-        # por chip. Não Agendado e Todos não têm chip nenhum (fila única
-        # ou cruza fases demais pra um chip de etapa fazer sentido) — nem
-        # calcula, pra não gastar query à toa.
-        if self.parametros.tela in (Tela.NAO_AGENDADO, Tela.TODOS):
+        # Função Objetivo: 1 contagem por chip da tela atual — Etapa (Geral/
+        # A Fazer Hoje) ou aba (Aguardando Postar/Replicar) — sobre o
+        # queryset SEM esse filtro aplicado, senão o chip clicado zeraria a
+        # própria contagem. As outras 3 telas não têm chip nenhum.
+        if self.parametros.tela not in (Tela.GERAL, Tela.A_FAZER_HOJE, Tela.AGUARDANDO_POSTAR_REPLICAR):
             return {}
 
-        filtros_sem_chip_etapa = {
+        filtros_sem_chip = {
             chave: valor for chave, valor in self.parametros.filtros.items()
-            if chave not in ('pendente_agora', 'motivo_a_fazer_hoje')
+            if chave not in ('etapa', 'aba')
         }
-        qs_base, hoje = construir_queryset_tela(
+        qs_base, _ = construir_queryset_tela(
             self.parametros.tela, busca=self.parametros.busca or None,
-            filtros=filtros_sem_chip_etapa, data_referencia=self.parametros.data_simulada,
+            filtros=filtros_sem_chip, data_referencia=self.parametros.data_simulada,
         )
-        if self.parametros.tela == Tela.A_FAZER_HOJE:
-            condicoes = {chave: condicao_motivo_a_fazer_hoje(chave, hoje) for chave, _ in OPCOES_MOTIVO_A_FAZER_HOJE}
+
+        if self.parametros.tela == Tela.AGUARDANDO_POSTAR_REPLICAR:
+            condicoes = {chave: condicao_etapa(chave) for chave, _ in OPCOES_ABA}
+        elif self.parametros.tela == Tela.A_FAZER_HOJE:
+            condicoes = {chave: condicao_etapa(chave) for chave in ETAPAS_FABRICA}
         else:
-            condicoes = {chave: condicao_pendencia_agora(chave) for chave, _ in OPCOES_PENDENTE_AGORA}
+            condicoes = {chave: condicao_etapa(chave) for chave, _ in OPCOES_ETAPA}
         return contar_por_condicoes(qs_base, condicoes)
+
+    def _montar_contadores_navegacao(self) -> dict[str, int]:
+        # Função Objetivo: 1 contagem por tela, pro número ao lado de cada
+        # aba do menu principal. Ignora período/etapa/aba de propósito (é a
+        # contagem "se eu limpasse os sub-filtros dessa tela") — só respeita
+        # a busca, que cruza qualquer tela.
+        return {
+            valor: construir_queryset_tela(valor, busca=self.parametros.busca or None)[0].count()
+            for valor, _ in OPCOES_TELA
+        }
 
     def montar(self) -> dict:
         cabecalhos = ConstrutorCabecalhosOrdenacao(
@@ -245,14 +286,19 @@ class ContextoTelaAgendaVideos:
             'chips_ativos': chips_ativos,
             'marcas_disponiveis': marcas_disponiveis,
             'opcoes_tela': [OpcaoComBadge(valor=v, label=l, classe=None, icone=None) for v, l in OPCOES_TELA],
-            'opcoes_status_manual': montar_opcoes_com_badge(BADGES_STATUS_MANUAL),
+            'opcoes_periodo': [OpcaoComBadge(valor=v, label=l, classe=None, icone=None) for v, l in OPCOES_PERIODO],
+            'opcoes_filtro_etapa': OPCOES_ETAPA,
+            'opcoes_filtro_etapa_fabrica': [(c, l) for c, l in OPCOES_ETAPA if c in ETAPAS_FABRICA],
+            'opcoes_aba': OPCOES_ABA,
             'opcoes_etapa': montar_opcoes_com_badge(BADGES_ETAPA),
+            'opcoes_status_manual': montar_opcoes_com_badge(BADGES_STATUS_MANUAL),
             'opcoes_status_postagem': montar_opcoes_com_badge(BADGES_STATUS_POSTAGEM),
             'opcoes_sim_nao': OPCOES_SIM_NAO,
-            'opcoes_pendente_agora': OPCOES_PENDENTE_AGORA,
-            'opcoes_motivo_a_fazer_hoje': OPCOES_MOTIVO_A_FAZER_HOJE,
             'contadores_chips': self._montar_contadores_chips(),
+            'contadores_navegacao': self._montar_contadores_navegacao(),
             'querystring_sem_pagina': self._montar_querystring_sem_pagina(),
             'querystring_sem_tela_nem_pagina': self._montar_querystring_sem_tela_nem_pagina(),
             'legenda_estados': EstadoVisualRoadmap.choices,
+            'querystring_sem_periodo_nem_pagina': self._montar_querystring_sem_periodo_nem_pagina(),
+            'querystring_sem_aba_nem_pagina': self._montar_querystring_sem_aba_nem_pagina(),
         }

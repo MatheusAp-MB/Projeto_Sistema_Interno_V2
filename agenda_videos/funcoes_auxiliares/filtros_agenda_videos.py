@@ -1,19 +1,20 @@
 # agenda_videos/funcoes_auxiliares/filtros_agenda_videos.py
 
-# * [RESUMO] → Busca, filtros e ordenação da tela única "Agenda de Vídeos".
-# Reestruturação completa (30/07) — antes eram 3 tabelas (progresso/preparação
-# por fase/andamento) cruzadas em 9 categorias de "Pendente agora"; agora é só
-# o CicloVideo mais recente de cada produto (via Subquery), e a maior parte já
-# vem pronta em IndicadoresAgendaProduto (cache).
+# * [RESUMO] → Busca, filtros e ordenação das 6 telas da Agenda de Vídeos.
+# Reestruturação completa (12/08) — o antigo "Tela" único misturava 3
+# perguntas diferentes (onde no tempo / o que falta fazer / ação minha vs.
+# automática) numa lista plana de 6 opções mutuamente exclusivas. Agora
+# cada tela responde 1 pergunta só: Geral (navegação livre, Período x
+# Etapa), A Fazer Hoje (só produção real — base/roteiro/completo/recusado),
+# Aguardando Postar/Replicar (ação mecânica, sem prazo — 2 abas), Aguardando
+# Aprovação (espera de terceiro, sem ação minha), Prontos pra Agendar Mensal
+# (Simples já replicado, renomeada de "Não Agendado" — o nome antigo dizia
+# o oposto do que significava) e Pausados na Agenda (única tela onde
+# produto pausado/descontinuado aparece — todas as outras excluem sempre).
 #
-# Prioridade de ordenação — SEMPRE aplicada, em qualquer listagem, ANTES de
-# paginar. Regra completa e a versão Python equivalente (A Fazer Hoje) vivem
-# em prioridade_agenda_videos.py — mudou a regra? Mexe nos 2 lugares.
-#
-# * [PENDENTE] → Filtros de vídeo simples/base/roteiros/completos "soltos"
-# foram removidos — os conceitos que eles checavam (ProgressoProducaoVideo,
-# PreparacaoVideoFase) não existem mais. Repensar com calma quando chegar a
-# vez (mesma pendência que já existia antes da reestruturação).
+# Prioridade de ordenação — aplicada em toda tela, exceto Geral (ordenação
+# escolhida pelo usuário) e Aguardando Aprovação (só tempo de espera). Regra
+# completa vive em prioridade_agenda_videos.py.
 
 from datetime import date
 
@@ -30,19 +31,28 @@ from agenda_videos.funcoes_auxiliares.prioridade_agenda_videos import (
 )
 from core.funcoes_auxiliares.filtros_genericos import aplicar_filtro_faixa
 
-# * [EXPLICAÇÃO] → Vocabulário das 5 telas da Agenda de Vídeos (decisão de
-#                  03/08) — substitui o antigo "estágio", que confundia
-#                  "produto sem nenhum ciclo" com "produto ainda em
-#                  Simples" (2 coisas que deveriam ser a mesma tela).
+
 class Tela(models.TextChoices):
+    GERAL = 'geral', 'Geral'
+    A_FAZER_HOJE = 'a_fazer_hoje', 'A Fazer Hoje'
+    AGUARDANDO_POSTAR_REPLICAR = 'aguardando_postar_replicar', 'Aguardando Postar/Replicar'
+    AGUARDANDO_APROVACAO = 'aguardando_aprovacao', 'Aguardando Aprovação'
+    PRONTOS_AGENDAR = 'prontos_agendar', 'Prontos pra Agendar Mensal'
+    PAUSADOS = 'pausados', 'Pausados na Agenda'
+
+OPCOES_TELA = Tela.choices
+
+
+# * [EXPLICAÇÃO] → Só usado por Geral e A Fazer Hoje — as 2 telas que
+#                  navegam livremente pelo tempo. Reaproveita os mesmos
+#                  valores de Fase, nunca duplicados à mão.
+class Periodo(models.TextChoices):
     TODOS = 'todos', 'Todos'
-    NAO_AGENDADO = 'nao_agendado', 'Não Agendado'
     SIMPLES = 'simples', 'Simples'
     VIDEO_MENSAL = 'video_mensal', 'Vídeo Mensal'
     VIDEO_TRIMESTRAL = 'video_trimestral', 'Vídeo Trimestral'
-    A_FAZER_HOJE = 'a_fazer_hoje', 'A Fazer Hoje'
 
-OPCOES_TELA = Tela.choices
+OPCOES_PERIODO = Periodo.choices
 
 CAMPOS_ORDENACAO = {
     'titulo': 'titulo', 'marca': 'marca', 'estoque': 'estoque',
@@ -57,51 +67,52 @@ CAMPOS_FAIXA = [
 
 DIAS_RISCO = 1  # "hoje e o próximo dia útil" — janela de risco de 1 dia útil à frente
 
-# * [EXPLICAÇÃO] → Só Base/Roteiro/Completo entram no cálculo de risco —
-#                  são as 3 etapas sem trava de data (podem ser adiantadas),
-#                  então "risco" é a única forma de saber que o prazo do
-#                  ciclo está próximo antes de chegar em Postar.
+# * [EXPLICAÇÃO] → Segue existindo pro filtro avançado "risco" (checkbox,
+#                  independente da tela) e pra a_fazer_hoje.py (card de 1
+#                  produto só) — nenhum dos 2 usos foi afetado por esta
+#                  reestruturação.
 ETAPAS_EM_PRODUCAO = ['base', 'roteiro', 'completo']
 
-# * [EXPLICAÇÃO] → 7 categorias agora (eram 10) — não tem mais "por fase"
-#                  (ex-Roteiros-Diária vs ex-Roteiros-Semanal), já que toda
-#                  fase segue a MESMA sequência de 5 passos agora.
-OPCOES_PENDENTE_AGORA = [
-    ('base', 'Base'),
-    ('roteiro', 'Roteiro'),
-    ('completo', 'Completo'),
-    ('recusado', 'Recusado, aguardando decisão'),
-    ('postar', 'Aguardando Postar'),
-    ('aguardando_aprovacao', 'Aguardando aprovação do ML'),
-    ('replicar', 'Aprovado, aguardando replicar'),
+# * [EXPLICAÇÃO] → 7 estados reais de 1 ciclo — fonte única, tanto dos
+#                  chips de Etapa (Geral/A Fazer Hoje) quanto do escopo
+#                  fixo das outras 4 telas.
+OPCOES_ETAPA = [
+    ('base', 'Aguardando base'),
+    ('roteiro', 'Aguardando roteiro'),
+    ('completo', 'Aguardando completo'),
+    ('postar', 'Aguardando postar'),
+    ('aguardando_aprovacao', 'Aguardando aprovação'),
+    ('recusado', 'Recusado: aguardando análise manual'),
+    ('replicar', 'Aguardando replicar'),
+    ('concluido', 'Prontos pra agendar mensal'),
 ]
 
+OPCOES_ABA = [('postar', 'Postar'), ('replicar', 'Replicar')]
 
-def condicao_pendencia_agora(chave: str) -> Q:
-    # Função Objetivo: 1 condição por etapa exibida como chip-contador nas
-    # telas Simples/Vídeo Mensal/Vídeo Trimestral.
+# * [EXPLICAÇÃO] → Só as 4 que demandam esforço real de produção — Postar/
+#                  Replicar não produzem nada, só executam (e vão ser
+#                  automatizados); Aguardando Aprovação não demanda esforço
+#                  nenhum (espera de terceiro). As 3 têm tela própria e
+#                  saem do filtro de Etapa de A Fazer Hoje.
+ETAPAS_FABRICA = ['base', 'roteiro', 'completo', 'recusado']
+
+
+def condicao_etapa(chave: str) -> Q:
+    # Função Objetivo: 1 condição por etapa — fonte única, usada pelos
+    # chips de Geral/A Fazer Hoje E pelo escopo fixo das outras 4 telas.
     match chave:
         case 'base':
             # * [EXPLICAÇÃO] → Soma quem nunca teve nenhum CicloVideo (etapa
-            #                  sintética 'nao_agendado', sem ciclo pra
-            #                  perguntar) com quem já tem ciclo em Base —
-            #                  decisão de 03/08: as 2 situações pedem a
-            #                  mesma ação (gravar/terminar o Base), a
-            #                  distinção é só técnica, não deve virar 2
-            #                  chips.
+            #                  sintética 'nao_agendado') com quem já tem
+            #                  ciclo em Base — as 2 pedem a mesma ação.
             return Q(indicadores_agenda__etapa_atual__in=['base', 'nao_agendado'])
         case 'recusado':
-            # * [EXPLICAÇÃO] → etapa_atual() devolve 'completo' pros 2 casos
-            #                  (nunca feito OU recusado, precisa refazer) —
-            #                  só o status do ciclo distingue os 2.
             return Q(status_ciclo_atual=StatusPostagem.RECUSADO)
         case 'completo':
             # * [CORREÇÃO] → status_ciclo_atual é NULL no caso mais comum
-            #                  (nunca chegou a ser postado) — "NOT (NULL =
-            #                  valor)" em SQL dá NULL, não True, então ~Q
-            #                  sozinho excluía TODOS os "nunca feito".
-            #                  Precisa tratar NULL como "não recusado"
-            #                  explicitamente.
+            #                  (nunca chegou a ser postado) — precisa tratar
+            #                  NULL como "não recusado" explicitamente, senão
+            #                  ~Q sozinho exclui todos os "nunca feito".
             return Q(indicadores_agenda__etapa_atual='completo') & (
                 Q(status_ciclo_atual__isnull=True) | ~Q(status_ciclo_atual=StatusPostagem.RECUSADO)
             )
@@ -110,10 +121,9 @@ def condicao_pendencia_agora(chave: str) -> Q:
 
 
 def _construir_condicao_risco(hoje: date) -> Q:
-    # Função Objetivo: ciclo em produção (sem trava de data) com o prazo
-    # perto, mas ainda não atrasado — extraída aqui pra ser fonte única
-    # (antes duplicada, quase igual, em listar_produtos_agenda_filtrados()
-    # e em a_fazer_hoje.py — a cópia de lá some na Fase 2).
+    # Função Objetivo: ciclo em produção com o prazo perto, mas ainda não
+    # atrasado — usado só pelo filtro avançado "risco", independente da
+    # navegação por tela.
     limite_risco = adicionar_dias_uteis(hoje, DIAS_RISCO)
     return (
         Q(indicadores_agenda__etapa_atual__in=ETAPAS_EM_PRODUCAO) &
@@ -122,125 +132,70 @@ def _construir_condicao_risco(hoje: date) -> Q:
     )
 
 
-def _condicao_nao_agendado() -> Q:
+def _condicao_a_fazer_hoje() -> Q:
+    # Função Objetivo: escopo fixo — produção real. Mensal/Trimestral entram
+    # em qualquer etapa de produção (têm prazo real, mesmo parado em Base).
+    # Simples nunca tem prazo — só entra se Base já estiver feito (Roteiro/
+    # Completo/Recusado), sinal de processo em andamento que falta terminar;
+    # Simples em Base (ou nunca tocado) é só backlog, não é urgente hoje.
+    condicao_mensal_trimestral = (
+        Q(indicadores_agenda__fase_atual__in=[Fase.VIDEO_MENSAL, Fase.VIDEO_TRIMESTRAL]) &
+        (condicao_etapa('base') | condicao_etapa('roteiro') | condicao_etapa('completo') | condicao_etapa('recusado'))
+    )
+    condicao_simples = (
+        Q(indicadores_agenda__fase_atual=Fase.SIMPLES) &
+        (condicao_etapa('roteiro') | condicao_etapa('completo') | condicao_etapa('recusado'))
+    )
+    return condicao_mensal_trimestral | condicao_simples
+
+
+def _condicao_aguardando_postar_replicar() -> Q:
+    return condicao_etapa('postar') | condicao_etapa('replicar')
+
+
+def _condicao_prontos_agendar() -> Q:
     # Função Objetivo: Simples já replicado (etapa_atual='concluido') — só
-    # falta o clique de "Agendar" pra virar Vídeo Mensal #1. É o único
-    # caso em que 'concluido' persiste de verdade: Mensal e Trimestral
-    # sempre criam o próximo ciclo sozinhos assim que replicam, então
-    # nunca ficam parados em 'concluido'.
+    # falta o clique de "Agendar" pra virar Vídeo Mensal #1.
     return Q(indicadores_agenda__fase_atual=Fase.SIMPLES, indicadores_agenda__etapa_atual='concluido')
 
 
-def _condicao_simples_em_andamento() -> Q:
-    # Função Objetivo: Simples ainda rodando os 5 passos — inclui quem
-    # nunca teve nenhum CicloVideo (mesmo motivo do case 'base' de
-    # condicao_pendencia_agora).
-    nunca_tocado = Q(indicadores_agenda__fase_atual='', indicadores_agenda__etapa_atual='nao_agendado')
-    em_producao = Q(indicadores_agenda__fase_atual=Fase.SIMPLES) & ~Q(indicadores_agenda__etapa_atual='concluido')
-    return nunca_tocado | em_producao
+def _condicao_pausados() -> Q:
+    return Q(indicadores_agenda__status_manual__in=[StatusManualAgenda.PAUSADO, StatusManualAgenda.DESCONTINUADO])
 
 
-def _condicao_fase(fase: str) -> Q:
-    # Função Objetivo: Mensal/Trimestral inteiros, sem exigir urgência —
-    # nunca precisa excluir 'concluido' (ver _condicao_nao_agendado).
-    return Q(indicadores_agenda__fase_atual=fase)
-
-
-# * [EXPLICAÇÃO] → Os 6 motivos que tornam 1 produto urgente hoje — cada
-#                  um vira chip-contador clicável na tela A Fazer Hoje,
-#                  igual aos 7 de OPCOES_PENDENTE_AGORA nas telas de fase.
-OPCOES_MOTIVO_A_FAZER_HOJE = [
-    ('atrasado', 'Atrasado'),
-    ('risco', 'Risco'),
-    ('postar_hoje', 'Postar hoje'),
-    ('aguardando_aprovacao', 'Aguardando aprovação'),
-    ('replicar', 'Replicar'),
-    ('recusado', 'Recusado'),
-]
-
-
-def condicao_motivo_a_fazer_hoje(chave: str, hoje: date) -> Q:
-    # Função Objetivo: 1 condição por motivo de urgência. Pressupõe as
-    # mesmas annotations de condicao_tela(), mais 'postou_hoje' (só usada
-    # aqui, em 'postar_hoje').
-    match chave:
-        case 'atrasado':
-            return Q(indicadores_agenda__ciclo_atual_atrasado=True)
-        case 'risco':
-            return _construir_condicao_risco(hoje)
-        case 'postar_hoje':
-            # * [CORREÇÃO] → 'postou_hoje=False' protege contra o cache de
-            #                etapa_atual ficar desatualizado (ex: já clicou
-            #                Postar, mas a sincronização ainda não rodou) —
-            #                sem isso, o produto reaparece pedindo pra
-            #                postar de novo no mesmo dia. Conferido contra
-            #                o teste já existente,
-            #                test_listar_etapa_postar_ja_postou_hoje_nao_aparece.
-            return Q(indicadores_agenda__etapa_atual='postar', data_devida_ciclo_atual=hoje, postou_hoje=False)
-        case 'aguardando_aprovacao' | 'replicar':
-            return Q(indicadores_agenda__etapa_atual=chave)
-        case 'recusado':
-            return Q(status_ciclo_atual=StatusPostagem.RECUSADO)
-        case _:
-            raise ValueError(f'Motivo desconhecido: {chave!r}')
-
-
-def _condicao_a_fazer_hoje(hoje: date) -> Q:
-    # Função Objetivo: cruza Mensal+Trimestral com pelo menos 1 dos 6
-    # motivos de urgência — construída a partir de
-    # condicao_motivo_a_fazer_hoje(), nunca duplicada: os chips-contador
-    # da tela usam a mesma fonte.
-    escopo_fase = Q(indicadores_agenda__fase_atual__in=[Fase.VIDEO_MENSAL, Fase.VIDEO_TRIMESTRAL])
-    condicao_urgencia = Q()
-    for chave, _ in OPCOES_MOTIVO_A_FAZER_HOJE:
-        condicao_urgencia |= condicao_motivo_a_fazer_hoje(chave, hoje)
-    return escopo_fase & condicao_urgencia
-
-
-def contar_por_condicoes(qs: QuerySet, condicoes: dict[str, Q]) -> dict[str, int]:
-    # Função Objetivo: n contagens simultâneas numa única query agregada
-    # (nunca 1 query por chip) — serve tanto os chips de etapa quanto os
-    # de motivo de urgência, sempre em cima do queryset já filtrado pela
-    # tela (sem os filtros de etapa/motivo aplicados ainda).
-    aggregates = {chave: Count('pk', filter=condicao) for chave, condicao in condicoes.items()}
-    return qs.aggregate(**aggregates)
-
-
-def _condicao_todos() -> Q:
-    # Função Objetivo: nenhuma restrição de fase/etapa — mostra literalmente
-    # todo produto, cache sincronizado ou não (útil pra enxergar quem ainda
-    # não sincronizou, em vez de escondê-lo em silêncio). Reintroduz a
-    # capacidade "ver tudo" que o sistema antigo tinha quando nenhuma
-    # caixinha de estágio era marcada, perdida no redesenho das 5 telas.
-    return Q()
-
-
-def condicao_tela(tela: str, hoje: date) -> Q:
-    # Função Objetivo: 1 condição por tela — fonte única de "quem aparece
-    # onde", reaproveitada tanto pela listagem quanto pela contagem de
-    # cada tela. Pressupõe que o queryset já foi anotado com
-    # data_devida_ciclo_atual, ciclo_atual_atrasado e postou_hoje (ver
-    # listar_produtos_agenda_filtrados()).
+def condicao_tela(tela: str) -> Q:
+    # Função Objetivo: escopo fixo de cada tela, ANTES de Período/Etapa/aba.
+    # Geral não tem escopo nenhum — Q() (tudo que estiver ativo).
     match tela:
-        case Tela.TODOS:
-            return _condicao_todos()
-        case Tela.NAO_AGENDADO:
-            return _condicao_nao_agendado()
-        case Tela.SIMPLES:
-            return _condicao_simples_em_andamento()
-        case Tela.VIDEO_MENSAL | Tela.VIDEO_TRIMESTRAL:
-            return _condicao_fase(tela)
+        case Tela.GERAL:
+            return Q()
         case Tela.A_FAZER_HOJE:
-            return _condicao_a_fazer_hoje(hoje)
+            return _condicao_a_fazer_hoje()
+        case Tela.AGUARDANDO_POSTAR_REPLICAR:
+            return _condicao_aguardando_postar_replicar()
+        case Tela.AGUARDANDO_APROVACAO:
+            return condicao_etapa('aguardando_aprovacao')
+        case Tela.PRONTOS_AGENDAR:
+            return _condicao_prontos_agendar()
+        case Tela.PAUSADOS:
+            return _condicao_pausados()
         case _:
             raise ValueError(f'Tela desconhecida: {tela!r}')
 
 
+def contar_por_condicoes(qs: QuerySet, condicoes: dict[str, Q]) -> dict[str, int]:
+    aggregates = {chave: Count('pk', filter=condicao) for chave, condicao in condicoes.items()}
+    return qs.aggregate(**aggregates)
+
+
 def _campos_ordenacao(tela: str, ordenar: str) -> tuple[str, ...]:
-    # Função Objetivo: A Fazer Hoje tem ordenação fixa (prioridade → fase →
-    # prazo, não escolhida pelo usuário) — as outras 4 telas usam a coluna
-    # dos cabeçalhos ordenáveis, como já era antes desta reescrita.
-    if tela == Tela.A_FAZER_HOJE:
+    # Função Objetivo: Geral é a única com ordenação escolhida pelo usuário.
+    # Aguardando Aprovação ordena só por tempo de espera (mais recente
+    # primeiro). As outras 4 usam a mesma ordenação fixa de sempre:
+    # prioridade (urgente/atrasado/reprovado) → fase → prazo.
+    if tela == Tela.AGUARDANDO_APROVACAO:
+        return ('-aguardando_aprovacao_em_ciclo_atual',)
+    if tela != Tela.GERAL:
         return ('prioridade_ordenacao', 'ordenacao_fase', 'data_devida_ciclo_atual')
     campo_ordenacao = CAMPOS_ORDENACAO.get(ordenar.lstrip('-'), 'titulo')
     if ordenar.startswith('-'):
@@ -251,13 +206,9 @@ def _campos_ordenacao(tela: str, ordenar: str) -> tuple[str, ...]:
 def construir_queryset_tela(
     tela: str, busca: str | None = None, filtros: dict | None = None, data_referencia: date | None = None,
 ) -> tuple[QuerySet, date]:
-    # Função Objetivo: monta o queryset da tela com todos os filtros
-    # EXCETO etapa/motivo (pendente_agora/motivo_a_fazer_hoje) — base
-    # compartilhada entre a listagem final (que ainda filtra etapa/motivo
-    # e ordena) e a contagem dos chips (que precisa do queryset SEM esse
-    # filtro, senão o chip clicado zeraria a própria contagem). Retorna
-    # também 'hoje' já calculado, pra quem for contar não precisar
-    # recalcular.
+    # Função Objetivo: monta o queryset da tela com todos os filtros EXCETO
+    # Etapa (que segue funcionando como chip contado) — base compartilhada
+    # entre a listagem final e a contagem dos chips.
     filtros = filtros or {}
     hoje = ultimo_dia_util_ou_hoje(data_referencia or date.today())
 
@@ -269,20 +220,35 @@ def construir_queryset_tela(
         status_ciclo_atual=Subquery(ciclo_mais_recente.values('status')[:1]),
         data_devida_ciclo_atual=Subquery(ciclo_mais_recente.values('data_devida')[:1]),
         numero_ocorrencia_ciclo_atual=Subquery(ciclo_mais_recente.values('numero_ocorrencia')[:1]),
+        aguardando_aprovacao_em_ciclo_atual=Subquery(ciclo_mais_recente.values('aguardando_aprovacao_em')[:1]),
         postou_hoje=construir_condicao_postou_hoje(data_referencia=hoje),
         prioridade_ordenacao=construir_annotation_prioridade(),
         ordenacao_fase=construir_annotation_ordenacao_fase(),
-    ).filter(condicao_tela(tela, hoje))
+    ).filter(condicao_tela(tela))
 
-    if tela == Tela.A_FAZER_HOJE:
-        # * [EXPLICAÇÃO] → Só aqui a exclusão é incondicional — A Fazer
-        #                  Hoje é lista de ação (pausado nunca é "pra
-        #                  fazer"); as outras 4 telas são listagem geral e
-        #                  mostram pausado, a menos que o usuário filtre
-        #                  status_manual explicitamente (decisão de 03/08).
+    # * [EXPLICAÇÃO] → Pausado/Descontinuado nunca aparece em nenhuma tela,
+    #                  EXCETO a própria — inverte a regra antiga (só "A
+    #                  Fazer Hoje" excluía). Decisão de 12/08: pausado só
+    #                  existe num lugar, em lugar nenhum mais.
+    if tela != Tela.PAUSADOS:
         qs = qs.exclude(
             indicadores_agenda__status_manual__in=[StatusManualAgenda.PAUSADO, StatusManualAgenda.DESCONTINUADO],
         )
+    elif filtros.get('status_manual'):
+        # * [EXPLICAÇÃO] → Dentro da própria tela Pausados, esse mesmo
+        #                  filtro serve pra separar só Pausado de só
+        #                  Descontinuado, se quiser — sem escopo novo.
+        qs = qs.filter(indicadores_agenda__status_manual__in=filtros['status_manual'])
+
+    if tela in (Tela.GERAL, Tela.A_FAZER_HOJE) and filtros.get('periodo') and filtros['periodo'] != Periodo.TODOS:
+        if filtros['periodo'] == Periodo.SIMPLES:
+            # * [CORREÇÃO] → Produto nunca tocado tem fase_atual='' (nunca
+            #                'simples'), mas já É Simples na prática — é o
+            #                ponto de entrada. Sem isso, ficava em limbo: só
+            #                aparecia em "Todos", nunca em nenhum período.
+            qs = qs.filter(indicadores_agenda__fase_atual__in=[Fase.SIMPLES, ''])
+        else:
+            qs = qs.filter(indicadores_agenda__fase_atual=filtros['periodo']) 
 
     if busca:
         for termo in busca.split():
@@ -293,8 +259,6 @@ def construir_queryset_tela(
 
     if filtros.get('marcas'):
         qs = qs.filter(marca__in=filtros['marcas'])
-    if filtros.get('status_manual'):
-        qs = qs.filter(indicadores_agenda__status_manual__in=filtros['status_manual'])
     if filtros.get('urgente'):
         qs = qs.filter(participacao_agenda__urgente__in=[v == 'sim' for v in filtros['urgente']])
     if filtros.get('sem_video'):
@@ -340,23 +304,17 @@ def listar_produtos_agenda_filtrados(
     tela: str, busca: str | None = None, filtros: dict | None = None,
     ordenar: str = 'titulo', data_referencia: date | None = None,
 ) -> QuerySet:
-    # Função Objetivo: listagem final de 1 tela — pega a base de
-    # construir_queryset_tela(), aplica o filtro de etapa/motivo (o único
-    # que também é chip-contador) e ordena. Substitui a antiga dupla
-    # listar_produtos_agenda_filtrados()/listar_a_fazer_hoje().
     filtros = filtros or {}
     qs, hoje = construir_queryset_tela(tela, busca, filtros, data_referencia)
 
-    if tela == Tela.A_FAZER_HOJE:
-        if filtros.get('motivo_a_fazer_hoje'):
-            condicao_combinada = Q()
-            for chave in filtros['motivo_a_fazer_hoje']:
-                condicao_combinada |= condicao_motivo_a_fazer_hoje(chave, hoje)
-            qs = qs.filter(condicao_combinada)
-    elif filtros.get('pendente_agora'):
+    if tela in (Tela.GERAL, Tela.A_FAZER_HOJE) and filtros.get('etapa'):
+        chaves_validas = set(ETAPAS_FABRICA) if tela == Tela.A_FAZER_HOJE else {c for c, _ in OPCOES_ETAPA}
         condicao_combinada = Q()
-        for chave in filtros['pendente_agora']:
-            condicao_combinada |= condicao_pendencia_agora(chave)
+        for chave in filtros['etapa']:
+            if chave in chaves_validas:
+                condicao_combinada |= condicao_etapa(chave)
         qs = qs.filter(condicao_combinada)
+    elif tela == Tela.AGUARDANDO_POSTAR_REPLICAR:
+        qs = qs.filter(condicao_etapa(filtros.get('aba') or 'postar'))
 
     return qs.order_by(*_campos_ordenacao(tela, ordenar))
