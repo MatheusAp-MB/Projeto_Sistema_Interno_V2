@@ -2,17 +2,24 @@
 
 # Função Objetivo: Automação real de Replicação no Mercado Livre — abre a
 # tela de "Meus Clips" filtrada pelo MLB já postado, acha o clip mais
-# recente, clica "Mostrar em outros anúncios", busca e marca cada MLB irmão
+# recente, clica "Mostrar em outros anúncios", e busca e marca cada MLB irmão
 # (por MLB exato, nunca por texto/SKU — garante 100% de acerto e
-# rastreabilidade, decisão já validada em sessão anterior), e clica de
-# verdade em "Escolher anúncios" pra confirmar a replicação (30/07, decisão
-# explícita do usuário — diferente da Postagem, que continua parando antes
-# de publicar; aqui a Replicação vai até o fim sozinha).
+# rastreabilidade, decisão já validada em sessão anterior).
+# * [FLAG TEMPORÁRIA, 06/08] → a decisão de 30/07 era clicar de verdade em
+#   "Escolher anúncios" (diferente da Postagem, que sempre parava antes).
+#   Suspensa enquanto a Replicação Automática ainda está em fase de teste —
+#   agora tem o MESMO comportamento seguro da Postagem por padrão
+#   (confirmar_de_verdade=False, nunca clica), via a mesma função
+#   compartilhada posicionar_mouse_com_seguranca(). O fluxo automático real
+#   (servidor_agente.py) passa confirmar_de_verdade=True explícito, pra não
+#   mudar o comportamento em produção — a flag existe só pra permitir os
+#   testes manuais de dry-run sem tocar no fluxo real.
 
 import time
 import win32gui
 from pywinauto import Application
 from pywinauto.keyboard import send_keys
+from agente_local.posicionar_mouse_com_seguranca import posicionar_mouse_com_seguranca
 
 
 def _log(mensagem):
@@ -25,7 +32,7 @@ def _montar_url_clips(mlb):
     return f'https://www.mercadolivre.com.br/video/creator/listing?item_id={mlb}'
 
 
-def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
+def replicar_video_no_ml(mlb, outros_mlbs, janela_handle, confirmar_de_verdade=False):
     _log(f'Iniciando — MLB={mlb}, outros_mlbs={outros_mlbs}')
 
     if not outros_mlbs:
@@ -151,12 +158,20 @@ def replicar_video_no_ml(mlb, outros_mlbs, janela_handle):
         _log('[DIAGNÓSTICO] "Escolher anúncios" não encontrado, mesmo depois de limpar a busca.')
         return False, 'Botão "Escolher anúncios" não encontrado.', [], nao_encontrados
 
-    # * [EXPLICAÇÃO] → Clique REAL (30/07, decisão explícita do usuário) —
-    #                  diferente da Postagem (que continua parando antes de
-    #                  publicar, confirmação humana), a Replicação agora vai
-    #                  até o fim sozinha. click_input() é clique real
-    #                  (isTrusted=True), mesmo padrão já usado em todo o
-    #                  resto deste arquivo — nada de sintético.
+    # * [EXPLICAÇÃO] → PARA AQUI DE PROPÓSITO por padrão — mesma decisão da
+    #                  Postagem: os MLBs já foram marcados (estado real na
+    #                  tela), mas a confirmação final fica pra um humano,
+    #                  enquanto confirmar_de_verdade não for True explícito.
+    if not confirmar_de_verdade:
+        if not posicionar_mouse_com_seguranca(botao_escolher, _log):
+            return True, 'Anúncios marcados, mas não consegui confirmar a posição do botão na tela.', marcados, nao_encontrados
+        _log(f'Parando ANTES do clique final, de propósito (dry-run) — mouse sobre "Escolher anúncios". Marcados: {marcados}')
+        return True, None, marcados, nao_encontrados
+
+    # * [EXPLICAÇÃO] → Clique REAL (30/07, decisão explícita do usuário,
+    #                  reativada aqui via confirmar_de_verdade=True) —
+    #                  click_input() é clique real (isTrusted=True), mesmo
+    #                  padrão já usado em todo o resto deste arquivo.
     _log('Clicando em "Escolher anúncios"...')
     botao_escolher.click_input()
     time.sleep(1)

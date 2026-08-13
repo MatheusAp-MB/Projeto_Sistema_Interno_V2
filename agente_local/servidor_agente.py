@@ -24,12 +24,20 @@ class _DuplicadorSaida:
         self.arquivo_log = arquivo_log
 
     def write(self, texto):
-        self.saida_original.write(texto)
+        # * [EXPLICAÇÃO] → Em build --noconsole (sem terminal anexado), o
+        #                  Windows deixa sys.stdout/sys.stderr como None —
+        #                  só grava no arquivo de log nesse caso, sem
+        #                  quebrar. Rodando com console de verdade (dev,
+        #                  python servidor_agente.py direto), continua
+        #                  duplicando pros 2 lugares como antes.
+        if self.saida_original is not None:
+            self.saida_original.write(texto)
         self.arquivo_log.write(texto)
         self.arquivo_log.flush()
 
     def flush(self):
-        self.saida_original.flush()
+        if self.saida_original is not None:
+            self.saida_original.flush()
         self.arquivo_log.flush()
 
 # * [EXPLICAÇÃO] → Corrigido (30/07) — SEM isso, um .exe gerado pelo
@@ -309,6 +317,8 @@ def _processar_execucao_replicacao(execucao_id):
         try:
             sucesso, mensagem_erro, marcados, nao_encontrados = replicar_video_no_ml(
                 item['mlb'], item['outros_mlbs'], controle.janela_referencia,
+                confirmar_de_verdade=False,  # * [TEMPORÁRIO — TESTE 13/08] estava True (produção real).
+                                              #   REVERTER pra True antes de usar de verdade em produção.
             )
         except Exception as erro:
             sucesso, mensagem_erro, marcados, nao_encontrados = False, f'Erro inesperado na automação: {erro}', [], []

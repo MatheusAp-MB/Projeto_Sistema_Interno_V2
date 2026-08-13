@@ -14,7 +14,7 @@ from pywinauto.keyboard import send_keys
 from agente_local.posicionar_mouse_com_seguranca import posicionar_mouse_com_seguranca
 
 NOMES_BOTAO_UPLOAD = ['Arraste um vídeo ou busque-o nos seus arquivos', 'Subir archivo']
-NOMES_BOTAO_ENVIAR = ['Enviar clip', 'Anunciar']
+NOMES_BOTAO_ENVIAR = ['Enviar clip', 'Anunciar', 'Enviar vídeo']
 
 
 def _montar_url(mlb):
@@ -79,9 +79,8 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
         return False, 'Página do Mercado Livre não carregou a tempo (Checkpoint 1).'
     _log('Checkpoint 1 OK — página carregada. Localizando botões...')
 
-    botao_enviar = _buscar_por_qualquer_nome(janela_ml, NOMES_BOTAO_ENVIAR)
     botao_upload = _buscar_por_qualquer_nome(janela_ml, NOMES_BOTAO_UPLOAD)
-    _log(f'Botão upload encontrado={botao_upload is not None}, botão enviar encontrado={botao_enviar is not None}')
+    _log(f'Botão upload encontrado={botao_upload is not None}')
 
     janelas_antes = _listar_janelas_abertas()
     _log('Clicando no botão de upload...')
@@ -179,14 +178,32 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
     _log('Checkpoint 2 OK — arquivo confirmado na tela.')
 
     # * [EXPLICAÇÃO] → CHECKPOINT 3: vídeo processado, pronto pra enviar.
+    #                  Busca o botão "Enviar"/"Anunciar" SÓ AQUI, nunca
+    #                  antes — causa real do bug: buscar no Checkpoint 1
+    #                  (antes do upload) sempre devolvia None, porque o
+    #                  botão ainda não existe na tela nesse momento;
+    #                  is_enabled() nesse None quebrava com AttributeError.
+    #                  Re-busca a cada volta do loop, mesmo padrão já usado
+    #                  no Checkpoint 1.
     habilitou = False
-    for _ in range(30):
+    botao_enviar = None
+    for tentativa in range(30):
+        inicio_tentativa = time.time()
         time.sleep(0.5)
-        if botao_enviar.is_enabled():
+        botao_enviar = _buscar_por_qualquer_nome(janela_ml, NOMES_BOTAO_ENVIAR)
+        duracao = time.time() - inicio_tentativa
+        encontrado = botao_enviar is not None
+        habilitado_agora = encontrado and botao_enviar.is_enabled()
+        _log(f'Checkpoint 3, tentativa {tentativa + 1}/30 ({duracao:.2f}s) — encontrado={encontrado}, habilitado={habilitado_agora}')
+        if habilitado_agora:
             habilitou = True
             break
     if not habilitou:
-        _log('Checkpoint 3 falhou — botão de enviar não habilitou a tempo.')
+        try:
+            todos_os_botoes = [b.window_text() for b in janela_ml.descendants(control_type='Button')]
+        except Exception as erro_diagnostico:
+            todos_os_botoes = [f'ERRO AO LISTAR: {erro_diagnostico}']
+        _log(f'[DIAGNÓSTICO] Checkpoint 3 falhou. Botões visíveis: {todos_os_botoes}')
         return False, 'Vídeo não processou a tempo — botão de enviar não habilitou (Checkpoint 3).'
     _log('Checkpoint 3 OK — vídeo processado, botão de enviar habilitado.')
 
