@@ -43,6 +43,10 @@
         <p class="modal-roadmap-texto">
             Ao confirmar a postagem de {{ rotulo }}, você assume que o vídeo já foi publicado no anúncio e está aguardando a aprovação do Mercado Livre.
         </p>
+        <p class="modal-roadmap-campo">
+            <label for="input-mlb-postado-{{ produto_id }}">MLB que foi postado:</label>
+            <input type="text" id="input-mlb-postado-{{ produto_id }}" name="mlb_postado" placeholder="Ex: MLB1234567890" required>
+        </p>
         <p class="modal-roadmap-aviso">
             <i class="fas fa-triangle-exclamation"></i> Não tem reversão — depois de confirmar, só ajustando pelo admin.
         </p>
@@ -51,6 +55,8 @@
             <button type="button" class="btn-acao btn-acao-confirmar"
                     hx-post="{% url 'agenda_videos_roadmap_acao_ciclica' produto_id 'postar' %}"
                     hx-vals='{"simular_data": "{{ simular_data }}"}'
+                    hx-include="#input-mlb-postado-{{ produto_id }}"
+                    hx-validate="true"
                     hx-target="#agenda-card-{{ produto_id }}" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-roadmap-slot').innerHTML = ''">
                 Confirmar

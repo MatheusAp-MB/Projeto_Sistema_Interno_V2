@@ -189,7 +189,7 @@ def _processar_1_produto(item, controle_teclado, aviso, arquivador, pasta_tempor
 
     # --- Atualizando Agenda ---
     _marcar_item(item, StatusItemExecucao.ATUALIZANDO_AGENDA)
-    marcar_ciclo_atual_aguardando_aprovacao(produto)
+    marcar_ciclo_atual_aguardando_aprovacao(produto, mlb_postado=mlb)
     sincronizar_indicadores_agenda_produto(produto)
 
     # --- Arquivando (mover pra usados/) ---

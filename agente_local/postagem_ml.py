@@ -1,10 +1,18 @@
 # agente_local/postagem_ml.py
 
 # Função Objetivo: Automação real no Mercado Livre — abre a URL certa, faz
-# upload do vídeo, confirma que processou (3 checkpoints) — e PARA antes do
-# clique final ("Enviar clip"/"Anunciar"), de propósito, por decisão do
-# usuário. Fonte única — antes existia uma cópia dentro de agenda_videos/,
-# removida (30/07) quando o agente assumiu de vez a execução real.
+# upload do vídeo, confirma que processou (3 checkpoints) — e clica de
+# verdade no botão final ("Enviar vídeo"/"Enviar clip"/"Anunciar"). Fonte
+# única — antes existia uma cópia dentro de agenda_videos/, removida (30/07)
+# quando o agente assumiu de vez a execução real.
+# * [DECISÃO, 13/08] → Antes sempre parava ANTES do clique final, de
+#   propósito — mesma lógica de segurança usada em replicacao_ml.py.
+#   Decisão do usuário: Postagem passa a ser 100% autônoma em produção
+#   (confirmar_de_verdade=True no call site real, servidor_agente.py),
+#   garantindo que o mesmo processo que posta é o que marca o MLB —
+#   elimina a ambiguidade de post manual em MLB diferente do esperado.
+#   confirmar_de_verdade=False (padrão da função) continua existindo só
+#   pra manter os scripts de dry-run seguros — nunca usado em produção.
 
 import os
 import time
@@ -44,7 +52,7 @@ def _log(mensagem):
     print(f'[POSTAGEM_ML {agora}] {mensagem}')
 
 
-def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
+def postar_video_no_ml(mlb, caminho_video_local, janela_handle, confirmar_de_verdade=False):
     _log(f'Iniciando — MLB={mlb}, arquivo={caminho_video_local}')
     app = Application(backend='uia').connect(handle=janela_handle)
     janela_ml = app.window(handle=janela_handle)
@@ -207,12 +215,15 @@ def postar_video_no_ml(mlb, caminho_video_local, janela_handle):
         return False, 'Vídeo não processou a tempo — botão de enviar não habilitou (Checkpoint 3).'
     _log('Checkpoint 3 OK — vídeo processado, botão de enviar habilitado.')
 
-    # * [EXPLICAÇÃO] → PARA AQUI DE PROPÓSITO — nunca clica no botão de
-    #                  enviar. O vídeo fica processado e pronto na tela,
-    #                  aguardando confirmação humana. Decisão do usuário,
-    #                  não limitação técnica. Posiciona o mouse com a mesma
-    #                  função compartilhada usada em replicacao_ml.py.
-    if not posicionar_mouse_com_seguranca(botao_enviar, _log):
-        return True, 'Vídeo processado com sucesso, mas não consegui confirmar a posição do botão na tela.'
+    if not confirmar_de_verdade:
+        if not posicionar_mouse_com_seguranca(botao_enviar, _log):
+            return True, 'Vídeo processado com sucesso, mas não consegui confirmar a posição do botão na tela.'
+        _log('Parando ANTES do clique final, de propósito (dry-run) — mouse sobre "Enviar vídeo".')
+        return True, None
+
+    _log('Clicando em "Enviar vídeo"...')
+    botao_enviar.click_input()
+    time.sleep(1)
+    _log('Postagem confirmada de verdade no Mercado Livre.')
 
     return True, None

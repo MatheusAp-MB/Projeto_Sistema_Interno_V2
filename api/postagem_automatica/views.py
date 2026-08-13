@@ -140,7 +140,7 @@ def view_marcar_concluido(request, item_id):
 
     produto = item.produto
 
-    marcar_ciclo_atual_aguardando_aprovacao(produto)
+    marcar_ciclo_atual_aguardando_aprovacao(produto, mlb_postado=obter_mlb_do_produto(produto))
     sincronizar_indicadores_agenda_produto(produto)
 
     try:

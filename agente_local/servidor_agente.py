@@ -226,7 +226,9 @@ def _processar_execucao(execucao_id):
             break
 
         try:
-            sucesso, mensagem_erro = postar_video_no_ml(item['mlb'], caminho_local, controle.janela_referencia)
+            sucesso, mensagem_erro = postar_video_no_ml(
+                item['mlb'], caminho_local, controle.janela_referencia, confirmar_de_verdade=True,
+            )
         except Exception as erro:
             sucesso, mensagem_erro = False, f'Erro inesperado na automação: {erro}'
 

@@ -87,6 +87,12 @@
         </span>
         {% endif %}
 
+        {% if ciclo_atual.mlb_postado_para_exibir %}
+        <span class="badge-tabela badge-postado-mlb" title="MLB que recebeu o vídeo, aguardando aprovação/replicação do Mercado Livre.">
+            <i class="fas fa-upload"></i> Postado no MLB: {{ ciclo_atual.mlb_postado_para_exibir }}
+        </span>
+        {% endif %}
+
         {% roadmap_produto produto %}
     </div>
 

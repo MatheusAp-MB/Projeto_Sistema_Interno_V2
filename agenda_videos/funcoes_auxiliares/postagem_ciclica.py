@@ -31,9 +31,9 @@ def ja_postou_hoje(produto, data_referencia=None):
 
 
 # Função Objetivo: Marca o CicloVideo ATUAL do produto como postado.
-def marcar_ciclo_atual_aguardando_aprovacao(produto):
+def marcar_ciclo_atual_aguardando_aprovacao(produto, mlb_postado=None):
     ciclo = produto.ciclos_video.first()  # já ordenado por -criado_em
-    ciclo.marcar_aguardando_aprovacao()
+    ciclo.marcar_aguardando_aprovacao(mlb_postado=mlb_postado)
     return ciclo
 
 

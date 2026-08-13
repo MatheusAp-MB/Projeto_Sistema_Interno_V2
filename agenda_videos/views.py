@@ -176,12 +176,15 @@ def view_agendar_produto(request: HttpRequest, produto_id: int) -> HttpResponse:
 # agora) → HttpResponseBadRequest em erro, ou None em sucesso.
 # ===================================================================
 
-def _acao_postar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
+def _acao_postar(request: HttpRequest, produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.etapa_atual() != 'postar':
         return HttpResponseBadRequest('Esse produto não está pronto pra postar agora.')
     if ja_postou_hoje(produto):
         return HttpResponseBadRequest('Este produto já teve vídeo postado hoje — só é permitida 1 postagem por dia.')
-    ciclo.marcar_aguardando_aprovacao()
+    mlb_postado = (request.POST.get('mlb_postado') or '').strip()
+    if not mlb_postado:
+        return HttpResponseBadRequest('Informe o MLB que foi postado.')
+    ciclo.marcar_aguardando_aprovacao(mlb_postado=mlb_postado)
     return None
 
 
@@ -194,18 +197,18 @@ def _acao_marcar_aprovado_ou_recusado(ciclo: CicloVideo, agora: datetime, novo_s
     return None
 
 
-def _acao_aprovar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
+def _acao_aprovar(request: HttpRequest, produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     return _acao_marcar_aprovado_ou_recusado(ciclo, agora, StatusPostagem.APROVADO)
 
 
-def _acao_recusar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
+def _acao_recusar(request: HttpRequest, produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     return _acao_marcar_aprovado_ou_recusado(ciclo, agora, StatusPostagem.RECUSADO)
 
 
 # Função Objetivo: Recusado precisa refazer o Completo antes de postar de
 # novo (regra confirmada na Frente 1) — reabre pra edição; o usuário marca
 # "Completo" de novo antes de poder postar.
-def _acao_nova_tentativa(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
+def _acao_nova_tentativa(request: HttpRequest, produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.RECUSADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
     ciclo.status = None
@@ -218,7 +221,7 @@ def _acao_nova_tentativa(produto: Produto, ciclo: CicloVideo, agora: datetime) -
 # cumprida (periodo encolheu no meio do caminho, edge case raro). Nunca
 # resolve a recusada — ela fica no histórico exatamente como ficou, sem
 # resolução, e o produto avança pra próxima fase mesmo assim.
-def _acao_seguir_sem_repor(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
+def _acao_seguir_sem_repor(request: HttpRequest, produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.RECUSADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi recusada.')
 
@@ -236,7 +239,7 @@ def _acao_seguir_sem_repor(produto: Produto, ciclo: CicloVideo, agora: datetime)
     return None
 
 
-def _acao_replicar(produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
+def _acao_replicar(request: HttpRequest, produto: Produto, ciclo: CicloVideo, agora: datetime) -> HttpResponseBadRequest | None:
     if ciclo.status != StatusPostagem.APROVADO:
         return HttpResponseBadRequest('Estado inválido — a postagem atual não foi aprovada.')
     # * [EXPLICAÇÃO] → Clique manual (não é o agente) — não sabe quais MLBs
@@ -269,7 +272,7 @@ def view_executar_acao_ciclica(request: HttpRequest, produto_id: int, acao: str)
         return HttpResponseBadRequest(f'Ação desconhecida: {acao}')
 
     agora = timezone.now()
-    resposta_erro = funcao_acao(produto, ciclo, agora)
+    resposta_erro = funcao_acao(request, produto, ciclo, agora)
     if resposta_erro is not None:
         return resposta_erro
 
@@ -608,7 +611,7 @@ def view_confirmar_replicacao_automatica(request):
             ),
         })
 
-    produtos_elegiveis = listar_produtos_agenda_filtrados(tela=Tela.A_FAZER_HOJE, filtros={'motivo_a_fazer_hoje': ['replicar']})
+    produtos_elegiveis = listar_produtos_agenda_filtrados(tela=Tela.AGUARDANDO_POSTAR_REPLICAR, filtros={'aba': 'replicar'})
     return render(request, 'agenda_videos/parciais/estrutura_parcial_modal_confirmar_replicacao_automatica.html', {
         'produtos_elegiveis': produtos_elegiveis,
         'quantidade_elegiveis': len(produtos_elegiveis),
@@ -624,7 +627,7 @@ def view_iniciar_replicacao_automatica(request):
         )
         return redirect(reverse(url_nome, args=[execucao_em_andamento.id]))
 
-    produtos_elegiveis = listar_produtos_agenda_filtrados(tela=Tela.A_FAZER_HOJE, filtros={'motivo_a_fazer_hoje': ['replicar']})
+    produtos_elegiveis = listar_produtos_agenda_filtrados(tela=Tela.AGUARDANDO_POSTAR_REPLICAR, filtros={'aba': 'replicar'})
 
     execucao = ExecucaoReplicacaoAutomatica.objects.create()
     for ordem, produto in enumerate(produtos_elegiveis, start=1):

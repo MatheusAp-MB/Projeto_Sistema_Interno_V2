@@ -42,6 +42,8 @@ class CicloVideo(models.Model):
     aprovado_ou_recusado_em = models.DateTimeField(null=True, blank=True)
     replicado_em = models.DateTimeField(null=True, blank=True)
 
+    mlb_postado = models.CharField(max_length=20, null=True, blank=True)
+
     mlbs_replicados = models.JSONField(default=list)
     mlbs_nao_encontrados = models.JSONField(default=list)
 
@@ -117,10 +119,25 @@ class CicloVideo(models.Model):
             numero_ocorrencia=numero_ocorrencia, data_devida=data_devida,
         )
 
-    def marcar_aguardando_aprovacao(self):
+    @property
+    def mlb_postado_para_exibir(self):
+        # * [EXPLICAÇÃO, 13/08] → Só mostra entre "postou" e "replicou de
+        #                  verdade" — some sozinho depois (ciclo novo nasce
+        #                  sem mlb_postado) e também não mostra se foi
+        #                  recusado e voltou pra "completo" (mlb_postado
+        #                  fica no registro, mas não é mais relevante).
+        if self.mlb_postado and self.status in (StatusPostagem.AGUARDANDO_APROVACAO, StatusPostagem.APROVADO):
+            return self.mlb_postado
+        return None
+
+    def marcar_aguardando_aprovacao(self, mlb_postado=None):
         self.status = StatusPostagem.AGUARDANDO_APROVACAO
         self.aguardando_aprovacao_em = timezone.now()
-        self.save(update_fields=['status', 'aguardando_aprovacao_em'])
+        campos = ['status', 'aguardando_aprovacao_em']
+        if mlb_postado:
+            self.mlb_postado = mlb_postado
+            campos.append('mlb_postado')
+        self.save(update_fields=campos)
 
     # * [EXPLICAÇÃO] → Envolve as 2 escritas (marcar replicado + criar o próximo
     #                  ciclo) numa transação só — se cair no meio, as 2 acontecem
