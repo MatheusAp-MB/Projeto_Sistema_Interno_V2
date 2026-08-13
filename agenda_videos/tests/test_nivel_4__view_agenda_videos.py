@@ -13,7 +13,7 @@ from django.urls import reverse
 
 from produtos.models import Produto
 from agenda_videos.models import CicloVideo, ConfiguracaoFase, Fase
-from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import Tela
+from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import Tela, Periodo
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from testes_apoio.apoio_visual import registrar_resultado
 
@@ -67,42 +67,48 @@ def test_sem_querystring_usa_a_fazer_hoje_como_tela_padrao(client, tabela_result
     assert passou
 
 
-def test_tela_todos_mostra_produto_sem_cache_de_indicadores(client, tabela_resultados, regua_de_fases):
+def test_tela_geral_mostra_produto_sem_cache_de_indicadores(client, tabela_resultados, regua_de_fases):
     # Função Objetivo: regressão do bug real já documentado no vault (cache
-    # IndicadoresAgendaProduto nunca populado automaticamente) — a tela
-    # Todos precisa ser a única que NUNCA exige esse cache, mesmo via HTTP.
+    # IndicadoresAgendaProduto nunca populado automaticamente) — Geral
+    # (sucessora de "Todos" nesse papel) precisa ser a única tela que NUNCA
+    # exige esse cache, mesmo via HTTP. Diferente da antiga Todos, Geral
+    # TEM chip de Etapa (8 opções) — contadores_chips não fica mais vazio,
+    # fica com as 8 chaves zeradas (o produto sem cache não conta pra
+    # nenhuma etapa).
     # Setup:
-    produto = _criar_produto('SKU-TODOS-01')  # nunca sincronizado, de propósito
+    produto = _criar_produto('SKU-GERAL-01')  # nunca sincronizado, de propósito
 
     # Exercise:
-    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.TODOS})
+    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.GERAL})
 
     # Assert:
     ids_na_pagina = [p.id for p in resposta.context['pagina']]
+    contadores = resposta.context['contadores_chips']
+    todos_zerados = contadores and all(v == 0 for v in contadores.values())
     passou = (
-        resposta.status_code == 200 and resposta.context['tela_atual'] == Tela.TODOS
-        and resposta.context['contadores_chips'] == {} and produto.id in ids_na_pagina
+        resposta.status_code == 200 and resposta.context['tela_atual'] == Tela.GERAL
+        and todos_zerados and produto.id in ids_na_pagina
     )
     registrar_resultado(
-        tabela_resultados, teste='tela Todos mostra produto sem cache de indicadores',
-        entrada='produto sem IndicadoresAgendaProduto, ?tela=todos', esperado='produto aparece, contadores_chips={}',
-        motivo='Todos é a única tela sem depender do cache via INNER JOIN — regressão do bug real de 03/08',
-        obtido=f'status={resposta.status_code}, contadores_chips={resposta.context.get("contadores_chips")}, produto_na_pagina={produto.id in ids_na_pagina}',
+        tabela_resultados, teste='tela Geral mostra produto sem cache de indicadores',
+        entrada='produto sem IndicadoresAgendaProduto, ?tela=geral', esperado='produto aparece, todos os chips de etapa zerados',
+        motivo='Geral é a única tela sem depender do cache via INNER JOIN — regressão do bug real de 03/08',
+        obtido=f'status={resposta.status_code}, contadores_chips={contadores}, produto_na_pagina={produto.id in ids_na_pagina}',
         passou=passou,
     )
     assert passou
 
 
-def test_tela_todos_mostra_botao_de_verificar_drive_mesmo_sem_ciclo(client, tabela_resultados, regua_de_fases):
+def test_tela_geral_mostra_botao_de_verificar_drive_mesmo_sem_ciclo(client, tabela_resultados, regua_de_fases):
     # Função Objetivo: regressão do Bug 1 (ver "Botao de Verificar Drive
     # Individual Tinha 3 Bugs Reais" no vault) — o botão de verificar Drive
     # não pode ficar escondido atrás do ciclo_atual, porque a view que ele
     # chama não depende de ciclo nenhum pra funcionar.
     # Setup:
-    produto = _criar_produto('SKU-TODOS-02')  # sem nenhum CicloVideo, de propósito
+    produto = _criar_produto('SKU-GERAL-02')  # sem nenhum CicloVideo, de propósito
 
     # Exercise:
-    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.TODOS})
+    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.GERAL})
 
     # Assert:
     html = resposta.content.decode()
@@ -138,14 +144,17 @@ def test_tela_invalida_cai_no_padrao_a_fazer_hoje(client, tabela_resultados):
     assert passou
 
 
-def test_tela_simples_contador_de_chip_base_chega_no_contexto(client, tabela_resultados, regua_de_fases):
+def test_geral_periodo_simples_contador_de_chip_base_chega_no_contexto(client, tabela_resultados, regua_de_fases):
     # Setup: produto sincronizado, parado em Base dentro da fase Simples.
-    produto = _criar_produto('SKU-SIMPLES-01')
+    # "Tela Simples" não existe mais — o equivalente real agora é Geral com
+    # o filtro de Período=Simples (filtros_sem_chip mantém 'periodo', só
+    # remove etapa/aba antes de contar).
+    produto = _criar_produto('SKU-GPS-01')
     CicloVideo.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
     sincronizar_indicadores_agenda_produto(produto)
 
     # Exercise:
-    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.SIMPLES})
+    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.GERAL, 'periodo': Periodo.SIMPLES})
 
     # Assert:
     contadores = resposta.context['contadores_chips']
@@ -161,12 +170,12 @@ def test_tela_simples_contador_de_chip_base_chega_no_contexto(client, tabela_res
 
 
 def test_paginacao_por_pagina_1_gera_2_paginas_com_2_produtos(client, tabela_resultados, regua_de_fases):
-    # Setup: 2 produtos elegíveis pra tela Todos (não depende de cache).
+    # Setup: 2 produtos elegíveis pra tela Geral (não depende de cache).
     _criar_produto('SKU-PAG-01')
     _criar_produto('SKU-PAG-02')
 
     # Exercise:
-    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.TODOS, 'por_pagina': '1'})
+    resposta = client.get(reverse('agenda_videos_principal'), {'tela': Tela.GERAL, 'por_pagina': '1'})
 
     # Assert:
     num_pages = resposta.context['pagina'].paginator.num_pages

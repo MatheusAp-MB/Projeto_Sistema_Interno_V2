@@ -3,9 +3,10 @@
 # Função Objetivo: Nível 0 (zero dependência de banco/Django) do ponto
 # único de entrada da API Sysemp — cobre a resolução de token (explícito
 # vs. .env vs. ausente) e a propriedade impostos_entrada (cria 1 vez só,
-# reaproveita depois). Nunca lê o .env real da máquina — SYSEMP_API_TOKEN
+# reaproveita depois). Nunca lê o .env real da máquina — MB_SYSEMP_API_TOKEN
 # controlado só via monkeypatch, pra não depender do que existir de
-# verdade no ambiente de quem roda o teste.
+# verdade no ambiente de quem roda o teste (settings.py já carrega o .env
+# real na inicialização do Django, antes de qualquer teste rodar).
 
 import pytest
 
@@ -22,7 +23,7 @@ def _sem_dotenv_real(monkeypatch):
     # SYSEMP_API_TOKEN só via monkeypatch.setenv/delenv, determinístico
     # independente do que existir de verdade no .env do repo.
     monkeypatch.setattr('api_sysemp.load_dotenv', lambda *args, **kwargs: None)
-    monkeypatch.delenv('SYSEMP_API_TOKEN', raising=False)
+    monkeypatch.delenv('MB_SYSEMP_API_TOKEN', raising=False)
     yield
     # TearDown: monkeypatch desfaz sozinho.
 
@@ -49,7 +50,7 @@ def test_init_com_token_explicito_nao_consulta_variavel_de_ambiente(tabela_resul
 
 def test_init_sem_token_explicito_carrega_da_variavel_de_ambiente(monkeypatch, tabela_resultados):
     # Setup: simula o .env já carregado — SYSEMP_API_TOKEN presente no ambiente.
-    monkeypatch.setenv('SYSEMP_API_TOKEN', 'token-do-env-de-teste')
+    monkeypatch.setenv('MB_SYSEMP_API_TOKEN', 'token-do-env-de-teste')
 
     # Exercise
     api = ApiSysemp()
