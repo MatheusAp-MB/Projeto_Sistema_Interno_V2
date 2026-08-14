@@ -39,7 +39,7 @@ from openpyxl.utils import get_column_letter
 from rich.console import Console
 
 from integracao_sysemp.servicos.arquivos_retorno_api import NOME_ARQUIVO_NOTAS_MAIS_RECENTES, ler_json
-from integracao_sysemp.servicos.dados_xml_nf import IdentificacaoProduto, IdentificadorRegra
+from integracao_sysemp.servicos.dados_xml_nf import IdentificacaoProduto, ClassificacaoFiscalItem
 from produtos.models import Produto
 
 CAMPO_CODIGO_PRODUTO = 'Código Barras'
@@ -118,10 +118,11 @@ def _calcular_custo_final(detalhes) -> Decimal | None:
 def _montar_linha(produto, detalhes, registro):
     if registro is not None:
         identificacao_produto = IdentificacaoProduto.a_partir_do_registro(registro)
-        identificador_regra = IdentificadorRegra.a_partir_do_registro(registro)
-        id_produto_sysemp = identificacao_produto.id_produto
+        classificacao_fiscal = ClassificacaoFiscalItem.a_partir_do_registro(registro)
+        id_produto_sysemp = identificacao_produto.id_produto_sysemp
         ncm, origem, origem_descricao = (
-            identificador_regra.ncm, identificador_regra.origem, identificador_regra.origem_descricao,
+            classificacao_fiscal.ncm_xml, classificacao_fiscal.origem_mercadoria_xml,
+            classificacao_fiscal.descricao_origem_mercadoria_xml,
         )
     else:
         id_produto_sysemp = ncm = origem = origem_descricao = '—'

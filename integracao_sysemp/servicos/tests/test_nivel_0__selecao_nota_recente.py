@@ -13,7 +13,7 @@ TITULO_CAMADA = 'Nível 0 — selecao_nota_recente'
 
 
 def _linha(codigo_barras, nr_nf, data_entrada_nota):
-    return {'Código Barras': codigo_barras, 'NR NF': nr_nf, 'Data Entrada da Nota': data_entrada_nota}
+    return {'Código Barras': codigo_barras, 'NR NF': nr_nf, 'Entrada NF': data_entrada_nota}
 
 
 def test_mantem_so_a_nota_mais_recente_por_produto(tabela_resultados):

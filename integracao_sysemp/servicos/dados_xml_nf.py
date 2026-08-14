@@ -1,14 +1,26 @@
-# scripts_exploracao_ERP/dados_xml_nf.py
+# integracao_sysemp/servicos/dados_xml_nf.py
 
 # Função Objetivo: Modelar os dados de 1 nota fiscal (já filtrada por CFOP e
 # selecionada como a mais recente por produto — ver
 # nota_mais_recente_por_produto.json) em objetos de domínio organizados por
-# tipo de dado/imposto, pra uso nos testes de cálculo de imposto sem precisar
-# navegar dict cru com chaves em string. Objetos de processo (dataclass),
-# nunca persistidos — refletem o XML da NF tal como veio da Sysemp. Campos
-# sem uso confirmado (Item, Empresa Fantasia, % FCP ST, Valor FCP ST) ficaram
-# de fora por decisão do usuário (07/08/2026) — continuam no json cru se
-# precisar voltar a usá-los.
+# tipo de dado/imposto, pra uso nos cálculos de imposto sem precisar navegar
+# dict cru com chaves em string. Objetos de processo (dataclass), nunca
+# persistidos — refletem o XML/Cadastro da NF tal como veio da Sysemp.
+#
+# Reorganizado (14/08/2026) pra API nova da Sysemp, que passou a trazer
+# vários campos em par — valor do XML e valor do Cadastro do próprio
+# produto — pra permitir comparação e correção futura (ver "XML da Nota
+# Fiscal É a Fonte Única de Verdade Quando o Dado Existir" no vault). Todo
+# campo com essa dualidade tem sufixo explícito "_xml"/"_cadastro", sem
+# exceção — nunca um dos dois lados fica implícito. `DadosNF` e
+# `IdentificadorRegra` (versão anterior) deixaram de existir — seus campos
+# foram consolidados em `IdentificacaoNF` (identificação pura da nota) e
+# `ClassificacaoFiscalItem` (todo campo comparável XML×Cadastro), já que os
+# 2 dataclasses antigos misturavam os dois propósitos sem necessidade real.
+#
+# Campos sem uso confirmado (Item, Empresa Fantasia, % FCP ST, Valor FCP ST)
+# continuam de fora por decisão do usuário — seguem disponíveis no dict cru
+# se precisarem voltar a ser usados.
 
 from dataclasses import dataclass
 
@@ -29,87 +41,95 @@ def _float_ou_zero(valor) -> float:
     # * [EXPLICAÇÃO] → decisão do usuário (10/08/2026): campo de IMPOSTO que
     # vem null da API (dado incompleto do lado da Sysemp — não é "imposto
     # zero de verdade", ver achado no vault) passa a virar 0 explicitamente,
-    # e só aqui — nunca um if solto em outro lugar do pipeline. Sem isso, o
-    # null ou estoura na hora (float(None)) ou se propaga como problema pra
-    # tratar em cada cálculo/soma adiante. Só usado nos 6 impostos — Custo
-    # Total/Unitário e Qtde continuam com float() direto de propósito,
-    # porque null ali é mais grave e não deve ser mascarado.
+    # e só aqui — nunca um if solto em outro lugar do pipeline. Só usado nos
+    # 6 impostos — Custo Total/Unitário e Qtde continuam com float() direto
+    # de propósito, porque null ali é mais grave e não deve ser mascarado.
     return float(valor) if valor is not None else 0.0
 
 
 def _int_ou_zero(valor) -> int:
     # * [EXPLICAÇÃO] → mesma decisão acima, pra campo inteiro de imposto
-    # (CST) — mesmo escopo, nunca usado fora dos 6 impostos.
+    # (CST) — mesmo escopo, nunca usado fora dos 6 impostos. TES Cadastro
+    # NÃO usa este helper de propósito — não é campo de imposto, é campo de
+    # classificação, fora do escopo original desta decisão.
     return int(valor) if valor is not None else 0
 
 
 @dataclass(frozen=True)
 class IdentificacaoProduto:
-    id_produto: int
-    produto: str
+    id_produto_sysemp: int
+    nome_produto: str
     codigo_barras: str
     codigo_auxiliar: str
     codigo_fabricante: str
-    qtde: float
+    quantidade_nota: float
 
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'IdentificacaoProduto':
         return cls(
-            id_produto=int(registro['ID Produto']),
-            produto=registro['Produto'],
+            id_produto_sysemp=int(registro['ID Produto']),
+            nome_produto=registro['Produto'],
             codigo_barras=registro['Código Barras'],
             codigo_auxiliar=registro['Código Auxiliar'],
             codigo_fabricante=registro['Código Fabricante'],
-            qtde=float(registro['Qtde']),
+            quantidade_nota=float(registro['Qtde']),
         )
 
 
 @dataclass(frozen=True)
 class IdentificacaoNF:
-    nr_nf: str
-    data_entrada_nota: str | None
-    emissao: str
+    numero_nf: str
+    chave_acesso_nf: str
+    fornecedor: str
+    data_emissao_nf: str
+    data_entrada_nf: str | None
 
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'IdentificacaoNF':
         return cls(
-            nr_nf=registro['NR NF'],
-            data_entrada_nota=registro['Data Entrada da Nota'],
-            emissao=registro['Emissão'],
-        )
-
-
-@dataclass(frozen=True)
-class DadosNF:
-    fornecedor: str
-    cfop: str
-    natureza_da_operacao: str
-    chave: str
-
-    @classmethod
-    def a_partir_do_registro(cls, registro: dict) -> 'DadosNF':
-        return cls(
+            numero_nf=registro['NR NF'],
+            chave_acesso_nf=registro['Chave'],
             fornecedor=registro['Fornecedor'],
-            cfop=registro['CFOP'],
-            natureza_da_operacao=registro['Natureza da Operacao'],
-            chave=registro['Chave'],
+            data_emissao_nf=registro['Emissão'],
+            data_entrada_nf=registro['Entrada NF'],
         )
 
 
 @dataclass(frozen=True)
-class IdentificadorRegra:
-    tes_saida: int
-    ncm: str
-    origem: str
-    origem_descricao: str
+class ClassificacaoFiscalItem:
+    # * [EXPLICAÇÃO] → Consolida o que antes estava espalhado entre DadosNF
+    # (cfop, natureza_da_operacao) e IdentificadorRegra (ncm, origem,
+    # origem_descricao, tes_saida) — todos são, agora, campos de
+    # classificação fiscal comparável entre o XML da nota e o Cadastro do
+    # produto no Sysemp. `natureza_operacao_cadastro` e `tes_saida_cadastro`
+    # não têm par XML — só existem como Cadastro mesmo, por isso não levam
+    # o sufixo "_cadastro" redundante de forma diferente dos outros (mantém
+    # o sufixo mesmo assim, pra nunca duvidar se é XML ou Cadastro só de
+    # olhar o nome do campo).
+    natureza_operacao_cadastro: str
+    ncm_xml: str
+    ncm_cadastro: str
+    cfop_xml: str
+    cfop_cadastro: str
+    origem_mercadoria_xml: str
+    origem_mercadoria_cadastro: str
+    descricao_origem_mercadoria_xml: str
+    descricao_origem_mercadoria_cadastro: str
+    tes_saida_cadastro: int
 
     @classmethod
-    def a_partir_do_registro(cls, registro: dict) -> 'IdentificadorRegra':
+    def a_partir_do_registro(cls, registro: dict) -> 'ClassificacaoFiscalItem':
         return cls(
-            tes_saida=int(registro['TES Saida']),
-            ncm=registro['NCM'],
-            origem=registro['Origem'],
-            origem_descricao=registro['Origem Descricao'],
+            natureza_operacao_cadastro=registro['Natureza da Operacao Cadastro'],
+            ncm_xml=registro['NCM XML'],
+            ncm_cadastro=registro['NCM Cadastro'],
+            cfop_xml=registro['CFOP XML'],
+            cfop_cadastro=registro['CFOP Cadastro'],
+            origem_mercadoria_xml=registro['Origem XML'],
+            origem_mercadoria_cadastro=registro['Origem Cadastro'],
+            descricao_origem_mercadoria_xml=registro['Origem Descrição XML'],
+            descricao_origem_mercadoria_cadastro=registro['Origem Descrição Cadastro'],
+            tes_saida_cadastro=int(registro['TES Saida Cadastro']),
         )
 
 
@@ -132,7 +152,8 @@ class IcmsSt:
 
 @dataclass(frozen=True)
 class Icms:
-    cst: int
+    cst_xml: int
+    cst_cadastro: int
     base_calculo: float
     aliquota: float
     reducao: float
@@ -141,7 +162,8 @@ class Icms:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'Icms':
         return cls(
-            cst=_int_ou_zero(registro['CST ICMS']),
+            cst_xml=_int_ou_zero(registro['CST ICMS']),
+            cst_cadastro=_int_ou_zero(registro['CST ICMS Cadastro']),
             base_calculo=_float_ou_zero(registro['Base Calculo ICMS']),
             aliquota=_float_ou_zero(registro['Aliquota ICMS']),
             reducao=_float_ou_zero(registro['Redução ICMS']),
@@ -151,20 +173,21 @@ class Icms:
 
 @dataclass(frozen=True)
 class IcmsRet:
-    base: float
+    base_calculo: float
     valor: float
 
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'IcmsRet':
         return cls(
-            base=_float_ou_zero(registro['Base ICMS Ret']),
+            base_calculo=_float_ou_zero(registro['Base ICMS Ret']),
             valor=_float_ou_zero(registro['Valor ICMS Ret']),
         )
 
 
 @dataclass(frozen=True)
 class Ipi:
-    cst: int
+    cst_xml: int
+    cst_cadastro: int
     base_calculo: float
     aliquota: float
     valor: float
@@ -172,7 +195,8 @@ class Ipi:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'Ipi':
         return cls(
-            cst=_int_ou_zero(registro['CST IPI']),
+            cst_xml=_int_ou_zero(registro['CST IPI']),
+            cst_cadastro=_int_ou_zero(registro['CST IPI Cadastro']),
             base_calculo=_float_ou_zero(registro['Base Calculo IPI']),
             aliquota=_float_ou_zero(registro['Aliquota IPI']),
             valor=_float_ou_zero(registro['Valor IPI']),
@@ -181,7 +205,8 @@ class Ipi:
 
 @dataclass(frozen=True)
 class Pis:
-    cst: int
+    cst_xml: int
+    cst_cadastro: int
     base_calculo: float
     aliquota: float
     reducao: float
@@ -191,7 +216,8 @@ class Pis:
     def a_partir_do_registro(cls, registro: dict, custo_total: float) -> 'Pis':
         base_calculo = _float_ou_zero(registro['Base Calculo PIS'])
         return cls(
-            cst=_int_ou_zero(registro['CST PIS']),
+            cst_xml=_int_ou_zero(registro['CST PIS']),
+            cst_cadastro=_int_ou_zero(registro['CST PIS Cadastro']),
             base_calculo=base_calculo,
             aliquota=_float_ou_zero(registro['Aliquota PIS']),
             reducao=_calcular_percentual_de_reducao(base_calculo, custo_total),
@@ -201,7 +227,8 @@ class Pis:
 
 @dataclass(frozen=True)
 class Cofins:
-    cst: int
+    cst_xml: int
+    cst_cadastro: int
     base_calculo: float
     aliquota: float
     reducao: float
@@ -211,7 +238,8 @@ class Cofins:
     def a_partir_do_registro(cls, registro: dict, custo_total: float) -> 'Cofins':
         base_calculo = _float_ou_zero(registro['Base Calculo COFINS'])
         return cls(
-            cst=_int_ou_zero(registro['CST COFINS']),
+            cst_xml=_int_ou_zero(registro['CST COFINS']),
+            cst_cadastro=_int_ou_zero(registro['CST COFINS Cadastro']),
             base_calculo=base_calculo,
             aliquota=_float_ou_zero(registro['Aliquota COFINS']),
             reducao=_calcular_percentual_de_reducao(base_calculo, custo_total),
@@ -236,8 +264,7 @@ class Custos:
 class DadosXmlNF:
     identificacao_produto: IdentificacaoProduto
     identificacao_nf: IdentificacaoNF
-    dados_nf: DadosNF
-    identificador_regra: IdentificadorRegra
+    classificacao_fiscal: ClassificacaoFiscalItem
     icms_st: IcmsSt
     icms: Icms
     icms_ret: IcmsRet
@@ -252,8 +279,7 @@ class DadosXmlNF:
         return cls(
             identificacao_produto=IdentificacaoProduto.a_partir_do_registro(registro),
             identificacao_nf=IdentificacaoNF.a_partir_do_registro(registro),
-            dados_nf=DadosNF.a_partir_do_registro(registro),
-            identificador_regra=IdentificadorRegra.a_partir_do_registro(registro),
+            classificacao_fiscal=ClassificacaoFiscalItem.a_partir_do_registro(registro),
             icms_st=IcmsSt.a_partir_do_registro(registro),
             icms=Icms.a_partir_do_registro(registro),
             icms_ret=IcmsRet.a_partir_do_registro(registro),
@@ -261,4 +287,4 @@ class DadosXmlNF:
             pis=Pis.a_partir_do_registro(registro, custos.total),
             cofins=Cofins.a_partir_do_registro(registro, custos.total),
             custos=custos,
-        )
+        )   

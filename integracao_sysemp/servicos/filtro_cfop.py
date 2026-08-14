@@ -30,4 +30,4 @@ def filtrar_por_cfop(notas_brutas: list[dict]) -> list[dict]:
     """Recebe a lista de notas cruas (bruto['retorno']) e devolve só os
     itens com CFOP relevante, achatados em 1 linha por item."""
     linhas = _achatar_em_linhas(notas_brutas)
-    return [linha for linha in linhas if linha.get('CFOP') in CFOPS_PARA_MANTER]
+    return [linha for linha in linhas if linha.get('CFOP XML') in CFOPS_PARA_MANTER]

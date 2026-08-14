@@ -9,7 +9,7 @@ from datetime import datetime
 
 CAMPO_CODIGO_PRODUTO = 'Código Barras'
 CAMPO_NF = 'NR NF'
-CAMPO_DATA_ENTRADA_NOTA = 'Data Entrada da Nota'
+CAMPO_DATA_ENTRADA_NOTA = 'Entrada NF'
 
 
 def _chave_de_ordenacao(linha: dict) -> tuple:

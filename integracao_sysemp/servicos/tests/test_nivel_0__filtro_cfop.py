@@ -20,8 +20,8 @@ def _nota(nr_nf, itens):
 def test_achata_nota_com_varios_itens_em_linhas_separadas(tabela_resultados):
     # Setup: 1 nota com 2 itens.
     notas = [_nota('1001', [
-        {'Código Barras': '111', 'CFOP': '1.102'},
-        {'Código Barras': '222', 'CFOP': '1.102'},
+        {'Código Barras': '111', 'CFOP XML': '1.102'},
+        {'Código Barras': '222', 'CFOP XML': '1.102'},
     ])]
 
     # Exercise
@@ -46,7 +46,7 @@ def test_achata_nota_com_varios_itens_em_linhas_separadas(tabela_resultados):
 
 def test_cfop_fora_da_lista_e_descartado(tabela_resultados):
     # Setup: 1 item com CFOP que não está em CFOPS_PARA_MANTER.
-    notas = [_nota('1001', [{'Código Barras': '111', 'CFOP': '1.916'}])]
+    notas = [_nota('1001', [{'Código Barras': '111', 'CFOP XML': '1.916'}])]
 
     # Exercise
     resultado = filtrar_por_cfop(notas)
@@ -65,7 +65,7 @@ def test_cfop_fora_da_lista_e_descartado(tabela_resultados):
 
 def test_cfop_da_lista_e_mantido(tabela_resultados):
     # Setup: 1 item com CFOP válido.
-    notas = [_nota('1001', [{'Código Barras': '111', 'CFOP': '1.102'}])]
+    notas = [_nota('1001', [{'Código Barras': '111', 'CFOP XML': '1.102'}])]
 
     # Exercise
     resultado = filtrar_por_cfop(notas)
@@ -104,7 +104,7 @@ def test_lista_de_notas_vazia_devolve_lista_vazia(tabela_resultados):
 @pytest.mark.xfail(reason='Falha de propósito — prova visual da linha FALHOU na tabela')
 def test_caso_de_falha_proposital(tabela_resultados):
     # Setup: valor esperado ERRADO de propósito.
-    notas = [_nota('1001', [{'Código Barras': '111', 'CFOP': '1.102'}])]
+    notas = [_nota('1001', [{'Código Barras': '111', 'CFOP XML': '1.102'}])]
 
     # Exercise
     resultado = filtrar_por_cfop(notas)
