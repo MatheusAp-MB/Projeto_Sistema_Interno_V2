@@ -59,28 +59,45 @@ class ImpostosEntradaXML:
         corpo = {'datainicial': data_inicial, 'datafinal': data_final, 'offset': offset}
         return self._cliente.chamar('listarManifestoNotaEntrada', corpo)
 
-    def listar_periodo_completo(self, data_inicial, data_final, data_referencia=None, ao_avancar_pagina=None):
+    def listar_periodo_completo(
+        self, data_inicial, data_final, data_referencia=None,
+        ao_avancar_pagina=None, ao_falhar_com_parcial=None,
+    ):
         if data_referencia is None:
             data_referencia = date.today()
 
         todos_os_registros = []
         offset = 0
         numero_da_pagina = 0
-        while True:
-            pagina = self.listar_por_periodo(
-                data_inicial, data_final, offset=str(offset), data_referencia=data_referencia
-            )
-            registros_da_pagina = pagina['retorno']
-            if not registros_da_pagina:
-                break
-            todos_os_registros.extend(registros_da_pagina)
-            offset += len(registros_da_pagina)
-            numero_da_pagina += 1
+        try:
+            while True:
+                pagina = self.listar_por_periodo(
+                    data_inicial, data_final, offset=str(offset), data_referencia=data_referencia
+                )
+                registros_da_pagina = pagina['retorno']
+                if not registros_da_pagina:
+                    break
+                todos_os_registros.extend(registros_da_pagina)
+                offset += len(registros_da_pagina)
+                numero_da_pagina += 1
 
-            # * [EXPLICAÇÃO] → callback opcional só pra progresso — essa
-            #                   classe continua sem saber o que é console
-            #                   ou print, quem chama decide como mostrar.
-            if ao_avancar_pagina is not None:
-                ao_avancar_pagina(numero_da_pagina, len(registros_da_pagina), len(todos_os_registros))
+                # * [EXPLICAÇÃO] → callback opcional só pra progresso — essa
+                #                   classe continua sem saber o que é console
+                #                   ou print, quem chama decide como mostrar.
+                if ao_avancar_pagina is not None:
+                    ao_avancar_pagina(numero_da_pagina, len(registros_da_pagina), len(todos_os_registros))
+        except Exception:
+            # * [EXPLICAÇÃO] → dado de API é caro (achado real, 14/08/2026):
+            #                  sem isso, uma falha na página 250 de 300
+            #                  jogava fora as 249 já buscadas com sucesso.
+            #                  A exceção original sempre continua subindo
+            #                  (nunca é engolida, watermark não avança) —
+            #                  só preserva o que já foi obtido antes disso.
+            #                  Esta classe continua sem saber de disco —
+            #                  quem decide onde/como salvar é o callback
+            #                  (orquestrador), mesmo padrão do ao_avancar_pagina.
+            if todos_os_registros and ao_falhar_com_parcial is not None:
+                ao_falhar_com_parcial(todos_os_registros)
+            raise
 
         return {'retorno': todos_os_registros}

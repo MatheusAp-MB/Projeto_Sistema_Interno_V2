@@ -11,6 +11,10 @@
 # ClassificacaoFiscalItem consolidado) — 1 teste novo garante que ncm_xml e
 # ncm_cadastro persistem em colunas distintas, motivado pelo quase-erro
 # real que aconteceu na migração do banco.
+#
+# Atualizado de novo (14/08/2026) — 3 campos novos pro relatório de entrada
+# (empresa_fantasia, aliquota_fcp, valor_fcp) — 1 teste novo garante que os
+# 3 persistem no banco.
 
 from datetime import date
 from decimal import Decimal
@@ -49,6 +53,7 @@ def _dados_xml_nf_padrao(**overrides) -> DadosXmlNF:
         ),
         'identificacao_nf': IdentificacaoNF(
             numero_nf='1001', chave_acesso_nf='chave-teste', fornecedor='Fornecedor Padrao Ltda',
+            empresa_fantasia='Empresa Padrao Fantasia',
             data_emissao_nf='2026-07-30', data_entrada_nf='2026-08-01',
         ),
         'classificacao_fiscal': ClassificacaoFiscalItem(
@@ -58,7 +63,7 @@ def _dados_xml_nf_padrao(**overrides) -> DadosXmlNF:
             descricao_origem_mercadoria_xml='Nacional', descricao_origem_mercadoria_cadastro='Nacional',
             tes_saida_cadastro=1,
         ),
-        'icms_st': IcmsSt(base_calculo=0.0, aliquota=0.0, reducao=0.0, valor=0.0),
+        'icms_st': IcmsSt(base_calculo=0.0, aliquota=0.0, reducao=0.0, valor=0.0, aliquota_fcp=0.0, valor_fcp=0.0),
         'icms': Icms(cst_xml=0, cst_cadastro=0, base_calculo=100.0, aliquota=18.1, reducao=0.0, valor=18.1),
         'icms_ret': IcmsRet(base_calculo=0.0, valor=0.0),
         'ipi': Ipi(cst_xml=0, cst_cadastro=0, base_calculo=100.0, aliquota=5.0, valor=5.0),
@@ -110,6 +115,7 @@ def test_segunda_sincronizacao_sobrescreve_nunca_duplica(tabela_resultados):
     dados_nova_nota = _dados_xml_nf_padrao(
         identificacao_nf=IdentificacaoNF(
             numero_nf='2002', chave_acesso_nf='chave-teste', fornecedor='Fornecedor Padrao Ltda',
+            empresa_fantasia='Empresa Padrao Fantasia',
             data_emissao_nf='2026-08-04', data_entrada_nf='2026-08-05',
         ),
     )
@@ -138,6 +144,7 @@ def test_data_entrada_nota_string_iso_vira_date_real(tabela_resultados):
     dados = _dados_xml_nf_padrao(
         identificacao_nf=IdentificacaoNF(
             numero_nf='1001', chave_acesso_nf='chave-teste', fornecedor='Fornecedor Padrao Ltda',
+            empresa_fantasia='Empresa Padrao Fantasia',
             data_emissao_nf='2026-07-30', data_entrada_nf='2026-08-01',
         ),
     )
@@ -167,6 +174,7 @@ def test_data_entrada_nota_none_nao_quebra(tabela_resultados):
     dados = _dados_xml_nf_padrao(
         identificacao_nf=IdentificacaoNF(
             numero_nf='1001', chave_acesso_nf='chave-teste', fornecedor='Fornecedor Padrao Ltda',
+            empresa_fantasia='Empresa Padrao Fantasia',
             data_emissao_nf='2026-07-30', data_entrada_nf=None,
         ),
     )
@@ -273,6 +281,43 @@ def test_ncm_xml_e_ncm_cadastro_persistem_distintos(tabela_resultados):
         'guarda-chuva grava cada um na coluna certa, sem trocar',
         'Regressão direta do quase-erro real da migração (Django quase renomeou ncm pra ncm_cadastro)',
         f'ncm_xml={guarda_chuva.ncm_xml}, ncm_cadastro={guarda_chuva.ncm_cadastro}', bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_empresa_fantasia_e_fcp_st_persistem_no_banco(tabela_resultados):
+    # Setup: 3 campos novos (14/08/2026) — empresa_fantasia (guarda-chuva) e
+    # aliquota_fcp/valor_fcp (ICMS ST) — com valores diferentes do padrão
+    # zerado da fixture, pra garantir que não ficam ausentes/zerados sem motivo.
+    produto = _criar_produto('7900000000010')
+    dados = _dados_xml_nf_padrao(
+        identificacao_nf=IdentificacaoNF(
+            numero_nf='1001', chave_acesso_nf='chave-teste', fornecedor='Fornecedor Padrao Ltda',
+            empresa_fantasia='Magazine Brasileiro',
+            data_emissao_nf='2026-07-30', data_entrada_nf='2026-08-01',
+        ),
+        icms_st=IcmsSt(base_calculo=100.0, aliquota=18.0, reducao=0.0, valor=18.0, aliquota_fcp=2.0, valor_fcp=2.0),
+    )
+
+    # Exercise
+    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+
+    # Assert: relê tudo do banco antes de comparar.
+    guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
+    icms_st = IcmsStEntradaProduto.objects.get(impostos_e_custos=guarda_chuva)
+    bateu = (
+        guarda_chuva.empresa_fantasia == 'Magazine Brasileiro'
+        and icms_st.aliquota_fcp == Decimal('2.0') and icms_st.valor_fcp == Decimal('2.0')
+    )
+    registrar_resultado(
+        tabela_resultados, 'empresa_fantasia_e_fcp_st_persistem',
+        "empresa_fantasia='Magazine Brasileiro', aliquota_fcp=2.0, valor_fcp=2.0",
+        'os 3 valores persistem intactos no banco',
+        'Campos novos (14/08/2026) — não podem ficar ausentes/zerados sem motivo real',
+        f'empresa_fantasia={guarda_chuva.empresa_fantasia}, aliquota_fcp={icms_st.aliquota_fcp}, valor_fcp={icms_st.valor_fcp}',
+        bateu,
     )
     assert bateu
 

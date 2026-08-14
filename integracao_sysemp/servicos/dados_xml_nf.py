@@ -18,9 +18,13 @@
 # `ClassificacaoFiscalItem` (todo campo comparável XML×Cadastro), já que os
 # 2 dataclasses antigos misturavam os dois propósitos sem necessidade real.
 #
-# Campos sem uso confirmado (Item, Empresa Fantasia, % FCP ST, Valor FCP ST)
-# continuam de fora por decisão do usuário — seguem disponíveis no dict cru
-# se precisarem voltar a ser usados.
+# Campo sem uso confirmado (Item) continua de fora por decisão do usuário —
+# segue disponível no dict cru se precisar voltar a ser usado.
+#
+# Adicionados (14/08/2026), por decisão do usuário, pro relatório de
+# impostos de entrada: empresa_fantasia (em IdentificacaoNF) e
+# aliquota_fcp/valor_fcp (em IcmsSt, referentes ao FCP ST — Fundo de Combate
+# à Pobreza).
 
 from dataclasses import dataclass
 
@@ -44,7 +48,11 @@ def _float_ou_zero(valor) -> float:
     # e só aqui — nunca um if solto em outro lugar do pipeline. Só usado nos
     # 6 impostos — Custo Total/Unitário e Qtde continuam com float() direto
     # de propósito, porque null ali é mais grave e não deve ser mascarado.
-    return float(valor) if valor is not None else 0.0
+    #
+    # Ampliado (14/08/2026): dado real (registro antigo, formato plano)
+    # mostrou que a Sysemp às vezes representa esse mesmo "incompleto" como
+    # string vazia ('') em vez de null — mesmo significado, mesmo destino.
+    return float(valor) if valor not in (None, '') else 0.0
 
 
 def _int_ou_zero(valor) -> int:
@@ -52,7 +60,10 @@ def _int_ou_zero(valor) -> int:
     # (CST) — mesmo escopo, nunca usado fora dos 6 impostos. TES Cadastro
     # NÃO usa este helper de propósito — não é campo de imposto, é campo de
     # classificação, fora do escopo original desta decisão.
-    return int(valor) if valor is not None else 0
+    #
+    # Ampliado (14/08/2026): mesma razão do _float_ou_zero acima — string
+    # vazia tratada igual a null.
+    return int(valor) if valor not in (None, '') else 0
 
 
 @dataclass(frozen=True)
@@ -81,6 +92,7 @@ class IdentificacaoNF:
     numero_nf: str
     chave_acesso_nf: str
     fornecedor: str
+    empresa_fantasia: str
     data_emissao_nf: str
     data_entrada_nf: str | None
 
@@ -90,6 +102,7 @@ class IdentificacaoNF:
             numero_nf=registro['NR NF'],
             chave_acesso_nf=registro['Chave'],
             fornecedor=registro['Fornecedor'],
+            empresa_fantasia=registro['Empresa Fantasia'],
             data_emissao_nf=registro['Emissão'],
             data_entrada_nf=registro['Entrada NF'],
         )
@@ -127,8 +140,8 @@ class ClassificacaoFiscalItem:
             cfop_cadastro=registro['CFOP Cadastro'],
             origem_mercadoria_xml=registro['Origem XML'],
             origem_mercadoria_cadastro=registro['Origem Cadastro'],
-            descricao_origem_mercadoria_xml=registro['Origem Descrição XML'],
-            descricao_origem_mercadoria_cadastro=registro['Origem Descrição Cadastro'],
+            descricao_origem_mercadoria_xml=registro['Origem Descricão XML'],
+            descricao_origem_mercadoria_cadastro=registro['Origem Descricão Cadastro'],
             tes_saida_cadastro=int(registro['TES Saida Cadastro']),
         )
 
@@ -139,6 +152,8 @@ class IcmsSt:
     aliquota: float
     reducao: float
     valor: float
+    aliquota_fcp: float
+    valor_fcp: float
 
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'IcmsSt':
@@ -147,6 +162,8 @@ class IcmsSt:
             aliquota=_float_ou_zero(registro['Aliquota ICMS ST']),
             reducao=_float_ou_zero(registro['Redução ICMS ST']),
             valor=_float_ou_zero(registro['Valor ICMS ST']),
+            aliquota_fcp=_float_ou_zero(registro['% FCP ST']),
+            valor_fcp=_float_ou_zero(registro['Valor FCP ST']),
         )
 
 

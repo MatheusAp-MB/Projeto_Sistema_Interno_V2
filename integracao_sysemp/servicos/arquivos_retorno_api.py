@@ -16,6 +16,14 @@ PASTA_RETORNO_API = os.path.join(
 )
 
 NOME_ARQUIVO_BRUTO = 'XML_Manifesto_NF_Bruto.json'
+# * [EXPLICAÇÃO] → só recebe o que já foi obtido com sucesso quando uma
+#                  busca paginada falha no meio (ver ao_falhar_com_parcial
+#                  em ImpostosEntradaXML.listar_periodo_completo) — nunca
+#                  é o Bruto oficial, fica separado pra nunca confundir
+#                  dado possivelmente incompleto com uma carga completa.
+#                  Limpo (sobrescrito com retorno vazio) sempre que uma
+#                  sincronização completa termina com sucesso.
+NOME_ARQUIVO_BRUTO_PARCIAL = 'XML_Manifesto_NF_Bruto_Parcial.json'
 NOME_ARQUIVO_FILTRADO = 'XML_Manifesto_NF_Filtrado.json'
 NOME_ARQUIVO_NOTAS_MAIS_RECENTES = 'XML_Manifesto_NF_notas_mais_recentes_por_produto.json'
 NOME_ARQUIVO_ERROS = 'XML_Manifesto_NF_Erros.json'

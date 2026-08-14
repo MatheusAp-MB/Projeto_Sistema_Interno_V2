@@ -28,6 +28,7 @@ from integracao_sysemp.models import SincronizacaoXmlManifestoNotaEntrada
 
 from .arquivos_retorno_api import (
     NOME_ARQUIVO_BRUTO,
+    NOME_ARQUIVO_BRUTO_PARCIAL,
     NOME_ARQUIVO_FILTRADO,
     NOME_ARQUIVO_NOTAS_MAIS_RECENTES,
     salvar_json,
@@ -114,6 +115,17 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
             f'(+{registros_na_pagina}, total {total_acumulado})',
         )
 
+    def _salvar_parcial_em_falha(registros_acumulados):
+        # * [EXPLICAÇÃO] → dado de API é caro — se a busca falhar no meio
+        #                  de uma paginação longa, o que já foi obtido com
+        #                  sucesso fica salvo aqui, nunca só na memória.
+        #                  Não é o Bruto oficial (pode estar incompleto) —
+        #                  fica num arquivo à parte, recuperável à mão se
+        #                  algum dia for preciso (reprocessar_impostos_
+        #                  entrada_do_bruto pode apontar pra este arquivo
+        #                  em vez do oficial).
+        salvar_json({'retorno': registros_acumulados}, NOME_ARQUIVO_BRUTO_PARCIAL)
+
     relatorio = RelatorioDeSincronizacao()
     inicio_total = time.perf_counter()
 
@@ -134,7 +146,8 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
     with _cronometrar(relatorio, 'busca_api'):
         try:
             bruto = ApiSysemp().impostos_entrada.listar_periodo_completo(
-                data_inicial.isoformat(), data_final.isoformat(), ao_avancar_pagina=_informar_pagina,
+                data_inicial.isoformat(), data_final.isoformat(),
+                ao_avancar_pagina=_informar_pagina, ao_falhar_com_parcial=_salvar_parcial_em_falha,
             )
         except ErroAPISysemp as erro:
             mensagem_erro_api = str(erro)
@@ -147,6 +160,12 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
 
     with _cronometrar(relatorio, 'salvar_bruto'):
         salvar_json(bruto, NOME_ARQUIVO_BRUTO)
+        # * [EXPLICAÇÃO] → busca completa terminou com sucesso — qualquer
+        #                  parcial de uma tentativa anterior já está
+        #                  obsoleto (o Bruto oficial agora tem tudo).
+        #                  Limpa pra nunca confundir uma tentativa velha
+        #                  com a atual.
+        salvar_json({'retorno': []}, NOME_ARQUIVO_BRUTO_PARCIAL)
 
     _informar(f'Filtrando por CFOP ({len(bruto["retorno"])} notas brutas)...')
     with _cronometrar(relatorio, 'filtro_cfop'):

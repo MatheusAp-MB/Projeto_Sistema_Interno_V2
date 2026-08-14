@@ -15,6 +15,12 @@
 # `base` do ICMS Ret virou `base_calculo`, igual aos outros 5 impostos
 # (inconsistência antiga, corrigida agora).
 #
+# Aditivo de novo (14/08/2026) — 3 campos novos pro relatório de entrada:
+# empresa_fantasia (guarda-chuva) e aliquota_fcp/valor_fcp (ICMS ST, FCP —
+# Fundo de Combate à Pobreza). null=True/blank=True nos 3, mesma razão dos
+# campos aditivos anteriores: produtos já sincronizados antes da mudança
+# não têm esse dado ainda.
+#
 # Aditivo, não substitui nada: Produto já tem campos fiscais genéricos
 # (icms_entrada, ipi, pis_cofins) lidos hoje pelas 6 fórmulas de
 # precificação reais — este app não toca neles. Migrar as fórmulas pra ler
@@ -108,6 +114,7 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
     ncm_xml = models.CharField(max_length=20, null=True, blank=True)
     ncm_cadastro = models.CharField(max_length=20, null=True, blank=True)
     fornecedor = models.CharField(max_length=255)
+    empresa_fantasia = models.CharField(max_length=255, null=True, blank=True)
     custo_total = models.DecimalField(max_digits=12, decimal_places=2)
     quantidade_nota = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
     custo_unitario = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -139,6 +146,7 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
                     'ncm_xml': dados.classificacao_fiscal.ncm_xml,
                     'ncm_cadastro': dados.classificacao_fiscal.ncm_cadastro,
                     'fornecedor': dados.identificacao_nf.fornecedor,
+                    'empresa_fantasia': dados.identificacao_nf.empresa_fantasia,
                     'custo_total': _converter_para_decimal(dados.custos.total),
                     'quantidade_nota': _converter_para_decimal(dados.identificacao_produto.quantidade_nota),
                     'custo_unitario': _converter_para_decimal(dados.custos.unitario),
@@ -162,6 +170,8 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
                     'aliquota': _converter_para_decimal(dados.icms_st.aliquota),
                     'reducao': _converter_para_decimal(dados.icms_st.reducao),
                     'valor': _converter_para_decimal(dados.icms_st.valor),
+                    'aliquota_fcp': _converter_para_decimal(dados.icms_st.aliquota_fcp),
+                    'valor_fcp': _converter_para_decimal(dados.icms_st.valor_fcp),
                 },
             )
             IcmsRetEntradaProduto.objects.update_or_create(
@@ -272,6 +282,11 @@ class IcmsStEntradaProduto(ImpostoComAliquota):
         ImpostosECustosXMLEntradaProduto, on_delete=models.CASCADE, related_name='icms_st',
     )
     reducao = models.DecimalField(max_digits=7, decimal_places=4)
+    # * [EXPLICAÇÃO] → Novos (14/08/2026) — FCP ST (Fundo de Combate à
+    #                  Pobreza) vem junto do ICMS ST na API, mas é um
+    #                  adicional separado, com alíquota e valor próprios.
+    aliquota_fcp = models.DecimalField(max_digits=7, decimal_places=4, null=True, blank=True)
+    valor_fcp = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     class Meta:
         verbose_name = 'ICMS ST de Entrada (XML) do Produto'

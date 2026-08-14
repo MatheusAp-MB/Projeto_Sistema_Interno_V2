@@ -38,13 +38,15 @@ def _item_padrao(**overrides) -> dict:
         'ID Produto': 1, 'Produto': 'Produto Teste', 'Código Barras': '7900000000001',
         'Código Auxiliar': '', 'Código Fabricante': '', 'Qtde': 1,
         'NR NF': '1001', 'Entrada NF': '2026-08-01', 'Emissão': '2026-07-30',
-        'Fornecedor': 'Fornecedor Teste', 'CFOP XML': '1.102', 'CFOP Cadastro': '1.102',
+        'Fornecedor': 'Fornecedor Teste', 'Empresa Fantasia': 'Empresa Fantasia Teste',
+        'CFOP XML': '1.102', 'CFOP Cadastro': '1.102',
         'Natureza da Operacao Cadastro': 'Compra',
         'Chave': 'chave-teste',
         'TES Saida Cadastro': 1, 'NCM XML': '00000000', 'NCM Cadastro': '00000000',
         'Origem XML': '0', 'Origem Cadastro': '0',
         'Origem Descrição XML': 'Nacional', 'Origem Descrição Cadastro': 'Nacional',
         'Base Calculo ICMS ST': 0, 'Aliquota ICMS ST': 0, 'Redução ICMS ST': 0, 'Valor ICMS ST': 0,
+        '% FCP ST': 0, 'Valor FCP ST': 0,
         'CST ICMS': 0, 'CST ICMS Cadastro': 0, 'Base Calculo ICMS': 100, 'Aliquota ICMS': 18,
         'Redução ICMS': 0, 'Valor ICMS': 18,
         'Base ICMS Ret': 0, 'Valor ICMS Ret': 0,
@@ -63,12 +65,13 @@ def _nota_com_item(**overrides_item) -> dict:
 
 
 class _ImpostosEntradaFalso:
-    def __init__(self, retorno=None, excecao=None, paginas_simuladas=None):
+    def __init__(self, retorno=None, excecao=None, paginas_simuladas=None, registros_parciais_na_falha=None):
         self._retorno = retorno
         self._excecao = excecao
         self._paginas_simuladas = paginas_simuladas or []
+        self._registros_parciais_na_falha = registros_parciais_na_falha
 
-    def listar_periodo_completo(self, data_inicial, data_final, ao_avancar_pagina=None):
+    def listar_periodo_completo(self, data_inicial, data_final, ao_avancar_pagina=None, ao_falhar_com_parcial=None):
         # * [EXPLICAÇÃO] → assert de tipo aqui não é excesso de zelo: um
         #                  mock permissivo demais (aceitando date OU str)
         #                  foi exatamente o que deixou passar um bug real
@@ -79,25 +82,35 @@ class _ImpostosEntradaFalso:
             f'orquestrador precisa converter date pra string ISO antes de chamar a API '
             f'(recebido: {type(data_inicial)}, {type(data_final)})'
         )
-        if self._excecao is not None:
-            raise self._excecao
         if ao_avancar_pagina is not None:
             for pagina in self._paginas_simuladas:
                 ao_avancar_pagina(*pagina)
+        if self._excecao is not None:
+            # * [EXPLICAÇÃO] → simula o comportamento real de
+            #                  listar_periodo_completo: acumula o que
+            #                  conseguiu (páginas simuladas acima) antes
+            #                  de chamar o callback de parcial e relançar.
+            if self._registros_parciais_na_falha and ao_falhar_com_parcial is not None:
+                ao_falhar_com_parcial(self._registros_parciais_na_falha)
+            raise self._excecao
         return self._retorno
 
 
 class _ApiSysempFalsa:
-    def __init__(self, retorno=None, excecao=None, paginas_simuladas=None):
+    def __init__(self, retorno=None, excecao=None, paginas_simuladas=None, registros_parciais_na_falha=None):
         self.impostos_entrada = _ImpostosEntradaFalso(
             retorno=retorno, excecao=excecao, paginas_simuladas=paginas_simuladas,
+            registros_parciais_na_falha=registros_parciais_na_falha,
         )
 
 
-def _mockar_api(monkeypatch, retorno=None, excecao=None, paginas_simuladas=None):
+def _mockar_api(monkeypatch, retorno=None, excecao=None, paginas_simuladas=None, registros_parciais_na_falha=None):
     monkeypatch.setattr(
         orquestrador, 'ApiSysemp',
-        lambda: _ApiSysempFalsa(retorno=retorno, excecao=excecao, paginas_simuladas=paginas_simuladas),
+        lambda: _ApiSysempFalsa(
+            retorno=retorno, excecao=excecao, paginas_simuladas=paginas_simuladas,
+            registros_parciais_na_falha=registros_parciais_na_falha,
+        ),
     )
 
 
@@ -186,6 +199,73 @@ def test_erro_na_api_registra_falha_e_nao_avanca_watermark(monkeypatch, tabela_r
         'Falha total (rede/API) nunca pode avançar o watermark nem deixar rastro de dado incompleto',
         f'status={watermark.status!r}, final={watermark.data_final_cobertura}, bruto_existe={bruto_existe}',
         bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_erro_no_meio_da_paginacao_salva_parcial_em_disco(monkeypatch, tabela_resultados):
+    # Setup: nunca sincronizado, API consegue 1 página (2 registros) e
+    # falha na seguinte — simula queda no meio de uma busca longa.
+    registros_parciais = [_nota_com_item(**{'Código Barras': '7900000000001'})]
+    _mockar_api(
+        monkeypatch, excecao=ErroAPISysemp('erro de rede simulado no meio da paginação'),
+        registros_parciais_na_falha=registros_parciais,
+    )
+
+    # Exercise
+    sincronizar_impostos_entrada_xml()
+
+    # Assert: watermark ainda marca falha (comportamento intocado), mas
+    # o que já tinha sido buscado com sucesso está salvo no parcial —
+    # nunca no Bruto oficial (que ficaria incompleto).
+    watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
+    parcial = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_BRUTO_PARCIAL, padrao=None)
+    bruto_existe = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_BRUTO) is not None
+    bateu = (
+        watermark.status == SincronizacaoXmlManifestoNotaEntrada.Status.FALHA
+        and bruto_existe is False
+        and parcial == {'retorno': registros_parciais}
+    )
+    registrar_resultado(
+        tabela_resultados, 'erro_no_meio_da_paginacao_salva_parcial',
+        'ErroAPISysemp após 1 página já obtida', 'watermark em falha, parcial salvo, Bruto oficial intocado',
+        'Achado real (14/08/2026): dado de API é caro — falha no meio de uma paginação longa não pode jogar fora o que já foi buscado.',
+        f'status={watermark.status!r}, bruto_existe={bruto_existe}, parcial={parcial}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_sincroniza_com_sucesso_limpa_parcial_de_tentativa_anterior(monkeypatch, tabela_resultados):
+    # Setup: existe um parcial deixado por uma falha anterior, e agora
+    # a API responde com sucesso completo.
+    arquivos_retorno_api.salvar_json(
+        {'retorno': [{'sobra': 'de uma tentativa anterior que falhou'}]},
+        arquivos_retorno_api.NOME_ARQUIVO_BRUTO_PARCIAL,
+    )
+    produto = _criar_produto('7900000000001')
+    bruto = {'retorno': [_nota_com_item(**{'Código Barras': '7900000000001'})]}
+    _mockar_api(monkeypatch, retorno=bruto)
+
+    # Exercise
+    sincronizar_impostos_entrada_xml()
+
+    # Assert: sucesso completo deixa o parcial obsoleto limpo — nunca
+    # confunde uma tentativa velha com a atual (já completa e oficial
+    # no Bruto.json).
+    parcial = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_BRUTO_PARCIAL, padrao=None)
+    persistiu = ImpostosECustosXMLEntradaProduto.objects.filter(produto=produto).exists()
+    bateu = parcial == {'retorno': []} and persistiu
+    registrar_resultado(
+        tabela_resultados, 'sucesso_limpa_parcial_anterior',
+        'parcial de tentativa anterior presente, sincronização atual com sucesso total',
+        "parcial limpo ({'retorno': []})",
+        'Parcial de tentativa velha não pode sobreviver a uma sincronização completa e bem-sucedida.',
+        f'parcial={parcial}, persistiu={persistiu}', bateu,
     )
     assert bateu
 

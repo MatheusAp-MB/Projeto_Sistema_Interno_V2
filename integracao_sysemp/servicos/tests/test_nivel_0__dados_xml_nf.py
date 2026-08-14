@@ -12,6 +12,12 @@
 # (ClassificacaoFiscalItem e o CST de 1 imposto), motivados pelo quase-erro
 # real que aconteceu na migração do banco (Django quase renomeou "ncm" pra
 # "ncm_cadastro" em vez de "ncm_xml").
+#
+# Atualizado de novo (14/08/2026) — 3 campos novos pro relatório de entrada
+# (empresa_fantasia em IdentificacaoNF; aliquota_fcp/valor_fcp em IcmsSt,
+# referentes ao FCP ST). aliquota_fcp/valor_fcp seguem o mesmo tratamento
+# null->0 dos demais campos de imposto — empresa_fantasia não é campo de
+# imposto, não passa por esse tratamento.
 
 import pytest
 
@@ -36,6 +42,7 @@ def _registro_icms_st(overrides=None):
     base = {
         'Base Calculo ICMS ST': 100.0, 'Aliquota ICMS ST': 18.0,
         'Redução ICMS ST': 0.0, 'Valor ICMS ST': 18.0,
+        '% FCP ST': 2.0, 'Valor FCP ST': 2.0,
     }
     base.update(overrides or {})
     return base
@@ -83,7 +90,7 @@ def _registro_completo(overrides=None):
         'ID Produto': 1, 'Produto': 'Produto Teste', 'Código Barras': '7900000000000',
         'Código Auxiliar': 'AUX-1', 'Código Fabricante': 'FAB-1', 'Qtde': 10.0,
         'NR NF': '1001', 'Entrada NF': '2026-08-01', 'Emissão': '2026-07-31',
-        'Fornecedor': 'Fornecedor Teste', 'Chave': 'CHAVE-TESTE',
+        'Fornecedor': 'Fornecedor Teste', 'Empresa Fantasia': 'Empresa Fantasia Teste', 'Chave': 'CHAVE-TESTE',
         'CFOP XML': '1.102', 'CFOP Cadastro': '1.102',
         'Natureza da Operacao Cadastro': 'Compra para revenda',
         'TES Saida Cadastro': 1,
@@ -152,22 +159,28 @@ def test_icms_com_campos_null_vira_zero(tabela_resultados):
 
 
 def test_icms_st_com_campos_null_vira_zero(tabela_resultados):
-    # Setup: os 4 campos de ICMS ST vêm null.
+    # Setup: os 6 campos de ICMS ST vêm null (base/aliquota/reducao/valor +
+    # aliquota_fcp/valor_fcp, adicionados 14/08/2026 — mesmo tratamento).
     registro = _registro_icms_st({
         'Base Calculo ICMS ST': None, 'Aliquota ICMS ST': None,
         'Redução ICMS ST': None, 'Valor ICMS ST': None,
+        '% FCP ST': None, 'Valor FCP ST': None,
     })
 
     # Exercise
     icms_st = IcmsSt.a_partir_do_registro(registro)
 
     # Assert
-    bateu = (icms_st.base_calculo, icms_st.aliquota, icms_st.reducao, icms_st.valor) == (0.0, 0.0, 0.0, 0.0)
+    bateu = (
+        icms_st.base_calculo, icms_st.aliquota, icms_st.reducao, icms_st.valor,
+        icms_st.aliquota_fcp, icms_st.valor_fcp,
+    ) == (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     registrar_resultado(
         tabela_resultados, 'icms_st_campos_null_vira_zero',
-        '4 campos de ICMS ST (base/aliquota/reducao/valor) null', 'todos 0.0, sem exceção',
+        '6 campos de ICMS ST (base/aliquota/reducao/valor/aliquota_fcp/valor_fcp) null', 'todos 0.0, sem exceção',
         'Imposto incompleto da origem não pode estourar float(None)',
-        f'{(icms_st.base_calculo, icms_st.aliquota, icms_st.reducao, icms_st.valor)}', bateu,
+        f'{(icms_st.base_calculo, icms_st.aliquota, icms_st.reducao, icms_st.valor, icms_st.aliquota_fcp, icms_st.valor_fcp)}',
+        bateu,
     )
     assert bateu
 
@@ -331,6 +344,33 @@ def test_icms_cst_xml_e_cst_cadastro_nao_se_confundem(tabela_resultados):
     # TearDown: nada a desmontar.
 
 
+def test_empresa_fantasia_e_fcp_st_sao_lidos_do_registro(tabela_resultados):
+    # Setup: registro completo, com Empresa Fantasia e FCP ST (aliquota e
+    # valor) preenchidos com valores reais — campos novos (14/08/2026).
+    registro = _registro_completo({'Empresa Fantasia': 'Magazine Brasileiro'})
+
+    # Exercise
+    dados = DadosXmlNF.a_partir_do_registro(registro)
+
+    # Assert
+    bateu = (
+        dados.identificacao_nf.empresa_fantasia == 'Magazine Brasileiro'
+        and dados.icms_st.aliquota_fcp == 2.0 and dados.icms_st.valor_fcp == 2.0
+    )
+    registrar_resultado(
+        tabela_resultados, 'empresa_fantasia_e_fcp_st_lidos_do_registro',
+        "Empresa Fantasia='Magazine Brasileiro', % FCP ST=2.0, Valor FCP ST=2.0",
+        'empresa_fantasia e aliquota_fcp/valor_fcp com os mesmos valores',
+        'Campos novos (14/08/2026) — precisam chegar intactos do registro cru até a dataclass',
+        f'empresa_fantasia={dados.identificacao_nf.empresa_fantasia}, '
+        f'aliquota_fcp={dados.icms_st.aliquota_fcp}, valor_fcp={dados.icms_st.valor_fcp}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
 def test_dados_xml_nf_completo_com_todos_os_impostos_null(tabela_resultados):
     # Setup: caso real documentado no vault (EAN 7909436946186, NF 188419)
     # — TODOS os campos de TODOS os 6 impostos vêm null ao mesmo tempo,
@@ -341,6 +381,7 @@ def test_dados_xml_nf_completo_com_todos_os_impostos_null(tabela_resultados):
         'Aliquota ICMS': None, 'Redução ICMS': None, 'Valor ICMS': None,
         'Base Calculo ICMS ST': None, 'Aliquota ICMS ST': None,
         'Redução ICMS ST': None, 'Valor ICMS ST': None,
+        '% FCP ST': None, 'Valor FCP ST': None,
         'Base ICMS Ret': None, 'Valor ICMS Ret': None,
         'CST IPI': None, 'CST IPI Cadastro': None, 'Base Calculo IPI': None,
         'Aliquota IPI': None, 'Valor IPI': None,
@@ -353,10 +394,12 @@ def test_dados_xml_nf_completo_com_todos_os_impostos_null(tabela_resultados):
     # Exercise
     dados = DadosXmlNF.a_partir_do_registro(registro)
 
-    # Assert: monta sem exceção, os 6 impostos saem zerados, e o custo
-    # (fora do escopo desta decisão) continua real.
+    # Assert: monta sem exceção, os 6 impostos saem zerados (inclusive
+    # aliquota_fcp/valor_fcp), e o custo (fora do escopo desta decisão)
+    # continua real.
     todos_zerados = (
-        dados.icms.valor == 0.0 and dados.icms_st.valor == 0.0 and dados.icms_ret.valor == 0.0
+        dados.icms.valor == 0.0 and dados.icms_st.valor == 0.0 and dados.icms_st.valor_fcp == 0.0
+        and dados.icms_ret.valor == 0.0
         and dados.ipi.valor == 0.0 and dados.pis.valor == 0.0 and dados.cofins.valor == 0.0
     )
     bateu = todos_zerados and dados.custos.total == 1000.0

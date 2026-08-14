@@ -16,6 +16,7 @@ import pytest
 import requests
 
 from api_sysemp.core.cliente import ClienteApiSysemp
+from api_sysemp.core.excecoes import ErroRedeSysemp
 from api_sysemp.impostos_entrada_xml import ImpostosEntradaXML
 from testes_apoio.apoio_visual import registrar_resultado
 
@@ -253,6 +254,139 @@ def test_listar_por_periodo_chama_cliente_com_corpo_correto(monkeypatch, tabela_
         f'{resultado}', resultado == esperado,
     )
     assert resultado == esperado
+
+    # TearDown: nada a desmontar.
+
+
+# ===================================================================
+# Paginação completa (listar_periodo_completo) — nunca tinha teste
+# isolado antes (achado real, 14/08/2026, revisão calma do pipeline).
+# Cobre acumulação normal e a resiliência: preserva o que já foi
+# buscado se a API falhar no meio de uma paginação longa.
+# ===================================================================
+
+def test_listar_periodo_completo_acumula_paginas_ate_a_vazia(monkeypatch, tabela_resultados):
+    # Setup: 2 páginas com registro (2 e 1), 3ª página vazia — fim
+    # normal da paginação.
+    respostas = [
+        {'status': True, 'qtde': 2, 'retorno': [{'chave': 'nfe-1'}, {'chave': 'nfe-2'}]},
+        {'status': True, 'qtde': 1, 'retorno': [{'chave': 'nfe-3'}]},
+        {'status': True, 'qtde': 0, 'retorno': []},
+    ]
+    offsets_recebidos = []
+
+    def _requests_post_falso(url, json, headers, timeout):
+        offsets_recebidos.append(json['offset'])
+        return _RespostaFalsa(200, corpo_json=respostas[len(offsets_recebidos) - 1])
+
+    monkeypatch.setattr(requests, 'post', _requests_post_falso)
+    contexto = _contexto_de_teste()
+    progresso = []
+
+    # Exercise
+    resultado = contexto.listar_periodo_completo(
+        '2026-07-01', '2026-08-06', data_referencia=date(2026, 8, 6),
+        ao_avancar_pagina=lambda pagina, na_pagina, total: progresso.append((pagina, na_pagina, total)),
+    )
+
+    # Assert: acumulou as 3 (2+1) das 2 primeiras páginas, parou na 3ª
+    # vazia, offset avançou certo a cada chamada.
+    esperado = {'retorno': [{'chave': 'nfe-1'}, {'chave': 'nfe-2'}, {'chave': 'nfe-3'}]}
+    bateu = (
+        resultado == esperado
+        and offsets_recebidos == ['0', '2', '3']
+        and progresso == [(1, 2, 2), (2, 1, 3)]
+    )
+    registrar_resultado(
+        tabela_resultados, 'listar_periodo_completo_acumula_paginas',
+        '3 páginas simuladas (2, 1, 0 registros)', f'{esperado}',
+        'listar_periodo_completo nunca teve teste isolado antes — confirma acumulação e parada na página vazia.',
+        f'{resultado}, offsets={offsets_recebidos}, progresso={progresso}', bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_listar_periodo_completo_salva_parcial_e_ainda_relanca_quando_falha_no_meio(monkeypatch, tabela_resultados):
+    # Setup: 1ª página com sucesso (2 registros), toda chamada seguinte
+    # falha de rede de verdade — simula queda no meio de uma busca
+    # longa. maximo_tentativas=4 (ver _contexto_de_teste): as 4
+    # tentativas da 2ª página falham, ClienteApiSysemp esgota e levanta
+    # ErroRedeSysemp.
+    primeira_pagina = {'status': True, 'qtde': 2, 'retorno': [{'chave': 'nfe-1'}, {'chave': 'nfe-2'}]}
+    chamadas = []
+
+    def _requests_post_falso(url, json, headers, timeout):
+        chamadas.append(json['offset'])
+        if len(chamadas) == 1:
+            return _RespostaFalsa(200, corpo_json=primeira_pagina)
+        raise requests.exceptions.ConnectionError('rede caiu simulada')
+
+    monkeypatch.setattr(requests, 'post', _requests_post_falso)
+    contexto = _contexto_de_teste()
+    parciais_salvos = []
+
+    # Exercise
+    excecao_capturada = None
+    try:
+        contexto.listar_periodo_completo(
+            '2026-07-01', '2026-08-06', data_referencia=date(2026, 8, 6),
+            ao_falhar_com_parcial=lambda registros: parciais_salvos.append(registros),
+        )
+    except ErroRedeSysemp as excecao:
+        excecao_capturada = excecao
+
+    # Assert: exceção original ainda propaga (nunca é engolida) e o
+    # parcial preservado tem exatamente a 1ª página já obtida.
+    bateu = (
+        excecao_capturada is not None
+        and parciais_salvos == [[{'chave': 'nfe-1'}, {'chave': 'nfe-2'}]]
+    )
+    registrar_resultado(
+        tabela_resultados, 'listar_periodo_completo_salva_parcial_em_falha',
+        '1ª página ok (2 registros), 2ª página falha de rede',
+        '1 página preservada via callback, ErroRedeSysemp ainda propaga',
+        'Achado real (14/08/2026): sem isso, uma falha no meio de uma paginação longa jogava fora tudo que já tinha sido buscado com sucesso.',
+        f'excecao={type(excecao_capturada).__name__ if excecao_capturada else None}, parciais_salvos={parciais_salvos}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_listar_periodo_completo_nao_chama_parcial_quando_nenhuma_pagina_teve_sucesso(monkeypatch, tabela_resultados):
+    # Setup: já a 1ª chamada falha de rede — nenhuma página foi obtida
+    # ainda, não há nada de real pra preservar.
+    def _requests_post_falso(url, json, headers, timeout):
+        raise requests.exceptions.ConnectionError('rede caiu simulada desde a 1ª chamada')
+
+    monkeypatch.setattr(requests, 'post', _requests_post_falso)
+    contexto = _contexto_de_teste()
+    parciais_salvos = []
+
+    # Exercise
+    excecao_capturada = None
+    try:
+        contexto.listar_periodo_completo(
+            '2026-07-01', '2026-08-06', data_referencia=date(2026, 8, 6),
+            ao_falhar_com_parcial=lambda registros: parciais_salvos.append(registros),
+        )
+    except ErroRedeSysemp as excecao:
+        excecao_capturada = excecao
+
+    # Assert: exceção propaga, mas o callback de parcial nunca é
+    # chamado — não faz sentido salvar uma lista vazia.
+    bateu = excecao_capturada is not None and parciais_salvos == []
+    registrar_resultado(
+        tabela_resultados, 'listar_periodo_completo_sem_parcial_quando_nada_obtido',
+        'já a 1ª chamada falha, nenhuma página obtida', 'callback de parcial nunca chamado',
+        'Não faz sentido acionar o callback de salvamento parcial sem nenhum dado real pra preservar.',
+        f'excecao={type(excecao_capturada).__name__ if excecao_capturada else None}, parciais_salvos={parciais_salvos}',
+        bateu,
+    )
+    assert bateu
 
     # TearDown: nada a desmontar.
 
