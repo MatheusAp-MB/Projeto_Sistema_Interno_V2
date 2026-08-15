@@ -1,12 +1,12 @@
 # core/management/commands/popular_banco_suporte/conversor_celula_excel.py
 
 # Função Objetivo: Converte célula bruta do Excel em Decimal/texto, com segurança.
-# Explicação em detalhe: reaproveitado por Produtos ERP (lê via pandas) e
-# Planilha Validada (lê via openpyxl direto) — as 2 bibliotecas representam
-# "célula vazia" de formas diferentes (pandas usa NaN; openpyxl usa None ou
-# texto de erro de fórmula, tipo "#N/A"/"#REF!"). Antes duplicado com nomes
-# diferentes em cada arquivo — unificado aqui, match/case interno (só 2
-# variações — se crescer, separa em subclasses).
+# Explicação em detalhe: reaproveitado por Produtos ERP e Planilha Validada —
+# os 2 leem via openpyxl direto (não pandas, desde 15/08 — ver
+# leitor_planilha_erp.py). Mantido com 2 variações internas (pandas/openpyxl)
+# porque representam "célula vazia" de formas diferentes (pandas usa NaN;
+# openpyxl usa None ou texto de erro de fórmula, tipo "#N/A"/"#REF!") — se
+# algum arquivo novo voltar a usar pandas no futuro, a variação já existe aqui.
 #
 # NÃO inclui conversão fração→percentual (_pct do arquivo original) — essa
 # é uma transformação própria, sem equivalente no outro arquivo, continua

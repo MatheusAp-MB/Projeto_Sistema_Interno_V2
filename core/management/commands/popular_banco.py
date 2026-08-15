@@ -8,6 +8,13 @@
 #              Log em arquivo (17/07): tudo que vai pro console também é
 #              espelhado em logs/popular_banco_<timestamp>.log, via
 #              SaidaDupla — o log ficou grande demais só no terminal.
+#
+#              Etapas do Mercado Livre desativadas (15/08): os 3 arquivos
+#              JSON de que elas dependiam deixaram de ser lidos por este
+#              comando — a origem desse dado (API do ML) ainda está sendo
+#              integrada de forma organizada, com comando próprio, em vez
+#              de arquivo solto. Etapas mantidas comentadas (não apagadas),
+#              voltam quando esse comando novo existir.
 
 import time
 from pathlib import Path
@@ -18,10 +25,15 @@ from rich import print
 from core.funcoes_auxiliares.saida_dupla import SaidaDupla
 from core.management.commands.popular_banco_suporte.importar_produtos_erp import importar_produtos_erp
 from core.management.commands.popular_banco_suporte.sincronizar_indicadores_agenda_em_lote import sincronizar_indicadores_agenda_em_lote
-from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
-from core.management.commands.popular_banco_suporte.importar_dimensoes_declaradas_ml import importar_dimensoes_declaradas_ml
-from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
-from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
+# * [EXPLICAÇÃO] → Desativadas (15/08) — dependiam de detalhes_mlbs.json,
+#                  que deixou de ser lido por este comando. Ver explicação
+#                  no topo do arquivo.
+# from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
+# from core.management.commands.popular_banco_suporte.importar_dimensoes_declaradas_ml import importar_dimensoes_declaradas_ml
+# * [EXPLICAÇÃO] → Desativadas (15/08) — dependiam de dados_completos_por_sku.json,
+#                  mesmo motivo acima.
+# from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
+# from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml import importar_tabela_frete_ml
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_magalu import importar_tabela_frete_magalu
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_tiktok import importar_tabela_frete_tiktok
@@ -31,7 +43,9 @@ from core.management.commands.popular_banco_suporte.importar_tabela_frete_amazon
 #                  comentado (não apagado), pode ser útil revisitar no futuro.
 # from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
 from core.management.commands.popular_banco_suporte.organizar_e_verificar_divergencias_dimensoes_envio import organizar_e_verificar_divergencias_dimensoes_envio
-from core.management.commands.popular_banco_suporte.importar_promocoes_ml import importar_promocoes_ml
+# * [EXPLICAÇÃO] → Desativada (15/08) — dependia de promocoes_completo.json,
+#                  mesmo motivo das outras etapas do ML acima.
+# from core.management.commands.popular_banco_suporte.importar_promocoes_ml import importar_promocoes_ml
 from core.management.commands.popular_banco_suporte.calcular_recomendacoes_precificacao import calcular_recomendacoes_precificacao
 from precificacao.funcoes_auxiliares.mercado_livre.calcular_grade_precificacao_ml import calcular_grade_precificacao_ml
 from precificacao.funcoes_auxiliares.magalu.calcular_grade_precificacao_magalu import calcular_grade_precificacao_magalu
@@ -39,9 +53,6 @@ from precificacao.funcoes_auxiliares.raia.calcular_grade_precificacao_raia impor
 from precificacao.funcoes_auxiliares.shopee.calcular_grade_precificacao_shopee import calcular_grade_precificacao_shopee
 from precificacao.funcoes_auxiliares.tiktok.calcular_grade_precificacao_tiktok import calcular_grade_precificacao_tiktok
 from precificacao.funcoes_auxiliares.amazon.calcular_grade_precificacao_amazon import calcular_grade_precificacao_amazon
-
-CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
-CAMINHO_QUALIDADE = Path('Arquivos_API/dados_completos_por_sku.json')
 
 
 class Command(BaseCommand):
@@ -64,12 +75,13 @@ class Command(BaseCommand):
         self.stdout.write('Iniciando importação de dados reais...\n')
 
         etapas = [
-            ('PRODUTOS ERP', importar_produtos_erp, (CAMINHO_DETALHES_MLBS,)),
-            ('ANUNCIOS ML', importar_anuncios_ml, (CAMINHO_DETALHES_MLBS,)),
+            ('PRODUTOS ERP', importar_produtos_erp, ()),
+            # * [EXPLICAÇÃO] → Desativadas (15/08) — ver explicação no topo do arquivo.
+            # ('ANUNCIOS ML', importar_anuncios_ml, (CAMINHO_DETALHES_MLBS,)),
             ('INDICADORES AGENDA', sincronizar_indicadores_agenda_em_lote, ()),
-            ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (CAMINHO_DETALHES_MLBS,)),
-            ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
-            ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
+            # ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (CAMINHO_DETALHES_MLBS,)),
+            # ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
+            # ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
             ('FRETE ML', importar_tabela_frete_ml, ()),
             ('FRETE MAGALU', importar_tabela_frete_magalu, ()),
             ('FRETE TIKTOK', importar_tabela_frete_tiktok, ()),
@@ -85,6 +97,10 @@ class Command(BaseCommand):
             #                  (via resolver_dimensao_produto) e a Grade ML (via
             #                  resolver_dimensoes_efetivas) agora dependem dos
             #                  campos "_ordenada_cm" calculados aqui.
+            #                  Atenção (15/08): com DIMENSÕES DECLARADAS ML
+            #                  desativada, esta etapa roda só com o lado Produto
+            #                  — comportamento a confirmar quando a etapa do ML
+            #                  voltar.
             ('DIMENSÃO DE ENVIO — ORGANIZAR E COMPARAR', organizar_e_verificar_divergencias_dimensoes_envio, ()),
             ('GRADE DE PRECIFICAÇÃO ML', calcular_grade_precificacao_ml, ()),
             ('GRADE MAGALU', calcular_grade_precificacao_magalu, ()),
@@ -92,7 +108,7 @@ class Command(BaseCommand):
             ('GRADE SHOPEE', calcular_grade_precificacao_shopee, ()),
             ('GRADE TIKTOK', calcular_grade_precificacao_tiktok, ()),
             ('GRADE AMAZON', calcular_grade_precificacao_amazon, ()),
-            ('PROMOÇÕES ML', importar_promocoes_ml, ()),
+            # ('PROMOÇÕES ML', importar_promocoes_ml, ()),
             ('RECOMENDAÇÃO PRECIFICAÇÃO', calcular_recomendacoes_precificacao, ()),
         ]
 

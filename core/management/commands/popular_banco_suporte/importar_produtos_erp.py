@@ -1,120 +1,57 @@
-# core/management/commands/popular_banco_suporte/importar_produtos_ml.py
+# core/management/commands/popular_banco_suporte/importar_produtos_erp.py
 
-# Função Objetivo: Popula e enriquece Produto, unificando as 2 fontes que
-# antes eram 2 arquivos separados (rascunho + enriquecimento).
-# Explicação em detalhe: Fase Rascunho — garante que TODO SKU que existe
-# de verdade no Mercado Livre (detalhes_mlbs.json) tenha um Produto, cruzando
-# com a planilha simples do ERP (Produtos_do_ML_Sysemp.xlsx) pra achar o EAN.
-# Cobre o caso real confirmado pelo usuário: produto pode estar ativo no ERP
-# e nem ser trabalhado no ML, ou pausado no ML mesmo ativo no ERP — "ativo"
-# tem sentido diferente nas 2 fontes. Fase Enriquecimento — sobrescreve com
-# dado mais completo vindo do Relatorio_Completo_ERP.xlsx (só produtos
-# ativos no ERP), incluindo dimensão/custo/peso_cubado que o rascunho não tem.
+# Função Objetivo: Popula e enriquece Produto — direto do ERP, sem
+# intermediário nenhum.
+# Explicação em detalhe: até 15/08, este comando criava o Produto a partir
+# do JSON do Mercado Livre e só depois enriquecia com o ERP — na prática,
+# era o marketplace que decidia quais produtos existiam no sistema. Isso
+# foi identificado como incorreto: o ERP é a única fonte da verdade sobre
+# quais produtos existem (ver decisão "Produto Nasce Exclusivamente do ERP"
+# no vault) — um produto só existe aqui porque está cadastrado no ERP,
+# nunca porque apareceu num anúncio de marketplace.
 #
-# Reescrito em POO (16/07) — 3 classes:
-#   LinhaProdutoRascunho    → 1 SKU do ML cruzado com a planilha simples
-#   LinhaProdutoCompleto    → 1 linha da planilha completa, já validada
-#   ImportadorProdutos      → o processo inteiro, do arquivo ao banco
+# Lê os 2 relatórios de cadastro do ERP (Ativos + Inativos — juntos, são
+# 100% do cadastro de produtos da empresa) e cria/atualiza Produto
+# diretamente a partir deles. O status ativo/inativo vem da coluna real
+# "Inativo" de cada linha (nunca do nome do arquivo) — ver campo
+# `Produto.ativo_no_erp`.
+#
+# Reescrito em POO (16/07, unificado 15/08) — 2 classes:
+#   LinhaProdutoERP     → 1 linha de qualquer um dos 2 relatórios do ERP
+#   ImportadorProdutos  → o processo inteiro, dos 2 arquivos ao banco
 
-import json
-import pandas as pd
 from decimal import Decimal
 from produtos.models import Produto
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 from core.management.commands.popular_banco_suporte.parser_data import ParserData
+from core.management.commands.popular_banco_suporte.leitor_planilha_erp import ler_linhas_planilha_erp
 
-CAMINHO_LISTA_ML = 'Arquivos_API/detalhes_mlbs.json'
-CAMINHO_ERP_SIMPLES = 'Arquivos_de_Importação/Produtos_do_ML_Sysemp.xlsx'
-CAMINHO_ERP_COMPLETO = 'Arquivos_de_Importação/Relatorio_Completo_ERP.xlsx'
-
-COLUNAS_ERP_COMPLETO = [
-    'Codigo Auxiliar', 'Codigo de Barras', 'Codigo do Fabricante',
-    'Detalhes do Produto', 'Categoria', 'Estoque', 'Marca',
-    'Peso Bruto', 'Altura', 'Largura', 'Comprimento',
-    'Embalagem Altura', 'Embalagem Largura', 'Embalagem Comprimento', 'Emablagem Peso',
-    'Custo', 'ncm', 'URL 1', 'Ultima Compra', 'dt_cadastro',
-]
+CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
+CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
 
 FATOR_PESO_CUBADO = Decimal('6000')
 LIMITE_DIMENSAO_CM = Decimal('9999.99')
 LIMITE_PESO_CUBADO_KG = Decimal('99999.999')
 
 
-
-
-
-# Função Objetivo: Representa 1 SKU do ML cruzado com a planilha simples.
-class LinhaProdutoRascunho:
+# Função Objetivo: Representa 1 linha de um dos relatórios do ERP, já validada.
+class LinhaProdutoERP:
 
     # * [EXPLICAÇÃO] → Lista os nomes de campo como CONSTANTE da classe —
     #                  evita instanciar um objeto "vazio" só pra descobrir
     #                  as chaves (frágil: quebra se algum método interno
     #                  tentar ler dado real de um objeto sem dado nenhum).
-    CAMPOS_PRODUTO = ['sku', 'cod_fabricante', 'titulo', 'categoria', 'estoque', 'marca', 'imagem_url']
-
-    # Função Objetivo: Recebe o SKU, a linha da planilha simples, e o conversor compartilhado.
-    def __init__(self, sku, linha_erp_simples, conversor):
-        self.sku = sku
-        self.linha_erp_simples = linha_erp_simples
-        self.conversor = conversor
-        self.ean = None
-        self.tem_ean = False
-
-    # Função Objetivo: Extrai o EAN e diz se essa linha pode virar Produto.
-    # Explicação em detalhe: sem EAN não dá pra casar com nada — a linha é
-    # descartada (contada, nunca silenciosamente ignorada).
-    def extrair_ean(self):
-        if self.linha_erp_simples is None or pd.isna(self.linha_erp_simples.get('Código de Barras')):
-            self.tem_ean = False
-            return
-        self.ean = str(self.linha_erp_simples['Código de Barras']).strip()
-        self.tem_ean = True
-
-    # Função Objetivo: Roda o único passo necessário, na ordem certa.
-    def transformar_linha_em_produto(self):
-        self.extrair_ean()
-        return self
-
-    # Função Objetivo: Devolve os campos prontos pro Produto(**isso).
-    # Explicação em detalhe: custo/dimensões viram placeholder zero aqui —
-    # a fase de Enriquecimento (LinhaProdutoCompleto) é quem preenche com
-    # dado real, quando o produto também existir na planilha completa.
-    def para_dict_produto(self):
-        linha = self.linha_erp_simples
-        return dict(
-            sku=self.sku,
-            cod_fabricante=self.conversor.para_texto(linha.get('Código Fabricante')),
-            titulo=self.conversor.para_texto(linha.get('Descrição do Produto'), self.sku),
-            categoria=self.conversor.para_texto(linha.get('Categoria')),
-            estoque=int(self.conversor.para_decimal(linha.get('Estoque'), padrao=0)),
-            marca=self.conversor.para_texto(linha.get('Marca')),
-            imagem_url=self.conversor.para_texto(linha.get('Imagem 1')),
-        )
-
-    # Função Objetivo: Devolve os campos placeholder obrigatórios na criação.
-    def para_dict_placeholder_criacao(self):
-        return dict(
-            custo=Decimal('0'),
-            peso_produto_sem_embalar=Decimal('0'),
-            altura_produto_sem_embalar=Decimal('0'),
-            largura_produto_sem_embalar=Decimal('0'),
-            comprimento_produto_sem_embalar=Decimal('0'),
-        )
-
-
-# Função Objetivo: Representa 1 linha da planilha completa do ERP, já validada.
-class LinhaProdutoCompleto:
-
     CAMPOS_PRODUTO = [
         'titulo', 'cod_fabricante', 'categoria', 'marca', 'ncm', 'estoque', 'custo',
+        'ativo_no_erp',
         'peso_produto_sem_embalar', 'altura_produto_sem_embalar', 'largura_produto_sem_embalar',
         'comprimento_produto_sem_embalar', 'peso_produto_apos_embalado', 'altura_produto_apos_embalado',
         'largura_produto_apos_embalado', 'comprimento_produto_apos_embalado', 'peso_cubado',
         'imagem_url', 'ultima_compra', 'cadastrado_erp_em',
     ]
 
-    # Função Objetivo: Recebe a linha bruta do pandas, o conversor e o parser de data.
+    # Função Objetivo: Recebe a linha (dict) já lida por ler_linhas_planilha_erp, o conversor e o parser de data.
     def __init__(self, linha_bruta, conversor, parser_data):
         self.linha_bruta = linha_bruta
         self.conversor = conversor
@@ -129,6 +66,7 @@ class LinhaProdutoCompleto:
         self.ncm = None
         self.estoque = None
         self.custo = None
+        self.ativo_no_erp = None
         self.imagem_url = None
         self.ultima_compra = None
         self.cadastrado_erp_em = None
@@ -146,7 +84,7 @@ class LinhaProdutoCompleto:
         self.peso_cubado = None
         self.erro_dimensao = None
 
-    # Função Objetivo: Extrai SKU, EAN, título e os demais campos simples.
+    # Função Objetivo: Extrai SKU, EAN, título, status ativo/inativo e os demais campos simples.
     def extrair_campos_basicos(self):
         self.sku = self.conversor.para_texto(self.linha_bruta.get('Codigo Auxiliar'))
         self.ean = self.conversor.para_texto(self.linha_bruta.get('Codigo de Barras'))
@@ -157,9 +95,19 @@ class LinhaProdutoCompleto:
         self.ncm = self.conversor.para_texto(self.linha_bruta.get('ncm'))
         self.estoque = int(self.conversor.para_decimal(self.linha_bruta.get('Estoque'), padrao=0))
         self.custo = self.conversor.para_decimal(self.linha_bruta.get('Custo'), padrao=0)
+        self.ativo_no_erp = self._extrair_ativo_no_erp()
         self.imagem_url = self.conversor.para_texto(self.linha_bruta.get('URL 1'))
         self.ultima_compra = self.parser_data.parsear(self.linha_bruta.get('Ultima Compra'))
         self.cadastrado_erp_em = self.parser_data.parsear(self.linha_bruta.get('dt_cadastro'))
+
+    # Função Objetivo: Traduz a coluna real "Inativo" do ERP pro campo positivo `ativo_no_erp`.
+    # Explicação em detalhe: convenção confirmada na planilha real — 'T' = inativo,
+    # 'F' = ativo (mesma convenção de outras colunas booleanas do ERP, tipo
+    # "disponivel"/"utiliza_os"). Invertido de propósito: o campo do sistema
+    # é positivo (ativo_no_erp), não o duplo-negativo do ERP.
+    def _extrair_ativo_no_erp(self):
+        valor_inativo = self.linha_bruta.get('Inativo')
+        return str(valor_inativo).strip().upper() != 'T'
 
     # Função Objetivo: Extrai altura/largura/comprimento/peso do produto puro.
     # Explicação em detalhe: o ERP entrega em metros (confirmado) — converte
@@ -242,9 +190,12 @@ class LinhaProdutoCompleto:
         self.calcular_peso_cubado()
         return self
 
-    # Função Objetivo: Diz se essa linha tem dado mínimo pra virar Produto.
+    # Função Objetivo: Diz se essa linha tem o dado mínimo pra virar Produto.
+    # Explicação em detalhe: sem EAN não dá pra casar com nada — a linha é
+    # descartada (contada, nunca silenciosamente ignorada). SKU ausente não
+    # desqualifica a linha (campo opcional no model), só fica registrado.
     def esta_valida(self):
-        return bool(self.sku)
+        return bool(self.ean)
 
     # Função Objetivo: Devolve os campos prontos pro Produto(**isso).
     def para_dict_produto(self):
@@ -256,6 +207,7 @@ class LinhaProdutoCompleto:
             ncm=self.ncm,
             estoque=self.estoque,
             custo=self.custo,
+            ativo_no_erp=self.ativo_no_erp,
             peso_produto_sem_embalar=self.peso_sem_embalar,
             altura_produto_sem_embalar=self.altura_sem_embalar,
             largura_produto_sem_embalar=self.largura_sem_embalar,
@@ -271,19 +223,13 @@ class LinhaProdutoCompleto:
         )
 
 
-# Função Objetivo: Orquestra a importação inteira de Produtos, as 2 fases.
+# Função Objetivo: Orquestra a importação inteira de Produtos, dos 2 arquivos do ERP.
 class ImportadorProdutos:
 
-    # Função Objetivo: Recebe os 3 caminhos de arquivo e zera os contadores.
-    def __init__(self, caminho_lista_ml=CAMINHO_LISTA_ML, caminho_erp_simples=CAMINHO_ERP_SIMPLES,
-                 caminho_erp_completo=CAMINHO_ERP_COMPLETO):
-        self.caminho_lista_ml = caminho_lista_ml
-        self.caminho_erp_simples = caminho_erp_simples
-        self.caminho_erp_completo = caminho_erp_completo
-
-        self.skus_unicos_ml = set()
-        self.erp_simples_por_sku = {}
-        self.dataframe_erp_completo = None
+    # Função Objetivo: Recebe os 2 caminhos de arquivo (Ativos/Inativos) e zera os contadores.
+    def __init__(self, caminho_erp_ativos=CAMINHO_ERP_ATIVOS, caminho_erp_inativos=CAMINHO_ERP_INATIVOS):
+        self.caminho_erp_ativos = caminho_erp_ativos
+        self.caminho_erp_inativos = caminho_erp_inativos
 
         self.produtos_por_ean = {}
         self.eans_ja_enfileirados_para_criar = set()
@@ -291,122 +237,58 @@ class ImportadorProdutos:
         self.produtos_ja_atualizados = set()  # * ids Python (id()) já enfileirados
         self.produtos_para_atualizar = []
 
-        self.criados_rascunho = 0
-        self.atualizados_rascunho = 0
-        self.sem_ean_rascunho = 0
-
-        self.atualizados_completo = 0
-        self.criados_completo = 0
+        self.criados = 0
+        self.atualizados = 0
+        self.sem_ean = 0
         self.erros_dimensao = []
 
-        self.conversor = ConversorCelulaExcel(origem='pandas')
+        self.conversor = ConversorCelulaExcel(origem='openpyxl')
         self.parser_data = ParserData(origem='excel_br')
-
-    # Função Objetivo: Lê a lista real de SKUs existentes no Mercado Livre.
-    def ler_lista_skus_ml(self):
-        with open(self.caminho_lista_ml, encoding='utf-8') as f:
-            dados = json.load(f)
-        registros = dados.get('registros', [])
-        self.skus_unicos_ml = {r.get('sku') for r in registros if r.get('sku')}
-
-    # Função Objetivo: Lê a planilha simples do ERP (EAN, título, categoria...).
-    def ler_planilha_erp_simples(self):
-        df = pd.read_excel(self.caminho_erp_simples)
-        df = df.rename(columns={'SKU na Plataforma': 'SKU'})
-        df = df[[
-            'SKU', 'Código de Barras', 'Código Fabricante',
-            'Descrição do Produto', 'Categoria', 'Estoque', 'Marca', 'Imagem 1',
-        ]]
-        self.erp_simples_por_sku = {row['SKU']: row for _, row in df.iterrows()}
-
-    # Função Objetivo: Lê a planilha completa do ERP (só produtos ativos).
-    def ler_planilha_erp_completo(self):
-        df = pd.read_excel(self.caminho_erp_completo)
-        self.dataframe_erp_completo = df[COLUNAS_ERP_COMPLETO]
 
     # Função Objetivo: Carrega em memória os produtos já existentes no banco.
     def carregar_produtos_existentes(self):
         self.produtos_por_ean = {p.ean: p for p in Produto.objects.all()}
 
-    # Função Objetivo: Garante que todo SKU do ML tenha um Produto (rascunho).
-    # Explicação em detalhe: cruza cada SKU do ML com a planilha simples pra
-    # achar o EAN — sem EAN, não dá pra casar com nada, é só contado.
-    def garantir_existencia_rascunho(self):
-        for sku in self.skus_unicos_ml:
-            linha = LinhaProdutoRascunho(
-                sku, self.erp_simples_por_sku.get(sku), self.conversor
-            ).transformar_linha_em_produto()
+    # Função Objetivo: Processa 1 arquivo do ERP inteiro (Ativos OU Inativos), linha a linha.
+    # Explicação em detalhe: os 2 arquivos passam por aqui, um depois do outro
+    # (ver rodar_importacao_completa) — a lógica de criar/atualizar é a mesma
+    # pros 2, só muda o arquivo de origem.
+    def processar_arquivo(self, caminho):
+        for linha_bruta in ler_linhas_planilha_erp(caminho):
+            linha = LinhaProdutoERP(linha_bruta, self.conversor, self.parser_data).transformar_linha_em_produto()
 
-            if not linha.tem_ean:
-                self.sem_ean_rascunho += 1
+            if not linha.esta_valida():
+                self.sem_ean += 1
                 continue
+
+            if linha.erro_dimensao:
+                self.erros_dimensao.append(linha.erro_dimensao)
 
             existente = self.produtos_por_ean.get(linha.ean)
             if existente:
                 for campo, valor in linha.para_dict_produto().items():
                     setattr(existente, campo, valor)
                 # * [EXPLICAÇÃO] → Se ainda não tem PK, é um produto criado
-                #                  NESTA MESMA rodada (banco recém-criado,
-                #                  sem histórico) — já vai ser salvo pelo
+                #                  NESTA MESMA rodada (banco recém-criado, ou
+                #                  o mesmo EAN apareceu nos 2 arquivos — não
+                #                  deveria acontecer, mas não quebra se
+                #                  acontecer) — já vai ser salvo pelo
                 #                  bulk_create no final, não pode ir pro
-                #                  bulk_update (mesmo bug já corrigido em
-                #                  Promoções/Qualidade/Competição, esquecido
-                #                  aqui na unificação).
+                #                  bulk_update.
                 if existente.pk and id(existente) not in self.produtos_ja_atualizados:
                     self.produtos_para_atualizar.append(existente)
                     self.produtos_ja_atualizados.add(id(existente))
-                self.atualizados_rascunho += 1
-            else:
-                novo = Produto(
-                    ean=linha.ean,
-                    **linha.para_dict_produto(),
-                    **linha.para_dict_placeholder_criacao(),
-                )
-                self.produtos_para_criar.append(novo)
-                self.produtos_por_ean[linha.ean] = novo
-                self.eans_ja_enfileirados_para_criar.add(linha.ean)
-                self.criados_rascunho += 1
-
-    # Função Objetivo: Sobrescreve com dado completo (dimensão/custo/peso_cubado).
-    # Explicação em detalhe: casa por SKU (Codigo Auxiliar) primeiro; se não
-    # achar, tenta por EAN — o SKU desta planilha nem sempre bate com
-    # Produto.sku (fonte diferente, API do ML).
-    def enriquecer_com_dado_completo(self):
-        produtos_por_sku = {p.sku: p for p in self.produtos_por_ean.values() if p.sku}
-
-        for _, linha_bruta in self.dataframe_erp_completo.iterrows():
-            linha = LinhaProdutoCompleto(
-                linha_bruta, self.conversor, self.parser_data
-            ).transformar_linha_em_produto()
-            if not linha.esta_valida():
+                self.atualizados += 1
                 continue
-            if linha.erro_dimensao:
-                self.erros_dimensao.append(linha.erro_dimensao)
 
-            existente = produtos_por_sku.get(linha.sku) or (
-                self.produtos_por_ean.get(linha.ean) if linha.ean else None
-            )
-
-            if existente:
-                for campo, valor in linha.para_dict_produto().items():
-                    setattr(existente, campo, valor)
-                # * [EXPLICAÇÃO] → Mesma proteção da fase de Rascunho — o
-                #                  produto pode ter sido criado por ELA
-                #                  mesma, nesta mesma rodada, ainda sem PK.
-                if existente.pk and id(existente) not in self.produtos_ja_atualizados:
-                    self.produtos_para_atualizar.append(existente)
-                    self.produtos_ja_atualizados.add(id(existente))
-                self.atualizados_completo += 1
-                continue    
-
-            if not linha.ean or linha.ean in self.eans_ja_enfileirados_para_criar:
+            if linha.ean in self.eans_ja_enfileirados_para_criar:
                 continue
 
             novo = Produto(sku=linha.sku, ean=linha.ean, **linha.para_dict_produto())
             self.produtos_para_criar.append(novo)
             self.produtos_por_ean[linha.ean] = novo
             self.eans_ja_enfileirados_para_criar.add(linha.ean)
-            self.criados_completo += 1
+            self.criados += 1
 
     # Função Objetivo: Grava tudo no banco em lote, 1 única vez no final.
     def salvar(self):
@@ -414,40 +296,33 @@ class ImportadorProdutos:
             Produto.objects.bulk_create(self.produtos_para_criar, batch_size=BATCH_SIZE_PADRAO)
 
         if self.produtos_para_atualizar:
-            # * [EXPLICAÇÃO] → união dos campos que QUALQUER uma das 2 fases
-            #                  pode ter alterado — bulk_update precisa da
-            #                  lista completa, mesmo que 1 produto só tenha
-            #                  sido tocado por 1 das 2 fases.
-            campos = sorted(set(LinhaProdutoRascunho.CAMPOS_PRODUTO) | set(LinhaProdutoCompleto.CAMPOS_PRODUTO))
-            Produto.objects.bulk_update(self.produtos_para_atualizar, campos, batch_size=BATCH_SIZE_PADRAO)
+            Produto.objects.bulk_update(
+                self.produtos_para_atualizar, LinhaProdutoERP.CAMPOS_PRODUTO, batch_size=BATCH_SIZE_PADRAO
+            )
 
-    # Função Objetivo: Roda a importação inteira, as 2 fases, do arquivo ao banco.
+    # Função Objetivo: Roda a importação inteira, os 2 arquivos, do ERP ao banco.
     def rodar_importacao_completa(self):
-        self.ler_lista_skus_ml()
-        self.ler_planilha_erp_simples()
-        self.ler_planilha_erp_completo()
         self.carregar_produtos_existentes()
-        self.garantir_existencia_rascunho()
-        self.enriquecer_com_dado_completo()
+        self.processar_arquivo(self.caminho_erp_ativos)
+        self.processar_arquivo(self.caminho_erp_inativos)
         self.salvar()
         return self
 
     # Função Objetivo: Monta o texto de resumo pro terminal.
     def relatorio(self):
         return (
-            f'[PRODUTOS] Concluído!\n'
-            f'    SKUs únicos no ML: {len(self.skus_unicos_ml)}\n'
-            f'    Rascunho — criados: {self.criados_rascunho}, atualizados: {self.atualizados_rascunho}, sem EAN: {self.sem_ean_rascunho}\n'
-            f'    Completo — criados: {self.criados_completo}, atualizados: {self.atualizados_completo}\n'
+            f'[PRODUTOS ERP] Concluído!\n'
+            f'    Criados: {self.criados}, atualizados: {self.atualizados}\n'
+            f'    Linhas sem EAN (ignoradas, não dá pra casar com nada): {self.sem_ean}\n'
             f'    Dimensão de embalagem com erro de cadastro (ignorada): {len(self.erros_dimensao)}'
         )
 
 
 # Função Objetivo: Ponto de entrada chamado pelo popular_banco.
-def importar_produtos_erp(stdout, style, caminho_json=CAMINHO_LISTA_ML):
-    stdout.write('[PRODUTOS] Lendo lista do ML e planilhas do ERP...')
+def importar_produtos_erp(stdout, style):
+    stdout.write('[PRODUTOS ERP] Lendo relatórios de Ativos e Inativos do ERP...')
 
-    importador = ImportadorProdutos(caminho_lista_ml=caminho_json).rodar_importacao_completa()
+    importador = ImportadorProdutos().rodar_importacao_completa()
 
     stdout.write('')
     stdout.write(style.SUCCESS(importador.relatorio()))

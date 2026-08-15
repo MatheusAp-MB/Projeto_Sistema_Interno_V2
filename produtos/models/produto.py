@@ -115,6 +115,8 @@ class Produto(models.Model):
 
     estoque = models.IntegerField(default=0)
 
+    ativo_no_erp = models.BooleanField(default=True)
+    
     custo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     custo_com_boni = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True)
