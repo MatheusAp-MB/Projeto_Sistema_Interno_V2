@@ -1,5 +1,11 @@
+# * [RESUMO] → Seed da tabela de comissão Tiktok (2 faixas, confirmadas por
+#              print oficial do Tiktok). Dado fixo de referência — mesmo
+#              padrão de FaixaArmazenagem/TabelaComissaoShopee, não vem de
+#              arquivo externo do popular_banco.
+
 from decimal import Decimal
 from precificacao.models import TabelaComissaoTiktok
+from core.management.commands.iniciar_banco_suporte.formatacao_faixa_preco import formatar_teto
 
 
 def popular_tabela_comissao_tiktok(stdout, style):
@@ -19,5 +25,4 @@ def popular_tabela_comissao_tiktok(stdout, style):
                 'adicional_fixo': adicional_fixo,
             }
         )
-        teto = preco_max if preco_max is not None else 'sem teto'
-        stdout.write(f'       R$ {preco_min}-{teto}: {"criada" if criado else "já existe"}')
+        stdout.write(f'       R$ {preco_min}-{formatar_teto(preco_max)}: {"criada" if criado else "já existe"}')
