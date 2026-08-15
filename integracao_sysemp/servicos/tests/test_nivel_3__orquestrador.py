@@ -205,6 +205,36 @@ def test_erro_na_api_registra_falha_e_nao_avanca_watermark(monkeypatch, tabela_r
     # TearDown: nada a desmontar.
 
 
+def test_erro_antes_da_1a_pagina_limpa_parcial_de_tentativa_anterior(monkeypatch, tabela_resultados):
+    # Setup: existe um parcial de uma tentativa ANTERIOR e sem relação
+    # nenhuma com esta (achado real, 15/08/2026), e a API falha de cara,
+    # antes de qualquer página — ao_falhar_com_parcial nem chega a ser
+    # chamado nesse caso.
+    arquivos_retorno_api.salvar_json(
+        {'retorno': [{'sobra': 'de uma tentativa antiga sem relação com esta falha'}]},
+        arquivos_retorno_api.NOME_ARQUIVO_BRUTO_PARCIAL,
+    )
+    _mockar_api(monkeypatch, excecao=ErroAPISysemp('erro de rede simulado antes da 1ª página'))
+
+    # Exercise
+    sincronizar_impostos_entrada_xml()
+
+    # Assert: o parcial antigo não pode sobreviver — precisa estar limpo,
+    # mesmo essa tentativa não tendo acumulado nenhuma página nova.
+    parcial = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_BRUTO_PARCIAL, padrao=None)
+    bateu = parcial == {'retorno': []}
+    registrar_resultado(
+        tabela_resultados, 'erro_antes_1a_pagina_limpa_parcial_antigo',
+        'parcial de tentativa antiga presente, nova tentativa falha antes da 1ª página',
+        "parcial limpo ({'retorno': []}), não o dado antigo",
+        'Bug real corrigido (15/08/2026): sem limpar no início, o parcial de uma falha antiga e sem relação ficava parecendo ser desta tentativa',
+        f'parcial={parcial}', bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
 def test_erro_no_meio_da_paginacao_salva_parcial_em_disco(monkeypatch, tabela_resultados):
     # Setup: nunca sincronizado, API consegue 1 página (2 registros) e
     # falha na seguinte — simula queda no meio de uma busca longa.

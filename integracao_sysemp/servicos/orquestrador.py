@@ -164,6 +164,16 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
     data_inicial, data_final = registro_watermark.calcular_janela_da_proxima_busca()
     _informar(f'Buscando manifesto na API ({data_inicial.isoformat()} → {data_final.isoformat()})...')
 
+    # * [EXPLICAÇÃO] → limpa o parcial ANTES de tentar, não só depois de um
+    #                  sucesso total — achado real (15/08/2026): se esta
+    #                  tentativa falhar antes mesmo da 1ª página (nenhum
+    #                  registro acumulado ainda), ao_falhar_com_parcial nem
+    #                  chega a ser chamado — sem esta limpeza aqui, o
+    #                  parcial de uma tentativa ANTERIOR e sem relação
+    #                  nenhuma ficaria parado no disco, parecendo
+    #                  (erradamente) pertencer à tentativa atual.
+    salvar_json({'retorno': []}, NOME_ARQUIVO_BRUTO_PARCIAL)
+
     houve_erro_na_api = False
     mensagem_erro_api = ''
     with _cronometrar(relatorio, 'busca_api'):
@@ -183,12 +193,10 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
 
     with _cronometrar(relatorio, 'salvar_bruto'):
         salvar_json(bruto, NOME_ARQUIVO_BRUTO)
-        # * [EXPLICAÇÃO] → busca completa terminou com sucesso — qualquer
-        #                  parcial de uma tentativa anterior já está
-        #                  obsoleto (o Bruto oficial agora tem tudo).
-        #                  Limpa pra nunca confundir uma tentativa velha
-        #                  com a atual.
-        salvar_json({'retorno': []}, NOME_ARQUIVO_BRUTO_PARCIAL)
+        # * [EXPLICAÇÃO] → busca terminou com sucesso total — o parcial já
+        #                  foi limpo no início desta tentativa (acima) e
+        #                  segue vazio, já que nenhuma falha aconteceu no
+        #                  meio do caminho pra sobrescrevê-lo.
 
     _informar(f'Filtrando por CFOP ({len(bruto["retorno"])} notas brutas)...')
     with _cronometrar(relatorio, 'filtro_cfop'):
