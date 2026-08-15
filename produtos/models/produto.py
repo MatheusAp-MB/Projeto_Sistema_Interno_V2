@@ -22,6 +22,7 @@ class DadosIdentificacaoProduto:
     curva: str
     imagem_url: str
     estoque: int
+    ativo_no_erp: bool
 
 
 # Função Objetivo: Agrupa os dados financeiros do Produto.
@@ -115,8 +116,16 @@ class Produto(models.Model):
 
     estoque = models.IntegerField(default=0)
 
+    # * [EXPLICAÇÃO] → Adicionado 15/08 — antes o sistema não tinha nenhum
+    #                  jeito explícito de saber se um produto está ativo ou
+    #                  inativo no ERP (isso ficava só implícito em qual
+    #                  arquivo o produto vinha). Agora vem direto da coluna
+    #                  real "Inativo" da planilha do ERP (ver
+    #                  importar_produtos_erp.py) — nunca inferido do nome
+    #                  do arquivo. Ver decisão "Produto Nasce Exclusivamente
+    #                  do ERP" no vault.
     ativo_no_erp = models.BooleanField(default=True)
-    
+
     custo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     custo_com_boni = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True)
@@ -242,7 +251,7 @@ class Produto(models.Model):
         return DadosIdentificacaoProduto(
             ean=self.ean, sku=self.sku, cod_fabricante=self.cod_fabricante, ncm=self.ncm,
             titulo=self.titulo, marca=self.marca, categoria=self.categoria, curva=self.curva,
-            imagem_url=self.imagem_url, estoque=self.estoque,
+            imagem_url=self.imagem_url, estoque=self.estoque, ativo_no_erp=self.ativo_no_erp,
         )
 
     # Função Objetivo: Devolve os dados financeiros deste produto.
