@@ -14,6 +14,19 @@
 # (ou nem exibe, se não passar nada); o orquestrador nunca imprime nada
 # ele mesmo. Repassa progresso página a página durante a busca na API
 # (mesmo hook ao_avancar_pagina já usado em scripts_exploracao_ERP).
+#
+# Atualizado (15/08/2026): filtrar_por_cfop() e
+# selecionar_nota_mais_recente_por_produto() agora devolvem (resultado,
+# erros) em vez de só o resultado — 1 registro malformado (nota com
+# itens_nf nulo, data ou NF inválida, linha sem Código Barras) não
+# derruba mais a fase inteira, só vira 1 entrada na lista de erros. Essas
+# 2 funções continuam sem saber de disco (ver arquivos_retorno_api.py:
+# "nenhuma função de negócio sabe de disco por conta própria") — é o
+# orquestrador quem chama registrar_erro() pra cada erro devolvido, mesma
+# filosofia de resiliência já usada em persistir_selecionados_no_banco.
+# Novos campos no relatório (notas_com_erro_no_filtro,
+# linhas_com_erro_na_selecao) tornam essas pendências visíveis sem
+# precisar abrir o json de erros.
 
 import time
 from contextlib import contextmanager
@@ -61,6 +74,8 @@ class RelatorioDeSincronizacao:
     produtos_sincronizados: int = 0
     produtos_sem_correspondencia: int = 0
     produtos_com_erro: int = 0
+    notas_com_erro_no_filtro: int = 0
+    linhas_com_erro_na_selecao: int = 0
 
 
 @contextmanager
@@ -73,6 +88,14 @@ def _cronometrar(relatorio: RelatorioDeSincronizacao, campo: str):
         yield
     finally:
         setattr(relatorio, campo, time.perf_counter() - inicio)
+
+
+def _registrar_erros(erros: list[dict], etapa: str) -> None:
+    """Recebe a lista de erros devolvida por uma etapa pura (filtro ou
+    seleção) e grava cada 1 como pendência de verdade — só o orquestrador
+    sabe de disco (ver arquivos_retorno_api.py)."""
+    for erro in erros:
+        registrar_erro(erro['identificador'], etapa=etapa, mensagem=erro['mensagem'])
 
 
 def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: RelatorioDeSincronizacao) -> None:
@@ -169,14 +192,22 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
 
     _informar(f'Filtrando por CFOP ({len(bruto["retorno"])} notas brutas)...')
     with _cronometrar(relatorio, 'filtro_cfop'):
-        filtrado = filtrar_por_cfop(bruto['retorno'])
+        filtrado, erros_filtro = filtrar_por_cfop(bruto['retorno'])
+    _registrar_erros(erros_filtro, etapa='filtro_cfop')
+    relatorio.notas_com_erro_no_filtro = len(erros_filtro)
+    if erros_filtro:
+        _informar(f'{len(erros_filtro)} nota(s) puladas por erro no filtro CFOP — ver pendências.')
 
     with _cronometrar(relatorio, 'salvar_filtrado'):
         salvar_json(filtrado, NOME_ARQUIVO_FILTRADO)
 
     _informar(f'Selecionando a nota mais recente por produto ({len(filtrado)} registros filtrados)...')
     with _cronometrar(relatorio, 'selecao_nota_recente'):
-        selecionados = selecionar_nota_mais_recente_por_produto(filtrado)
+        selecionados, erros_selecao = selecionar_nota_mais_recente_por_produto(filtrado)
+    _registrar_erros(erros_selecao, etapa='selecao_nota_recente')
+    relatorio.linhas_com_erro_na_selecao = len(erros_selecao)
+    if erros_selecao:
+        _informar(f'{len(erros_selecao)} linha(s) puladas por erro na seleção da nota mais recente — ver pendências.')
     relatorio.produtos_selecionados = len(selecionados)
 
     with _cronometrar(relatorio, 'salvar_selecionados'):

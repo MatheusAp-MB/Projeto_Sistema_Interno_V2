@@ -44,7 +44,7 @@ def _item_padrao(**overrides) -> dict:
         'Chave': 'chave-teste',
         'TES Saida Cadastro': 1, 'NCM XML': '00000000', 'NCM Cadastro': '00000000',
         'Origem XML': '0', 'Origem Cadastro': '0',
-        'Origem Descrição XML': 'Nacional', 'Origem Descrição Cadastro': 'Nacional',
+        'Origem Descricão XML': 'Nacional', 'Origem Descricão Cadastro': 'Nacional',
         'Base Calculo ICMS ST': 0, 'Aliquota ICMS ST': 0, 'Redução ICMS ST': 0, 'Valor ICMS ST': 0,
         '% FCP ST': 0, 'Valor FCP ST': 0,
         'CST ICMS': 0, 'CST ICMS Cadastro': 0, 'Base Calculo ICMS': 100, 'Aliquota ICMS': 18,
@@ -337,6 +337,78 @@ def test_registro_malformado_vai_pros_erros_e_resto_do_lote_segue(monkeypatch, t
         'Erro em 1 produto não pode travar os outros 999 do mesmo lote',
         f'valido={persistiu_valido}, malformado_persistiu={persistiu_malformado}, '
         f'tem_pendencia={"7900000000002" in erros}, status={watermark.status!r}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_nota_bruta_malformada_no_filtro_nao_derruba_a_sincronizacao(monkeypatch, tabela_resultados):
+    # Setup: 1 produto real com nota válida + 1 nota bruta malformada
+    # (itens_nf=None) no mesmo lote — bug corrigido em 15/08/2026 (antes,
+    # isso derrubava filtrar_por_cfop inteiro).
+    _criar_produto('7900000000001')
+    nota_valida = _nota_com_item(**{'Código Barras': '7900000000001'})
+    nota_malformada = {'NR NF': '9999', 'itens_nf': None}
+    bruto = {'retorno': [nota_valida, nota_malformada]}
+    _mockar_api(monkeypatch, retorno=bruto)
+
+    # Exercise
+    relatorio = sincronizar_impostos_entrada_xml()
+
+    # Assert: o produto válido sincronizou normalmente, a nota malformada
+    # virou pendência (não travou nada), e o watermark avançou.
+    persistiu = ImpostosECustosXMLEntradaProduto.objects.filter(produto__ean='7900000000001').exists()
+    erros = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_ERROS, padrao={})
+    watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
+    bateu = (
+        persistiu and '9999' in erros
+        and relatorio.notas_com_erro_no_filtro == 1
+        and watermark.status == SincronizacaoXmlManifestoNotaEntrada.Status.SINCRONIZADO
+    )
+    registrar_resultado(
+        tabela_resultados, 'nota_bruta_malformada_no_filtro_nao_derruba',
+        '1 nota válida + 1 nota com itens_nf=None no mesmo lote', 'válida sincroniza, malformada vira pendência, watermark avança',
+        'Bug real corrigido (15/08/2026): 1 nota malformada não pode mais derrubar filtrar_por_cfop inteiro',
+        f'persistiu={persistiu}, tem_pendencia_nf_9999={"9999" in erros}, '
+        f'notas_com_erro_no_filtro={relatorio.notas_com_erro_no_filtro}, status={watermark.status!r}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_linha_malformada_na_selecao_nao_derruba_a_sincronizacao(monkeypatch, tabela_resultados):
+    # Setup: 1 produto real com nota válida + 1 item que passa no filtro de
+    # CFOP mas tem NR NF não numérico — quebra a etapa de seleção da nota
+    # mais recente, não a de filtro. Bug real corrigido em 15/08/2026.
+    _criar_produto('7900000000001')
+    item_valido = _item_padrao(**{'Código Barras': '7900000000001'})
+    item_com_nf_invalida = _item_padrao(**{'Código Barras': '7900000000002', 'NR NF': 'nao-numerico'})
+    bruto = {'retorno': [{'itens_nf': [item_valido, item_com_nf_invalida]}]}
+    _mockar_api(monkeypatch, retorno=bruto)
+
+    # Exercise
+    relatorio = sincronizar_impostos_entrada_xml()
+
+    # Assert: o produto válido sincronizou normalmente, a linha com NF
+    # inválida virou pendência (não travou nada), e o watermark avançou.
+    persistiu = ImpostosECustosXMLEntradaProduto.objects.filter(produto__ean='7900000000001').exists()
+    erros = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_ERROS, padrao={})
+    watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
+    bateu = (
+        persistiu and '7900000000002' in erros
+        and relatorio.linhas_com_erro_na_selecao == 1
+        and watermark.status == SincronizacaoXmlManifestoNotaEntrada.Status.SINCRONIZADO
+    )
+    registrar_resultado(
+        tabela_resultados, 'linha_malformada_na_selecao_nao_derruba',
+        '1 item válido + 1 item com NR NF="nao-numerico" no mesmo lote', 'válido sincroniza, inválido vira pendência, watermark avança',
+        'Bug real corrigido (15/08/2026): linha com NF não numérica não pode mais derrubar a seleção nem passar batida',
+        f'persistiu={persistiu}, tem_pendencia_produto_2={"7900000000002" in erros}, '
+        f'linhas_com_erro_na_selecao={relatorio.linhas_com_erro_na_selecao}, status={watermark.status!r}',
         bateu,
     )
     assert bateu

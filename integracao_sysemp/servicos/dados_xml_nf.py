@@ -37,6 +37,14 @@ def _calcular_percentual_de_reducao(base_calculo: float, custo_total: float) -> 
     # representa do total, 1 menos isso (em %) é a redução. Único lugar que
     # calcula isso (ver "Integridade e Fonte Unica de Dado" no vault) —
     # Pis/Cofins guardam o resultado já pronto, ninguém recalcula por fora.
+    #
+    # * [EXPLICAÇÃO] → custo_total=0 é dado real, não erro — CFOP de
+    # bonificação/doação/brinde não tem custo de aquisição (ver
+    # filtro_cfop.py). Sem custo, não existe "quanto a base representa do
+    # total" pra calcular — decisão do usuário (15/08/2026): reducao vira 0
+    # nesse caso, em vez de levantar ZeroDivisionError.
+    if custo_total == 0:
+        return 0.0
     quanto_a_base_representa_do_total = base_calculo / custo_total
     return round((1.0 - quanto_a_base_representa_do_total) * 100, 2)
 
@@ -115,10 +123,10 @@ class ClassificacaoFiscalItem:
     # origem_descricao, tes_saida) — todos são, agora, campos de
     # classificação fiscal comparável entre o XML da nota e o Cadastro do
     # produto no Sysemp. `natureza_operacao_cadastro` e `tes_saida_cadastro`
-    # não têm par XML — só existem como Cadastro mesmo, por isso não levam
-    # o sufixo "_cadastro" redundante de forma diferente dos outros (mantém
-    # o sufixo mesmo assim, pra nunca duvidar se é XML ou Cadastro só de
-    # olhar o nome do campo).
+    # não têm par XML — só existem como Cadastro mesmo. Mesmo assim, os 2
+    # mantêm o sufixo "_cadastro" (em vez de ficar sem sufixo nenhum), pra
+    # nunca duvidar a origem só de olhar o nome do campo — mesma regra dos
+    # demais campos desta classe, sem exceção.
     natureza_operacao_cadastro: str
     ncm_xml: str
     ncm_cadastro: str
@@ -304,4 +312,4 @@ class DadosXmlNF:
             pis=Pis.a_partir_do_registro(registro, custos.total),
             cofins=Cofins.a_partir_do_registro(registro, custos.total),
             custos=custos,
-        )   
+        )

@@ -96,7 +96,7 @@ def _registro_completo(overrides=None):
         'TES Saida Cadastro': 1,
         'NCM XML': '12345678', 'NCM Cadastro': '12345678',
         'Origem XML': '0', 'Origem Cadastro': '0',
-        'Origem Descrição XML': 'Nacional', 'Origem Descrição Cadastro': 'Nacional',
+        'Origem Descricão XML': 'Nacional', 'Origem Descricão Cadastro': 'Nacional',
         'Custo Total': 1000.0, 'Custo Unitário': 100.0,
         **_registro_icms_st(), **_registro_icms(), **_registro_icms_ret(),
         **_registro_ipi(), **_registro_pis(), **_registro_cofins(),
@@ -291,7 +291,7 @@ def test_classificacao_fiscal_item_nao_confunde_xml_com_cadastro(tabela_resultad
         'NCM XML': '11111111', 'NCM Cadastro': '22222222',
         'CFOP XML': '1.102', 'CFOP Cadastro': '5.102',
         'Origem XML': '0', 'Origem Cadastro': '1',
-        'Origem Descrição XML': 'Nacional', 'Origem Descrição Cadastro': 'Nacional, adquirida no exterior',
+        'Origem Descricão XML': 'Nacional', 'Origem Descricão Cadastro': 'Nacional, adquirida no exterior',
         'TES Saida Cadastro': 7,
         'Natureza da Operacao Cadastro': 'Venda de mercadoria',
     })
