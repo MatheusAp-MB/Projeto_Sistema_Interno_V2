@@ -1,13 +1,67 @@
+/* impostos/static/impostos/css/layout_resumo_entrada.css
+
+Função Objetivo: Estilo da tela "Resumo de Impostos de Entrada" — tabela
+com cabeçalho de 2 linhas (grupo + coluna), colunas de identificação do
+produto congeladas (Excel-style) nos 2 eixos, e 1 cor por grupo do
+cabeçalho até o corpo.
+
+Sistema de cor (reescrito 16/08/2026): cada grupo tem 1 única cor-base,
+declarada 1 vez como variável CSS. Linha 1 (grupo) = cor-base cheia +
+texto claro. Linha 2 (coluna) + corpo = tom claro da MESMA cor-base +
+texto escuro. Mesmo princípio já usado em exportacao_resumo_entrada.py
+(linha 2 = cor cheia, linha 3 = _clarear(cor_base, 0.75)) — só a
+claridade muda, nunca a cor. Antes disso, cada linha tinha hex escolhido
+à mão e sem ligação entre si — raiz real de 2 bugs de especificidade
+(colspan+sticky e var(--cor-texto-claro) do tema global vencendo por
+especificidade) e do visual inconsistente.
+
+Os 6 impostos (ICMS/ICMS ST/ICMS Retido/IPI/PIS/COFINS) têm cor forte E
+cor de corpo/texto travadas pelo padrão do vault ("Cor de Identificação
+Fixa por Imposto") — reaproveitadas aqui sem alteração, nem pra
+"uniformizar" com o resto. Os 3 grupos livres (Dados do produto/Dados da
+nota/Custos) usam as cores-base da própria planilha (0E6655/1F4E78),
+exceto Custos: a planilha usa 1B5E20 (verde quase igual ao 0E6655 de
+"Dados do produto") — aqui usa-se 5B2C6F, a 4ª cor da mesma paleta
+(grupo "Classificação Fiscal", não exibido nesta tela), pra não ter 2
+grupos verdes lado a lado.
+*/
+
 .resumo-entrada-barra-busca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .resumo-entrada-input-busca { flex: 1; min-width: 240px; padding: 8px 12px; border: 1px solid var(--cor-borda); border-radius: 6px; }
 .resumo-entrada-select-paginacao { padding: 8px 12px; border: 1px solid var(--cor-borda); border-radius: 6px; }
 
 .resumo-entrada-tabela-wrapper { overflow: auto; max-height: 75vh; border: 1px solid var(--cor-borda); border-radius: 8px; position: relative; }
 
-.resumo-entrada-tabela { border-collapse: separate; border-spacing: 0; table-layout: fixed; white-space: nowrap; font-size: 0.82rem; }
+.resumo-entrada-tabela {
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    white-space: nowrap;
+    font-size: 0.82rem;
 
-/* Larguras — foto aumentada (16/08) e produto um pouco mais folgado pra
-   reduzir quebra de linha em títulos longos. */
+    /* Cores-base — 1 por grupo, única fonte de verdade. */
+    --cor-produto: #0E6655;
+    --cor-nota: #1F4E78;
+    --cor-custos: #5B2C6F;
+    --cor-icms: #7D5B0A;
+    --cor-icms-st: #A24E0A;
+    --cor-icms-retido: #8B2E12;
+    --cor-ipi: #205E7A;
+    --cor-pis: #7B241C;
+    --cor-cofins: #8E2452;
+
+    /* Tons claros da linha 2/corpo dos 3 grupos livres — mesma
+       cor-base acima, clareada 75% (mesmo fator da planilha). */
+    --tom-claro-produto: #C3D9D4;
+    --tom-claro-nota: #C7D3DD;
+    --tom-claro-custos: #D6CADB;
+
+    /* Texto uniforme: 1 par só, usado em todos os grupos. */
+    --texto-linha1: #F5F1E8;
+    --texto-linha2: #1A1A1A;
+}
+
+/* Larguras das colunas */
 .col-foto { width: 70px; }
 .col-produto { width: 320px; }
 .col-sku { width: 160px; }
@@ -20,21 +74,21 @@
 .col-custo { width: 100px; }
 .col-imposto { width: 72px; }
 
-.resumo-entrada-tabela th { padding: 7px 10px; text-align: center; color: var(--cor-texto-claro); }
+.resumo-entrada-tabela th { padding: 7px 10px; text-align: center; font-weight: 700; }
 .resumo-entrada-tabela td { padding: 6px 10px; text-align: center; border-bottom: 1px solid var(--cor-borda); }
 .celula-produto { text-align: left; white-space: normal; word-break: break-word; }
 .celula-truncada { overflow: hidden; text-overflow: ellipsis; }
 
-.resumo-entrada-tabela thead tr:first-child th { position: sticky; top: 0; z-index: 2; height: 34px; color: #F2ECD9; }
+/* Cabeçalho fixo no topo (2 linhas) */
+.resumo-entrada-tabela thead tr:first-child th { position: sticky; top: 0; z-index: 2; height: 34px; }
 .resumo-entrada-tabela thead tr:nth-child(2) th { position: sticky; top: 34px; z-index: 2; }
 
-/* Colunas de identificação do produto — congeladas à esquerda (nos 2
-   sentidos no cabeçalho: topo + esquerda; só à esquerda no corpo). Left
-   e width repetidos aqui de propósito (não só no <col>) — colspan+sticky
-   no cabeçalho de grupo se mostrou instável (16/08/2026); a linha de
-   grupo agora usa as MESMAS 5 células (sem colspan) da linha de baixo,
-   cada uma com seu próprio left, então acompanha exatamente as mesmas
-   colunas ao rolar. */
+/* Colunas de identificação do produto — congeladas à esquerda nos 2
+   eixos do cabeçalho, só à esquerda no corpo. As 2 linhas do cabeçalho
+   usam as MESMAS 5 células (sem colspan), cada uma com seu próprio
+   left, então a linha 1 acompanha exatamente as mesmas colunas da
+   linha 2/corpo ao rolar (colspan+sticky no cabeçalho de grupo se
+   mostrou instável em navegador real — 16/08/2026). */
 .congelado { position: sticky; z-index: 3; background-color: var(--cor-fundo-card); }
 .col-h-foto { left: 0; width: 70px; min-width: 70px; max-width: 70px; }
 .col-h-produto { left: 70px; width: 320px; min-width: 320px; max-width: 320px; }
@@ -42,63 +96,57 @@
 .col-h-ean { left: 550px; width: 120px; min-width: 120px; max-width: 120px; }
 .col-h-ncm { left: 670px; width: 90px; min-width: 90px; max-width: 90px; }
 
-.resumo-entrada-tabela thead tr:first-child th.congelado {
-    z-index: 4;
-}
-.resumo-entrada-tabela thead tr:nth-child(2) th.congelado {
-    z-index: 4;
-}
-.resumo-entrada-tabela tbody td.congelado {
-    z-index: 1;
-}
+.resumo-entrada-tabela thead tr:first-child th.congelado { z-index: 4; }
+.resumo-entrada-tabela thead tr:nth-child(2) th.congelado { z-index: 4; }
+.resumo-entrada-tabela tbody td.congelado { z-index: 1; }
 
 .divisoria { border-right: 2px solid var(--cor-fundo-pagina); }
 
-/* Dados do produto — cabeçalho de grupo (linha 1) precisa de mais
-   especificidade que a regra pastel abaixo pra vencer o cascade, já que
-   reaproveita as mesmas classes col-h-* usadas na linha 2/corpo. */
-/* Dados do produto / Dados da nota / Custos — sem amarração de cor
-   documentada (só os 6 impostos têm isso), então dá pra escurecer o
-   fundo o suficiente pra texto preto ter bom contraste, como pedido. */
-.resumo-entrada-tabela thead tr:first-child th.grupo-produto {
-    background-color: #6EA399;
-    color: #1A1A1A;
+/* ===== Linha 1 — cabeçalho de grupo: cor-base cheia + texto claro =====
+   Especificidade elevada de propósito: uma regra genérica de tema
+   (var(--cor-texto-claro) global) já venceu essas classes por
+   especificidade uma vez (16/08/2026) — aqui cada grupo já nasce
+   qualificado o bastante (thead tr:first-child th.grupo-X) pra nunca
+   perder essa disputa de novo. */
+.resumo-entrada-tabela thead tr:first-child th.grupo-produto,
+.resumo-entrada-tabela thead tr:first-child th.grupo-nota,
+.resumo-entrada-tabela thead tr:first-child th.grupo-custos,
+.resumo-entrada-tabela thead tr:first-child th.grupo-icms,
+.resumo-entrada-tabela thead tr:first-child th.grupo-icms-st,
+.resumo-entrada-tabela thead tr:first-child th.grupo-icms-retido,
+.resumo-entrada-tabela thead tr:first-child th.grupo-ipi,
+.resumo-entrada-tabela thead tr:first-child th.grupo-pis,
+.resumo-entrada-tabela thead tr:first-child th.grupo-cofins {
+    color: var(--texto-linha1);
 }
-.col-h-foto, .col-h-produto, .col-h-sku, .col-h-ean, .col-h-ncm { background-color: #DCF3EA; color: #0E4635; }
 
-.resumo-entrada-tabela thead tr:first-child th.grupo-nota {
-    background-color: #7995AE;
-    color: #1A1A1A;
+.resumo-entrada-tabela thead tr:first-child th.grupo-produto { background-color: var(--cor-produto); }
+.resumo-entrada-tabela thead tr:first-child th.grupo-nota { background-color: var(--cor-nota); text-align: left; padding-left: 14px; }
+.resumo-entrada-tabela thead tr:first-child th.grupo-custos { background-color: var(--cor-custos); }
+.grupo-icms { background-color: var(--cor-icms); }
+.grupo-icms-st { background-color: var(--cor-icms-st); }
+.grupo-icms-retido { background-color: var(--cor-icms-retido); }
+.grupo-ipi { background-color: var(--cor-ipi); }
+.grupo-pis { background-color: var(--cor-pis); }
+.grupo-cofins { background-color: var(--cor-cofins); }
+
+/* ===== Linha 2 + corpo — tom claro da mesma cor-base + texto escuro ===== */
+.col-h-foto, .col-h-produto, .col-h-sku, .col-h-ean, .col-h-ncm {
+    background-color: var(--tom-claro-produto);
+    color: var(--texto-linha2);
 }
-.sub-nota { background-color: #E1EBF3; color: #1F4E78; }
+.sub-nota { background-color: var(--tom-claro-nota); color: var(--texto-linha2); }
+.sub-custos { background-color: var(--tom-claro-custos); color: var(--texto-linha2); }
 
-.resumo-entrada-tabela thead tr:first-child th.grupo-custos {
-    background-color: #9D80A9;
-    color: #1A1A1A;
-}
-.sub-custos { background-color: #ECE2F1; color: #3D2049; }
-
-/* ICMS/ICMS ST/ICMS Ret./IPI/PIS/COFINS — cor de fundo travada pelo
-   padrão "Cor de Identificação Fixa por Imposto" (não mexer). São fundos
-   escuros/saturados: texto preto teria contraste ruim (~3:1), por isso
-   mantido claro aqui — é o que realmente lê bem nesse tom. */
-.grupo-icms { background-color: #7D5B0A; color: #F2ECD9; }
+/* 6 impostos — cor de corpo/texto travada pelo padrão "Cor de
+   Identificação Fixa por Imposto" (não mexer, nem pra "uniformizar" —
+   é o único grupo com essa amarração documentada no vault). */
 .sub-icms { background-color: rgb(237, 232, 221); color: #3C3120; }
 .resumo-entrada-tabela thead tr:nth-child(2) th.sub-icms:last-of-type { background-color: rgb(246, 244, 238); }
-
-.grupo-icms-st { background-color: #A24E0A; color: #F2ECD9; }
 .sub-icms-st { background-color: rgb(242, 230, 221); color: #4A2E14; }
-
-.grupo-icms-retido { background-color: #8B2E12; color: #F2ECD9; }
 .sub-icms-retido { background-color: rgb(239, 226, 222); color: #4A2016; }
-
-.grupo-ipi { background-color: #205E7A; color: #F2ECD9; }
 .sub-ipi { background-color: rgb(224, 232, 236); color: #1B3A47; }
-
-.grupo-pis { background-color: #7B241C; color: #F2ECD9; }
 .sub-pis { background-color: rgb(237, 224, 223); color: #4A1D18; }
-
-.grupo-cofins { background-color: #8E2452; color: #F2ECD9; }
 .sub-cofins { background-color: rgb(239, 224, 231); color: #4A1830; }
 
 .celula-foto { display: flex; align-items: center; justify-content: center; padding: 6px 4px; }
