@@ -6,12 +6,20 @@
 # tipo=com_afiliado. Comissão por faixa de preço reaproveita
 # resolver_preco_por_faixa_comissao (mesma função do Shopee) — mas aqui o frete NÃO é
 # fixo, vem de busca por peso (como o Magalu, sem faixa de reputação).
+#
+# Créditos fiscais de entrada (ICMS/IPI/PIS/COFINS) vêm prontos de impostos_entrada, via
+# montar_creditos_fiscais_para_precificacao — já por unidade, já com o diferimento de ICMS
+# ST resolvido internamente. Esta classe nunca reinterpreta esse valor, só consome.
 
 from dataclasses import dataclass, asdict
 from decimal import Decimal
+from django.core.exceptions import ObjectDoesNotExist
 from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_faixa_comissao
 from produtos.funcoes_auxiliares.dimensoes_fisicas import (
     metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao, resolver_dimensao_produto,
+)
+from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import (
+    montar_creditos_fiscais_para_precificacao,
 )
 
 
@@ -24,12 +32,10 @@ class DadosEntrada:
 
     custo: Decimal
     custo_com_boni: Decimal
-    ipi_percentual: Decimal
     frete_cif_fob_percentual: Decimal
-    st_valor: Decimal
-    icms_entrada_percentual: Decimal
-    pis_cofins_percentual: Decimal
     icms_saida_percentual: Decimal
+    pis_saida_percentual: Decimal
+    cofins_saida_percentual: Decimal
     comissao_percentual: Decimal
     margem_afiliado_percentual: Decimal  # 0 se tipo=sem_afiliado
     desconto_vitrine_percentual: Decimal
@@ -58,7 +64,9 @@ class DadosIntermediarios:
     armazenagem: Decimal
     credito_icms_entrada: Decimal
     credito_pis: Decimal
-    pis_cofins_valor: Decimal
+    credito_cofins: Decimal
+    pis_saida_valor: Decimal
+    cofins_saida_valor: Decimal
     icms_saida_valor: Decimal
     comissao_percentual: Decimal
     comissao_valor: Decimal
@@ -101,27 +109,45 @@ class FormulaPrecificacaoTiktok:
         self.intermediarios = None
         self.saida = None
         self.resolvida = False
+        self._creditos = None
 
     def resolver_dimensao(self):
         self._altura, self._largura, self._comprimento, self._peso = resolver_dimensao_produto(self.produto)
 
+    # Função Objetivo: Busca os créditos fiscais de entrada, já resolvidos e por unidade.
+    def obter_creditos_fiscais(self):
+        try:
+            impostos_entrada = self.produto.impostos_entrada
+        except ObjectDoesNotExist:
+            self._creditos = None
+            return
+
+        creditos = montar_creditos_fiscais_para_precificacao(impostos_entrada)
+
+        # Sem quantidade_nota (ou qualquer outro dado fiscal ausente),
+        # nenhum dos 4 créditos existe — produto não precifica, nunca
+        # finge um crédito parcial. Decisão: sem fallback.
+        if None in (creditos.icms, creditos.ipi, creditos.pis, creditos.cofins):
+            self._creditos = None
+            return
+
+        self._creditos = creditos
+
     def calcular_custo_final(self):
         produto = self.produto
         custo_com_boni = produto.custo_com_boni or produto.custo
-        ipi_percentual = produto.ipi or Decimal('0')
         frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
-        st_valor = produto.st_valor or Decimal('0')
 
-        ipi_valor = custo_com_boni * (ipi_percentual / 100)
+        # IPI já vem em R$ pronto (dividido por unidade em impostos_entrada) —
+        # nunca recalculado aqui a partir de percentual.
+        ipi_valor = self._creditos.ipi
         frete_cif_fob_valor = custo_com_boni * (frete_cif_fob_percentual / 100)
 
         self._custo_com_boni = custo_com_boni
-        self._ipi_percentual = ipi_percentual
-        self._ipi_valor = ipi_valor
         self._frete_cif_fob_percentual = frete_cif_fob_percentual
         self._frete_cif_fob_valor = frete_cif_fob_valor
-        self._st_valor = st_valor
-        self._custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor + st_valor
+        self._ipi_valor = ipi_valor
+        self._custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor
 
     def calcular_coleta(self):
         self._metro_cubico = metro_cubico_de_dimensoes(self._altura, self._largura, self._comprimento)
@@ -146,15 +172,16 @@ class FormulaPrecificacaoTiktok:
         self._armazenagem = (faixa_usada.valor_diario * self.config_geral.periodo_armazenagem) if faixa_usada else Decimal('0')
 
     def calcular_fixo(self):
-        produto = self.produto
-        self._icms_entrada_percentual = produto.icms_entrada or Decimal('0')
-        self._pis_percentual = produto.pis_cofins or Decimal('0')
+        creditos = self._creditos
 
-        self._credito_icms_entrada = produto.custo * (self._icms_entrada_percentual / 100)
-        self._credito_pis = produto.custo * (self._pis_percentual / 100)
+        # creditos.icms já vem certo pra qualquer regime (líquido do
+        # ST quando o produto é ST, normal quando não é) — nunca soma os 2.
+        self._credito_icms_entrada = creditos.icms
+        self._credito_pis = creditos.pis
+        self._credito_cofins = creditos.cofins
 
         self._fixo = self._coleta + self._armazenagem + self._custo_final - (
-            self._credito_icms_entrada + self._credito_pis
+            self._credito_icms_entrada + self._credito_pis + self._credito_cofins
         )
 
     # Função Objetivo: Busca o frete direto por peso — sem faixa de reputação (diferente do Magalu).
@@ -177,14 +204,16 @@ class FormulaPrecificacaoTiktok:
 
         produto = self.produto
         self._icms_saida_percentual = produto.icms_saida_media or Decimal('0')
-        self._pis_cofins_percentual = produto.pis_cofins or Decimal('0')
+        self._pis_saida_percentual = produto.pis_percentual or Decimal('0')
+        self._cofins_saida_percentual = produto.cofins_percentual or Decimal('0')
 
         self._margem_afiliado_percentual = (
             self.config_tiktok.margem_afiliado_percentual if self.tipo == 'com_afiliado' else Decimal('0')
         )
 
         taxa_extra_fracao = (
-            self._icms_saida_percentual + self._pis_cofins_percentual + self._margem_afiliado_percentual
+            self._icms_saida_percentual + self._pis_saida_percentual
+            + self._cofins_saida_percentual + self._margem_afiliado_percentual
         ) / 100
 
         resultado = resolver_preco_por_faixa_comissao(
@@ -232,6 +261,11 @@ class FormulaPrecificacaoTiktok:
         self._preco_de_exibicao = (self._preco_final / fator_vitrine).quantize(Decimal('0.01'))
 
     def calcular(self):
+        self.obter_creditos_fiscais()
+        if self._creditos is None:
+            self.resolvida = False
+            return self
+
         self.resolver_dimensao()
         self.calcular_custo_final()
         self.calcular_coleta()
@@ -254,12 +288,10 @@ class FormulaPrecificacaoTiktok:
             sku=produto.sku, ean=produto.ean,
             margem_alvo_percentual=self.margem_alvo_percentual, tipo=self.tipo,
             custo=produto.custo, custo_com_boni=self._custo_com_boni,
-            ipi_percentual=self._ipi_percentual,
             frete_cif_fob_percentual=self._frete_cif_fob_percentual,
-            st_valor=self._st_valor,
-            icms_entrada_percentual=self._icms_entrada_percentual,
-            pis_cofins_percentual=self._pis_cofins_percentual,
             icms_saida_percentual=self._icms_saida_percentual,
+            pis_saida_percentual=self._pis_saida_percentual,
+            cofins_saida_percentual=self._cofins_saida_percentual,
             comissao_percentual=self._comissao_percentual,
             margem_afiliado_percentual=self._margem_afiliado_percentual,
             desconto_vitrine_percentual=self.config_tiktok.desconto_vitrine_percentual,
@@ -279,7 +311,9 @@ class FormulaPrecificacaoTiktok:
             frete_cif_fob_valor=self._frete_cif_fob_valor, metro_cubico=self._metro_cubico,
             coleta=self._coleta, armazenagem_origem=self._armazenagem_origem, armazenagem=self._armazenagem,
             credito_icms_entrada=self._credito_icms_entrada, credito_pis=self._credito_pis,
-            pis_cofins_valor=self._preco_final * self._pis_cofins_percentual / 100,
+            credito_cofins=self._credito_cofins,
+            pis_saida_valor=self._preco_final * self._pis_saida_percentual / 100,
+            cofins_saida_valor=self._preco_final * self._cofins_saida_percentual / 100,
             icms_saida_valor=self._preco_final * self._icms_saida_percentual / 100,
             comissao_percentual=self._comissao_percentual,
             comissao_valor=self._comissao_valor, margem_afiliado_valor=self._margem_afiliado_valor,
