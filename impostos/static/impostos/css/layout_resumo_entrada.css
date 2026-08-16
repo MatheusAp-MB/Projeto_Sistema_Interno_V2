@@ -1,0 +1,114 @@
+.resumo-entrada-barra-busca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.resumo-entrada-input-busca { flex: 1; min-width: 240px; padding: 8px 12px; border: 1px solid var(--cor-borda); border-radius: 6px; }
+.resumo-entrada-select-paginacao { padding: 8px 12px; border: 1px solid var(--cor-borda); border-radius: 6px; }
+
+.resumo-entrada-tabela-wrapper { overflow: auto; max-height: 75vh; border: 1px solid var(--cor-borda); border-radius: 8px; position: relative; }
+
+.resumo-entrada-tabela { border-collapse: separate; border-spacing: 0; table-layout: fixed; white-space: nowrap; font-size: 0.82rem; }
+
+/* Larguras — foto aumentada (16/08) e produto um pouco mais folgado pra
+   reduzir quebra de linha em títulos longos. */
+.col-foto { width: 70px; }
+.col-produto { width: 320px; }
+.col-sku { width: 160px; }
+.col-ean { width: 120px; }
+.col-ncm { width: 90px; }
+.col-nf { width: 90px; }
+.col-fornecedor { width: 190px; }
+.col-empresa { width: 140px; }
+.col-entrada { width: 100px; }
+.col-custo { width: 100px; }
+.col-imposto { width: 72px; }
+
+.resumo-entrada-tabela th { padding: 7px 10px; text-align: center; color: var(--cor-texto-claro); }
+.resumo-entrada-tabela td { padding: 6px 10px; text-align: center; border-bottom: 1px solid var(--cor-borda); }
+.celula-produto { text-align: left; white-space: normal; word-break: break-word; }
+.celula-truncada { overflow: hidden; text-overflow: ellipsis; }
+
+.resumo-entrada-tabela thead tr:first-child th { position: sticky; top: 0; z-index: 2; height: 34px; color: #F2ECD9; }
+.resumo-entrada-tabela thead tr:nth-child(2) th { position: sticky; top: 34px; z-index: 2; }
+
+/* Colunas de identificação do produto — congeladas à esquerda (nos 2
+   sentidos no cabeçalho: topo + esquerda; só à esquerda no corpo). Left
+   e width repetidos aqui de propósito (não só no <col>) — colspan+sticky
+   no cabeçalho de grupo se mostrou instável (16/08/2026); a linha de
+   grupo agora usa as MESMAS 5 células (sem colspan) da linha de baixo,
+   cada uma com seu próprio left, então acompanha exatamente as mesmas
+   colunas ao rolar. */
+.congelado { position: sticky; z-index: 3; background-color: var(--cor-fundo-card); }
+.col-h-foto { left: 0; width: 70px; min-width: 70px; max-width: 70px; }
+.col-h-produto { left: 70px; width: 320px; min-width: 320px; max-width: 320px; }
+.col-h-sku { left: 390px; width: 160px; min-width: 160px; max-width: 160px; }
+.col-h-ean { left: 550px; width: 120px; min-width: 120px; max-width: 120px; }
+.col-h-ncm { left: 670px; width: 90px; min-width: 90px; max-width: 90px; }
+
+.resumo-entrada-tabela thead tr:first-child th.congelado {
+    z-index: 4;
+}
+.resumo-entrada-tabela thead tr:nth-child(2) th.congelado {
+    z-index: 4;
+}
+.resumo-entrada-tabela tbody td.congelado {
+    z-index: 1;
+}
+
+.divisoria { border-right: 2px solid var(--cor-fundo-pagina); }
+
+/* Dados do produto — cabeçalho de grupo (linha 1) precisa de mais
+   especificidade que a regra pastel abaixo pra vencer o cascade, já que
+   reaproveita as mesmas classes col-h-* usadas na linha 2/corpo. */
+/* Dados do produto / Dados da nota / Custos — sem amarração de cor
+   documentada (só os 6 impostos têm isso), então dá pra escurecer o
+   fundo o suficiente pra texto preto ter bom contraste, como pedido. */
+.resumo-entrada-tabela thead tr:first-child th.grupo-produto {
+    background-color: #6EA399;
+    color: #1A1A1A;
+}
+.col-h-foto, .col-h-produto, .col-h-sku, .col-h-ean, .col-h-ncm { background-color: #DCF3EA; color: #0E4635; }
+
+.resumo-entrada-tabela thead tr:first-child th.grupo-nota {
+    background-color: #7995AE;
+    color: #1A1A1A;
+}
+.sub-nota { background-color: #E1EBF3; color: #1F4E78; }
+
+.resumo-entrada-tabela thead tr:first-child th.grupo-custos {
+    background-color: #9D80A9;
+    color: #1A1A1A;
+}
+.sub-custos { background-color: #ECE2F1; color: #3D2049; }
+
+/* ICMS/ICMS ST/ICMS Ret./IPI/PIS/COFINS — cor de fundo travada pelo
+   padrão "Cor de Identificação Fixa por Imposto" (não mexer). São fundos
+   escuros/saturados: texto preto teria contraste ruim (~3:1), por isso
+   mantido claro aqui — é o que realmente lê bem nesse tom. */
+.grupo-icms { background-color: #7D5B0A; color: #F2ECD9; }
+.sub-icms { background-color: rgb(237, 232, 221); color: #3C3120; }
+.resumo-entrada-tabela thead tr:nth-child(2) th.sub-icms:last-of-type { background-color: rgb(246, 244, 238); }
+
+.grupo-icms-st { background-color: #A24E0A; color: #F2ECD9; }
+.sub-icms-st { background-color: rgb(242, 230, 221); color: #4A2E14; }
+
+.grupo-icms-retido { background-color: #8B2E12; color: #F2ECD9; }
+.sub-icms-retido { background-color: rgb(239, 226, 222); color: #4A2016; }
+
+.grupo-ipi { background-color: #205E7A; color: #F2ECD9; }
+.sub-ipi { background-color: rgb(224, 232, 236); color: #1B3A47; }
+
+.grupo-pis { background-color: #7B241C; color: #F2ECD9; }
+.sub-pis { background-color: rgb(237, 224, 223); color: #4A1D18; }
+
+.grupo-cofins { background-color: #8E2452; color: #F2ECD9; }
+.sub-cofins { background-color: rgb(239, 224, 231); color: #4A1830; }
+
+.celula-foto { display: flex; align-items: center; justify-content: center; padding: 6px 4px; }
+.miniatura-resumo-entrada { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; }
+.miniatura-vazia { display: flex; align-items: center; justify-content: center; background-color: var(--cor-fundo-pagina); color: var(--cor-texto-muted); }
+
+.resumo-entrada-tabela-vazia { text-align: center; padding: 24px; color: var(--cor-texto-muted); }
+.resumo-entrada-paginacao { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
+.resumo-entrada-paginacao-link { font-weight: 600; }
+
+#aviso-exportacao-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.aviso-exportacao-caixa { background: #fff; border-radius: 10px; padding: 24px 32px; display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: 600; color: #1e3a5f; }
+.aviso-exportacao-caixa i { font-size: 1.3rem; color: #1e3a5f; }

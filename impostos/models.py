@@ -61,6 +61,10 @@ class LinhaImpostoEntrada:
     #                  do usuário, 10/08/2026). cst_xml/cst_cadastro
     #                  exibidos lado a lado (15/08/2026) — antes só o XML
     #                  aparecia no modal, o Cadastro ficava só no banco.
+    #                  base_calculo_nota/valor_nota/valor_fcp_nota e
+    #                  reducao_e_calculada (15/08/2026) — só alimentam o
+    #                  popover "como isso foi calculado" no modal, nunca
+    #                  exibidos direto.
     nome: str
     cst_xml: str | None
     cst_cadastro: str | None
@@ -70,6 +74,10 @@ class LinhaImpostoEntrada:
     valor: Decimal | None
     aliquota_fcp: Decimal | None
     valor_fcp: Decimal | None
+    base_calculo_nota: Decimal | None
+    valor_nota: Decimal | None
+    valor_fcp_nota: Decimal | None
+    reducao_e_calculada: bool
 
 
 # Função Objetivo: Agrupa os dados de impostos de entrada (XML) de 1 produto,
@@ -323,36 +331,48 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
                     base_calculo=_por_unidade(self.icms.base_calculo), aliquota=self.icms.aliquota,
                     reducao=self.icms.reducao, valor=_por_unidade(self.icms.valor),
                     aliquota_fcp=None, valor_fcp=None,
+                    base_calculo_nota=self.icms.base_calculo, valor_nota=self.icms.valor,
+                    valor_fcp_nota=None, reducao_e_calculada=False,
                 ),
                 LinhaImpostoEntrada(
                     nome='ICMS ST', cst_xml=None, cst_cadastro=None,
                     base_calculo=_por_unidade(self.icms_st.base_calculo), aliquota=self.icms_st.aliquota,
                     reducao=self.icms_st.reducao, valor=_por_unidade(self.icms_st.valor),
                     aliquota_fcp=self.icms_st.aliquota_fcp, valor_fcp=_por_unidade(self.icms_st.valor_fcp),
+                    base_calculo_nota=self.icms_st.base_calculo, valor_nota=self.icms_st.valor,
+                    valor_fcp_nota=self.icms_st.valor_fcp, reducao_e_calculada=False,
                 ),
                 LinhaImpostoEntrada(
                     nome='ICMS Retido', cst_xml=None, cst_cadastro=None,
                     base_calculo=_por_unidade(self.icms_ret.base_calculo), aliquota=None,
                     reducao=None, valor=_por_unidade(self.icms_ret.valor),
                     aliquota_fcp=None, valor_fcp=None,
+                    base_calculo_nota=self.icms_ret.base_calculo, valor_nota=self.icms_ret.valor,
+                    valor_fcp_nota=None, reducao_e_calculada=False,
                 ),
                 LinhaImpostoEntrada(
                     nome='IPI', cst_xml=self.ipi.cst_xml, cst_cadastro=self.ipi.cst_cadastro,
                     base_calculo=_por_unidade(self.ipi.base_calculo), aliquota=self.ipi.aliquota,
                     reducao=None, valor=_por_unidade(self.ipi.valor),
                     aliquota_fcp=None, valor_fcp=None,
+                    base_calculo_nota=self.ipi.base_calculo, valor_nota=self.ipi.valor,
+                    valor_fcp_nota=None, reducao_e_calculada=False,
                 ),
                 LinhaImpostoEntrada(
                     nome='PIS', cst_xml=self.pis.cst_xml, cst_cadastro=self.pis.cst_cadastro,
                     base_calculo=_por_unidade(self.pis.base_calculo), aliquota=self.pis.aliquota,
                     reducao=self.pis.reducao, valor=_por_unidade(self.pis.valor),
                     aliquota_fcp=None, valor_fcp=None,
+                    base_calculo_nota=self.pis.base_calculo, valor_nota=self.pis.valor,
+                    valor_fcp_nota=None, reducao_e_calculada=True,
                 ),
                 LinhaImpostoEntrada(
                     nome='COFINS', cst_xml=self.cofins.cst_xml, cst_cadastro=self.cofins.cst_cadastro,
                     base_calculo=_por_unidade(self.cofins.base_calculo), aliquota=self.cofins.aliquota,
                     reducao=self.cofins.reducao, valor=_por_unidade(self.cofins.valor),
                     aliquota_fcp=None, valor_fcp=None,
+                    base_calculo_nota=self.cofins.base_calculo, valor_nota=self.cofins.valor,
+                    valor_fcp_nota=None, reducao_e_calculada=True,
                 ),
             ],
         )

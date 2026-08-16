@@ -1,0 +1,10 @@
+{% if reducao_calculada %}
+<i class="fas fa-calculator modal-icone-calculado"
+   data-bs-toggle="popover"
+   data-bs-trigger="focus"
+   data-bs-html="true"
+   data-bs-placement="top"
+   data-bs-container="body"
+   data-bs-content="<div class='modal-popover-titulo'>Calculada — a API não devolve isso pronto pro PIS/COFINS</div><div class='modal-popover-formula'>1 − (R$ {{ base_calculo_nota|floatformat:2 }} ÷ R$ {{ custo_total|floatformat:2 }}) × 100 = <strong>{{ reducao|floatformat:2 }}%</strong></div>"
+   tabindex="0" role="button" aria-label="Ver como este valor foi calculado"></i>
+{% endif %}

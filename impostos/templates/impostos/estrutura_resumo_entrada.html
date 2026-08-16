@@ -1,0 +1,158 @@
+<!--
+* [RESUMO] → Tela de Resumo de Impostos de Entrada: 1 linha por produto,
+* versão condensada da planilha de 52 colunas — Alíquota/Redução por
+* imposto (não Valor), agrupada em cabeçalho de 2 linhas tipo planilha.
+* Colunas de identificação do produto (Foto/Produto/SKU/EAN/NCM) e o
+* cabeçalho ficam congelados (position: sticky), igual "congelar painéis"
+* do Excel — o resto (nota, custos, impostos) rola por baixo. Detalhe
+* completo (CST, Base de Cálculo, Valor, CFOP, Origem etc.) mora no modal
+* do produto ou na planilha exportada.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Resumo de Impostos de Entrada — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Resumo de Impostos de Entrada{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'impostos/css/layout_resumo_entrada.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+<form method="get" class="resumo-entrada-barra-busca">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por produto, EAN ou fornecedor..."
+        class="resumo-entrada-input-busca"
+    >
+
+    <select name="por_pagina" onchange="this.form.submit()" class="resumo-entrada-select-paginacao">
+        <option value="25" {% if por_pagina == 25 %}selected{% endif %}>25 por página</option>
+        <option value="50" {% if por_pagina == 50 %}selected{% endif %}>50 por página</option>
+        <option value="100" {% if por_pagina == 100 %}selected{% endif %}>100 por página</option>
+    </select>
+
+    <button type="submit" class="btn-acao">Buscar</button>
+
+    <button type="button" class="btn-acao btn-exportar-com-aviso"
+            data-url-exportar="{% url 'impostos_exportar_resumo_entrada' %}?{{ querystring_sem_pagina }}"
+            data-nome-arquivo="Relatorio_Impostos_Entrada.xlsx">
+        <i class="fas fa-file-export"></i> Exportar planilha
+    </button>
+</form>
+
+<div class="resumo-entrada-tabela-wrapper">
+    <table class="resumo-entrada-tabela">
+        <colgroup>
+            <col class="col-foto"><col class="col-produto"><col class="col-sku">
+            <col class="col-ean"><col class="col-ncm">
+            <col class="col-nf"><col class="col-fornecedor"><col class="col-empresa"><col class="col-entrada">
+            <col class="col-custo">
+            <col class="col-imposto"><col class="col-imposto">
+            <col class="col-imposto"><col class="col-imposto">
+            <col class="col-imposto"><col class="col-imposto">
+            <col class="col-imposto"><col class="col-imposto">
+            <col class="col-imposto"><col class="col-imposto">
+            <col class="col-imposto"><col class="col-imposto">
+        </colgroup>
+        <thead>
+            <tr>
+                <th class="grupo-produto col-h-foto congelado"></th>
+                <th class="grupo-produto col-h-produto congelado">Dados do produto</th>
+                <th class="grupo-produto col-h-sku congelado"></th>
+                <th class="grupo-produto col-h-ean congelado"></th>
+                <th class="grupo-produto col-h-ncm congelado divisoria"></th>
+                <th colspan="4" class="grupo-nota">Dados da nota</th>
+                <th colspan="1" class="grupo-custos">Custos</th>
+                <th colspan="2" class="grupo-icms">ICMS</th>
+                <th colspan="2" class="grupo-icms-st">ICMS ST</th>
+                <th colspan="2" class="grupo-icms-retido">ICMS Ret.</th>
+                <th colspan="2" class="grupo-ipi">IPI</th>
+                <th colspan="2" class="grupo-pis">PIS</th>
+                <th colspan="2" class="grupo-cofins">COFINS</th>
+            </tr>
+            <tr>
+                <th class="col-h-foto congelado">Foto</th>
+                <th class="col-h-produto congelado">Produto</th>
+                <th class="col-h-sku congelado">SKU</th>
+                <th class="col-h-ean congelado">EAN</th>
+                <th class="col-h-ncm congelado divisoria">NCM</th>
+                <th class="sub-nota">Nota fiscal</th>
+                <th class="sub-nota">Fornecedor</th>
+                <th class="sub-nota">Empresa</th>
+                <th class="sub-nota divisoria">Data entrada</th>
+                <th class="sub-custos divisoria">Custo unit.</th>
+                <th class="sub-icms">Alíq.</th>
+                <th class="sub-icms divisoria">Red.</th>
+                <th class="sub-icms-st">Alíq.</th>
+                <th class="sub-icms-st divisoria">Red.</th>
+                <th class="sub-icms-retido">Alíq.</th>
+                <th class="sub-icms-retido divisoria">Red.</th>
+                <th class="sub-ipi">Alíq.</th>
+                <th class="sub-ipi divisoria">Red.</th>
+                <th class="sub-pis">Alíq.</th>
+                <th class="sub-pis divisoria">Red.</th>
+                <th class="sub-cofins">Alíq.</th>
+                <th class="sub-cofins">Red.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if not linhas %}
+            <tr>
+                <td colspan="22" class="resumo-entrada-tabela-vazia">Nenhum produto encontrado com esses filtros.</td>
+            </tr>
+            {% endif %}
+            {% for linha in linhas %}
+            <tr>
+                <td class="col-h-foto congelado celula-foto">
+                    {% if linha.imagem_url %}
+                    <img src="{{ linha.imagem_url }}" class="miniatura-resumo-entrada" alt="{{ linha.produto }}">
+                    {% else %}
+                    <div class="miniatura-resumo-entrada miniatura-vazia"><i class="fas fa-image"></i></div>
+                    {% endif %}
+                </td>
+                <td class="col-h-produto congelado celula-produto">{{ linha.produto }}</td>
+                <td class="col-h-sku congelado">{{ linha.sku|default:"—" }}</td>
+                <td class="col-h-ean congelado">{{ linha.ean|default:"—" }}</td>
+                <td class="col-h-ncm congelado divisoria">{{ linha.ncm|default:"—" }}</td>
+                <td class="sub-nota">{{ linha.nota_fiscal }}</td>
+                <td class="sub-nota celula-truncada" title="{{ linha.fornecedor }}">{{ linha.fornecedor }}</td>
+                <td class="sub-nota celula-truncada" title="{{ linha.empresa }}">{{ linha.empresa|default:"—" }}</td>
+                <td class="sub-nota divisoria">{{ linha.data_entrada|date:"d/m/Y"|default:"—" }}</td>
+                <td class="sub-custos divisoria">{% if linha.custo_unitario is not None %}R$ {{ linha.custo_unitario|floatformat:2 }}{% else %}—{% endif %}</td>
+                <td class="sub-icms">{% if linha.icms_aliquota is not None %}{{ linha.icms_aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-icms divisoria">{% if linha.icms_reducao is not None %}{{ linha.icms_reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-icms-st">{% if linha.icms_st_aliquota is not None %}{{ linha.icms_st_aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-icms-st divisoria">{% if linha.icms_st_reducao is not None %}{{ linha.icms_st_reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-icms-retido">{% if linha.icms_ret_aliquota is not None %}{{ linha.icms_ret_aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-icms-retido divisoria">{% if linha.icms_ret_reducao is not None %}{{ linha.icms_ret_reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-ipi">{% if linha.ipi_aliquota is not None %}{{ linha.ipi_aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-ipi divisoria">{% if linha.ipi_reducao is not None %}{{ linha.ipi_reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-pis">{% if linha.pis_aliquota is not None %}{{ linha.pis_aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-pis divisoria">{% if linha.pis_reducao is not None %}{{ linha.pis_reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-cofins">{% if linha.cofins_aliquota is not None %}{{ linha.cofins_aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
+                <td class="sub-cofins">{% if linha.cofins_reducao is not None %}{{ linha.cofins_reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="resumo-entrada-paginacao">
+    {% if pagina.has_previous %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="resumo-entrada-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="resumo-entrada-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }} ({{ pagina.paginator.count }} produtos encontrados)</span>
+    {% if pagina.has_next %}
+        <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="resumo-entrada-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'impostos/js/script_exportar_resumo_entrada.js' %}"></script>
+{% endblock %}

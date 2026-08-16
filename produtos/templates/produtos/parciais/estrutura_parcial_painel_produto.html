@@ -52,7 +52,6 @@
                             <tr><td class="modal-td-dado">Estoque</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.estoque }}</td></tr>
                             <tr><td class="modal-td-dado">Categoria</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.categoria|default:"" }}</td></tr>
                             <tr><td class="modal-td-dado">ID Produto (Sysemp)</td><td class="modal-td-valor">{{ impostos_entrada.id_produto_sysemp|default:"—" }}</td></tr>
-                            <tr><td class="modal-td-dado">Código Auxiliar</td><td class="modal-td-valor">{{ impostos_entrada.codigo_auxiliar|default:"—" }}</td></tr>
                         </table>
                     </div>
                 </div>
@@ -324,7 +323,10 @@
                                 </tr>
                                 {% endif %}
                                 <tr>
-                                    <td class="modal-td-dado">Base Cálculo</td>
+                                    <td class="modal-td-dado">
+                                        Base Cálculo
+                                        {% include "produtos/parciais/_popover_calculo_por_unidade.html" with valor_nota=linha.base_calculo_nota valor_unidade=linha.base_calculo quantidade=impostos_entrada.quantidade_nota %}
+                                    </td>
                                     <td class="modal-td-valor" colspan="3">{% if linha.base_calculo is not None %}R$ {{ linha.base_calculo|floatformat:2 }}{% else %}—{% endif %}</td>
                                 </tr>
                                 {% if linha.aliquota is not None %}
@@ -335,12 +337,18 @@
                                 {% endif %}
                                 {% if linha.reducao is not None %}
                                 <tr>
-                                    <td class="modal-td-dado">Redução</td>
+                                    <td class="modal-td-dado">
+                                        Redução
+                                        {% include "produtos/parciais/_popover_calculo_reducao.html" with reducao_calculada=linha.reducao_e_calculada base_calculo_nota=linha.base_calculo_nota custo_total=impostos_entrada.custo_total reducao=linha.reducao %}
+                                    </td>
                                     <td class="modal-td-valor" colspan="3">{{ linha.reducao|floatformat:2 }}%</td>
                                 </tr>
                                 {% endif %}
                                 <tr>
-                                    <td class="modal-td-dado">Valor</td>
+                                    <td class="modal-td-dado">
+                                        Valor
+                                        {% include "produtos/parciais/_popover_calculo_por_unidade.html" with valor_nota=linha.valor_nota valor_unidade=linha.valor quantidade=impostos_entrada.quantidade_nota %}
+                                    </td>
                                     <td class="modal-td-valor" colspan="3">{% if linha.valor is not None %}R$ {{ linha.valor|floatformat:2 }}{% else %}—{% endif %}</td>
                                 </tr>
                                 {% if linha.aliquota_fcp is not None %}
@@ -351,7 +359,10 @@
                                 {% endif %}
                                 {% if linha.valor_fcp is not None %}
                                 <tr>
-                                    <td class="modal-td-dado">Valor FCP</td>
+                                    <td class="modal-td-dado">
+                                        Valor FCP
+                                        {% include "produtos/parciais/_popover_calculo_por_unidade.html" with valor_nota=linha.valor_fcp_nota valor_unidade=linha.valor_fcp quantidade=impostos_entrada.quantidade_nota %}
+                                    </td>
                                     <td class="modal-td-valor" colspan="3">R$ {{ linha.valor_fcp|floatformat:2 }}</td>
                                 </tr>
                                 {% endif %}

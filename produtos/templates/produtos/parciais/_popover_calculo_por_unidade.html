@@ -1,0 +1,10 @@
+{% if valor_nota is not None and quantidade %}
+<i class="fas fa-calculator modal-icone-calculado"
+   data-bs-toggle="popover"
+   data-bs-trigger="focus"
+   data-bs-html="true"
+   data-bs-placement="top"
+   data-bs-container="body"
+   data-bs-content="<div class='modal-popover-titulo'>Por unidade — não vem assim do XML</div><div class='modal-popover-formula'>R$ {{ valor_nota|floatformat:2 }} (nota) ÷ {{ quantidade|floatformat:'-3' }} un. = <strong>R$ {{ valor_unidade|floatformat:2 }}</strong></div>"
+   tabindex="0" role="button" aria-label="Ver como este valor foi calculado"></i>
+{% endif %}

@@ -585,3 +585,109 @@
     background-color: #8E2452;
 }
 
+
+/* Corpo do card em tom pastel da mesma cor do cabeçalho (15/08/2026) —
+   :has(> .card-header...) exige o cabeçalho como FILHO DIRETO: sem o ">",
+   o card externo "Impostos de entrada" (que contém os 6 cards dentro dele)
+   também bateria com o seletor e todas as cores se misturariam. */
+.card:has(> .card-header.modal-card-cabecalho-icms) .modal-td-dado {
+    background-color: rgb(237, 232, 221);
+    color: #3C3120;
+    border-bottom-color: rgb(210, 198, 169);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms) .modal-td-valor {
+    background-color: rgb(246, 244, 238);
+    color: #3C3120;
+    border-bottom-color: rgb(210, 198, 169);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms) .modal-icone-calculado {
+    color: #6B5A2E;
+}
+
+.card:has(> .card-header.modal-card-cabecalho-icms-st) .modal-td-dado {
+    background-color: rgb(242, 230, 221);
+    color: #4A2E14;
+    border-bottom-color: rgb(222, 193, 169);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms-st) .modal-td-valor {
+    background-color: rgb(248, 243, 238);
+    color: #4A2E14;
+    border-bottom-color: rgb(222, 193, 169);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms-st) .modal-icone-calculado {
+    color: #7A4D2E;
+}
+
+.card:has(> .card-header.modal-card-cabecalho-icms-retido) .modal-td-dado {
+    background-color: rgb(239, 226, 222);
+    color: #4A2016;
+    border-bottom-color: rgb(214, 182, 172);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms-retido) .modal-td-valor {
+    background-color: rgb(247, 240, 238);
+    color: #4A2016;
+    border-bottom-color: rgb(214, 182, 172);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms-retido) .modal-icone-calculado {
+    color: #7A4438;
+}
+
+.card:has(> .card-header.modal-card-cabecalho-ipi) .modal-td-dado {
+    background-color: rgb(224, 232, 236);
+    color: #1B3A47;
+    border-bottom-color: rgb(177, 199, 208);
+}
+.card:has(> .card-header.modal-card-cabecalho-ipi) .modal-td-valor {
+    background-color: rgb(239, 244, 246);
+    color: #1B3A47;
+    border-bottom-color: rgb(177, 199, 208);
+}
+.card:has(> .card-header.modal-card-cabecalho-ipi) .modal-icone-calculado {
+    color: #4D6E7A;
+}
+
+.card:has(> .card-header.modal-card-cabecalho-pis) .modal-td-dado {
+    background-color: rgb(237, 224, 223);
+    color: #4A1D18;
+    border-bottom-color: rgb(209, 178, 176);
+}
+.card:has(> .card-header.modal-card-cabecalho-pis) .modal-td-valor {
+    background-color: rgb(246, 240, 239);
+    color: #4A1D18;
+    border-bottom-color: rgb(209, 178, 176);
+}
+.card:has(> .card-header.modal-card-cabecalho-pis) .modal-icone-calculado {
+    color: #7A4D48;
+}
+
+.card:has(> .card-header.modal-card-cabecalho-cofins) .modal-td-dado {
+    background-color: rgb(239, 224, 231);
+    color: #4A1830;
+    border-bottom-color: rgb(215, 178, 194);
+}
+.card:has(> .card-header.modal-card-cabecalho-cofins) .modal-td-valor {
+    background-color: rgb(247, 240, 243);
+    color: #4A1830;
+    border-bottom-color: rgb(215, 178, 194);
+}
+.card:has(> .card-header.modal-card-cabecalho-cofins) .modal-icone-calculado {
+    color: #7A4560;
+}
+
+/* Ícone de calculadora e conteúdo do popover — fallback de cor caso o
+   ícone apareça fora de um card com tom próprio (não deveria acontecer). */
+.modal-icone-calculado {
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+.modal-popover-titulo {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.modal-popover-formula {
+    font-size: 13px;
+}

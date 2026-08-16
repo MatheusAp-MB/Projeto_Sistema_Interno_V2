@@ -66,5 +66,18 @@ function abrirModal() {
     setTimeout(function () {
         var modal = new bootstrap.Modal(document.getElementById('modal-produto'));
         modal.show();
+        inicializarPopoversDeCalculo();
     }, 100);
+}
+
+// * [EXPLICAÇÃO] → Popover não se auto-inicializa por atributo (diferente
+//                  da Tab, que já vem com delegação global do próprio
+//                  Bootstrap) — precisa de "new bootstrap.Popover(...)" por
+//                  elemento, toda vez que o HTMX troca o conteúdo do modal
+//                  (aba Impostos, ícone de calculadora em cada valor
+//                  calculado). Reaproveita o mesmo timing do abrirModal.
+function inicializarPopoversDeCalculo() {
+    document.querySelectorAll('#aba-impostos [data-bs-toggle="popover"]').forEach(function (elemento) {
+        new bootstrap.Popover(elemento);
+    });
 }
