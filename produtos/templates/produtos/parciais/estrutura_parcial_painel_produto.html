@@ -51,6 +51,8 @@
                             <tr><td class="modal-td-dado">Curva</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.curva|default:"" }}</td></tr>
                             <tr><td class="modal-td-dado">Estoque</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.estoque }}</td></tr>
                             <tr><td class="modal-td-dado">Categoria</td><td class="modal-td-valor">{{ produto.obter_dados_identificacao.categoria|default:"" }}</td></tr>
+                            <tr><td class="modal-td-dado">ID Produto (Sysemp)</td><td class="modal-td-valor">{{ impostos_entrada.id_produto_sysemp|default:"—" }}</td></tr>
+                            <tr><td class="modal-td-dado">Código Auxiliar</td><td class="modal-td-valor">{{ impostos_entrada.codigo_auxiliar|default:"—" }}</td></tr>
                         </table>
                     </div>
                 </div>
@@ -204,120 +206,172 @@
 
     <div class="tab-pane fade" id="aba-impostos" role="tabpanel" aria-labelledby="aba-impostos-btn">
 
-        <!-- Dados sobre a última nota (XML referência) -->
-        <div class="card">
-            <div class="card-header modal-card-cabecalho">
-                <strong>Dados sobre a última nota (XML referência)</strong>
-            </div>
+        {% if impostos_entrada %}
+        <details class="card" open>
+            <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Resumo da nota</summary>
             <div class="card-body">
-                {% if impostos_entrada %}
-                <div class="modal-grid-nota-referencia">
-                    <div class="modal-stat-nota">
-                        <div class="modal-stat-rotulo">Nota Fiscal</div>
-                        <div class="modal-stat-valor">{{ impostos_entrada.nr_nf }}</div>
-                    </div>
-                    <div class="modal-stat-nota">
-                        <div class="modal-stat-rotulo">Data Entrada</div>
-                        <div class="modal-stat-valor">{{ impostos_entrada.data_entrada_nota|date:"d/m/Y"|default:"—" }}</div>
-                    </div>
-                    <div class="modal-stat-nota">
-                        <div class="modal-stat-rotulo">Data Emissão</div>
-                        <div class="modal-stat-valor">{{ impostos_entrada.emissao|date:"d/m/Y"|default:"—" }}</div>
-                    </div>
-                    <div class="modal-stat-nota">
-                        <div class="modal-stat-rotulo">NCM</div>
-                        <div class="modal-stat-valor">{{ impostos_entrada.ncm|default:"—" }}</div>
-                    </div>
-                    <div class="modal-stat-nota">
-                        <div class="modal-stat-rotulo">Fornecedor</div>
-                        <div class="modal-stat-valor">{{ impostos_entrada.fornecedor }}</div>
-                    </div>
-                    <div class="modal-stat-nota">
-                        <div class="modal-stat-rotulo">Custo Unitário</div>
-                        <div class="modal-stat-valor">{% if impostos_entrada.custo_unitario is not None %}R$ {{ impostos_entrada.custo_unitario|floatformat:2 }}{% else %}— (pendente resync){% endif %}</div>
-                    </div>
-                </div>
-                {% else %}
-                <span class="modal-sem-dado">Produto ainda sem dados de impostos de entrada sincronizados (Sysemp).</span>
-                {% endif %}
+                <table class="modal-tabela modal-tabela-par">
+                    <colgroup>
+                        <col class="modal-col-dado"><col class="modal-col-valor">
+                        <col class="modal-col-dado"><col class="modal-col-valor">
+                    </colgroup>
+                    <tr>
+                        <td class="modal-td-dado">Nota Fiscal</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.nr_nf }}</td>
+                        <td class="modal-td-dado">Fornecedor</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.fornecedor }}</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">Empresa</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.empresa_fantasia|default:"—" }}</td>
+                        <td class="modal-td-dado">Quantidade (na NF)</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.quantidade_nota|floatformat:"-3"|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">Data Emissão</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.emissao|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="modal-td-dado">Data Entrada</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.data_entrada_nota|date:"d/m/Y"|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">Custo Total da Nota</td>
+                        <td class="modal-td-valor">R$ {{ impostos_entrada.custo_total|floatformat:2 }}</td>
+                        <td class="modal-td-dado">Custo Unitário</td>
+                        <td class="modal-td-valor">{% if impostos_entrada.custo_unitario is not None %}R$ {{ impostos_entrada.custo_unitario|floatformat:2 }}{% else %}— (pendente resync){% endif %}</td>
+                    </tr>
+                </table>
             </div>
-        </div>
+        </details>
 
-        <div class="row g-4 modal-row-detalhamento-impostos">
+        <details class="card">
+            <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Classificação fiscal</summary>
+            <div class="card-body">
+                <table class="modal-tabela modal-tabela-comparacao modal-tabela-espacamento">
+                    <colgroup>
+                        <col class="modal-col-dado"><col class="modal-col-xml"><col class="modal-col-cadastro">
+                    </colgroup>
+                    <tr>
+                        <td class="modal-td-cabecalho-comparacao"></td>
+                        <td class="modal-td-cabecalho-comparacao">XML</td>
+                        <td class="modal-td-cabecalho-comparacao">Cadastro</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">NCM</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.ncm_xml|default:"—" }}</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.ncm_cadastro|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">CFOP</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.cfop_xml|default:"—" }}</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.cfop_cadastro|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">Origem</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.origem_mercadoria_xml|default:"—" }}</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.origem_mercadoria_cadastro|default:"—" }}</td>
+                    </tr>
+                </table>
+                <table class="modal-tabela modal-tabela-comparacao-larga modal-tabela-espacamento">
+                    <colgroup>
+                        <col class="modal-col-xml-largo"><col class="modal-col-cadastro-largo">
+                    </colgroup>
+                    <tr>
+                        <td class="modal-td-cabecalho-comparacao">XML</td>
+                        <td class="modal-td-cabecalho-comparacao">Cadastro</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-valor">{{ impostos_entrada.descricao_origem_mercadoria_xml|default:"—" }}</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.descricao_origem_mercadoria_cadastro|default:"—" }}</td>
+                    </tr>
+                </table>
+                <table class="modal-tabela">
+                    <colgroup>
+                        <col class="modal-col-dado"><col class="modal-col-valor">
+                    </colgroup>
+                    <tr>
+                        <td class="modal-td-dado">Natureza da Operação</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.natureza_operacao_cadastro|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                        <td class="modal-td-dado">TES de Saída</td>
+                        <td class="modal-td-valor">{{ impostos_entrada.tes_saida_cadastro|default:"—" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </details>
 
-            <!-- Detalhamento de impostos de entrada — por unidade -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header modal-card-cabecalho">
-                        <strong>Detalhamento de impostos de entrada — por unidade</strong>
-                    </div>
-                    <div class="card-body">
-                        {% if impostos_entrada %}
-                        <table class="modal-tabela-impostos">
-                            <thead>
+        <details class="card" open>
+            <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Impostos de entrada — por unidade</summary>
+            <div class="card-body">
+                <div class="modal-grade-cards-imposto">
+                    {% for linha in impostos_entrada.linhas %}
+                    <div class="card">
+                        <div class="card-header modal-card-cabecalho modal-card-cabecalho-{{ linha.nome|slugify }}">
+                            <strong>{{ linha.nome }}</strong>
+                        </div>
+                        <div class="card-body">
+                            <table class="modal-tabela modal-tabela-par">
+                                <colgroup>
+                                    <col class="modal-col-dado"><col class="modal-col-valor">
+                                    <col class="modal-col-dado"><col class="modal-col-valor">
+                                </colgroup>
+                                {% if linha.cst_xml is not None or linha.cst_cadastro is not None %}
                                 <tr>
-                                    <th>Imposto</th>
-                                    <th>CST</th>
-                                    <th>Base Cálculo</th>
-                                    <th>Alíquota</th>
-                                    <th>Redução</th>
-                                    <th>Valor</th>
+                                    <td class="modal-td-dado">CST XML</td>
+                                    <td class="modal-td-valor">{{ linha.cst_xml|default_if_none:"—" }}</td>
+                                    <td class="modal-td-dado">CST Cadastro</td>
+                                    <td class="modal-td-valor">{{ linha.cst_cadastro|default_if_none:"—" }}</td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {% for linha in impostos_entrada.linhas %}
+                                {% endif %}
                                 <tr>
-                                    <td class="modal-td-dado">{{ linha.nome }}</td>
-                                    <td class="modal-td-valor">{{ linha.cst|default_if_none:"—" }}</td>
-                                    <td class="modal-td-valor">{% if linha.base_calculo is not None %}R$ {{ linha.base_calculo|floatformat:2 }}{% else %}—{% endif %}</td>
-                                    <td class="modal-td-valor">{% if linha.aliquota is not None %}{{ linha.aliquota|floatformat:2 }}%{% else %}—{% endif %}</td>
-                                    <td class="modal-td-valor">{% if linha.reducao is not None %}{{ linha.reducao|floatformat:2 }}%{% else %}—{% endif %}</td>
-                                    <td class="modal-td-valor">{% if linha.valor is not None %}R$ {{ linha.valor|floatformat:2 }}{% else %}—{% endif %}</td>
+                                    <td class="modal-td-dado">Base Cálculo</td>
+                                    <td class="modal-td-valor" colspan="3">{% if linha.base_calculo is not None %}R$ {{ linha.base_calculo|floatformat:2 }}{% else %}—{% endif %}</td>
                                 </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        {% else %}
-                        <span class="modal-sem-dado">Produto ainda sem dados de impostos de entrada sincronizados (Sysemp).</span>
-                        {% endif %}
+                                {% if linha.aliquota is not None %}
+                                <tr>
+                                    <td class="modal-td-dado">Alíquota</td>
+                                    <td class="modal-td-valor" colspan="3">{{ linha.aliquota|floatformat:2 }}%</td>
+                                </tr>
+                                {% endif %}
+                                {% if linha.reducao is not None %}
+                                <tr>
+                                    <td class="modal-td-dado">Redução</td>
+                                    <td class="modal-td-valor" colspan="3">{{ linha.reducao|floatformat:2 }}%</td>
+                                </tr>
+                                {% endif %}
+                                <tr>
+                                    <td class="modal-td-dado">Valor</td>
+                                    <td class="modal-td-valor" colspan="3">{% if linha.valor is not None %}R$ {{ linha.valor|floatformat:2 }}{% else %}—{% endif %}</td>
+                                </tr>
+                                {% if linha.aliquota_fcp is not None %}
+                                <tr>
+                                    <td class="modal-td-dado">% FCP</td>
+                                    <td class="modal-td-valor" colspan="3">{{ linha.aliquota_fcp|floatformat:2 }}%</td>
+                                </tr>
+                                {% endif %}
+                                {% if linha.valor_fcp is not None %}
+                                <tr>
+                                    <td class="modal-td-dado">Valor FCP</td>
+                                    <td class="modal-td-valor" colspan="3">R$ {{ linha.valor_fcp|floatformat:2 }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
             </div>
+        </details>
+        {% else %}
+        <p class="modal-sem-dado">Produto ainda sem dados de impostos de entrada sincronizados (Sysemp).</p>
+        {% endif %}
 
-            <!-- Detalhamento de impostos de saída — por unidade (placeholder, sem fonte de dado ainda) -->
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header modal-card-cabecalho modal-card-cabecalho-placeholder">
-                        <strong>Detalhamento de impostos de saída — por unidade</strong>
-                        <span class="modal-badge-placeholder">placeholder</span>
-                    </div>
-                    <div class="card-body">
-                        <table class="modal-tabela-impostos modal-tabela-impostos-placeholder">
-                            <thead>
-                                <tr>
-                                    <th>Imposto</th>
-                                    <th>CST</th>
-                                    <th>Base Cálculo</th>
-                                    <th>Alíquota</th>
-                                    <th>Redução</th>
-                                    <th>Valor</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="modal-td-dado">ICMS</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                                <tr><td class="modal-td-dado">ICMS ST</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                                <tr><td class="modal-td-dado">ICMS Retido</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                                <tr><td class="modal-td-dado">IPI</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                                <tr><td class="modal-td-dado">PIS</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                                <tr><td class="modal-td-dado">COFINS</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                                <tr><td class="modal-td-dado">Frete CIF/FOB</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td><td class="modal-td-valor">—</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+        <details class="card modal-secao-pendente">
+            <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Impostos de saída — ainda sem fonte de dado</summary>
+            <div class="card-body">
+                <p class="modal-sem-dado">API de saída do Sysemp ainda em desenvolvimento, sem prazo. Estrutura de colunas será a mesma da entrada quando existir.</p>
             </div>
-
-        </div>
+        </details>
 
     </div>
 

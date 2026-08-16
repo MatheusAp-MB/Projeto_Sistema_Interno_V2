@@ -146,10 +146,10 @@ def test_icms_com_campos_null_vira_zero(tabela_resultados):
     # Assert
     bateu = (
         icms.cst_xml, icms.cst_cadastro, icms.base_calculo, icms.aliquota, icms.reducao, icms.valor
-    ) == (0, 0, 0.0, 0.0, 0.0, 0.0)
+    ) == ('00', '00', 0.0, 0.0, 0.0, 0.0)
     registrar_resultado(
         tabela_resultados, 'icms_campos_null_vira_zero',
-        '6 campos de ICMS (cst_xml/cst_cadastro/base/aliquota/reducao/valor) null', 'todos 0/0.0, sem exceção',
+        '6 campos de ICMS (cst_xml/cst_cadastro/base/aliquota/reducao/valor) null', "cst_xml/cst_cadastro='00', resto 0.0",
         'Imposto incompleto da origem não pode estourar float(None)/int(None)',
         f'{(icms.cst_xml, icms.cst_cadastro, icms.base_calculo, icms.aliquota, icms.reducao, icms.valor)}', bateu,
     )
@@ -218,10 +218,10 @@ def test_ipi_com_campos_null_vira_zero(tabela_resultados):
     ipi = Ipi.a_partir_do_registro(registro)
 
     # Assert
-    bateu = (ipi.cst_xml, ipi.cst_cadastro, ipi.base_calculo, ipi.aliquota, ipi.valor) == (0, 0, 0.0, 0.0, 0.0)
+    bateu = (ipi.cst_xml, ipi.cst_cadastro, ipi.base_calculo, ipi.aliquota, ipi.valor) == ('00', '00', 0.0, 0.0, 0.0)
     registrar_resultado(
         tabela_resultados, 'ipi_campos_null_vira_zero',
-        '5 campos de IPI (cst_xml/cst_cadastro/base/aliquota/valor) null', 'todos 0/0.0, sem exceção',
+        '5 campos de IPI (cst_xml/cst_cadastro/base/aliquota/valor) null', "cst_xml/cst_cadastro='00', resto 0.0",
         'Imposto incompleto da origem não pode estourar float(None)/int(None)',
         f'{(ipi.cst_xml, ipi.cst_cadastro, ipi.base_calculo, ipi.aliquota, ipi.valor)}', bateu,
     )
@@ -245,10 +245,10 @@ def test_pis_com_base_calculo_null_zera_e_reducao_fica_100(tabela_resultados):
     # Assert: base zerada -> reducao = (1 - 0/1000)*100 = 100.0, sem exceção.
     bateu = (
         pis.cst_xml, pis.cst_cadastro, pis.base_calculo, pis.aliquota, pis.reducao, pis.valor
-    ) == (0, 0, 0.0, 0.0, 100.0, 0.0)
+    ) == ('00', '00', 0.0, 0.0, 100.0, 0.0)
     registrar_resultado(
         tabela_resultados, 'pis_base_null_zera_e_reducao_100',
-        '5 campos de PIS null (inclusive Base Calculo)', 'cst_xml/cst_cadastro/base/aliquota/valor=0, reducao=100.0',
+        '5 campos de PIS null (inclusive Base Calculo)', "cst_xml/cst_cadastro='00', base/aliquota/valor=0.0, reducao=100.0",
         'Base zerada precisa fluir pela fórmula de redução normalmente, sem tratamento especial',
         f'{(pis.cst_xml, pis.cst_cadastro, pis.base_calculo, pis.aliquota, pis.reducao, pis.valor)}', bateu,
     )
@@ -270,10 +270,10 @@ def test_cofins_com_base_calculo_null_zera_e_reducao_fica_100(tabela_resultados)
     # Assert
     bateu = (
         cofins.cst_xml, cofins.cst_cadastro, cofins.base_calculo, cofins.aliquota, cofins.reducao, cofins.valor
-    ) == (0, 0, 0.0, 0.0, 100.0, 0.0)
+    ) == ('00', '00', 0.0, 0.0, 100.0, 0.0)
     registrar_resultado(
         tabela_resultados, 'cofins_base_null_zera_e_reducao_100',
-        '5 campos de COFINS null (inclusive Base Calculo)', 'cst_xml/cst_cadastro/base/aliquota/valor=0, reducao=100.0',
+        '5 campos de COFINS null (inclusive Base Calculo)', "cst_xml/cst_cadastro='00', base/aliquota/valor=0.0, reducao=100.0",
         'Base zerada precisa fluir pela fórmula de redução normalmente, sem tratamento especial',
         f'{(cofins.cst_xml, cofins.cst_cadastro, cofins.base_calculo, cofins.aliquota, cofins.reducao, cofins.valor)}',
         bateu,
@@ -332,10 +332,10 @@ def test_icms_cst_xml_e_cst_cadastro_nao_se_confundem(tabela_resultados):
     icms = Icms.a_partir_do_registro(registro)
 
     # Assert
-    bateu = icms.cst_xml == 0 and icms.cst_cadastro == 60
+    bateu = icms.cst_xml == '00' and icms.cst_cadastro == '60'
     registrar_resultado(
         tabela_resultados, 'icms_cst_xml_e_cadastro_nao_se_confundem',
-        'CST ICMS=0 (XML), CST ICMS Cadastro=60', 'cst_xml=0, cst_cadastro=60',
+        'CST ICMS=0 (XML), CST ICMS Cadastro=60', "cst_xml='00', cst_cadastro='60'",
         'Mesmo risco do NCM — CST vem em par, troca silenciosa não gera erro, só dado errado',
         f'cst_xml={icms.cst_xml}, cst_cadastro={icms.cst_cadastro}', bateu,
     )

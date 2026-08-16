@@ -63,15 +63,18 @@ def _float_ou_zero(valor) -> float:
     return float(valor) if valor not in (None, '') else 0.0
 
 
-def _int_ou_zero(valor) -> int:
-    # * [EXPLICAÇÃO] → mesma decisão acima, pra campo inteiro de imposto
-    # (CST) — mesmo escopo, nunca usado fora dos 6 impostos. TES Cadastro
-    # NÃO usa este helper de propósito — não é campo de imposto, é campo de
-    # classificação, fora do escopo original desta decisão.
-    #
-    # Ampliado (14/08/2026): mesma razão do _float_ou_zero acima — string
-    # vazia tratada igual a null.
-    return int(valor) if valor not in (None, '') else 0
+def _str_cst_ou_zero(valor) -> str:
+    # * [EXPLICAÇÃO] → CST é código, não número — precisa manter o formato
+    #                  de texto de 2 dígitos ("00", "02"), nunca virar int
+    #                  (int("00") == 0, exibido como "0" — bug real,
+    #                  15/08/2026). Substitui o antigo _int_ou_zero (que
+    #                  fazia exatamente isso de errado) nos 6 impostos.
+    #                  zfill(2) garante 2 dígitos mesmo se a fonte vier sem
+    #                  o zero à esquerda. Mesma decisão de "vazio = zero"
+    #                  do _float_ou_zero acima — aqui "zero" é "00".
+    if valor in (None, ''):
+        return '00'
+    return str(valor).strip().zfill(2)
 
 
 @dataclass(frozen=True)
@@ -177,8 +180,8 @@ class IcmsSt:
 
 @dataclass(frozen=True)
 class Icms:
-    cst_xml: int
-    cst_cadastro: int
+    cst_xml: str
+    cst_cadastro: str
     base_calculo: float
     aliquota: float
     reducao: float
@@ -187,8 +190,8 @@ class Icms:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'Icms':
         return cls(
-            cst_xml=_int_ou_zero(registro['CST ICMS']),
-            cst_cadastro=_int_ou_zero(registro['CST ICMS Cadastro']),
+            cst_xml=_str_cst_ou_zero(registro['CST ICMS']),
+            cst_cadastro=_str_cst_ou_zero(registro['CST ICMS Cadastro']),
             base_calculo=_float_ou_zero(registro['Base Calculo ICMS']),
             aliquota=_float_ou_zero(registro['Aliquota ICMS']),
             reducao=_float_ou_zero(registro['Redução ICMS']),
@@ -211,8 +214,8 @@ class IcmsRet:
 
 @dataclass(frozen=True)
 class Ipi:
-    cst_xml: int
-    cst_cadastro: int
+    cst_xml: str
+    cst_cadastro: str
     base_calculo: float
     aliquota: float
     valor: float
@@ -220,8 +223,8 @@ class Ipi:
     @classmethod
     def a_partir_do_registro(cls, registro: dict) -> 'Ipi':
         return cls(
-            cst_xml=_int_ou_zero(registro['CST IPI']),
-            cst_cadastro=_int_ou_zero(registro['CST IPI Cadastro']),
+            cst_xml=_str_cst_ou_zero(registro['CST IPI']),
+            cst_cadastro=_str_cst_ou_zero(registro['CST IPI Cadastro']),
             base_calculo=_float_ou_zero(registro['Base Calculo IPI']),
             aliquota=_float_ou_zero(registro['Aliquota IPI']),
             valor=_float_ou_zero(registro['Valor IPI']),
@@ -230,8 +233,8 @@ class Ipi:
 
 @dataclass(frozen=True)
 class Pis:
-    cst_xml: int
-    cst_cadastro: int
+    cst_xml: str
+    cst_cadastro: str
     base_calculo: float
     aliquota: float
     reducao: float
@@ -241,8 +244,8 @@ class Pis:
     def a_partir_do_registro(cls, registro: dict, custo_total: float) -> 'Pis':
         base_calculo = _float_ou_zero(registro['Base Calculo PIS'])
         return cls(
-            cst_xml=_int_ou_zero(registro['CST PIS']),
-            cst_cadastro=_int_ou_zero(registro['CST PIS Cadastro']),
+            cst_xml=_str_cst_ou_zero(registro['CST PIS']),
+            cst_cadastro=_str_cst_ou_zero(registro['CST PIS Cadastro']),
             base_calculo=base_calculo,
             aliquota=_float_ou_zero(registro['Aliquota PIS']),
             reducao=_calcular_percentual_de_reducao(base_calculo, custo_total),
@@ -252,8 +255,8 @@ class Pis:
 
 @dataclass(frozen=True)
 class Cofins:
-    cst_xml: int
-    cst_cadastro: int
+    cst_xml: str
+    cst_cadastro: str
     base_calculo: float
     aliquota: float
     reducao: float
@@ -263,8 +266,8 @@ class Cofins:
     def a_partir_do_registro(cls, registro: dict, custo_total: float) -> 'Cofins':
         base_calculo = _float_ou_zero(registro['Base Calculo COFINS'])
         return cls(
-            cst_xml=_int_ou_zero(registro['CST COFINS']),
-            cst_cadastro=_int_ou_zero(registro['CST COFINS Cadastro']),
+            cst_xml=_str_cst_ou_zero(registro['CST COFINS']),
+            cst_cadastro=_str_cst_ou_zero(registro['CST COFINS Cadastro']),
             base_calculo=base_calculo,
             aliquota=_float_ou_zero(registro['Aliquota COFINS']),
             reducao=_calcular_percentual_de_reducao(base_calculo, custo_total),

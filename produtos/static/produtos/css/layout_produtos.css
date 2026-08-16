@@ -505,83 +505,83 @@
 }
 
 /* ================================================
-   TABELA DE IMPOSTOS DE ENTRADA (XML — Sysemp)
+   ABA IMPOSTOS — MESMO PADRÃO DE CARD/TABELA DA
+   ABA VISÃO GERAL, SEM COR NOVA (15/08/2026)
    ================================================ */
-.modal-tabela-impostos-cabecalho {
-    margin-bottom: 16px;
+.modal-card-cabecalho-recolhivel {
+    cursor: pointer;
+    text-align: left;
 }
 
-.modal-tabela-impostos {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
+.modal-secao-pendente {
+    opacity: 0.75;
 }
 
-.modal-tabela-impostos th {
-    background-color: var(--cor-primaria);
-    color: var(--cor-texto-claro);
-    padding: 6px 8px;
+.modal-tabela-espacamento {
+    margin-bottom: 12px;
+}
+
+.modal-tabela-par .modal-col-dado {
+    width: 20%;
+}
+
+.modal-tabela-par .modal-col-valor {
+    width: 30%;
+}
+
+.modal-tabela-comparacao .modal-col-dado {
+    width: 34%;
+}
+
+.modal-tabela-comparacao .modal-col-xml,
+.modal-tabela-comparacao .modal-col-cadastro {
+    width: 33%;
+}
+
+.modal-td-cabecalho-comparacao {
+    background-color: rgb(220, 233, 248);
+    color: rgb(0, 1, 46);
+    font-weight: 600;
+    padding: 8px 12px;
     text-align: center;
+    border-bottom: 2px solid rgb(180, 210, 240);
 }
 
-.modal-tabela-impostos td {
-    text-align: center;
-    padding: 6px 8px;
-}
-
-/* ================================================
-   RESUMO DA ÚLTIMA NOTA (topo da aba Impostos)
-   ================================================ */
-.modal-row-detalhamento-impostos {
-    margin-top: 16px;
-}
-
-.modal-grid-nota-referencia {
+.modal-grade-cards-imposto {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 2fr 1fr;
-    gap: 1px;
-    background-color: rgb(180, 210, 240);
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
-.modal-stat-nota {
-    background-color: rgb(233, 243, 255);
-    padding: 10px 12px;
-    text-align: center;
+.modal-col-xml-largo,
+.modal-col-cadastro-largo {
+    width: 50%;
 }
 
-.modal-stat-rotulo {
-    font-size: 0.75rem;
-    color: rgb(0, 1, 46);
-    opacity: 0.7;
-    margin-bottom: 4px;
+/* Cor de identificação por imposto — padrão pretendido pra qualquer lugar
+   do sistema que mostrar estes 6 impostos, não só este card (mesmas cores
+   já usadas em scripts_exploracao_ERP/relatorio_impostos_entrada_xlsx.py). */
+.modal-card-cabecalho-icms {
+    background-color: #7D5B0A;
 }
 
-.modal-stat-valor {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: rgb(0, 1, 46);
+.modal-card-cabecalho-icms-st {
+    background-color: #A24E0A;
 }
 
-/* ================================================
-   PLACEHOLDER — DETALHAMENTO DE IMPOSTOS DE SAÍDA
-   ================================================ */
-.modal-card-cabecalho-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+.modal-card-cabecalho-icms-retido {
+    background-color: #8B2E12;
 }
 
-.modal-badge-placeholder {
-    background-color: #fff3cd;
-    color: #856404;
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 4px;
+.modal-card-cabecalho-ipi {
+    background-color: #205E7A;
 }
 
-.modal-tabela-impostos-placeholder td {
-    color: #8a8f98;
+.modal-card-cabecalho-pis {
+    background-color: #7B241C;
+}
+
+.modal-card-cabecalho-cofins {
+    background-color: #8E2452;
 }
 

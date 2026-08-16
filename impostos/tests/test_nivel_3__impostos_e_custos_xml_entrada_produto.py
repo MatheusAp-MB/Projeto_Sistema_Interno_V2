@@ -64,11 +64,11 @@ def _dados_xml_nf_padrao(**overrides) -> DadosXmlNF:
             tes_saida_cadastro=1,
         ),
         'icms_st': IcmsSt(base_calculo=0.0, aliquota=0.0, reducao=0.0, valor=0.0, aliquota_fcp=0.0, valor_fcp=0.0),
-        'icms': Icms(cst_xml=0, cst_cadastro=0, base_calculo=100.0, aliquota=18.1, reducao=0.0, valor=18.1),
+        'icms': Icms(cst_xml='00', cst_cadastro='00', base_calculo=100.0, aliquota=18.1, reducao=0.0, valor=18.1),
         'icms_ret': IcmsRet(base_calculo=0.0, valor=0.0),
-        'ipi': Ipi(cst_xml=0, cst_cadastro=0, base_calculo=100.0, aliquota=5.0, valor=5.0),
-        'pis': Pis(cst_xml=0, cst_cadastro=0, base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
-        'cofins': Cofins(cst_xml=0, cst_cadastro=0, base_calculo=90.0, aliquota=7.6, reducao=10.0, valor=6.9),
+        'ipi': Ipi(cst_xml='00', cst_cadastro='00', base_calculo=100.0, aliquota=5.0, valor=5.0),
+        'pis': Pis(cst_xml='00', cst_cadastro='00', base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
+        'cofins': Cofins(cst_xml='00', cst_cadastro='00', base_calculo=90.0, aliquota=7.6, reducao=10.0, valor=6.9),
         'custos': Custos(total=100.0, unitario=10.0),
     }
     valores.update(overrides)
@@ -390,20 +390,20 @@ def test_obter_detalhes_para_exibicao_calcula_por_unidade_e_usa_ncm_xml(tabela_r
 
     # Assert
     bateu = (
-        detalhes.ncm == '11111111'
+        detalhes.ncm_xml == '11111111' and detalhes.ncm_cadastro == '22222222'
         and icms.base_calculo == Decimal('50.0') and icms.valor == Decimal('9.05')
-        and icms.aliquota == Decimal('18.1') and icms.cst == 0
-        and icms_st.cst is None
-        and icms_ret.cst is None and icms_ret.aliquota is None and icms_ret.reducao is None
+        and icms.aliquota == Decimal('18.1') and icms.cst_xml == '00'
+        and icms_st.cst_xml is None and icms_st.cst_cadastro is None
+        and icms_ret.cst_xml is None and icms_ret.aliquota is None and icms_ret.reducao is None
         and ipi.reducao is None
     )
     registrar_resultado(
         tabela_resultados, 'detalhes_calcula_por_unidade_e_usa_ncm_xml',
         'quantidade_nota=2.0, ICMS base_calculo=100/valor=18.1, ncm_xml=11111111/ncm_cadastro=22222222',
-        'ICMS base_calculo=50.0/valor=9.05 (por unidade), ncm exibido=ncm_xml, cst/aliquota/reducao ausentes onde não existem no domínio',
-        'Exibição sempre divide base_calculo/valor pela quantidade (aliquota/reducao nunca dividem) e usa NCM do XML, nunca do Cadastro',
-        f'ncm={detalhes.ncm}, icms=({icms.base_calculo},{icms.valor},{icms.aliquota},{icms.cst}), '
-        f'icms_st.cst={icms_st.cst}, icms_ret=({icms_ret.cst},{icms_ret.aliquota},{icms_ret.reducao}), ipi.reducao={ipi.reducao}',
+        'ICMS base_calculo=50.0/valor=9.05 (por unidade), ncm_xml/ncm_cadastro exibidos lado a lado, cst/aliquota/reducao ausentes onde não existem no domínio',
+        'Exibição sempre divide base_calculo/valor pela quantidade (aliquota/reducao nunca dividem); NCM e CST agora expõem XML e Cadastro lado a lado (15/08/2026)',
+        f'ncm_xml={detalhes.ncm_xml}, ncm_cadastro={detalhes.ncm_cadastro}, icms=({icms.base_calculo},{icms.valor},{icms.aliquota},{icms.cst_xml}), '
+        f'icms_st=({icms_st.cst_xml},{icms_st.cst_cadastro}), icms_ret=({icms_ret.cst_xml},{icms_ret.aliquota},{icms_ret.reducao}), ipi.reducao={ipi.reducao}',
         bateu,
     )
     assert bateu
