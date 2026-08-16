@@ -2,6 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, get_object_or_404
 from .models import Produto
 from produtos.funcoes_auxiliares.contexto_tela_produtos import ContextoTelaProdutos
+from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 
 
 def view_produtos(request):
@@ -16,7 +17,7 @@ def view_painel_produto(request, produto_id):
     #                  sincronizados (Sysemp) — trata a ausência como caso
     #                  normal, não como erro.
     try:
-        impostos_entrada = produto.impostos_entrada.obter_detalhes_para_exibicao()
+        impostos_entrada = montar_detalhes_para_exibicao(produto.impostos_entrada)
     except ObjectDoesNotExist:
         impostos_entrada = None
 

@@ -1,20 +1,12 @@
 # impostos/tests/test_nivel_3__impostos_e_custos_xml_entrada_produto.py
 
-# Função Objetivo: Nível 3 (banco real) de ImpostosECustosXMLEntradaProduto
-# — cobre o único ponto de escrita, sincronizar_a_partir_de(): sempre
-# sobrescreve (nunca duplica), sempre grava as 6 tabelas juntas (nunca
-# deixa 1 de fora, mesmo zerada), e desfaz tudo se qualquer passo falhar.
-# Usa DadosXmlNF real (DOC já rápido/determinístico — nunca dublê aqui, ver
+# Função Objetivo: Nível 3 (banco real) do domínio de impostos de entrada
+# — cobre o único ponto de escrita, sincronizar_impostos_entrada_do_xml():
+# sempre sobrescreve (nunca duplica), sempre grava as 6 tabelas juntas
+# (nunca deixa 1 de fora, mesmo zerada), e desfaz tudo se qualquer passo
+# falhar. Cobre também montar_detalhes_para_exibicao() (exibição). Usa
+# DadosXmlNF real (DOC já rápido/determinístico — nunca dublê aqui, ver
 # "Disciplina de Testes Automatizados" no vault).
-#
-# Atualizado (14/08/2026) pra API nova (campos em par XML/Cadastro,
-# ClassificacaoFiscalItem consolidado) — 1 teste novo garante que ncm_xml e
-# ncm_cadastro persistem em colunas distintas, motivado pelo quase-erro
-# real que aconteceu na migração do banco.
-#
-# Atualizado de novo (14/08/2026) — 3 campos novos pro relatório de entrada
-# (empresa_fantasia, aliquota_fcp, valor_fcp) — 1 teste novo garante que os
-# 3 persistem no banco.
 
 from datetime import date
 from decimal import Decimal
@@ -26,6 +18,8 @@ from impostos.models import (
     ImpostosECustosXMLEntradaProduto, IcmsEntradaProduto, IcmsStEntradaProduto,
     IcmsRetEntradaProduto, IpiEntradaProduto, PisEntradaProduto, CofinsEntradaProduto,
 )
+from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,
@@ -81,7 +75,7 @@ def test_primeira_sincronizacao_cria_guarda_chuva_e_as_6_tabelas(tabela_resultad
     dados = _dados_xml_nf_padrao()
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert: relê tudo do banco antes de comparar.
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -109,7 +103,7 @@ def test_primeira_sincronizacao_cria_guarda_chuva_e_as_6_tabelas(tabela_resultad
 def test_segunda_sincronizacao_sobrescreve_nunca_duplica(tabela_resultados):
     # Setup: 1ª sincronização já aconteceu antes.
     produto = _criar_produto('7900000000002')
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, _dados_xml_nf_padrao())
+    sincronizar_impostos_entrada_do_xml(produto, _dados_xml_nf_padrao())
 
     # Exercise: 2ª sincronização, nota diferente.
     dados_nova_nota = _dados_xml_nf_padrao(
@@ -119,7 +113,7 @@ def test_segunda_sincronizacao_sobrescreve_nunca_duplica(tabela_resultados):
             data_emissao_nf='2026-08-04', data_entrada_nf='2026-08-05',
         ),
     )
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados_nova_nota)
+    sincronizar_impostos_entrada_do_xml(produto, dados_nova_nota)
 
     # Assert
     total_guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.filter(produto=produto).count()
@@ -150,7 +144,7 @@ def test_data_entrada_nota_string_iso_vira_date_real(tabela_resultados):
     )
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -180,7 +174,7 @@ def test_data_entrada_nota_none_nao_quebra(tabela_resultados):
     )
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -204,7 +198,7 @@ def test_reducao_pis_cofins_chega_intacta(tabela_resultados):
     )
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -213,7 +207,7 @@ def test_reducao_pis_cofins_chega_intacta(tabela_resultados):
     registrar_resultado(
         tabela_resultados, 'reducao_pis_chega_intacta',
         'Pis.reducao=12.34 (já calculada na dataclass)', 'Decimal(12.34) no banco',
-        'sincronizar_a_partir_de nunca recalcula redução — só repassa o que já vem pronto',
+        'sincronizar_impostos_entrada_do_xml nunca recalcula redução — só repassa o que já vem pronto',
         f'{pis.reducao}', bateu,
     )
     assert bateu
@@ -227,7 +221,7 @@ def test_as_6_tabelas_sao_sempre_criadas_mesmo_icms_ret_zerado(tabela_resultados
     dados = _dados_xml_nf_padrao(icms_ret=IcmsRet(base_calculo=0.0, valor=0.0))
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -270,7 +264,7 @@ def test_ncm_xml_e_ncm_cadastro_persistem_distintos(tabela_resultados):
     )
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert: relê do banco antes de comparar.
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -288,9 +282,9 @@ def test_ncm_xml_e_ncm_cadastro_persistem_distintos(tabela_resultados):
 
 
 def test_empresa_fantasia_e_fcp_st_persistem_no_banco(tabela_resultados):
-    # Setup: 3 campos novos (14/08/2026) — empresa_fantasia (guarda-chuva) e
-    # aliquota_fcp/valor_fcp (ICMS ST) — com valores diferentes do padrão
-    # zerado da fixture, pra garantir que não ficam ausentes/zerados sem motivo.
+    # Setup: campos empresa_fantasia (guarda-chuva) e aliquota_fcp/valor_fcp
+    # (ICMS ST), com valores diferentes do padrão zerado da fixture, pra
+    # garantir que não ficam ausentes/zerados sem motivo.
     produto = _criar_produto('7900000000010')
     dados = _dados_xml_nf_padrao(
         identificacao_nf=IdentificacaoNF(
@@ -302,7 +296,7 @@ def test_empresa_fantasia_e_fcp_st_persistem_no_banco(tabela_resultados):
     )
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert: relê tudo do banco antes de comparar.
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
@@ -315,7 +309,7 @@ def test_empresa_fantasia_e_fcp_st_persistem_no_banco(tabela_resultados):
         tabela_resultados, 'empresa_fantasia_e_fcp_st_persistem',
         "empresa_fantasia='Magazine Brasileiro', aliquota_fcp=2.0, valor_fcp=2.0",
         'os 3 valores persistem intactos no banco',
-        'Campos novos (14/08/2026) — não podem ficar ausentes/zerados sem motivo real',
+        'Campos aditivos não podem ficar ausentes/zerados sem motivo real',
         f'empresa_fantasia={guarda_chuva.empresa_fantasia}, aliquota_fcp={icms_st.aliquota_fcp}, valor_fcp={icms_st.valor_fcp}',
         bateu,
     )
@@ -336,7 +330,7 @@ def test_falha_no_meio_desfaz_tudo_por_transacao(monkeypatch, tabela_resultados)
 
     # Exercise
     with pytest.raises(RuntimeError):
-        ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+        sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert: nem o guarda-chuva nem nenhuma das 5 tabelas gravadas ANTES
     # do ponto de falha pode ter sobrado — transaction.atomic() desfaz tudo.
@@ -360,7 +354,7 @@ def test_falha_no_meio_desfaz_tudo_por_transacao(monkeypatch, tabela_resultados)
     # TearDown: nada a desmontar (monkeypatch desfaz sozinho).
 
 
-def test_obter_detalhes_para_exibicao_calcula_por_unidade_e_usa_ncm_xml(tabela_resultados):
+def test_montar_detalhes_para_exibicao_calcula_por_unidade_e_usa_ncm_xml(tabela_resultados):
     # Setup: quantidade_nota=2.0 pra deixar a divisão "por unidade" visível
     # (diferente do valor bruto), e ncm_xml != ncm_cadastro pra confirmar
     # que a exibição usa sempre o XML (fonte única de verdade).
@@ -378,11 +372,11 @@ def test_obter_detalhes_para_exibicao_calcula_por_unidade_e_usa_ncm_xml(tabela_r
             tes_saida_cadastro=1,
         ),
     )
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
 
     # Exercise
-    detalhes = guarda_chuva.obter_detalhes_para_exibicao()
+    detalhes = montar_detalhes_para_exibicao(guarda_chuva)
     icms = next(l for l in detalhes.linhas if l.nome == 'ICMS')
     icms_st = next(l for l in detalhes.linhas if l.nome == 'ICMS ST')
     icms_ret = next(l for l in detalhes.linhas if l.nome == 'ICMS Retido')
@@ -401,7 +395,7 @@ def test_obter_detalhes_para_exibicao_calcula_por_unidade_e_usa_ncm_xml(tabela_r
         tabela_resultados, 'detalhes_calcula_por_unidade_e_usa_ncm_xml',
         'quantidade_nota=2.0, ICMS base_calculo=100/valor=18.1, ncm_xml=11111111/ncm_cadastro=22222222',
         'ICMS base_calculo=50.0/valor=9.05 (por unidade), ncm_xml/ncm_cadastro exibidos lado a lado, cst/aliquota/reducao ausentes onde não existem no domínio',
-        'Exibição sempre divide base_calculo/valor pela quantidade (aliquota/reducao nunca dividem); NCM e CST agora expõem XML e Cadastro lado a lado (15/08/2026)',
+        'Exibição sempre divide base_calculo/valor pela quantidade (aliquota/reducao nunca dividem); NCM e CST expõem XML e Cadastro lado a lado',
         f'ncm_xml={detalhes.ncm_xml}, ncm_cadastro={detalhes.ncm_cadastro}, icms=({icms.base_calculo},{icms.valor},{icms.aliquota},{icms.cst_xml}), '
         f'icms_st=({icms_st.cst_xml},{icms_st.cst_cadastro}), icms_ret=({icms_ret.cst_xml},{icms_ret.aliquota},{icms_ret.reducao}), ipi.reducao={ipi.reducao}',
         bateu,
@@ -411,18 +405,18 @@ def test_obter_detalhes_para_exibicao_calcula_por_unidade_e_usa_ncm_xml(tabela_r
     # TearDown: nada a desmontar.
 
 
-def test_obter_detalhes_para_exibicao_devolve_none_quando_quantidade_ausente(tabela_resultados):
+def test_montar_detalhes_para_exibicao_devolve_none_quando_quantidade_ausente(tabela_resultados):
     # Setup: sincroniza normalmente, depois simula produto sincronizado
     # antes de quantidade_nota existir (campo fica None no banco).
     produto = _criar_produto('7900000000012')
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, _dados_xml_nf_padrao())
+    sincronizar_impostos_entrada_do_xml(produto, _dados_xml_nf_padrao())
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
     guarda_chuva.quantidade_nota = None
     guarda_chuva.save()
     guarda_chuva.refresh_from_db()
 
     # Exercise
-    detalhes = guarda_chuva.obter_detalhes_para_exibicao()
+    detalhes = montar_detalhes_para_exibicao(guarda_chuva)
 
     # Assert
     todos_none = all(linha.base_calculo is None and linha.valor is None for linha in detalhes.linhas)
@@ -430,7 +424,7 @@ def test_obter_detalhes_para_exibicao_devolve_none_quando_quantidade_ausente(tab
         tabela_resultados, 'detalhes_quantidade_ausente_devolve_none',
         'quantidade_nota=None (produto sincronizado antes desse campo existir)',
         'base_calculo e valor None nas 6 linhas',
-        '_por_unidade nunca pode estourar ZeroDivisionError/TypeError sem quantidade',
+        'valor_por_unidade nunca pode estourar ZeroDivisionError/TypeError sem quantidade',
         f'{[(l.nome, l.base_calculo, l.valor) for l in detalhes.linhas]}', todos_none,
     )
     assert todos_none
@@ -453,7 +447,7 @@ def test_obter_detalhes_para_exibicao_devolve_none_quando_quantidade_ausente(tab
 def test_str_de_cada_imposto_usa_prefixo_e_guarda_chuva(model_imposto, prefixo, tabela_resultados):
     # Setup
     produto = _criar_produto('7900000000013')
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, _dados_xml_nf_padrao())
+    sincronizar_impostos_entrada_do_xml(produto, _dados_xml_nf_padrao())
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
     instancia_imposto = model_imposto.objects.get(impostos_e_custos=guarda_chuva)
 
@@ -480,7 +474,7 @@ def test_caso_de_falha_proposital(tabela_resultados):
     dados = _dados_xml_nf_padrao()
 
     # Exercise
-    ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+    sincronizar_impostos_entrada_do_xml(produto, dados)
 
     # Assert: compara contra um NR NF errado de propósito.
     guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)

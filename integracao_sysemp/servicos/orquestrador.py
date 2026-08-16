@@ -36,7 +36,7 @@ from api_sysemp import ApiSysemp
 from api_sysemp.core.excecoes import ErroAPISysemp
 from produtos.models import Produto
 
-from impostos.models import ImpostosECustosXMLEntradaProduto
+from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
 from integracao_sysemp.models import SincronizacaoXmlManifestoNotaEntrada
 
 from .arquivos_retorno_api import (
@@ -112,7 +112,7 @@ def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: Relator
             continue  # produto ainda não cadastrado no sistema — não é erro
         try:
             dados = DadosXmlNF.a_partir_do_registro(registro)
-            ImpostosECustosXMLEntradaProduto.sincronizar_a_partir_de(produto, dados)
+            sincronizar_impostos_entrada_do_xml(produto, dados)
         except (KeyError, ValueError, TypeError) as erro:
             registrar_erro(codigo_barras, etapa='parse_ou_persistencia', mensagem=str(erro))
             relatorio.produtos_com_erro += 1

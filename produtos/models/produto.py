@@ -35,17 +35,8 @@ class DadosFinanceirosProduto:
 # Função Objetivo: Agrupa os dados fiscais do Produto.
 @dataclass
 class DadosFiscaisProduto:
-    mva: Decimal
-    st_valor: Decimal
-    icms_entrada: Decimal
     icms_saida_sp: Decimal
     icms_saida_media: Decimal
-    ipi: Decimal
-    # * [EXPLICAÇÃO] → Campo legado, ainda o único realmente consumido pelas
-    #                  6 fórmulas de precificação hoje (taxa combinada).
-    pis_cofins: Decimal
-    # * [EXPLICAÇÃO] → Campos novos (23/07), ainda sem uso em fórmula nenhuma
-    #                  — só prontos pra receber dado separado do ERP.
     pis_percentual: Decimal
     cofins_percentual: Decimal
     frete_cif_fob: Decimal
@@ -170,31 +161,14 @@ class Produto(models.Model):
     peso_cubado = models.DecimalField(
         max_digits=8, decimal_places=3, blank=True, null=True)
 
-    mva = models.DecimalField(
-        max_digits=6, decimal_places=2, blank=True, null=True)
-    st_valor = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True)
-    icms_entrada = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0)
     icms_saida_sp = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
     icms_saida_media = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
-    ipi = models.DecimalField(max_digits=6, decimal_places=2, default=0)
 
-    # * [EXPLICAÇÃO] → Campo original, usado hoje pelas 6 fórmulas de
-    #                  precificação (1 taxa combinada). Mantido intocado
-    #                  de propósito — a Frente fiscal (separar PIS/COFINS
-    #                  na fórmula de verdade) está pausada, aguardando
-    #                  definição do regime/ordem de cálculo com o ERP.
-    pis_cofins = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-
-    # * [EXPLICAÇÃO] → Campos novos (23/07) — o ERP vai passar a entregar PIS e
-    #                  COFINS separados. Existem só pra já ter onde receber esse
-    #                  dado assim que chegar; NENHUMA fórmula usa esses 2 campos
-    #                  ainda — isso só muda quando a Frente fiscal for retomada
-    #                  de propósito. "pis_cofins" acima continua sendo o único
-    #                  campo realmente consumido pelas 6 fórmulas por enquanto.
+    # Únicos campos de PIS/COFINS do Produto — sempre de saída. O crédito
+    # de entrada vem de impostos_entrada (ver domínio `impostos`), nunca
+    # daqui.
     pis_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     cofins_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0)
 
@@ -263,9 +237,7 @@ class Produto(models.Model):
     # Função Objetivo: Devolve os dados fiscais deste produto.
     def obter_dados_fiscais(self):
         return DadosFiscaisProduto(
-            mva=self.mva, st_valor=self.st_valor, icms_entrada=self.icms_entrada,
             icms_saida_sp=self.icms_saida_sp, icms_saida_media=self.icms_saida_media,
-            ipi=self.ipi, pis_cofins=self.pis_cofins,
             pis_percentual=self.pis_percentual, cofins_percentual=self.cofins_percentual,
             frete_cif_fob=self.frete_cif_fob,
         )

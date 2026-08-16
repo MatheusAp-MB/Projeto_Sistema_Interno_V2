@@ -29,6 +29,8 @@ import io
 from datetime import date
 
 import openpyxl
+
+from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -190,7 +192,7 @@ def _escrever_cabecalho(planilha):
 # (mesma conversão "por unidade" que o modal usa) mais os 3 campos que só
 # existem no Produto (titulo, ean, cod_fabricante).
 def _montar_linha(produto):
-    detalhes = produto.impostos_entrada.obter_detalhes_para_exibicao()
+    detalhes = montar_detalhes_para_exibicao(produto.impostos_entrada)
     por_imposto = {linha.nome: linha for linha in detalhes.linhas}
 
     valores = [

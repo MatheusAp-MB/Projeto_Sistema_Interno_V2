@@ -42,9 +42,7 @@ CAMPOS_ORDENACAO = {
     'largura_apos_embalado': 'largura_produto_apos_embalado',
     'comprimento_apos_embalado': 'comprimento_produto_apos_embalado',
     'peso_cubado': 'peso_cubado',
-    'mva': 'mva', 'st_valor': 'st_valor', 'icms_entrada': 'icms_entrada',
     'icms_saida_sp': 'icms_saida_sp', 'icms_saida_media': 'icms_saida_media',
-    'ipi': 'ipi', 'pis_cofins': 'pis_cofins',
     'pis_percentual': 'pis_percentual', 'cofins_percentual': 'cofins_percentual',
     'frete_cif_fob': 'frete_cif_fob',
     'ultima_compra': 'ultima_compra', 'cadastrado_erp_em': 'cadastrado_erp_em',
@@ -63,8 +61,8 @@ CAMPOS_FAIXA = [
     'peso_apos_embalado', 'altura_apos_embalado', 'largura_apos_embalado', 'comprimento_apos_embalado',
     'peso_cubado',
     'custo', 'custo_com_boni',
-    'ipi', 'icms_entrada', 'icms_saida_sp', 'icms_saida_media',
-    'pis_cofins', 'pis_percentual', 'cofins_percentual', 'mva', 'st_valor', 'frete_cif_fob',
+    'icms_saida_sp', 'icms_saida_media',
+    'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
     'ultima_compra', 'cadastrado_erp_em', 'criado_em', 'atualizado_em',
 ]
 

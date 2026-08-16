@@ -44,10 +44,10 @@ from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
 from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem
 from mercado_livre.models import FreteML, TipoDeAnuncioMercadoLivre, ConfiguracaoTipoAnuncioMercadoLivre
 from integracao_sysemp.servicos.dados_xml_nf import Custos, IcmsSt, Icms, Ipi, Pis, Cofins
+from integracao_sysemp.servicos.arquivos_retorno_api import ler_json, NOME_ARQUIVO_NOTAS_MAIS_RECENTES
 
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')
-NOME_ARQUIVO_ENTRADA_XML = 'nota_mais_recente_por_produto.json'
 
 EAN_TESTADO = '7908050719121'
 
@@ -118,15 +118,19 @@ _imprimir_etapa('Etapa 2 — Quais são as dimensões desse produto? (banco real
 # ========== Etapa 3 — Qual é o custo unitário desse produto? (XML) ==========
 
 def _carregar_registro_xml(ean):
-    caminho = os.path.join(PASTA_SAIDAS, NOME_ARQUIVO_ENTRADA_XML)
-    with open(caminho, encoding='utf-8') as arquivo:
-        produtos_sysemp = json.load(arquivo)
+    # * [EXPLICAÇÃO] → o json de "notas mais recentes por produto" é
+    #                  gravado como LISTA (1 dict por produto), não como
+    #                  dict indexado por EAN — procura na lista pela chave
+    #                  real do manifesto (Código Barras).
+    registros = ler_json(NOME_ARQUIVO_NOTAS_MAIS_RECENTES, padrao=[])
+    for registro in registros:
+        if registro.get('Código Barras') == ean:
+            return registro
 
-    registro = produtos_sysemp.get(ean)
-    if registro is None:
-        raise RuntimeError(f'Produto {ean} não encontrado em {caminho}')
-
-    return registro
+    raise RuntimeError(
+        f'Produto {ean} não encontrado em {NOME_ARQUIVO_NOTAS_MAIS_RECENTES} '
+        f'(rode manage.py sincronizar_impostos_entrada antes).'
+    )
 
 
 @dataclass(frozen=True)
@@ -622,5 +626,6 @@ frete_todas = list(FreteML.objects.all())
 _exibir_denominador_e_resultado(fixo, custo_unitario_xml.custo_unitario, dimensoes.peso, config_tipo, produto, frete_todas)
 
 CAMINHO_LOG = os.path.join(PASTA_SAIDAS, f'duble_{EAN_TESTADO}.txt')
+os.makedirs(PASTA_SAIDAS, exist_ok=True)
 console.print(f'\n[dim]Log completo salvo em: {CAMINHO_LOG}[/dim]')
 console.save_text(CAMINHO_LOG)

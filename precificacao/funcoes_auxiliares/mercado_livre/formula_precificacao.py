@@ -10,14 +10,22 @@
 # sem FK, sem objeto vivo — pronta pro modal de auditoria HTML, imune a bug de import
 # futuro (o dado exibido é sempre o que a fórmula realmente usou naquele cálculo).
 #
+# Créditos fiscais de entrada (ICMS/IPI/PIS/COFINS) vêm prontos de impostos_entrada, via
+# montar_creditos_fiscais_para_precificacao — já por unidade, já com o diferimento de ICMS
+# ST resolvido internamente. Esta classe nunca reinterpreta esse valor, só consome.
+#
 # Mínima/Padrão/Máxima/Competição NÃO são subclasses — são a MESMA classe, instanciada 4
 # vezes com margem_alvo_percentual diferente (dado diferente, não comportamento diferente).
 
 from dataclasses import dataclass, asdict
 from decimal import Decimal
+from django.core.exceptions import ObjectDoesNotExist
 from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
 from produtos.funcoes_auxiliares.dimensoes_fisicas import (
     metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao,
+)
+from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import (
+    montar_creditos_fiscais_para_precificacao,
 )
 
 
@@ -31,12 +39,10 @@ class DadosEntrada:
 
     custo: Decimal
     custo_com_boni: Decimal
-    ipi_percentual: Decimal
     frete_cif_fob_percentual: Decimal
-    st_valor: Decimal
-    icms_entrada_percentual: Decimal
-    pis_cofins_percentual: Decimal
     icms_saida_percentual: Decimal
+    pis_saida_percentual: Decimal
+    cofins_saida_percentual: Decimal
     comissao_percentual: Decimal
 
     armazenagem_planilha: Decimal | None
@@ -76,8 +82,10 @@ class DadosIntermediarios:
 
     credito_icms_entrada: Decimal
     credito_pis: Decimal
-    pis_cofins_valor: Decimal
+    credito_cofins: Decimal
     icms_saida_valor: Decimal
+    pis_saida_valor: Decimal
+    cofins_saida_valor: Decimal
     comissao_valor: Decimal
 
     fixo: Decimal
@@ -133,25 +141,44 @@ class FormulaPrecificacao:
         self.intermediarios = None
         self.saida = None
         self.resolvida = False
+        self._creditos = None
 
-    # Função Objetivo: Calcula o custo final (custo com boni + IPI + frete CIF/FOB + ST).
+    # Função Objetivo: Busca os créditos fiscais de entrada, já resolvidos e por unidade.
+    def obter_creditos_fiscais(self):
+        try:
+            impostos_entrada = self.produto.impostos_entrada
+        except ObjectDoesNotExist:
+            self._creditos = None
+            return
+
+        creditos = montar_creditos_fiscais_para_precificacao(impostos_entrada)
+
+        # * [EXPLICAÇÃO] → Sem quantidade_nota (ou qualquer outro dado
+        #                  fiscal ausente), nenhum dos 4 créditos existe
+        #                  — produto não precifica, nunca finge um
+        #                  crédito parcial. Decisão: sem fallback.
+        if None in (creditos.icms, creditos.ipi, creditos.pis, creditos.cofins):
+            self._creditos = None
+            return
+
+        self._creditos = creditos
+
+    # Função Objetivo: Calcula o custo final (custo com boni + IPI + frete CIF/FOB).
     def calcular_custo_final(self):
         produto = self.produto
         custo_com_boni = produto.custo_com_boni or produto.custo
-        ipi_percentual = produto.ipi or Decimal('0')
         frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
-        st_valor = produto.st_valor or Decimal('0')
 
-        ipi_valor = custo_com_boni * (ipi_percentual / 100)
+        # IPI já vem em R$ pronto (dividido por unidade em impostos_entrada) —
+        # nunca recalculado aqui a partir de percentual.
+        ipi_valor = self._creditos.ipi
         frete_cif_fob_valor = custo_com_boni * (frete_cif_fob_percentual / 100)
 
         self._custo_com_boni = custo_com_boni
-        self._ipi_percentual = ipi_percentual
-        self._ipi_valor = ipi_valor
         self._frete_cif_fob_percentual = frete_cif_fob_percentual
         self._frete_cif_fob_valor = frete_cif_fob_valor
-        self._st_valor = st_valor
-        self._custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor + st_valor
+        self._ipi_valor = ipi_valor
+        self._custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor
 
     # Função Objetivo: Calcula a coleta a partir do metro cúbico do DimensoesEfetivas.
     def calcular_coleta(self):
@@ -179,28 +206,32 @@ class FormulaPrecificacao:
         self._armazenagem_origem = 'faixa_dimensao'
         self._armazenagem = (faixa_usada.valor_diario * self.config_geral.periodo_armazenagem) if faixa_usada else Decimal('0')
 
-    # Função Objetivo: Soma os 3 pedaços do FIXO e desconta os créditos de ICMS/PIS.
+    # Função Objetivo: Soma os 3 pedaços do FIXO e desconta os créditos de ICMS/PIS/COFINS.
     def calcular_fixo(self):
-        produto = self.produto
-        self._icms_entrada_percentual = produto.icms_entrada or Decimal('0')
-        self._pis_percentual = produto.pis_cofins or Decimal('0')
+        creditos = self._creditos
 
-        self._credito_icms_entrada = produto.custo * (self._icms_entrada_percentual / 100)
-        self._credito_pis = produto.custo * (self._pis_percentual / 100)
+        # * [EXPLICAÇÃO] → creditos.icms já vem certo pra qualquer
+        #                  regime (líquido do ST quando o produto é
+        #                  ST, normal quando não é) — nunca soma os 2.
+        self._credito_icms_entrada = creditos.icms
+        self._credito_pis = creditos.pis
+        self._credito_cofins = creditos.cofins
 
         self._fixo = self._coleta + self._armazenagem + self._custo_final - (
-            self._credito_icms_entrada + self._credito_pis
+            self._credito_icms_entrada + self._credito_pis + self._credito_cofins
         )
 
-    # Função Objetivo: Monta a taxa (comissão + ICMS saída + PIS) e o denominador da meta.
+    # Função Objetivo: Monta a taxa (comissão + ICMS saída + PIS + COFINS) e o denominador da meta.
     def montar_taxa_e_denominador(self):
         produto = self.produto
         self._comissao_percentual = self.config_tipo.comissao
         self._icms_saida_percentual = produto.icms_saida_media or Decimal('0')
-        self._pis_cofins_percentual = produto.pis_cofins or Decimal('0')
+        self._pis_saida_percentual = produto.pis_percentual or Decimal('0')
+        self._cofins_saida_percentual = produto.cofins_percentual or Decimal('0')
 
         self._taxa_percentual = (
-            self._comissao_percentual + self._icms_saida_percentual + self._pis_cofins_percentual
+            self._comissao_percentual + self._icms_saida_percentual
+            + self._pis_saida_percentual + self._cofins_saida_percentual
         ) / 100
         self._denominador = Decimal('1') - self._taxa_percentual - (self.margem_alvo_percentual / 100)
 
@@ -265,12 +296,18 @@ class FormulaPrecificacao:
 
         self._comissao_valor = self._preco_final * self._comissao_percentual / 100
         self._icms_saida_valor = self._preco_final * self._icms_saida_percentual / 100
-        self._pis_cofins_valor = self._preco_final * self._pis_cofins_percentual / 100
+        self._pis_saida_valor = self._preco_final * self._pis_saida_percentual / 100
+        self._cofins_saida_valor = self._preco_final * self._cofins_saida_percentual / 100
         self._taxa_valor = self._preco_final * self._taxa_percentual
         self._margem_alvo_valor = self._preco_final * (self.margem_alvo_percentual / 100)
 
     # Função Objetivo: Roda todos os passos acima, na ordem certa, e monta as 3 dataclasses.
     def calcular(self):
+        self.obter_creditos_fiscais()
+        if self._creditos is None:
+            self.resolvida = False
+            return self
+
         self.calcular_custo_final()
         self.calcular_coleta()
         self.calcular_armazenagem()
@@ -298,12 +335,10 @@ class FormulaPrecificacao:
             margem_alvo_percentual=self.margem_alvo_percentual,
             custo=produto.custo,
             custo_com_boni=self._custo_com_boni,
-            ipi_percentual=self._ipi_percentual,
             frete_cif_fob_percentual=self._frete_cif_fob_percentual,
-            st_valor=self._st_valor,
-            icms_entrada_percentual=self._icms_entrada_percentual,
-            pis_cofins_percentual=self._pis_cofins_percentual,
             icms_saida_percentual=self._icms_saida_percentual,
+            pis_saida_percentual=self._pis_saida_percentual,
+            cofins_saida_percentual=self._cofins_saida_percentual,
             comissao_percentual=self._comissao_percentual,
             armazenagem_planilha=produto.armazenagem_planilha,
             origem_dados_fiscais=(
@@ -332,8 +367,10 @@ class FormulaPrecificacao:
             armazenagem=self._armazenagem,
             credito_icms_entrada=self._credito_icms_entrada,
             credito_pis=self._credito_pis,
-            pis_cofins_valor=self._pis_cofins_valor,
+            credito_cofins=self._credito_cofins,
             icms_saida_valor=self._icms_saida_valor,
+            pis_saida_valor=self._pis_saida_valor,
+            cofins_saida_valor=self._cofins_saida_valor,
             comissao_valor=self._comissao_valor,
             fixo=self._fixo,
             taxa_percentual=self._taxa_percentual * 100,
@@ -378,11 +415,11 @@ class FormulaPrecificacao:
         i = self.intermediarios
         s = self.saida
         return [
-            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete CIF/FOB + ST', 'resultado': i.custo_final},
+            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete CIF/FOB', 'resultado': i.custo_final},
             {'ordem': 2, 'rotulo': 'Coleta', 'formula': 'metro_cúbico × fator_coleta', 'resultado': i.coleta},
             {'ordem': 3, 'rotulo': 'Armazenagem', 'formula': f'origem: {i.armazenagem_origem}', 'resultado': i.armazenagem},
             {'ordem': 4, 'rotulo': 'FIXO', 'formula': 'coleta + armazenagem + custo_final − créditos', 'resultado': i.fixo},
-            {'ordem': 5, 'rotulo': 'Taxa', 'formula': 'comissão + ICMS saída + PIS', 'resultado': i.taxa_percentual},
+            {'ordem': 5, 'rotulo': 'Taxa', 'formula': 'comissão + ICMS saída + PIS + COFINS', 'resultado': i.taxa_percentual},
             {'ordem': 6, 'rotulo': 'Denominador', 'formula': '1 − taxa − margem-alvo', 'resultado': i.denominador},
             {'ordem': 7, 'rotulo': 'Faixa de frete escolhida', 'formula': f'peso {e.peso}kg, faixa R$ {i.faixa_frete_preco_min}–{i.faixa_frete_preco_max}', 'resultado': s.frete_usado},
             {'ordem': 8, 'rotulo': 'Preço exato', 'formula': '(frete + FIXO − rebate) ÷ denominador', 'resultado': i.preco_exato_antes_arredondar},

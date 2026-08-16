@@ -27,9 +27,7 @@ LABELS_COLUNAS = {
     'peso_apos_embalado': 'Peso (após embalado)', 'altura_apos_embalado': 'Altura (após embalado)',
     'largura_apos_embalado': 'Largura (após embalado)', 'comprimento_apos_embalado': 'Comprimento (após embalado)',
     'peso_cubado': 'Peso Cubado',
-    'mva': 'MVA', 'st_valor': 'ST Valor', 'icms_entrada': 'ICMS Entrada',
     'icms_saida_sp': 'ICMS Saída SP', 'icms_saida_media': 'ICMS Saída Média',
-    'ipi': 'IPI', 'pis_cofins': 'PIS/COFINS',
     'pis_percentual': 'PIS %', 'cofins_percentual': 'COFINS %',
     'frete_cif_fob': 'Frete CIF/FOB',
     'ultima_compra': 'Última Compra', 'cadastrado_erp_em': 'Cadastro no ERP',
@@ -52,10 +50,9 @@ SECOES_FILTRO_FAIXA = [
     {'titulo': 'Financeiro', 'campos': [
         ('custo', 'Custo'), ('custo_com_boni', 'Custo c/ Boni')]},
     {'titulo': 'Fiscal', 'campos': [
-        ('ipi', 'IPI'), ('icms_entrada', 'ICMS Entrada'), ('icms_saida_sp', 'ICMS Saída SP'),
-        ('icms_saida_media', 'ICMS Saída Média'), ('pis_cofins', 'PIS/COFINS'),
+        ('icms_saida_sp', 'ICMS Saída SP'), ('icms_saida_media', 'ICMS Saída Média'),
         ('pis_percentual', 'PIS %'), ('cofins_percentual', 'COFINS %'),
-        ('mva', 'MVA'), ('st_valor', 'ST Valor'), ('frete_cif_fob', 'Frete CIF/FOB'),
+        ('frete_cif_fob', 'Frete CIF/FOB'),
     ]},
     {'titulo': 'Controle DB', 'campos': [
         ('criado_em', 'Entrada no DB'), ('atualizado_em', 'Atualização no DB')]},

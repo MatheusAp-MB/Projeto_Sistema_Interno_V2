@@ -2,6 +2,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 from impostos.funcoes_auxiliares.exportacao_resumo_entrada import gerar_excel_resumo_impostos_entrada
 from impostos.funcoes_auxiliares.resumo_entrada import (
     ler_busca_resumo_entrada, listar_produtos_resumo_entrada_filtrados,
@@ -24,7 +25,7 @@ def view_resumo_impostos_entrada(request):
 
     linhas = []
     for produto in pagina.object_list:
-        detalhes = produto.impostos_entrada.obter_detalhes_para_exibicao()
+        detalhes = montar_detalhes_para_exibicao(produto.impostos_entrada)
         por_imposto = {linha.nome: linha for linha in detalhes.linhas}
         linhas.append({
             'imagem_url': produto.imagem_url,

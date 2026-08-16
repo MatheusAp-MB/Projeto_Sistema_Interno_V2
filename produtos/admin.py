@@ -30,8 +30,8 @@ class ProdutoAdmin(admin.ModelAdmin):
         'largura_produto_sem_embalar', 'comprimento_produto_sem_embalar',
         'peso_produto_apos_embalado', 'altura_produto_apos_embalado',
         'largura_produto_apos_embalado', 'comprimento_produto_apos_embalado',
-        'peso_cubado', 'mva', 'st_valor', 'icms_entrada', 'icms_saida_sp',
-        'icms_saida_media', 'ipi', 'pis_cofins', 'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
+        'peso_cubado', 'icms_saida_sp',
+        'icms_saida_media', 'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
         'armazenagem_planilha', 'ultima_compra', 'cadastrado_erp_em',
         'criado_em', 'atualizado_em',
     ]
@@ -52,8 +52,8 @@ class ProdutoAdmin(admin.ModelAdmin):
         ('Custo & Impostos', {
             'fields': (
                 'custo', 'custo_com_boni',
-                'mva', 'st_valor', 'icms_entrada', 'icms_saida_sp',
-                'icms_saida_media', 'ipi', 'pis_cofins', 'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
+                'icms_saida_sp', 'icms_saida_media',
+                'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
             ),
         }),
         ('Dimensão — Produto sem embalar', {

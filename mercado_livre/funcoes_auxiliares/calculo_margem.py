@@ -102,32 +102,41 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
     """Mesma conta de calcular_fixo(), mas devolve TAMBÉM cada pedaço
     isolado (dict 'componentes') — usado pelo modal "como chegamos
     nesse preço", que precisa mostrar cada parte do FIXO separada
-    (custo, coleta, armazenagem, os 2 créditos), não só o número final
+    (custo, coleta, armazenagem, os créditos), não só o número final
     já somado. calcular_fixo() continua igual pra todo mundo — só
     chama esta função por dentro e descarta os componentes.
+
+    Sem impostos de entrada sincronizados (ou sem quantidade_nota pra
+    calcular por unidade), devolve (None, None) — este produto não
+    precifica, nunca finge um crédito que não existe.
 
     Coleta e Armazenagem (quando cai no fallback por dimensão) usam
     EMBALAGEM (confirmado com o usuário) — calcular_metro_cubico e
     selecionar_faixa_armazenagem já fazem isso internamente."""
+    from django.core.exceptions import ObjectDoesNotExist
     from precificacao.models import ConfiguracaoOperacional
+    from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import montar_creditos_fiscais_para_precificacao
+
+    try:
+        impostos_entrada = produto.impostos_entrada
+    except ObjectDoesNotExist:
+        return None, None
+
+    creditos = montar_creditos_fiscais_para_precificacao(impostos_entrada)
+    if None in (creditos.icms, creditos.ipi, creditos.pis, creditos.cofins):
+        return None, None
 
     config = config_geral if config_geral is not None else ConfiguracaoOperacional.obter()
 
     custo_com_boni = produto.custo_com_boni or produto.custo
-    ipi_percentual = produto.ipi or Decimal('0')
     frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
-    st_valor = produto.st_valor or Decimal('0')
-    icms_entrada_percentual = produto.icms_entrada or Decimal('0')
-    pis_percentual = produto.pis_cofins or Decimal('0')
-
-    ipi = ipi_percentual / 100
     frete_cif_fob = frete_cif_fob_percentual / 100
-    icms_entrada = icms_entrada_percentual / 100
-    pis = pis_percentual / 100
 
-    ipi_valor = custo_com_boni * ipi
+    # IPI já vem em R$ pronto (dividido por unidade em impostos_entrada) —
+    # nunca recalculado aqui a partir de percentual.
+    ipi_valor = creditos.ipi
     frete_cif_fob_valor = custo_com_boni * frete_cif_fob
-    custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor + st_valor
+    custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor
 
     metro_cubico = calcular_metro_cubico(produto)
     coleta = metro_cubico * config.fator_coleta
@@ -144,29 +153,25 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
         faixa_usada = selecionar_faixa_armazenagem(produto, faixas_armazenagem=faixas_armazenagem)
         armazenagem = (faixa_usada.valor_diario * config.periodo_armazenagem) if faixa_usada else Decimal('0')
 
-    credito_icms_entrada = produto.custo * icms_entrada
-    credito_pis = produto.custo * pis
-
-    fixo = coleta + armazenagem + custo_final - (credito_icms_entrada + credito_pis)
+    # creditos.icms já vem certo pra qualquer regime (líquido do ST
+    # quando o produto é ST, normal quando não é) — nunca soma os 2.
+    fixo = coleta + armazenagem + custo_final - (creditos.icms + creditos.pis + creditos.cofins)
 
     componentes = {
         'custo': produto.custo,
         'custo_com_boni': custo_com_boni,
-        'ipi_percentual': ipi_percentual,
         'ipi_valor': ipi_valor,
         'frete_cif_fob_percentual': frete_cif_fob_percentual,
         'frete_cif_fob_valor': frete_cif_fob_valor,
-        'st_valor': st_valor,
         'custo_final': custo_final,
         'metro_cubico': metro_cubico,
         'fator_coleta': config.fator_coleta,
         'coleta': coleta,
         'armazenagem_origem': 'planilha' if produto.armazenagem_planilha is not None else 'faixa_dimensao',
         'armazenagem': armazenagem,
-        'icms_entrada_percentual': icms_entrada_percentual,
-        'credito_icms_entrada': credito_icms_entrada,
-        'pis_percentual': pis_percentual,
-        'credito_pis': credito_pis,
+        'credito_icms': creditos.icms,
+        'credito_pis': creditos.pis,
+        'credito_cofins': creditos.cofins,
         'fixo': fixo,
     }
 
@@ -179,7 +184,10 @@ def calcular_fixo(produto, config_geral=None, faixas_armazenagem=None):
     é 1 linha só, nunca muda dentro da mesma execução do comando).
     Sem esses parâmetros, busca no banco normalmente (comportamento
     antigo, preservado — a tela individual continua chamando sem
-    eles, sem nenhuma mudança de comportamento)."""
+    eles, sem nenhuma mudança de comportamento).
+
+    None quando o produto não tem impostos de entrada sincronizados —
+    nunca cai pro dado antigo do Produto (decisão: sem fallback)."""
     fixo, _ = calcular_fixo_detalhado(produto, config_geral=config_geral, faixas_armazenagem=faixas_armazenagem)
     return fixo
 
@@ -243,11 +251,14 @@ def calcular_margem(produto, preco, tipo_anuncio_obj=None, rebate_percentual=Non
 
     comissao = config_tipo.comissao / 100
     icms_saida = (produto.icms_saida_media or Decimal('0')) / 100
-    pis = (produto.pis_cofins or Decimal('0')) / 100
-    taxa = comissao + icms_saida + pis
+    pis_saida = (produto.pis_percentual or Decimal('0')) / 100
+    cofins_saida = (produto.cofins_percentual or Decimal('0')) / 100
+    taxa = comissao + icms_saida + pis_saida + cofins_saida
 
     if fixo is None:
         fixo = calcular_fixo(produto)
+    if fixo is None:
+        return None
     frete = buscar_frete(produto, preco, faixas_candidatas=faixas_frete)
     if frete is None:
         return None

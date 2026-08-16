@@ -38,10 +38,6 @@ from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml imp
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_magalu import importar_tabela_frete_magalu
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_tiktok import importar_tabela_frete_tiktok
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_amazon import importar_tabela_frete_amazon
-# * [EXPLICAÇÃO] → Desativada (21/07) — o sistema não depende mais da planilha
-#                  validada como fonte de custo/fiscal/dimensão. Import mantido
-#                  comentado (não apagado), pode ser útil revisitar no futuro.
-# from core.management.commands.popular_banco_suporte.importar_planilha_precificacao import importar_planilha_precificacao
 from core.management.commands.popular_banco_suporte.organizar_e_verificar_divergencias_dimensoes_envio import organizar_e_verificar_divergencias_dimensoes_envio
 # * [EXPLICAÇÃO] → Desativada (15/08) — dependia de promocoes_completo.json,
 #                  mesmo motivo das outras etapas do ML acima.
@@ -86,10 +82,6 @@ class Command(BaseCommand):
             ('FRETE MAGALU', importar_tabela_frete_magalu, ()),
             ('FRETE TIKTOK', importar_tabela_frete_tiktok, ()),
             ('FRETE AMAZON', importar_tabela_frete_amazon, ()),
-            # * [EXPLICAÇÃO] → Desativada (21/07) — sistema 100% independente da
-            #                  planilha validada. Etapa mantida comentada (não
-            #                  apagada), pode ser útil revisitar no futuro.
-            # ('PRECIFICAÇÃO — PLANILHA VALIDADA', importar_planilha_precificacao, ()),
             # * [EXPLICAÇÃO] → Roda logo depois de DIMENSÕES DECLARADAS ML —
             #                  precisa dos 2 lados (Produto + Variação) já
             #                  importados pra organizar/comparar. Roda ANTES de
