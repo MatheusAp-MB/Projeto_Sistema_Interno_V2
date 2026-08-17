@@ -18,7 +18,7 @@ from magalu.models import FreteMagalu
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 
-CAMINHO_TABELA_FRETE_MAGALU = Path('Arquivos_de_Importação/Tabela_Frete_Magalu.xlsx')
+CAMINHO_TABELA_FRETE_MAGALU = Path('Arquivos usados para Popular Banco/Tabelas de Frete/Tabela_Frete_Magalu.xlsx')
 
 COL_VALOR_BAIXA = 1
 COL_VALOR_MEDIA = 2

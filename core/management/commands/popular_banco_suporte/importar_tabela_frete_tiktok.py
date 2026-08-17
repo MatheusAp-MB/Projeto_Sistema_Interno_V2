@@ -14,7 +14,7 @@ from tiktok.models import FreteTiktok
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 
-CAMINHO_TABELA_FRETE_TIKTOK = Path('Arquivos_de_Importação/Tabela_Frete_TikTok.xlsx')
+CAMINHO_TABELA_FRETE_TIKTOK = Path('Arquivos usados para Popular Banco/Tabelas de Frete/Tabela_Frete_Tiktok_Shop.xlsx')
 
 COL_VALOR = 1
 COL_PESO_MIN = 2

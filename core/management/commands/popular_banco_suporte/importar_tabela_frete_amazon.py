@@ -18,7 +18,7 @@ from precificacao.models import FreteAmazon
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 
-CAMINHO_TABELA_FRETE_AMAZON = Path('Arquivos_de_Importação/Tabela_Frete_Amazon.xlsx')
+CAMINHO_TABELA_FRETE_AMAZON = Path('Arquivos usados para Popular Banco/Tabelas de Frete/Tabela_Frete_Amazon.xlsx')
 
 ABAS_POR_TIPO = {
     'dba': 'Frete Amazon_DBA',

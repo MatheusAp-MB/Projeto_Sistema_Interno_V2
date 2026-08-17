@@ -27,8 +27,14 @@ from core.management.commands.popular_banco_suporte.conversor_celula_excel impor
 from core.management.commands.popular_banco_suporte.parser_data import ParserData
 from core.management.commands.popular_banco_suporte.leitor_planilha_erp import ler_linhas_planilha_erp
 
+#* MAGAZINE
 CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
 CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
+
+## SAMVALE
+# CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
+# CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
+
 
 FATOR_PESO_CUBADO = Decimal('6000')
 LIMITE_DIMENSAO_CM = Decimal('9999.99')

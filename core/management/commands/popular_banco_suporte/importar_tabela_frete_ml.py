@@ -15,7 +15,7 @@ import openpyxl
 from mercado_livre.models import FreteML
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
-CAMINHO_TABELA_FRETE = Path('Arquivos_de_Importação/Tabela_Frete_ML.xlsx')
+CAMINHO_TABELA_FRETE = Path('Arquivos usados para Popular Banco/Tabelas de Frete/Tabela_Frete_Mercado_Livre.xlsx')
 
 
 # Função Objetivo: Representa 1 célula da matriz — 1 faixa de peso × 1 faixa de preço.
