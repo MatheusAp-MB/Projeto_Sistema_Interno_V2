@@ -36,18 +36,11 @@ class ClienteApiSysemp:
     # * [EXPLICAÇÃO] → Achado real (17/08/2026): cada empresa é uma
     #                  instância numerada diferente na Sysemp (MB = /61,
     #                  SV = /84) — não é só o token que muda entre
-    #                  empresas, a própria URL base muda junto. Foi essa
-    #                  URL errada (sempre a da MB) a causa raiz real do
-    #                  "Metodo não Localizado" na sincronização da SV.
-    #                  URL_BASE_PADRAO continua sendo a da MB (uso mais
-    #                  comum, retrocompatível com quem não passa
-    #                  url_base), mas agora é sobrescrevível por instância.
-    
-    #* MAGAZINE
-    # URL_BASE = 'https://api.sysemp.com.br/61'
-
-    ## SAMVALE
-    URL_BASE = 'https://api.sysemp.com.br/84'
+    #                  empresas, a própria URL base muda junto. Sem toggle
+    #                  manual de comentário — URL_BASE agora é 100%
+    #                  resolvida por variável de ambiente
+    #                  (MB_SYSEMP_API_URL_BASE), mesmo padrão do token.
+    URL_BASE_PADRAO = 'https://api.sysemp.com.br/61'
 
     def __init__(self, token, url_base=None, maximo_tentativas=MAXIMO_TENTATIVAS_PADRAO):
         if not token:
