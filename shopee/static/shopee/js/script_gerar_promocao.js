@@ -1,12 +1,29 @@
-// * [RESUMO] → JS da tela "Gerar Promoção — Shopee": sincroniza o destaque visual
-// do card de margem selecionado, o botão "Selecionar/Desmarcar tudo" e a lista
-// de chips de marcas selecionadas.
+// * [RESUMO] → JS da tela "Gerar Promoção — Shopee": alterna modo Grade/Arquivo,
+// sincroniza o destaque visual do card de margem selecionado, o botão
+// "Selecionar/Desmarcar tudo" e a lista de chips de marcas selecionadas.
+
+// Função Objetivo: Alterna entre modo "Grade do sistema" e modo "Preço do arquivo".
+// Explicação em detalhe: no modo arquivo, a margem de referência não faz sentido
+// (o preço vem 100% do arquivo + desconto manual) — escondida pra evitar confusão.
+// Mesmo padrão do TikTok (script_gerar_promocao_tiktok.js).
+document.addEventListener('change', function (evento) {
+    if (evento.target.name !== 'fonte_preco') return;
+
+    var modoArquivo = evento.target.value === 'arquivo';
+    document.getElementById('secao-margens-grade').style.display = modoArquivo ? 'none' : '';
+    document.getElementById('bloco-desconto-arquivo').style.display = modoArquivo ? 'block' : 'none';
+
+    document.querySelectorAll('input[name="fonte_preco"]').forEach(function (radio) {
+        radio.closest('.promocao-margem-card').classList.remove('grade-margem-card--ativa');
+    });
+    evento.target.closest('.promocao-margem-card').classList.add('grade-margem-card--ativa');
+});
 
 document.addEventListener('change', function (evento) {
     if (evento.target.name !== 'margem') return;
 
-    document.querySelectorAll('.promocao-margem-card').forEach(function (card) {
-        card.classList.remove('grade-margem-card--ativa');
+    document.querySelectorAll('input[name="margem"]').forEach(function (radio) {
+        radio.closest('.promocao-margem-card').classList.remove('grade-margem-card--ativa');
     });
     evento.target.closest('.promocao-margem-card').classList.add('grade-margem-card--ativa');
 });

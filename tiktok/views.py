@@ -200,10 +200,13 @@ def view_baixar_promocao(request, token, marca, tipo):
     if arquivo_bytes is None:
         return HttpResponse('Arquivo expirado — gere a promoção de novo.', status=404)
 
+    # * [EXPLICAÇÃO] → "/" na marca quebra nome de arquivo no Windows — troca só
+    #                  a barra, mantém acento/espaço.
+    marca_para_nome_arquivo = marca.replace('/', '-')
     data_hoje = date.today().strftime('%d_%m_%y')
     nome_arquivo = (
-        f'Promoção_{marca}_TikTok_{data_hoje}.xlsx' if tipo == 'promocao'
-        else f'Detalhes_divergencias_{marca}_TikTok_{data_hoje}.xlsx'
+        f'Promoção_{marca_para_nome_arquivo}_TikTok_{data_hoje}.xlsx' if tipo == 'promocao'
+        else f'Detalhes_divergencias_{marca_para_nome_arquivo}_TikTok_{data_hoje}.xlsx'
     )
 
     response = HttpResponse(
@@ -242,9 +245,12 @@ def view_baixar_todas_promocao(request, token, categoria):
             arquivo_bytes = cache.get(f'promocao_tiktok_{token}_{chave_cache_segura(marca)}_{tipo_arquivo}')
             if arquivo_bytes is None:
                 continue
+            # * [EXPLICAÇÃO] → Mesmo motivo do view_baixar_promocao: "/" na marca
+            #                  vira separador de pasta dentro do zip — troca só a barra.
+            marca_para_nome_arquivo = marca.replace('/', '-')
             nome_arquivo = (
-                f'Promoção_{marca}_TikTok_{data_hoje}.xlsx' if tipo_arquivo == 'promocao'
-                else f'Detalhes_divergencias_{marca}_TikTok_{data_hoje}.xlsx'
+                f'Promoção_{marca_para_nome_arquivo}_TikTok_{data_hoje}.xlsx' if tipo_arquivo == 'promocao'
+                else f'Detalhes_divergencias_{marca_para_nome_arquivo}_TikTok_{data_hoje}.xlsx'
             )
             zip_arquivo.writestr(nome_arquivo, arquivo_bytes)
 
@@ -253,3 +259,4 @@ def view_baixar_todas_promocao(request, token, categoria):
     response = HttpResponse(buffer.getvalue(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="Promocoes_TikTok_{nome_categoria}_{data_hoje}.zip"'
     return response
+

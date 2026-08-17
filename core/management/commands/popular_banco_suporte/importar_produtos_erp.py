@@ -28,12 +28,12 @@ from core.management.commands.popular_banco_suporte.parser_data import ParserDat
 from core.management.commands.popular_banco_suporte.leitor_planilha_erp import ler_linhas_planilha_erp
 
 #* MAGAZINE
-CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
-CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
+# CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
+# CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
 
 ## SAMVALE
-# CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
-# CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
+CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
+CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
 
 
 FATOR_PESO_CUBADO = Decimal('6000')
@@ -94,7 +94,18 @@ class LinhaProdutoERP:
     def extrair_campos_basicos(self):
         self.sku = self.conversor.para_texto(self.linha_bruta.get('Codigo Auxiliar'))
         self.ean = self.conversor.para_texto(self.linha_bruta.get('Codigo de Barras'))
-        self.titulo = self.conversor.para_texto(self.linha_bruta.get('Detalhes do Produto'), self.sku)
+        # * [EXPLICAÇÃO] → Cadeia de fallback: "Detalhes do Produto" → SKU → EAN.
+        #                  titulo é NOT NULL no banco (Produto.titulo), diferente do
+        #                  SKU (opcional) — sem esse último elo, uma linha com "Detalhes
+        #                  do Produto" E "Codigo Auxiliar" em branco ao mesmo tempo (visto
+        #                  em dado real da Samvale, 17/08/2026) gera titulo=None e quebra
+        #                  o bulk_create inteiro (até 100 produtos por lote,
+        #                  BATCH_SIZE_PADRAO). EAN é garantido não-vazio aqui —
+        #                  esta_valida() já descarta qualquer linha sem EAN antes de
+        #                  chegar no banco.
+        self.titulo = self.conversor.para_texto(
+            self.linha_bruta.get('Detalhes do Produto'), self.sku or self.ean
+        )
         self.cod_fabricante = self.conversor.para_texto(self.linha_bruta.get('Codigo do Fabricante'))
         self.categoria = self.conversor.para_texto(self.linha_bruta.get('Categoria'))
         self.marca = self.conversor.para_texto(self.linha_bruta.get('Marca'))
@@ -310,7 +321,7 @@ class ImportadorProdutos:
     def rodar_importacao_completa(self):
         self.carregar_produtos_existentes()
         self.processar_arquivo(self.caminho_erp_ativos)
-        self.processar_arquivo(self.caminho_erp_inativos)
+        # self.processar_arquivo(self.caminho_erp_inativos)  # Desativado temporariamente (17/08/2026) — decisão do usuário: arquivo de Inativos não é útil agora. Não precisa nem existir em disco enquanto estiver assim. Reativar descomentando esta linha.
         self.salvar()
         return self
 

@@ -42,6 +42,7 @@ def view_gerar_promocao(request):
 # o navegador de verdade pra tela de resultado, via header HX-Redirect.
 def view_processar_promocao(request):
     import uuid
+    from decimal import Decimal, InvalidOperation
     from django.core.cache import cache
     from django.http import HttpResponse
     from django.urls import reverse
@@ -52,11 +53,27 @@ def view_processar_promocao(request):
     margem = request.POST.get('margem', 'padrao')
     arquivo = request.FILES.get('arquivo_shopee')
 
+    # * [EXPLICAÇÃO] → 'grade' = comportamento padrão (Grade do sistema, intocado).
+    #                  'arquivo' = usa o preço já correto na plataforma como referência
+    #                  + desconto manual — sem Grade, sem checagem de estoque, sem trava.
+    #                  Mesmo padrão do TikTok (tiktok/views.py::view_processar_promocao).
+    fonte_preco = request.POST.get('fonte_preco', 'grade')
+    desconto_percentual = None
+
     erros = []
     if not marcas:
         erros.append('Selecione ao menos uma marca.')
     if not arquivo:
         erros.append('Envie o arquivo baixado da Shopee.')
+
+    if fonte_preco == 'arquivo':
+        valor_desconto_bruto = request.POST.get('desconto_percentual', '').strip().replace(',', '.')
+        try:
+            desconto_percentual = Decimal(valor_desconto_bruto)
+            if not (Decimal('0') < desconto_percentual < Decimal('100')):
+                erros.append('O desconto (%) precisa ser maior que 0 e menor que 100.')
+        except InvalidOperation:
+            erros.append('Informe um desconto (%) válido pra usar o preço do arquivo como referência.')
 
     cabecalho, linhas_arquivo = [], []
     if not erros:
@@ -74,7 +91,12 @@ def view_processar_promocao(request):
     if erros:
         return render(request, 'shopee/parciais/estrutura_parcial_modal_erro_promocao.html', {'erros': erros})
 
-    processador = ProcessadorPromocaoShopee(marcas, margem, cabecalho, linhas_arquivo).processar()
+    processador = ProcessadorPromocaoShopee(marcas, margem, cabecalho, linhas_arquivo)
+
+    if fonte_preco == 'arquivo':
+        processador.processar_modo_arquivo(desconto_percentual)
+    else:
+        processador.processar()
 
     token = str(uuid.uuid4())
     resumo = processador.resumo_geral()
@@ -138,10 +160,14 @@ def view_baixar_promocao(request, token, marca, tipo):
     if arquivo_bytes is None:
         return HttpResponse('Arquivo expirado — gere a promoção de novo.', status=404)
 
+    # * [EXPLICAÇÃO] → "/" na marca (ex: "DELLAMED/SUPERMEDY") quebra nome de
+    #                  arquivo no Windows — troca só a barra, mantém acento/espaço
+    #                  (o nome ainda precisa ser legível pro usuário).
+    marca_para_nome_arquivo = marca.replace('/', '-')
     data_hoje = date.today().strftime('%d_%m_%y')
     nome_arquivo = (
-        f'Promoção_{marca}_Shopee_{data_hoje}.xlsx' if tipo == 'promocao'
-        else f'Detalhes_divergencias_{marca}_Shopee_{data_hoje}.xlsx'
+        f'Promoção_{marca_para_nome_arquivo}_Shopee_{data_hoje}.xlsx' if tipo == 'promocao'
+        else f'Detalhes_divergencias_{marca_para_nome_arquivo}_Shopee_{data_hoje}.xlsx'
     )
 
     response = HttpResponse(
@@ -179,9 +205,13 @@ def view_baixar_todas_promocao(request, token, categoria):
             arquivo_bytes = cache.get(f'promocao_shopee_{token}_{chave_cache_segura(marca)}_{tipo_arquivo}')
             if arquivo_bytes is None:
                 continue
+            # * [EXPLICAÇÃO] → Mesmo motivo do view_baixar_promocao: "/" na marca
+            #                  vira separador de pasta dentro do zip (cria uma
+            #                  subpasta silenciosamente) — troca só a barra.
+            marca_para_nome_arquivo = marca.replace('/', '-')
             nome_arquivo = (
-                f'Promoção_{marca}_Shopee_{data_hoje}.xlsx' if tipo_arquivo == 'promocao'
-                else f'Detalhes_divergencias_{marca}_Shopee_{data_hoje}.xlsx'
+                f'Promoção_{marca_para_nome_arquivo}_Shopee_{data_hoje}.xlsx' if tipo_arquivo == 'promocao'
+                else f'Detalhes_divergencias_{marca_para_nome_arquivo}_Shopee_{data_hoje}.xlsx'
             )
             zip_arquivo.writestr(nome_arquivo, arquivo_bytes)
 

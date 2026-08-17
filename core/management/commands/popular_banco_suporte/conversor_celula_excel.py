@@ -34,15 +34,22 @@ class ConversorCelulaExcel:
                 raise ValueError(f'Origem de célula desconhecida: {self.origem}')
 
     # Função Objetivo: Converte pra texto, tratando célula vazia.
+    # Explicação em detalhe (17/08/2026): checa se ficou vazio DEPOIS do
+    # strip, não só se é None — célula com espaço em branco (ou string
+    # vazia gravada) passava pela checagem de None e virava '' em vez de
+    # cair no padrao. Achado real: 2+ produtos com "Codigo Auxiliar" em
+    # branco (mas não None) geravam sku='' pra mais de 1 produto, colidindo
+    # na constraint unique do banco (bulk_create).
     def para_texto(self, valor, padrao=None):
         match self.origem:
             case 'pandas':
-                return str(valor).strip() if pd.notna(valor) else padrao
+                texto = str(valor).strip() if pd.notna(valor) else ''
             case 'openpyxl':
                 valor_filtrado = self._filtrar_erro_formula(valor)
-                return str(valor_filtrado).strip() if valor_filtrado is not None else padrao
+                texto = str(valor_filtrado).strip() if valor_filtrado is not None else ''
             case _:
                 raise ValueError(f'Origem de célula desconhecida: {self.origem}')
+        return texto if texto else padrao
 
     # Função Objetivo: Converte célula do pandas — vazio detectado via NaN.
     def _converter_pandas(self, valor, padrao):

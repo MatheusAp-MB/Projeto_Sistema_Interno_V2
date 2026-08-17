@@ -18,6 +18,28 @@
       hx-swap="innerHTML"
       class="promocao-form">
 
+    <div class="promocao-secao" id="secao-fonte-preco">
+        <div class="promocao-secao-header">Fonte do preço "De"</div>
+        <div class="promocao-margens-grid">
+            <label class="grade-margem-card grade-margem-clicavel grade-margem-card--ativa promocao-margem-card">
+                <input type="radio" name="fonte_preco" value="grade" checked class="promocao-radio-oculto" id="radio-fonte-grade">
+                <div class="grade-margem-label">Grade do sistema</div>
+            </label>
+            <label class="grade-margem-card grade-margem-clicavel promocao-margem-card">
+                <input type="radio" name="fonte_preco" value="arquivo" class="promocao-radio-oculto" id="radio-fonte-arquivo">
+                <div class="grade-margem-label">Preço do arquivo</div>
+            </label>
+        </div>
+
+        <div id="bloco-desconto-arquivo" style="display:none; margin-top:14px;">
+            <label class="promocao-secao-header" style="display:block; margin-bottom:6px;">Desconto (%) sobre o preço do arquivo</label>
+            <input type="text" name="desconto_percentual" placeholder="Ex: 20" class="promocao-input-arquivo">
+        </div>
+    </div>
+
+    <div class="promocao-secao-divisor"></div>
+
+    <div id="secao-margens-grade">
     <div class="promocao-secao">
         <div class="promocao-secao-header">Margem de referência</div>
         <div class="promocao-margens-grid">
@@ -43,6 +65,8 @@
             </label>
         </div>
     </div>
+    </div>
+    <!-- fecha secao-margens-grade -->
 
     <div class="promocao-secao-divisor"></div>
 

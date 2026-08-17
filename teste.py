@@ -19,7 +19,7 @@ import openpyxl
 # --- 1. Ajuste os 2 caminhos abaixo se o nome real do arquivo for diferente
 ARQUIVOS = [
     Path('Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'),
-    Path('Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'),
+    # Path('Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'),
 ]
 
 # --- 2. Mapa de renomeação: nome real na SV -> nome que o código exige -----

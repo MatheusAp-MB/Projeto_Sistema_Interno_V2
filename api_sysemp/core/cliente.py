@@ -33,12 +33,27 @@ MAXIMO_TENTATIVAS_PADRAO = 4
 
 
 class ClienteApiSysemp:
-    URL_BASE = 'https://api.sysemp.com.br/61'
+    # * [EXPLICAÇÃO] → Achado real (17/08/2026): cada empresa é uma
+    #                  instância numerada diferente na Sysemp (MB = /61,
+    #                  SV = /84) — não é só o token que muda entre
+    #                  empresas, a própria URL base muda junto. Foi essa
+    #                  URL errada (sempre a da MB) a causa raiz real do
+    #                  "Metodo não Localizado" na sincronização da SV.
+    #                  URL_BASE_PADRAO continua sendo a da MB (uso mais
+    #                  comum, retrocompatível com quem não passa
+    #                  url_base), mas agora é sobrescrevível por instância.
+    
+    #* MAGAZINE
+    # URL_BASE = 'https://api.sysemp.com.br/61'
 
-    def __init__(self, token, maximo_tentativas=MAXIMO_TENTATIVAS_PADRAO):
+    ## SAMVALE
+    URL_BASE = 'https://api.sysemp.com.br/84'
+
+    def __init__(self, token, url_base=None, maximo_tentativas=MAXIMO_TENTATIVAS_PADRAO):
         if not token:
             raise ValueError('Token da API Sysemp não informado.')
         self._token = token
+        self.URL_BASE = url_base or self.URL_BASE_PADRAO
         self._maximo_tentativas = maximo_tentativas
         self._espacador = EspacadorDeChamadas(intervalo_minimo_segundos=1.0)
 

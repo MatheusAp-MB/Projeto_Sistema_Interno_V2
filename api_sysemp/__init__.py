@@ -18,10 +18,12 @@ from .impostos_entrada_xml import ImpostosEntradaXML
 
 
 class ApiSysemp:
-    def __init__(self, token=None):
+    def __init__(self, token=None, url_base=None):
         if token is None:
             token = self._carregar_token_do_env()
-        self._cliente = ClienteApiSysemp(token)
+        if url_base is None:
+            url_base = self._carregar_url_base_do_env()
+        self._cliente = ClienteApiSysemp(token, url_base=url_base)
         self._impostos_entrada = None
 
     # Função Objetivo: Lê o token do .env da raiz do repo — decisão
@@ -37,6 +39,16 @@ class ApiSysemp:
                 'adicione a linha SYSEMP_API_TOKEN=seu_token_aqui.'
             )
         return token
+
+    # Função Objetivo: Lê a URL base do .env da raiz do repo — achado real
+    # (17/08/2026): cada empresa é uma instância numerada diferente na
+    # Sysemp (MB = /61, SV = /84), então a URL base precisa ser
+    # sobrescrevível junto com o token, mesmo padrão de override. Sem
+    # override, cai no valor da MB (uso mais comum).
+    @staticmethod
+    def _carregar_url_base_do_env():
+        load_dotenv('.env')
+        return os.environ.get('MB_SYSEMP_API_URL_BASE') or ClienteApiSysemp.URL_BASE_PADRAO
 
     # Função Objetivo: Contexto "Obter impostos de entrada vindos do XML"
     # — 1 instância só, reaproveitada enquanto a ApiSysemp viver.

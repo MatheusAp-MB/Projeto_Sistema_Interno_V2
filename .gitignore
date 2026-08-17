@@ -330,5 +330,5 @@ coverage.json
 
 
 scripts_exploracao_ERP/saidas/
-integracao_sysemp/retorno_api/dados_impostos_xml_entrada/
+integracao_sysemp/retorno_api/
 resultados_testes.txt

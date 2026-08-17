@@ -2,9 +2,10 @@
 
 # Função Objetivo: Cruza o arquivo baixado da Shopee com os preços já calculados no
 # sistema (GradePrecificacaoShopee), pra gerar os arquivos de subida de promoção prontos.
-# Explicação em detalhe: diferente do script Python externo, o "preço de desconto" NÃO é
-# calculado aqui — já vem pronto do banco (preco_de_exibicao="De", preco="Por"). Esta
-# classe só casa, categoriza e organiza.
+# Explicação em detalhe: 2 modos, igual ao TikTok. Modo Grade (padrão): o "preço de
+# desconto" já vem pronto do banco (preco_de_exibicao="De", preco="Por"), esta classe só
+# casa, categoriza e organiza. Modo Arquivo: usa o preço já correto na plataforma como
+# referência + desconto manual — ver processar_modo_arquivo.
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -32,6 +33,22 @@ class ResultadoProduto:
     estoque_sistema: int
     linha_arquivo: object = None
     grade: object = None
+    # * [EXPLICAÇÃO] → "Por" final, sempre preenchido em categoria='pronto' — venha de
+    #                  onde vier (grade.preco no modo Grade, ou calculado a partir do
+    #                  arquivo + desconto no modo Arquivo). O gerador de Excel lê SÓ este
+    #                  campo, nunca grade.preco direto — assim não precisa saber qual modo
+    #                  gerou o resultado. Mesmo padrão do TikTok.
+    preco_final: Decimal = None
+
+
+# Função Objetivo: Calcula o "Por" a partir do preço já correto na plataforma + desconto manual.
+# Explicação em detalhe: usada só no modo Arquivo — o preço de referência ("De") já é o que
+# está na plataforma (o usuário confirmou 100% de confiança nele, precificado por fora do
+# sistema), então não existe cálculo de margem/Grade aqui, só desconto direto. Mesma função
+# do TikTok (processador_promocao_tiktok.py) — duplicada de propósito, cada app independente.
+def calcular_preco_com_desconto(preco_referencia, desconto_percentual):
+    fator = Decimal('1') - (desconto_percentual / Decimal('100'))
+    return (preco_referencia * fator).quantize(Decimal('0.01'))
 
 
 class ProcessadorPromocaoShopee:
@@ -140,7 +157,43 @@ class ProcessadorPromocaoShopee:
             self.resultados.append(ResultadoProduto(
                 categoria='pronto', sku=produto.sku, titulo=produto.titulo,
                 marca=produto.marca, estoque_sistema=produto.estoque,
-                linha_arquivo=linha_arquivo, grade=grade,
+                linha_arquivo=linha_arquivo, grade=grade, preco_final=grade.preco,
+            ))
+
+        return self
+
+    # Função Objetivo: Modo alternativo — usa o preço já correto na plataforma (arquivo)
+    # como referência, em vez da Grade do sistema.
+    # Explicação em detalhe: usuário confirmou 100% de confiança no preço do arquivo (foi
+    # precificado por fora do sistema) — por isso este modo NÃO verifica Grade, NÃO verifica
+    # estoque, e NÃO bloqueia por divergência nenhuma. Só existe 1 caso que impede gerar
+    # linha: o produto do catálogo simplesmente não aparece no arquivo. Método separado, não
+    # mexe em processar() — o modo Grade continua 100% intocado. Mesmo padrão do TikTok
+    # (processador_promocao_tiktok.py::processar_modo_arquivo).
+    def processar_modo_arquivo(self, desconto_percentual):
+        from produtos.models import Produto
+
+        linhas_arquivo = self._ler_arquivo_shopee()
+        indice_arquivo = self._montar_indice_por_sku(linhas_arquivo)
+
+        produtos = Produto.objects.filter(marca__in=self.marcas_selecionadas)
+
+        for produto in produtos:
+            linha_arquivo = indice_arquivo.get(produto.sku)
+
+            if linha_arquivo is None:
+                self.resultados.append(ResultadoProduto(
+                    categoria='nao_encontrado', sku=produto.sku, titulo=produto.titulo,
+                    marca=produto.marca, estoque_sistema=produto.estoque,
+                ))
+                continue
+
+            preco_final = calcular_preco_com_desconto(linha_arquivo.preco_atual, desconto_percentual)
+
+            self.resultados.append(ResultadoProduto(
+                categoria='pronto', sku=produto.sku, titulo=produto.titulo,
+                marca=produto.marca, estoque_sistema=produto.estoque,
+                linha_arquivo=linha_arquivo, preco_final=preco_final,
             ))
 
         return self

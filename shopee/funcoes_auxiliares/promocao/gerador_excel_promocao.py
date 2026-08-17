@@ -31,9 +31,13 @@ def gerar_excel_promocao(resultados):
 
     for r in prontos_ordenados:
         la, g = r.linha_arquivo, r.grade
+        # * [EXPLICAÇÃO] → "De": no modo Grade vem do sistema (preco_de_exibicao);
+        #                  no modo Arquivo (sem Grade) vem do preço já na plataforma —
+        #                  mesma lógica de referência usada no TikTok.
+        preco_de = g.preco_de_exibicao if g else la.preco_atual
         ws.append([
             la.id_produto, r.titulo, '', la.id_variacao, '',
-            r.sku, float(g.preco_de_exibicao), float(g.preco), '',
+            r.sku, float(preco_de), float(r.preco_final), '',
         ])
 
     buffer = io.BytesIO()
