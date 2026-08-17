@@ -23,11 +23,19 @@ if TYPE_CHECKING:
     from integracao_sysemp.servicos.dados_xml_nf import DadosXmlNF
 
 
-def _converter_para_decimal(valor: float) -> Decimal:
+def _converter_para_decimal(valor: float | None) -> Decimal | None:
     # Nunca Decimal(valor) direto num float — captura o valor binário
     # exato (ex: 18.100000000000001...), não o número que o XML de fato
     # informou. Decimal(str(valor)) converte pela representação textual,
     # que é a decimal correta.
+    #
+    # None passa direto — quem decide se None é válido pra aquele campo
+    # é o próprio model (ex: quantidade_nota é nullable; um valor de
+    # imposto inesperadamente None ainda falha, só que na constraint do
+    # banco, não numa conversão de string que nunca deveria ser a
+    # responsável por essa checagem.
+    if valor is None:
+        return None
     return Decimal(str(valor))
 
 

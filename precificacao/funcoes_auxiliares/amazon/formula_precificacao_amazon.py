@@ -219,9 +219,12 @@ class FormulaPrecificacaoAmazon:
         if linha_peso:
             return linha_peso.valor, linha_peso.peso_min, linha_peso.peso_max
 
-        if not linhas_da_faixa:
-            return None, None, None
-
+        # * [EXPLICAÇÃO] → linhas_da_faixa nunca vem vazia aqui — o par
+        #                  (preco_min, preco_max) sempre veio de
+        #                  _faixas_preco_candidatas(), que só existe porque
+        #                  pelo menos 1 linha de fretes_amazon tem esse
+        #                  par exato. Guarda morta removida (16/08/2026) —
+        #                  achada via cobertura de teste 100%.
         linha_maxima = max(linhas_da_faixa, key=lambda f: f.peso_max)
         taxa_kg = next(
             (t for t in self.taxas_kg_adicional if t.preco_min == preco_min and t.preco_max == preco_max), None
