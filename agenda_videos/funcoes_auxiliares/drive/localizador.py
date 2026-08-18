@@ -11,8 +11,7 @@
 #                  regex, o mesmo algoritmo de sequência que parser.py já
 #                  faz corretamente.
 
-from django.conf import settings
-from .cliente import obter_servico_drive
+from .cliente import obter_servico_drive, obter_pasta_raiz_id_ativa
 from .constantes import NOME_PASTA_VIDEOS, NOME_PASTA_USADOS
 from .utilitarios_pasta import buscar_subpasta
 
@@ -21,6 +20,10 @@ class LocalizadorArquivosProduto:
 
     def __init__(self):
         self.servico = obter_servico_drive()
+        # * [EXPLICAÇÃO] → Resolvida 1x aqui, junto do serviço — mesma
+        #                  empresa ativa vale pra toda a vida desta
+        #                  instância (18/08/2026).
+        self._pasta_raiz_id = obter_pasta_raiz_id_ativa()
         # * [EXPLICAÇÃO] → Cache só de pasta de MARCA, em memória, durante 1
         #                  execução — nunca persistido (não é fonte de
         #                  verdade, é só atalho pra não buscar a mesma marca
@@ -30,7 +33,7 @@ class LocalizadorArquivosProduto:
     def _obter_pasta_marca(self, marca):
         if marca not in self._cache_pasta_marca:
             self._cache_pasta_marca[marca] = buscar_subpasta(
-                self.servico, settings.GOOGLE_DRIVE_PASTA_RAIZ_ID, marca,
+                self.servico, self._pasta_raiz_id, marca,
             )
         return self._cache_pasta_marca[marca]
 

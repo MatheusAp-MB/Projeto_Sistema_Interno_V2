@@ -9,9 +9,8 @@
 # (SnapshotArquivosDrive) — dado da API é caro, nunca descartado.
 
 from collections import defaultdict
-from django.conf import settings
 from agenda_videos.models import SnapshotArquivosDrive
-from .cliente import obter_servico_drive
+from .cliente import obter_servico_drive, obter_pasta_raiz_id_ativa
 from .constantes import MIME_PASTA, NOME_PASTA_VIDEOS, NOME_PASTA_USADOS
 
 
@@ -95,8 +94,9 @@ def sincronizar_snapshots_drive():
     from produtos.models import Produto
 
     servico = obter_servico_drive()
+    pasta_raiz_id = obter_pasta_raiz_id_ativa()
     todos_os_itens = _listar_tudo_paginado(servico)
-    arvore_por_ean = montar_arvore_por_ean(todos_os_itens, settings.GOOGLE_DRIVE_PASTA_RAIZ_ID)
+    arvore_por_ean = montar_arvore_por_ean(todos_os_itens, pasta_raiz_id)
 
     atualizados = 0
     sem_produto_no_banco = []

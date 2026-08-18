@@ -150,7 +150,16 @@ DATABASES = {
 DATABASE_ROUTERS = ['core.database_router.EmpresaRouter']
 
 GOOGLE_DRIVE_CREDENCIAIS_JSON = os.getenv('GOOGLE_DRIVE_CREDENCIAIS_JSON')
-GOOGLE_DRIVE_PASTA_RAIZ_ID = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_ID')
+
+# * [EXPLICAÇÃO] → Achado real (18/08/2026): a credencial é a MESMA pras 2
+#                  empresas (mesma conta Google, mesma API) — só a pasta
+#                  raiz muda. "Magazine Estruturada" e "Samvale Estruturada"
+#                  já existem como 2 pastas separadas dentro dessa mesma
+#                  conta. Resolução por empresa mora em
+#                  agenda_videos/funcoes_auxiliares/drive/cliente.py
+#                  (obter_pasta_raiz_id_ativa), nunca lida direto daqui.
+GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE')
+GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE')
 
 
 # Password validation
