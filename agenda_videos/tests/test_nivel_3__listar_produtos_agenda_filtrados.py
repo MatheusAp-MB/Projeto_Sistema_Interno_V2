@@ -54,7 +54,7 @@ from agenda_videos.models.snapshot_arquivos_drive import SnapshotArquivosDrive, 
 from produtos.models import Produto
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 3 — listar_produtos_agenda_filtrados() e auxiliares (filtros_agenda_videos.py)'
 

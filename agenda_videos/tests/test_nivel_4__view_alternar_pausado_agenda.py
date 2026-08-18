@@ -17,7 +17,7 @@ from agenda_videos.models import (
 )
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — view_alternar_pausado_agenda(): toggle de status manual via HTTP'
 

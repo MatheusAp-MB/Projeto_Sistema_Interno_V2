@@ -22,7 +22,7 @@ from agenda_videos.funcoes_auxiliares.badges_agenda import buscar_badge_de, BADG
 from agenda_videos.models import CicloVideo, Fase, ParticipacaoAgenda, StatusPostagem
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 3 — historico_roadmap (montar_linha_do_tempo_produto / montar_historico_produto)'
 

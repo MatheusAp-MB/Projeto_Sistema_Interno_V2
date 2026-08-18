@@ -17,7 +17,7 @@ from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import Tela, Periodo
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — view_agenda_videos(): tela principal via HTTP'
 

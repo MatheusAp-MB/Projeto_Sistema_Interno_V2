@@ -13,7 +13,7 @@ from django.urls import reverse
 from agenda_videos.models import ConfiguracaoFase, Fase
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — view_configuracoes_agenda_videos(): GET/POST via HTTP'
 

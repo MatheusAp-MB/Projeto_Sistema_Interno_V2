@@ -19,7 +19,7 @@ from testes_apoio.apoio_visual import registrar_resultado
 
 TITULO_CAMADA = 'Nível 3 — SincronizacaoXmlManifestoNotaEntrada'
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 
 def test_obter_cria_linha_vazia_quando_nao_existe(tabela_resultados):

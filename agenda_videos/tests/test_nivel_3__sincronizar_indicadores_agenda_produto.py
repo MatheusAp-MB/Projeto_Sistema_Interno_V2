@@ -18,7 +18,7 @@ from agenda_videos.models.indicadores_agenda_produto import IndicadoresAgendaPro
 from produtos.models import Produto
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 3 — sincronizar_indicadores_agenda_produto()'
 

@@ -17,7 +17,7 @@ from produtos.models import Produto
 from agenda_videos.models import Fase, ConfiguracaoFase, CicloVideo, StatusPostagem
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 3 — marcar_aguardando_aprovacao() e marcar_replicado()'
 

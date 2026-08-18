@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from produtos.models import Produto
 from agenda_videos.models import CicloVideo, Fase, IndicadoresAgendaProduto
+from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE
 from agenda_videos.funcoes_auxiliares.drive.verificador import (
     DiagnosticoBloqueio, _avancar_etapas_com_estrutura, verificar_produto_no_drive,
 )
@@ -24,7 +25,27 @@ from agenda_videos.funcoes_auxiliares.drive import escaneador
 from agenda_videos.funcoes_auxiliares.drive.verificador import verificar_todos_no_drive
 
 
-pytestmark = pytest.mark.django_db
+# * [EXPLICAÇÃO] → Desde a migração pra 2 bancos, todo teste deste arquivo
+#                  seta a empresa ativa como MAGAZINE (fixture abaixo) —
+#                  isso faz o EmpresaRouter mandar toda query pro alias
+#                  explícito 'magazine', em vez do genérico 'default'. O
+#                  pytest-django só libera 'default' por padrão; sem
+#                  declarar os outros aliases aqui, qualquer .objects.create()
+#                  neste arquivo quebra com DatabaseOperationForbidden.
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
+
+
+# * [EXPLICAÇÃO] → Achado real (18/08/2026): mesmo com o Drive mockado
+#                  (localizar_arquivos/listar_arquivos_usados), o
+#                  LocalizadorArquivosProduto() real ainda é construído por
+#                  dentro de verificar_produto_no_drive/verificar_todos_no_drive
+#                  — e agora isso exige saber a empresa ativa (a pasta raiz
+#                  do Drive virou por empresa). Este arquivo roda função
+#                  direto, sem requisição Django, então precisa fixar a
+#                  empresa manualmente.
+@pytest.fixture(autouse=True)
+def _empresa_ativa_magazine():
+    definir_empresa_ativa(EMPRESA_MAGAZINE)
 
 
 def _criar_produto(sku):

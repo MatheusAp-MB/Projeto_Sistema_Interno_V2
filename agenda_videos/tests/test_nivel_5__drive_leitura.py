@@ -19,7 +19,8 @@ from django.conf import settings
 
 from produtos.models import Produto
 from agenda_videos.models import SnapshotArquivosDrive
-from agenda_videos.funcoes_auxiliares.drive.cliente import obter_servico_drive
+from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE
+from agenda_videos.funcoes_auxiliares.drive.cliente import obter_servico_drive, obter_pasta_raiz_id_ativa
 from agenda_videos.funcoes_auxiliares.drive.escaneador import (
     _listar_tudo_paginado, montar_arvore_por_ean, sincronizar_snapshots_drive,
 )
@@ -31,6 +32,17 @@ pytestmark = pytest.mark.skipif(
     not settings.GOOGLE_DRIVE_CREDENCIAIS_JSON,
     reason='GOOGLE_DRIVE_CREDENCIAIS_JSON não configurado nesta máquina — sem credencial, sem teste real de Drive.',
 )
+
+
+# * [EXPLICAÇÃO] → Achado real (18/08/2026): depois da pasta raiz do Drive
+#                  virar por empresa, qualquer código que a resolva precisa
+#                  saber a empresa ativa — e testes não passam por
+#                  middleware de sessão. Fixa MAGAZINE (o dado de
+#                  referência real, QUIMIVIDA, é da Magazine) pra toda a
+#                  suíte deste arquivo.
+@pytest.fixture(autouse=True)
+def _empresa_ativa_magazine():
+    definir_empresa_ativa(EMPRESA_MAGAZINE)
 
 
 def test_conexao_real_autentica_e_lista_itens(tabela_resultados):
@@ -53,14 +65,15 @@ def test_conexao_real_autentica_e_lista_itens(tabela_resultados):
 def test_arvore_reconstruida_a_partir_do_drive_real(tabela_resultados):
     # Exercise:
     servico = obter_servico_drive()
+    pasta_raiz_id = obter_pasta_raiz_id_ativa()
     todos_os_itens = _listar_tudo_paginado(servico)
-    arvore_por_ean = montar_arvore_por_ean(todos_os_itens, settings.GOOGLE_DRIVE_PASTA_RAIZ_ID)
+    arvore_por_ean = montar_arvore_por_ean(todos_os_itens, pasta_raiz_id)
 
     # Assert:
     passou = isinstance(arvore_por_ean, dict)
     registrar_resultado(
         tabela_resultados, teste='montar_arvore_por_ean() contra a estrutura real de hoje',
-        entrada=f'{len(todos_os_itens)} itens reais, raiz={settings.GOOGLE_DRIVE_PASTA_RAIZ_ID}', esperado='dict {ean: {marca, arquivos_videos, arquivos_usados}}',
+        entrada=f'{len(todos_os_itens)} itens reais, raiz={pasta_raiz_id}', esperado='dict {ean: {marca, arquivos_videos, arquivos_usados}}',
         motivo='Prova que a navegação marca→ean→Videos→arquivos funciona contra pastas reais, não uma lista fabricada',
         obtido=f'total_eans_reconhecidos={len(arvore_por_ean)}',
         passou=passou,
@@ -68,7 +81,12 @@ def test_arvore_reconstruida_a_partir_do_drive_real(tabela_resultados):
     assert passou
 
 
-@pytest.mark.django_db
+# * [EXPLICAÇÃO] → Igual ao caso de test_nivel_3__verificador.py: com a
+#                  empresa ativa setada (fixture do topo do arquivo), o
+#                  EmpresaRouter manda a query de SnapshotArquivosDrive pro
+#                  alias explícito 'magazine' — precisa declarar aqui, senão
+#                  o pytest-django bloqueia com DatabaseOperationForbidden.
+@pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 def test_sincronizar_snapshots_drive_roda_de_verdade_sem_erro(tabela_resultados):
     # Função Objetivo: Exercita a função de orquestração completa contra o
     # Drive real — a única escrita é no banco de TESTE (SnapshotArquivosDrive),

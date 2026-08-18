@@ -13,7 +13,7 @@ from produtos.models import Produto
 from agenda_videos.models import ConfiguracaoFase, Fase, ParticipacaoAgenda
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — view_alternar_urgente(): toggle de urgência via HTTP'
 

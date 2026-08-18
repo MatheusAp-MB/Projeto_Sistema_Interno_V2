@@ -24,7 +24,7 @@ from agenda_videos.funcoes_auxiliares.drive.localizador import LocalizadorArquiv
 from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 (Simulado) — api/postagem_automatica: view_baixar_video / view_marcar_concluido'
 

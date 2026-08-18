@@ -22,7 +22,7 @@ from agenda_videos.models import (
 from django.utils import timezone
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — api/postagem_automatica (sem Drive): listar_itens, marcar_falhou, heartbeat, finalizar_execucao'
 

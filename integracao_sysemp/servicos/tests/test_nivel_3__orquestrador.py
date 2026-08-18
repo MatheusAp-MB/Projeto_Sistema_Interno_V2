@@ -21,7 +21,7 @@ from testes_apoio.apoio_visual import registrar_resultado
 
 TITULO_CAMADA = 'Nível 3 — orquestrador (sincronizar_impostos_entrada_xml)'
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 
 @pytest.fixture(autouse=True)

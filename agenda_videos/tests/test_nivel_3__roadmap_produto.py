@@ -22,7 +22,7 @@ from agenda_videos.funcoes_auxiliares.roadmap_produto import (
 from agenda_videos.models import CicloVideo, ConfiguracaoFase, Fase, StatusPostagem
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 3 — roadmap_produto (_montar_caminho_completo_fases / calcular_roadmap_produto)'
 

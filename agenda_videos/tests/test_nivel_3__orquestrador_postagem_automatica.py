@@ -30,7 +30,7 @@ from agenda_videos.funcoes_auxiliares.postagem_automatica.orquestrador import (
 )
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 3 — orquestrador da Postagem Automática: listar_produtos_elegiveis() e obter_mlb_do_produto()'
 

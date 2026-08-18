@@ -18,6 +18,7 @@ from django.conf import settings
 
 from produtos.models import Produto
 from agenda_videos.models import CicloVideo, Fase
+from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from agenda_videos.funcoes_auxiliares.drive.verificador import verificar_produto_no_drive, verificar_todos_no_drive
 from testes_apoio.apoio_visual import registrar_resultado
 
@@ -26,13 +27,35 @@ TITULO_CAMADA = 'Integração real — verificador.py contra o Google Drive (EAN
 MARCA_REFERENCIA = 'QUIMIVIDA'
 EAN_REFERENCIA = '0789888395162'
 
+# * [EXPLICAÇÃO] → 2º produto de referência, do lado Samvale — prova o
+#                  critério de pronto da Etapa 1 (checkpoint "Correção de
+#                  Ponta a Ponta da Agenda de Vídeos", 18/08/2026): as 2
+#                  empresas precisam devolver árvores DIFERENTES e corretas,
+#                  cada 1 só vendo sua própria pasta ("Samvale Estruturada").
+MARCA_REFERENCIA_SAMVALE = 'Ortho Pauher'
+EAN_REFERENCIA_SAMVALE = '7899947306688'
+
+# * [EXPLICAÇÃO] → Mesmo motivo dos outros 2 arquivos: a empresa ativa fica
+#                  setada durante os testes (fixture do topo do arquivo), e
+#                  o EmpresaRouter manda a query de Produto/CicloVideo pro
+#                  alias explícito 'magazine' — sem declarar aqui, o
+#                  pytest-django bloqueia com DatabaseOperationForbidden.
 pytestmark = [
-    pytest.mark.django_db,
+    pytest.mark.django_db(databases=['default', 'magazine', 'samvale']),
     pytest.mark.skipif(
         not settings.GOOGLE_DRIVE_CREDENCIAIS_JSON,
         reason='GOOGLE_DRIVE_CREDENCIAIS_JSON não configurado nesta máquina — sem credencial, sem teste real de Drive.',
     ),
 ]
+
+
+# * [EXPLICAÇÃO] → Mesmo motivo do test_nivel_5__drive_leitura.py: a pasta
+#                  raiz do Drive agora depende da empresa ativa, e testes
+#                  não passam por middleware de sessão. QUIMIVIDA é dado
+#                  de referência da Magazine (18/08/2026).
+@pytest.fixture(autouse=True)
+def _empresa_ativa_magazine():
+    definir_empresa_ativa(EMPRESA_MAGAZINE)
 
 
 def _criar_produto_quimivida():
@@ -99,6 +122,78 @@ def test_verificar_todos_no_drive_encontra_e_avanca_o_produto_quimivida(tabela_r
         entrada='único Produto no banco de teste é o QUIMIVIDA — Drive real tem centenas de outros EANs',
         esperado="resumo=[(produto_id, ['base','roteiro','completo'])] — resto do catálogo real vira sem_produto_no_banco",
         motivo='sem_produto_no_banco depende do estado vivo do Drive (não controlamos) — só checamos o tipo; o produto nosso é exato',
+        obtido=f'resumo={resumo_por_produto}, total_sem_produto_no_banco={len(sem_produto_no_banco)}',
+        passou=passou,
+    )
+    assert passou
+
+
+def _criar_produto_ortho_pauher():
+    return Produto.objects.create(
+        ean=EAN_REFERENCIA_SAMVALE, sku=f'SKU-{EAN_REFERENCIA_SAMVALE}',
+        titulo='Produto Teste Ortho Pauher', marca=MARCA_REFERENCIA_SAMVALE,
+    )
+
+
+def test_verificar_produto_no_drive_avanca_base_roteiro_completo_de_verdade_samvale(tabela_resultados):
+    # Função Objetivo: espelha o teste do QUIMIVIDA, mas com a SAMVALE ativa
+    # e o produto de referência Ortho Pauher (EAN 7899947306688) — prova o
+    # critério de pronto da Etapa 1: a Samvale também acha sua própria pasta
+    # ("Samvale Estruturada") e avança as 3 etapas, sem depender de nada do
+    # lado Magazine.
+    # Setup:
+    definir_empresa_ativa(EMPRESA_SAMVALE)
+    produto = _criar_produto_ortho_pauher()
+    ciclo = CicloVideo.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
+
+    # Exercise:
+    etapas_marcadas, estrutura_drive, diagnostico = verificar_produto_no_drive(produto.id)
+
+    # Assert:
+    ciclo.refresh_from_db()
+    passou = (
+        etapas_marcadas == ['base', 'roteiro', 'completo']
+        and diagnostico is None
+        and estrutura_drive.pasta_encontrada is True
+        and ciclo.base_concluido_em is not None
+        and ciclo.roteiro_concluido_em is not None
+        and ciclo.completo_concluido_em is not None
+    )
+    registrar_resultado(
+        tabela_resultados, teste='verificar_produto_no_drive (Drive real, SAMVALE) — avança Base/Roteiro/Completo',
+        entrada=f'marca={MARCA_REFERENCIA_SAMVALE!r}, ean={EAN_REFERENCIA_SAMVALE!r}, empresa=SAMVALE, ciclo Simples#1 recém criado',
+        esperado="(['base','roteiro','completo'], None) — pasta Samvale de referência completa (Roteiro salvo no plural)",
+        motivo='Prova a cadeia inteira contra o Drive real da Samvale — isolado da pasta Magazine',
+        obtido=f'etapas_marcadas={etapas_marcadas}, diagnostico={diagnostico}, pasta_encontrada={estrutura_drive.pasta_encontrada}',
+        passou=passou,
+    )
+    assert passou
+
+
+def test_verificar_todos_no_drive_encontra_e_avanca_o_produto_ortho_pauher_samvale(tabela_resultados):
+    # Função Objetivo: mesma prova em massa do QUIMIVIDA, agora com a SAMVALE
+    # ativa — só o Ortho Pauher existe no banco de teste desta rodada, então
+    # ele é o único que pode aparecer no resumo.
+    # Setup:
+    definir_empresa_ativa(EMPRESA_SAMVALE)
+    produto = _criar_produto_ortho_pauher()
+    ciclo = CicloVideo.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
+
+    # Exercise:
+    resumo_por_produto, sem_produto_no_banco = verificar_todos_no_drive()
+
+    # Assert:
+    ciclo.refresh_from_db()
+    passou = (
+        resumo_por_produto == [(produto.id, ['base', 'roteiro', 'completo'])]
+        and isinstance(sem_produto_no_banco, list)
+        and ciclo.base_concluido_em is not None
+    )
+    registrar_resultado(
+        tabela_resultados, teste='verificar_todos_no_drive (Drive real, SAMVALE) — encontra e avança o Ortho Pauher',
+        entrada='único Produto no banco de teste é o Ortho Pauher — Drive real da Samvale tem outros EANs',
+        esperado="resumo=[(produto_id, ['base','roteiro','completo'])] — resto do catálogo Samvale vira sem_produto_no_banco",
+        motivo='Mesma garantia do QUIMIVIDA, provando que o caminho em massa também respeita a empresa ativa',
         obtido=f'resumo={resumo_por_produto}, total_sem_produto_no_banco={len(sem_produto_no_banco)}',
         passou=passou,
     )

@@ -14,7 +14,7 @@ from produtos.models import Produto
 from agenda_videos.models import CicloVideo, ConfiguracaoFase, Fase, ParticipacaoAgenda, StatusPostagem
 from testes_apoio.apoio_visual import registrar_resultado
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — view_agendar_produto(): Simples → Vídeo Mensal via HTTP'
 
