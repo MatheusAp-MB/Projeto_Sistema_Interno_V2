@@ -423,3 +423,60 @@ def test_nivel_0__parsear_numerado_extensao_errada_nao_reconhecido(tabela_result
         passou=passou,
     )
     assert passou
+
+
+def test_nivel_0__parsear_roteiro_simples_no_plural_reconhecido_igual_ao_singular(tabela_resultados):
+    # Função Objetivo: achado real (Ortho Pauher/Samvale, 18/08/2026) — a
+    # equipe vem salvando o Roteiro no plural ("Simples_Roteiros.txt"), não
+    # no singular do padrão original. Precisa ser reconhecido exatamente
+    # igual ao singular, nunca cair em "não reconhecido" por isso.
+    # Setup:
+    arquivos_brutos = [{'id': 'id_roteiro_plural', 'name': 'Simples_Roteiros.txt'}]
+
+    # Exercise:
+    resultado = parsear_arquivos_produto('Marca X', '123', arquivos_brutos)
+
+    # Assert:
+    ocorrencia = resultado.simples.obter_ocorrencia(1)
+    passou = (
+        ocorrencia is not None
+        and ocorrencia.roteiro == ArquivoDrive('Simples_Roteiros.txt', 'id_roteiro_plural')
+        and resultado.arquivos_nao_reconhecidos == []
+    )
+    registrar_resultado(
+        tabela_resultados, teste='parsear_arquivos_produto — Roteiro no plural (Simples) reconhecido',
+        entrada='Simples_Roteiros.txt (plural, achado real da equipe)',
+        esperado='ocorrência #1 com roteiro preenchido, 0 não reconhecidos',
+        motivo='Roteiro é só existência — variação singular/plural do nome não pode travar a etapa',
+        obtido=f'ocorrencia={ocorrencia}, nao_reconhecidos={resultado.arquivos_nao_reconhecidos}',
+        passou=passou,
+    )
+    assert passou
+
+
+def test_nivel_0__parsear_roteiro_numerado_no_plural_reconhecido_igual_ao_singular(tabela_resultados):
+    # Função Objetivo: mesmo achado real, agora no ramo NUMERADO (Mensal/
+    # Trimestral) — "Mensal_01_Roteiros.txt" (plural) precisa ser reconhecido
+    # igual a "Mensal_01_Roteiro.txt".
+    # Setup:
+    arquivos_brutos = [{'id': 'id_roteiro_plural_numerado', 'name': 'Mensal_01_Roteiros.txt'}]
+
+    # Exercise:
+    resultado = parsear_arquivos_produto('Marca X', '123', arquivos_brutos)
+
+    # Assert:
+    ocorrencia = resultado.video_mensal.obter_ocorrencia(1)
+    passou = (
+        ocorrencia is not None
+        and ocorrencia.roteiro == ArquivoDrive('Mensal_01_Roteiros.txt', 'id_roteiro_plural_numerado')
+        and resultado.arquivos_nao_reconhecidos == []
+    )
+    registrar_resultado(
+        tabela_resultados, teste='parsear_arquivos_produto — Roteiro no plural (Numerado) reconhecido',
+        entrada='Mensal_01_Roteiros.txt (plural, achado real da equipe)',
+        esperado='ocorrência #1 com roteiro preenchido, 0 não reconhecidos',
+        motivo='Mesma regra do Simples, aplicada ao ramo Numerado (Mensal/Trimestral)',
+        obtido=f'ocorrencia={ocorrencia}, nao_reconhecidos={resultado.arquivos_nao_reconhecidos}',
+        passou=passou,
+    )
+    assert passou

@@ -62,12 +62,29 @@ class ArquivosProdutoDrive:
 
 EXTENSOES_VALIDAS_POR_TIPO = {'base': 'mp4', 'completo': 'mp4', 'roteiro': 'txt'}
 
-PADRAO_SIMPLES = re.compile(r'^simples_(base|roteiro|completo)\.([a-z0-9]+)$', re.IGNORECASE)
-PADRAO_NUMERADO = re.compile(r'^(mensal|trimestral)_(\d{2})_(base|roteiro|completo)\.([a-z0-9]+)$', re.IGNORECASE)
+# * [EXPLICAÇÃO] → "roteiros?" aceita "Roteiro" no singular OU no plural
+#                  ("Simples_Roteiro.txt" ou "Simples_Roteiros.txt") — achado
+#                  real (Ortho Pauher/Samvale, 18/08/2026): a equipe vem
+#                  salvando no plural na prática. Como Roteiro é só
+#                  EXISTÊNCIA, nunca conteúdo (ver comentário no topo do
+#                  arquivo), a variação de nome não muda nada sobre o que o
+#                  arquivo representa — travar a etapa por causa disso seria
+#                  rigidez sem propósito real.
+PADRAO_SIMPLES = re.compile(r'^simples_(base|roteiros?|completo)\.([a-z0-9]+)$', re.IGNORECASE)
+PADRAO_NUMERADO = re.compile(r'^(mensal|trimestral)_(\d{2})_(base|roteiros?|completo)\.([a-z0-9]+)$', re.IGNORECASE)
 
 
 def _extensao_valida(tipo, extensao):
     return EXTENSOES_VALIDAS_POR_TIPO[tipo] == extensao.lower()
+
+
+# * [EXPLICAÇÃO] → O grupo do regex pode capturar 'roteiros' (plural) — aqui
+#                  normaliza pra 'roteiro' (singular) antes de qualquer outro
+#                  uso do valor, pra EXTENSOES_VALIDAS_POR_TIPO e as chaves de
+#                  dict (base/roteiro/completo) continuarem tratando só 1
+#                  forma em todo o resto da função.
+def _normalizar_tipo(tipo):
+    return 'roteiro' if tipo == 'roteiros' else tipo
 
 
 def _montar_fase(fase, entradas_por_numero):
@@ -92,7 +109,7 @@ def parsear_arquivos_produto(marca, ean, arquivos_brutos):
 
         match_simples = PADRAO_SIMPLES.match(nome)
         if match_simples:
-            tipo, extensao = match_simples.group(1).lower(), match_simples.group(2)
+            tipo, extensao = _normalizar_tipo(match_simples.group(1).lower()), match_simples.group(2)
             if _extensao_valida(tipo, extensao):
                 entradas_por_fase['simples'].setdefault(1, {})[tipo] = arquivo
             else:
@@ -102,7 +119,7 @@ def parsear_arquivos_produto(marca, ean, arquivos_brutos):
         match_numerado = PADRAO_NUMERADO.match(nome)
         if match_numerado:
             prefixo, numero_str, tipo, extensao = match_numerado.groups()
-            prefixo, tipo = prefixo.lower(), tipo.lower()
+            prefixo, tipo = prefixo.lower(), _normalizar_tipo(tipo.lower())
             if _extensao_valida(tipo, extensao):
                 fase = FASE_POR_PREFIXO_ARQUIVO_MINUSCULO[prefixo]
                 entradas_por_fase[fase].setdefault(int(numero_str), {})[tipo] = arquivo
