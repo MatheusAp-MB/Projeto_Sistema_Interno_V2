@@ -26,14 +26,21 @@ from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 from core.management.commands.popular_banco_suporte.parser_data import ParserData
 from core.management.commands.popular_banco_suporte.leitor_planilha_erp import ler_linhas_planilha_erp
+from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
-#* MAGAZINE
-# CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
-# CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_MB.xlsx'
-
-## SAMVALE
-CAMINHO_ERP_ATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
-CAMINHO_ERP_INATIVOS = 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'
+# * [EXPLICAÇÃO] → Fim do comentar/descomentar manual (17/08/2026) — o
+#                  caminho certo agora é resolvido sozinho a partir da
+#                  empresa ativa (sessão web ou --empresa no terminal).
+CAMINHOS_ERP_POR_EMPRESA = {
+    EMPRESA_MAGAZINE: {
+        'ativos': 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_MB.xlsx',
+        'inativos': 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_MB.xlsx',
+    },
+    EMPRESA_SAMVALE: {
+        'ativos': 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx',
+        'inativos': 'Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx',
+    },
+}
 
 
 FATOR_PESO_CUBADO = Decimal('6000')
@@ -244,7 +251,20 @@ class LinhaProdutoERP:
 class ImportadorProdutos:
 
     # Função Objetivo: Recebe os 2 caminhos de arquivo (Ativos/Inativos) e zera os contadores.
-    def __init__(self, caminho_erp_ativos=CAMINHO_ERP_ATIVOS, caminho_erp_inativos=CAMINHO_ERP_INATIVOS):
+    # Explicação em detalhe: sem argumento explícito, resolve sozinho a partir
+    # da empresa ativa — nunca mais comentar/descomentar arquivo à mão.
+    def __init__(self, caminho_erp_ativos=None, caminho_erp_inativos=None):
+        if caminho_erp_ativos is None or caminho_erp_inativos is None:
+            empresa = obter_empresa_ativa()
+            if empresa is None:
+                raise RuntimeError(
+                    'Nenhuma empresa ativa — rode este comando com --empresa=MAGAZINE '
+                    'ou --empresa=SAMVALE, ou escolha a empresa na tela do sistema.'
+                )
+            caminhos = CAMINHOS_ERP_POR_EMPRESA[empresa]
+            caminho_erp_ativos = caminho_erp_ativos or caminhos['ativos']
+            caminho_erp_inativos = caminho_erp_inativos or caminhos['inativos']
+
         self.caminho_erp_ativos = caminho_erp_ativos
         self.caminho_erp_inativos = caminho_erp_inativos
 

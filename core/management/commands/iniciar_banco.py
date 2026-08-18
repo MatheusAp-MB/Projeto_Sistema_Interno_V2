@@ -7,7 +7,7 @@
 #              log de progresso), então usam a mesma estrutura.
 
 import time
-from django.core.management.base import BaseCommand
+from core.management.commands._base_empresa import ComandoComEmpresa
 from core.management.commands.iniciar_banco_suporte.popular_marketplaces import popular_marketplaces
 from core.management.commands.iniciar_banco_suporte.popular_criterios_qualidade import popular_criterios_qualidade
 from core.management.commands.iniciar_banco_suporte.popular_configuracao_operacional import popular_configuracao_operacional
@@ -18,7 +18,7 @@ from core.management.commands.iniciar_banco_suporte.popular_taxa_kg_adicional_am
 from core.management.commands.iniciar_banco_suporte.popular_regua_fases_agenda_videos import popular_regua_fases_agenda_videos
 
 
-class Command(BaseCommand):
+class Command(ComandoComEmpresa):
     help = 'Popula dados iniciais do sistema (seed)'
 
     def handle(self, *args, **options):

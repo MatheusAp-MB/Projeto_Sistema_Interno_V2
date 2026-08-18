@@ -30,7 +30,7 @@
 
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from api_sysemp import ApiSysemp
 from api_sysemp.core.excecoes import ErroAPISysemp
@@ -48,7 +48,7 @@ from .arquivos_retorno_api import (
 )
 from .dados_xml_nf import DadosXmlNF
 from .erros_sincronizacao import registrar_erro, remover_erro
-from .filtro_cfop import filtrar_por_cfop
+from .filtro_cfop import contar_por_cfop, filtrar_por_cfop
 from .selecao_nota_recente import selecionar_nota_mais_recente_por_produto
 
 CAMPO_CODIGO_PRODUTO = 'Código Barras'
@@ -76,6 +76,10 @@ class RelatorioDeSincronizacao:
     produtos_com_erro: int = 0
     notas_com_erro_no_filtro: int = 0
     linhas_com_erro_na_selecao: int = 0
+    # * [EXPLICAÇÃO] → 1 tupla (cfop, descrição, contagem) por CFOP
+    #                  mantido, sempre na ordem de CFOPS_PARA_MANTER —
+    #                  mostra qual CFOP puxou o volume, sem abrir json.
+    contagem_por_cfop: list = field(default_factory=list)
 
 
 @contextmanager
@@ -121,22 +125,27 @@ def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: Relator
         relatorio.produtos_sincronizados += 1
 
 
-def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincronizacao:
+def sincronizar_impostos_entrada_xml(informar_fase=None, informar_pagina=None) -> RelatorioDeSincronizacao:
     """Executa a sincronização de ponta a ponta. Devolve o relatório de
     tempo/contagens — só mede, não decide nem aplica nenhuma otimização
-    por conta própria. informar_fase(mensagem: str), se passado, é
-    chamado a cada fase relevante (inclusive página a página durante a
-    busca na API) — o orquestrador nunca imprime nada sozinho."""
+    por conta própria. informar_fase(mensagem: str) é chamado a cada fase
+    relevante. informar_pagina(numero_da_pagina, registros_na_pagina,
+    total_acumulado), se passado, substitui a versão em texto genérico —
+    permite quem chama montar exibição mais rica (ex: linha ao vivo com
+    ritmo) sem o orquestrador saber de rich, console, ou nada disso."""
 
     def _informar(mensagem: str) -> None:
         if informar_fase is not None:
             informar_fase(mensagem)
 
     def _informar_pagina(numero_da_pagina, registros_na_pagina, total_acumulado):
-        _informar(
-            f'Buscando na API — página {numero_da_pagina} '
-            f'(+{registros_na_pagina}, total {total_acumulado})',
-        )
+        if informar_pagina is not None:
+            informar_pagina(numero_da_pagina, registros_na_pagina, total_acumulado)
+        else:
+            _informar(
+                f'Buscando na API — página {numero_da_pagina} '
+                f'(+{registros_na_pagina}, total {total_acumulado})',
+            )
 
     def _salvar_parcial_em_falha(registros_acumulados):
         # * [EXPLICAÇÃO] → dado de API é caro — se a busca falhar no meio
@@ -201,6 +210,7 @@ def sincronizar_impostos_entrada_xml(informar_fase=None) -> RelatorioDeSincroniz
     _informar(f'Filtrando por CFOP ({len(bruto["retorno"])} notas brutas)...')
     with _cronometrar(relatorio, 'filtro_cfop'):
         filtrado, erros_filtro = filtrar_por_cfop(bruto['retorno'])
+        relatorio.contagem_por_cfop = contar_por_cfop(filtrado)
     _registrar_erros(erros_filtro, etapa='filtro_cfop')
     relatorio.notas_com_erro_no_filtro = len(erros_filtro)
     if erros_filtro:

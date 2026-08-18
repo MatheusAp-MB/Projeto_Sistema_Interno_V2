@@ -37,3 +37,14 @@ def obter_alias_banco_ativo():
     if empresa is None:
         return None
     return ALIAS_BANCO_POR_EMPRESA[empresa]
+
+
+
+# Prefixo já usado nas variáveis de .env de integrações externas (Sysemp,
+# Mercado Livre), criado antes da decisão de nomes de hoje — mantém o
+# padrão curto já validado em produção (MB_CLIENT_ID, SV_ACCESS_TOKEN etc.)
+# em vez de renomear tudo no .env sob pressão de hoje à noite.
+PREFIXO_ENV_POR_EMPRESA = {
+    EMPRESA_MAGAZINE: 'MB',
+    EMPRESA_SAMVALE: 'SV',
+}

@@ -10,34 +10,46 @@
 import json
 import os
 
+from core.empresa import obter_empresa_ativa
+
 _PASTA_ATUAL = os.path.dirname(os.path.abspath(__file__))
 PASTA_RETORNO_API = os.path.join(
     os.path.dirname(_PASTA_ATUAL), 'retorno_api', 'dados_impostos_xml_entrada',
 )
 
 NOME_ARQUIVO_BRUTO = 'XML_Manifesto_NF_Bruto.json'
-# * [EXPLICAÇÃO] → só recebe o que já foi obtido com sucesso quando uma
-#                  busca paginada falha no meio (ver ao_falhar_com_parcial
-#                  em ImpostosEntradaXML.listar_periodo_completo) — nunca
-#                  é o Bruto oficial, fica separado pra nunca confundir
-#                  dado possivelmente incompleto com uma carga completa.
-#                  Limpo (sobrescrito com retorno vazio) sempre que uma
-#                  sincronização completa termina com sucesso.
 NOME_ARQUIVO_BRUTO_PARCIAL = 'XML_Manifesto_NF_Bruto_Parcial.json'
 NOME_ARQUIVO_FILTRADO = 'XML_Manifesto_NF_Filtrado.json'
 NOME_ARQUIVO_NOTAS_MAIS_RECENTES = 'XML_Manifesto_NF_notas_mais_recentes_por_produto.json'
 NOME_ARQUIVO_ERROS = 'XML_Manifesto_NF_Erros.json'
 
 
+def _pasta_da_empresa_ativa():
+    # * [EXPLICAÇÃO] → subpasta por empresa (17/08/2026) — antes era 1
+    #                  pasta só, compartilhada: rodar Magazine e depois
+    #                  Samvale sobrescrevia o json de retorno de uma
+    #                  empresa com o da outra, silenciosamente. Sem
+    #                  empresa ativa (ex: os testes, que redirecionam
+    #                  PASTA_RETORNO_API pro tmp_path e não passam por
+    #                  --empresa), cai na pasta base direto — comportamento
+    #                  de teste não muda.
+    empresa = obter_empresa_ativa()
+    if empresa is None:
+        return PASTA_RETORNO_API
+    return os.path.join(PASTA_RETORNO_API, empresa.lower())
+
+
 def salvar_json(dados, nome_arquivo: str) -> None:
-    os.makedirs(PASTA_RETORNO_API, exist_ok=True)
-    caminho = os.path.join(PASTA_RETORNO_API, nome_arquivo)
+    pasta = _pasta_da_empresa_ativa()
+    os.makedirs(pasta, exist_ok=True)
+    caminho = os.path.join(pasta, nome_arquivo)
     with open(caminho, 'w', encoding='utf-8') as arquivo:
         json.dump(dados, arquivo, ensure_ascii=False, indent=2)
 
 
 def ler_json(nome_arquivo: str, padrao=None):
-    caminho = os.path.join(PASTA_RETORNO_API, nome_arquivo)
+    pasta = _pasta_da_empresa_ativa()
+    caminho = os.path.join(pasta, nome_arquivo)
     if not os.path.exists(caminho):
         return padrao
     with open(caminho, encoding='utf-8') as arquivo:

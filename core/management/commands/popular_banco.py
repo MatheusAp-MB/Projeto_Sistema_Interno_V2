@@ -19,7 +19,8 @@
 import time
 from pathlib import Path
 from datetime import datetime
-from django.core.management.base import BaseCommand, OutputWrapper
+from django.core.management.base import OutputWrapper
+from core.management.commands._base_empresa import ComandoComEmpresa
 
 from rich import print
 from core.funcoes_auxiliares.saida_dupla import SaidaDupla
@@ -51,7 +52,7 @@ from precificacao.funcoes_auxiliares.tiktok.calcular_grade_precificacao_tiktok i
 from precificacao.funcoes_auxiliares.amazon.calcular_grade_precificacao_amazon import calcular_grade_precificacao_amazon
 
 
-class Command(BaseCommand):
+class Command(ComandoComEmpresa):
     help = 'Popula o banco com dados reais vindos da API (via arquivos)'
 
     def handle(self, *args, **options):

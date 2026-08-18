@@ -26,6 +26,13 @@ CFOPS_PARA_MANTER = (
     '1.403', '2.403',  # compra para revenda sob substituição tributária (ICMS-ST)
 )
 
+DESCRICAO_POR_CFOP = {
+    '1.102': 'Compra p/ revenda — mesmo estado',
+    '2.102': 'Compra p/ revenda — outro estado',
+    '1.403': 'Compra p/ revenda ST — mesmo estado',
+    '2.403': 'Compra p/ revenda ST — outro estado',
+}
+
 
 def _identificador_da_nota(nota) -> str:
     if isinstance(nota, dict):
@@ -86,3 +93,16 @@ def filtrar_por_cfop(notas_brutas: list[dict]) -> tuple[list[dict], list[dict]]:
     linhas, erros = _achatar_em_linhas(notas_brutas)
     linhas_filtradas = [linha for linha in linhas if _cfop_relevante(linha)]
     return linhas_filtradas, erros
+
+
+def contar_por_cfop(linhas_filtradas: list[dict]) -> list[tuple[str, str, int]]:
+    """Quantas linhas já filtradas caem em cada CFOP mantido — não filtra
+    de novo, só conta. Sempre devolve 1 tupla por CFOP de CFOPS_PARA_MANTER,
+    na mesma ordem, incluindo CFOP com 0 ocorrência nesta execução
+    (visibilidade total do que é possível aparecer, não só o que apareceu)."""
+    contagem = {cfop: 0 for cfop in CFOPS_PARA_MANTER}
+    for linha in linhas_filtradas:
+        cfop = linha.get('CFOP Cadastro') or linha.get('CFOP XML')
+        if cfop in contagem:
+            contagem[cfop] += 1
+    return [(cfop, DESCRICAO_POR_CFOP[cfop], contagem[cfop]) for cfop in CFOPS_PARA_MANTER]

@@ -8,7 +8,8 @@
 # quem já tinha dado sincronizado antes do campo existir — sem gastar uma
 # chamada nova na API (cara/lenta).
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
+from core.management.commands._base_empresa import ComandoComEmpresa
 from rich.console import Console
 from rich.table import Table
 
@@ -16,7 +17,7 @@ from integracao_sysemp.servicos.arquivos_retorno_api import NOME_ARQUIVO_NOTAS_M
 from integracao_sysemp.servicos.orquestrador import RelatorioDeSincronizacao, persistir_selecionados_no_banco
 
 
-class Command(BaseCommand):
+class Command(ComandoComEmpresa):
     help = (
         'Repersiste no banco os impostos de entrada a partir do json já salvo em disco '
         '(XML_Manifesto_NF_notas_mais_recentes_por_produto.json) — não chama a API, não toca o watermark.'

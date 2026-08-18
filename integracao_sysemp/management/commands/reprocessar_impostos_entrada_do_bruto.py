@@ -9,7 +9,8 @@
 # rechamar a API (cara/lenta). Diferente de reprocessar_impostos_entrada_de_json
 # (que só relê o json de selecionados já correto, sem re-filtrar).
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import CommandError
+from core.management.commands._base_empresa import ComandoComEmpresa
 from rich.console import Console
 from rich.table import Table
 
@@ -25,7 +26,7 @@ from integracao_sysemp.servicos.orquestrador import RelatorioDeSincronizacao, pe
 from integracao_sysemp.servicos.selecao_nota_recente import selecionar_nota_mais_recente_por_produto
 
 
-class Command(BaseCommand):
+class Command(ComandoComEmpresa):
     help = (
         'Re-filtra e re-seleciona a partir do bruto já salvo em disco '
         '(XML_Manifesto_NF_Bruto.json) e persiste no banco — não chama a API, não toca o watermark.'
