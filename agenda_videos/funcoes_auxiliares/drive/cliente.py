@@ -1,16 +1,28 @@
 # agenda_videos/funcoes_auxiliares/drive/cliente.py
 
-# Função Objetivo: Autentica e devolve o cliente da API do Google Drive, via
-# conta de serviço. Credencial (caminho do JSON) vem de variável de ambiente
-# (.env), nunca hardcoded, nunca commitada no Git.
+# Função Objetivo: Autentica e devolve o cliente da API do Google Drive.
+# LEITURA continua via Service Account (nunca gasta cota — sem mudança).
+# ESCRITA passa a autenticar como o USUÁRIO REAL dono do Drive, via OAuth
+# (18/08/2026) — achado real: Service Account tem SEMPRE 0 bytes de cota
+# própria (regra da própria plataforma Google, não configurável), então
+# todo upload de conteúdo novo falhava com storageQuotaExceeded, mesmo com
+# permissão de editor na pasta (editor = pode fazer, não = tem cota pra
+# isso — 2 coisas independentes). Conta do Drive é Google comum (sem
+# Workspace), então Shared Drive de verdade e delegação de domínio (as 2
+# soluções "padrão" pra Service Account) não são opção aqui.
 #
-# * [EXPLICAÇÃO] → 2 escopos, cada um usado só onde é necessário — leitura
-#                  (localizador.py, escaneador.py, tudo que só consulta) e
-#                  escrita (arquivador.py, o único lugar que move/cria
-#                  arquivo). Menor permissão possível, no lugar certo.
+# Autorização inicial (1x só, manual): rodar autorizar_drive_oauth.py na
+# raiz do projeto — abre o navegador, pede login com a conta dona de
+# verdade (financeiromagazinebrasileiro@gmail.com), grava o token de
+# atualização em GOOGLE_DRIVE_OAUTH_TOKEN_JSON. Daí em diante, o token se
+# renova sozinho (refresh(), abaixo) — nunca mais precisa logar de novo, a
+# menos que o acesso seja revogado manualmente em
+# myaccount.google.com/permissions.
 
 from django.conf import settings
+from google.auth.transport.requests import Request as RequisicaoAtualizacaoToken
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials as CredenciaisOAuth
 from googleapiclient.discovery import build
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
@@ -20,6 +32,7 @@ SCOPES_ESCRITA = ['https://www.googleapis.com/auth/drive']
 
 
 def obter_servico_drive():
+    # LEITURA: Service Account — nunca gasta cota, sem motivo pra mudar.
     credenciais = service_account.Credentials.from_service_account_file(
         settings.GOOGLE_DRIVE_CREDENCIAIS_JSON, scopes=SCOPES_LEITURA,
     )
@@ -27,9 +40,16 @@ def obter_servico_drive():
 
 
 def obter_servico_drive_escrita():
-    credenciais = service_account.Credentials.from_service_account_file(
-        settings.GOOGLE_DRIVE_CREDENCIAIS_JSON, scopes=SCOPES_ESCRITA,
+    # ESCRITA: autentica como USUÁRIO REAL (OAuth) — só assim o upload usa
+    # a cota de armazenamento de alguém de verdade, não de uma Service
+    # Account (que nunca tem cota própria).
+    credenciais = CredenciaisOAuth.from_authorized_user_file(
+        settings.GOOGLE_DRIVE_OAUTH_TOKEN_JSON, scopes=SCOPES_ESCRITA,
     )
+    if credenciais.expired and credenciais.refresh_token:
+        credenciais.refresh(RequisicaoAtualizacaoToken())
+        with open(settings.GOOGLE_DRIVE_OAUTH_TOKEN_JSON, 'w') as arquivo_token:
+            arquivo_token.write(credenciais.to_json())
     return build('drive', 'v3', credentials=credenciais)
 
 

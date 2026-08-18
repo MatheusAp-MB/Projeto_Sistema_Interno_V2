@@ -161,6 +161,19 @@ GOOGLE_DRIVE_CREDENCIAIS_JSON = os.getenv('GOOGLE_DRIVE_CREDENCIAIS_JSON')
 GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE')
 GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE')
 
+# * [EXPLICAÇÃO] → Achado real (18/08/2026): Service Account tem SEMPRE 0
+#                  bytes de cota própria (regra da plataforma Google, não
+#                  configurável) — upload de conteúdo novo (diferente de
+#                  criar pasta, que é só metadado) sempre falhava com
+#                  storageQuotaExceeded, mesmo com permissão de editor.
+#                  Conta é Google comum (sem Workspace), então Shared
+#                  Drive de verdade e delegação de domínio não são opção.
+#                  Escrita passa a autenticar como o USUÁRIO REAL dono do
+#                  Drive (OAuth), via token gerado 1x por
+#                  autorizar_drive_oauth.py — usa a cota dele, de verdade.
+GOOGLE_DRIVE_OAUTH_CLIENT_SECRET_JSON = os.getenv('GOOGLE_DRIVE_OAUTH_CLIENT_SECRET_JSON')
+GOOGLE_DRIVE_OAUTH_TOKEN_JSON = os.getenv('GOOGLE_DRIVE_OAUTH_TOKEN_JSON')
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

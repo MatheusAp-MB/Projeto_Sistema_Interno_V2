@@ -59,6 +59,8 @@ class LocalizadorArquivosProduto:
         resultado = self.servico.files().list(
             q=f"'{pasta_videos_id}' in parents and trashed = false",
             fields='files(id, name)',
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
         ).execute()
         return True, resultado.get('files', []), None, pasta_videos_id
 
@@ -72,5 +74,7 @@ class LocalizadorArquivosProduto:
         resultado = self.servico.files().list(
             q=f"'{pasta_usados_id}' in parents and trashed = false",
             fields='files(id, name)',
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
         ).execute()
         return resultado.get('files', [])

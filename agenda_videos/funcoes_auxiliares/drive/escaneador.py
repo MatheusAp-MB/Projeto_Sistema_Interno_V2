@@ -18,11 +18,21 @@ def _listar_tudo_paginado(servico):
     todos_os_itens = []
     page_token = None
     while True:
+        # * [EXPLICAÇÃO] → Esta é a ÚNICA query do módulo sem filtro de pai —
+        #                  varre tudo que a Service Account vê, corpora=
+        #                  'allDrives' inclui o conteúdo do Drive
+        #                  Compartilhado (sem isso, corpora default 'user'
+        #                  nem chega a olhar pra dentro de Drives
+        #                  Compartilhados). montar_arvore_por_ean() já filtra
+        #                  só o que descende de raiz_id depois, em memória.
         resultado = servico.files().list(
             q='trashed = false',
             fields='nextPageToken, files(id, name, mimeType, parents)',
             pageSize=1000,
             pageToken=page_token,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+            corpora='allDrives',
         ).execute()
         todos_os_itens.extend(resultado.get('files', []))
         page_token = resultado.get('nextPageToken')
