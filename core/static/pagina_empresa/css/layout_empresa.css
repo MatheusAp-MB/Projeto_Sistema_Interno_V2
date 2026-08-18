@@ -1,0 +1,34 @@
+/* * [RESUMO] → Estilo da tela de escolher/trocar empresa. Reaproveita
+ *              o card do login (layout_login.css), só adiciona os
+ *              2 botões grandes de empresa.
+ */
+
+.escolha-empresa-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.btn-escolher-empresa {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.btn-escolher-empresa:hover { opacity: 0.9; }
+
+.btn-empresa-magazine { background: #1F4E78; }
+.btn-empresa-samvale  { background: #7C3AED; }

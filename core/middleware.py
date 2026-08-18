@@ -5,6 +5,7 @@
 
 import os
 from django.shortcuts import redirect
+from core.empresa import definir_empresa_ativa, EMPRESA_PADRAO, EMPRESAS_VALIDAS
 
 # * [EXPLICAÇÃO] → LOGIN_URL é a URL para onde o usuário é redirecionado
 #                  quando não está autenticado. Definida como constante
@@ -23,7 +24,29 @@ ROTAS_PUBLICAS = [
     #                  devolvendo HTML em vez do JSON esperado (foi
     #                  exatamente esse o sintoma agora).
     '/api/',
+    # * [EXPLICAÇÃO] → Precisa ser pública mesmo com LOGIN_REQUIRED=True no
+    #                  futuro: escolher a empresa TEM que ser possível antes
+    #                  de logar, senão vira loop (login exige saber a
+    #                  empresa certa, mas a tela de trocar empresa também
+    #                  exigiria estar logado — nenhuma das 2 aconteceria).
+    '/empresa/',
 ]
+
+
+class EmpresaMiddleware:
+    # * [EXPLICAÇÃO] → Roda ANTES do AuthenticationMiddleware (ver ordem em
+    #                  settings.py) — ele precisa saber a empresa certa pra
+    #                  buscar request.user no banco certo.
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        empresa = request.session.get('empresa_ativa', EMPRESA_PADRAO)
+        if empresa not in EMPRESAS_VALIDAS:
+            empresa = EMPRESA_PADRAO
+        definir_empresa_ativa(empresa)
+        return self.get_response(request)
 
 
 class AutenticacaoMiddleware:

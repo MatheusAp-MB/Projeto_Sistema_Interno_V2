@@ -321,6 +321,11 @@
                     <div class="toolbar-acoes">
                         {% block toolbar_acoes %}{% endblock %}
                     </div>
+                    <!-- Empresa ativa — sempre visível, também é o link pra trocar -->
+                    <a href="{% url 'escolher_empresa' %}" class="badge-empresa {{ empresa_classe_css }}">
+                        <i class="fas fa-building"></i>
+                        <span>{{ empresa_nome_exibicao }}</span>
+                    </a>
                     <!-- Perfil do usuário -->
                     <div class="toolbar-perfil dropdown">
                         <button class="btn-perfil dropdown-toggle" data-bs-toggle="dropdown">

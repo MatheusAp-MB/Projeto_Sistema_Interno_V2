@@ -61,6 +61,12 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+
+    # * [EXPLICAÇÃO] → Decide qual banco (Magazine/Samvale) esta requisição
+    #                  usa. Precisa vir ANTES do AuthenticationMiddleware,
+    #                  que já busca request.user no banco certo.
+    'core.middleware.EmpresaMiddleware',
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -84,6 +90,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.empresa_ativa',
             ],
         },
     },
@@ -98,10 +105,16 @@ WSGI_APPLICATION = 'projeto_sistema_interno_mb_sv.wsgi.application'
 # * [IMPORTANTE] → Credenciais do banco vêm do .env — nunca hardcode aqui
 # * [EXPLICAÇÃO] → Usamos MySQL com charset utf8mb4 para suporte completo
 # *                a caracteres especiais e acentos do português
+# * [EXPLICAÇÃO] → 2 bancos permanentes, nomes fixos (decidido 17/08/2026)
+#                  — não vêm mais de variável de ambiente, já que não
+#                  mudam. 'default' aponta pra 'magazine' só como rede de
+#                  segurança (qualquer coisa que ignore o Router cai aqui,
+#                  em vez de quebrar) — na prática, o EmpresaRouter decide
+#                  tudo, 'default' quase nunca é usado de verdade.
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME'),
+        'NAME': 'sistema_interno_magazine',
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
@@ -109,8 +122,32 @@ DATABASES = {
         'OPTIONS': {
             'charset': 'utf8mb4',
         },
-    }
+    },
+    'magazine': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'sistema_interno_magazine',
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
+    },
+    'samvale': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'sistema_interno_samvale',
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
+    },
 }
+
+DATABASE_ROUTERS = ['core.database_router.EmpresaRouter']
 
 GOOGLE_DRIVE_CREDENCIAIS_JSON = os.getenv('GOOGLE_DRIVE_CREDENCIAIS_JSON')
 GOOGLE_DRIVE_PASTA_RAIZ_ID = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_ID')

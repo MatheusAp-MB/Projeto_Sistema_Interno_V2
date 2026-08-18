@@ -54,3 +54,35 @@ def view_home(request):
     #                  Por enquanto só renderiza o template.
     #                  Futuramente pode receber dados de resumo/dashboard.
     return render(request, 'pagina_home/estrutura_home.html')
+
+# ================================================
+# EMPRESA ATIVA — escolher/trocar (Magazine/Samvale)
+# ================================================
+
+from core.empresa import EMPRESAS_VALIDAS, NOME_EXIBICAO_POR_EMPRESA
+
+
+def view_escolher_empresa(request):
+    if request.method == 'POST':
+        empresa_escolhida = request.POST.get('empresa')
+
+        if empresa_escolhida not in EMPRESAS_VALIDAS:
+            messages.error(request, 'Empresa inválida.')
+            return redirect('escolher_empresa')
+
+        # * [EXPLICAÇÃO] → logout() limpa a sessão inteira (inclusive o
+        #                  usuário logado) ANTES de gravar a empresa nova
+        #                  — evita que request.user continue apontando pra
+        #                  um ID que não existe (ou existe como OUTRA
+        #                  pessoa) no banco da empresa nova. Depois de
+        #                  trocar, a pessoa loga de novo, já no banco certo.
+        logout(request)
+        request.session['empresa_ativa'] = empresa_escolhida
+        return redirect('home')
+
+    return render(request, 'pagina_empresa/estrutura_escolher_empresa.html', {
+        'empresas': [
+            {'valor': valor, 'nome_exibicao': nome}
+            for valor, nome in NOME_EXIBICAO_POR_EMPRESA.items()
+        ],
+    })

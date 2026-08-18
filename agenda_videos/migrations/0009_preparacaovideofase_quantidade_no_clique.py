@@ -12,10 +12,11 @@ from django.db import migrations, models
 def preencher_quantidade_legado(apps, schema_editor):
     PreparacaoVideoFase = apps.get_model('agenda_videos', 'PreparacaoVideoFase')
     ConfiguracaoFase = apps.get_model('agenda_videos', 'ConfiguracaoFase')
+    alias = schema_editor.connection.alias
 
-    periodo_por_fase = {c.fase: c.periodo for c in ConfiguracaoFase.objects.all()}
+    periodo_por_fase = {c.fase: c.periodo for c in ConfiguracaoFase.objects.using(alias).all()}
 
-    for preparacao in PreparacaoVideoFase.objects.all():
+    for preparacao in PreparacaoVideoFase.objects.using(alias).all():
         periodo_atual = periodo_por_fase.get(preparacao.fase)
         if periodo_atual is None:
             continue  # fase sem ConfiguracaoFase ainda — nada pra assumir

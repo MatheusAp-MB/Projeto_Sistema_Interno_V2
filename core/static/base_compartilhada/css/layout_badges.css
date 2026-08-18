@@ -136,3 +136,25 @@
  *                  nada pendente", distinto do verde de video-gerado (que vive
  *                  na zona do roadmap, não na faixa de badges do card). */
 .badge-ja-postado-hoje       { background: #d1fae5; color: #065f46; }
+
+
+/* ================================================
+   EMPRESA ATIVA (Magazine/Samvale) — badge fixo na toolbar
+   ================================================ */
+.badge-empresa {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.badge-empresa:hover { opacity: 0.9; text-decoration: none; color: #fff; }
+
+.badge-empresa-magazine { background: #1F4E78; color: #fff; }
+.badge-empresa-samvale  { background: #7C3AED; color: #fff; }
