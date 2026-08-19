@@ -125,14 +125,22 @@ def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: Relator
         relatorio.produtos_sincronizados += 1
 
 
-def sincronizar_impostos_entrada_xml(informar_fase=None, informar_pagina=None) -> RelatorioDeSincronizacao:
+def sincronizar_impostos_entrada_xml(
+    informar_fase=None, informar_pagina=None, forcar=False,
+) -> RelatorioDeSincronizacao:
     """Executa a sincronização de ponta a ponta. Devolve o relatório de
     tempo/contagens — só mede, não decide nem aplica nenhuma otimização
     por conta própria. informar_fase(mensagem: str) é chamado a cada fase
     relevante. informar_pagina(numero_da_pagina, registros_na_pagina,
     total_acumulado), se passado, substitui a versão em texto genérico —
     permite quem chama montar exibição mais rica (ex: linha ao vivo com
-    ritmo) sem o orquestrador saber de rich, console, ou nada disso."""
+    ritmo) sem o orquestrador saber de rich, console, ou nada disso.
+    forcar=True ignora a guarda de esta_desatualizada() (o "descanso" de
+    MARGEM_DE_SEGURANCA_DIAS) e busca a mesma janela de sempre mesmo que
+    a cobertura ainda esteja fresca — usado quando se sabe que um dado
+    pode ter entrado no Sysemp fora do ritmo normal (ex: nota fiscal
+    antiga cuja entrada só foi lançada agora, achado real de 19/08/2026
+    com a marca HIDROLIGHT) e não dá pra esperar o prazo normal."""
 
     def _informar(mensagem: str) -> None:
         if informar_fase is not None:
@@ -166,7 +174,7 @@ def sincronizar_impostos_entrada_xml(informar_fase=None, informar_pagina=None) -
         return relatorio
 
     registro_watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
-    if not registro_watermark.esta_desatualizada():
+    if not forcar and not registro_watermark.esta_desatualizada():
         _informar('Dados já atualizados — nada a fazer.')
         return _finalizar()
 

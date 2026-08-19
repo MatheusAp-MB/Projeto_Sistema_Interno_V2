@@ -29,9 +29,24 @@ NOME_EXIBICAO_FASE = {
 class Command(ComandoComEmpresa):
     help = 'Sincroniza os impostos/custos de entrada a partir do manifesto XML do Sysemp.'
 
+    def adicionar_argumentos(self, parser):
+        # * [EXPLICAÇÃO] → Sem isso, só dá pra reconsultar a API depois de
+        #                  MARGEM_DE_SEGURANCA_DIAS de "descanso" desde a
+        #                  última sincronização — bom pra rotina automática,
+        #                  ruim quando se sabe que um dado específico mudou
+        #                  fora do ritmo normal (achado real de 19/08/2026
+        #                  com a marca HIDROLIGHT) e precisa reconsultar na
+        #                  hora, sem esperar o prazo.
+        parser.add_argument(
+            '--forcar', action='store_true',
+            help='Ignora a checagem de "já atualizado" e busca de novo a janela recente '
+                 '(cobertura - margem até hoje), mesmo que a última sincronização tenha sido há poucos dias.',
+        )
+
     def handle(self, *args, **options):
         console = Console()
         empresa = options['empresa']
+        forcar = options['forcar']
 
         registro_watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
         console.print(f'[bold]Empresa[/bold] {empresa}')
@@ -44,10 +59,14 @@ class Command(ComandoComEmpresa):
         else:
             console.print('[yellow]Nenhuma sincronização anterior registrada — primeira carga.[/yellow]')
 
-        if registro_watermark.esta_desatualizada():
+        if forcar or registro_watermark.esta_desatualizada():
             data_inicial_busca, data_final_busca = registro_watermark.calcular_janela_da_proxima_busca()
+            rotulo_forcado = (
+                ' [yellow](forçado com --forcar)[/yellow]'
+                if forcar and not registro_watermark.esta_desatualizada() else ''
+            )
             console.print(
-                f'Buscando agora: '
+                f'Buscando agora{rotulo_forcado}: '
                 f'[cyan]{data_inicial_busca:%d/%m/%Y}[/cyan] → [cyan]{data_final_busca:%d/%m/%Y}[/cyan]',
             )
         else:
@@ -71,7 +90,7 @@ class Command(ComandoComEmpresa):
                 )
 
             relatorio = sincronizar_impostos_entrada_xml(
-                informar_fase=_informar_fase, informar_pagina=_informar_pagina,
+                informar_fase=_informar_fase, informar_pagina=_informar_pagina, forcar=forcar,
             )
 
         if relatorio.contagem_por_cfop:

@@ -676,3 +676,30 @@ def test_caso_de_falha_proposital(monkeypatch, tabela_resultados):
     assert persistiu is False
 
     # TearDown: nada a desmontar.
+
+def test_forcar_ignora_guarda_e_busca_mesmo_com_watermark_fresco(monkeypatch, tabela_resultados):
+    # Setup: mesmo cenário do teste acima (watermark sincronizado dentro
+    # da margem, esta_desatualizada() é False) — mas chamando com
+    # forcar=True. Desta vez a API é permitida (ao contrário do teste
+    # acima), pra provar que ela FOI chamada mesmo assim.
+    registro = SincronizacaoXmlManifestoNotaEntrada.obter()
+    registro.registrar_sincronizacao_bem_sucedida(date(2026, 1, 1), date.today())
+    bruto = {'retorno': []}
+    _mockar_api(monkeypatch, retorno=bruto)
+
+    # Exercise
+    sincronizar_impostos_entrada_xml(forcar=True)
+
+    # Assert: o bruto foi gravado — só acontece se a busca na API rodou
+    # de verdade, provando que forcar=True atravessou a guarda de
+    # esta_desatualizada() que bloqueou o teste anterior.
+    bruto_existe = arquivos_retorno_api.ler_json(arquivos_retorno_api.NOME_ARQUIVO_BRUTO) is not None
+    registrar_resultado(
+        tabela_resultados, 'forcar_ignora_guarda',
+        'watermark sincronizado dentro da margem, forcar=True', 'busca na API acontece mesmo assim, bruto gravado',
+        'forcar=True existe pra reconsultar sem esperar o prazo normal (achado real HIDROLIGHT, 19/08/2026)',
+        f'bruto_existe={bruto_existe}', bruto_existe is True,
+    )
+    assert bruto_existe is True
+
+    # TearDown: nada a desmontar.
