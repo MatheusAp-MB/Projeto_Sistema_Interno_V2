@@ -161,6 +161,12 @@ GOOGLE_DRIVE_CREDENCIAIS_JSON = os.getenv('GOOGLE_DRIVE_CREDENCIAIS_JSON')
 GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE')
 GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE')
 
+# Pastas de teste (18/08/2026) — fora da árvore real, criadas de propósito
+# pra nenhum teste/diagnóstico nunca precisar escrever dentro de
+# "Magazine Estruturada"/"Samvale Estruturada" de verdade.
+GOOGLE_DRIVE_PASTA_TESTE_MAGAZINE = os.getenv('GOOGLE_DRIVE_PASTA_TESTE_MAGAZINE')
+GOOGLE_DRIVE_PASTA_TESTE_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_TESTE_SAMVALE')
+
 # * [EXPLICAÇÃO] → Achado real (18/08/2026): Service Account tem SEMPRE 0
 #                  bytes de cota própria (regra da plataforma Google, não
 #                  configurável) — upload de conteúdo novo (diferente de

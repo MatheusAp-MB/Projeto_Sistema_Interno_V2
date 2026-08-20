@@ -80,3 +80,22 @@ def obter_pasta_raiz_id_ativa():
             f'a variável GOOGLE_DRIVE_PASTA_RAIZ_{empresa}=... no .env.'
         )
     return pasta_raiz_id
+
+
+def obter_credenciais_drive_escrita():
+    # Extraído de obter_servico_drive_escrita() (19/08/2026) — o streaming
+    # de vídeo do Portal do Drive também precisa do token bruto (pra
+    # repassar Range direto pro Drive via requests), não só do serviço
+    # já "empacotado" do googleapiclient.
+    credenciais = CredenciaisOAuth.from_authorized_user_file(
+        settings.GOOGLE_DRIVE_OAUTH_TOKEN_JSON, scopes=SCOPES_ESCRITA,
+    )
+    if credenciais.expired and credenciais.refresh_token:
+        credenciais.refresh(RequisicaoAtualizacaoToken())
+        with open(settings.GOOGLE_DRIVE_OAUTH_TOKEN_JSON, 'w') as arquivo_token:
+            arquivo_token.write(credenciais.to_json())
+    return credenciais
+
+
+def obter_servico_drive_escrita():
+    return build('drive', 'v3', credentials=obter_credenciais_drive_escrita())

@@ -7,7 +7,12 @@
 # regras — só limpeza de import aqui; reescrita fica pra quando auditarmos
 # agenda_videos/funcoes_auxiliares/postagem_automatica/orquestrador.py.
 
+import io
+import os
+import tempfile
 from datetime import date, datetime
+
+from googleapiclient.http import MediaIoBaseDownload
 
 from django.conf import settings
 from django.contrib import messages
@@ -23,6 +28,10 @@ from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import Context
 from agenda_videos.funcoes_auxiliares.drive import (
     calcular_diagnostico_preparo_drive, verificar_produto_no_drive, verificar_todos_no_drive,
 )
+from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_nome_arquivo
+from agenda_videos.funcoes_auxiliares.drive.cliente import obter_servico_drive_escrita
+from agenda_videos.funcoes_auxiliares.drive.constantes import NOME_PASTA_VIDEOS
+from agenda_videos.funcoes_auxiliares.drive.utilitarios_pasta import buscar_arquivo, buscar_subpasta
 from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo
@@ -675,3 +684,191 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
     execucao.finalizado_em = timezone.now()
     execucao.save(update_fields=['status', 'finalizado_em'])
     return redirect(reverse('agenda_videos_progresso_replicacao_automatica', args=[execucao_id]))
+
+
+# ===================================================================
+# RASCUNHO — Portal do Drive
+# ===================================================================
+# Função Objetivo: Tela de teste hands-on do Portal do Drive — upload real
+# (ArquivadorDrive.enviar_arquivo), leitura real de estrutura
+# (buscar_subpasta/buscar_arquivo) e preview real (vídeo via streaming com
+# Range, Roteiro lido direto no HTML). Roda só contra 1 produto fixo,
+# dentro da pasta de teste — nunca a pasta real de produção (decisão do
+# usuário, 18/08/2026).
+#
+# * [ATENÇÃO] → Ainda não lista produtos reais — depende de decidir como
+#               escolher marca/EAN na tela (1 dos pontos em aberto do
+#               checkpoint). Por enquanto reproduz o conteúdo do "modal"
+#               do mockup como página única, com o produto de teste fixo.
+
+import os
+import tempfile
+
+import requests
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotFound, StreamingHttpResponse
+
+from agenda_videos.funcoes_auxiliares.drive.cliente import (
+    obter_servico_drive, obter_pasta_raiz_id_ativa, obter_credenciais_drive_escrita,
+)
+from agenda_videos.funcoes_auxiliares.drive.arquivador import ArquivadorDrive, montar_nome_arquivo
+from agenda_videos.funcoes_auxiliares.drive.utilitarios_pasta import buscar_subpasta, buscar_arquivo
+from agenda_videos.funcoes_auxiliares.drive.constantes import NOME_PASTA_VIDEOS
+from agenda_videos.funcoes_auxiliares.drive.parser import EXTENSOES_VALIDAS_POR_TIPO
+
+
+MARCA_RASCUNHO = 'PRODUTO_RASCUNHO'
+EAN_RASCUNHO = '0000000000099'
+
+ROTULO_FASE = {'simples': 'Simples', 'video_mensal': 'Mensal', 'video_trimestral': 'Trimestral'}
+
+
+def _rotulo_linha(fase, numero):
+    return ROTULO_FASE[fase] if numero is None else f'{ROTULO_FASE[fase]} {numero:02d}'
+
+
+# Função Objetivo: Lê o conteúdo de 1 arquivo de texto pequeno (Roteiro)
+# direto da memória — sem gravar em disco, diferente de
+# ArquivadorDrive.baixar_arquivo (feito pra vídeo, que é grande).
+def _ler_texto_do_drive(servico, drive_file_id):
+    conteudo_bytes = servico.files().get_media(fileId=drive_file_id, supportsAllDrives=True).execute()
+    return conteudo_bytes.decode('utf-8', errors='replace')
+
+
+def _montar_linha(servico, pasta_videos_id, fase, numero):
+    arquivos = {}
+    qtd_presente = 0
+    for tipo in ('base', 'roteiro', 'completo'):
+        nome_esperado = montar_nome_arquivo(fase, numero, tipo)
+        drive_file_id = buscar_arquivo(servico, pasta_videos_id, nome_esperado) if pasta_videos_id else None
+        presente = bool(drive_file_id)
+        qtd_presente += int(presente)
+        item = {
+            'tipo': tipo, 'nome_esperado': nome_esperado, 'presente': presente,
+            'drive_file_id': drive_file_id or '',
+        }
+        if presente and tipo == 'roteiro':
+            item['conteudo_texto'] = _ler_texto_do_drive(servico, drive_file_id)
+        arquivos[tipo] = item
+    return {
+        'fase': fase, 'numero': numero, 'chave': f'{fase}-{numero or 0}',
+        'rotulo': _rotulo_linha(fase, numero), 'arquivos': arquivos,
+        'qtd_presente': qtd_presente, 'completa': qtd_presente == 3,
+    }
+
+
+def view_portal_drive_rascunho(request):
+    servico = obter_servico_drive()
+    pasta_raiz_id = obter_pasta_raiz_id_ativa()
+    pasta_marca_id = buscar_subpasta(servico, pasta_raiz_id, MARCA_RASCUNHO)
+    pasta_ean_id = buscar_subpasta(servico, pasta_marca_id, EAN_RASCUNHO) if pasta_marca_id else None
+    pasta_videos_id = buscar_subpasta(servico, pasta_ean_id, NOME_PASTA_VIDEOS) if pasta_ean_id else None
+
+    fases_e_numeros = (
+        [('simples', None)]
+        + [('video_mensal', n) for n in range(1, 5)]
+        + [('video_trimestral', 1), ('video_trimestral', 2)]
+    )
+    linhas = []
+    for fase, numero in fases_e_numeros:
+        linha = _montar_linha(servico, pasta_videos_id, fase, numero)
+        linha['extra_trimestral'] = (fase == 'video_trimestral' and numero == 2)
+        linhas.append(linha)
+
+    # Progresso geral conta só as linhas "principais" — igual ao mockup,
+    # que só soma extrasTrimestral depois do "mostrar mais" ser clicado.
+    linhas_principais = [l for l in linhas if not l['extra_trimestral']]
+    total = sum(1 for l in linhas_principais for a in l['arquivos'].values())
+    presentes = sum(1 for l in linhas_principais for a in l['arquivos'].values() if a['presente'])
+
+    contexto = {
+        'marca': MARCA_RASCUNHO,
+        'ean': EAN_RASCUNHO,
+        'pasta_existe_no_drive': pasta_videos_id is not None,
+        'linhas': linhas,
+        'total_arquivos': total,
+        'presentes_arquivos': presentes,
+        'percentual_completo': round(presentes / total * 100) if total else 0,
+    }
+    return render(request, 'agenda_videos/rascunho_portal_drive.html', contexto)
+
+
+@require_POST
+def view_portal_drive_rascunho_enviar(request):
+    fase = request.POST.get('fase')
+    numero_str = request.POST.get('numero') or ''
+    numero = int(numero_str) if numero_str else None
+    tipo = request.POST.get('tipo')
+    arquivo_enviado = request.FILES.get('arquivo')
+
+    if fase not in ROTULO_FASE or tipo not in EXTENSOES_VALIDAS_POR_TIPO or not arquivo_enviado:
+        return HttpResponseBadRequest('Parâmetros inválidos.')
+
+    extensao_esperada = EXTENSOES_VALIDAS_POR_TIPO[tipo]
+    extensao_recebida = arquivo_enviado.name.rsplit('.', 1)[-1].lower() if '.' in arquivo_enviado.name else ''
+    if extensao_recebida != extensao_esperada:
+        return JsonResponse({
+            'ok': False,
+            'erro': f'Tipo errado: "{tipo}" precisa ser .{extensao_esperada} — você enviou .{extensao_recebida or "?"}.',
+        }, status=400)
+
+    caminho_temporario = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{extensao_recebida}') as arquivo_temp:
+            for pedaco in arquivo_enviado.chunks():
+                arquivo_temp.write(pedaco)
+            caminho_temporario = arquivo_temp.name
+
+        pasta_raiz_id = obter_pasta_raiz_id_ativa()
+        arquivador = ArquivadorDrive()
+        try:
+            arquivador.enviar_arquivo(
+                pasta_raiz_id, MARCA_RASCUNHO, EAN_RASCUNHO, fase, numero, tipo, caminho_temporario,
+            )
+        except FileExistsError as erro:
+            # Decisão do usuário (18/08): o portal nunca substitui um
+            # arquivo que já existe — substituição só direto no Drive.
+            return JsonResponse({'ok': False, 'erro': str(erro)}, status=409)
+    finally:
+        if caminho_temporario and os.path.exists(caminho_temporario):
+            os.remove(caminho_temporario)
+
+    return JsonResponse({'ok': True, 'nome_final': montar_nome_arquivo(fase, numero, tipo)})
+
+
+# Função Objetivo: Serve o vídeo de 1 arquivo do Drive pro <video> da
+# página. Repassa o Range que o navegador manda (permite dar play rápido e
+# arrastar a barra) sem nunca montar o arquivo inteiro em memória no
+# servidor — só repassa pedaço por pedaço.
+#
+# * [EXPLICAÇÃO] → (19/08/2026) A 1ª versão baixava o arquivo inteiro pro
+#                  servidor antes de responder — sem start rápido, sem
+#                  arrastar a barra, "parecia" baixar local. Essa versão é
+#                  um proxy de streaming de verdade: o Range do navegador é
+#                  repassado pro Drive, que responde 206 Partial Content, e
+#                  a resposta volta em pedaços. O token do Google nunca
+#                  aparece pro navegador — só o Django conversa com o Drive.
+def view_portal_drive_rascunho_video(request, file_id):
+    credenciais = obter_credenciais_drive_escrita()
+    cabecalhos = {'Authorization': f'Bearer {credenciais.token}'}
+    if request.META.get('HTTP_RANGE'):
+        cabecalhos['Range'] = request.META['HTTP_RANGE']
+
+    resposta_drive = requests.get(
+        f'https://www.googleapis.com/drive/v3/files/{file_id}',
+        params={'alt': 'media', 'supportsAllDrives': 'true'},
+        headers=cabecalhos,
+        stream=True,
+    )
+    if resposta_drive.status_code not in (200, 206):
+        return HttpResponseNotFound('Arquivo não encontrado ou sem permissão no Drive.')
+
+    resposta = StreamingHttpResponse(
+        resposta_drive.iter_content(chunk_size=256 * 1024),
+        status=resposta_drive.status_code,
+        content_type=resposta_drive.headers.get('Content-Type', 'video/mp4'),
+    )
+    resposta['Accept-Ranges'] = 'bytes'
+    for cabecalho in ('Content-Length', 'Content-Range'):
+        if cabecalho in resposta_drive.headers:
+            resposta[cabecalho] = resposta_drive.headers[cabecalho]
+    return resposta

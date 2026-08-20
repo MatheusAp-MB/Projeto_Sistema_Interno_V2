@@ -26,4 +26,7 @@ urlpatterns = [
     path('historico/', views.view_historico_agenda_videos, name='agenda_videos_historico'),
     path('produto/<int:produto_id>/historico/', views.view_historico_produto, name='agenda_videos_historico_produto'),
     path('produto/<int:produto_id>/status-agenda/alternar/', views.view_alternar_pausado_agenda, name='agenda_videos_alternar_pausado'),
+    path('portal-drive/rascunho/', views.view_portal_drive_rascunho, name='agenda_videos_portal_drive_rascunho'),
+    path('portal-drive/rascunho/enviar/', views.view_portal_drive_rascunho_enviar, name='agenda_videos_portal_drive_rascunho_enviar'),
+    path('portal-drive/rascunho/video/<str:file_id>/', views.view_portal_drive_rascunho_video, name='agenda_videos_portal_drive_rascunho_video'),
 ]

@@ -1,0 +1,317 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+
+{% block titulo %}Portal do Drive (rascunho) — Agenda de Vídeos — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Portal do Drive (rascunho) — Agenda de Vídeos{% endblock %}
+
+{% block head_extra %}
+<style>
+  .portal-drive-rascunho{
+    --azul:#2563eb; --azul-claro:#eff6ff;
+    --verde:#16a34a; --verde-claro:#ecfdf5; --verde-borda:#bbf7d0;
+    --cinza-texto:#475569; --cinza-claro:#f1f5f9; --cinza-borda:#e2e8f0; --cinza-fundo:#f8fafc;
+    --ausente:#94a3b8; --ausente-fundo:#f8fafc; --ausente-borda:#e2e8f0;
+    --amarelo:#b45309; --amarelo-claro:#fff7ed; --amarelo-borda:#fed7aa;
+    font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif; color:#0f172a; max-width:900px;
+  }
+  .portal-drive-rascunho *{box-sizing:border-box;}
+  .aviso-mockup{
+    display:inline-flex; align-items:center; gap:6px; background:var(--amarelo-claro); color:var(--amarelo);
+    border:1px solid var(--amarelo-borda); padding:6px 12px; border-radius:999px; font-size:12.5px; font-weight:600;
+    margin-bottom:14px;
+  }
+  .portal-drive-rascunho .subtitulo{color:var(--cinza-texto); font-size:14px; max-width:640px; margin:0 0 16px;}
+  .id-chips{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
+  .id-chip{background:var(--cinza-fundo); border:1px solid var(--cinza-borda); border-radius:8px; padding:6px 11px; font-size:12.5px; color:var(--cinza-texto);}
+  .id-chip b{color:#0f172a; font-weight:600; margin-left:4px;}
+  .resumo-geral{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+  .resumo-geral .barra{flex:1; height:8px; background:var(--cinza-claro); border-radius:99px; overflow:hidden;}
+  .resumo-geral .barra > div{height:100%; background:var(--verde);}
+  .resumo-geral .numero{font-size:12.5px; font-weight:600; color:var(--cinza-texto); white-space:nowrap;}
+  .banner-sem-pasta{
+    margin-bottom:16px; background:var(--amarelo-claro); border:1px solid var(--amarelo-borda); color:var(--amarelo);
+    padding:10px 13px; border-radius:10px; font-size:12.5px; display:flex; gap:8px; align-items:flex-start;
+  }
+  .bloco-titulo{
+    font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--cinza-texto);
+    margin:20px 0 6px; display:flex; align-items:center; gap:8px;
+  }
+  .bloco-titulo::after{content:''; flex:1; height:1px; background:var(--cinza-borda);}
+  .linha{border:1px solid var(--cinza-borda); border-radius:12px; margin-bottom:10px; overflow:hidden;}
+  .linha.completa{border-color:var(--verde-borda);}
+  .linha-cabecalho{display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer; user-select:none; background:#fff;}
+  .linha-cabecalho:hover{background:var(--cinza-fundo);}
+  .chevron{transition:transform .15s; color:var(--cinza-texto); font-size:12px; width:14px; text-align:center; display:inline-block;}
+  .linha.expandida .chevron{transform:rotate(90deg);}
+  .linha-titulo{font-weight:600; font-size:13.5px; flex-shrink:0; width:100px;}
+  .quadradinhos{display:flex; gap:8px; flex:1;}
+  .badge-status{margin-left:auto; font-size:11px; font-weight:700; padding:3px 9px; border-radius:99px; white-space:nowrap;}
+  .badge-status.ok{background:var(--verde-claro); color:var(--verde);}
+  .badge-status.pendente{background:#fef3c7; color:#b45309;}
+  .quadrado{
+    width:82px; padding:7px 4px; border-radius:9px; text-align:center; cursor:pointer;
+    border:1.5px solid var(--verde-borda); background:var(--verde-claro); color:#166534;
+    transition:transform .1s, box-shadow .15s, background .15s, border-color .15s; position:relative;
+  }
+  .quadrado:hover{transform:translateY(-2px); box-shadow:0 4px 10px rgba(22,163,74,.18);}
+  .quadrado.ausente{border:1.5px dashed var(--ausente-borda); background:var(--ausente-fundo); color:var(--ausente);}
+  .quadrado.ausente:hover{transform:none; box-shadow:none; border-color:var(--azul); background:var(--azul-claro); color:var(--azul);}
+  .quadrado.arrastando-sobre{border-color:var(--azul) !important; background:var(--azul-claro) !important; color:var(--azul) !important; transform:scale(1.04);}
+  .quadrado.enviando{border-color:var(--azul) !important; background:var(--azul-claro) !important; color:var(--azul) !important; pointer-events:none;}
+  .quadrado .icone{font-size:15px; line-height:1;}
+  .quadrado .rotulo{font-size:10.5px; font-weight:700; margin-top:3px; letter-spacing:.02em;}
+  .quadrado .dica-drop{font-size:8.5px; font-weight:600; margin-top:1px; opacity:.75;}
+  .spinner{
+    width:13px; height:13px; border:2px solid var(--azul-claro); border-top-color:var(--azul); border-radius:50%;
+    display:inline-block; animation:girar .7s linear infinite; margin:0 auto;
+  }
+  @keyframes girar{to{transform:rotate(360deg);}}
+  .detalhe{background:var(--cinza-fundo); border-top:1px solid var(--cinza-borda); padding:14px 16px; display:none;}
+  .linha.expandida .detalhe{display:block;}
+  .detalhe-item{padding:8px 0; border-bottom:1px dashed var(--cinza-borda); font-size:12px; color:var(--cinza-texto);}
+  .detalhe-item:last-child{border-bottom:none;}
+  .detalhe-item-topo{display:flex; justify-content:space-between; align-items:center;}
+  .detalhe-item .nome-arquivo{font-family:Consolas,Menlo,monospace; color:#0f172a;}
+  .detalhe-item .tag-ausente{color:var(--ausente); font-style:italic;}
+  .btn-preview{background:#fff; border:1px solid var(--cinza-borda); color:var(--azul); font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:7px; cursor:pointer;}
+  .btn-preview:hover{background:var(--azul-claro);}
+  .preview-area{margin-top:8px;}
+  .preview-area video{width:100%; max-height:320px; border-radius:8px; background:#000;}
+  .preview-area pre{background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; font-size:12px; max-height:240px; overflow:auto; white-space:pre-wrap; word-break:break-word; margin:0;}
+  .btn-mais{margin-top:6px; background:none; border:1px dashed var(--cinza-borda); color:var(--cinza-texto); padding:9px; border-radius:10px; font-size:12.5px; cursor:pointer; width:100%;}
+  .btn-mais:hover{background:var(--cinza-fundo);}
+  .linha-extra-trimestral{display:none;}
+  .linha-extra-trimestral.mostrar{display:block;}
+  .legenda-rodape{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--cinza-texto); margin-top:16px;}
+  .legenda-item{display:flex; align-items:center; gap:6px;}
+  .ponto{width:10px; height:10px; border-radius:3px; display:inline-block;}
+  .ponto.ok{background:var(--verde);}
+  .ponto.ausente-ponto{background:var(--ausente-fundo); border:1.5px dashed var(--ausente-borda);}
+  .toast{
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#0f172a; color:#fff; padding:12px 20px; border-radius:10px; font-size:13px;
+    box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:opacity .2s, transform .2s; z-index:100;
+    max-width:90vw; display:flex; align-items:center; gap:10px;
+  }
+  .toast.mostrar{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.erro{background:#7f1d1d;}
+  .toast.aviso{background:#78350f;}
+</style>
+{% endblock %}
+
+{% block conteudo %}
+{% csrf_token %}
+<div class="portal-drive-rascunho">
+  <div class="aviso-mockup">✳ rascunho — já envia e lê arquivo real no Drive de teste</div>
+  <p class="subtitulo">Arraste o arquivo certo pro quadradinho certo — o sistema resolve nome, pasta e estrutura.</p>
+
+  <div class="id-chips">
+    <div class="id-chip">EAN <b>{{ ean }}</b></div>
+    <div class="id-chip">MARCA <b>{{ marca }}</b></div>
+    <div class="id-chip">pasta no Drive <b>{{ pasta_existe_no_drive|yesno:"existe,ainda não existe" }}</b></div>
+  </div>
+
+  <div class="resumo-geral">
+    <div class="barra"><div style="width:{{ percentual_completo }}%"></div></div>
+    <div class="numero">{{ presentes_arquivos }}/{{ total_arquivos }} arquivos</div>
+  </div>
+
+  {% if not pasta_existe_no_drive %}
+    <div class="banner-sem-pasta">
+      📁 <div>Este produto ainda não existe na pasta de teste. O <b>primeiro arquivo enviado</b> cria toda a estrutura sozinho — pasta da marca, pasta do EAN e a subpasta "Videos".</div>
+    </div>
+  {% endif %}
+
+  {% for linha in linhas %}
+    {% ifchanged linha.fase %}
+      {% if linha.fase == 'simples' %}
+        <div class="bloco-titulo">Simples + Vídeo Mensal</div>
+      {% elif linha.fase == 'video_trimestral' %}
+        <div class="bloco-titulo">Vídeo Trimestral</div>
+      {% endif %}
+    {% endifchanged %}
+
+    {% if linha.extra_trimestral %}<div class="linha-extra-trimestral" id="wrap-{{ linha.chave }}">{% endif %}
+    <div class="linha {% if linha.completa %}completa{% endif %}" id="linha-{{ linha.chave }}">
+      <div class="linha-cabecalho" onclick="alternarLinha('{{ linha.chave }}')">
+        <span class="chevron">▸</span>
+        <span class="linha-titulo">{{ linha.rotulo }}</span>
+        <div class="quadradinhos">
+          {% for tipo, item in linha.arquivos.items %}
+            <div class="quadrado {% if not item.presente %}ausente{% endif %}"
+                 data-linha-chave="{{ linha.chave }}" data-tipo="{{ tipo }}"
+                 data-extensao-esperada="{% if tipo == 'roteiro' %}txt{% else %}mp4{% endif %}"
+                 onclick="cliqueQuadrado(this)"
+                 title="{% if item.presente %}Ver {{ item.nome_esperado }}{% else %}Arraste o arquivo aqui{% endif %}">
+              {% if item.presente %}
+                <div class="icone">{% if tipo == 'roteiro' %}📄{% else %}🎬{% endif %}</div>
+                <div class="rotulo">{{ tipo|title }}</div>
+              {% else %}
+                <div class="icone">+</div>
+                <div class="rotulo">{{ tipo|title }}</div>
+                <div class="dica-drop">arraste aqui</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+        <span class="badge-status {% if linha.completa %}ok{% else %}pendente{% endif %}">
+          {% if linha.completa %}✓ completo{% else %}{{ linha.qtd_presente }}/3{% endif %}
+        </span>
+      </div>
+      <div class="detalhe">
+        {% for tipo, item in linha.arquivos.items %}
+          <div class="detalhe-item">
+            <div class="detalhe-item-topo">
+              <span>{{ tipo|title }}</span>
+              {% if item.presente %}
+                <span class="nome-arquivo">{{ item.nome_esperado }}</span>
+              {% else %}
+                <span class="tag-ausente">ainda não encontrado</span>
+              {% endif %}
+            </div>
+            {% if item.presente %}
+              <div class="preview-area">
+                {% if tipo == 'roteiro' %}
+                  <pre>{{ item.conteudo_texto }}</pre>
+                {% else %}
+                  <button class="btn-preview" data-url-video="{% url 'agenda_videos_portal_drive_rascunho_video' file_id=item.drive_file_id %}" onclick="reproduzirVideo(this)">▶ Reproduzir</button>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if linha.extra_trimestral %}</div>{% endif %}
+  {% endfor %}
+
+  <button class="btn-mais" id="btn-mostrar-mais-trimestral" onclick="mostrarMaisTrimestral()">Vídeo Trimestral nunca conclui — mostrar próximas ocorrências ▾</button>
+
+  <div class="legenda-rodape">
+    <div class="legenda-item"><span class="ponto ok"></span> presente — clique pra ver/reproduzir</div>
+    <div class="legenda-item"><span class="ponto ausente-ponto"></span> arraste o arquivo certo aqui (.mp4 ou .txt) pra enviar</div>
+  </div>
+</div>
+
+<input type="file" id="input-arquivo-oculto" style="display:none">
+<div class="toast" id="toast"><span id="toast-icone">📄</span><span id="toast-texto"></span></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function alternarLinha(chave){
+  document.getElementById('linha-' + chave).classList.toggle('expandida');
+}
+
+function mostrarMaisTrimestral(){
+  document.querySelectorAll('.linha-extra-trimestral').forEach(el => el.classList.add('mostrar'));
+  document.getElementById('btn-mostrar-mais-trimestral').style.display = 'none';
+}
+
+function reproduzirVideo(botao){
+  const area = botao.closest('.preview-area');
+  const url = botao.getAttribute('data-url-video');
+  area.innerHTML = `<video controls autoplay preload="metadata"><source src="${url}" type="video/mp4"></video>`;
+}
+
+// ---- upload (clique + arrastar-e-soltar) ----
+let quadradoAlvoClique = null;
+
+function cliqueQuadrado(elemento){
+  if(!elemento.classList.contains('ausente')){
+    // presente: clicar só expande a linha pra revelar o preview — nunca reenvia/substitui.
+    elemento.closest('.linha').classList.add('expandida');
+    return;
+  }
+  quadradoAlvoClique = elemento;
+  document.getElementById('input-arquivo-oculto').click();
+}
+
+document.getElementById('input-arquivo-oculto').addEventListener('change', (e) => {
+  if(e.target.files.length && quadradoAlvoClique){
+    enviarArquivo(quadradoAlvoClique, e.target.files[0]);
+  }
+  e.target.value = '';
+  quadradoAlvoClique = null;
+});
+
+document.querySelectorAll('.quadrado.ausente').forEach((quad) => {
+  quad.addEventListener('dragover', (e) => { e.preventDefault(); quad.classList.add('arrastando-sobre'); });
+  quad.addEventListener('dragleave', () => quad.classList.remove('arrastando-sobre'));
+  quad.addEventListener('drop', (e) => {
+    e.preventDefault();
+    quad.classList.remove('arrastando-sobre');
+    if(e.dataTransfer.files.length) enviarArquivo(quad, e.dataTransfer.files[0]);
+  });
+});
+
+function extensaoDoArquivo(nome){
+  const partes = nome.toLowerCase().split('.');
+  return partes.length > 1 ? partes.pop() : '';
+}
+
+function obterCsrfToken(){
+  return document.querySelector('input[name=csrfmiddlewaretoken]').value;
+}
+
+function enviarArquivo(quad, arquivo){
+  const extensaoEsperada = quad.getAttribute('data-extensao-esperada');
+  const extensaoRecebida = extensaoDoArquivo(arquivo.name);
+  if(extensaoRecebida !== extensaoEsperada){
+    mostrarToast('⚠️', `Tipo errado: precisa ser .${extensaoEsperada} — você soltou "${arquivo.name}" (.${extensaoRecebida || '?'}).`, 'erro');
+    return;
+  }
+
+  const chave = quad.getAttribute('data-linha-chave');
+  const separador = chave.indexOf('-');
+  const fase = chave.slice(0, separador);
+  const numeroStr = chave.slice(separador + 1);
+  const numero = numeroStr === '0' ? '' : numeroStr;
+  const tipo = quad.getAttribute('data-tipo');
+
+  quad.classList.add('enviando');
+  const conteudoOriginal = quad.innerHTML;
+  quad.innerHTML = '<div class="spinner"></div>';
+  mostrarToast('⏳', `Enviando ${arquivo.name}…`);
+
+  const formData = new FormData();
+  formData.append('fase', fase);
+  formData.append('numero', numero);
+  formData.append('tipo', tipo);
+  formData.append('arquivo', arquivo);
+
+  fetch("{% url 'agenda_videos_portal_drive_rascunho_enviar' %}", {
+    method: 'POST',
+    headers: {'X-CSRFToken': obterCsrfToken()},
+    body: formData,
+  })
+  .then((resposta) => resposta.json().then((dados) => ({status: resposta.status, dados})))
+  .then(({status, dados}) => {
+    if(status === 200 && dados.ok){
+      mostrarToast('✅', `"${arquivo.name}" enviado e renomeado para "${dados.nome_final}"`);
+      setTimeout(() => location.reload(), 900);
+    } else {
+      mostrarToast('⚠️', dados.erro || 'Não foi possível enviar o arquivo.', 'erro');
+      quad.classList.remove('enviando');
+      quad.innerHTML = conteudoOriginal;
+    }
+  })
+  .catch(() => {
+    mostrarToast('⚠️', 'Falha de rede ao enviar o arquivo.', 'erro');
+    quad.classList.remove('enviando');
+    quad.innerHTML = conteudoOriginal;
+  });
+}
+
+let toastTimeout;
+function mostrarToast(icone, texto, variante){
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-icone').textContent = icone;
+  document.getElementById('toast-texto').textContent = texto;
+  toast.classList.remove('erro', 'aviso');
+  if(variante) toast.classList.add(variante);
+  toast.classList.add('mostrar');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => toast.classList.remove('mostrar'), variante ? 3200 : 2200);
+}
+</script>
+{% endblock %}
