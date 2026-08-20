@@ -717,9 +717,9 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
 #               existir, dentro dessa raiz de teste isolada. Antiga
 #               MARCA_SANDBOX_TESTES/EAN_SANDBOX_TESTES (identidade fixa
 #               "PRODUTO_RASCUNHO") removida — não faz mais sentido com a
-#               raiz inteira já isolada pra teste. `modo_teste_sandbox` no
-#               contexto do card continua avisando isso na tela — nunca
-#               esconder do usuário que a raiz ativa é a de teste.
+#               raiz inteira já isolada pra teste. A tela não avisa mais
+#               isso na UI (decisão do usuário, 20/08/2026) — o código já
+#               é a versão final, a raiz de teste é só config reversível.
 
 ROTULO_FASE = {'simples': 'Simples', 'video_mensal': 'Mensal', 'video_trimestral': 'Trimestral'}
 
@@ -838,9 +838,8 @@ def _montar_linha(servico, snapshot, fase, numero, marca, ean):
 #               obter_pasta_raiz_id_ativa() (ver drive/cliente.py) — o
 #               snapshot é sempre da marca/ean REAL do produto, nunca uma
 #               identidade fixa/falsa, só que dentro da raiz de teste
-#               isolada. `modo_teste_sandbox` no contexto avisa isso na
-#               tela (nunca esconder do usuário que a raiz ativa é a de
-#               teste).
+#               isolada. A tela não avisa mais isso na UI (decisão do
+#               usuário, 20/08/2026) — é só configuração de ambiente.
 def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensagem_exclusao=None):
     servico = obter_servico_drive()
     snapshot = getattr(produto, 'snapshot_drive', None)
@@ -868,7 +867,6 @@ def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensag
         'resultado_envio': resultado_envio or [],
         'erro_envio': erro_envio,
         'mensagem_exclusao': mensagem_exclusao,
-        'modo_teste_sandbox': True,
         'nunca_sincronizado': snapshot is None,
         'snapshot_atualizado_em': snapshot.atualizado_em if snapshot else None,
     }

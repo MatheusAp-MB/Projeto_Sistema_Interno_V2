@@ -17,20 +17,24 @@
 /* ================================================
    LISTA DE PRODUTOS (tela — todos os produtos reais)
    ================================================ */
-.portal-drive-aviso-sandbox {
+.portal-drive-resumo-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.portal-drive-aviso-nunca-sincronizado {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: #eef2f7;
-    color: #44546a;
-    font-size: 0.82rem;
-    padding: 10px 14px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.8rem;
+    padding: 8px 12px;
     border-radius: 8px;
-    margin-bottom: 16px;
-}
-
-.portal-drive-aviso-sandbox--card {
-    margin-bottom: 14px;
 }
 
 .portal-drive-lista-produtos {
@@ -217,7 +221,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 0;
+    padding: 12px 6px;
     cursor: pointer;
     list-style: none;
     transition: background-color 0.15s ease;
@@ -316,6 +320,8 @@
 .portal-drive-filecard:not(.portal-drive-filecard--presente):not(.portal-drive-filecard--selecionado) {
     cursor: pointer;
     border-style: dashed;
+    border-color: #b9d6ec;
+    background: #f7fbfe;
 }
 
 /* * [EXPLICAÇÃO] → Mesmo padrão de "anel de foco" usado nos círculos
@@ -357,7 +363,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
-    color: var(--cor-texto-muted);
+    color: var(--cor-primaria-clara);
 }
 
 .portal-drive-thumb-vazio i {
@@ -757,20 +763,4 @@
     font-size: 0.78rem;
     color: var(--cor-texto-muted);
     white-space: nowrap;
-}
-
-/* * [EXPLICAÇÃO] → Mesmo padrão já usado em layout_agenda_videos.css pro
- *                  botão "Verificar Drive": 2 textos dentro do mesmo
- *                  botão, o de carregando escondido até o HTMX marcar o
- *                  botão como "em andamento" (classe htmx-request). */
-.portal-drive-confirmar-exclusao-texto-carregando {
-    display: none;
-}
-
-.portal-drive-btn-confirmar-exclusao.htmx-request .portal-drive-confirmar-exclusao-texto-padrao {
-    display: none;
-}
-
-.portal-drive-btn-confirmar-exclusao.htmx-request .portal-drive-confirmar-exclusao-texto-carregando {
-    display: inline;
 }

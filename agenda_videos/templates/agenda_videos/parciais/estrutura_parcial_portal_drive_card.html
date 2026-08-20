@@ -1,41 +1,19 @@
 <div class="portal-drive-card" id="portal-drive-card">
 
-    <div class="portal-drive-cabecalho">
-        {% if produto.imagem_url %}
-            <img src="{{ produto.imagem_url }}" class="portal-drive-foto" alt="">
-        {% else %}
-            <div class="portal-drive-foto-vazia"><i class="fas fa-image"></i></div>
-        {% endif %}
-        <div class="portal-drive-identidade">
-            <p class="portal-drive-marca">{{ produto.marca|default:"—" }}</p>
-            <p class="portal-drive-titulo">{{ produto.titulo|default:"Produto não encontrado" }}</p>
-            <div class="portal-drive-codigos">
-                <span class="portal-drive-codigo">EAN<b>{{ produto.ean|default:"—" }}</b></span>
-                <span class="portal-drive-codigo">SKU<b>{{ produto.sku|default:"—" }}</b></span>
-            </div>
-        </div>
+    <div class="portal-drive-resumo-topo">
         <p class="portal-drive-contagem-geral">{{ presentes_arquivos }} de {{ total_arquivos }} arquivos</p>
+        {% if nunca_sincronizado %}
+        <p class="portal-drive-aviso-nunca-sincronizado">
+            <i class="fas fa-triangle-exclamation"></i>
+            Este produto nunca foi sincronizado com o Drive — clique em "Sincronizar com o Drive" no topo da
+            lista pra carregar o estado real.
+        </p>
+        {% elif snapshot_atualizado_em %}
+        <p class="portal-drive-meta-linha">
+            <i class="fas fa-clock"></i> Dados do Drive sincronizados em {{ snapshot_atualizado_em|date:"d/m/Y H:i" }}.
+        </p>
+        {% endif %}
     </div>
-
-    {% if modo_teste_sandbox %}
-    <p class="portal-drive-aviso-sandbox portal-drive-aviso-sandbox--card">
-        <i class="fas fa-flask"></i>
-        Os arquivos abaixo são deste produto, mas dentro da <strong>pasta de teste</strong> da empresa —
-        ainda não a pasta real de produção.
-    </p>
-    {% endif %}
-
-    {% if nunca_sincronizado %}
-    <p class="portal-drive-aviso-sandbox portal-drive-aviso-sandbox--card">
-        <i class="fas fa-triangle-exclamation"></i>
-        Este produto nunca foi sincronizado com o Drive — clique em "Sincronizar com o Drive" no topo da
-        lista pra carregar o estado real.
-    </p>
-    {% elif snapshot_atualizado_em %}
-    <p class="portal-drive-meta-linha">
-        <i class="fas fa-clock"></i> Dados do Drive sincronizados em {{ snapshot_atualizado_em|date:"d/m/Y H:i" }}.
-    </p>
-    {% endif %}
 
     {% if mensagem_exclusao %}
     <p class="portal-drive-resumo-linha portal-drive-resumo-linha--enviado" style="margin-bottom:14px;">
