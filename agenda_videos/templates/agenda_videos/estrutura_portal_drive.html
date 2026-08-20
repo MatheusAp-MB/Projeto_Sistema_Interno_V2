@@ -1,0 +1,18 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Portal do Drive — Agenda de Vídeos — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Portal do Drive — Agenda de Vídeos{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_portal_drive.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+{% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html' %}
+<div id="modal-portal-drive-slot"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'agenda_videos/js/script_portal_drive.js' %}"></script>
+{% endblock %}

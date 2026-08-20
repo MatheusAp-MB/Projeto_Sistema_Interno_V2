@@ -1,0 +1,586 @@
+/*
+* [RESUMO] → Layout do Portal do Drive (Agenda de Vídeos) — cabeçalho de
+* identificação do produto, lista de fases/ocorrências e painel expandido
+* com os 3 arquivos (Base/Roteiro/Completo) de cada ocorrência, cada um
+* com miniatura em retrato (9:16 — formato real dos vídeos) ao lado dos
+* dados. Prefixo portal-drive-* de propósito: evita colisão com agenda-*
+* (tela principal da Agenda de Vídeos) e com hub-sku-* (Mercado Livre).
+*/
+
+/* ================================================
+   CARD DO PRODUTO
+   ================================================ */
+.portal-drive-card {
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: var(--cor-fundo-card);
+    box-shadow: 0 1px 3px rgba(30, 45, 70, 0.08);
+}
+
+.portal-drive-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 14px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.portal-drive-foto,
+.portal-drive-foto-vazia {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    object-fit: cover;
+    background: var(--cor-fundo-pagina);
+}
+
+.portal-drive-foto-vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cor-texto-muted);
+    font-size: 1.2rem;
+}
+
+.portal-drive-identidade {
+    flex: 1;
+    min-width: 0;
+}
+
+.portal-drive-marca {
+    font-size: 0.68rem;
+    color: var(--cor-texto-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin: 0 0 2px;
+}
+
+.portal-drive-titulo {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1b2534;
+    margin: 0 0 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.portal-drive-codigos {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.portal-drive-codigo {
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+}
+
+.portal-drive-codigo b {
+    color: #1b2534;
+    font-weight: 500;
+    margin-left: 4px;
+    font-family: 'SF Mono', Consolas, monospace;
+}
+
+.portal-drive-contagem-geral {
+    font-size: 0.8rem;
+    color: var(--cor-texto-muted);
+    flex-shrink: 0;
+}
+
+/* ================================================
+   RESUMO DO ENVIO / EXCLUSÃO
+   ================================================ */
+.portal-drive-resumo-envio {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.portal-drive-resumo-linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+}
+
+.portal-drive-resumo-linha--enviado {
+    background: #e6f4ea;
+    color: var(--cor-positivo);
+}
+
+.portal-drive-resumo-linha--conflito {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.portal-drive-resumo-linha--erro {
+    background: #fde8e8;
+    color: var(--cor-negativo);
+}
+
+/* ================================================
+   LISTA DE FASES/OCORRÊNCIAS
+   ================================================ */
+.portal-drive-linha-fase {
+    margin: 0;
+    border-bottom: 1px solid var(--cor-fundo-pagina);
+    border-left: 4px solid transparent;
+}
+
+.portal-drive-linha-fase:last-of-type {
+    border-bottom: none;
+}
+
+.portal-drive-linha-fase--simples { border-left-color: #2e7bb5; }
+.portal-drive-linha-fase--video_mensal { border-left-color: #0e7490; }
+.portal-drive-linha-fase--video_trimestral { border-left-color: #64748b; }
+
+.portal-drive-linha-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 4px 12px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.portal-drive-linha-cabecalho::-webkit-details-marker {
+    display: none;
+}
+
+.portal-drive-linha-titulo {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1b2534;
+}
+
+.portal-drive-linha-contagem {
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    flex-shrink: 0;
+}
+
+.portal-drive-linha-status {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.portal-drive-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    flex-shrink: 0;
+}
+
+.portal-drive-dot--ok {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
+
+.portal-drive-dot--off {
+    background: #e2e8f0;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+.portal-drive-linha-seta {
+    color: var(--cor-texto-muted);
+    font-size: 0.8rem;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+}
+
+.portal-drive-linha-fase[open] .portal-drive-linha-seta {
+    transform: rotate(180deg);
+}
+
+/* ================================================
+   PAINEL EXPANDIDO
+   ================================================ */
+.portal-drive-painel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    max-width: 1440px;
+    padding: 14px 16px 20px;
+    background: var(--cor-fundo-pagina);
+}
+
+/* * [EXPLICAÇÃO] → Miniatura em retrato (9:16) lado a lado com os dados —
+ *                  os vídeos reais SEMPRE são verticais, então a
+ *                  miniatura precisa ser vertical também, senão distorce/
+ *                  corta errado. Largura fixa e generosa (é o elemento
+ *                  principal do cartão); a coluna de dados ao lado fica
+ *                  com o espaço restante — encolhe ela antes de encolher
+ *                  o vídeo (decisão do usuário, 19/08/2026). */
+.portal-drive-filecard {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.portal-drive-filecard:not(.portal-drive-filecard--presente):not(.portal-drive-filecard--selecionado) {
+    cursor: pointer;
+    border-style: dashed;
+}
+
+.portal-drive-filecard--sobre-arraste {
+    border-color: var(--cor-primaria-clara);
+    background: #eef6fc;
+}
+
+.portal-drive-filecard--selecionado {
+    border-color: var(--cor-positivo);
+    border-style: solid;
+    background: #f2faf5;
+}
+
+.portal-drive-thumb {
+    width: 220px;
+    aspect-ratio: 9 / 16;
+    flex-shrink: 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--cor-fundo-pagina);
+    color: var(--cor-texto-muted);
+    font-size: 1.6rem;
+    overflow: hidden;
+}
+
+.portal-drive-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ================================================
+   PLAYER LOCAL — inspirado no padrão de player
+   vertical (tipo Shorts), visual próprio e fixo, sem
+   depender dos controles nativos do navegador (que
+   variam de navegador pra navegador e escondiam até
+   o botão de tela cheia atrás de um menu).
+   ================================================ */
+.portal-drive-player {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+}
+
+.portal-drive-player .portal-drive-preview-video {
+    width: 100%;
+    height: 100%;
+    /* * [EXPLICAÇÃO] → contain (não cover) é o que resolve o corte na tela
+     *                  cheia — mostra o vídeo 9:16 inteiro, com faixas
+     *                  pretas nas laterais quando a tela é 16:9, em vez de
+     *                  cortar pra preencher um formato que não bate. */
+    object-fit: contain;
+    display: block;
+}
+
+.portal-drive-player:fullscreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.portal-drive-player-controles {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.portal-drive-player:hover .portal-drive-player-controles {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* * [EXPLICAÇÃO] → Em tela cheia o mouse está sempre "em cima" do player
+ *                  (ele ocupa a tela toda) — então :hover sozinho nunca
+ *                  esconderia nada. Aqui o controle passa a ser por
+ *                  tempo parado (classe adicionada/removida via JS
+ *                  conforme o mouse se move), não mais por hover. */
+.portal-drive-player:fullscreen .portal-drive-player-controles {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.portal-drive-player:fullscreen.portal-drive-player--mostrar-controles .portal-drive-player-controles {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* * [EXPLICAÇÃO] → Mesmo se o relógio de "esconder" já tiver disparado,
+ *                  isso garante que a barra nunca some enquanto o mouse
+ *                  estiver parado literalmente em cima dela. */
+.portal-drive-player:fullscreen .portal-drive-player-controles:hover {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.portal-drive-player-botao {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 0.8rem;
+    padding: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+.portal-drive-player-tempo {
+    color: #fff;
+    font-size: 0.62rem;
+    flex-shrink: 0;
+    min-width: 26px;
+    font-family: 'SF Mono', Consolas, monospace;
+}
+
+.portal-drive-player-progresso {
+    flex: 1;
+    min-width: 0;
+    height: 4px;
+    accent-color: #fff;
+    cursor: pointer;
+}
+
+.portal-drive-preview-texto {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    padding: 8px 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: #1b2534;
+    background: var(--cor-fundo-card);
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+}
+
+.portal-drive-filecard-corpo {
+    flex: 1;
+    min-width: 0;
+}
+
+.portal-drive-filecard-titulo {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1b2534;
+    margin: 0 0 5px;
+}
+
+.portal-drive-nome-esperado {
+    font-size: 0.68rem;
+    color: var(--cor-texto-muted);
+    font-family: 'SF Mono', Consolas, monospace;
+    margin: 0 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.portal-drive-pill-estado {
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.portal-drive-pill-estado--selecionado {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* * [EXPLICAÇÃO] → Mesma cor neutra de status-descontinuado/badge-legado —
+ *                  "não está mais ativo/editável", mesmo sentido. */
+.portal-drive-pill-estado--usado {
+    background: #e5e7eb;
+    color: #4b5563;
+}
+
+.portal-drive-dados-upload {
+    margin: 8px 0;
+}
+
+.portal-drive-dados-linha {
+    font-size: 0.7rem;
+    color: var(--cor-texto-muted);
+    margin: 0 0 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.portal-drive-remover-selecao {
+    display: block;
+    margin-top: 6px;
+    background: none;
+    border: none;
+    color: var(--cor-negativo);
+    font-size: 0.72rem;
+    cursor: pointer;
+    padding: 0;
+}
+
+.portal-drive-acoes-arquivo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.portal-drive-btn-arquivo {
+    font-size: 0.72rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+    text-decoration: none;
+    width: fit-content;
+}
+
+.portal-drive-btn-arquivo:hover {
+    text-decoration: underline;
+}
+
+.portal-drive-btn-arquivo--perigo {
+    color: var(--cor-negativo);
+}
+
+.portal-drive-input-arquivo {
+    display: none;
+}
+
+/* ================================================
+   MODAL DE CONFIRMAÇÃO DE EXCLUSÃO — mesmo padrão
+   real do modal-roadmap-* (Agenda de Vídeos), nome
+   próprio pra não depender de um CSS de outra tela.
+   ================================================ */
+.portal-drive-modal-fundo {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 25, 35, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+}
+
+.portal-drive-modal-caixa {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 28px;
+    max-width: 420px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.portal-drive-modal-titulo {
+    margin: 0 0 12px;
+    font-size: 1.05rem;
+    color: #1b2534;
+}
+
+.portal-drive-modal-texto {
+    font-size: 0.88rem;
+    color: #33404f;
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+
+.portal-drive-modal-aviso {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 0 0 18px;
+}
+
+.portal-drive-modal-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ================================================
+   MOSTRAR MAIS (Trimestral 02)
+   ================================================ */
+.portal-drive-botao-mostrar-mais {
+    background: none;
+    border: none;
+    color: var(--cor-primaria-clara);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 8px 4px;
+}
+
+.portal-drive-botao-mostrar-mais:hover {
+    text-decoration: underline;
+}
+
+/* ================================================
+   BARRA DE ENVIO
+   ================================================ */
+.portal-drive-barra-envio {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.portal-drive-progresso {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.portal-drive-progresso-barra {
+    flex: 1;
+    height: 8px;
+    accent-color: var(--cor-primaria-clara);
+}
+
+.portal-drive-progresso-texto {
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}

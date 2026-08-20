@@ -131,3 +131,16 @@ class ArquivadorDrive:
             supportsAllDrives=True,
         ).execute()
         return arquivo_existente_id
+
+    # Função Objetivo: Move 1 arquivo (por ID) pra lixeira do Drive — nunca
+    # apaga em definitivo (files().delete). É a rede de segurança real por
+    # trás do aviso "essa ação não tem retorno" da tela (decisão do
+    # usuário, 19/08/2026): o usuário vê como se fosse definitivo, mas o
+    # arquivo continua recuperável direto no Drive por um tempo.
+    def excluir_arquivo(self, drive_file_id):
+        self.servico.files().update(
+            fileId=drive_file_id,
+            body={'trashed': True},
+            fields='id',
+            supportsAllDrives=True,
+        ).execute()

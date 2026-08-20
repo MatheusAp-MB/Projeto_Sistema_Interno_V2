@@ -1,0 +1,78 @@
+<div class="portal-drive-card" id="portal-drive-card">
+
+    <div class="portal-drive-cabecalho">
+        {% if produto.imagem_url %}
+            <img src="{{ produto.imagem_url }}" class="portal-drive-foto" alt="">
+        {% else %}
+            <div class="portal-drive-foto-vazia"><i class="fas fa-image"></i></div>
+        {% endif %}
+        <div class="portal-drive-identidade">
+            <p class="portal-drive-marca">{{ produto.marca|default:"—" }}</p>
+            <p class="portal-drive-titulo">{{ produto.titulo|default:"Produto não encontrado" }}</p>
+            <div class="portal-drive-codigos">
+                <span class="portal-drive-codigo">EAN<b>{{ produto.ean|default:"—" }}</b></span>
+                <span class="portal-drive-codigo">SKU<b>{{ produto.sku|default:"—" }}</b></span>
+            </div>
+        </div>
+        <p class="portal-drive-contagem-geral">{{ presentes_arquivos }} de {{ total_arquivos }} arquivos</p>
+    </div>
+
+    {% if mensagem_exclusao %}
+    <p class="portal-drive-resumo-linha portal-drive-resumo-linha--enviado" style="margin-bottom:14px;">
+        <i class="fas fa-check-circle"></i> {{ mensagem_exclusao }}
+    </p>
+    {% endif %}
+
+    {% if erro_envio %}
+    <p class="agenda-erro-drive"><i class="fas fa-triangle-exclamation"></i> {{ erro_envio }}</p>
+    {% endif %}
+
+    {% if resultado_envio %}
+    <div class="portal-drive-resumo-envio">
+        {% for resultado in resultado_envio %}
+        <p class="portal-drive-resumo-linha portal-drive-resumo-linha--{{ resultado.status }}">
+            <i class="fas fa-{% if resultado.status == 'enviado' %}check-circle{% elif resultado.status == 'conflito' %}triangle-exclamation{% else %}circle-xmark{% endif %}"></i>
+            {{ resultado.rotulo }} — {{ resultado.tipo|capfirst }}: {{ resultado.mensagem }}
+        </p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form class="portal-drive-form-envio"
+          hx-post="{% url 'agenda_videos_portal_drive_enviar' %}"
+          hx-encoding="multipart/form-data"
+          hx-target="#portal-drive-card"
+          hx-swap="outerHTML"
+          hx-disabled-elt="#portal-drive-btn-enviar">
+
+        <div id="portal-drive-lista-fases">
+            {% for linha in linhas %}
+                {% if not linha.extra_trimestral %}
+                    {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha.html' with linha=linha %}
+                {% endif %}
+            {% endfor %}
+
+            <div class="portal-drive-linhas-extra" hidden>
+                {% for linha in linhas %}
+                    {% if linha.extra_trimestral %}
+                        {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha.html' with linha=linha %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <button type="button" class="portal-drive-botao-mostrar-mais">
+                Vídeo Trimestral nunca conclui — mostrar próximas ocorrências <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+
+        <div class="portal-drive-barra-envio">
+            <div class="portal-drive-progresso" hidden>
+                <progress class="portal-drive-progresso-barra" value="0" max="100"></progress>
+                <span class="portal-drive-progresso-texto"></span>
+            </div>
+            <button type="submit" id="portal-drive-btn-enviar" class="btn-acao-secundario" disabled>
+                Enviar arquivos selecionados (<span class="portal-drive-contador-selecionados">0</span>)
+            </button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,82 @@
+<details class="portal-drive-linha-fase portal-drive-linha-fase--{{ linha.fase }}">
+    <summary class="portal-drive-linha-cabecalho">
+        <span class="portal-drive-linha-titulo">{{ linha.rotulo }}</span>
+        <span class="portal-drive-linha-contagem">{{ linha.qtd_presente }} de 3 arquivos</span>
+        <span class="portal-drive-linha-status">
+            {% for tipo, item in linha.arquivos.items %}
+            <span class="portal-drive-dot {% if item.presente %}portal-drive-dot--ok{% else %}portal-drive-dot--off{% endif %}">
+                <i class="fas fa-{% if item.presente %}check{% else %}minus{% endif %}"></i>
+            </span>
+            {% endfor %}
+        </span>
+        <i class="fas fa-chevron-down portal-drive-linha-seta"></i>
+    </summary>
+
+    <div class="portal-drive-painel">
+        {% for tipo, item in linha.arquivos.items %}
+        <div class="portal-drive-filecard{% if item.presente %} portal-drive-filecard--presente{% endif %}">
+
+            <div class="portal-drive-thumb">
+                {% if item.presente and tipo != 'roteiro' %}
+                    <img src="{% url 'agenda_videos_portal_drive_thumbnail' item.drive_file_id %}" alt=""
+                         onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+                    <i class="fas fa-play" hidden></i>
+                {% elif item.presente %}
+                    <i class="fas fa-file-lines"></i>
+                {% else %}
+                    <i class="fas fa-plus"></i>
+                {% endif %}
+            </div>
+
+            <div class="portal-drive-filecard-corpo">
+                <p class="portal-drive-filecard-titulo">{{ tipo|capfirst }}</p>
+
+                {% if item.usado %}
+                    <span class="badge-tabela portal-drive-pill-estado portal-drive-pill-estado--usado">
+                        <i class="fas fa-lock"></i> usado — somente leitura
+                    </span>
+                    <p class="portal-drive-nome-esperado">{{ item.nome_esperado }}</p>
+                    {% if item.link_visualizacao %}
+                    <div class="portal-drive-acoes-arquivo">
+                        <a href="{{ item.link_visualizacao }}" target="_blank" rel="noopener" class="portal-drive-btn-arquivo">
+                            <i class="fas fa-arrow-up-right-from-square"></i> Ver no Drive
+                        </a>
+                    </div>
+                    {% endif %}
+
+                {% elif item.presente %}
+                    <span class="badge-tabela portal-drive-pill-estado video-gerado">presente</span>
+                    <p class="portal-drive-nome-esperado">{{ item.nome_esperado }}</p>
+                    <div class="portal-drive-acoes-arquivo">
+                        {% if item.link_visualizacao %}
+                        <a href="{{ item.link_visualizacao }}" target="_blank" rel="noopener" class="portal-drive-btn-arquivo">
+                            <i class="fas fa-arrow-up-right-from-square"></i> Ver no Drive
+                        </a>
+                        {% endif %}
+                        <button type="button" class="portal-drive-btn-arquivo portal-drive-btn-arquivo--perigo"
+                                hx-get="{% url 'agenda_videos_portal_drive_confirmar_exclusao' item.drive_file_id %}?rotulo={{ linha.rotulo|urlencode }}&tipo={{ tipo|capfirst|urlencode }}&nome={{ item.nome_esperado|urlencode }}"
+                                hx-target="#modal-portal-drive-slot" hx-swap="innerHTML">
+                            <i class="fas fa-trash"></i> Excluir do Drive
+                        </button>
+                    </div>
+
+                {% else %}
+                    <p class="portal-drive-nome-esperado">{{ item.nome_esperado }}</p>
+                    <span class="badge-tabela portal-drive-pill-estado video-nao-gerado">selecione ou arraste</span>
+                    <div class="portal-drive-dados-upload" hidden>
+                        <p class="portal-drive-dados-linha portal-drive-dados-nome"></p>
+                        <p class="portal-drive-dados-linha portal-drive-dados-duracao-tamanho"></p>
+                    </div>
+                    <button type="button" class="portal-drive-remover-selecao" hidden>
+                        <i class="fas fa-times"></i> Cancelar seleção
+                    </button>
+                    <input type="file"
+                           name="arquivo__{{ linha.fase }}__{{ linha.numero|default:0 }}__{{ tipo }}"
+                           accept="{% if tipo == 'roteiro' %}.txt{% else %}.mp4{% endif %}"
+                           class="portal-drive-input-arquivo" hidden>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</details>

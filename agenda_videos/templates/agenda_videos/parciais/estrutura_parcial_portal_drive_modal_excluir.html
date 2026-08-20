@@ -1,0 +1,21 @@
+<div class="portal-drive-modal-fundo" data-fechar-modal-portal-drive>
+    <div class="portal-drive-modal-caixa">
+        <h3 class="portal-drive-modal-titulo">Excluir arquivo do Drive?</h3>
+        <p class="portal-drive-modal-texto">
+            {{ rotulo }} — {{ tipo }}: <strong>{{ nome }}</strong>
+        </p>
+        <p class="portal-drive-modal-aviso">
+            <i class="fas fa-triangle-exclamation"></i>
+            Deseja realmente excluir do Drive? Essa ação não tem retorno.
+        </p>
+        <div class="portal-drive-modal-acoes">
+            <button type="button" class="btn-acao" data-fechar-modal-portal-drive>Cancelar</button>
+            <button type="button" class="btn-acao btn-acao-confirmar"
+                    hx-post="{% url 'agenda_videos_portal_drive_excluir' file_id %}"
+                    hx-target="#portal-drive-card" hx-swap="outerHTML"
+                    hx-on="htmx:afterRequest: document.getElementById('modal-portal-drive-slot').innerHTML = ''">
+                Confirmar exclusão
+            </button>
+        </div>
+    </div>
+</div>
