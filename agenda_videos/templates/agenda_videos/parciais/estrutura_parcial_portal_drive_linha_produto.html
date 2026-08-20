@@ -1,0 +1,29 @@
+<!--
+* [RESUMO] → 1 linha colapsada da lista de produtos do Portal do Drive —
+* reaproveita o padrão real <details>/<summary> + identidade de produto do
+* Histórico (historico-grupo-*). Só dado de banco aqui (zero chamada ao
+* Drive); abrir a linha dispara HTMX (evento nativo `toggle` do <details>)
+* que carrega o card real. accordion: só 1 produto fica carregado por vez
+* (ver script_portal_drive.js) — evita N×30 chamadas ao Drive de uma vez e
+* evita IDs duplicados na tela (o card usa #portal-drive-card, único).
+-->
+<details class="historico-grupo-produto portal-drive-produto-linha"
+          hx-get="{% url 'agenda_videos_portal_drive_detalhe' produto.id %}"
+          hx-trigger="toggle[this.open]"
+          hx-target="#portal-drive-conteudo-{{ produto.id }}"
+          hx-swap="innerHTML">
+    <summary class="historico-grupo-cabecalho">
+        <div class="historico-grupo-identidade">
+            {% include 'agenda_videos/parciais/estrutura_parcial_identidade_produto.html' with produto=produto %}
+        </div>
+        <span class="portal-drive-produto-carregando">
+            <i class="fas fa-spinner fa-spin"></i> carregando do Drive...
+        </span>
+        <i class="fas fa-chevron-down portal-drive-produto-seta"></i>
+    </summary>
+    <div class="historico-grupo-conteudo portal-drive-produto-conteudo" id="portal-drive-conteudo-{{ produto.id }}">
+        <p class="portal-drive-carregando-texto">
+            <i class="fas fa-spinner fa-spin"></i> Carregando dados do Drive...
+        </p>
+    </div>
+</details>

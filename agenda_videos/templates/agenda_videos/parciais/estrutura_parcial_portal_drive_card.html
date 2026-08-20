@@ -17,6 +17,13 @@
         <p class="portal-drive-contagem-geral">{{ presentes_arquivos }} de {{ total_arquivos }} arquivos</p>
     </div>
 
+    {% if modo_teste_sandbox %}
+    <p class="portal-drive-aviso-sandbox portal-drive-aviso-sandbox--card">
+        <i class="fas fa-flask"></i>
+        Os arquivos abaixo são da <strong>pasta de teste</strong> — ainda não da pasta real deste produto no Drive.
+    </p>
+    {% endif %}
+
     {% if mensagem_exclusao %}
     <p class="portal-drive-resumo-linha portal-drive-resumo-linha--enviado" style="margin-bottom:14px;">
         <i class="fas fa-check-circle"></i> {{ mensagem_exclusao }}
@@ -39,7 +46,7 @@
     {% endif %}
 
     <form class="portal-drive-form-envio"
-          hx-post="{% url 'agenda_videos_portal_drive_enviar' %}"
+          hx-post="{% url 'agenda_videos_portal_drive_enviar' produto.id %}"
           hx-encoding="multipart/form-data"
           hx-target="#portal-drive-card"
           hx-swap="outerHTML"
@@ -48,14 +55,14 @@
         <div id="portal-drive-lista-fases">
             {% for linha in linhas %}
                 {% if not linha.extra_trimestral %}
-                    {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha.html' with linha=linha %}
+                    {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha.html' with linha=linha produto_id=produto.id %}
                 {% endif %}
             {% endfor %}
 
             <div class="portal-drive-linhas-extra" hidden>
                 {% for linha in linhas %}
                     {% if linha.extra_trimestral %}
-                        {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha.html' with linha=linha %}
+                        {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha.html' with linha=linha produto_id=produto.id %}
                     {% endif %}
                 {% endfor %}
             </div>

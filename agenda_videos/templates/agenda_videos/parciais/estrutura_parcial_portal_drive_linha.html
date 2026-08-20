@@ -1,4 +1,4 @@
-<details class="portal-drive-linha-fase portal-drive-linha-fase--{{ linha.fase }}">
+<details class="portal-drive-linha-fase">
     <summary class="portal-drive-linha-cabecalho">
         <span class="portal-drive-linha-titulo">{{ linha.rotulo }}</span>
         <span class="portal-drive-linha-contagem">{{ linha.qtd_presente }} de 3 arquivos</span>
@@ -17,14 +17,24 @@
         <div class="portal-drive-filecard{% if item.presente %} portal-drive-filecard--presente{% endif %}">
 
             <div class="portal-drive-thumb">
+                {% if item.usado %}<i class="fas fa-lock portal-drive-thumb-cadeado"></i>{% endif %}
                 {% if item.presente and tipo != 'roteiro' %}
-                    <img src="{% url 'agenda_videos_portal_drive_thumbnail' item.drive_file_id %}" alt=""
-                         onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-                    <i class="fas fa-play" hidden></i>
+                    <div class="portal-drive-player">
+                        <video class="portal-drive-preview-video"
+                               src="{% url 'agenda_videos_portal_drive_video' item.drive_file_id %}"
+                               playsinline preload="metadata"></video>
+                        <div class="portal-drive-player-controles">
+                            <button type="button" class="portal-drive-player-botao" data-acao="play-pause"><i class="fas fa-play"></i></button>
+                            <span class="portal-drive-player-tempo">0:00</span>
+                            <input type="range" class="portal-drive-player-progresso" min="0" max="100" value="0" step="0.1">
+                            <button type="button" class="portal-drive-player-botao" data-acao="volume"><i class="fas fa-volume-high"></i></button>
+                            <button type="button" class="portal-drive-player-botao" data-acao="tela-cheia"><i class="fas fa-expand"></i></button>
+                        </div>
+                    </div>
                 {% elif item.presente %}
                     <i class="fas fa-file-lines"></i>
                 {% else %}
-                    <i class="fas fa-plus"></i>
+                    <div class="portal-drive-thumb-vazio"><i class="fas fa-plus"></i><span>Selecionar ou arrastar</span></div>
                 {% endif %}
             </div>
 
@@ -33,20 +43,37 @@
 
                 {% if item.usado %}
                     <span class="badge-tabela portal-drive-pill-estado portal-drive-pill-estado--usado">
-                        <i class="fas fa-lock"></i> usado — somente leitura
+                        <i class="fas fa-lock"></i> usado
                     </span>
                     <p class="portal-drive-nome-esperado">{{ item.nome_esperado }}</p>
-                    {% if item.link_visualizacao %}
+                    <div class="portal-drive-meta">
+                        <p class="portal-drive-meta-linha portal-drive-meta-linha--caminho" title="{{ item.pasta_completa }}">
+                            <i class="fas fa-folder"></i> {{ item.pasta_completa }}
+                        </p>
+                        <p class="portal-drive-meta-linha">
+                            <i class="fas fa-clock"></i> {% if item.duracao_formatada %}{{ item.duracao_formatada }} · {% endif %}{{ item.tamanho_formatado }}
+                        </p>
+                    </div>
                     <div class="portal-drive-acoes-arquivo">
+                        {% if item.link_visualizacao %}
                         <a href="{{ item.link_visualizacao }}" target="_blank" rel="noopener" class="portal-drive-btn-arquivo">
                             <i class="fas fa-arrow-up-right-from-square"></i> Ver no Drive
                         </a>
+                        {% endif %}
+                        <span class="portal-drive-somente-leitura-texto"><i class="fas fa-lock"></i> somente leitura</span>
                     </div>
-                    {% endif %}
 
                 {% elif item.presente %}
                     <span class="badge-tabela portal-drive-pill-estado video-gerado">presente</span>
                     <p class="portal-drive-nome-esperado">{{ item.nome_esperado }}</p>
+                    <div class="portal-drive-meta">
+                        <p class="portal-drive-meta-linha portal-drive-meta-linha--caminho" title="{{ item.pasta_completa }}">
+                            <i class="fas fa-folder"></i> {{ item.pasta_completa }}
+                        </p>
+                        <p class="portal-drive-meta-linha">
+                            <i class="fas fa-clock"></i> {% if item.duracao_formatada %}{{ item.duracao_formatada }} · {% endif %}{{ item.tamanho_formatado }}
+                        </p>
+                    </div>
                     <div class="portal-drive-acoes-arquivo">
                         {% if item.link_visualizacao %}
                         <a href="{{ item.link_visualizacao }}" target="_blank" rel="noopener" class="portal-drive-btn-arquivo">
@@ -54,7 +81,7 @@
                         </a>
                         {% endif %}
                         <button type="button" class="portal-drive-btn-arquivo portal-drive-btn-arquivo--perigo"
-                                hx-get="{% url 'agenda_videos_portal_drive_confirmar_exclusao' item.drive_file_id %}?rotulo={{ linha.rotulo|urlencode }}&tipo={{ tipo|capfirst|urlencode }}&nome={{ item.nome_esperado|urlencode }}"
+                                hx-get="{% url 'agenda_videos_portal_drive_confirmar_exclusao' produto_id item.drive_file_id %}?rotulo={{ linha.rotulo|urlencode }}&tipo={{ tipo|capfirst|urlencode }}&nome={{ item.nome_esperado|urlencode }}"
                                 hx-target="#modal-portal-drive-slot" hx-swap="innerHTML">
                             <i class="fas fa-trash"></i> Excluir do Drive
                         </button>

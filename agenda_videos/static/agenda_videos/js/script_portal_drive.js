@@ -4,9 +4,12 @@
 // preview LOCAL do arquivo escolhido antes de qualquer envio (vídeo
 // tocável ou texto legível, com nome/duração/tamanho lidos no navegador),
 // contagem do lote selecionado, barra de progresso real durante o envio,
-// fechamento do modal de confirmação de exclusão, e o toggle "mostrar
-// mais" da ocorrência extra do Vídeo Trimestral. Delegação de evento no
-// document, sem onclick inline.
+// fechamento do modal de confirmação de exclusão, o toggle "mostrar mais"
+// da ocorrência extra do Vídeo Trimestral, e o accordion exclusivo entre
+// produtos da lista (20/08/2026: tela virou lista de TODOS os produtos —
+// só 1 fica aberto/carregado por vez, fechar 1 sempre limpa o conteúdo
+// dele da DOM, pra nunca ter 2 #portal-drive-card ao mesmo tempo).
+// Delegação de evento no document, sem onclick inline.
 
 document.addEventListener('click', function (evento) {
     if (evento.target.closest('.portal-drive-remover-selecao')) return;
@@ -307,7 +310,7 @@ function limparPreviewLocal(cartao) {
     if (videoAntigo && videoAntigo.dataset.objectUrl) {
         URL.revokeObjectURL(videoAntigo.dataset.objectUrl);
     }
-    thumb.innerHTML = '<i class="fas fa-plus"></i>';
+    thumb.innerHTML = '<div class="portal-drive-thumb-vazio"><i class="fas fa-plus"></i><span>Selecionar ou arrastar</span></div>';
 }
 
 function formatarTamanhoArquivo(bytes) {
@@ -395,6 +398,32 @@ document.addEventListener('click', function (evento) {
     });
     botao.hidden = true;
 });
+
+// Função Objetivo: Accordion exclusivo entre produtos da lista — só 1
+// produto fica aberto (e carregado) por vez. Abrir 1 fecha os outros;
+// fechar qualquer 1 (por essa ação ou clicando de novo nele mesmo) limpa
+// o conteúdo carregado dele da DOM, garantindo que #portal-drive-card,
+// #portal-drive-btn-enviar etc. nunca existam em duplicidade na página.
+// * [EXPLICAÇÃO] → o evento `toggle` do <details> não borbulha (bubble)
+// na maioria dos navegadores — por isso o listener vai direto no
+// document com capture (3º argumento true), que pega o evento na
+// descida, antes dele "morrer" no próprio elemento.
+document.addEventListener('toggle', function (evento) {
+    var detalhe = evento.target;
+    if (!detalhe.matches || !detalhe.matches('.portal-drive-produto-linha')) return;
+
+    if (!detalhe.open) {
+        var conteudo = detalhe.querySelector('.portal-drive-produto-conteudo');
+        if (conteudo) {
+            conteudo.innerHTML = '<p class="portal-drive-carregando-texto"><i class="fas fa-spinner fa-spin"></i> Carregando dados do Drive...</p>';
+        }
+        return;
+    }
+
+    document.querySelectorAll('.portal-drive-produto-linha[open]').forEach(function (outro) {
+        if (outro !== detalhe) outro.open = false;
+    });
+}, true);
 
 
 // * [EXPLICAÇÃO] → Todo duplo-clique dispara 2 "click" + 1 "dblclick" — o

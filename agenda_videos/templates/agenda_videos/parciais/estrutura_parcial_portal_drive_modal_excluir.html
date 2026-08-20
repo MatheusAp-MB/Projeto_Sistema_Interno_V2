@@ -11,7 +11,7 @@
         <div class="portal-drive-modal-acoes">
             <button type="button" class="btn-acao" data-fechar-modal-portal-drive>Cancelar</button>
             <button type="button" class="btn-acao btn-acao-confirmar"
-                    hx-post="{% url 'agenda_videos_portal_drive_excluir' file_id %}"
+                    hx-post="{% url 'agenda_videos_portal_drive_excluir' produto_id file_id %}"
                     hx-target="#portal-drive-card" hx-swap="outerHTML"
                     hx-on="htmx:afterRequest: document.getElementById('modal-portal-drive-slot').innerHTML = ''">
                 Confirmar exclusão

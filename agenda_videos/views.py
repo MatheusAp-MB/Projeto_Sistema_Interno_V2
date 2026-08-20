@@ -692,28 +692,36 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
 # Portal do Drive — Agenda de Vídeos
 # ===================================================================
 # Função Objetivo: Tela real de upload manual do Portal do Drive — lista
-# as 7 ocorrências (Simples, Mensal 01-04, Trimestral 01-02) de 1 produto,
-# mostra quais dos 3 arquivos (Base/Roteiro/Completo) já existem no Drive
-# — tanto em Videos/ (ativo) quanto em Videos/usados/ (já usado na
-# postagem automática, vira só leitura) — e permite selecionar/arrastar
-# vários arquivos de uma vez e enviar o lote inteiro num único envio
-# (upload real, ArquivadorDrive.enviar_arquivo). Arquivos ativos também
-# podem ser excluídos (movidos pra lixeira do Drive) via confirmação em 2
-# etapas — nunca um arquivo já usado, que é sempre só leitura.
+# TODOS os produtos reais que já participam da Agenda de Vídeos (mesmo
+# recorte de listar_produtos_com_historico), com busca e paginação (mesmo
+# padrão da tela de Histórico). Cada linha colapsada só mostra dado de
+# banco (foto/marca/título/EAN/SKU) — nenhuma chamada ao Drive acontece na
+# carga da lista. Ao abrir 1 produto (accordion — só 1 aberto por vez, ver
+# script_portal_drive.js), a tela carrega sob demanda (HTMX, evento
+# `toggle` do <details>) as 7 ocorrências (Simples, Mensal 01-04,
+# Trimestral 01-02), mostra quais dos 3 arquivos (Base/Roteiro/Completo)
+# já existem no Drive — tanto em Videos/ (ativo) quanto em Videos/usados/
+# (já usado na postagem automática, vira só leitura) — e permite
+# selecionar/arrastar vários arquivos de uma vez e enviar o lote inteiro
+# num único envio (upload real, ArquivadorDrive.enviar_arquivo). Arquivos
+# ativos também podem ser excluídos (movidos pra lixeira do Drive) via
+# confirmação em 2 etapas — nunca um arquivo já usado, que é sempre só
+# leitura.
 #
-# * [ATENÇÃO] → Ainda roda só contra 1 produto fixo (MARCA_SANDBOX_TESTES/
-#               EAN_SANDBOX_TESTES, dentro da pasta de teste) — escolher
-#               marca/EAN pela tela é um ponto em aberto, ainda não
-#               decidido (ver Checkpoint do Portal do Drive no vault). O
-#               cabeçalho mostra a identidade de um produto REAL (Quimivida,
-#               EAN_PRODUTO_REAL_PARA_IDENTIFICACAO) só pra exibição — nunca
-#               muda pra onde o Drive lê/escreve, que continua 100% pinado
-#               na pasta de teste (decisão do usuário, 18/08/2026).
+# * [ATENÇÃO] → A leitura/escrita no Drive de cada produto AINDA aponta
+#               100% pra pasta de teste fixa (MARCA_SANDBOX_TESTES/
+#               EAN_SANDBOX_TESTES) — decisão do usuário (20/08/2026): a
+#               lista/busca/paginação já é real (produtos de verdade do
+#               banco), mas o Drive só passa a ler/escrever por produto de
+#               verdade depois que essa tela nova for validada sem risco
+#               de mexer em pasta real de produção. `modo_teste_sandbox`
+#               no contexto do card avisa isso na própria tela — nunca
+#               esconder do usuário que o conteúdo mostrado é da pasta de
+#               teste, mesmo quando o cabeçalho mostra a identidade de um
+#               produto real (ver Checkpoint do Portal do Drive no vault).
 
 MARCA_SANDBOX_TESTES = 'PRODUTO_RASCUNHO'
 EAN_SANDBOX_TESTES = '0000000000099'
-
-EAN_PRODUTO_REAL_PARA_IDENTIFICACAO = '0789888395162'
 
 ROTULO_FASE = {'simples': 'Simples', 'video_mensal': 'Mensal', 'video_trimestral': 'Trimestral'}
 
@@ -722,19 +730,37 @@ def _rotulo_linha(fase, numero):
     return ROTULO_FASE[fase] if numero is None else f'{ROTULO_FASE[fase]} {numero:02d}'
 
 
-def _obter_produto_identificacao():
-    return Produto.objects.filter(ean=EAN_PRODUTO_REAL_PARA_IDENTIFICACAO).first()
-
-
-# Função Objetivo: Busca o link de visualização (webViewLink) de 1 arquivo
-# já confirmado presente — só chamada quando o arquivo existe de verdade,
-# nunca pra checar existência (isso já é papel de buscar_arquivo).
-def _obter_link_visualizacao(servico, drive_file_id):
+# Função Objetivo: Busca detalhes (link de visualização + tamanho + duração)
+# de 1 arquivo já confirmado presente — 1 única chamada combinada ao Drive,
+# só feita quando o arquivo existe de verdade (nunca pra checar existência).
+def _obter_detalhes_arquivo(servico, drive_file_id):
     try:
-        metadados = servico.files().get(fileId=drive_file_id, fields='webViewLink', supportsAllDrives=True).execute()
-        return metadados.get('webViewLink', '')
+        metadados = servico.files().get(
+            fileId=drive_file_id, fields='webViewLink, size, videoMediaMetadata(durationMillis)',
+            supportsAllDrives=True,
+        ).execute()
+        duracao_ms = metadados.get('videoMediaMetadata', {}).get('durationMillis')
+        return {
+            'link_visualizacao': metadados.get('webViewLink', ''),
+            'tamanho_bytes': int(metadados.get('size', 0) or 0),
+            'duracao_segundos': int(duracao_ms) / 1000 if duracao_ms else 0,
+        }
     except Exception:
-        return ''
+        return {'link_visualizacao': '', 'tamanho_bytes': 0, 'duracao_segundos': 0}
+
+
+def _formatar_tamanho_arquivo(tamanho_bytes):
+    if not tamanho_bytes:
+        return '0 KB'
+    if tamanho_bytes >= 1024 * 1024:
+        return f'{tamanho_bytes / (1024 * 1024):.1f} MB'
+    return f'{max(tamanho_bytes // 1024, 1)} KB'
+
+
+def _formatar_duracao(duracao_segundos):
+    minutos = int(duracao_segundos) // 60
+    segundos_restantes = int(duracao_segundos) % 60
+    return f'{minutos}:{segundos_restantes:02d}'
 
 
 # Função Objetivo: Monta 1 linha (fase/ocorrência) — procura cada um dos 3
@@ -754,11 +780,22 @@ def _montar_linha(servico, pasta_videos_id, pasta_usados_id, fase, numero):
 
         presente = bool(drive_file_id)
         qtd_presente += int(presente)
-        link_visualizacao = _obter_link_visualizacao(servico, drive_file_id) if presente else ''
+        detalhes = _obter_detalhes_arquivo(servico, drive_file_id) if presente else {}
 
         arquivos[tipo] = {
             'tipo': tipo, 'nome_esperado': nome_esperado, 'presente': presente,
-            'usado': usado, 'drive_file_id': drive_file_id or '', 'link_visualizacao': link_visualizacao,
+            'usado': usado, 'drive_file_id': drive_file_id or '',
+            'link_visualizacao': detalhes.get('link_visualizacao', ''),
+            'tamanho_formatado': _formatar_tamanho_arquivo(detalhes.get('tamanho_bytes')) if presente else '',
+            'duracao_formatada': (
+                _formatar_duracao(detalhes.get('duracao_segundos'))
+                if presente and detalhes.get('duracao_segundos') else ''
+            ),
+            'pasta_completa': (
+                f'{MARCA_SANDBOX_TESTES}/{EAN_SANDBOX_TESTES}/{NOME_PASTA_VIDEOS}/{NOME_PASTA_USADOS}/'
+                if usado else
+                f'{MARCA_SANDBOX_TESTES}/{EAN_SANDBOX_TESTES}/{NOME_PASTA_VIDEOS}/'
+            ),
         }
     return {
         'fase': fase, 'numero': numero, 'chave': f'{fase}-{numero or 0}',
@@ -767,11 +804,22 @@ def _montar_linha(servico, pasta_videos_id, pasta_usados_id, fase, numero):
     }
 
 
-# Função Objetivo: Monta o contexto completo do card do produto — usado na
-# 1ª carga da página, depois de um envio em lote e depois de uma exclusão,
-# sempre recarregando do Drive de verdade (nunca um estado "otimista"
-# assumido no servidor).
-def _montar_contexto_card(resultado_envio=None, erro_envio=None, mensagem_exclusao=None):
+# Função Objetivo: Monta o contexto completo do card de 1 produto — usado na
+# 1ª carga do painel lazy, depois de um envio em lote e depois de uma
+# exclusão, sempre recarregando do Drive de verdade (nunca um estado
+# "otimista" assumido no servidor).
+#
+# * [ATENÇÃO] → A leitura/escrita no Drive AINDA aponta 100% pra pasta de
+#               teste (MARCA_SANDBOX_TESTES/EAN_SANDBOX_TESTES), não pra
+#               pasta real do `produto` recebido — decisão do usuário
+#               (20/08/2026): a tela já lista/busca/pagina TODOS os
+#               produtos reais do banco, mas o Drive de cada um só passa a
+#               ler/escrever de verdade depois que a tela nova for validada
+#               sem risco de mexer em pasta real de produção.
+#               `modo_teste_sandbox` no contexto avisa isso na tela (nunca
+#               esconder do usuário que o conteúdo mostrado é da pasta de
+#               teste).
+def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensagem_exclusao=None):
     servico = obter_servico_drive()
     pasta_raiz_id = obter_pasta_raiz_id_ativa()
     pasta_marca_id = buscar_subpasta(servico, pasta_raiz_id, MARCA_SANDBOX_TESTES)
@@ -795,22 +843,62 @@ def _montar_contexto_card(resultado_envio=None, erro_envio=None, mensagem_exclus
     presentes = sum(1 for l in linhas_principais for a in l['arquivos'].values() if a['presente'])
 
     return {
-        'produto': _obter_produto_identificacao(),
+        'produto': produto,
         'linhas': linhas,
         'total_arquivos': total,
         'presentes_arquivos': presentes,
         'resultado_envio': resultado_envio or [],
         'erro_envio': erro_envio,
         'mensagem_exclusao': mensagem_exclusao,
+        'modo_teste_sandbox': True,
     }
 
 
+# Função Objetivo: Tela de lista — TODOS os produtos reais que já
+# participam da Agenda de Vídeos (mesmo recorte de
+# listar_produtos_com_historico, sem os filtros extras daquela tela), com
+# busca e paginação (mesmo padrão da tela de Histórico). Cada linha
+# colapsada só mostra dado de banco (foto/marca/título/EAN/SKU) — nenhuma
+# chamada ao Drive acontece aqui; o detalhe (fases/arquivos) de 1 produto
+# só é buscado no Drive quando a linha dele é aberta (ver
+# view_portal_drive_detalhe), pra não fazer dezenas de chamadas ao Drive
+# por produto listado de uma vez só.
 def view_portal_drive(request):
-    return render(request, 'agenda_videos/estrutura_portal_drive.html', _montar_contexto_card())
+    busca = request.GET.get('busca', '').strip()
+    produtos = listar_produtos_agenda_filtrados(tela=Tela.GERAL, busca=busca or None)
+
+    try:
+        por_pagina = int(request.GET.get('por_pagina', '25'))
+    except ValueError:
+        por_pagina = 25
+
+    paginator = Paginator(produtos, por_pagina)
+    pagina = paginator.get_page(request.GET.get('pagina', 1))
+
+    querystring_sem_pagina = request.GET.copy()
+    querystring_sem_pagina.pop('pagina', None)
+
+    return render(request, 'agenda_videos/estrutura_portal_drive.html', {
+        'pagina': pagina,
+        'busca': busca,
+        'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+    })
+
+
+# Função Objetivo: Carrega, sob demanda, o painel completo (fases/arquivos)
+# de 1 produto — disparado pelo HTMX só quando a linha dele é aberta na
+# lista (nunca na carga inicial da página).
+def view_portal_drive_detalhe(request, produto_id):
+    produto = get_object_or_404(Produto, id=produto_id)
+    return render(
+        request, 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html',
+        _montar_contexto_card(produto),
+    )
 
 
 @require_POST
-def view_portal_drive_enviar(request):
+def view_portal_drive_enviar(request, produto_id):
+    produto = get_object_or_404(Produto, id=produto_id)
     resultados = []
     pasta_raiz_id = obter_pasta_raiz_id_ativa()
     arquivador = None
@@ -857,7 +945,7 @@ def view_portal_drive_enviar(request):
                 os.remove(caminho_temporario)
 
     erro_envio = None if resultados else 'Nenhum arquivo selecionado para envio.'
-    contexto = _montar_contexto_card(resultado_envio=resultados, erro_envio=erro_envio)
+    contexto = _montar_contexto_card(produto, resultado_envio=resultados, erro_envio=erro_envio)
     return render(request, 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html', contexto)
 
 
@@ -866,8 +954,9 @@ def view_portal_drive_enviar(request):
 # querystring, sem precisar de outra ida ao Drive só pra isso). Nada é
 # excluído aqui — a exclusão de verdade só acontece em
 # view_portal_drive_excluir, no 2º clique, dentro do modal.
-def view_portal_drive_confirmar_exclusao(request, file_id):
+def view_portal_drive_confirmar_exclusao(request, produto_id, file_id):
     contexto = {
+        'produto_id': produto_id,
         'file_id': file_id,
         'rotulo': request.GET.get('rotulo', ''),
         'tipo': request.GET.get('tipo', ''),
@@ -881,11 +970,12 @@ def view_portal_drive_confirmar_exclusao(request, file_id):
 # definitivo. Um arquivo 'usado' nunca mostra o botão que chama essa view
 # (ver _montar_linha/template) — não precisa checar isso de novo aqui.
 @require_POST
-def view_portal_drive_excluir(request, file_id):
+def view_portal_drive_excluir(request, produto_id, file_id):
+    produto = get_object_or_404(Produto, id=produto_id)
     arquivador = ArquivadorDrive()
     arquivador.excluir_arquivo(file_id)
 
-    contexto = _montar_contexto_card(mensagem_exclusao='Arquivo movido para a lixeira do Drive.')
+    contexto = _montar_contexto_card(produto, mensagem_exclusao='Arquivo movido para a lixeira do Drive.')
     return render(request, 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html', contexto)
 
 

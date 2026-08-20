@@ -5,12 +5,55 @@
 {% block toolbar_titulo %}Portal do Drive — Agenda de Vídeos{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_agenda_videos.css' %}">
+<link rel="stylesheet" href="{% static 'agenda_videos/css/layout_historico_agenda_videos.css' %}">
 <link rel="stylesheet" href="{% static 'agenda_videos/css/layout_portal_drive.css' %}">
 {% endblock %}
 
 {% block conteudo %}
-{% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html' %}
+
+<p class="portal-drive-aviso-sandbox">
+    <i class="fas fa-flask"></i>
+    Modo de validação: o conteúdo do Drive mostrado ao abrir qualquer produto abaixo ainda é sempre da
+    <strong>pasta de teste</strong> (produto rascunho) — a leitura/escrita na pasta real de cada produto
+    ainda não está ativada.
+</p>
+
+<form method="get" class="agenda-barra-busca">
+    <input
+        type="text"
+        name="busca"
+        value="{{ busca }}"
+        placeholder="Buscar por Nome, SKU ou EAN..."
+        class="agenda-input-busca"
+    >
+    <button type="submit" class="btn-acao">Buscar</button>
+</form>
+
+{% if not pagina %}
+<p class="historico-vazio-geral">Nenhum produto encontrado.</p>
+{% endif %}
+
+<div class="portal-drive-lista-produtos">
+    {% for produto in pagina %}
+        {% include 'agenda_videos/parciais/estrutura_parcial_portal_drive_linha_produto.html' with produto=produto %}
+    {% endfor %}
+</div>
+
+{% if pagina %}
+<div class="historico-paginacao">
+    {% if pagina.has_previous %}
+    <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="historico-paginacao-link">« Anterior</a>
+    {% endif %}
+    <span class="historico-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+    {% if pagina.has_next %}
+    <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="historico-paginacao-link">Próxima »</a>
+    {% endif %}
+</div>
+{% endif %}
+
 <div id="modal-portal-drive-slot"></div>
+
 {% endblock %}
 
 {% block scripts %}

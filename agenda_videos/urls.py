@@ -27,9 +27,10 @@ urlpatterns = [
     path('produto/<int:produto_id>/historico/', views.view_historico_produto, name='agenda_videos_historico_produto'),
     path('produto/<int:produto_id>/status-agenda/alternar/', views.view_alternar_pausado_agenda, name='agenda_videos_alternar_pausado'),
     path('portal-drive/', views.view_portal_drive, name='agenda_videos_portal_drive'),
-    path('portal-drive/enviar/', views.view_portal_drive_enviar, name='agenda_videos_portal_drive_enviar'),
+    path('portal-drive/produto/<int:produto_id>/', views.view_portal_drive_detalhe, name='agenda_videos_portal_drive_detalhe'),
+    path('portal-drive/produto/<int:produto_id>/enviar/', views.view_portal_drive_enviar, name='agenda_videos_portal_drive_enviar'),
+    path('portal-drive/produto/<int:produto_id>/excluir/confirmar/<str:file_id>/', views.view_portal_drive_confirmar_exclusao, name='agenda_videos_portal_drive_confirmar_exclusao'),
+    path('portal-drive/produto/<int:produto_id>/excluir/<str:file_id>/', views.view_portal_drive_excluir, name='agenda_videos_portal_drive_excluir'),
     path('portal-drive/video/<str:file_id>/', views.view_portal_drive_video, name='agenda_videos_portal_drive_video'),
     path('portal-drive/thumbnail/<str:file_id>/', views.view_portal_drive_thumbnail, name='agenda_videos_portal_drive_thumbnail'),
-    path('portal-drive/excluir/confirmar/<str:file_id>/', views.view_portal_drive_confirmar_exclusao, name='agenda_videos_portal_drive_confirmar_exclusao'),
-    path('portal-drive/excluir/<str:file_id>/', views.view_portal_drive_excluir, name='agenda_videos_portal_drive_excluir'),
 ]

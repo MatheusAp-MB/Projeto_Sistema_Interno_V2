@@ -1,14 +1,89 @@
 /*
-* [RESUMO] → Layout do Portal do Drive (Agenda de Vídeos) — cabeçalho de
-* identificação do produto, lista de fases/ocorrências e painel expandido
-* com os 3 arquivos (Base/Roteiro/Completo) de cada ocorrência, cada um
-* com miniatura em retrato (9:16 — formato real dos vídeos) ao lado dos
-* dados. Prefixo portal-drive-* de propósito: evita colisão com agenda-*
-* (tela principal da Agenda de Vídeos) e com hub-sku-* (Mercado Livre).
+* [RESUMO] → Layout do Portal do Drive (Agenda de Vídeos) — tela de lista
+* (todos os produtos reais, busca + paginação, reaproveitando o padrão
+* real de .historico-grupo-*/.agenda-barra-busca/.historico-paginacao) +
+* card expandido de 1 produto (cabeçalho de identificação, lista de fases/
+* ocorrências e painel com os 3 arquivos — Base/Roteiro/Completo — de cada
+* ocorrência, cada um com miniatura em retrato 9:16). Prefixo portal-
+* drive-* de propósito: evita colisão com agenda-*/historico-* (que
+* também são reaproveitados aqui de propósito) e hub-sku-* (Mercado
+* Livre). Revisão de 20/08/2026: tela virou lista de TODOS os produtos
+* (accordion — só 1 aberto/carregado por vez, ver script_portal_drive.js)
+* + alinhamento visual com o resto do sistema (badge uppercase, botões em
+* caixa, hover com anel de foco — mesmos padrões já usados em
+* layout_agenda_videos.css / layout_badges.css / layout_roadmap_produto.css).
 */
 
 /* ================================================
-   CARD DO PRODUTO
+   LISTA DE PRODUTOS (tela — todos os produtos reais)
+   ================================================ */
+.portal-drive-aviso-sandbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #eef2f7;
+    color: #44546a;
+    font-size: 0.82rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.portal-drive-aviso-sandbox--card {
+    margin-bottom: 14px;
+}
+
+.portal-drive-lista-produtos {
+    display: flex;
+    flex-direction: column;
+}
+
+.portal-drive-produto-seta {
+    color: var(--cor-texto-muted);
+    font-size: 0.85rem;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.portal-drive-produto-linha[open] .portal-drive-produto-seta {
+    transform: rotate(180deg);
+}
+
+.portal-drive-produto-carregando {
+    display: none;
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.portal-drive-produto-linha.htmx-request .portal-drive-produto-carregando {
+    display: inline-flex;
+}
+
+/* * [EXPLICAÇÃO] → .historico-grupo-conteudo (reaproveitada) vem com
+ *                  max-height:420px + scroll interno, pensada pra tabela
+ *                  compacta do Histórico. O card do Portal do Drive é um
+ *                  painel alto e interativo (vídeo, arraste de arquivo) —
+ *                  aqui o scroll precisa ser da página inteira, não de
+ *                  uma caixa pequena por dentro. */
+.portal-drive-produto-conteudo {
+    max-height: none;
+    overflow-y: visible;
+    padding: 14px 18px 18px;
+}
+
+.portal-drive-carregando-texto {
+    text-align: center;
+    color: var(--cor-texto-muted);
+    font-size: 0.85rem;
+    padding: 20px 0;
+}
+
+/* ================================================
+   CARD DO PRODUTO (expandido)
    ================================================ */
 .portal-drive-card {
     border: 1px solid var(--cor-borda);
@@ -132,24 +207,24 @@
 .portal-drive-linha-fase {
     margin: 0;
     border-bottom: 1px solid var(--cor-fundo-pagina);
-    border-left: 4px solid transparent;
 }
 
 .portal-drive-linha-fase:last-of-type {
     border-bottom: none;
 }
 
-.portal-drive-linha-fase--simples { border-left-color: #2e7bb5; }
-.portal-drive-linha-fase--video_mensal { border-left-color: #0e7490; }
-.portal-drive-linha-fase--video_trimestral { border-left-color: #64748b; }
-
 .portal-drive-linha-cabecalho {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 4px 12px 12px;
+    padding: 12px 0;
     cursor: pointer;
     list-style: none;
+    transition: background-color 0.15s ease;
+}
+
+.portal-drive-linha-cabecalho:hover {
+    background: var(--cor-fundo-pagina);
 }
 
 .portal-drive-linha-cabecalho::-webkit-details-marker {
@@ -216,8 +291,7 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
-    max-width: 1440px;
-    padding: 14px 16px 20px;
+    padding: 0 0 16px;
     background: var(--cor-fundo-pagina);
 }
 
@@ -235,12 +309,20 @@
     border: 1px solid var(--cor-borda);
     border-radius: 10px;
     background: var(--cor-fundo-card);
-    transition: border-color 0.15s ease, background-color 0.15s ease;
+    box-shadow: 0 1px 3px rgba(30, 45, 70, 0.08);
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .portal-drive-filecard:not(.portal-drive-filecard--presente):not(.portal-drive-filecard--selecionado) {
     cursor: pointer;
     border-style: dashed;
+}
+
+/* * [EXPLICAÇÃO] → Mesmo padrão de "anel de foco" usado nos círculos
+ *                  clicáveis do roadmap (layout_roadmap_produto.css) —
+ *                  reforça visualmente que o cartão vazio é clicável. */
+.portal-drive-filecard:not(.portal-drive-filecard--presente):not(.portal-drive-filecard--selecionado):hover {
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
 }
 
 .portal-drive-filecard--sobre-arraste {
@@ -255,6 +337,7 @@
 }
 
 .portal-drive-thumb {
+    position: relative;
     width: 220px;
     aspect-ratio: 9 / 16;
     flex-shrink: 0;
@@ -268,18 +351,45 @@
     overflow: hidden;
 }
 
-.portal-drive-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+.portal-drive-thumb-vazio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--cor-texto-muted);
+}
+
+.portal-drive-thumb-vazio i {
+    font-size: 1.4rem;
+}
+
+.portal-drive-thumb-vazio span {
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 0 8px;
+}
+
+.portal-drive-thumb-cadeado {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    color: #1b2534;
+    background: rgba(255, 255, 255, 0.85);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
 }
 
 /* ================================================
-   PLAYER LOCAL — inspirado no padrão de player
-   vertical (tipo Shorts), visual próprio e fixo, sem
-   depender dos controles nativos do navegador (que
-   variam de navegador pra navegador e escondiam até
-   o botão de tela cheia atrás de um menu).
+   PLAYER — mesmo player próprio (vertical, tipo
+   Shorts) usado no preview local antes do envio,
+   reaproveitado aqui pra tocar direto do Drive.
    ================================================ */
 .portal-drive-player {
     position: relative;
@@ -340,9 +450,6 @@
     pointer-events: auto;
 }
 
-/* * [EXPLICAÇÃO] → Mesmo se o relógio de "esconder" já tiver disparado,
- *                  isso garante que a barra nunca some enquanto o mouse
- *                  estiver parado literalmente em cima dela. */
 .portal-drive-player:fullscreen .portal-drive-player-controles:hover {
     opacity: 1;
     pointer-events: auto;
@@ -413,11 +520,11 @@
     white-space: nowrap;
 }
 
-.portal-drive-pill-estado {
-    text-transform: none;
-    letter-spacing: normal;
-}
-
+/* * [EXPLICAÇÃO] → Sem override de text-transform/letter-spacing aqui de
+ *                  propósito (removido em 20/08/2026) — o resto do
+ *                  sistema usa .badge-tabela sempre em uppercase
+ *                  (layout_badges.css); manter essa pill igual, não
+ *                  diferente, é o que faz a tela "parecer do sistema". */
 .portal-drive-pill-estado--selecionado {
     background: #dbeafe;
     color: #1d4ed8;
@@ -443,6 +550,27 @@
     white-space: nowrap;
 }
 
+.portal-drive-meta {
+    margin: 10px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.portal-drive-meta-linha {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--cor-texto-muted);
+    margin: 0 0 3px;
+}
+
+.portal-drive-meta-linha--caminho {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .portal-drive-remover-selecao {
     display: block;
     margin-top: 6px;
@@ -456,31 +584,57 @@
 
 .portal-drive-acoes-arquivo {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 8px;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
 }
 
+/* * [EXPLICAÇÃO] → Botão em caixa (borda + hover com troca de cor), mesmo
+ *                  espírito do .agenda-verificar-drive-toggle real —
+ *                  antes era um "link discreto" sem contorno nenhum, uma
+ *                  das coisas que mais destoava do resto do sistema. */
 .portal-drive-btn-arquivo {
     font-size: 0.72rem;
+    font-weight: 600;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--cor-primaria-clara);
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #ccd3de;
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: #33404f;
     cursor: pointer;
     text-decoration: none;
     width: fit-content;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
 .portal-drive-btn-arquivo:hover {
-    text-decoration: underline;
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+    background: #eef6fc;
+    text-decoration: none;
 }
 
 .portal-drive-btn-arquivo--perigo {
     color: var(--cor-negativo);
+    border-color: #f3c6c6;
+}
+
+.portal-drive-btn-arquivo--perigo:hover {
+    border-color: var(--cor-negativo);
+    color: var(--cor-negativo);
+    background: #fde8e8;
+}
+
+.portal-drive-somente-leitura-texto {
+    font-size: 0.72rem;
+    color: var(--cor-texto-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .portal-drive-input-arquivo {
