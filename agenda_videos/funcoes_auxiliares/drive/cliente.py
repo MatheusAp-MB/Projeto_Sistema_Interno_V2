@@ -60,6 +60,16 @@ def obter_servico_drive_escrita():
 #                  web ou do --empresa do comando atual — mesmo princípio
 #                  já usado pro token/URL do Sysemp (ver
 #                  api_sysemp/__init__.py). Nunca um valor fixo.
+#
+# * [ATENÇÃO] → Decisão deliberada (20/08/2026): TODA leitura/escrita no
+#               Drive (Portal do Drive, verificação automática, postagem)
+#               está temporariamente redirecionada pra pasta de TESTE de
+#               cada empresa (GOOGLE_DRIVE_PASTA_TESTE_MAGAZINE/_SAMVALE),
+#               nunca pra pasta real de produção — enquanto a navegação,
+#               filtro e cache do Portal do Drive ainda estão sendo
+#               validados. Reverter é só trocar as 2 linhas abaixo de volta
+#               pra GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE/_SAMVALE quando chegar
+#               a hora de validar contra produção de verdade.
 def obter_pasta_raiz_id_ativa():
     empresa = obter_empresa_ativa()
     if empresa is None:
@@ -70,14 +80,14 @@ def obter_pasta_raiz_id_ativa():
         )
 
     pasta_raiz_id = {
-        EMPRESA_MAGAZINE: settings.GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE,
-        EMPRESA_SAMVALE: settings.GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE,
+        EMPRESA_MAGAZINE: settings.GOOGLE_DRIVE_PASTA_TESTE_MAGAZINE,
+        EMPRESA_SAMVALE: settings.GOOGLE_DRIVE_PASTA_TESTE_SAMVALE,
     }[empresa]
 
     if not pasta_raiz_id:
         raise RuntimeError(
-            f'Pasta raiz do Drive não configurada pra empresa {empresa} — adicione '
-            f'a variável GOOGLE_DRIVE_PASTA_RAIZ_{empresa}=... no .env.'
+            f'Pasta de teste do Drive não configurada pra empresa {empresa} — adicione '
+            f'a variável GOOGLE_DRIVE_PASTA_TESTE_{empresa}=... no .env.'
         )
     return pasta_raiz_id
 

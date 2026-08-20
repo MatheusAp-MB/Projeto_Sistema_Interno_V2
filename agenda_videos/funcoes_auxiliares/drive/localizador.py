@@ -64,17 +64,19 @@ class LocalizadorArquivosProduto:
         ).execute()
         return True, resultado.get('files', []), None, pasta_videos_id
 
-    # Função Objetivo: Lista o conteúdo bruto de Videos/usados/ ([] se a
-    # subpasta ainda não existir) — usado por quem precisa considerar "o que
-    # já existiu" (completude do pool), não só "o que sobrou na pasta agora".
+    # Função Objetivo: Lista o conteúdo bruto de Videos/usados/ e devolve
+    # também o ID dessa subpasta — (arquivos, pasta_usados_id), ou
+    # ([], None) se a subpasta ainda não existir. O ID é usado por quem
+    # precisa guardar link direto pra pasta (SnapshotArquivosDrive.
+    # pasta_usados_id), não só pra listar o conteúdo.
     def listar_arquivos_usados(self, pasta_videos_id):
         pasta_usados_id = buscar_subpasta(self.servico, pasta_videos_id, NOME_PASTA_USADOS)
         if pasta_usados_id is None:
-            return []
+            return [], None
         resultado = self.servico.files().list(
             q=f"'{pasta_usados_id}' in parents and trashed = false",
             fields='files(id, name)',
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
         ).execute()
-        return resultado.get('files', [])
+        return resultado.get('files', []), pasta_usados_id

@@ -35,7 +35,6 @@ from agenda_videos.funcoes_auxiliares.drive.cliente import (
 )
 from agenda_videos.funcoes_auxiliares.drive.constantes import NOME_PASTA_VIDEOS, NOME_PASTA_USADOS
 from agenda_videos.funcoes_auxiliares.drive.parser import EXTENSOES_VALIDAS_POR_TIPO
-from agenda_videos.funcoes_auxiliares.drive.utilitarios_pasta import buscar_arquivo, buscar_subpasta
 from agenda_videos.funcoes_auxiliares.postagem_ciclica import ja_postou_hoje
 from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_ciclo
@@ -708,20 +707,19 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
 # confirmação em 2 etapas — nunca um arquivo já usado, que é sempre só
 # leitura.
 #
-# * [ATENÇÃO] → A leitura/escrita no Drive de cada produto AINDA aponta
-#               100% pra pasta de teste fixa (MARCA_SANDBOX_TESTES/
-#               EAN_SANDBOX_TESTES) — decisão do usuário (20/08/2026): a
-#               lista/busca/paginação já é real (produtos de verdade do
-#               banco), mas o Drive só passa a ler/escrever por produto de
-#               verdade depois que essa tela nova for validada sem risco
-#               de mexer em pasta real de produção. `modo_teste_sandbox`
-#               no contexto do card avisa isso na própria tela — nunca
-#               esconder do usuário que o conteúdo mostrado é da pasta de
-#               teste, mesmo quando o cabeçalho mostra a identidade de um
-#               produto real (ver Checkpoint do Portal do Drive no vault).
-
-MARCA_SANDBOX_TESTES = 'PRODUTO_RASCUNHO'
-EAN_SANDBOX_TESTES = '0000000000099'
+# * [ATENÇÃO] → Decisão do usuário (20/08/2026): toda leitura/escrita no
+#               Drive usada por esta tela agora acontece dentro da pasta
+#               de TESTE dedicada da empresa (GOOGLE_DRIVE_PASTA_TESTE_
+#               MAGAZINE/_SAMVALE — ver obter_pasta_raiz_id_ativa() em
+#               drive/cliente.py), nunca a pasta real de produção. Cada
+#               produto usa sua PRÓPRIA marca/ean real (não mais uma
+#               identidade fixa/falsa) — só que criada, se ainda não
+#               existir, dentro dessa raiz de teste isolada. Antiga
+#               MARCA_SANDBOX_TESTES/EAN_SANDBOX_TESTES (identidade fixa
+#               "PRODUTO_RASCUNHO") removida — não faz mais sentido com a
+#               raiz inteira já isolada pra teste. `modo_teste_sandbox` no
+#               contexto do card continua avisando isso na tela — nunca
+#               esconder do usuário que a raiz ativa é a de teste.
 
 ROTULO_FASE = {'simples': 'Simples', 'video_mensal': 'Mensal', 'video_trimestral': 'Trimestral'}
 
@@ -767,34 +765,56 @@ def _formatar_duracao(duracao_segundos):
 # arquivos primeiro em Videos/ (ativo) e, se não achar lá, em Videos/
 # usados/ (já usado na postagem automática — vira só leitura, nunca pode
 # ser excluído pela tela).
-def _montar_linha(servico, pasta_videos_id, pasta_usados_id, fase, numero):
+def _indice_arquivos_por_nome(lista_arquivos):
+    return {item['name']: item['id'] for item in lista_arquivos}
+
+
+# Função Objetivo: Monta 1 linha (fase/ocorrência) — lê presença de arquivo
+# do SNAPSHOT já salvo (nunca ao vivo — é isso que elimina a lentidão de
+# abrir 1 produto). Só bate no Drive (via _obter_detalhes_arquivo) pros
+# arquivos que o snapshot já confirma existir, nunca pra descobrir se
+# existem (20/08/2026).
+def _montar_linha(servico, snapshot, fase, numero, marca, ean):
+    indice_videos = _indice_arquivos_por_nome(snapshot.arquivos_videos) if snapshot else {}
+    indice_usados = _indice_arquivos_por_nome(snapshot.arquivos_usados) if snapshot else {}
+
     arquivos = {}
     qtd_presente = 0
     for tipo in ('base', 'roteiro', 'completo'):
         nome_esperado = montar_nome_arquivo(fase, numero, tipo)
-        drive_file_id = buscar_arquivo(servico, pasta_videos_id, nome_esperado) if pasta_videos_id else None
+        drive_file_id = indice_videos.get(nome_esperado)
         usado = False
-        if not drive_file_id and pasta_usados_id:
-            drive_file_id = buscar_arquivo(servico, pasta_usados_id, nome_esperado)
+        if not drive_file_id:
+            drive_file_id = indice_usados.get(nome_esperado)
             usado = bool(drive_file_id)
 
         presente = bool(drive_file_id)
         qtd_presente += int(presente)
         detalhes = _obter_detalhes_arquivo(servico, drive_file_id) if presente else {}
 
+        # * [EXPLICAÇÃO] → "Abrir pasta no Drive" abre a PASTA que contém o
+        #                  arquivo (nunca o preview do arquivo isolado) —
+        #                  pedido do usuário (20/08/2026), mesmo espírito de
+        #                  "revelar no explorador de arquivos". O Drive não
+        #                  tem um jeito oficial de abrir a pasta com o
+        #                  arquivo já selecionado/destacado — abre a pasta,
+        #                  o arquivo fica visível dentro dela.
+        pasta_do_arquivo_id = (snapshot.pasta_usados_id if usado else snapshot.pasta_videos_id) if snapshot else ''
+        link_pasta = f'https://drive.google.com/drive/folders/{pasta_do_arquivo_id}' if presente and pasta_do_arquivo_id else ''
+
         arquivos[tipo] = {
             'tipo': tipo, 'nome_esperado': nome_esperado, 'presente': presente,
             'usado': usado, 'drive_file_id': drive_file_id or '',
-            'link_visualizacao': detalhes.get('link_visualizacao', ''),
+            'link_visualizacao': link_pasta,
             'tamanho_formatado': _formatar_tamanho_arquivo(detalhes.get('tamanho_bytes')) if presente else '',
             'duracao_formatada': (
                 _formatar_duracao(detalhes.get('duracao_segundos'))
                 if presente and detalhes.get('duracao_segundos') else ''
             ),
             'pasta_completa': (
-                f'{MARCA_SANDBOX_TESTES}/{EAN_SANDBOX_TESTES}/{NOME_PASTA_VIDEOS}/{NOME_PASTA_USADOS}/'
+                f'{marca}/{ean}/{NOME_PASTA_VIDEOS}/{NOME_PASTA_USADOS}/'
                 if usado else
-                f'{MARCA_SANDBOX_TESTES}/{EAN_SANDBOX_TESTES}/{NOME_PASTA_VIDEOS}/'
+                f'{marca}/{ean}/{NOME_PASTA_VIDEOS}/'
             ),
         }
     return {
@@ -804,28 +824,26 @@ def _montar_linha(servico, pasta_videos_id, pasta_usados_id, fase, numero):
     }
 
 
-# Função Objetivo: Monta o contexto completo do card de 1 produto — usado na
-# 1ª carga do painel lazy, depois de um envio em lote e depois de uma
-# exclusão, sempre recarregando do Drive de verdade (nunca um estado
-# "otimista" assumido no servidor).
+# Função Objetivo: Monta o contexto completo do card de 1 produto — lê do
+# SNAPSHOT já salvo (produto.snapshot_drive), nunca ao vivo (20/08/2026,
+# fim da lentidão de abrir 1 produto). Só bate no Drive pra pegar
+# tamanho/duração dos arquivos que já existem (dentro de _montar_linha).
+# Se o produto nunca foi sincronizado (snapshot_drive não existe ainda),
+# mostra tudo como "não enviado" em vez de quebrar — o snapshot só existe
+# depois de clicar "Sincronizar com o Drive" ou de um envio/exclusão real
+# (que reverifica só aquele 1 produto, ver view_portal_drive_enviar/
+# view_portal_drive_excluir).
 #
-# * [ATENÇÃO] → A leitura/escrita no Drive AINDA aponta 100% pra pasta de
-#               teste (MARCA_SANDBOX_TESTES/EAN_SANDBOX_TESTES), não pra
-#               pasta real do `produto` recebido — decisão do usuário
-#               (20/08/2026): a tela já lista/busca/pagina TODOS os
-#               produtos reais do banco, mas o Drive de cada um só passa a
-#               ler/escrever de verdade depois que a tela nova for validada
-#               sem risco de mexer em pasta real de produção.
-#               `modo_teste_sandbox` no contexto avisa isso na tela (nunca
-#               esconder do usuário que o conteúdo mostrado é da pasta de
+# * [ATENÇÃO] → A pasta raiz já vem redirecionada pra teste por
+#               obter_pasta_raiz_id_ativa() (ver drive/cliente.py) — o
+#               snapshot é sempre da marca/ean REAL do produto, nunca uma
+#               identidade fixa/falsa, só que dentro da raiz de teste
+#               isolada. `modo_teste_sandbox` no contexto avisa isso na
+#               tela (nunca esconder do usuário que a raiz ativa é a de
 #               teste).
 def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensagem_exclusao=None):
     servico = obter_servico_drive()
-    pasta_raiz_id = obter_pasta_raiz_id_ativa()
-    pasta_marca_id = buscar_subpasta(servico, pasta_raiz_id, MARCA_SANDBOX_TESTES)
-    pasta_ean_id = buscar_subpasta(servico, pasta_marca_id, EAN_SANDBOX_TESTES) if pasta_marca_id else None
-    pasta_videos_id = buscar_subpasta(servico, pasta_ean_id, NOME_PASTA_VIDEOS) if pasta_ean_id else None
-    pasta_usados_id = buscar_subpasta(servico, pasta_videos_id, NOME_PASTA_USADOS) if pasta_videos_id else None
+    snapshot = getattr(produto, 'snapshot_drive', None)
 
     fases_e_numeros = (
         [('simples', None)]
@@ -834,7 +852,7 @@ def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensag
     )
     linhas = []
     for fase, numero in fases_e_numeros:
-        linha = _montar_linha(servico, pasta_videos_id, pasta_usados_id, fase, numero)
+        linha = _montar_linha(servico, snapshot, fase, numero, produto.marca, produto.ean)
         linha['extra_trimestral'] = (fase == 'video_trimestral' and numero == 2)
         linhas.append(linha)
 
@@ -851,6 +869,8 @@ def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensag
         'erro_envio': erro_envio,
         'mensagem_exclusao': mensagem_exclusao,
         'modo_teste_sandbox': True,
+        'nunca_sincronizado': snapshot is None,
+        'snapshot_atualizado_em': snapshot.atualizado_em if snapshot else None,
     }
 
 
@@ -935,7 +955,7 @@ def view_portal_drive_enviar(request, produto_id):
 
             try:
                 arquivador.enviar_arquivo(
-                    pasta_raiz_id, MARCA_SANDBOX_TESTES, EAN_SANDBOX_TESTES, fase, numero, tipo, caminho_temporario,
+                    pasta_raiz_id, produto.marca, produto.ean, fase, numero, tipo, caminho_temporario,
                 )
                 resultados.append({'rotulo': rotulo, 'tipo': tipo, 'status': 'enviado', 'mensagem': 'enviado com sucesso.'})
             except FileExistsError:
@@ -943,6 +963,17 @@ def view_portal_drive_enviar(request, produto_id):
         finally:
             if caminho_temporario and os.path.exists(caminho_temporario):
                 os.remove(caminho_temporario)
+
+    if any(resultado['status'] == 'enviado' for resultado in resultados):
+        try:
+            # * [EXPLICAÇÃO] → O upload já aconteceu de verdade — se esta
+            #                  reverificação falhar (rede instável), não
+            #                  vira erro 500: o snapshot só fica um pouco
+            #                  desatualizado até o próximo "Sincronizar com
+            #                  o Drive", nunca perde o arquivo já enviado.
+            verificar_produto_no_drive(produto.id)
+        except Exception:
+            pass
 
     erro_envio = None if resultados else 'Nenhum arquivo selecionado para envio.'
     contexto = _montar_contexto_card(produto, resultado_envio=resultados, erro_envio=erro_envio)
@@ -974,9 +1005,48 @@ def view_portal_drive_excluir(request, produto_id, file_id):
     produto = get_object_or_404(Produto, id=produto_id)
     arquivador = ArquivadorDrive()
     arquivador.excluir_arquivo(file_id)
+    try:
+        verificar_produto_no_drive(produto.id)
+    except Exception:
+        pass
 
     contexto = _montar_contexto_card(produto, mensagem_exclusao='Arquivo movido para a lixeira do Drive.')
     return render(request, 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html', contexto)
+
+
+# Função Objetivo: Botão único "Sincronizar com o Drive" do Portal do
+# Drive — chama a MESMA função já usada pelo "Verificar Todos no Drive" da
+# Agenda de Vídeos principal (verificar_todos_no_drive, que por baixo roda
+# a varredura completa e eficiente do Drive inteiro numa passada só) — 1
+# chamada resolve os 2 lados (snapshot pro Portal, avanço de roadmap pra
+# Agenda), sem duplicar leitura do Drive. Nunca disparado automaticamente
+# em nenhum outro momento desta tela — só aqui, sob clique explícito
+# (20/08/2026).
+@require_POST
+def view_portal_drive_sincronizar(request):
+    querystring_retorno = request.POST.get('querystring_retorno', '')
+    try:
+        resumo_por_produto, sem_produto_no_banco = verificar_todos_no_drive()
+    except Exception:
+        messages.error(request, 'Não foi possível conectar ao Google Drive agora — tente novamente em instantes.')
+        return redirect(f"{reverse('agenda_videos_portal_drive')}?{querystring_retorno}")
+
+    if resumo_por_produto:
+        total_pontos = sum(len(pontos) for _, pontos in resumo_por_produto)
+        messages.success(
+            request,
+            f'Sincronização concluída — {len(resumo_por_produto)} produto(s) avançaram, '
+            f'{total_pontos} ponto(s) marcado(s) no total.',
+        )
+    else:
+        messages.info(request, 'Sincronização concluída — nenhum produto teve ponto novo pra avançar.')
+
+    if sem_produto_no_banco:
+        messages.warning(
+            request,
+            f'{len(sem_produto_no_banco)} pasta(s) no Drive não correspondem a nenhum produto do banco.',
+        )
+    return redirect(f"{reverse('agenda_videos_portal_drive')}?{querystring_retorno}")
 
 
 def view_portal_drive_video(request, file_id):

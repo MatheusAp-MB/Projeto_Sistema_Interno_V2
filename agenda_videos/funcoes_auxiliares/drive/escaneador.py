@@ -89,6 +89,8 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
                 'marca': pasta_marca['name'],
                 'arquivos_videos': arquivos_videos,
                 'arquivos_usados': arquivos_usados,
+                'pasta_videos_id': pasta_videos['id'],
+                'pasta_usados_id': pasta_usados['id'] if pasta_usados else '',
             }
 
     return resultado_por_ean
@@ -125,6 +127,8 @@ def sincronizar_snapshots_drive():
                 'motivo_nao_encontrado': None,
                 'arquivos_videos': dados['arquivos_videos'],
                 'arquivos_usados': dados['arquivos_usados'],
+                'pasta_videos_id': dados['pasta_videos_id'],
+                'pasta_usados_id': dados['pasta_usados_id'],
             },
         )
         atualizados += 1

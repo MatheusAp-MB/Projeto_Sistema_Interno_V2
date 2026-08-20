@@ -20,7 +20,20 @@
     {% if modo_teste_sandbox %}
     <p class="portal-drive-aviso-sandbox portal-drive-aviso-sandbox--card">
         <i class="fas fa-flask"></i>
-        Os arquivos abaixo são da <strong>pasta de teste</strong> — ainda não da pasta real deste produto no Drive.
+        Os arquivos abaixo são deste produto, mas dentro da <strong>pasta de teste</strong> da empresa —
+        ainda não a pasta real de produção.
+    </p>
+    {% endif %}
+
+    {% if nunca_sincronizado %}
+    <p class="portal-drive-aviso-sandbox portal-drive-aviso-sandbox--card">
+        <i class="fas fa-triangle-exclamation"></i>
+        Este produto nunca foi sincronizado com o Drive — clique em "Sincronizar com o Drive" no topo da
+        lista pra carregar o estado real.
+    </p>
+    {% elif snapshot_atualizado_em %}
+    <p class="portal-drive-meta-linha">
+        <i class="fas fa-clock"></i> Dados do Drive sincronizados em {{ snapshot_atualizado_em|date:"d/m/Y H:i" }}.
     </p>
     {% endif %}
 

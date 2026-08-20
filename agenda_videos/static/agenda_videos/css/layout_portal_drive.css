@@ -692,6 +692,26 @@
     gap: 10px;
 }
 
+/* * [EXPLICAÇÃO] → Mesmo padrão padrao/carregando + .htmx-request já usado
+ *                  em .agenda-verificar-drive-toggle (layout_agenda_videos.css)
+ *                  e .portal-drive-produto-carregando — aqui troca texto+ícone
+ *                  inteiro (não só ícone) porque o botão tem rótulo, não só
+ *                  símbolo. hx-disabled-elt="this" no botão trava clique
+ *                  duplo enquanto o POST de exclusão está em voo. */
+.portal-drive-confirmar-exclusao-texto-carregando {
+    display: none;
+    align-items: center;
+    gap: 6px;
+}
+
+.portal-drive-btn-confirmar-exclusao.htmx-request .portal-drive-confirmar-exclusao-texto-padrao {
+    display: none;
+}
+
+.portal-drive-btn-confirmar-exclusao.htmx-request .portal-drive-confirmar-exclusao-texto-carregando {
+    display: inline-flex;
+}
+
 /* ================================================
    MOSTRAR MAIS (Trimestral 02)
    ================================================ */
@@ -737,4 +757,20 @@
     font-size: 0.78rem;
     color: var(--cor-texto-muted);
     white-space: nowrap;
+}
+
+/* * [EXPLICAÇÃO] → Mesmo padrão já usado em layout_agenda_videos.css pro
+ *                  botão "Verificar Drive": 2 textos dentro do mesmo
+ *                  botão, o de carregando escondido até o HTMX marcar o
+ *                  botão como "em andamento" (classe htmx-request). */
+.portal-drive-confirmar-exclusao-texto-carregando {
+    display: none;
+}
+
+.portal-drive-btn-confirmar-exclusao.htmx-request .portal-drive-confirmar-exclusao-texto-padrao {
+    display: none;
+}
+
+.portal-drive-btn-confirmar-exclusao.htmx-request .portal-drive-confirmar-exclusao-texto-carregando {
+    display: inline;
 }

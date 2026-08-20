@@ -27,6 +27,14 @@ class SnapshotArquivosDrive(models.Model):
     pasta_encontrada = models.BooleanField(default=False)
     motivo_nao_encontrado = models.CharField(max_length=255, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → ID das pastas Videos/ e Videos/usados/ no Drive
+    #                  (20/08/2026) — guardado pra montar link direto pra
+    #                  pasta (Portal do Drive, "Abrir pasta no Drive") sem
+    #                  precisar de chamada ao vivo só pra redescobrir o ID.
+    #                  Vazio quando a pasta correspondente não existe.
+    pasta_videos_id = models.CharField(max_length=255, blank=True, default='')
+    pasta_usados_id = models.CharField(max_length=255, blank=True, default='')
+
     # * [EXPLICAÇÃO] → Lista bruta de {"id":..., "name":...}, igual ao que a
     #                  API do Drive devolve — sem interpretação nenhuma ainda
     #                  (isso é papel do parser, sempre recalculado na hora de

@@ -129,17 +129,19 @@ def verificar_produto_no_drive(produto_id):
             defaults={
                 'pasta_encontrada': False, 'motivo_nao_encontrado': motivo,
                 'arquivos_videos': [], 'arquivos_usados': [],
+                'pasta_videos_id': '', 'pasta_usados_id': '',
             },
         )
         estrutura_drive = montar_produto_nao_encontrado(produto.marca, produto.ean, motivo)
         return [], estrutura_drive, DiagnosticoBloqueio('pasta', motivo)
 
-    arquivos_usados = localizador.listar_arquivos_usados(pasta_videos_id)
+    arquivos_usados, pasta_usados_id = localizador.listar_arquivos_usados(pasta_videos_id)
     SnapshotArquivosDrive.objects.update_or_create(
         produto=produto,
         defaults={
             'pasta_encontrada': True, 'motivo_nao_encontrado': None,
             'arquivos_videos': arquivos_brutos, 'arquivos_usados': arquivos_usados,
+            'pasta_videos_id': pasta_videos_id or '', 'pasta_usados_id': pasta_usados_id or '',
         },
     )
 
