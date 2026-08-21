@@ -5,10 +5,13 @@
 // tocável ou texto legível, com nome/duração/tamanho lidos no navegador),
 // contagem do lote selecionado, barra de progresso real durante o envio,
 // fechamento do modal de confirmação de exclusão, o toggle "mostrar mais"
-// da ocorrência extra do Vídeo Trimestral, e o accordion exclusivo entre
+// da ocorrência extra do Vídeo Trimestral, o accordion exclusivo entre
 // produtos da lista (20/08/2026: tela virou lista de TODOS os produtos —
 // só 1 fica aberto/carregado por vez, fechar 1 sempre limpa o conteúdo
-// dele da DOM, pra nunca ter 2 #portal-drive-card ao mesmo tempo).
+// dele da DOM, pra nunca ter 2 #portal-drive-card ao mesmo tempo), e a
+// barra de progresso real do botão "Sincronizar com o Drive" (21/08/2026:
+// antes era um POST comum sem feedback nenhum — agora dispara a
+// sincronização via fetch e acompanha o progresso por polling de status).
 // Delegação de evento no document, sem onclick inline.
 
 document.addEventListener('click', function (evento) {
@@ -477,3 +480,93 @@ document.addEventListener('dblclick', function (evento) {
     temporizadorCliqueVideo = null;
     alternarTelaCheia(evento.target.closest('.portal-drive-player'));
 });
+
+
+// Função Objetivo: Intercepta o submit do botão "Sincronizar com o Drive"
+// (já depois do confirm() aceito) — em vez de deixar o navegador fazer um
+// POST comum (trava a tela até a resposta inteira do servidor voltar, sem
+// nenhum feedback visual no meio do caminho), dispara a sincronização via
+// fetch e passa a consultar o status por polling. A sincronização real
+// roda numa thread em background no servidor (ver
+// view_portal_drive_sincronizar/_rodar_sincronizacao_portal_drive_em_thread
+// em views.py) — o servidor responde na hora, sem esperar ela terminar.
+var formSincronizarDrive = document.getElementById('portal-drive-form-sincronizar');
+if (formSincronizarDrive) {
+    formSincronizarDrive.addEventListener('submit', function (evento) {
+        evento.preventDefault();
+        iniciarSincronizacaoDrive(formSincronizarDrive);
+    });
+}
+
+function iniciarSincronizacaoDrive(form) {
+    var botao = form.querySelector('.portal-drive-btn-sincronizar');
+    var progresso = document.querySelector('.portal-drive-sincronizar-progresso');
+
+    botao.disabled = true;
+    botao.classList.add('portal-drive-sincronizando');
+    progresso.hidden = false;
+    atualizarBarraSincronizacaoDrive(progresso, 'iniciando', 0, null);
+
+    fetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function (resposta) {
+            if (!resposta.ok) throw new Error('Falha ao iniciar a sincronização.');
+            consultarStatusSincronizacaoDrive(form, botao, progresso, 0);
+        })
+        .catch(function () {
+            alert('Não foi possível iniciar a sincronização — tenta de novo.');
+            botao.disabled = false;
+            botao.classList.remove('portal-drive-sincronizando');
+            progresso.hidden = true;
+        });
+}
+
+// Função Objetivo: Consulta o status a cada 1s — se ainda está rodando,
+// atualiza a barra e agenda a próxima consulta; se terminou (concluído ou
+// erro), recarrega a tela pra mostrar a mensagem final (montada pelo
+// Django messages framework no próximo GET, ver view_portal_drive) e os
+// dados atualizados da lista. `falhasConsecutivas` limita a tentativa de
+// novo em caso de instabilidade de rede — depois de 10 falhas em sequência
+// (~10s), desiste e avisa, em vez de tentar pra sempre em silêncio.
+function consultarStatusSincronizacaoDrive(form, botao, progresso, falhasConsecutivas) {
+    fetch(form.dataset.urlStatus)
+        .then(function (resposta) { return resposta.json(); })
+        .then(function (estado) {
+            if (estado.status === 'rodando') {
+                atualizarBarraSincronizacaoDrive(progresso, estado.etapa, estado.processados, estado.total);
+                setTimeout(function () { consultarStatusSincronizacaoDrive(form, botao, progresso, 0); }, 1000);
+                return;
+            }
+            // 'concluido', 'erro' ou 'ocioso' (não deveria vir 'ocioso' aqui,
+            // mas trata como fim por segurança) — recarrega a tela.
+            window.location.href = form.dataset.urlRetorno;
+        })
+        .catch(function () {
+            if (falhasConsecutivas >= 9) {
+                alert('Perdemos a conexão com o servidor durante a sincronização — atualize a página pra ver o estado real.');
+                return;
+            }
+            setTimeout(function () { consultarStatusSincronizacaoDrive(form, botao, progresso, falhasConsecutivas + 1); }, 1000);
+        });
+}
+
+var ROTULO_ETAPA_SINCRONIZACAO_DRIVE = {
+    iniciando: 'Iniciando sincronização...',
+    lendo_drive: 'Lendo o Google Drive...',
+    atualizando_produtos: 'Atualizando produtos',
+    avancando_roadmap: 'Avançando etapas',
+};
+
+function atualizarBarraSincronizacaoDrive(progresso, etapa, processados, total) {
+    var barra = progresso.querySelector('.portal-drive-sincronizar-progresso-barra');
+    var texto = progresso.querySelector('.portal-drive-sincronizar-progresso-texto');
+    var rotulo = ROTULO_ETAPA_SINCRONIZACAO_DRIVE[etapa] || 'Sincronizando...';
+
+    if (total) {
+        var percentual = Math.round((processados / total) * 100);
+        barra.value = percentual;
+        texto.textContent = rotulo + ': ' + processados + ' de ' + total + ' (' + percentual + '%)';
+    } else {
+        barra.removeAttribute('value');
+        texto.textContent = rotulo;
+    }
+}

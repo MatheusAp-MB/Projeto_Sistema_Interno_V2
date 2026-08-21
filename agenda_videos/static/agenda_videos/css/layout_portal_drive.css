@@ -873,3 +873,51 @@
     align-items: center;
     gap: 4px;
 }
+
+
+/* ================================================
+   SINCRONIZAR COM O DRIVE — barra de progresso real
+   (21/08/2026: antes era um <form> comum, sem nenhum
+   feedback durante a varredura — a tela "congelava"
+   até a página inteira recarregar. Sincronização passou
+   a rodar numa thread em background no servidor; aqui só
+   a barra de progresso, consultada por polling de status.)
+   ================================================ */
+.portal-drive-btn-sincronizar:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.portal-drive-sincronizar-texto-carregando {
+    display: none;
+    align-items: center;
+    gap: 6px;
+}
+
+.portal-drive-btn-sincronizar.portal-drive-sincronizando .portal-drive-sincronizar-texto-padrao {
+    display: none;
+}
+
+.portal-drive-btn-sincronizar.portal-drive-sincronizando .portal-drive-sincronizar-texto-carregando {
+    display: inline-flex;
+}
+
+.portal-drive-sincronizar-progresso {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 220px;
+}
+
+.portal-drive-sincronizar-progresso-barra {
+    flex: 1;
+    height: 8px;
+    accent-color: var(--cor-primaria-clara);
+}
+
+.portal-drive-sincronizar-progresso-texto {
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}

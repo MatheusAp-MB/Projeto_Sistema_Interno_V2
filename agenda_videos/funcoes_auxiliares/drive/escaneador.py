@@ -103,8 +103,16 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
 # (verificador.verificar_todos_no_drive) rode o avanço de roadmap em cima do
 # snapshot recém-salvo, sem precisar buscar o Drive de novo.
 
-def sincronizar_snapshots_drive():
+def sincronizar_snapshots_drive(callback_progresso=None):
     from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import listar_produtos_agenda_filtrados, Tela
+
+    # * [EXPLICAÇÃO] → callback_progresso(etapa, processados, total) é opcional
+    #                  e existe só pra alimentar a barra de progresso do botão
+    #                  "Sincronizar com o Drive" do Portal (ver views.py,
+    #                  21/08/2026) — quando chamado direto (comando de
+    #                  management, teste), None é o padrão e nada muda.
+    if callback_progresso:
+        callback_progresso('lendo_drive', 0, None)
 
     servico = obter_servico_drive()
     pasta_raiz_id = obter_pasta_raiz_id_ativa()
@@ -129,11 +137,12 @@ def sincronizar_snapshots_drive():
     #                  no Drive — agora é 1 query pra pegar os produtos
     #                  ativos + busca em dicionário em memória).
     produtos_ativos = list(listar_produtos_agenda_filtrados(tela=Tela.GERAL))
+    total_produtos_ativos = len(produtos_ativos)
 
     atualizados = 0
     produto_ids_encontrados = []
 
-    for produto in produtos_ativos:
+    for indice, produto in enumerate(produtos_ativos, start=1):
         dados = arvore_por_ean.get(produto.ean)
 
         if dados is None:
@@ -161,6 +170,9 @@ def sincronizar_snapshots_drive():
             produto_ids_encontrados.append(produto.id)
 
         atualizados += 1
+
+        if callback_progresso:
+            callback_progresso('atualizando_produtos', indice, total_produtos_ativos)
 
     eans_ativos = {produto.ean for produto in produtos_ativos}
     sem_produto_no_banco = [ean for ean in arvore_por_ean if ean not in eans_ativos]

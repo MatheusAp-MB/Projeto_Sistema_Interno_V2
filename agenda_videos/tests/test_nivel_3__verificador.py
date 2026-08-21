@@ -393,7 +393,7 @@ def test_nivel_3__verificar_todos_no_drive_simulado_1_produto_avanca(tabela_resu
         arquivos_videos=[{'id': 'id_base', 'name': 'Simples_Base.mp4'}],
     )
 
-    def _sincronizar_fake():
+    def _sincronizar_fake(callback_progresso=None):
         return None, ['EAN-inexistente-no-banco'], [produto.id]
 
     monkeypatch.setattr(escaneador, 'sincronizar_snapshots_drive', _sincronizar_fake)
@@ -428,7 +428,7 @@ def test_nivel_3__verificar_todos_no_drive_simulado_produto_sem_avanco_fica_fora
     CicloVideo.objects.create(produto=produto, fase=Fase.SIMPLES, numero_ocorrencia=1)
     SnapshotArquivosDrive.objects.create(produto=produto, pasta_encontrada=True, arquivos_videos=[])
 
-    def _sincronizar_fake():
+    def _sincronizar_fake(callback_progresso=None):
         return None, [], [produto.id]
 
     monkeypatch.setattr(escaneador, 'sincronizar_snapshots_drive', _sincronizar_fake)

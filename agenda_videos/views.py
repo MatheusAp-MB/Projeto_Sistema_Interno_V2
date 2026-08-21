@@ -10,6 +10,7 @@
 import io
 import os
 import tempfile
+import threading
 from datetime import date, datetime
 
 from googleapiclient.http import MediaIoBaseDownload
@@ -18,12 +19,15 @@ import requests
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, StreamingHttpResponse
+from django.http import (
+    HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseNotFound, JsonResponse, StreamingHttpResponse,
+)
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
+from core.empresa import definir_empresa_ativa, obter_empresa_ativa
 from produtos.models import Produto
 from agenda_videos.funcoes_auxiliares.contexto_tela_agenda_videos import ContextoTelaAgendaVideos
 from agenda_videos.funcoes_auxiliares.drive import (
@@ -943,6 +947,25 @@ def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensag
 #               Agenda de Vídeos; não escalaria bem se isso um dia virasse
 #               dezenas de milhares de produtos.
 def view_portal_drive(request):
+    from django.core.cache import cache
+
+    # * [EXPLICAÇÃO] → A sincronização real roda numa thread em background
+    #                  (ver view_portal_drive_sincronizar/
+    #                  _rodar_sincronizacao_portal_drive_em_thread abaixo) —
+    #                  sem request/response nenhum durante a execução, então
+    #                  não dá pra usar messages.success() na hora. O resultado
+    #                  fica guardado no cache e só é "descarregado" como
+    #                  mensagem de verdade no próximo GET desta tela (aqui).
+    estado_sincronizacao = cache.get(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE)
+    if estado_sincronizacao and estado_sincronizacao.get('status') in ('concluido', 'erro'):
+        if estado_sincronizacao['status'] == 'erro':
+            messages.error(request, 'Não foi possível conectar ao Google Drive agora — tente novamente em instantes.')
+        else:
+            getattr(messages, estado_sincronizacao['tipo_mensagem'])(request, estado_sincronizacao['mensagem'])
+            if estado_sincronizacao.get('aviso_sem_produto'):
+                messages.warning(request, estado_sincronizacao['aviso_sem_produto'])
+        cache.delete(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE)
+
     busca = request.GET.get('busca', '').strip()
     marcas_selecionadas = request.GET.getlist('marca')
     fases_selecionadas = request.GET.getlist('fase')
@@ -1119,39 +1142,123 @@ def view_portal_drive_excluir(request, produto_id, file_id):
     return render(request, 'agenda_videos/parciais/estrutura_parcial_portal_drive_card.html', contexto)
 
 
+# Função Objetivo: Chave única de cache pro status da sincronização do
+# Portal do Drive — mesmo mecanismo já usado em
+# precificacao/views/exportacao_precos.py (django.core.cache), sem
+# introduzir nenhuma peça nova de infraestrutura. Só 1 sincronização por
+# vez faz sentido pra este botão (não é por usuário), por isso é 1 chave
+# fixa, não uma por token/sessão.
+CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE = 'portal_drive_sincronizacao_status'
+
+
+# Função Objetivo: Roda a sincronização de verdade numa thread separada,
+# publicando o progresso em cache — quem lê esse progresso é sempre a view
+# de status (view_portal_drive_sincronizar_status), consultada por polling
+# do navegador, nunca a request original (que já respondeu antes desta
+# função rodar). try/except cobre a função inteira de propósito: sem isso,
+# uma falha de rede no meio da varredura mataria a thread em silêncio, sem
+# nenhum jeito do usuário saber que a sincronização quebrou.
+def _rodar_sincronizacao_portal_drive_em_thread(empresa):
+    from django.core.cache import cache
+
+    # * [EXPLICAÇÃO] → obter_pasta_raiz_id_ativa() (e qualquer outra função
+    #                  do domínio Drive) depende da empresa ativa, guardada
+    #                  num threading.local() (core/empresa.py) que o
+    #                  EmpresaMiddleware só popula na thread que atende a
+    #                  requisição HTTP original. Esta é uma thread NOVA,
+    #                  sem relação com aquela — sem esta linha, toda chamada
+    #                  aqui dentro quebra com "nenhuma empresa ativa
+    #                  encontrada" (bug real, achado em 21/08/2026).
+    definir_empresa_ativa(empresa)
+
+    def callback_progresso(etapa, processados, total):
+        cache.set(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE, {
+            'status': 'rodando', 'etapa': etapa, 'processados': processados, 'total': total,
+        }, timeout=600)
+
+    try:
+        resumo_por_produto, sem_produto_no_banco = verificar_todos_no_drive(callback_progresso)
+    except Exception:
+        # * [EXPLICAÇÃO] → Mantido de propósito (não é só diagnóstico
+        #                  pontual): uma thread em background que falha em
+        #                  silêncio é praticamente impossível de investigar
+        #                  depois — sem isso, qualquer erro futuro aqui
+        #                  (mesmo um real de conexão com o Drive) não deixa
+        #                  nenhum rastro no terminal, só a mensagem genérica
+        #                  pro usuário.
+        import traceback
+        traceback.print_exc()
+        cache.set(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE, {'status': 'erro'}, timeout=600)
+        return
+
+    if resumo_por_produto:
+        total_pontos = sum(len(pontos) for _, pontos in resumo_por_produto)
+        mensagem = (
+            f'Sincronização concluída — {len(resumo_por_produto)} produto(s) avançaram, '
+            f'{total_pontos} ponto(s) marcado(s) no total.'
+        )
+        tipo_mensagem = 'success'
+    else:
+        mensagem = 'Sincronização concluída — nenhum produto teve ponto novo pra avançar.'
+        tipo_mensagem = 'info'
+
+    aviso_sem_produto = None
+    if sem_produto_no_banco:
+        aviso_sem_produto = f'{len(sem_produto_no_banco)} pasta(s) no Drive não correspondem a nenhum produto do banco.'
+
+    cache.set(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE, {
+        'status': 'concluido', 'mensagem': mensagem, 'tipo_mensagem': tipo_mensagem,
+        'aviso_sem_produto': aviso_sem_produto,
+    }, timeout=600)
+
+
 # Função Objetivo: Botão único "Sincronizar com o Drive" do Portal do
 # Drive — chama a MESMA função já usada pelo "Verificar Todos no Drive" da
 # Agenda de Vídeos principal (verificar_todos_no_drive, que por baixo roda
 # a varredura completa e eficiente do Drive inteiro numa passada só) — 1
 # chamada resolve os 2 lados (snapshot pro Portal, avanço de roadmap pra
 # Agenda), sem duplicar leitura do Drive. Nunca disparado automaticamente
-# em nenhum outro momento desta tela — só aqui, sob clique explícito
-# (20/08/2026).
+# em nenhum outro momento desta tela — só aqui, sob clique explícito.
+#
+# Reescrita (21/08/2026) pra rodar em thread + polling em vez de síncrono:
+# antes a view ficava parada até a sincronização inteira terminar (vários
+# segundos, sem nenhum feedback visual — a tela "congelava"). Agora só
+# dispara a thread e responde na hora; o progresso real é consultado por
+# view_portal_drive_sincronizar_status, e o resultado final é mostrado no
+# próximo GET de view_portal_drive (ver comentário lá).
 @require_POST
 def view_portal_drive_sincronizar(request):
-    querystring_retorno = request.POST.get('querystring_retorno', '')
-    try:
-        resumo_por_produto, sem_produto_no_banco = verificar_todos_no_drive()
-    except Exception:
-        messages.error(request, 'Não foi possível conectar ao Google Drive agora — tente novamente em instantes.')
-        return redirect(f"{reverse('agenda_videos_portal_drive')}?{querystring_retorno}")
+    from django.core.cache import cache
 
-    if resumo_por_produto:
-        total_pontos = sum(len(pontos) for _, pontos in resumo_por_produto)
-        messages.success(
-            request,
-            f'Sincronização concluída — {len(resumo_por_produto)} produto(s) avançaram, '
-            f'{total_pontos} ponto(s) marcado(s) no total.',
-        )
-    else:
-        messages.info(request, 'Sincronização concluída — nenhum produto teve ponto novo pra avançar.')
+    estado_atual = cache.get(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE)
+    if estado_atual and estado_atual.get('status') == 'rodando':
+        return JsonResponse(estado_atual)
 
-    if sem_produto_no_banco:
-        messages.warning(
-            request,
-            f'{len(sem_produto_no_banco)} pasta(s) no Drive não correspondem a nenhum produto do banco.',
-        )
-    return redirect(f"{reverse('agenda_videos_portal_drive')}?{querystring_retorno}")
+    estado_inicial = {'status': 'rodando', 'etapa': 'iniciando', 'processados': 0, 'total': None}
+    cache.set(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE, estado_inicial, timeout=600)
+
+    # * [EXPLICAÇÃO] → Captura a empresa ativa AQUI, na thread da requisição
+    #                  (onde o EmpresaMiddleware já resolveu ela de verdade),
+    #                  e repassa pra dentro da thread nova — ver comentário
+    #                  em _rodar_sincronizacao_portal_drive_em_thread.
+    threading.Thread(
+        target=_rodar_sincronizacao_portal_drive_em_thread,
+        args=(obter_empresa_ativa(),),
+        daemon=True,
+    ).start()
+
+    return JsonResponse(estado_inicial)
+
+
+# Função Objetivo: Endpoint de polling — o navegador consulta a cada 1s
+# enquanto a sincronização está rodando (ver script_portal_drive.js). GET
+# simples, sem side-effect nenhum, só lê o cache.
+@require_GET
+def view_portal_drive_sincronizar_status(request):
+    from django.core.cache import cache
+
+    estado = cache.get(CHAVE_CACHE_SINCRONIZACAO_PORTAL_DRIVE)
+    return JsonResponse(estado or {'status': 'ocioso'})
 
 
 def view_portal_drive_video(request, file_id):

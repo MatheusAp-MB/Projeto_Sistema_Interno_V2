@@ -14,13 +14,21 @@
 
 <div class="agenda-acoes-automacao">
     <form method="post" action="{% url 'agenda_videos_portal_drive_sincronizar' %}"
+          id="portal-drive-form-sincronizar"
+          data-url-status="{% url 'agenda_videos_portal_drive_sincronizar_status' %}"
+          data-url-retorno="{% url 'agenda_videos_portal_drive' %}?{{ querystring_sem_pagina }}"
           onsubmit="return confirm('Isso vai varrer o Google Drive inteiro (pasta de teste) e atualizar o progresso de todos os produtos — pode demorar alguns segundos. Confirma?');">
         {% csrf_token %}
         <input type="hidden" name="querystring_retorno" value="{{ querystring_sem_pagina }}">
-        <button type="submit" class="btn-acao-secundario">
-            <i class="fas fa-cloud-arrow-down"></i> Sincronizar com o Drive
+        <button type="submit" class="btn-acao-secundario portal-drive-btn-sincronizar">
+            <span class="portal-drive-sincronizar-texto-padrao"><i class="fas fa-cloud-arrow-down"></i> Sincronizar com o Drive</span>
+            <span class="portal-drive-sincronizar-texto-carregando"><i class="fas fa-spinner fa-spin"></i> Sincronizando...</span>
         </button>
     </form>
+    <div class="portal-drive-sincronizar-progresso" hidden>
+        <progress class="portal-drive-sincronizar-progresso-barra" max="100"></progress>
+        <span class="portal-drive-sincronizar-progresso-texto"></span>
+    </div>
 </div>
 
 <form method="get" class="agenda-barra-busca">

@@ -150,19 +150,22 @@ def verificar_produto_no_drive(produto_id):
     return etapas_marcadas, estrutura_drive, diagnostico
 
 
-def verificar_todos_no_drive():
+def verificar_todos_no_drive(callback_progresso=None):
     from agenda_videos.models import SnapshotArquivosDrive
     from .escaneador import sincronizar_snapshots_drive
 
-    _, sem_produto_no_banco, produto_ids_atualizados = sincronizar_snapshots_drive()
+    _, sem_produto_no_banco, produto_ids_atualizados = sincronizar_snapshots_drive(callback_progresso)
 
+    total_avanco = len(produto_ids_atualizados)
     resumo_por_produto = []
-    for produto_id in produto_ids_atualizados:
+    for indice, produto_id in enumerate(produto_ids_atualizados, start=1):
         snapshot = SnapshotArquivosDrive.objects.select_related('produto').get(produto_id=produto_id)
         produto = snapshot.produto
         estrutura_drive = parsear_arquivos_produto(produto.marca, produto.ean, snapshot.arquivos_videos)
         etapas_marcadas, _ = _avancar_etapas_com_estrutura(produto_id, estrutura_drive)
         if etapas_marcadas:
             resumo_por_produto.append((produto_id, etapas_marcadas))
+        if callback_progresso:
+            callback_progresso('avancando_roadmap', indice, total_avanco)
 
     return resumo_por_produto, sem_produto_no_banco
