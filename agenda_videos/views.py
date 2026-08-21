@@ -723,6 +723,28 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
 
 ROTULO_FASE = {'simples': 'Simples', 'video_mensal': 'Mensal', 'video_trimestral': 'Trimestral'}
 
+# * [EXPLICAÇÃO] → Extraído pra constante de módulo (20/08/2026) — antes
+#                  vivia só dentro de _montar_contexto_card; agora
+#                  _contar_arquivos_presentes também precisa da mesma
+#                  lista, e duplicar as 7 fases/ocorrências em 2 lugares
+#                  era um risco real de um dia os dois divergirem.
+FASES_E_NUMEROS = (
+    [('simples', None)]
+    + [('video_mensal', n) for n in range(1, 5)]
+    + [('video_trimestral', 1), ('video_trimestral', 2)]
+)
+# * [EXPLICAÇÃO] → A ocorrência extra do Trimestral (a 2ª) nunca conta no
+#                  total "X de Y arquivos" — mesmo recorte que o card
+#                  aberto já usa (linhas_principais, abaixo). Precisa ser
+#                  o MESMO número nos 2 lugares (linha colapsada da lista
+#                  e cabeçalho do card aberto), senão a tela mostra 2
+#                  contagens diferentes pro mesmo produto.
+FASES_E_NUMEROS_PRINCIPAIS = [
+    (fase, numero) for fase, numero in FASES_E_NUMEROS
+    if not (fase == 'video_trimestral' and numero == 2)
+]
+TOTAL_ARQUIVOS_ESPERADOS = len(FASES_E_NUMEROS_PRINCIPAIS) * 3  # 6 linhas principais × 3 tipos = 18
+
 
 def _rotulo_linha(fase, numero):
     return ROTULO_FASE[fase] if numero is None else f'{ROTULO_FASE[fase]} {numero:02d}'
@@ -737,14 +759,41 @@ def _obter_detalhes_arquivo(servico, drive_file_id):
             fileId=drive_file_id, fields='webViewLink, size, videoMediaMetadata(durationMillis)',
             supportsAllDrives=True,
         ).execute()
-        duracao_ms = metadados.get('videoMediaMetadata', {}).get('durationMillis')
-        return {
-            'link_visualizacao': metadados.get('webViewLink', ''),
-            'tamanho_bytes': int(metadados.get('size', 0) or 0),
-            'duracao_segundos': int(duracao_ms) / 1000 if duracao_ms else 0,
-        }
     except Exception:
-        return {'link_visualizacao': '', 'tamanho_bytes': 0, 'duracao_segundos': 0}
+        # * [EXPLICAÇÃO] → Falha não vira cache — devolve None (em vez de
+        #                  um dict zerado) pra _obter_detalhes_com_cache
+        #                  saber que isso foi um erro passageiro, não um
+        #                  resultado real, e tentar de novo no próximo open.
+        return None
+    duracao_ms = metadados.get('videoMediaMetadata', {}).get('durationMillis')
+    return {
+        'link_visualizacao': metadados.get('webViewLink', ''),
+        'tamanho_bytes': int(metadados.get('size', 0) or 0),
+        'duracao_segundos': int(duracao_ms) / 1000 if duracao_ms else 0,
+    }
+
+
+# * [EXPLICAÇÃO] → Cache de detalhes (link/tamanho/duração) DENTRO do
+#                  próprio item do snapshot já salvo (20/08/2026) — a 1ª
+#                  vez que um arquivo é aberto, os 3 campos são buscados ao
+#                  vivo e gravados de volta no item; da 2ª vez em diante
+#                  (reabrir o mesmo produto), a leitura é 100% do banco,
+#                  sem chamada nenhuma ao Drive. Invalida sozinho: qualquer
+#                  sincronização sobrescreve arquivos_videos/arquivos_usados
+#                  do zero, sem esses campos — o próximo open recalcula.
+CAMPOS_CACHE_DETALHES = ('link_visualizacao', 'tamanho_bytes', 'duracao_segundos')
+
+
+def _obter_detalhes_com_cache(servico, item):
+    if all(campo in item for campo in CAMPOS_CACHE_DETALHES):
+        return {campo: item[campo] for campo in CAMPOS_CACHE_DETALHES}, False
+
+    detalhes = _obter_detalhes_arquivo(servico, item['id'])
+    if detalhes is None:
+        return {'link_visualizacao': '', 'tamanho_bytes': 0, 'duracao_segundos': 0}, False
+
+    item.update(detalhes)
+    return detalhes, True
 
 
 def _formatar_tamanho_arquivo(tamanho_bytes):
@@ -761,50 +810,47 @@ def _formatar_duracao(duracao_segundos):
     return f'{minutos}:{segundos_restantes:02d}'
 
 
-# Função Objetivo: Monta 1 linha (fase/ocorrência) — procura cada um dos 3
-# arquivos primeiro em Videos/ (ativo) e, se não achar lá, em Videos/
-# usados/ (já usado na postagem automática — vira só leitura, nunca pode
-# ser excluído pela tela).
 def _indice_arquivos_por_nome(lista_arquivos):
-    return {item['name']: item['id'] for item in lista_arquivos}
+    # * [EXPLICAÇÃO] → Indexa o ITEM inteiro (não só o id) — precisa do
+    #                  dict completo pra _obter_detalhes_com_cache poder
+    #                  ler/gravar os campos extras de cache nele.
+    return {item['name']: item for item in lista_arquivos}
 
 
 # Função Objetivo: Monta 1 linha (fase/ocorrência) — lê presença de arquivo
-# do SNAPSHOT já salvo (nunca ao vivo — é isso que elimina a lentidão de
-# abrir 1 produto). Só bate no Drive (via _obter_detalhes_arquivo) pros
-# arquivos que o snapshot já confirma existir, nunca pra descobrir se
-# existem (20/08/2026).
+# do SNAPSHOT já salvo (nunca ao vivo). Só bate no Drive (via
+# _obter_detalhes_arquivo) pros arquivos que o snapshot já confirma
+# existir, nunca pra descobrir se existem.
 def _montar_linha(servico, snapshot, fase, numero, marca, ean):
     indice_videos = _indice_arquivos_por_nome(snapshot.arquivos_videos) if snapshot else {}
     indice_usados = _indice_arquivos_por_nome(snapshot.arquivos_usados) if snapshot else {}
 
     arquivos = {}
     qtd_presente = 0
+    houve_cache_novo = False
     for tipo in ('base', 'roteiro', 'completo'):
         nome_esperado = montar_nome_arquivo(fase, numero, tipo)
-        drive_file_id = indice_videos.get(nome_esperado)
+        item = indice_videos.get(nome_esperado)
         usado = False
-        if not drive_file_id:
-            drive_file_id = indice_usados.get(nome_esperado)
-            usado = bool(drive_file_id)
+        if not item:
+            item = indice_usados.get(nome_esperado)
+            usado = bool(item)
 
-        presente = bool(drive_file_id)
+        presente = bool(item)
         qtd_presente += int(presente)
-        detalhes = _obter_detalhes_arquivo(servico, drive_file_id) if presente else {}
+        if presente:
+            detalhes, novo = _obter_detalhes_com_cache(servico, item)
+            houve_cache_novo = houve_cache_novo or novo
+        else:
+            detalhes = {}
 
-        # * [EXPLICAÇÃO] → "Abrir pasta no Drive" abre a PASTA que contém o
-        #                  arquivo (nunca o preview do arquivo isolado) —
-        #                  pedido do usuário (20/08/2026), mesmo espírito de
-        #                  "revelar no explorador de arquivos". O Drive não
-        #                  tem um jeito oficial de abrir a pasta com o
-        #                  arquivo já selecionado/destacado — abre a pasta,
-        #                  o arquivo fica visível dentro dela.
+        drive_file_id = item['id'] if item else ''
         pasta_do_arquivo_id = (snapshot.pasta_usados_id if usado else snapshot.pasta_videos_id) if snapshot else ''
         link_pasta = f'https://drive.google.com/drive/folders/{pasta_do_arquivo_id}' if presente and pasta_do_arquivo_id else ''
 
         arquivos[tipo] = {
             'tipo': tipo, 'nome_esperado': nome_esperado, 'presente': presente,
-            'usado': usado, 'drive_file_id': drive_file_id or '',
+            'usado': usado, 'drive_file_id': drive_file_id,
             'link_visualizacao': link_pasta,
             'tamanho_formatado': _formatar_tamanho_arquivo(detalhes.get('tamanho_bytes')) if presente else '',
             'duracao_formatada': (
@@ -821,39 +867,45 @@ def _montar_linha(servico, snapshot, fase, numero, marca, ean):
         'fase': fase, 'numero': numero, 'chave': f'{fase}-{numero or 0}',
         'rotulo': _rotulo_linha(fase, numero), 'arquivos': arquivos,
         'qtd_presente': qtd_presente, 'completa': qtd_presente == 3,
-    }
+    }, houve_cache_novo
 
 
-# Função Objetivo: Monta o contexto completo do card de 1 produto — lê do
-# SNAPSHOT já salvo (produto.snapshot_drive), nunca ao vivo (20/08/2026,
-# fim da lentidão de abrir 1 produto). Só bate no Drive pra pegar
-# tamanho/duração dos arquivos que já existem (dentro de _montar_linha).
-# Se o produto nunca foi sincronizado (snapshot_drive não existe ainda),
-# mostra tudo como "não enviado" em vez de quebrar — o snapshot só existe
-# depois de clicar "Sincronizar com o Drive" ou de um envio/exclusão real
-# (que reverifica só aquele 1 produto, ver view_portal_drive_enviar/
-# view_portal_drive_excluir).
-#
-# * [ATENÇÃO] → A pasta raiz já vem redirecionada pra teste por
-#               obter_pasta_raiz_id_ativa() (ver drive/cliente.py) — o
-#               snapshot é sempre da marca/ean REAL do produto, nunca uma
-#               identidade fixa/falsa, só que dentro da raiz de teste
-#               isolada. A tela não avisa mais isso na UI (decisão do
-#               usuário, 20/08/2026) — é só configuração de ambiente.
+# Função Objetivo: Conta quantos dos arquivos esperados (linhas principais,
+# mesmo recorte de _montar_contexto_card) já existem no Drive — 100% a
+# partir do snapshot já salvo, nenhuma chamada de rede. Usado tanto pro
+# filtro de Progresso quanto pro contador "X de Y" da linha colapsada.
+def _contar_arquivos_presentes(produto):
+    snapshot = getattr(produto, 'snapshot_drive', None)
+    if snapshot is None:
+        return 0
+    nomes_presentes = {item['name'] for item in snapshot.arquivos_videos} | {item['name'] for item in snapshot.arquivos_usados}
+    return sum(
+        1
+        for fase, numero in FASES_E_NUMEROS_PRINCIPAIS
+        for tipo in ('base', 'roteiro', 'completo')
+        if montar_nome_arquivo(fase, numero, tipo) in nomes_presentes
+    )
+
+
 def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensagem_exclusao=None):
     servico = obter_servico_drive()
     snapshot = getattr(produto, 'snapshot_drive', None)
 
-    fases_e_numeros = (
-        [('simples', None)]
-        + [('video_mensal', n) for n in range(1, 5)]
-        + [('video_trimestral', 1), ('video_trimestral', 2)]
-    )
     linhas = []
-    for fase, numero in fases_e_numeros:
-        linha = _montar_linha(servico, snapshot, fase, numero, produto.marca, produto.ean)
+    houve_cache_novo = False
+    for fase, numero in FASES_E_NUMEROS:
+        linha, novo = _montar_linha(servico, snapshot, fase, numero, produto.marca, produto.ean)
         linha['extra_trimestral'] = (fase == 'video_trimestral' and numero == 2)
         linhas.append(linha)
+        houve_cache_novo = houve_cache_novo or novo
+
+    if houve_cache_novo and snapshot is not None:
+        # * [EXPLICAÇÃO] → 1 único save no final, não 1 por arquivo — os
+        #                  itens dentro de arquivos_videos/arquivos_usados
+        #                  já foram mutados in-place por
+        #                  _obter_detalhes_com_cache, isso só persiste tudo
+        #                  de uma vez.
+        snapshot.save(update_fields=['arquivos_videos', 'arquivos_usados'])
 
     linhas_principais = [l for l in linhas if not l['extra_trimestral']]
     total = sum(1 for l in linhas_principais for a in l['arquivos'].values())
@@ -868,40 +920,95 @@ def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensag
         'erro_envio': erro_envio,
         'mensagem_exclusao': mensagem_exclusao,
         'nunca_sincronizado': snapshot is None,
+        'pasta_nao_encontrada': snapshot is not None and not snapshot.pasta_encontrada,
+        'motivo_nao_encontrado': snapshot.motivo_nao_encontrado if snapshot else None,
         'snapshot_atualizado_em': snapshot.atualizado_em if snapshot else None,
     }
 
 
 # Função Objetivo: Tela de lista — TODOS os produtos reais que já
-# participam da Agenda de Vídeos (mesmo recorte de
-# listar_produtos_com_historico, sem os filtros extras daquela tela), com
-# busca e paginação (mesmo padrão da tela de Histórico). Cada linha
-# colapsada só mostra dado de banco (foto/marca/título/EAN/SKU) — nenhuma
-# chamada ao Drive acontece aqui; o detalhe (fases/arquivos) de 1 produto
-# só é buscado no Drive quando a linha dele é aberta (ver
-# view_portal_drive_detalhe), pra não fazer dezenas de chamadas ao Drive
-# por produto listado de uma vez só.
+# participam da Agenda de Vídeos (tela=Tela.GERAL), com busca, paginação e
+# filtros (Marca, Progresso de envio, Fase atual, Urgente, Nunca
+# sincronizado). Cada linha colapsada mostra dado de banco mais o
+# progresso de arquivos (calculado do snapshot já salvo, sem chamada ao
+# Drive); o detalhe (fases/arquivos) de 1 produto só é buscado/exibido
+# quando a linha dele é aberta (ver view_portal_drive_detalhe).
+#
+# * [ATENÇÃO] → O filtro de Progresso não dá pra fazer só com SQL (os
+#               nomes de arquivo presentes ficam dentro de um JSON no
+#               snapshot) — por isso, só QUANDO esse filtro é usado, a
+#               lista inteira (já filtrada por busca/marca/fase/urgente/
+#               nunca-sincronizado) é avaliada em Python antes de
+#               paginar. Tranquilo pro tamanho real do catálogo da
+#               Agenda de Vídeos; não escalaria bem se isso um dia virasse
+#               dezenas de milhares de produtos.
 def view_portal_drive(request):
     busca = request.GET.get('busca', '').strip()
+    marcas_selecionadas = request.GET.getlist('marca')
+    fases_selecionadas = request.GET.getlist('fase')
+    progresso = request.GET.get('progresso', 'todos')
+    somente_urgentes = request.GET.get('urgente') == '1'
+    sincronizado = request.GET.get('sincronizado', 'todos')
+
     produtos = listar_produtos_agenda_filtrados(tela=Tela.GERAL, busca=busca or None)
+    produtos = produtos.select_related('snapshot_drive', 'indicadores_agenda', 'participacao_agenda')
+
+    if marcas_selecionadas:
+        produtos = produtos.filter(marca__in=marcas_selecionadas)
+    if fases_selecionadas:
+        produtos = produtos.filter(indicadores_agenda__fase_atual__in=fases_selecionadas)
+    if somente_urgentes:
+        produtos = produtos.filter(participacao_agenda__urgente=True)
+    if sincronizado == 'sim':
+        produtos = produtos.filter(snapshot_drive__isnull=False)
+    elif sincronizado == 'nao':
+        produtos = produtos.filter(snapshot_drive__isnull=True)
+
+    if progresso in ('pendente', 'completo'):
+        produtos_avaliados = list(produtos)
+        for produto in produtos_avaliados:
+            produto.arquivos_presentes = _contar_arquivos_presentes(produto)
+        if progresso == 'pendente':
+            produtos_para_paginar = [p for p in produtos_avaliados if p.arquivos_presentes < TOTAL_ARQUIVOS_ESPERADOS]
+        else:
+            produtos_para_paginar = [p for p in produtos_avaliados if p.arquivos_presentes >= TOTAL_ARQUIVOS_ESPERADOS]
+    else:
+        produtos_para_paginar = produtos
 
     try:
         por_pagina = int(request.GET.get('por_pagina', '25'))
     except ValueError:
         por_pagina = 25
 
-    paginator = Paginator(produtos, por_pagina)
+    paginator = Paginator(produtos_para_paginar, por_pagina)
     pagina = paginator.get_page(request.GET.get('pagina', 1))
+
+    for produto in pagina:
+        if not hasattr(produto, 'arquivos_presentes'):
+            produto.arquivos_presentes = _contar_arquivos_presentes(produto)
+        produto.arquivos_total = TOTAL_ARQUIVOS_ESPERADOS
+        produto.arquivos_percentual = round(produto.arquivos_presentes / TOTAL_ARQUIVOS_ESPERADOS * 100)
 
     querystring_sem_pagina = request.GET.copy()
     querystring_sem_pagina.pop('pagina', None)
+
+    marcas_disponiveis = (
+        Produto.objects.exclude(marca__isnull=True).exclude(marca='')
+        .values_list('marca', flat=True).distinct().order_by('marca')
+    )
 
     return render(request, 'agenda_videos/estrutura_portal_drive.html', {
         'pagina': pagina,
         'busca': busca,
         'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+        'marcas_disponiveis': marcas_disponiveis,
+        'marcas_selecionadas': marcas_selecionadas,
+        'opcoes_fase': ROTULO_FASE.items(),
+        'fases_selecionadas': fases_selecionadas,
+        'progresso': progresso,
+        'somente_urgentes': somente_urgentes,
+        'sincronizado': sincronizado,
     })
-
 
 # Função Objetivo: Carrega, sob demanda, o painel completo (fases/arquivos)
 # de 1 produto — disparado pelo HTMX só quando a linha dele é aberta na

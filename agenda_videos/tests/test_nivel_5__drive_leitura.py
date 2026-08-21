@@ -102,7 +102,7 @@ def test_sincronizar_snapshots_drive_roda_de_verdade_sem_erro(tabela_resultados)
     )
     registrar_resultado(
         tabela_resultados, teste='sincronizar_snapshots_drive() contra o Drive real',
-        entrada='Drive real + banco de teste vazio', esperado='roda sem exceção; SnapshotArquivosDrive criado só pros EANs que já têm Produto no banco de teste',
+        entrada='Drive real + banco de teste vazio', esperado='roda sem exceção; SnapshotArquivosDrive criado pra TODO produto ativo do banco de teste, achado ou não',
         motivo='Prova a função de orquestração inteira, ponta a ponta, sem mock nenhum',
         obtido=f'atualizados={atualizados}, sem_produto_no_banco={len(sem_produto_no_banco)}, snapshots_no_banco={SnapshotArquivosDrive.objects.count()}',
         passou=passou,

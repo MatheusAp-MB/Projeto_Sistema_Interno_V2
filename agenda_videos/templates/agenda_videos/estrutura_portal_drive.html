@@ -32,7 +32,125 @@
         class="agenda-input-busca"
     >
     <button type="submit" class="btn-acao">Buscar</button>
+
+    <details class="agenda-filtros">
+        <summary class="agenda-filtros-titulo">
+            <i class="fas fa-filter"></i> Filtros
+            {% if marcas_selecionadas or fases_selecionadas or progresso != 'todos' or somente_urgentes or sincronizado != 'todos' %}
+            <span class="portal-drive-filtro-ativo-indicador"></span>
+            {% endif %}
+            <i class="fas fa-chevron-down agenda-filtros-seta"></i>
+        </summary>
+        <div class="agenda-filtros-secoes">
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Marca</div>
+                <div class="filtro-subgrupo">
+                    <input type="text" class="filtro-busca-interna" placeholder="Buscar marca...">
+                    <div class="filtro-opcoes-lista">
+                        {% for marca in marcas_disponiveis %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="marca" value="{{ marca }}" {% if marca in marcas_selecionadas %}checked{% endif %}>
+                            <span>{{ marca }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Progresso de envio</div>
+                <div class="filtro-subgrupo">
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="radio" name="progresso" value="todos" {% if progresso == 'todos' %}checked{% endif %}>
+                            <span>Todos</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="radio" name="progresso" value="pendente" {% if progresso == 'pendente' %}checked{% endif %}>
+                            <span>Com pendência</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="radio" name="progresso" value="completo" {% if progresso == 'completo' %}checked{% endif %}>
+                            <span>Completo</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Fase atual</div>
+                <div class="filtro-subgrupo">
+                    <div class="filtro-opcoes-lista">
+                        {% for valor, rotulo in opcoes_fase %}
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="fase" value="{{ valor }}" {% if valor in fases_selecionadas %}checked{% endif %}>
+                            <span>{{ rotulo }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Sincronização com o Drive</div>
+                <div class="filtro-subgrupo">
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="radio" name="sincronizado" value="todos" {% if sincronizado == 'todos' %}checked{% endif %}>
+                            <span>Todos</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="radio" name="sincronizado" value="sim" {% if sincronizado == 'sim' %}checked{% endif %}>
+                            <span>Sincronizados</span>
+                        </label>
+                        <label class="filtro-opcao">
+                            <input type="radio" name="sincronizado" value="nao" {% if sincronizado == 'nao' %}checked{% endif %}>
+                            <span>Não sincronizados</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filtro-secao-card">
+                <div class="filtro-secao-titulo">Outros</div>
+                <div class="filtro-subgrupo">
+                    <div class="filtro-opcoes-lista">
+                        <label class="filtro-opcao">
+                            <input type="checkbox" name="urgente" value="1" {% if somente_urgentes %}checked{% endif %}>
+                            <span>Só urgentes</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <div class="agenda-filtros-acoes">
+            <button type="submit" class="btn-acao">Aplicar filtros</button>
+        </div>
+    </details>
 </form>
+
+{% if marcas_selecionadas or fases_selecionadas or progresso != 'todos' or somente_urgentes or sincronizado != 'todos' %}
+<div class="portal-drive-chips-filtros">
+    <strong class="portal-drive-chips-filtros-rotulo">Filtros ativos:</strong>
+    {% for marca in marcas_selecionadas %}
+    <span class="portal-drive-chip-filtro">{{ marca }}</span>
+    {% endfor %}
+    {% for valor, rotulo in opcoes_fase %}
+        {% if valor in fases_selecionadas %}
+        <span class="portal-drive-chip-filtro">{{ rotulo }}</span>
+        {% endif %}
+    {% endfor %}
+    {% if progresso == 'pendente' %}<span class="portal-drive-chip-filtro">Com pendência</span>{% endif %}
+    {% if progresso == 'completo' %}<span class="portal-drive-chip-filtro">Completo</span>{% endif %}
+    {% if somente_urgentes %}<span class="portal-drive-chip-filtro">Urgente</span>{% endif %}
+    {% if sincronizado == 'sim' %}<span class="portal-drive-chip-filtro">Sincronizados</span>{% endif %}
+    {% if sincronizado == 'nao' %}<span class="portal-drive-chip-filtro">Não sincronizados</span>{% endif %}
+</div>
+{% endif %}
+
+<p class="portal-drive-contador">{{ pagina.paginator.count }} produto{{ pagina.paginator.count|pluralize }} encontrado{{ pagina.paginator.count|pluralize }}</p>
 
 {% if not pagina %}
 <p class="historico-vazio-geral">Nenhum produto encontrado.</p>
@@ -62,4 +180,5 @@
 
 {% block scripts %}
 <script src="{% static 'agenda_videos/js/script_portal_drive.js' %}"></script>
+<script src="{% static 'agenda_videos/js/script_busca_interna_filtros.js' %}"></script>
 {% endblock %}

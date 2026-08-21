@@ -102,36 +102,67 @@ def montar_arvore_por_ean(todos_os_itens, raiz_id):
 # lista_de_ids_de_produto_atualizados) — o 3º valor permite que quem chama
 # (verificador.verificar_todos_no_drive) rode o avanço de roadmap em cima do
 # snapshot recém-salvo, sem precisar buscar o Drive de novo.
+
 def sincronizar_snapshots_drive():
-    from produtos.models import Produto
+    from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import listar_produtos_agenda_filtrados, Tela
 
     servico = obter_servico_drive()
     pasta_raiz_id = obter_pasta_raiz_id_ativa()
     todos_os_itens = _listar_tudo_paginado(servico)
     arvore_por_ean = montar_arvore_por_ean(todos_os_itens, pasta_raiz_id)
 
+    # * [EXPLICAÇÃO] → Direção invertida (20/08/2026) — antes o laço partia
+    #                  do que o Drive revelou (`for ean, dados in
+    #                  arvore_por_ean.items()`) e perguntava "tem produto
+    #                  pra esse EAN?". Produto ativo sem pasta nenhuma no
+    #                  Drive nunca aparecia nessa árvore, então nunca era
+    #                  perguntado — ficava com snapshot_drive=None mesmo
+    #                  depois de rodar a sincronização geral (bug real: a
+    #                  tela mostrava "nunca sincronizado" igual a "não
+    #                  encontrado", que são coisas diferentes). Agora o
+    #                  laço parte do catálogo ativo (mesma fonte que já
+    #                  popula a lista do Portal do Drive) e pergunta, pra
+    #                  cada um, "você está na árvore do Drive?" — todo
+    #                  produto ativo recebe uma resposta, sem pontos cegos,
+    #                  numa passada só (elimina também as N queries
+    #                  individuais que existiam antes, 1 por EAN encontrado
+    #                  no Drive — agora é 1 query pra pegar os produtos
+    #                  ativos + busca em dicionário em memória).
+    produtos_ativos = list(listar_produtos_agenda_filtrados(tela=Tela.GERAL))
+
     atualizados = 0
-    sem_produto_no_banco = []
-    produto_ids_atualizados = []
+    produto_ids_encontrados = []
 
-    for ean, dados in arvore_por_ean.items():
-        produto = Produto.objects.filter(ean=ean).first()
-        if produto is None:
-            sem_produto_no_banco.append(ean)
-            continue
+    for produto in produtos_ativos:
+        dados = arvore_por_ean.get(produto.ean)
 
-        SnapshotArquivosDrive.objects.update_or_create(
-            produto=produto,
-            defaults={
-                'pasta_encontrada': True,
-                'motivo_nao_encontrado': None,
-                'arquivos_videos': dados['arquivos_videos'],
-                'arquivos_usados': dados['arquivos_usados'],
-                'pasta_videos_id': dados['pasta_videos_id'],
-                'pasta_usados_id': dados['pasta_usados_id'],
-            },
-        )
+        if dados is None:
+            SnapshotArquivosDrive.objects.update_or_create(
+                produto=produto,
+                defaults={
+                    'pasta_encontrada': False,
+                    'motivo_nao_encontrado': f'Pasta "{produto.marca}/{produto.ean}/Videos" não encontrada no Drive.',
+                    'arquivos_videos': [], 'arquivos_usados': [],
+                    'pasta_videos_id': '', 'pasta_usados_id': '',
+                },
+            )
+        else:
+            SnapshotArquivosDrive.objects.update_or_create(
+                produto=produto,
+                defaults={
+                    'pasta_encontrada': True,
+                    'motivo_nao_encontrado': None,
+                    'arquivos_videos': dados['arquivos_videos'],
+                    'arquivos_usados': dados['arquivos_usados'],
+                    'pasta_videos_id': dados['pasta_videos_id'],
+                    'pasta_usados_id': dados['pasta_usados_id'],
+                },
+            )
+            produto_ids_encontrados.append(produto.id)
+
         atualizados += 1
-        produto_ids_atualizados.append(produto.id)
 
-    return atualizados, sem_produto_no_banco, produto_ids_atualizados
+    eans_ativos = {produto.ean for produto in produtos_ativos}
+    sem_produto_no_banco = [ean for ean in arvore_por_ean if ean not in eans_ativos]
+
+    return atualizados, sem_produto_no_banco, produto_ids_encontrados

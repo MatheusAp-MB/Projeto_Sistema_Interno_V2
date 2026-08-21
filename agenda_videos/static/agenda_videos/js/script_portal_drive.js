@@ -413,9 +413,22 @@ document.addEventListener('toggle', function (evento) {
     if (!detalhe.matches || !detalhe.matches('.portal-drive-produto-linha')) return;
 
     if (!detalhe.open) {
-        var conteudo = detalhe.querySelector('.portal-drive-produto-conteudo');
-        if (conteudo) {
-            conteudo.innerHTML = '<p class="portal-drive-carregando-texto"><i class="fas fa-spinner fa-spin"></i> Carregando dados do Drive...</p>';
+        // * [EXPLICAÇÃO] → Só limpa (e força recarregar depois) quando o
+        //                  fechamento foi por causa de OUTRO produto ter
+        //                  aberto — continua sendo obrigatório nesse caso,
+        //                  senão o card antigo e o novo ficam com IDs
+        //                  duplicados (#portal-drive-card) ao mesmo tempo
+        //                  na DOM. Fechar manualmente o MESMO produto (sem
+        //                  abrir outro) preserva o conteúdo já carregado,
+        //                  pra reabrir instantâneo, sem "piscar" o
+        //                  placeholder de novo (20/08/2026).
+        var outroAberto = document.querySelector('.portal-drive-produto-linha[open]');
+        if (outroAberto && outroAberto !== detalhe) {
+            var conteudo = detalhe.querySelector('.portal-drive-produto-conteudo');
+            if (conteudo) {
+                conteudo.innerHTML = '<p class="portal-drive-carregando-texto"><i class="fas fa-spinner fa-spin"></i> Carregando dados do Drive...</p>';
+            }
+            delete detalhe.dataset.carregado;
         }
         return;
     }
@@ -424,6 +437,15 @@ document.addEventListener('toggle', function (evento) {
         if (outro !== detalhe) outro.open = false;
     });
 }, true);
+
+// * [EXPLICAÇÃO] → Marca o produto como "já carregado" depois do 1º swap
+//                  bem-sucedido — o hx-trigger do <details> (ver template)
+//                  usa esse marcador pra pular a requisição inteira numa
+//                  reabertura do MESMO produto, não só evitar o placeholder.
+document.body.addEventListener('htmx:afterSwap', function (evento) {
+    var detalhe = evento.target.closest && evento.target.closest('.portal-drive-produto-linha');
+    if (detalhe) detalhe.dataset.carregado = '1';
+});
 
 
 // * [EXPLICAÇÃO] → Todo duplo-clique dispara 2 "click" + 1 "dblclick" — o

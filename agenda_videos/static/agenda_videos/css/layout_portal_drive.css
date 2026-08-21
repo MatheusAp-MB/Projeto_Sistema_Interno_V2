@@ -764,3 +764,112 @@
     color: var(--cor-texto-muted);
     white-space: nowrap;
 }
+
+/* ================================================
+   FILTRO DE MARCA — indicador de filtro ativo, chips
+   e contador (mesmo espírito visual do Hub de
+   Anúncios: .hub-filtros-ativo-indicador/.hub-chips-
+   filtros/.chip-filtro/.hub-contador — replicado aqui
+   com nome próprio porque o CSS daquele app não é
+   carregado nesta tela).
+   ================================================ */
+.portal-drive-filtro-ativo-indicador {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cor-primaria-clara);
+}
+
+.portal-drive-chips-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.portal-drive-chips-filtros-rotulo {
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    margin-right: 2px;
+}
+
+.portal-drive-chip-filtro {
+    background: #eef2f7;
+    color: #1e3a5f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 14px;
+    border: 1px solid #d7e0ec;
+}
+
+.portal-drive-contador {
+    color: var(--cor-texto-muted);
+    font-size: 0.82rem;
+    margin-bottom: 14px;
+}
+
+/* ================================================
+   BARRA DE PROGRESSO NA LINHA COLAPSADA — calculada
+   do snapshot já salvo (zero chamada ao Drive), pra
+   dar pra ver o que falta sem precisar abrir o produto.
+   ================================================ */
+.portal-drive-progresso-linha {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    width: 90px;
+    flex-shrink: 0;
+}
+
+.portal-drive-progresso-linha-barra {
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--cor-fundo-pagina);
+    overflow: hidden;
+}
+
+.portal-drive-progresso-linha-preenchido {
+    height: 100%;
+    background: var(--cor-primaria-clara);
+}
+
+.portal-drive-progresso-linha-preenchido--completo {
+    background: var(--cor-positivo);
+}
+
+.portal-drive-progresso-linha-texto {
+    font-size: 0.7rem;
+    color: var(--cor-texto-muted);
+}
+
+.portal-drive-nunca-sincronizado-texto {
+    font-size: 0.72rem;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.portal-drive-aviso-nao-encontrado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 0.8rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.portal-drive-nao-encontrado-texto {
+    font-size: 0.72rem;
+    color: #b91c1c;
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
