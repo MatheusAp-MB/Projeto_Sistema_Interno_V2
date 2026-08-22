@@ -81,3 +81,42 @@ function inicializarPopoversDeCalculo() {
         new bootstrap.Popover(elemento);
     });
 }
+
+
+// ================================================
+// LIGHTBOX DE FOTOS DO PRODUTO (ERP)
+// ================================================
+
+// * [EXPLICAÇÃO] → Mostra a foto clicada em tamanho real, sobreposta
+//                  ao modal já aberto. Não usa um 2º modal do Bootstrap
+//                  de propósito — modal dentro de modal empilha
+//                  backdrop/z-index e complica sem necessidade.
+function abrirLightboxFotoProduto(url) {
+    document.getElementById('lightbox-foto-produto-imagem').src = url;
+    document.getElementById('lightbox-foto-produto').classList.add('modal-produto-lightbox--aberta');
+}
+
+function fecharLightboxFotoProduto() {
+    document.getElementById('lightbox-foto-produto').classList.remove('modal-produto-lightbox--aberta');
+}
+
+
+// ================================================
+// COPIAR TÍTULO / DESCRIÇÃO
+// ================================================
+
+// * [EXPLICAÇÃO] → Copia o texto de um elemento (h6 ou a textarea escondida
+//                  da descrição, que preserva quebras de linha) e dá
+//                  feedback visual trocando o ícone do botão por um check.
+function copiarTextoDoElemento(idElemento, botao) {
+    var elemento = document.getElementById(idElemento);
+    if (!elemento) return;
+
+    var texto = ('value' in elemento) ? elemento.value : elemento.textContent;
+
+    navigator.clipboard.writeText(texto.trim()).then(function () {
+        var iconeOriginal = botao.innerHTML;
+        botao.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(function () { botao.innerHTML = iconeOriginal; }, 1500);
+    });
+}

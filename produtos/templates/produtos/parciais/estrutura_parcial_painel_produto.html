@@ -16,7 +16,12 @@
     <div class="modal-produto-imagem modal-produto-imagem-vazia"><i class="fas fa-image"></i></div>
     {% endif %}
 </div>
-<h6 class="modal-produto-titulo">{{ produto.titulo }}</h6>
+<div class="modal-produto-titulo-wrap">
+    <h6 class="modal-produto-titulo" id="modal-produto-titulo-texto">{{ produto.titulo }}</h6>
+    <button type="button" class="modal-produto-btn-copiar" onclick="copiarTextoDoElemento('modal-produto-titulo-texto', this)" title="Copiar título">
+        <i class="fas fa-copy"></i>
+    </button>
+</div>
 
 <ul class="nav nav-tabs modal-produto-abas" id="abas-modal-produto" role="tablist">
     <li class="nav-item" role="presentation">
@@ -69,10 +74,12 @@
                         {% if fotos %}
                         <div class="modal-produto-galeria-fotos">
                             {% for foto in fotos %}
-                            <a href="{{ foto }}" target="_blank" rel="noopener">
-                                <img src="{{ foto }}" class="modal-produto-galeria-foto" alt="Foto {{ forloop.counter }} de {{ produto.titulo }}">
-                            </a>
+                            <img src="{{ foto }}" class="modal-produto-galeria-foto" alt="Foto {{ forloop.counter }} de {{ produto.titulo }}" onclick="abrirLightboxFotoProduto('{{ foto }}')">
                             {% endfor %}
+                        </div>
+                        <div class="modal-produto-lightbox" id="lightbox-foto-produto" onclick="fecharLightboxFotoProduto()">
+                            <button type="button" class="modal-produto-lightbox-fechar" onclick="fecharLightboxFotoProduto()">&times;</button>
+                            <img src="" id="lightbox-foto-produto-imagem" onclick="event.stopPropagation()">
                         </div>
                         {% else %}
                         <p class="modal-produto-galeria-vazia">Nenhuma foto cadastrada no ERP.</p>
@@ -85,8 +92,11 @@
                         <!-- Descrição -->
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header modal-card-cabecalho">
+                    <div class="card-header modal-card-cabecalho modal-card-cabecalho-com-acao">
                         <strong>Descrição</strong>
+                        <button type="button" class="modal-produto-btn-copiar" onclick="copiarTextoDoElemento('modal-produto-descricao-raw', this)" title="Copiar descrição">
+                            <i class="fas fa-copy"></i>
+                        </button>
                     </div>
                     <div class="card-body modal-produto-descricao-scroll">
                         {% if produto.descricao %}
@@ -94,6 +104,7 @@
                         {% else %}
                         <p class="modal-produto-descricao text-muted">Sem descrição cadastrada no ERP.</p>
                         {% endif %}
+                        <textarea id="modal-produto-descricao-raw" class="d-none">{{ produto.descricao }}</textarea>
                     </div>
                 </div>
             </div>
