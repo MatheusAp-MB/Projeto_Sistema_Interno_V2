@@ -85,17 +85,22 @@ def test_postar_sucesso_marca_aguardando_aprovacao(client, tabela_resultados, re
     produto = _criar_produto('SKU-001')
     ciclo = _ciclo_pronto_pra_postar(produto)
 
-    # Exercise:
-    resposta = client.get(_url(produto.id, 'postar'))
+    # Exercise: _acao_postar() exige mlb_postado em request.POST — GET
+    # nunca carrega POST, por isso precisa ser client.post() com o dado.
+    resposta = client.post(_url(produto.id, 'postar'), {'mlb_postado': 'MLB1234567890'})
 
     # Assert:
     ciclo.refresh_from_db()
-    passou = resposta.status_code == 200 and ciclo.status == StatusPostagem.AGUARDANDO_APROVACAO
+    passou = (
+        resposta.status_code == 200 and ciclo.status == StatusPostagem.AGUARDANDO_APROVACAO
+        and ciclo.mlb_postado == 'MLB1234567890'
+    )
     registrar_resultado(
         tabela_resultados, teste='postar: sucesso marca aguardando aprovação',
-        entrada='etapa_atual()=postar, nunca postou hoje', esperado='200, status=AGUARDANDO_APROVACAO',
-        motivo='Caminho normal de postar',
-        obtido=f'status={resposta.status_code}, ciclo_status={ciclo.status}',
+        entrada='etapa_atual()=postar, nunca postou hoje, mlb_postado=MLB1234567890',
+        esperado='200, status=AGUARDANDO_APROVACAO, mlb_postado gravado',
+        motivo='Caminho normal de postar — mlb_postado é obrigatório desde que a postagem passou a registrar o MLB real',
+        obtido=f'status={resposta.status_code}, ciclo_status={ciclo.status}, mlb_postado={ciclo.mlb_postado!r}',
         passou=passou,
     )
     assert passou

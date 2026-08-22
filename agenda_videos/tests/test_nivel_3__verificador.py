@@ -281,8 +281,11 @@ def test_nivel_3__verificar_produto_no_drive_simulado_avanca_ponta_a_ponta(tabel
     monkeypatch.setattr(LocalizadorArquivosProduto, 'localizar_arquivos', _localizar_fake)
     # * [EXPLICAÇÃO] → Desde a correção do Bug 3, verificar_produto_no_drive
     #                  também chama listar_arquivos_usados — sem mockar isso
-    #                  aqui, o teste bateria de verdade no Drive real.
-    monkeypatch.setattr(LocalizadorArquivosProduto, 'listar_arquivos_usados', lambda self, pasta_videos_id: [])
+    #                  aqui, o teste bateria de verdade no Drive real. O
+    #                  retorno real é uma TUPLA (lista, pasta_usados_id) —
+    #                  ver LocalizadorArquivosProduto.listar_arquivos_usados
+    #                  em localizador.py.
+    monkeypatch.setattr(LocalizadorArquivosProduto, 'listar_arquivos_usados', lambda self, pasta_videos_id: ([], None))
 
     # Exercise:
     etapas_marcadas, estrutura_drive, diagnostico = verificar_produto_no_drive(produto.id)
@@ -322,7 +325,9 @@ def test_nivel_3__verificar_produto_no_drive_simulado_grava_snapshot_quando_enco
     monkeypatch.setattr(LocalizadorArquivosProduto, 'localizar_arquivos', _localizar_fake)
     monkeypatch.setattr(
         LocalizadorArquivosProduto, 'listar_arquivos_usados',
-        lambda self, pasta_videos_id: arquivos_usados_fabricados if pasta_videos_id == 'id_pasta_videos' else [],
+        lambda self, pasta_videos_id: (
+            (arquivos_usados_fabricados, 'id_pasta_usados') if pasta_videos_id == 'id_pasta_videos' else ([], None)
+        ),
     )
 
     # Exercise:
