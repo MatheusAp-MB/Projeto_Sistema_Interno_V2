@@ -217,6 +217,14 @@
     border-bottom: none;
 }
 
+.portal-drive-linha-fase--atual {
+    border-left: 3px solid var(--cor-primaria-clara);
+}
+
+.portal-drive-linha-fase--atual .portal-drive-linha-cabecalho {
+    padding-left: 3px;
+}
+
 .portal-drive-linha-cabecalho {
     display: flex;
     align-items: center;

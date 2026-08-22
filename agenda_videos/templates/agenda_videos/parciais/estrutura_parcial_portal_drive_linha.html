@@ -1,4 +1,4 @@
-<details class="portal-drive-linha-fase">
+<details class="portal-drive-linha-fase{% if linha.atual %} portal-drive-linha-fase--atual{% endif %}"{% if linha.atual %} open{% endif %}>
     <summary class="portal-drive-linha-cabecalho">
         <span class="portal-drive-linha-titulo">{{ linha.rotulo }}</span>
         <span class="portal-drive-linha-contagem">{{ linha.qtd_presente }} de 3 arquivos</span>

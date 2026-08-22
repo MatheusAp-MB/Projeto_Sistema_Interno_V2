@@ -439,6 +439,13 @@ document.addEventListener('toggle', function (evento) {
     document.querySelectorAll('.portal-drive-produto-linha[open]').forEach(function (outro) {
         if (outro !== detalhe) outro.open = false;
     });
+
+    // * [EXPLICAÇÃO] → Reabertura do MESMO produto sem fetch novo (conteúdo
+    //                  já em cache — ver hx-trigger no template) não passa
+    //                  por htmx:afterSwap, então precisa forçar aqui
+    //                  também; senão a etapa atual fica travada no estado
+    //                  (aberta/fechada) em que a pessoa deixou da última vez.
+    if (detalhe.dataset.carregado) forcarAberturaEtapaAtual(detalhe);
 }, true);
 
 // * [EXPLICAÇÃO] → Marca o produto como "já carregado" depois do 1º swap
@@ -447,8 +454,20 @@ document.addEventListener('toggle', function (evento) {
 //                  reabertura do MESMO produto, não só evitar o placeholder.
 document.body.addEventListener('htmx:afterSwap', function (evento) {
     var detalhe = evento.target.closest && evento.target.closest('.portal-drive-produto-linha');
-    if (detalhe) detalhe.dataset.carregado = '1';
+    if (!detalhe) return;
+    detalhe.dataset.carregado = '1';
+    forcarAberturaEtapaAtual(detalhe);
 });
+
+// Função Objetivo: Garante que a seção da etapa atual (destacada com borda,
+// ver _montar_contexto_card/linha.atual em views.py) sempre venha aberta
+// quando o produto é exibido — tanto na 1ª carga real (htmx:afterSwap,
+// acima) quanto ao reabrir o MESMO produto sem fetch novo (ver o listener
+// de "toggle" do accordion exclusivo, mais acima no arquivo).
+function forcarAberturaEtapaAtual(detalheProduto) {
+    var linhaAtual = detalheProduto.querySelector('.portal-drive-linha-fase--atual');
+    if (linhaAtual) linhaAtual.open = true;
+}
 
 
 // * [EXPLICAÇÃO] → Todo duplo-clique dispara 2 "click" + 1 "dblclick" — o

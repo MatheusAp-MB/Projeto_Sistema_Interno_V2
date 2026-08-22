@@ -61,7 +61,8 @@ class LinhaProdutoERP:
         'peso_produto_sem_embalar', 'altura_produto_sem_embalar', 'largura_produto_sem_embalar',
         'comprimento_produto_sem_embalar', 'peso_produto_apos_embalado', 'altura_produto_apos_embalado',
         'largura_produto_apos_embalado', 'comprimento_produto_apos_embalado', 'peso_cubado',
-        'imagem_url', 'ultima_compra', 'cadastrado_erp_em',
+        'imagem_url', 'imagem_url_2', 'imagem_url_3', 'imagem_url_4', 'imagem_url_5', 'imagem_url_6',
+        'descricao', 'ultima_compra', 'cadastrado_erp_em',
     ]
 
     # Função Objetivo: Recebe a linha (dict) já lida por ler_linhas_planilha_erp, o conversor e o parser de data.
@@ -81,6 +82,12 @@ class LinhaProdutoERP:
         self.custo = None
         self.ativo_no_erp = None
         self.imagem_url = None
+        self.imagem_url_2 = None
+        self.imagem_url_3 = None
+        self.imagem_url_4 = None
+        self.imagem_url_5 = None
+        self.imagem_url_6 = None
+        self.descricao = None
         self.ultima_compra = None
         self.cadastrado_erp_em = None
 
@@ -121,6 +128,12 @@ class LinhaProdutoERP:
         self.custo = self.conversor.para_decimal(self.linha_bruta.get('Custo'), padrao=0)
         self.ativo_no_erp = self._extrair_ativo_no_erp()
         self.imagem_url = self.conversor.para_texto(self.linha_bruta.get('URL 1'))
+        self.imagem_url_2 = self.conversor.para_texto(self.linha_bruta.get('URL 2'))
+        self.imagem_url_3 = self.conversor.para_texto(self.linha_bruta.get('URL 3'))
+        self.imagem_url_4 = self.conversor.para_texto(self.linha_bruta.get('URL 4'))
+        self.imagem_url_5 = self.conversor.para_texto(self.linha_bruta.get('URL 5'))
+        self.imagem_url_6 = self.conversor.para_texto(self.linha_bruta.get('URL 6'))
+        self.descricao = self.conversor.para_texto(self.linha_bruta.get('Detalhe'))
         self.ultima_compra = self.parser_data.parsear(self.linha_bruta.get('Ultima Compra'))
         self.cadastrado_erp_em = self.parser_data.parsear(self.linha_bruta.get('dt_cadastro'))
 
@@ -232,6 +245,12 @@ class LinhaProdutoERP:
             estoque=self.estoque,
             custo=self.custo,
             ativo_no_erp=self.ativo_no_erp,
+            imagem_url_2=self.imagem_url_2,
+            imagem_url_3=self.imagem_url_3,
+            imagem_url_4=self.imagem_url_4,
+            imagem_url_5=self.imagem_url_5,
+            imagem_url_6=self.imagem_url_6,
+            descricao=self.descricao,
             peso_produto_sem_embalar=self.peso_sem_embalar,
             altura_produto_sem_embalar=self.altura_sem_embalar,
             largura_produto_sem_embalar=self.largura_sem_embalar,

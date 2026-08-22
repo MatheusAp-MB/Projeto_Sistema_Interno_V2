@@ -104,6 +104,16 @@ class Produto(models.Model):
     curva = models.CharField(max_length=5, blank=True, null=True)
 
     imagem_url = models.URLField(max_length=500, blank=True, null=True)
+    imagem_url_2 = models.URLField(max_length=500, blank=True, null=True)
+    imagem_url_3 = models.URLField(max_length=500, blank=True, null=True)
+    imagem_url_4 = models.URLField(max_length=500, blank=True, null=True)
+    imagem_url_5 = models.URLField(max_length=500, blank=True, null=True)
+    imagem_url_6 = models.URLField(max_length=500, blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Descrição bruta do produto, direto da coluna "Detalhe"
+    #                  do ERP — usada hoje só pra exibição (tela de Produtos),
+    #                  sem nenhum processamento/formatação.
+    descricao = models.TextField(blank=True, null=True)
 
     estoque = models.IntegerField(default=0)
 
@@ -282,6 +292,17 @@ class Produto(models.Model):
             MarketplaceAnunciado(marketplace=a.marketplace, anunciado=a.anunciado)
             for a in self.anuncios_marketplace.all()
         ]
+
+    # Função Objetivo: Devolve só as fotos do ERP que estão realmente preenchidas.
+    # Explicação em detalhe: o ERP manda até 6 URLs (URL 1 a URL 6), mas nem
+    # todo produto tem as 6 cadastradas — filtra os campos vazios/None,
+    # devolvendo só o que existe de verdade, na ordem 1→6.
+    def obter_fotos_erp(self):
+        campos = [
+            self.imagem_url, self.imagem_url_2, self.imagem_url_3,
+            self.imagem_url_4, self.imagem_url_5, self.imagem_url_6,
+        ]
+        return [url for url in campos if url]
 
     class Meta:
         verbose_name = 'Produto'

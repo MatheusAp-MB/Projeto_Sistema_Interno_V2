@@ -32,6 +32,7 @@
     <div class="tab-pane fade show active" id="aba-visao-geral" role="tabpanel" aria-labelledby="aba-visao-geral-btn">
         <div class="row g-4">
 
+
             <!-- Identificação -->
             <div class="col-md-6">
                 <div class="card">
@@ -57,6 +58,45 @@
                 </div>
             </div>
 
+            <!-- Fotos do Produto (ERP) -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header modal-card-cabecalho">
+                        <strong>Fotos do Produto (ERP)</strong>
+                    </div>
+                    <div class="card-body">
+                        {% with fotos=produto.obter_fotos_erp %}
+                        {% if fotos %}
+                        <div class="modal-produto-galeria-fotos">
+                            {% for foto in fotos %}
+                            <a href="{{ foto }}" target="_blank" rel="noopener">
+                                <img src="{{ foto }}" class="modal-produto-galeria-foto" alt="Foto {{ forloop.counter }} de {{ produto.titulo }}">
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="modal-produto-galeria-vazia">Nenhuma foto cadastrada no ERP.</p>
+                        {% endif %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+
+                        <!-- Descrição -->
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header modal-card-cabecalho">
+                        <strong>Descrição</strong>
+                    </div>
+                    <div class="card-body modal-produto-descricao-scroll">
+                        {% if produto.descricao %}
+                        <p class="modal-produto-descricao">{{ produto.descricao|linebreaksbr }}</p>
+                        {% else %}
+                        <p class="modal-produto-descricao text-muted">Sem descrição cadastrada no ERP.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
 
 
             <!-- Dimensões — sem embalar -->

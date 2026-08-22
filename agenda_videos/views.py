@@ -894,12 +894,20 @@ def _contar_arquivos_presentes(produto):
 def _montar_contexto_card(produto, resultado_envio=None, erro_envio=None, mensagem_exclusao=None):
     servico = obter_servico_drive()
     snapshot = getattr(produto, 'snapshot_drive', None)
+    ciclo_atual = _buscar_ciclo_atual(produto)
+    # * [EXPLICAÇÃO] → Produto sem NENHUM CicloVideo ainda (nunca postou
+    #                  nada) não tem "etapa atual" gravada no banco — mas o
+    #                  ponto de partida óbvio de qualquer produto novo é
+    #                  sempre Simples, então a ausência de ciclo é tratada
+    #                  como se já estivesse lá, só pra fins de destaque.
+    fase_atual, numero_atual = (ciclo_atual.fase, ciclo_atual.numero_ocorrencia) if ciclo_atual else ('simples', 1)
 
     linhas = []
     houve_cache_novo = False
     for fase, numero in FASES_E_NUMEROS:
         linha, novo = _montar_linha(servico, snapshot, fase, numero, produto.marca, produto.ean)
         linha['extra_trimestral'] = (fase == 'video_trimestral' and numero == 2)
+        linha['atual'] = (fase_atual == fase and numero_atual == (numero or 1))
         linhas.append(linha)
         houve_cache_novo = houve_cache_novo or novo
 

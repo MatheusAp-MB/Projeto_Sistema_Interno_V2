@@ -44,12 +44,13 @@ from agente_local.postagem_ml import postar_video_no_ml
 # qualquer fase com 'postar' pronto, Simples incluso.
 def listar_produtos_elegiveis():
     hoje = ultimo_dia_util_ou_hoje(date.today())
+    data_calendario_real = date.today()  # "já postou hoje" precisa do calendário real, não do dia útil ajustado (ver Checagem de Ja Postou Hoje... no vault)
     ciclo_mais_recente = CicloVideo.objects.filter(produto=OuterRef('pk')).order_by('-criado_em')
     return Produto.objects.exclude(
         indicadores_agenda__status_manual__in=[StatusManualAgenda.PAUSADO, StatusManualAgenda.DESCONTINUADO],
     ).annotate(
         data_devida_ciclo_atual=Subquery(ciclo_mais_recente.values('data_devida')[:1]),
-        postou_hoje=construir_condicao_postou_hoje(data_referencia=hoje),
+        postou_hoje=construir_condicao_postou_hoje(data_referencia=data_calendario_real),
         prioridade_ordenacao=construir_annotation_prioridade(),
         ordenacao_fase=construir_annotation_ordenacao_fase(),
     ).filter(
