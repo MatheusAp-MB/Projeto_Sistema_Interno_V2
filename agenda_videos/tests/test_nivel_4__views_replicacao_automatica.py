@@ -317,3 +317,28 @@ def test_cancelar_execucao_inexistente_devolve_404(client, tabela_resultados):
         passou=passou,
     )
     assert passou
+
+
+# ---------------------------------------------------------------------
+# view_progresso_replicacao_automatica — regressão do "Achado central" (25/08)
+# ---------------------------------------------------------------------
+
+def test_progresso_aguardando_inicio_manda_a_empresa_ativa_pro_agente_local(client, tabela_resultados):
+    # Setup: espelha o teste equivalente da suíte de Postagem — mesmo
+    # motivo, mesma trava, mesmo template-base.
+    execucao = ExecucaoReplicacaoAutomatica.objects.create()
+
+    # Exercise:
+    resposta = client.get(_url_progresso(execucao.id))
+
+    # Assert:
+    passou = resposta.status_code == 200 and f'?empresa={EMPRESA_MAGAZINE}' in resposta.content.decode()
+    registrar_resultado(
+        tabela_resultados, teste='Tela de progresso (aguardando início) manda ?empresa= pro agente local',
+        entrada='execução recém-criada (status padrão AGUARDANDO_INICIO), empresa ativa=MAGAZINE',
+        esperado=f"HTML renderizado contém '?empresa={EMPRESA_MAGAZINE}' na URL do fetch",
+        motivo='Sem isso, o agente local não tem como saber qual empresa usar',
+        obtido=f'status={resposta.status_code}',
+        passou=passou,
+    )
+    assert passou

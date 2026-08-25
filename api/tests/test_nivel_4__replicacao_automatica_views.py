@@ -15,6 +15,7 @@ import pytest
 from django.conf import settings
 from django.urls import reverse
 
+from core.empresa import EMPRESA_MAGAZINE
 from produtos.models import Produto
 from mercado_livre.models import AnuncioMercadoLivre, VariacaoAnuncioMercadoLivre
 from agenda_videos.models import (
@@ -28,8 +29,13 @@ pytestmark = pytest.mark.django_db(databases=['default', 'magazine', 'samvale'])
 
 TITULO_CAMADA = 'Nível 4 — api/replicacao_automatica: as 5 views via HTTP (token, puro banco)'
 
-CABECALHO_TOKEN_VALIDO = {'Authorization': f'Bearer {settings.AGENTE_TOKEN}'}
-CABECALHO_TOKEN_INVALIDO = {'Authorization': 'Bearer token-errado'}
+# * [EXPLICAÇÃO] → Corrigido (25/08) — EmpresaMiddleware agora EXIGE
+#                  X-Empresa em qualquer rota /api/ ("Achado central").
+#                  Empresa vai FIXA em Magazine nos 2 cabeçalhos — cada
+#                  teste aqui varia só o token, nunca a empresa (isso tem
+#                  suíte própria em core/tests/test_nivel_2__empresa_middleware.py).
+CABECALHO_TOKEN_VALIDO = {'Authorization': f'Bearer {settings.AGENTE_TOKEN}', 'X-Empresa': EMPRESA_MAGAZINE}
+CABECALHO_TOKEN_INVALIDO = {'Authorization': 'Bearer token-errado', 'X-Empresa': EMPRESA_MAGAZINE}
 
 
 def _criar_produto(sku):

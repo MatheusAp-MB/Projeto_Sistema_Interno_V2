@@ -4,6 +4,7 @@
 #              Controlado pela flag LOGIN_REQUIRED no arquivo .env
 
 import os
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from core.empresa import definir_empresa_ativa, EMPRESA_PADRAO, EMPRESAS_VALIDAS
 
@@ -42,6 +43,26 @@ class EmpresaMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # * [EXPLICAÇÃO] → Corrigido (24/08) — "Achado central": rota de API
+        #                  é chamada pelo agente local, que NUNCA tem sessão
+        #                  de navegador (roda numa máquina separada, só com
+        #                  token). Sem essa distinção, request.session.get()
+        #                  sempre caía no padrão (Magazine) em silêncio — os
+        #                  ids de execução não são únicos entre as 2
+        #                  empresas, então isso podia devolver dado da
+        #                  empresa errada sem erro nenhum aparecer. Pra
+        #                  qualquer rota de API, exige o cabeçalho
+        #                  X-Empresa explícito — nunca um padrão silencioso.
+        if request.path.startswith('/api/'):
+            empresa = request.headers.get('X-Empresa')
+            if empresa not in EMPRESAS_VALIDAS:
+                return JsonResponse(
+                    {'erro': f'Cabeçalho X-Empresa ausente ou inválido: {empresa!r}.'},
+                    status=400,
+                )
+            definir_empresa_ativa(empresa)
+            return self.get_response(request)
+
         empresa = request.session.get('empresa_ativa', EMPRESA_PADRAO)
         if empresa not in EMPRESAS_VALIDAS:
             empresa = EMPRESA_PADRAO

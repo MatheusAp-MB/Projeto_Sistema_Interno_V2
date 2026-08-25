@@ -55,7 +55,16 @@ addopts = "--no-header -ra"
 
 [tool.coverage.run]
 branch = true
-source = ["agenda_videos"]
+source = [
+    "agenda_videos",
+    "core",
+    "api",
+    "api_sysemp",
+    "impostos",
+    "integracao_sysemp",
+    "precificacao",
+    "agente_local",
+]
 omit = [
     "*/migrations/*",
     "*/tests/*",

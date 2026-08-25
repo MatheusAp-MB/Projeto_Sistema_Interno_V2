@@ -9,8 +9,15 @@ import re
 import requests
 
 
-def _headers(token):
-    return {'Authorization': f'Bearer {token}'}
+# * [EXPLICAÇÃO] → Corrigido (24/08) — "Achado central": adicionado o
+#                  cabeçalho X-Empresa em toda chamada. Sem ele, o
+#                  EmpresaMiddleware não tem como saber se esta chamada é
+#                  da Magazine ou da Samvale (o agente nunca tem sessão de
+#                  navegador) — agora é obrigatório em toda rota /api/, então
+#                  toda função deste arquivo precisa receber e repassar
+#                  `empresa`.
+def _headers(token, empresa):
+    return {'Authorization': f'Bearer {token}', 'X-Empresa': empresa}
 
 
 # * [EXPLICAÇÃO] → timeout adicionado em TODA chamada de rede deste arquivo
@@ -24,10 +31,10 @@ TIMEOUT_PADRAO = 30
 TIMEOUT_DOWNLOAD_VIDEO = 120  # * vídeo pode demorar mais, especialmente em conexão mais lenta
 
 
-def listar_itens(servidor, token, execucao_id):
+def listar_itens(servidor, token, execucao_id, empresa):
     resposta = requests.get(
         f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/itens/',
-        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+        headers=_headers(token, empresa), timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()['itens']
@@ -44,10 +51,10 @@ def _montar_caminho_local_organizado(pasta_temporaria_raiz, ean, nome_arquivo):
     return os.path.join(pasta_produto, nome_arquivo)
 
 
-def baixar_video(servidor, token, item_id, ean_produto, pasta_destino):
+def baixar_video(servidor, token, item_id, ean_produto, pasta_destino, empresa):
     resposta = requests.get(
         f'{servidor}/api/postagem-automatica/item/{item_id}/video/',
-        headers=_headers(token), timeout=TIMEOUT_DOWNLOAD_VIDEO,
+        headers=_headers(token, empresa), timeout=TIMEOUT_DOWNLOAD_VIDEO,
     )
     if not resposta.ok:
         try:
@@ -85,10 +92,10 @@ def baixar_video(servidor, token, item_id, ean_produto, pasta_destino):
     return caminho_local, drive_file_id, pasta_videos_id
 
 
-def marcar_concluido(servidor, token, item_id, drive_file_id, pasta_videos_id):
+def marcar_concluido(servidor, token, item_id, drive_file_id, pasta_videos_id, empresa):
     resposta = requests.post(
         f'{servidor}/api/postagem-automatica/item/{item_id}/concluido/',
-        headers=_headers(token),
+        headers=_headers(token, empresa),
         json={'drive_file_id': drive_file_id, 'pasta_videos_id': pasta_videos_id},
         timeout=TIMEOUT_PADRAO,
     )
@@ -96,26 +103,26 @@ def marcar_concluido(servidor, token, item_id, drive_file_id, pasta_videos_id):
     return resposta.json()
 
 
-def marcar_falhou(servidor, token, item_id, mensagem):
+def marcar_falhou(servidor, token, item_id, mensagem, empresa):
     resposta = requests.post(
         f'{servidor}/api/postagem-automatica/item/{item_id}/falhou/',
-        headers=_headers(token),
+        headers=_headers(token, empresa),
         json={'mensagem': mensagem},
         timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()
 
-def enviar_heartbeat(servidor, token, execucao_id):
+def enviar_heartbeat(servidor, token, execucao_id, empresa):
     requests.post(
         f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/heartbeat/',
-        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+        headers=_headers(token, empresa), timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
 
-def finalizar_execucao(servidor, token, execucao_id, cancelada=False):
+def finalizar_execucao(servidor, token, execucao_id, empresa, cancelada=False):
     requests.post(
         f'{servidor}/api/postagem-automatica/execucao/{execucao_id}/finalizar/',
-        headers=_headers(token),
+        headers=_headers(token, empresa),
         json={'cancelada': cancelada},
         timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
@@ -127,19 +134,19 @@ def finalizar_execucao(servidor, token, execucao_id, cancelada=False):
 # no navegador.
 # ===================================================================
 
-def listar_itens_replicacao(servidor, token, execucao_id):
+def listar_itens_replicacao(servidor, token, execucao_id, empresa):
     resposta = requests.get(
         f'{servidor}/api/replicacao-automatica/execucao/{execucao_id}/itens/',
-        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+        headers=_headers(token, empresa), timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()['itens']
 
 
-def marcar_concluido_replicacao(servidor, token, item_id, mlbs_replicados=None, mlbs_nao_encontrados=None):
+def marcar_concluido_replicacao(servidor, token, item_id, empresa, mlbs_replicados=None, mlbs_nao_encontrados=None):
     resposta = requests.post(
         f'{servidor}/api/replicacao-automatica/item/{item_id}/concluido/',
-        headers=_headers(token),
+        headers=_headers(token, empresa),
         json={
             'mlbs_replicados': mlbs_replicados or [],
             'mlbs_nao_encontrados': mlbs_nao_encontrados or [],
@@ -150,10 +157,10 @@ def marcar_concluido_replicacao(servidor, token, item_id, mlbs_replicados=None, 
     return resposta.json()
 
 
-def marcar_falhou_replicacao(servidor, token, item_id, mensagem):
+def marcar_falhou_replicacao(servidor, token, item_id, mensagem, empresa):
     resposta = requests.post(
         f'{servidor}/api/replicacao-automatica/item/{item_id}/falhou/',
-        headers=_headers(token),
+        headers=_headers(token, empresa),
         json={'mensagem': mensagem},
         timeout=TIMEOUT_PADRAO,
     )
@@ -161,17 +168,17 @@ def marcar_falhou_replicacao(servidor, token, item_id, mensagem):
     return resposta.json()
 
 
-def enviar_heartbeat_replicacao(servidor, token, execucao_id):
+def enviar_heartbeat_replicacao(servidor, token, execucao_id, empresa):
     requests.post(
         f'{servidor}/api/replicacao-automatica/execucao/{execucao_id}/heartbeat/',
-        headers=_headers(token), timeout=TIMEOUT_PADRAO,
+        headers=_headers(token, empresa), timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
 
 
-def finalizar_execucao_replicacao(servidor, token, execucao_id, cancelada=False):
+def finalizar_execucao_replicacao(servidor, token, execucao_id, empresa, cancelada=False):
     requests.post(
         f'{servidor}/api/replicacao-automatica/execucao/{execucao_id}/finalizar/',
-        headers=_headers(token),
+        headers=_headers(token, empresa),
         json={'cancelada': cancelada},
         timeout=TIMEOUT_PADRAO,
     ).raise_for_status()

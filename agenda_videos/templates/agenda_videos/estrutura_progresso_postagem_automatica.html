@@ -32,7 +32,7 @@
     //                  — o aviso de erro "piscava" (aparecia e sumia)
     //                  porque o próprio bloco que o continha era substituído
     //                  antes de você conseguir ler com calma.
-    fetch('http://127.0.0.1:5678/executar/{{ execucao.id }}', { method: 'POST' })
+    fetch('http://127.0.0.1:5678/executar/{{ execucao.id }}?empresa={{ empresa_ativa }}', { method: 'POST' })
         .then(r => r.json())
         .then(d => console.log('Agente respondeu:', d))
         .catch(e => {

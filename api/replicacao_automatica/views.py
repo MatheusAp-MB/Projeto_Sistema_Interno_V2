@@ -54,7 +54,7 @@ def view_listar_itens(request, execucao_id):
     for item in itens:
         produto = item.produto
         ciclo_atual = produto.ciclos_video.first()
-        mlb = (ciclo_atual.mlb_postado if ciclo_atual else none) or obter_mlb_do_produto(produto)
+        mlb = (ciclo_atual.mlb_postado if ciclo_atual else None) or obter_mlb_do_produto(produto)
         outros_mlbs = _obter_outros_mlbs(produto, mlb) if mlb else []
         resultado.append({
             'item_id': item.id,

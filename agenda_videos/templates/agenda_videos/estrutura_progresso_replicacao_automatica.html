@@ -26,7 +26,7 @@
     </form>
 </div>
 <script>
-    fetch('http://127.0.0.1:5678/executar-replicacao/{{ execucao.id }}', { method: 'POST' })
+    fetch('http://127.0.0.1:5678/executar-replicacao/{{ execucao.id }}?empresa={{ empresa_ativa }}', { method: 'POST' })
         .then(r => r.json())
         .then(d => console.log('Agente respondeu:', d))
         .catch(e => {

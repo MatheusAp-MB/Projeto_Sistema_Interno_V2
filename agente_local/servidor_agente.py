@@ -47,7 +47,9 @@ class _DuplicadorSaida:
 #                  coordenada de tela (como mover o mouse pra cima de um
 #                  botão) ficar deslocada de forma fixa e repetida. Isso
 #                  precisa rodar ANTES de qualquer janela/automação ser
-#                  tocada — por isso é a primeira coisa do arquivo.
+#                  tocada — por isso é a primeira coisa do arquivo. Seguro
+#                  de rodar em qualquer situação (import, teste, produção):
+#                  já é protegido por try/except e não escreve nada em disco.
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
 except Exception:
@@ -57,42 +59,28 @@ except Exception:
         pass
 
 
-# * [EXPLICAÇÃO] → Ativa o log em arquivo o mais cedo possível, antes de
-#                  qualquer outra coisa poder falhar — assim até um erro
-#                  bem no início já fica registrado.
 def _pasta_do_executavel_para_log():
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
 
-_caminho_log = os.path.join(
-    _pasta_do_executavel_para_log(), f'agente_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.txt',
-)
-_arquivo_log = open(_caminho_log, 'a', encoding='utf-8')
-sys.stdout = _DuplicadorSaida(sys.stdout, _arquivo_log)
-sys.stderr = _DuplicadorSaida(sys.stderr, _arquivo_log)
-print(f'[AGENTE] Log sendo gravado em: {_caminho_log}')
-
-
-# * [EXPLICAÇÃO] → Captura QUALQUER exceção não tratada, em qualquer lugar
-#                  do programa, antes dela conseguir fechar o processo
-#                  silenciosamente. Requisito do usuário: o agente só fecha
-#                  quando ELE decide fechar (menu "Sair"), nunca sozinho.
-#                  Isso não impede 100% dos jeitos de o Windows encerrar um
-#                  processo à força, mas cobre qualquer erro de Python — que
-#                  é a causa mais provável.
 def _capturar_excecao_nao_tratada(tipo, valor, traceback_obj):
+    # * [EXPLICAÇÃO] → Captura QUALQUER exceção não tratada, em qualquer
+    #                  lugar do programa, antes dela conseguir fechar o
+    #                  processo silenciosamente. Requisito do usuário: o
+    #                  agente só fecha quando ELE decide fechar (menu
+    #                  "Sair"), nunca sozinho. Só é conectada de verdade
+    #                  (sys.excepthook =) dentro do `if __name__ ==
+    #                  '__main__':`, no fim do arquivo — nunca ao importar.
     import traceback
     print('[AGENTE] ERRO NÃO TRATADO — isso NÃO deveria ter fechado o programa:')
     traceback.print_exception(tipo, valor, traceback_obj)
 
 
-sys.excepthook = _capturar_excecao_nao_tratada
-
 import pystray
 from PIL import Image, ImageDraw
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from agente_local.aviso_execucao import AvisoExecucao
@@ -102,6 +90,14 @@ from agente_local.replicacao_ml import replicar_video_no_ml
 from agente_local import cliente_api
 
 PORTA_LOCAL = 5678
+
+# * [EXPLICAÇÃO] → Duplicado aqui de propósito (nunca importado de
+#                  core.empresa) — o agente local precisa continuar 100%
+#                  autossuficiente, sem NENHUMA dependência de Django,
+#                  mesmo que isso signifique manter esta lista em 2
+#                  lugares. Usada só para validar o parâmetro `empresa`
+#                  que chega na rota Flask, antes de repassar pra API.
+EMPRESAS_VALIDAS_AGENTE = ('MAGAZINE', 'SAMVALE')
 
 
 def _obter_pasta_do_executavel():
@@ -130,10 +126,22 @@ def carregar_configuracao():
     return configuracao['SERVIDOR'], configuracao['TOKEN']
 
 
-SERVIDOR_DJANGO, TOKEN_AGENTE = carregar_configuracao()
-
+# * [EXPLICAÇÃO] → Corrigido (25/08) — antes, a leitura da config real
+#                  (linha abaixo) e todo o "start de verdade" (log em
+#                  arquivo, servidor Flask na porta 5678, ícone da bandeja)
+#                  ficavam soltos no nível do módulo, SEM guard de
+#                  `if __name__ == '__main__':`. Isso significa que só
+#                  IMPORTAR este arquivo (ex: pra testar as rotas Flask)
+#                  já disparava tudo de verdade: lia agente_config.env do
+#                  disco (levantando erro se não achasse), escrevia um
+#                  arquivo de log real, e travava pra sempre no loop do
+#                  ícone da bandeja — tornando o módulo impossível de
+#                  testar. Agora só o app Flask + as rotas (que não
+#                  dependem de config nenhuma pra SEREM DEFINIDAS) ficam no
+#                  nível do módulo — sempre seguro de importar. O "start de
+#                  verdade" (bloco `if __name__ == '__main__':`, no fim do
+#                  arquivo) continua idêntico ao que já era, só reorganizado.
 app_flask = Flask(__name__)
-CORS(app_flask, origins=[SERVIDOR_DJANGO])
 
 icone_referencia = {'obj': None}
 execucao_em_andamento = {'ativo': False}
@@ -156,17 +164,17 @@ def _voltar_ao_repouso():
 # * [EXPLICAÇÃO] → Generalizada (30/07) — recebe QUAL função de heartbeat
 #                  chamar (Postagem ou Replicação), em vez de duplicar essa
 #                  mesma thread pros 2 fluxos.
-def _enviar_heartbeat_em_loop(funcao_heartbeat, execucao_id, evento_parar):
+def _enviar_heartbeat_em_loop(funcao_heartbeat, execucao_id, empresa, evento_parar):
     import time
     while not evento_parar.is_set():
         try:
-            funcao_heartbeat(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+            funcao_heartbeat(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa)
         except Exception as erro:
             print(f'[AGENTE] Falha ao enviar heartbeat: {erro}')
         evento_parar.wait(10)  # * a cada 10s — bem dentro do limite de 30s do Django
 
 
-def _processar_execucao(execucao_id):
+def _processar_execucao(execucao_id, empresa):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
 
@@ -176,7 +184,7 @@ def _processar_execucao(execucao_id):
     evento_parar_heartbeat = threading.Event()
     thread_heartbeat = threading.Thread(
         target=_enviar_heartbeat_em_loop,
-        args=(cliente_api.enviar_heartbeat, execucao_id, evento_parar_heartbeat), daemon=True,
+        args=(cliente_api.enviar_heartbeat, execucao_id, empresa, evento_parar_heartbeat), daemon=True,
     )
     thread_heartbeat.start()
 
@@ -184,14 +192,14 @@ def _processar_execucao(execucao_id):
         controle.encerrar()
         aviso.fechar()
         try:
-            cliente_api.finalizar_execucao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=True)
+            cliente_api.finalizar_execucao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa, cancelada=True)
         except Exception as erro:
             print(f'[AGENTE] Erro ao avisar cancelamento: {erro}')
         _voltar_ao_repouso()
         return
 
     try:
-        itens = cliente_api.listar_itens(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+        itens = cliente_api.listar_itens(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa)
     except Exception as erro:
         print(f'[AGENTE] Erro ao buscar itens da execução #{execucao_id}: {erro}')
         controle.encerrar()
@@ -212,12 +220,12 @@ def _processar_execucao(execucao_id):
 
         try:
             caminho_local, drive_file_id, pasta_videos_id = cliente_api.baixar_video(
-                SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, item['produto_ean'], pasta_temporaria_raiz,
+                SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, item['produto_ean'], pasta_temporaria_raiz, empresa,
             )
         except Exception as erro:
             print(f'[AGENTE] Erro ao baixar vídeo do item #{item_id}: {erro}')
             try:
-                cliente_api.marcar_falhou(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, f'Erro ao baixar: {erro}')
+                cliente_api.marcar_falhou(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, f'Erro ao baixar: {erro}', empresa)
             except Exception:
                 pass
             continue
@@ -227,17 +235,26 @@ def _processar_execucao(execucao_id):
 
         try:
             sucesso, mensagem_erro = postar_video_no_ml(
-                item['mlb'], caminho_local, controle.janela_referencia, confirmar_de_verdade=True,
+                item['mlb'], caminho_local, controle.janela_referencia,
+                # * [TEMPORÁRIO — 25/08] Forçado pra False nesta rodada de
+                #   validação (Etapas 2/3/4, de volta ao escritório) — pedido
+                #   explícito do usuário: NENHUM clique pode ser real, nem
+                #   Postagem nem Replicação, enquanto o fluxo completo (com
+                #   a empresa correta ponta a ponta) não estiver validado.
+                #   Era True (produção real, clique de verdade) antes desta
+                #   rodada. REVERTER pra True só depois da validação
+                #   completa ser confirmada pelo usuário.
+                confirmar_de_verdade=False,
             )
         except Exception as erro:
             sucesso, mensagem_erro = False, f'Erro inesperado na automação: {erro}'
 
         if not sucesso:
-            cliente_api.marcar_falhou(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, mensagem_erro or 'Falha ao postar.')
+            cliente_api.marcar_falhou(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, mensagem_erro or 'Falha ao postar.', empresa)
             continue
 
         try:
-            cliente_api.marcar_concluido(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, drive_file_id, pasta_videos_id)
+            cliente_api.marcar_concluido(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, drive_file_id, pasta_videos_id, empresa)
             print(f'[AGENTE] Item #{item_id} concluído.')
         except Exception as erro:
             print(f'[AGENTE] Postado, mas erro ao avisar o servidor: {erro}')
@@ -250,7 +267,7 @@ def _processar_execucao(execucao_id):
     aviso.fechar()
 
     try:
-        cliente_api.finalizar_execucao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=foi_cancelado)
+        cliente_api.finalizar_execucao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa, cancelada=foi_cancelado)
     except Exception as erro:
         print(f'[AGENTE] Erro ao avisar que a execução terminou: {erro}')
 
@@ -274,7 +291,7 @@ def _registrar_log_replicacao(ean, titulo, mlb_origem, marcados, observacao=None
         arquivo.write(linha + '\n')
 
 
-def _processar_execucao_replicacao(execucao_id):
+def _processar_execucao_replicacao(execucao_id, empresa):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
 
@@ -284,7 +301,7 @@ def _processar_execucao_replicacao(execucao_id):
     evento_parar_heartbeat = threading.Event()
     thread_heartbeat = threading.Thread(
         target=_enviar_heartbeat_em_loop,
-        args=(cliente_api.enviar_heartbeat_replicacao, execucao_id, evento_parar_heartbeat), daemon=True,
+        args=(cliente_api.enviar_heartbeat_replicacao, execucao_id, empresa, evento_parar_heartbeat), daemon=True,
     )
     thread_heartbeat.start()
 
@@ -292,14 +309,14 @@ def _processar_execucao_replicacao(execucao_id):
         controle.encerrar()
         aviso.fechar()
         try:
-            cliente_api.finalizar_execucao_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=True)
+            cliente_api.finalizar_execucao_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa, cancelada=True)
         except Exception as erro:
             print(f'[AGENTE] Erro ao avisar cancelamento (replicação): {erro}')
         _voltar_ao_repouso()
         return
 
     try:
-        itens = cliente_api.listar_itens_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id)
+        itens = cliente_api.listar_itens_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa)
     except Exception as erro:
         print(f'[AGENTE] Erro ao buscar itens da execução de replicação #{execucao_id}: {erro}')
         controle.encerrar()
@@ -319,15 +336,17 @@ def _processar_execucao_replicacao(execucao_id):
         try:
             sucesso, mensagem_erro, marcados, nao_encontrados = replicar_video_no_ml(
                 item['mlb'], item['outros_mlbs'], controle.janela_referencia,
-                confirmar_de_verdade=False,  # * [TEMPORÁRIO — TESTE 13/08] estava True (produção real).
-                                              #   REVERTER pra True antes de usar de verdade em produção.
+                confirmar_de_verdade=False,  # * [TEMPORÁRIO — TESTE 13/08, reafirmado 25/08] estava True
+                                              #   (produção real). REVERTER pra True só depois da validação
+                                              #   completa (empresa correta ponta a ponta) ser confirmada
+                                              #   pelo usuário.
             )
         except Exception as erro:
             sucesso, mensagem_erro, marcados, nao_encontrados = False, f'Erro inesperado na automação: {erro}', [], []
 
         if not sucesso:
             try:
-                cliente_api.marcar_falhou_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, mensagem_erro or 'Falha ao replicar.')
+                cliente_api.marcar_falhou_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, mensagem_erro or 'Falha ao replicar.', empresa)
             except Exception:
                 pass
             continue
@@ -339,7 +358,7 @@ def _processar_execucao_replicacao(execucao_id):
                 print(f'[AGENTE] Erro ao gravar log de replicação (não impede o fluxo): {erro}')
 
         try:
-            cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, marcados, nao_encontrados)
+            cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, empresa, marcados, nao_encontrados)
             print(f'[AGENTE] Item de replicação #{item_id} concluído.')
         except Exception as erro:
             print(f'[AGENTE] Replicado, mas erro ao avisar o servidor: {erro}')
@@ -350,7 +369,7 @@ def _processar_execucao_replicacao(execucao_id):
     aviso.fechar()
 
     try:
-        cliente_api.finalizar_execucao_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, cancelada=foi_cancelado)
+        cliente_api.finalizar_execucao_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa, cancelada=foi_cancelado)
     except Exception as erro:
         print(f'[AGENTE] Erro ao avisar que a execução de replicação terminou: {erro}')
 
@@ -365,15 +384,29 @@ def executar(execucao_id):
     if execucao_em_andamento['ativo']:
         return jsonify({'status': 'ocupado', 'mensagem': 'Já existe uma execução rodando neste agente.'}), 409
 
+    # * [EXPLICAÇÃO] → "Achado central" (24/08) — o template manda a empresa
+    #                  ativa (do navegador, via query string) porque este
+    #                  agente NUNCA tem sessão de navegador — sem isso, a
+    #                  API não tem como saber se é Magazine ou Samvale.
+    #                  Valida aqui, de forma explícita, com a lista LOCAL
+    #                  (nunca importada de core.empresa — o agente precisa
+    #                  seguir 100% autossuficiente).
+    empresa = request.args.get('empresa')
+    if empresa not in EMPRESAS_VALIDAS_AGENTE:
+        return jsonify({
+            'status': 'erro',
+            'mensagem': f'Parâmetro empresa ausente ou inválido: {empresa!r}.',
+        }), 400
+
     execucao_em_andamento['ativo'] = True
     if icone_referencia['obj'] is not None:
         icone_referencia['obj'].icon = _criar_imagem('blue')
         icone_referencia['obj'].title = f'Execução #{execucao_id} — aguardando F8'
 
-    thread = threading.Thread(target=_processar_execucao, args=(execucao_id,), daemon=True)
+    thread = threading.Thread(target=_processar_execucao, args=(execucao_id, empresa), daemon=True)
     thread.start()
 
-    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id})
+    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id, 'empresa': empresa})
 
 
 @app_flask.route('/executar-replicacao/<int:execucao_id>', methods=['POST'])
@@ -387,15 +420,24 @@ def executar_replicacao(execucao_id):
     if execucao_em_andamento['ativo']:
         return jsonify({'status': 'ocupado', 'mensagem': 'Já existe uma execução rodando neste agente.'}), 409
 
+    # * [EXPLICAÇÃO] → Mesma validação da rota /executar (Postagem) — ver
+    #                  comentário lá pro porquê completo.
+    empresa = request.args.get('empresa')
+    if empresa not in EMPRESAS_VALIDAS_AGENTE:
+        return jsonify({
+            'status': 'erro',
+            'mensagem': f'Parâmetro empresa ausente ou inválido: {empresa!r}.',
+        }), 400
+
     execucao_em_andamento['ativo'] = True
     if icone_referencia['obj'] is not None:
         icone_referencia['obj'].icon = _criar_imagem('blue')
         icone_referencia['obj'].title = f'Execução de Replicação #{execucao_id} — aguardando F8'
 
-    thread = threading.Thread(target=_processar_execucao_replicacao, args=(execucao_id,), daemon=True)
+    thread = threading.Thread(target=_processar_execucao_replicacao, args=(execucao_id, empresa), daemon=True)
     thread.start()
 
-    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id})
+    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id, 'empresa': empresa})
 
 
 def _rodar_servidor_flask():
@@ -411,27 +453,56 @@ def _sair(icone, item):
     icone.stop()
 
 
-thread_servidor = threading.Thread(target=_rodar_servidor_flask, daemon=True)
-thread_servidor.start()
+# * [EXPLICAÇÃO] → Corrigido (25/08) — TUDO que é "start de verdade" (nunca
+#                  deve rodar só por importar o módulo) vive aqui dentro:
+#                  log em arquivo, leitura de agente_config.env, CORS com a
+#                  origem real, o servidor Flask na porta 5678, e o ícone
+#                  da bandeja. Comportamento idêntico ao que já existia
+#                  quando rodado como script/.exe — só reorganizado pra
+#                  dentro do guard padrão do Python, pra viabilizar teste
+#                  automatizado das rotas (ver
+#                  agente_local/tests/test_nivel_4__servidor_agente_rotas.py).
+#                  Ressalva consciente: um erro de IMPORT (ex: dependência
+#                  faltando no .exe) não fica mais registrado no log em
+#                  arquivo, já que o log só é ligado aqui dentro — isso já
+#                  era um risco baixo (as dependências são as mesmas
+#                  travadas no pyproject.toml) e o ganho de testabilidade
+#                  compensa.
+if __name__ == '__main__':
+    _caminho_log = os.path.join(
+        _pasta_do_executavel_para_log(), f'agente_log_{datetime.datetime.now():%Y%m%d_%H%M%S}.txt',
+    )
+    _arquivo_log = open(_caminho_log, 'a', encoding='utf-8')
+    sys.stdout = _DuplicadorSaida(sys.stdout, _arquivo_log)
+    sys.stderr = _DuplicadorSaida(sys.stderr, _arquivo_log)
+    print(f'[AGENTE] Log sendo gravado em: {_caminho_log}')
 
-icone = pystray.Icon(
-    'agente_postagem',
-    _criar_imagem('green'),
-    f'Agente rodando — conectado a {SERVIDOR_DJANGO}',
-    menu=pystray.Menu(pystray.MenuItem('Sair', _sair)),
-)
-icone_referencia['obj'] = icone
+    sys.excepthook = _capturar_excecao_nao_tratada
 
-try:
-    icone.run()
-except Exception as erro:
-    print(f'[AGENTE] ERRO — o ícone da bandeja parou de funcionar: {erro}')
-    import traceback
-    traceback.print_exc()
-    print('[AGENTE] Aguardando você fechar esta janela manualmente (Ctrl+C ou fechar a janela).')
-    # * [EXPLICAÇÃO] → Se o loop do ícone quebrar mesmo assim (não deveria,
-    #                  com o try/except acima), mantém o PROCESSO vivo de
-    #                  propósito — nunca fecha sozinho, mesmo sem o ícone
-    #                  funcionando mais. Só sai quando o usuário decidir.
-    while True:
-        time.sleep(3600)
+    SERVIDOR_DJANGO, TOKEN_AGENTE = carregar_configuracao()
+    CORS(app_flask, origins=[SERVIDOR_DJANGO])
+
+    thread_servidor = threading.Thread(target=_rodar_servidor_flask, daemon=True)
+    thread_servidor.start()
+
+    icone = pystray.Icon(
+        'agente_postagem',
+        _criar_imagem('green'),
+        f'Agente rodando — conectado a {SERVIDOR_DJANGO}',
+        menu=pystray.Menu(pystray.MenuItem('Sair', _sair)),
+    )
+    icone_referencia['obj'] = icone
+
+    try:
+        icone.run()
+    except Exception as erro:
+        print(f'[AGENTE] ERRO — o ícone da bandeja parou de funcionar: {erro}')
+        import traceback
+        traceback.print_exc()
+        print('[AGENTE] Aguardando você fechar esta janela manualmente (Ctrl+C ou fechar a janela).')
+        # * [EXPLICAÇÃO] → Se o loop do ícone quebrar mesmo assim (não deveria,
+        #                  com o try/except acima), mantém o PROCESSO vivo de
+        #                  propósito — nunca fecha sozinho, mesmo sem o ícone
+        #                  funcionando mais. Só sai quando o usuário decidir.
+        while True:
+            time.sleep(3600)
