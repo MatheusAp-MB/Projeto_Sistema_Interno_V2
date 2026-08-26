@@ -26,13 +26,20 @@ from rich import print
 from core.funcoes_auxiliares.saida_dupla import SaidaDupla
 from core.management.commands.popular_banco_suporte.importar_produtos_erp import importar_produtos_erp
 from core.management.commands.popular_banco_suporte.sincronizar_indicadores_agenda_em_lote import sincronizar_indicadores_agenda_em_lote
-# * [EXPLICAÇÃO] → Desativadas (15/08) — dependiam de detalhes_mlbs.json,
-#                  que deixou de ser lido por este comando. Ver explicação
-#                  no topo do arquivo.
-# from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
-# from core.management.commands.popular_banco_suporte.importar_dimensoes_declaradas_ml import importar_dimensoes_declaradas_ml
-# * [EXPLICAÇÃO] → Desativadas (15/08) — dependiam de dados_completos_por_sku.json,
-#                  mesmo motivo acima.
+# * [EXPLICAÇÃO] → Religadas em 26/08/2026 — detalhes_mlbs.json existe de
+#                  verdade agora (ponto 03, isolado por empresa) e
+#                  caminho_detalhes_mlbs() já resolve o caminho certo pela
+#                  empresa ativa (corrigido no ponto 03).
+from core.management.commands.popular_banco_suporte.importar_anuncios_ml import importar_anuncios_ml
+from core.management.commands.popular_banco_suporte.importar_dimensoes_declaradas_ml import (
+    importar_dimensoes_declaradas_ml, caminho_detalhes_mlbs,
+)
+# * [EXPLICAÇÃO] → Continuam desativadas — dependem de
+#                  dados_completos_por_sku.json (ponto 05, ainda não
+#                  migrado). CAMINHO_QUALIDADE também nunca foi declarada
+#                  em lugar nenhum do código — descomentar sem os 2
+#                  resolvidos quebra o comando inteiro (NameError antes de
+#                  qualquer etapa rodar), não só essas 2 linhas.
 # from core.management.commands.popular_banco_suporte.importar_qualidade_anuncio import importar_qualidade_anuncio
 # from core.management.commands.popular_banco_suporte.importar_competicao_catalogo import importar_competicao_catalogo
 from core.management.commands.popular_banco_suporte.importar_tabela_frete_ml import importar_tabela_frete_ml
@@ -71,12 +78,22 @@ class Command(ComandoComEmpresa):
     def _executar(self, inicio_geral):
         self.stdout.write('Iniciando importação de dados reais...\n')
 
+        # * [EXPLICAÇÃO] → Calculado 1x, embora ANUNCIOS ML e DIMENSÕES
+        #                  DECLARADAS ML leiam o mesmo arquivo —
+        #                  caminho_detalhes_mlbs() já resolve pela empresa
+        #                  ativa (definida em ComandoComEmpresa.execute(),
+        #                  antes de _executar rodar).
+        caminho_detalhes = caminho_detalhes_mlbs()
+
         etapas = [
             ('PRODUTOS ERP', importar_produtos_erp, ()),
-            # * [EXPLICAÇÃO] → Desativadas (15/08) — ver explicação no topo do arquivo.
-            # ('ANUNCIOS ML', importar_anuncios_ml, (caminho_detalhes_mlbs(),)),
+            ('ANUNCIOS ML', importar_anuncios_ml, (caminho_detalhes,)),
             ('INDICADORES AGENDA', sincronizar_indicadores_agenda_em_lote, ()),
-            # ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (caminho_detalhes_mlbs(),)),
+            ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (caminho_detalhes,)),
+            # * [EXPLICAÇÃO] → Continuam desativadas — dependem de
+            #                  dados_completos_por_sku.json (ponto 05, ainda
+            #                  não migrado). Religar sem isso pronto quebra
+            #                  o comando inteiro, não só essas 2 etapas.
             # ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
             # ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
             ('FRETE ML', importar_tabela_frete_ml, ()),

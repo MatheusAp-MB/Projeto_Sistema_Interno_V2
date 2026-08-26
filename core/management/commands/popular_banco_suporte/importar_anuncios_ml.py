@@ -10,14 +10,7 @@ from mercado_livre.models import (
     VariacaoAnuncioMercadoLivre,
 )
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
-
-
-def classificar_catalogo(registro):
-    if not registro.get('catalog_product_id'):
-        return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.SIMPLES
-    if registro.get('catalog_listing') is True:
-        return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.CATALOGO
-    return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.BASE
+from mercado_livre.funcoes_auxiliares.classificacao_catalogo import classificar_catalogo
 
 
 def eh_fossil_de_migracao(registro):

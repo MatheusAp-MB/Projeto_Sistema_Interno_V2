@@ -30,6 +30,34 @@ def parsear_item_relations(valor):
     return []
 
 
+def classificar_catalogo(registro):
+    """
+    Regra de classificação (só 2 campos, sem depender de item_relations):
+        catalog_product_id vazio        -> Simples
+        catalog_listing = True          -> Catálogo
+        catalog_listing = False         -> Base
+
+    item_relations serve só pra descobrir QUEM é par de quem dentro da
+    mesma Página de Catálogo — não decide o tipo do anúncio (isso já é
+    feito à parte, ver montar_estrutura_de_sku()).
+
+    Único lugar dessa regra no repositório (26/08/2026, ponto 04) — antes
+    vivia duplicada em
+    core/management/commands/popular_banco_suporte/importar_anuncios_ml.py,
+    reimplementada de forma independente com o mesmo resultado.
+
+    `registro` é um dict cru vindo de detalhes_mlbs.json (chaves
+    catalog_product_id/catalog_listing) — usado na importação pro banco
+    (importar_anuncios_ml.py) e, futuramente, na geração de
+    dados_completos_por_sku.json (ponto 05, buscar_dados_sku_completo.py).
+    """
+    if not registro.get('catalog_product_id'):
+        return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.SIMPLES
+    if registro.get('catalog_listing') is True:
+        return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.CATALOGO
+    return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.BASE
+
+
 def calcular_ponteiro_termometro(score):
     score = max(0, min(100, score or 0))
     angulo_graus = 180 - (score / 100 * 180)
