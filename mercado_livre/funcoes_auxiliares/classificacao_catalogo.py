@@ -58,6 +58,59 @@ def classificar_catalogo(registro):
     return TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.BASE
 
 
+def encontrar_fecho_transitivo(sku_alvo, registros):
+    """
+    Fecho transitivo: parte do SKU e expande por catalog_product_id +
+    item_relations até fechar toda a rede de MLBs relacionados, mesmo que
+    algum membro tenha SKU divergente ou ausente (ex: MLB de Catálogo sem
+    o SELLER_SKU preenchido, mas ligado à Base via item_relations).
+
+    Migrado de classificar_por_sku.py (ponto 05) sem alteração de lógica.
+    Não foi reaproveitado o agrupamento por Produto.sku do banco de
+    propósito: VariacaoAnuncioMercadoLivre.sku_ml tem bug já documentado
+    (variações aparecem com o SKU do pai) e o agrupamento por banco não
+    segue item_relations pra achar membro com SKU divergente — só este
+    fecho transitivo, sobre o JSON bruto, cobre esse caso.
+    """
+    registros_idx = {r["mlb"]: r for r in registros}
+    relacionados = {r["mlb"] for r in registros if r.get("sku") == sku_alvo}
+
+    if not relacionados:
+        return relacionados
+
+    mudou = True
+    while mudou:
+        mudou = False
+        cpids_atuais = {
+            registros_idx[mlb].get("catalog_product_id")
+            for mlb in relacionados
+            if registros_idx[mlb].get("catalog_product_id")
+        }
+
+        for r in registros:
+            mlb = r["mlb"]
+            if mlb in relacionados:
+                continue
+            if r.get("catalog_product_id") in cpids_atuais:
+                relacionados.add(mlb)
+                mudou = True
+                continue
+            relacoes = parsear_item_relations(r.get("item_relations"))
+            if any(rel.get("id") in relacionados for rel in relacoes):
+                relacionados.add(mlb)
+                mudou = True
+
+        for mlb in list(relacionados):
+            relacoes = parsear_item_relations(registros_idx[mlb].get("item_relations"))
+            for rel in relacoes:
+                par = rel.get("id")
+                if par and par not in relacionados and par in registros_idx:
+                    relacionados.add(par)
+                    mudou = True
+
+    return relacionados
+
+
 def calcular_ponteiro_termometro(score):
     score = max(0, min(100, score or 0))
     angulo_graus = 180 - (score / 100 * 180)

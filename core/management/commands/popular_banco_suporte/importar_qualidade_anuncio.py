@@ -13,9 +13,35 @@
 #   ImportadorQualidade → o processo inteiro, do arquivo ao banco
 
 import json
+from pathlib import Path
 from mercado_livre.models import AnuncioMercadoLivre, CriterioQualidade, QualidadeAnuncio, QualidadeAnuncioCriterio
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.parser_data import ParserData
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, obter_empresa_ativa
+
+# Nome da pasta por empresa dentro de integracao_mercado_livre/Arquivos_API/ —
+# mesma convenção usada em importar_dimensoes_declaradas_ml.py (26/08/2026).
+NOME_PASTA_POR_EMPRESA_ARQUIVOS_API = {
+    EMPRESA_MAGAZINE: 'Magazine',
+    EMPRESA_SAMVALE: 'Samvale',
+}
+
+
+def caminho_dados_completos_por_sku() -> Path:
+    """
+    Resolve o caminho de dados_completos_por_sku.json pra empresa ATIVA no
+    momento da chamada. CAMINHO_QUALIDADE nunca foi declarada em lugar
+    nenhum do código (achado desde 13/08/2026) — esta função substitui essa
+    referência que nunca existiu, mesmo padrão de caminho_detalhes_mlbs()
+    (importar_dimensoes_declaradas_ml.py, ponto 03).
+    """
+    empresa = obter_empresa_ativa()
+    if empresa is None:
+        raise RuntimeError(
+            'caminho_dados_completos_por_sku() chamado sem empresa ativa — rode '
+            'dentro de um comando com --empresa (ex: manage.py popular_banco --empresa magazine).'
+        )
+    return Path('integracao_mercado_livre/Arquivos_API') / NOME_PASTA_POR_EMPRESA_ARQUIVOS_API[empresa] / 'dados_completos_por_sku.json'
 
 
 # Função Objetivo: Representa o bloco de performance de 1 MLB do JSON.
