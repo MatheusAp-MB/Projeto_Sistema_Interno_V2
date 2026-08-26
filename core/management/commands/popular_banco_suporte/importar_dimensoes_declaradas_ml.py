@@ -16,8 +16,31 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from mercado_livre.models import AnuncioMercadoLivre, VariacaoAnuncioMercadoLivre
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, obter_empresa_ativa
 
-CAMINHO_DETALHES_MLBS = Path('Arquivos_API/detalhes_mlbs.json')
+# Nome da pasta por empresa dentro de integracao_mercado_livre/Arquivos_API/ —
+# mesma convenção de integracao_mercado_livre/servicos/buscar_mlbs.py e
+# buscar_detalhes.py (26/08/2026).
+NOME_PASTA_POR_EMPRESA_ARQUIVOS_API = {
+    EMPRESA_MAGAZINE: 'Magazine',
+    EMPRESA_SAMVALE: 'Samvale',
+}
+
+
+def caminho_detalhes_mlbs() -> Path:
+    """
+    Resolve o caminho de detalhes_mlbs.json pra empresa ATIVA no momento da
+    chamada. Precisa ser função, não constante — um valor calculado na
+    importação do módulo ficaria travado em "nenhuma empresa ativa", porque
+    os imports rodam antes de ComandoComEmpresa.execute() setar a empresa.
+    """
+    empresa = obter_empresa_ativa()
+    if empresa is None:
+        raise RuntimeError(
+            'caminho_detalhes_mlbs() chamado sem empresa ativa — rode dentro '
+            'de um comando com --empresa (ex: manage.py popular_banco --empresa magazine).'
+        )
+    return Path('integracao_mercado_livre/Arquivos_API') / NOME_PASTA_POR_EMPRESA_ARQUIVOS_API[empresa] / 'detalhes_mlbs.json'
 
 
 # Função Objetivo: Representa 1 registro do JSON, extrai a dimensão declarada.
@@ -187,7 +210,9 @@ class ImportadorDimensoesDeclaradas:
 
 
 # Função Objetivo: Ponto de entrada chamado pelo popular_banco.
-def importar_dimensoes_declaradas_ml(stdout, style, caminho_json=CAMINHO_DETALHES_MLBS):
+def importar_dimensoes_declaradas_ml(stdout, style, caminho_json=None):
+    if caminho_json is None:
+        caminho_json = caminho_detalhes_mlbs()
     if not caminho_json.exists():
         stdout.write(style.WARNING(
             f'[DIMENSÕES DECLARADAS ML] Arquivo {caminho_json} não encontrado — pulando essa etapa.'

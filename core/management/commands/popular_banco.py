@@ -74,9 +74,9 @@ class Command(ComandoComEmpresa):
         etapas = [
             ('PRODUTOS ERP', importar_produtos_erp, ()),
             # * [EXPLICAÇÃO] → Desativadas (15/08) — ver explicação no topo do arquivo.
-            # ('ANUNCIOS ML', importar_anuncios_ml, (CAMINHO_DETALHES_MLBS,)),
+            # ('ANUNCIOS ML', importar_anuncios_ml, (caminho_detalhes_mlbs(),)),
             ('INDICADORES AGENDA', sincronizar_indicadores_agenda_em_lote, ()),
-            # ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (CAMINHO_DETALHES_MLBS,)),
+            # ('DIMENSÕES DECLARADAS ML', importar_dimensoes_declaradas_ml, (caminho_detalhes_mlbs(),)),
             # ('QUALIDADE', importar_qualidade_anuncio, (CAMINHO_QUALIDADE,)),
             # ('COMPETICAO', importar_competicao_catalogo, (CAMINHO_QUALIDADE,)),
             ('FRETE ML', importar_tabela_frete_ml, ()),
