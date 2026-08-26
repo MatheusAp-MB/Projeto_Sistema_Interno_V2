@@ -44,19 +44,27 @@ class ErroAutenticacaoAPI(Exception):
     pass
 
 
-def _configurar_logger(pasta_logs: Path):
+def _configurar_logger(pasta_logs: Path, nome_log: str = "api"):
     pasta_logs = Path(pasta_logs)
     pasta_logs.mkdir(parents=True, exist_ok=True)
-    logger = logging.getLogger(f"cliente_api.{pasta_logs}")
+    logger = logging.getLogger(f"cliente_api.{pasta_logs}.{nome_log}")
     if not logger.handlers:
         logger.setLevel(logging.INFO)
+        logger.propagate = False  # não deixa vazar pro logger raiz do Django (settings.py LOGGING)
 
+        # Arquivo recebe tudo (INFO) — histórico completo de cada chamada,
+        # útil pra depurar depois. Console só mostra WARNING+ (429, timeout,
+        # erro real) — silêncio em requisição OK, que colidia com o redraw
+        # ao vivo da barra de progresso (rich.Progress) e criava a enxurrada
+        # de texto repetido.
         handler_arquivo = logging.FileHandler(
-            pasta_logs / "api.log", encoding="utf-8")
+            pasta_logs / f"{nome_log}.log", encoding="utf-8")
+        handler_arquivo.setLevel(logging.INFO)
         handler_arquivo.setFormatter(logging.Formatter(
             "%(asctime)s [%(levelname)s] %(message)s"))
 
         handler_console = RichHandler(rich_tracebacks=True, show_path=False)
+        handler_console.setLevel(logging.WARNING)
 
         logger.addHandler(handler_arquivo)
         logger.addHandler(handler_console)
@@ -85,15 +93,18 @@ def _calcular_espera_backoff(tentativa: int, resposta) -> float:
     return min(espera_calculada, TETO_ESPERA_SEGUNDOS)
 
 
-def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5):
+def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api"):
     """
     Ponto único de chamada à API do ML.
 
     metodo: "GET", "POST", etc.
     endpoint: caminho relativo, ex: "/items" (BASE_URL adicionado automaticamente)
-    pasta_logs: Path da pasta de logs do app que está chamando (ex: APP_performance/logs)
+    pasta_logs: Path da pasta de logs do app que está chamando (ex: integracao_mercado_livre/logs/<Empresa>)
+    nome_log: nome do arquivo de log, sem ".log" — pra scripts diferentes que compartilham a mesma
+              pasta_logs não sobrescreverem o log um do outro. Default "api" preserva o comportamento
+              anterior, pra qualquer chamador que não especificar.
     """
-    logger = _configurar_logger(pasta_logs)
+    logger = _configurar_logger(pasta_logs, nome_log)
     url = f"{BASE_URL}{endpoint}"
 
     for tentativa in range(max_tentativas):

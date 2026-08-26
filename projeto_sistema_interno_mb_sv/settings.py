@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'produtos',
     'marketplaces',
     'mercado_livre',
+    'integracao_mercado_livre',
     'magalu',
     'raia',
     'shopee',

@@ -19,7 +19,7 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao, obter_token_valido
 
 CONTA = "MB"  # troque para "SV" para testar a outra
-CONTA = "SV"  # troque para "MB" para testar a outra
+# CONTA = "SV"  # troque para "MB" para testar a outra
 
 
 try:
