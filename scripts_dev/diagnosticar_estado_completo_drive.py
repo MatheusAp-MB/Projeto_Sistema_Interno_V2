@@ -135,7 +135,7 @@ servico = obter_servico_drive()
 todos_os_itens = _listar_tudo_paginado_com_tamanho(servico)
 item_por_id = {item['id']: item for item in todos_os_itens}
 
-raiz_id = settings.GOOGLE_DRIVE_PASTA_RAIZ_ID
+raiz_id = settings.GOOGLE_DRIVE_PASTA_RAIZ_MAGAZINE
 filhos_da_raiz = [item for item in todos_os_itens if raiz_id in item.get('parents', [])]
 
 arvore_por_ean = montar_arvore_por_ean(todos_os_itens, raiz_id)
