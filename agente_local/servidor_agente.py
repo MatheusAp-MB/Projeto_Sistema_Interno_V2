@@ -87,6 +87,7 @@ from agente_local.aviso_execucao import AvisoExecucao
 from agente_local.controle_teclado import ControleTeclado
 from agente_local.postagem_ml import postar_video_no_ml
 from agente_local.replicacao_ml import replicar_video_no_ml
+from agente_local.verificacao_ml import ler_estado_aprovacao
 from agente_local import cliente_api
 
 PORTA_LOCAL = 5678
@@ -376,6 +377,48 @@ def _processar_execucao_replicacao(execucao_id, empresa):
     _voltar_ao_repouso()
 
 
+# * [EXPLICAÇÃO] → Fase 1 (27/08) da Verificação de Aprovação — só LEITURA.
+#                  Reaproveita a MESMA blindagem de F8/F9/foco perdido já
+#                  validada em Postagem/Replicação (AvisoExecucao +
+#                  ControleTeclado), mas SEM chamar a API do Django em
+#                  nenhum momento — cada resultado só é impresso no console
+#                  (que já vai pro arquivo de log sozinho, via
+#                  _DuplicadorSaida). Escrever o resultado no banco fica pra
+#                  fase 2, só depois de validado.
+def _processar_verificacao_aprovacao(mlbs, empresa):
+    aviso = AvisoExecucao()
+    aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
+
+    controle = ControleTeclado()
+    controle.aguardar_inicio()
+
+    if controle.foi_cancelado():
+        controle.encerrar()
+        aviso.fechar()
+        _voltar_ao_repouso()
+        return
+
+    print(f'[AGENTE] Verificação de Aprovação — {len(mlbs)} produto(s) na fila (empresa={empresa}).')
+
+    for mlb in mlbs:
+        if controle.foi_cancelado():
+            break
+        if not controle.verificar_e_aguardar(aviso):
+            break
+
+        try:
+            estado = ler_estado_aprovacao(mlb, controle.janela_referencia)
+        except Exception as erro:
+            print(f'[AGENTE] {mlb} — ERRO ao verificar: {erro}')
+            continue
+
+        print(f'[AGENTE] {mlb} — estado lido: {estado}')
+
+    controle.encerrar()
+    aviso.fechar()
+    _voltar_ao_repouso()
+
+
 @app_flask.route('/executar/<int:execucao_id>', methods=['POST'])
 def executar(execucao_id):
     # * [EXPLICAÇÃO] → Recusa uma 2ª execução enquanto a 1ª ainda roda NESTE
@@ -438,6 +481,43 @@ def executar_replicacao(execucao_id):
     thread.start()
 
     return jsonify({'status': 'iniciado', 'execucao_id': execucao_id, 'empresa': empresa})
+
+
+# * [EXPLICAÇÃO] → Mesma trava/validação de empresa das rotas de Postagem/
+#                  Replicação — ver comentário lá pro porquê completo.
+#                  Diferença de propósito: esta rota NUNCA fala com o
+#                  Django (fase 1, só leitura/console) — por isso não cria
+#                  execucao_id nenhum, só recebe a lista de itens direto no
+#                  corpo da requisição.
+@app_flask.route('/verificar-aprovacao', methods=['POST'])
+def verificar_aprovacao():
+    if execucao_em_andamento['ativo']:
+        return jsonify({'status': 'ocupado', 'mensagem': 'Já existe uma execução rodando neste agente.'}), 409
+
+    empresa = request.args.get('empresa')
+    if empresa not in EMPRESAS_VALIDAS_AGENTE:
+        return jsonify({
+            'status': 'erro',
+            'mensagem': f'Parâmetro empresa ausente ou inválido: {empresa!r}.',
+        }), 400
+
+    # * [EXPLICAÇÃO] → MLBs vêm na query string (igual execucao_id de
+    #                  Postagem/Replicação), nunca em JSON body — evita a
+    #                  checagem prévia (preflight) do navegador.
+    mlbs_bruto = request.args.get('mlbs', '')
+    mlbs = [mlb for mlb in mlbs_bruto.split(',') if mlb]
+    if not mlbs:
+        return jsonify({'status': 'erro', 'mensagem': 'Nenhum MLB recebido pra verificar.'}), 400
+
+    execucao_em_andamento['ativo'] = True
+    if icone_referencia['obj'] is not None:
+        icone_referencia['obj'].icon = _criar_imagem('blue')
+        icone_referencia['obj'].title = 'Verificação de Aprovação — aguardando F8'
+
+    thread = threading.Thread(target=_processar_verificacao_aprovacao, args=(mlbs, empresa), daemon=True)
+    thread.start()
+
+    return jsonify({'status': 'iniciado', 'total_itens': len(mlbs), 'empresa': empresa})
 
 
 def _rodar_servidor_flask():

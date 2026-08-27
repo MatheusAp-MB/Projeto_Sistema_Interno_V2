@@ -316,6 +316,38 @@
     </button>
     {% endif %}
     {% endif %}
+
+    {% if tela_atual == 'aguardando_aprovacao' %}
+    {{ itens_verificar_aprovacao|json_script:"dados-verificar-aprovacao" }}
+    <button type="button" class="btn-acao-secundario" onclick="dispararVerificacaoAprovacao()">
+        <i class="fas fa-magnifying-glass"></i> Verificar Aprovação de Todos
+    </button>
+    <script>
+        function dispararVerificacaoAprovacao() {
+            const itens = JSON.parse(document.getElementById('dados-verificar-aprovacao').textContent);
+            if (itens.length === 0) {
+                alert('Nenhum produto aguardando aprovação com MLB postado no momento.');
+                return;
+            }
+            // * [EXPLICAÇÃO] → POST simples, sem corpo e sem cabeçalho
+            //                  nenhum — MESMO formato já validado por
+            //                  Postagem/Replicação. Os MLBs viajam na
+            //                  própria URL, nunca em JSON body (isso
+            //                  disparava checagem prévia do navegador,
+            //                  nunca testada antes, e quebrava).
+            const mlbs = itens.map(item => item.mlb).join(',');
+            fetch(`http://127.0.0.1:5678/verificar-aprovacao?empresa={{ empresa_ativa }}&mlbs=${mlbs}`, {
+                method: 'POST',
+            })
+                .then(r => r.json())
+                .then(d => console.log('Agente respondeu:', d))
+                .catch(e => {
+                    console.log('Agente não respondeu (pode não estar rodando):', e);
+                    alert('Não consegui avisar o agente local — confirme se ele está aberto na sua máquina.');
+                });
+        }
+    </script>
+    {% endif %}
 </div>
 
 <div class="agenda-ordenar-por">

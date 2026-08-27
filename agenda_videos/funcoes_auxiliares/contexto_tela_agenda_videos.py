@@ -261,6 +261,21 @@ class ContextoTelaAgendaVideos:
             for valor, _ in OPCOES_TELA
         }
 
+    # Função Objetivo: Monta a lista {produto, mlb} de tudo que está
+    # Aguardando Aprovação com MLB postado conhecido — só preenchida nessa
+    # tela (nas outras 5, fica vazia, sem custo). É o que o botão "Verificar
+    # Aprovação de Todos" manda pro agente local checar.
+    def _montar_itens_verificar_aprovacao(self) -> list[dict]:
+        if self.parametros.tela != Tela.AGUARDANDO_APROVACAO:
+            return []
+        from agenda_videos.funcoes_auxiliares.verificacao_aprovacao import (
+            listar_ciclos_aguardando_aprovacao_com_mlb,
+        )
+        return [
+            {'produto': ciclo.produto.titulo, 'mlb': ciclo.mlb_postado}
+            for ciclo in listar_ciclos_aguardando_aprovacao_com_mlb()
+        ]
+
     def montar(self) -> dict:
         cabecalhos = ConstrutorCabecalhosOrdenacao(
             self.parametros.ordenar, self._montar_querystring_base(),
@@ -301,4 +316,5 @@ class ContextoTelaAgendaVideos:
             'legenda_estados': EstadoVisualRoadmap.choices,
             'querystring_sem_periodo_nem_pagina': self._montar_querystring_sem_periodo_nem_pagina(),
             'querystring_sem_aba_nem_pagina': self._montar_querystring_sem_aba_nem_pagina(),
+            'itens_verificar_aprovacao': self._montar_itens_verificar_aprovacao(),
         }
