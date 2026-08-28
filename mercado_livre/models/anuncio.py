@@ -22,6 +22,14 @@ class AnuncioMercadoLivre(models.Model):
     catalog_listing     = models.BooleanField(null=True, blank=True)
     item_relations      = models.JSONField(blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Espelho cru do array "pictures" da API (GET
+    #                  /items?ids=), nível de anúncio — mesma natureza de
+    #                  dado que item_relations acima. Dado de consumo,
+    #                  sobrescrito por inteiro a cada reimportação — nunca
+    #                  escrito por interação do usuário (ver Hub de Fotos,
+    #                  checkpoint no vault).
+    fotos = models.JSONField(blank=True, null=True)
+
     permalink  = models.URLField(max_length=500, blank=True, null=True)
     data_criacao_ml       = models.DateTimeField(blank=True, null=True)
     ultima_atualizacao_ml = models.DateTimeField(blank=True, null=True)

@@ -1,0 +1,228 @@
+/*
+* [RESUMO] → CSS específico do Hub de Fotos — só o que é NOVO (o
+* miolo em grade de fotos). O resto (badges, cabeçalho do card,
+* filtros, paginação) já vem de layout_hub_anuncios.css, carregado
+* junto no head_extra.
+*/
+
+:root {
+  --cor-fundo: #e6f2ffcb;
+}
+
+.card-fotos-anuncio {
+    background: #fff;
+    border: 1px solid #e3e7ee;
+    border-left: 4px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-fotos-anuncio:hover {
+    box-shadow: 0 2px 8px rgba(20, 41, 67, 0.08);
+}
+
+.card-fotos-cabecalho {
+    background: var(--cor-fundo);
+    border-bottom: 1px solid #e3e7ee;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.card-fotos-corpo {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.card-fotos-contagem {
+    font-size: 0.72rem;
+    color: #889;
+    margin: 2px 0 4px;
+}
+
+
+.card-fotos-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.card-fotos-item {
+    width: 180px;
+    flex: 0 0 auto;
+    border-radius: 6px;
+    border: 1px solid #021e5094;
+    background: #f4f6f9;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.modal-fotos-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 41, 67, 0.85);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    --modal-fotos-tamanho: min(80vmin, 1100px);
+}
+
+.modal-fotos-overlay[hidden] {
+    display: none;
+}
+
+.modal-fotos-cabecalho {
+    width: var(--modal-fotos-tamanho);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    margin-bottom: 12px;
+    gap: 16px;
+    background: var(--navy-deep);
+    padding: 10px 16px;
+    border-radius: 6px;
+}
+
+.modal-fotos-identificacao {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.modal-fotos-titulo {
+    font-size: 0.95rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.modal-fotos-mlb,
+.modal-fotos-sku {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.72rem;
+    color: #cdd6e3;
+    margin-right: 10px;
+}
+
+.modal-fotos-contador {
+    font-size: 0.85rem;
+    color: #cdd6e3;
+    flex-shrink: 0;
+}
+
+.modal-fotos-fechar {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px 8px;
+    flex-shrink: 0;
+}
+
+.modal-fotos-area {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.modal-fotos-corpo {
+    width: var(--modal-fotos-tamanho);
+    height: var(--modal-fotos-tamanho);
+    background: #fff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-fotos-imagem {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+.modal-fotos-nav {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: #fff;
+    font-size: 1.6rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.modal-fotos-nav:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.modal-fotos-legenda {
+    width: var(--modal-fotos-tamanho);
+    margin-top: 14px;
+    color: #cdd6e3;
+    font-size: 0.8rem;
+    text-align: center;
+    background: var(--navy-deep);
+    padding: 8px 16px;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.card-fotos-item img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+}
+
+.card-fotos-legenda {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 6px;
+    font-size: 0.64rem;
+    color: #99a;
+    background: #fff;
+    border-top: 1px solid #eef0f4;
+}
+
+.card-fotos-ordem {
+    font-weight: 700;
+    color: #556;
+}
+
+.card-fotos-sem-foto {
+    font-size: 0.8rem;
+    color: #99a;
+    padding: 8px 0;
+}
+
+.card-fotos-rodape {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid #eee;
+    background: #fafbfc;
+}
+
+.card-fotos-rodape .btn-ver-no-ml {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}

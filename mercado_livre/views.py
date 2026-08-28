@@ -99,6 +99,95 @@ def view_hub_anuncios(request):
         'querystring_atual': querystring_atual,
     })
 
+
+def view_hub_fotos(request):
+    from produtos.models import Produto
+    from mercado_livre.models import CompeticaoCatalogo
+    from mercado_livre.funcoes_auxiliares.badges import (
+        BADGES_STATUS, BADGES_TIPO_ANUNCIO, BADGES_LOGISTICA, BADGES_CATALOGO,
+        BADGE_FLEX_ATIVO, BADGE_FLEX_INATIVO,
+        badge_de, badge_flex, opcoes_com_badge,
+    )
+
+    busca = request.GET.get('busca', '').strip()
+    por_pagina = request.GET.get('por_pagina', '25')
+
+    try:
+        por_pagina = int(por_pagina)
+    except ValueError:
+        por_pagina = 25
+
+    filtros = {
+        'marcas': request.GET.getlist('marca'),
+        'status': request.GET.getlist('status'),
+        'tipos_anuncio': request.GET.getlist('tipo_anuncio'),
+        'tipos_logisticos': request.GET.getlist('logistica'),
+        'catalogos': request.GET.getlist('catalogo'),
+        'flex': request.GET.getlist('flex'),
+        'estoque': request.GET.getlist('estoque'),
+        'desconto': request.GET.getlist('desconto'),
+        'conexao_erp': request.GET.getlist('conexao_erp'),
+        'faixas_score': request.GET.getlist('score'),
+        'situacoes_competicao': request.GET.getlist('competicao'),
+    }
+
+    skus, total_anuncios_filtrados = listar_skus_filtrados(busca=busca or None, filtros=filtros)
+
+    paginator = Paginator(skus, por_pagina)
+    numero_pagina = request.GET.get('pagina', 1)
+    pagina = paginator.get_page(numero_pagina)
+
+    arvores = classificar_lote_de_skus(list(pagina.object_list), filtros=filtros)
+
+    querystring_sem_pagina = request.GET.copy()
+    querystring_sem_pagina.pop('pagina', None)
+
+    querystring_atual = request.GET.urlencode()
+
+    mapa_competicao = dict(CompeticaoCatalogo.StatusCompeticao.choices)
+    mapa_estoque = {'com': 'Com estoque', 'sem': 'Sem estoque'}
+    mapa_desconto = {'com': 'Com desconto', 'sem': 'Sem desconto'}
+    mapa_conexao_erp = {'com': 'Com conexão ERP', 'sem': 'Sem conexão ERP'}
+    mapa_score = {'ruim': 'Ruim', 'medio': 'Médio', 'bom': 'Bom', 'sem_dados': 'Sem dados'}
+
+    chips_ativos = (
+        [{'label': marca, 'classe': None, 'icone': None} for marca in filtros['marcas']] +
+        [badge_de(BADGES_STATUS, v) for v in filtros['status']] +
+        [badge_de(BADGES_TIPO_ANUNCIO, v) for v in filtros['tipos_anuncio']] +
+        [badge_de(BADGES_LOGISTICA, v) for v in filtros['tipos_logisticos']] +
+        [badge_de(BADGES_CATALOGO, v) for v in filtros['catalogos']] +
+        [badge_flex(v == 'sim') for v in filtros['flex']] +
+        [{'label': mapa_estoque.get(v, v), 'classe': None, 'icone': None} for v in filtros['estoque']] +
+        [{'label': mapa_desconto.get(v, v), 'classe': None, 'icone': None} for v in filtros['desconto']] +
+        [{'label': mapa_conexao_erp.get(v, v), 'classe': None, 'icone': None} for v in filtros['conexao_erp']] +
+        [{'label': mapa_score.get(v, v), 'classe': None, 'icone': None} for v in filtros['faixas_score']] +
+        [{'label': mapa_competicao.get(v, v), 'classe': None, 'icone': None} for v in filtros['situacoes_competicao']]
+    )
+
+    return render(request, 'mercado_livre/estrutura_hub_fotos.html', {
+        'pagina': pagina,
+        'arvores': arvores,
+        'busca': busca,
+        'por_pagina': por_pagina,
+        'filtros': filtros,
+        'querystring_sem_pagina': querystring_sem_pagina.urlencode(),
+        'total_anuncios_filtrados': total_anuncios_filtrados,
+
+        'marcas_disponiveis': Produto.objects.exclude(marca__isnull=True)
+            .exclude(marca='').values_list('marca', flat=True).distinct().order_by('marca'),
+        'opcoes_status': opcoes_com_badge(BADGES_STATUS),
+        'opcoes_tipo_anuncio': opcoes_com_badge(BADGES_TIPO_ANUNCIO),
+        'opcoes_logistica': opcoes_com_badge(BADGES_LOGISTICA),
+        'opcoes_catalogo': opcoes_com_badge(BADGES_CATALOGO),
+        'opcoes_situacao_competicao': CompeticaoCatalogo.StatusCompeticao.choices,
+        'badge_flex_ativo': BADGE_FLEX_ATIVO,
+        'badge_flex_inativo': BADGE_FLEX_INATIVO,
+
+        'chips_ativos': chips_ativos,
+        'querystring_atual': querystring_atual,
+    })
+
+
 from mercado_livre.funcoes_auxiliares.qualidade_anuncio import montar_qualidade_da_folha
 
 

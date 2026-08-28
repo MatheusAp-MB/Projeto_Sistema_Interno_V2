@@ -140,6 +140,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
             catalog_product_id=primeira.get('catalog_product_id'),
             catalog_listing=primeira.get('catalog_listing'),
             item_relations=primeira.get('item_relations'),
+            fotos=primeira.get('pictures'),
             permalink=primeira.get('permalink'),
             data_criacao_ml=parsear_data(primeira.get('date_created')),
             ultima_atualizacao_ml=parsear_data(primeira.get('last_updated')),

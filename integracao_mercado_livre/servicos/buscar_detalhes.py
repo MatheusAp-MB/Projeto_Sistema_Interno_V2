@@ -123,6 +123,7 @@ def extrair_campos_pai(body: dict, meta: dict) -> dict:
         "title":                body.get("title"),
         "thumbnail":            body.get("thumbnail"),
         "imagem_principal":     extrair_imagem_principal(body),
+        "pictures":             body.get("pictures", []),
         "status":               body.get("status"),
         "sub_status":           json.dumps(body.get("sub_status", []), ensure_ascii=False),
         "condition":            body.get("condition"),

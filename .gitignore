@@ -333,3 +333,7 @@ coverage.json
 scripts_exploracao_ERP/saidas/
 integracao_sysemp/retorno_api/
 resultados_testes.txt
+
+# Dumps brutos gerados pelos scripts de exploração do ML (scripts_exploracao_ML/)
+# — dado de investigação pontual, não entra no histórico do repo.
+scripts_exploracao_ML/*.json

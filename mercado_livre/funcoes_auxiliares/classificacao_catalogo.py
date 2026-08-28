@@ -198,6 +198,7 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'imagem_principal_url': variacao.imagem_principal_url,
         'imagem_url': imagem_url,
         'titulo_produto': titulo_produto,
+        'fotos': anuncio.fotos if anuncio else None,
 
         'estoque': variacao.estoque,
 

@@ -1,0 +1,75 @@
+<!--
+* [RESUMO] → Card de folha do Hub de Fotos — reaproveita o mesmo
+* cabeçalho de identificação do card do Hub de Anúncios (badges,
+* título, MLB/SKU), mas troca o rodapé (preço/situação/reputação)
+* pela grade com todas as fotos do anúncio, na ordem real, sem
+* dedup entre MLBs.
+-->
+<div class="card-fotos-anuncio card-anuncio-{{ anuncio.badge_tipo_anuncio.classe|cut:'badge-'|default:'padrao' }}">
+
+    <div class="card-fotos-cabecalho">
+        <div class="card-anuncio-badges">
+            {% if anuncio.badge_tipo_anuncio %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_tipo_anuncio %}{% endif %}
+            {% if anuncio.badge_logistica %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_logistica %}{% endif %}
+            {% if anuncio.badge_flex %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_flex %}{% endif %}
+            <span class="badge-papel">{{ tag_papel }}</span>
+        </div>
+
+        <div class="card-anuncio-linha-titulo">
+            <span class="card-copiavel card-copiavel-titulo">
+                <span class="card-anuncio-titulo">{{ anuncio.titulo }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.titulo }}"></i>
+            </span>
+        </div>
+
+        <div class="card-anuncio-linha-secundaria">
+            <span class="card-copiavel">
+                <span class="card-anuncio-mlb">{{ anuncio.mlb }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.mlb }}"></i>
+            </span>
+            <span class="card-copiavel">
+                <span class="card-anuncio-sku">{{ anuncio.sku_ml|default:"—" }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.sku_ml }}"></i>
+            </span>
+        </div>
+    </div>
+
+    <div class="card-fotos-corpo">
+        {% if anuncio.fotos %}
+            {{ anuncio.fotos|json_script:anuncio.mlb }}
+            <p class="card-fotos-contagem">{{ anuncio.fotos|length }} foto{{ anuncio.fotos|length|pluralize }}</p>
+            <div class="card-fotos-grid">
+                {% for foto in anuncio.fotos %}
+                    <div class="card-fotos-item"
+                         role="button"
+                         tabindex="0"
+                         data-fotos-id="{{ anuncio.mlb }}"
+                         data-index="{{ forloop.counter0 }}"
+                         data-titulo="{{ anuncio.titulo }}"
+                         data-mlb="{{ anuncio.mlb }}"
+                         data-sku="{{ anuncio.sku_ml|default:'' }}">
+                        <img src="{{ foto.secure_url|default:foto.url }}"
+                             loading="lazy"
+                             alt="Foto {{ forloop.counter }} de {{ anuncio.titulo }}">
+                        <div class="card-fotos-legenda">
+                            <span class="card-fotos-ordem">{{ forloop.counter|stringformat:"02d" }}</span>
+                            <span>{{ foto.max_size|default:foto.size|default:"—" }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="card-fotos-sem-foto">Sem fotos capturadas ainda.</p>
+        {% endif %}
+    </div>
+
+    <div class="card-fotos-rodape">
+        <a href="{{ anuncio.permalink|default:'#' }}" target="_blank" class="btn-ver-no-ml card-fotos-link-ml">
+            <i class="fas fa-eye"></i> Ver no ML
+        </a>
+        <!-- TODO: URL real do editor de fotos do ML — preencher quando disponível -->
+        <a href="#" target="_blank" class="btn-ver-no-ml card-fotos-link-editar">
+            <i class="fas fa-pen"></i> Editar no ML
+        </a>
+    </div>
+</div>
