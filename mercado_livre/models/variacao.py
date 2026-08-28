@@ -18,6 +18,15 @@ class VariacaoAnuncioMercadoLivre(models.Model):
 
     variacao_id = models.CharField(max_length=30)
 
+    # * [EXPLICAÇÃO] → MLBU (user_product_id da API) — identifica o
+    #                  "produto do vendedor" dentro do catálogo do ML.
+    #                  Usado pra montar os links reais de edição no Hub
+    #                  de Fotos ("Editar no ML" / "Editor de Imagens do
+    #                  ML"). Nem toda variação tem — só as ligadas a
+    #                  catálogo (confirmado lendo buscar_detalhes.py: só
+    #                  existe quando a API manda user_product_id).
+    mlbu = models.CharField(max_length=20, blank=True, null=True)
+
     # * [EXPLICAÇÃO] → sku_ml migra para aqui por decisão de negócio
     #                  confirmada (cada variação = produto distinto no
     #                  ERP, com EAN próprio). O JSON atual (detalhes_mlbs)

@@ -67,9 +67,15 @@
         <a href="{{ anuncio.permalink|default:'#' }}" target="_blank" class="btn-ver-no-ml card-fotos-link-ml">
             <i class="fas fa-eye"></i> Ver no ML
         </a>
-        <!-- TODO: URL real do editor de fotos do ML — preencher quando disponível -->
-        <a href="#" target="_blank" class="btn-ver-no-ml card-fotos-link-editar">
+        {% if anuncio.mlbu %}
+        <a href="https://www.mercadolivre.com.br/publicaciones/{{ anuncio.mlbu }}/modificar/omni/variation/dominio/picture-uploader-default"
+           target="_blank" class="btn-ver-no-ml card-fotos-link-editar">
             <i class="fas fa-pen"></i> Editar no ML
+        </a>
+        {% endif %}
+        <a href="https://vendedores.mercadolivre.com.br/photo-studio-phoenix?variationId=&itemId={{ anuncio.mlb }}&callbackUrl=https%3A%2F%2Fvendedores.mercadolivre.com.br%2Fanuncios&photo_studio_return=1"
+           target="_blank" class="btn-ver-no-ml card-fotos-link-editor-imagens">
+            <i class="fas fa-image"></i> Abrir no Editor de Imagens do ML
         </a>
     </div>
 </div>

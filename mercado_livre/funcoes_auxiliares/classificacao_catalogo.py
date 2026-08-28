@@ -192,6 +192,7 @@ def info_variacao(variacao, imagem_url=None, titulo_produto=None):
         'id': variacao.id,
         'comportamento_ativo': variacao.comportamento_ativo,
         'sku_ml': variacao.sku_ml,
+        'mlbu': variacao.mlbu,
         'titulo': anuncio.titulo_anuncio if anuncio else None,
         'permalink': anuncio.permalink if anuncio else None,
         'thumbnail_url': variacao.thumbnail_url,
