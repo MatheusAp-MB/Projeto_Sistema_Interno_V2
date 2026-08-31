@@ -80,17 +80,33 @@ class ArquivadorDrive:
     # propósito: esse endpoint é recente o suficiente que a versão
     # instalada do google-api-python-client pode não ter o método
     # dinâmico servico.files().download() ainda.
+    # * [DECISÃO, 31/08] timeout em toda chamada HTTP pro Drive — sem isso,
+    #   se o Google travar numa resposta (raro, mas acontece), a chamada
+    #   trava sem limite e emperra o worker do Django, travando os itens
+    #   seguintes do lote de 90. TIMEOUT_CONTROLE_SEGUNDOS é pras chamadas
+    #   de controle (iniciar/checar status do LRO — resposta rápida por
+    #   natureza). TIMEOUT_DOWNLOAD_SEGUNDOS é (conectar, ler cada pedaço) —
+    #   maior no "ler" de propósito, porque é streaming de vídeo, não uma
+    #   resposta única.
     def _baixar_arquivo_google_vids(self, drive_file_id, caminho_destino_local):
+        TIMEOUT_CONTROLE_SEGUNDOS = 30
+        TIMEOUT_DOWNLOAD_SEGUNDOS = (10, 60)
+
         sessao = AuthorizedSession(obter_credenciais_drive_escrita())
 
-        resposta = sessao.post(f'https://www.googleapis.com/drive/v3/files/{drive_file_id}/download', json={})
+        resposta = sessao.post(
+            f'https://www.googleapis.com/drive/v3/files/{drive_file_id}/download',
+            json={}, timeout=TIMEOUT_CONTROLE_SEGUNDOS,
+        )
         resposta.raise_for_status()
         operacao = resposta.json()
 
         espera_segundos = 10
         while not operacao.get('done'):
             time.sleep(espera_segundos)
-            resposta = sessao.get(f'https://www.googleapis.com/drive/v3/{operacao["name"]}')
+            resposta = sessao.get(
+                f'https://www.googleapis.com/drive/v3/{operacao["name"]}', timeout=TIMEOUT_CONTROLE_SEGUNDOS,
+            )
             resposta.raise_for_status()
             operacao = resposta.json()
             espera_segundos = min(espera_segundos * 2, 60)
@@ -101,7 +117,7 @@ class ArquivadorDrive:
             )
 
         download_uri = operacao['response']['downloadUri']
-        with sessao.get(download_uri, stream=True) as resposta_video:
+        with sessao.get(download_uri, stream=True, timeout=TIMEOUT_DOWNLOAD_SEGUNDOS) as resposta_video:
             resposta_video.raise_for_status()
             with open(caminho_destino_local, 'wb') as arquivo_local:
                 for pedaco in resposta_video.iter_content(chunk_size=1024 * 1024):
