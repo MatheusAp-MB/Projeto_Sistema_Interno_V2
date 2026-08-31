@@ -711,11 +711,11 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
 # confirmação em 2 etapas — nunca um arquivo já usado, que é sempre só
 # leitura.
 #
-# * [ATENÇÃO] → Decisão do usuário (20/08/2026): toda leitura/escrita no
-#               Drive usada por esta tela agora acontece dentro da pasta
-#               de TESTE dedicada da empresa (GOOGLE_DRIVE_PASTA_TESTE_
-#               MAGAZINE/_SAMVALE — ver obter_pasta_raiz_id_ativa() em
-#               drive/cliente.py), nunca a pasta real de produção. Cada
+# * [ATENÇÃO] → Decisão revertida em 31/08/2026 — voltou a usar a pasta
+#               REAL de produção (ver obter_pasta_raiz_id_ativa() em
+#               drive/cliente.py). Entre 20/08 e 31/08/2026, toda leitura/
+#               escrita no Drive usada por esta tela acontecia dentro da
+#               pasta de TESTE dedicada da empresa. Cada
 #               produto usa sua PRÓPRIA marca/ean real (não mais uma
 #               identidade fixa/falsa) — só que criada, se ainda não
 #               existir, dentro dessa raiz de teste isolada. Antiga

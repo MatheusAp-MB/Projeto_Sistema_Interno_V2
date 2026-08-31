@@ -237,15 +237,11 @@ def _processar_execucao(execucao_id, empresa):
         try:
             sucesso, mensagem_erro = postar_video_no_ml(
                 item['mlb'], caminho_local, controle.janela_referencia,
-                # * [TEMPORÁRIO — 25/08] Forçado pra False nesta rodada de
-                #   validação (Etapas 2/3/4, de volta ao escritório) — pedido
-                #   explícito do usuário: NENHUM clique pode ser real, nem
-                #   Postagem nem Replicação, enquanto o fluxo completo (com
-                #   a empresa correta ponta a ponta) não estiver validado.
-                #   Era True (produção real, clique de verdade) antes desta
-                #   rodada. REVERTER pra True só depois da validação
-                #   completa ser confirmada pelo usuário.
-                confirmar_de_verdade=False,
+                # * [DECISÃO, 31/08] Validação real concluída (botão certo
+                #   encontrado na tela do ML, trava de dry-run funcionando
+                #   como esperado) — usuário autorizou reverter pra
+                #   produção real.
+                confirmar_de_verdade=True,
             )
         except Exception as erro:
             sucesso, mensagem_erro = False, f'Erro inesperado na automação: {erro}'
