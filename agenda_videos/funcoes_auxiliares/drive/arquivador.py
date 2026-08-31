@@ -11,9 +11,11 @@
 #               não código morto esquecido. Mantido de propósito.
 
 import os
+import time
+from google.auth.transport.requests import AuthorizedSession
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
-from .cliente import obter_servico_drive_escrita
-from .constantes import NOME_PASTA_USADOS, NOME_PASTA_VIDEOS, MIME_PASTA, PREFIXO_ARQUIVO_POR_FASE
+from .cliente import obter_servico_drive_escrita, obter_credenciais_drive_escrita
+from .constantes import NOME_PASTA_USADOS, NOME_PASTA_VIDEOS, MIME_PASTA, MIME_GOOGLE_VIDS, PREFIXO_ARQUIVO_POR_FASE
 from .parser import EXTENSOES_VALIDAS_POR_TIPO
 from .utilitarios_pasta import buscar_subpasta, buscar_ou_criar_subpasta, buscar_arquivo
 
@@ -51,13 +53,59 @@ class ArquivadorDrive:
 
     # Função Objetivo: Baixa o conteúdo de 1 arquivo (por ID) pro caminho
     # local informado — streaming em pedaços, nunca carrega tudo na memória.
+    # * [DESCOBERTA, 31/08/2026] → Arquivo gravado no Google Vids não é
+    #   binário — get_media() falha com fileNotDownloadable. Detecta pelo
+    #   mimeType ANTES de tentar baixar (1 chamada extra, barata) e desvia
+    #   pro caminho de download por LRO — mais claro e mais barato que
+    #   tentar o normal primeiro e cair num except depois.
     def baixar_arquivo(self, drive_file_id, caminho_destino_local):
+        metadados = self.servico.files().get(
+            fileId=drive_file_id, fields='mimeType', supportsAllDrives=True,
+        ).execute()
+        if metadados['mimeType'] == MIME_GOOGLE_VIDS:
+            self._baixar_arquivo_google_vids(drive_file_id, caminho_destino_local)
+            return
+
         requisicao = self.servico.files().get_media(fileId=drive_file_id, supportsAllDrives=True)
         with open(caminho_destino_local, 'wb') as arquivo_local:
             downloader = MediaIoBaseDownload(arquivo_local, requisicao)
             concluido = False
             while not concluido:
                 _, concluido = downloader.next_chunk()
+
+    # Função Objetivo: Baixa vídeo nativo do Google Vids — único jeito
+    # oficial é o endpoint LRO (POST files/{id}/download), confirmado
+    # contra a documentação real do Google e testado de ponta a ponta
+    # (31/08/2026). Chamada HTTP direta, não via googleapiclient, de
+    # propósito: esse endpoint é recente o suficiente que a versão
+    # instalada do google-api-python-client pode não ter o método
+    # dinâmico servico.files().download() ainda.
+    def _baixar_arquivo_google_vids(self, drive_file_id, caminho_destino_local):
+        sessao = AuthorizedSession(obter_credenciais_drive_escrita())
+
+        resposta = sessao.post(f'https://www.googleapis.com/drive/v3/files/{drive_file_id}/download', json={})
+        resposta.raise_for_status()
+        operacao = resposta.json()
+
+        espera_segundos = 10
+        while not operacao.get('done'):
+            time.sleep(espera_segundos)
+            resposta = sessao.get(f'https://www.googleapis.com/drive/v3/{operacao["name"]}')
+            resposta.raise_for_status()
+            operacao = resposta.json()
+            espera_segundos = min(espera_segundos * 2, 60)
+
+        if 'error' in operacao:
+            raise RuntimeError(
+                f'Falha ao renderizar vídeo do Google Vids (arquivo {drive_file_id}): {operacao["error"]}'
+            )
+
+        download_uri = operacao['response']['downloadUri']
+        with sessao.get(download_uri, stream=True) as resposta_video:
+            resposta_video.raise_for_status()
+            with open(caminho_destino_local, 'wb') as arquivo_local:
+                for pedaco in resposta_video.iter_content(chunk_size=1024 * 1024):
+                    arquivo_local.write(pedaco)
 
     # Função Objetivo: Acha a subpasta "usados" dentro de Videos/ — cria se
     # ainda não existir (1ª vez que qualquer arquivo é arquivado ali).

@@ -100,6 +100,12 @@ PORTA_LOCAL = 5678
 #                  que chega na rota Flask, antes de repassar pra API.
 EMPRESAS_VALIDAS_AGENTE = ('MAGAZINE', 'SAMVALE')
 
+# * [DECISÃO, 31/08] Lote de 90 vídeos seguidos — pausa entre uma
+#   postagem real e outra, pra não parecer atividade de bot pro
+#   Mercado Livre. Só entra a partir do 2º vídeo (ver
+#   houve_postagem_anterior em _processar_execucao).
+DELAY_ENTRE_POSTAGENS_SEGUNDOS = 20
+
 
 def _obter_pasta_do_executavel():
     if getattr(sys, 'frozen', False):
@@ -175,6 +181,19 @@ def _enviar_heartbeat_em_loop(funcao_heartbeat, execucao_id, empresa, evento_par
         evento_parar.wait(10)  # * a cada 10s — bem dentro do limite de 30s do Django
 
 
+# * [EXPLICAÇÃO] → Espera visível (contagem regressiva na janela de aviso)
+#                  entre uma postagem e outra. Confere cancelamento (F9) a
+#                  cada segundo — não trava os 20s inteiros se o usuário já
+#                  quis parar no meio da espera.
+def _aguardar_entre_postagens(segundos, aviso, controle):
+    for restante in range(segundos, 0, -1):
+        if controle.foi_cancelado():
+            return False
+        aviso.atualizar(f'Aguardando {restante}s antes do próximo vídeo (pausa anti-bot)...', '#2980b9')
+        time.sleep(1)
+    return True
+
+
 def _processar_execucao(execucao_id, empresa):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
@@ -209,6 +228,7 @@ def _processar_execucao(execucao_id, empresa):
         return
 
     pasta_temporaria_raiz = tempfile.mkdtemp(prefix='agente_postagem_')
+    houve_postagem_anterior = False
 
     for item in itens:
         if controle.foi_cancelado():
@@ -231,8 +251,14 @@ def _processar_execucao(execucao_id, empresa):
                 pass
             continue
 
+        if houve_postagem_anterior:
+            if not _aguardar_entre_postagens(DELAY_ENTRE_POSTAGENS_SEGUNDOS, aviso, controle):
+                break
+
         if not controle.verificar_e_aguardar(aviso):
             break
+
+        houve_postagem_anterior = True
 
         try:
             sucesso, mensagem_erro = postar_video_no_ml(

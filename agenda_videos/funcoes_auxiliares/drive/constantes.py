@@ -11,6 +11,17 @@
 #                  a reestruturação de 30/07 e nunca atualizado até agora.
 
 MIME_PASTA = 'application/vnd.google-apps.folder'
+
+# * [DESCOBERTA, 31/08/2026] → Vídeo gravado direto no Google Vids (editor
+#                  de vídeo do Workspace) nunca é um binário normal — é um
+#                  "documento" nativo do Google, como um Doc/Sheet. Baixar
+#                  via files().get_media() (alt=media) falha com
+#                  fileNotDownloadable, e files.export também não serve
+#                  (fileNotExportable) — confirmado testando de verdade
+#                  contra a API. Único jeito oficial: endpoint LRO
+#                  POST files/{id}/download (ver arquivador.py,
+#                  _baixar_arquivo_google_vids).
+MIME_GOOGLE_VIDS = 'application/vnd.google-apps.vid'
 NOME_PASTA_VIDEOS = 'Videos'
 NOME_PASTA_USADOS = 'usados'
 
