@@ -104,7 +104,7 @@ EMPRESAS_VALIDAS_AGENTE = ('MAGAZINE', 'SAMVALE')
 #   postagem real e outra, pra não parecer atividade de bot pro
 #   Mercado Livre. Só entra a partir do 2º vídeo (ver
 #   houve_postagem_anterior em _processar_execucao).
-DELAY_ENTRE_POSTAGENS_SEGUNDOS = 20
+DELAY_ENTRE_POSTAGENS_SEGUNDOS = 30
 
 
 def _obter_pasta_do_executavel():
