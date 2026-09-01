@@ -106,6 +106,13 @@ EMPRESAS_VALIDAS_AGENTE = ('MAGAZINE', 'SAMVALE')
 #   houve_postagem_anterior em _processar_execucao).
 DELAY_ENTRE_POSTAGENS_SEGUNDOS = 30
 
+# * [DECISÃO, 01/09] Verificação de Aprovação (Fase 1) — mesmo raciocínio
+#   anti-bot da Postagem, mas mais curto: ler a tela é uma interação bem
+#   mais leve que postar (menos cliques autônomos), então 10s já cobre.
+#   Só entra a partir da 2ª leitura (ver houve_leitura_anterior em
+#   _processar_verificacao_aprovacao).
+DELAY_ENTRE_LEITURAS_VERIFICACAO_SEGUNDOS = 10
+
 
 def _obter_pasta_do_executavel():
     if getattr(sys, 'frozen', False):
@@ -399,14 +406,28 @@ def _processar_execucao_replicacao(execucao_id, empresa):
     _voltar_ao_repouso()
 
 
-# * [EXPLICAÇÃO] → Fase 1 (27/08) da Verificação de Aprovação — só LEITURA.
-#                  Reaproveita a MESMA blindagem de F8/F9/foco perdido já
-#                  validada em Postagem/Replicação (AvisoExecucao +
-#                  ControleTeclado), mas SEM chamar a API do Django em
-#                  nenhum momento — cada resultado só é impresso no console
-#                  (que já vai pro arquivo de log sozinho, via
-#                  _DuplicadorSaida). Escrever o resultado no banco fica pra
-#                  fase 2, só depois de validado.
+# * [EXPLICAÇÃO] → Mesmo padrão de _aguardar_entre_postagens — espera
+#                  visível (contagem regressiva na janela de aviso) entre
+#                  uma leitura e outra. Confere cancelamento (F9) a cada
+#                  segundo.
+def _aguardar_entre_leituras_verificacao(segundos, aviso, controle):
+    for restante in range(segundos, 0, -1):
+        if controle.foi_cancelado():
+            return False
+        aviso.atualizar(f'Aguardando {restante}s antes da próxima leitura (pausa anti-bot)...', '#2980b9')
+        time.sleep(1)
+    return True
+
+
+# * [EXPLICAÇÃO] → Fase 1 (27/08) da Verificação de Aprovação — LEITURA,
+#                  reaproveitando a MESMA blindagem de F8/F9/foco perdido
+#                  já validada em Postagem/Replicação (AvisoExecucao +
+#                  ControleTeclado). Fase 2 (01/09) — depois de cada
+#                  leitura, avisa o Django (marcar_estado_verificacao); só
+#                  aplica mudança de status quando o estado lido tem
+#                  mapeamento certo (ver MAPEAMENTO_ESTADO_PARA_STATUS em
+#                  agenda_videos/funcoes_auxiliares/verificacao_aprovacao.py)
+#                  — EM REVISÃO/PAUSADO/None não mexem em nada.
 def _processar_verificacao_aprovacao(mlbs, empresa):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
@@ -422,11 +443,20 @@ def _processar_verificacao_aprovacao(mlbs, empresa):
 
     print(f'[AGENTE] Verificação de Aprovação — {len(mlbs)} produto(s) na fila (empresa={empresa}).')
 
+    houve_leitura_anterior = False
+
     for mlb in mlbs:
         if controle.foi_cancelado():
             break
+
+        if houve_leitura_anterior:
+            if not _aguardar_entre_leituras_verificacao(DELAY_ENTRE_LEITURAS_VERIFICACAO_SEGUNDOS, aviso, controle):
+                break
+
         if not controle.verificar_e_aguardar(aviso):
             break
+
+        houve_leitura_anterior = True
 
         try:
             estado = ler_estado_aprovacao(mlb, controle.janela_referencia)
@@ -435,6 +465,12 @@ def _processar_verificacao_aprovacao(mlbs, empresa):
             continue
 
         print(f'[AGENTE] {mlb} — estado lido: {estado}')
+
+        try:
+            resultado = cliente_api.marcar_estado_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, mlb, estado, empresa)
+            print(f'[AGENTE] {mlb} — {resultado["status"]}')
+        except Exception as erro:
+            print(f'[AGENTE] {mlb} — lido, mas erro ao avisar o servidor: {erro}')
 
     controle.encerrar()
     aviso.fechar()

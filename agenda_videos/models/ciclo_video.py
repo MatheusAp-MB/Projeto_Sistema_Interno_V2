@@ -139,6 +139,16 @@ class CicloVideo(models.Model):
             campos.append('mlb_postado')
         self.save(update_fields=campos)
 
+    # * [EXPLICAÇÃO, 01/09] → Extraído de _acao_marcar_aprovado_ou_recusado
+    #                  (agenda_videos/views.py) — mesma lógica do clique
+    #                  manual de "Aprovado"/"Recusado" no roadmap, agora
+    #                  reaproveitável também pela Verificação de Aprovação
+    #                  Autônoma (Fase 2), sem duplicar a escrita em 2 lugares.
+    def marcar_aprovado_ou_recusado(self, novo_status):
+        self.status = novo_status
+        self.aprovado_ou_recusado_em = timezone.now()
+        self.save(update_fields=['status', 'aprovado_ou_recusado_em'])
+
     # * [EXPLICAÇÃO] → Envolve as 2 escritas (marcar replicado + criar o próximo
     #                  ciclo) numa transação só — se cair no meio, as 2 acontecem
     #                  juntas ou nenhuma acontece. Nunca fazer essas 2 escritas

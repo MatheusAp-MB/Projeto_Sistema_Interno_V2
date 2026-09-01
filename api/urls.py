@@ -10,4 +10,5 @@ from django.urls import path, include
 urlpatterns = [
     path('postagem-automatica/', include('api.postagem_automatica.urls')),
     path('replicacao-automatica/', include('api.replicacao_automatica.urls')),
+    path('verificacao-aprovacao/', include('api.verificacao_aprovacao.urls')),
 ]

@@ -182,3 +182,20 @@ def finalizar_execucao_replicacao(servidor, token, execucao_id, empresa, cancela
         json={'cancelada': cancelada},
         timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
+
+
+
+# ===================================================================
+# Verificação de Aprovação — só 1 rota (Fase 2: aplicar o estado lido).
+# Sem execução/heartbeat, igual à Fase 1.
+# ===================================================================
+
+def marcar_estado_verificacao(servidor, token, mlb, estado, empresa):
+    resposta = requests.post(
+        f'{servidor}/api/verificacao-aprovacao/marcar-estado/',
+        headers=_headers(token, empresa),
+        json={'mlb': mlb, 'estado': estado},
+        timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()
