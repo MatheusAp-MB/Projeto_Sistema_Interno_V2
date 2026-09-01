@@ -19,6 +19,7 @@ from agenda_videos.models import (
     ExecucaoVerificacaoAprovacao, StatusExecucao,
 )
 from agenda_videos.funcoes_auxiliares.verificacao_aprovacao import aplicar_estado_lido
+from agenda_videos.funcoes_auxiliares.sincronizar_roadmap_agenda import sincronizar_indicadores_agenda_produto
 
 
 def _exigir_token(request):
@@ -62,7 +63,7 @@ def view_marcar_concluido(request, item_id):
     if recusado:
         return recusado
 
-    item = ItemExecucaoVerificacao.objects.filter(id=item_id).first()
+    item = ItemExecucaoVerificacao.objects.select_related('produto').filter(id=item_id).first()
     if item is None:
         return JsonResponse({'erro': 'Item não encontrado.'}, status=404)
 
@@ -73,6 +74,19 @@ def view_marcar_concluido(request, item_id):
         estado = None
 
     resultado = aplicar_estado_lido(item.mlb, estado)
+
+    # * [CORREÇÃO, bug real 01/09] → aplicar_estado_lido só escreve em
+    #                  CicloVideo — sem isso, IndicadoresAgendaProduto
+    #                  (cache que toda tela da Agenda usa pra filtrar) fica
+    #                  desatualizado SILENCIOSAMENTE, e o produto nunca sai
+    #                  de "Aguardando Aprovação" na tela, mesmo com o banco
+    #                  já certo. Mesma chamada que api/replicacao_automatica/
+    #                  views.py já faz depois de marcar_replicado — faltou
+    #                  aqui na primeira versão. Só precisa rodar quando
+    #                  realmente mudou algo (resultado == 'atualizado');
+    #                  sem_mudanca/ciclo_nao_encontrado não alteram nada.
+    if resultado == 'atualizado':
+        sincronizar_indicadores_agenda_produto(item.produto)
 
     item.status = StatusItemExecucaoVerificacao.CONCLUIDO
     item.estado_lido = estado
