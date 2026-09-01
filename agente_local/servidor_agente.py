@@ -113,6 +113,11 @@ DELAY_ENTRE_POSTAGENS_SEGUNDOS = 30
 #   _processar_verificacao_aprovacao).
 DELAY_ENTRE_LEITURAS_VERIFICACAO_SEGUNDOS = 10
 
+# * [DECISÃO, 01/09] Replicação Automática — mesmo raciocínio anti-bot dos
+#   outros 2 fluxos. Só entra a partir da 2ª replicação (ver
+#   houve_replicacao_anterior em _processar_execucao_replicacao).
+DELAY_ENTRE_REPLICACOES_SEGUNDOS = 15
+
 # * [TEMPORÁRIO — TESTE 13/08, reafirmado 25/08 e 01/09] → Replicação
 #   Automática ainda em fase de validação: nunca clica de verdade no botão
 #   final. REVERTER pra True só depois da validação completa (empresa
@@ -353,6 +358,21 @@ def _registrar_log_replicacao(ean, titulo, mlb_origem, marcados, observacao=None
         arquivo.write(linha + '\n')
 
 
+# * [EXPLICAÇÃO] → Mesmo padrão de _aguardar_entre_postagens /
+#                  _aguardar_entre_leituras_verificacao — espera visível
+#                  (contagem regressiva na janela de aviso) entre uma
+#                  replicação e outra. Confere cancelamento (F9) a cada
+#                  segundo. Faltava esse anti-bot em Replicação — corrigido
+#                  (01/09).
+def _aguardar_entre_replicacoes(segundos, aviso, controle):
+    for restante in range(segundos, 0, -1):
+        if controle.foi_cancelado():
+            return False
+        aviso.atualizar(f'Aguardando {restante}s antes da próxima replicação (pausa anti-bot)...', '#2980b9')
+        time.sleep(1)
+    return True
+
+
 def _processar_execucao_replicacao(execucao_id, empresa):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
@@ -386,14 +406,22 @@ def _processar_execucao_replicacao(execucao_id, empresa):
         _voltar_ao_repouso()
         return
 
+    houve_replicacao_anterior = False
+
     for item in itens:
         if controle.foi_cancelado():
             break
 
         item_id = item['item_id']
 
+        if houve_replicacao_anterior:
+            if not _aguardar_entre_replicacoes(DELAY_ENTRE_REPLICACOES_SEGUNDOS, aviso, controle):
+                break
+
         if not controle.verificar_e_aguardar(aviso):
             break
+
+        houve_replicacao_anterior = True
 
         try:
             sucesso, mensagem_erro, marcados, nao_encontrados = replicar_video_no_ml(
