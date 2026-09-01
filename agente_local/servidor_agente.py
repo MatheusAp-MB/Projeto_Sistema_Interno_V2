@@ -118,19 +118,14 @@ DELAY_ENTRE_LEITURAS_VERIFICACAO_SEGUNDOS = 10
 #   houve_replicacao_anterior em _processar_execucao_replicacao).
 DELAY_ENTRE_REPLICACOES_SEGUNDOS = 15
 
-# * [TEMPORÁRIO — TESTE 13/08, reafirmado 25/08 e 01/09] → Replicação
-#   Automática ainda em fase de validação: nunca clica de verdade no botão
-#   final. REVERTER pra True só depois da validação completa (empresa
-#   correta ponta a ponta) ser confirmada pelo usuário — ÚNICO lugar que
-#   precisa mudar quando isso acontecer.
-# * [SEGURANÇA, 01/09] → Extraído do meio da chamada pra cá, de propósito —
-#   enquanto isso for False, _processar_execucao_replicacao NUNCA chama
-#   marcar_concluido_replicacao (que gravaria CicloVideo como replicado de
-#   verdade e avançaria o ciclo). Antes disso, o dry-run "enganava" o
-#   banco: marcava como replicado mesmo sem clicar em nada no Mercado
-#   Livre — corrigido agora, o item vai pra um status seguro
-#   (TESTADO_SEM_CONFIRMAR) que não toca no CicloVideo.
-CONFIRMAR_REPLICACAO_DE_VERDADE = False
+# * [PRODUÇÃO, 01/09] → Validação completa confirmada pelo usuário (modo
+#   teste rodou correto: MLBs marcados na tela certos, TESTADO_SEM_CONFIRMAR
+#   sem tocar CicloVideo, delay anti-bot de 15s + F8/F9 funcionando entre
+#   replicações). Replicação Automática passa a clicar de verdade no botão
+#   final e gravar CicloVideo como replicado. Se precisar voltar pro modo
+#   teste por qualquer motivo, é só trocar de volta pra False — único lugar
+#   que precisa mudar.
+CONFIRMAR_REPLICACAO_DE_VERDADE = True
 
 
 def _obter_pasta_do_executavel():
