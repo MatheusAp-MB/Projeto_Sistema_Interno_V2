@@ -25,6 +25,7 @@
             <div class="progresso-item-cabecalho">
                 <span class="progresso-item-icone">
                     {% if item.status == 'concluido' %}✓
+                    {% elif item.status == 'testado_sem_click' %}🧪
                     {% elif item.status == 'falhou' %}✗
                     {% elif item.status == 'cancelado' %}⊘
                     {% elif item.status == 'aguardando' %}○
@@ -42,13 +43,17 @@
             {% endif %}
 
             {% if item.mensagem_erro %}
-            <span class="progresso-item-erro">{{ item.mensagem_erro }}</span>
+                {% if item.status == 'testado_sem_click' %}
+                <span class="progresso-item-info">{{ item.mensagem_erro }}</span>
+                {% else %}
+                <span class="progresso-item-erro">{{ item.mensagem_erro }}</span>
+                {% endif %}
             {% endif %}
         </div>
         {% endfor %}
     </div>
 
     <p class="progresso-resumo">
-        {{ total }} produto(s) no total — {{ concluidos }} concluído(s), {{ falharam }} falhou(aram), {{ cancelados }} cancelado(s)
+        {{ total }} produto(s) no total — {{ concluidos }} concluído(s), {{ testados }} testado(s) sem confirmar, {{ falharam }} falhou(aram), {{ cancelados }} cancelado(s)
     </p>
 </div>

@@ -107,6 +107,35 @@ def view_marcar_concluido(request, item_id):
     return JsonResponse({'status': 'concluido'})
 
 
+# * [SEGURANÇA, 01/09] → Rota separada de view_marcar_concluido, de
+#                  propósito — chamada só pelo agente quando
+#                  CONFIRMAR_REPLICACAO_DE_VERDADE é False. NUNCA toca em
+#                  CicloVideo — modo teste não pode fingir que a replicação
+#                  aconteceu de verdade.
+@csrf_exempt
+@require_POST
+def view_marcar_testado_sem_confirmar(request, item_id):
+    recusado = _exigir_token(request)
+    if recusado:
+        return recusado
+
+    item = ItemExecucaoReplicacao.objects.filter(id=item_id).first()
+    if item is None:
+        return JsonResponse({'erro': 'Item não encontrado.'}, status=404)
+
+    try:
+        corpo = json.loads(request.body)
+        mensagem = corpo.get('mensagem', 'Testado em modo teste — não confirmado.')
+    except json.JSONDecodeError:
+        mensagem = 'Testado em modo teste — não confirmado.'
+
+    item.status = StatusItemExecucaoReplicacao.TESTADO_SEM_CONFIRMAR
+    item.mensagem_erro = mensagem
+    item.finalizado_em = timezone.now()
+    item.save(update_fields=['status', 'mensagem_erro', 'finalizado_em', 'atualizado_em'])
+    return JsonResponse({'status': item.status})
+
+
 @csrf_exempt
 @require_POST
 def view_marcar_falhou(request, item_id):

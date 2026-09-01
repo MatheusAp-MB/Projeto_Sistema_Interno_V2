@@ -16,6 +16,7 @@
 .progresso-status--pausado           { background: #fef3c7; color: #92400e; }
 .progresso-status--aguardando_inicio { background: #f3e8ff; color: #6b21a8; }
 .progresso-status--concluido         { background: #dcfce7; color: #15803d; }
+.progresso-status--testado_sem_click { background: #e0e7ff; color: #4338ca; }
 .progresso-status--cancelado         { background: #f3f4f6; color: #6b7280; }
 
 .progresso-itens {
@@ -57,8 +58,10 @@
 }
 
 .progresso-item-erro { flex-basis: 100%; font-size: 0.75rem; color: #b91c1c; margin-top: 4px; padding-left: 30px; }
+.progresso-item-info { flex-basis: 100%; font-size: 0.75rem; color: #4338ca; margin-top: 4px; padding-left: 30px; }
 
 .progresso-item--concluido { border-left: 4px solid #15803d; }
+.progresso-item--testado_sem_click { border-left: 4px solid #6366f1; }
 .progresso-item--falhou    { border-left: 4px solid #b91c1c; }
 .progresso-item--cancelado { border-left: 4px solid #9ca3af; opacity: 0.7; }
 .progresso-item--postando,

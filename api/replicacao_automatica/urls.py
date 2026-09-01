@@ -8,5 +8,6 @@ urlpatterns = [
     path('execucao/<int:execucao_id>/heartbeat/', views.view_heartbeat, name='api_replicacao_heartbeat'),
     path('execucao/<int:execucao_id>/finalizar/', views.view_finalizar_execucao, name='api_replicacao_finalizar_execucao'),
     path('item/<int:item_id>/concluido/', views.view_marcar_concluido, name='api_replicacao_marcar_concluido'),
+    path('item/<int:item_id>/testado-sem-confirmar/', views.view_marcar_testado_sem_confirmar, name='api_replicacao_marcar_testado_sem_confirmar'),
     path('item/<int:item_id>/falhou/', views.view_marcar_falhou, name='api_replicacao_marcar_falhou'),
 ]

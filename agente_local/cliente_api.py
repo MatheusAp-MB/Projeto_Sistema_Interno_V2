@@ -184,6 +184,20 @@ def finalizar_execucao_replicacao(servidor, token, execucao_id, empresa, cancela
     ).raise_for_status()
 
 
+# * [SEGURANÇA, 01/09] → Rota separada de marcar_concluido_replicacao, de
+#                  propósito — usada SÓ quando CONFIRMAR_REPLICACAO_DE_VERDADE
+#                  é False (servidor_agente.py). Nunca escreve em CicloVideo.
+def marcar_testado_sem_confirmar_replicacao(servidor, token, item_id, mensagem, empresa):
+    resposta = requests.post(
+        f'{servidor}/api/replicacao-automatica/item/{item_id}/testado-sem-confirmar/',
+        headers=_headers(token, empresa),
+        json={'mensagem': mensagem},
+        timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()
+
+
 
 # ===================================================================
 # Verificação de Aprovação — mesmo padrão exato de Replicação, endpoints

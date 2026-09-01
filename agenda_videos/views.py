@@ -661,6 +661,7 @@ def _montar_contexto_progresso_replicacao(execucao):
         'itens': itens,
         'total': len(itens),
         'concluidos': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.CONCLUIDO),
+        'testados': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.TESTADO_SEM_CONFIRMAR),
         'falharam': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.FALHOU),
         'cancelados': sum(1 for i in itens if i.status == StatusItemExecucaoReplicacao.CANCELADO),
         'travada': execucao.travada,

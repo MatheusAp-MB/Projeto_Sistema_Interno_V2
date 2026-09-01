@@ -113,6 +113,20 @@ DELAY_ENTRE_POSTAGENS_SEGUNDOS = 30
 #   _processar_verificacao_aprovacao).
 DELAY_ENTRE_LEITURAS_VERIFICACAO_SEGUNDOS = 10
 
+# * [TEMPORÁRIO — TESTE 13/08, reafirmado 25/08 e 01/09] → Replicação
+#   Automática ainda em fase de validação: nunca clica de verdade no botão
+#   final. REVERTER pra True só depois da validação completa (empresa
+#   correta ponta a ponta) ser confirmada pelo usuário — ÚNICO lugar que
+#   precisa mudar quando isso acontecer.
+# * [SEGURANÇA, 01/09] → Extraído do meio da chamada pra cá, de propósito —
+#   enquanto isso for False, _processar_execucao_replicacao NUNCA chama
+#   marcar_concluido_replicacao (que gravaria CicloVideo como replicado de
+#   verdade e avançaria o ciclo). Antes disso, o dry-run "enganava" o
+#   banco: marcava como replicado mesmo sem clicar em nada no Mercado
+#   Livre — corrigido agora, o item vai pra um status seguro
+#   (TESTADO_SEM_CONFIRMAR) que não toca no CicloVideo.
+CONFIRMAR_REPLICACAO_DE_VERDADE = False
+
 
 def _obter_pasta_do_executavel():
     if getattr(sys, 'frozen', False):
@@ -246,6 +260,24 @@ def _processar_execucao(execucao_id, empresa):
 
         item_id = item['item_id']
 
+        # * [REGRA, 01/09] → obter_mlb_do_produto (lado Django) só devolve
+        #                  MLB Ativo do tipo Simples agora — None aqui
+        #                  significa "produto sem candidato válido" (só tem
+        #                  Base/Catálogo, ou o Simples está pausado). Checa
+        #                  ANTES de baixar o vídeo — sem isso, gastava um
+        #                  download inteiro (e um slot do delay anti-bot)
+        #                  num item que nunca ia conseguir postar mesmo.
+        if item['mlb'] is None:
+            print(f'[AGENTE] Item #{item_id} — sem MLB Ativo do tipo Simples — pulando sem baixar.')
+            try:
+                cliente_api.marcar_falhou(
+                    SERVIDOR_DJANGO, TOKEN_AGENTE, item_id,
+                    'Produto sem MLB Ativo do tipo Simples vinculado (excluindo Base/Catálogo).', empresa,
+                )
+            except Exception:
+                pass
+            continue
+
         try:
             caminho_local, drive_file_id, pasta_videos_id = cliente_api.baixar_video(
                 SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, item['produto_ean'], pasta_temporaria_raiz, empresa,
@@ -366,10 +398,7 @@ def _processar_execucao_replicacao(execucao_id, empresa):
         try:
             sucesso, mensagem_erro, marcados, nao_encontrados = replicar_video_no_ml(
                 item['mlb'], item['outros_mlbs'], controle.janela_referencia,
-                confirmar_de_verdade=False,  # * [TEMPORÁRIO — TESTE 13/08, reafirmado 25/08] estava True
-                                              #   (produção real). REVERTER pra True só depois da validação
-                                              #   completa (empresa correta ponta a ponta) ser confirmada
-                                              #   pelo usuário.
+                confirmar_de_verdade=CONFIRMAR_REPLICACAO_DE_VERDADE,
             )
         except Exception as erro:
             sucesso, mensagem_erro, marcados, nao_encontrados = False, f'Erro inesperado na automação: {erro}', [], []
@@ -386,6 +415,29 @@ def _processar_execucao_replicacao(execucao_id, empresa):
                 _registrar_log_replicacao(item['produto_ean'], item['produto_titulo'], item['mlb'], marcados, mensagem_erro)
             except Exception as erro:
                 print(f'[AGENTE] Erro ao gravar log de replicação (não impede o fluxo): {erro}')
+
+        # * [SEGURANÇA, 01/09] → Em modo teste, NUNCA chama marcar_concluido_
+        #                  replicacao — essa rota escreve no CicloVideo como
+        #                  se a replicação tivesse acontecido de verdade
+        #                  (status=REPLICADO, avança de ciclo). Sem o clique
+        #                  real, isso desincronizaria o banco da realidade do
+        #                  Mercado Livre. Em modo teste, só avisa o Django de
+        #                  forma segura (TESTADO_SEM_CONFIRMAR), sem tocar em
+        #                  CicloVideo — ver api/replicacao_automatica/views.py.
+        if not CONFIRMAR_REPLICACAO_DE_VERDADE:
+            partes_mensagem = [f'[MODO TESTE] Marcado(s): {", ".join(marcados) if marcados else "nenhum"}.']
+            if nao_encontrados:
+                partes_mensagem.append(f'Não encontrado(s): {", ".join(nao_encontrados)}.')
+            if mensagem_erro:
+                partes_mensagem.append(mensagem_erro)
+            try:
+                cliente_api.marcar_testado_sem_confirmar_replicacao(
+                    SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, ' '.join(partes_mensagem), empresa,
+                )
+                print(f'[AGENTE] Item de replicação #{item_id} testado (não confirmado — modo teste).')
+            except Exception as erro:
+                print(f'[AGENTE] Testado, mas erro ao avisar o servidor: {erro}')
+            continue
 
         try:
             cliente_api.marcar_concluido_replicacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, empresa, marcados, nao_encontrados)

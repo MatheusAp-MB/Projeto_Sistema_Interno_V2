@@ -14,6 +14,16 @@ class StatusItemExecucaoReplicacao(models.TextChoices):
     AGUARDANDO = 'aguardando', 'Aguardando'
     REPLICANDO = 'replicando', 'Replicando'
     CONCLUIDO = 'concluido', 'Concluído'
+    # * [SEGURANÇA, 01/09] → Status exclusivo do modo teste
+    #                  (CONFIRMAR_REPLICACAO_DE_VERDADE=False em
+    #                  servidor_agente.py) — item passou pela automação e os
+    #                  MLBs foram marcados na tela, mas o clique final NUNCA
+    #                  aconteceu, e o CicloVideo NUNCA foi tocado. Diferente
+    #                  de CONCLUIDO (replicação real, grava no ciclo) e de
+    #                  FALHOU (deu erro de verdade) — evita mostrar ✗
+    #                  vermelho de "erro" pra algo que só não foi confirmado
+    #                  de propósito.
+    TESTADO_SEM_CONFIRMAR = 'testado_sem_click', 'Testado — não confirmado (modo teste)'
     FALHOU = 'falhou', 'Falhou'
     CANCELADO = 'cancelado', 'Cancelado'
 

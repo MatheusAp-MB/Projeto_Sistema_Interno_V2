@@ -61,9 +61,22 @@ def listar_produtos_elegiveis():
 
 # * [EXPLICAÇÃO] → Não é mais privada (29/07) — a API (api/postagem_automatica/
 #                  views.py) reaproveita esta função, em vez de duplicá-la.
+# * [REGRA, 01/09] → Postar SOMENTE em MLB Ativo do tipo Simples — nunca
+#                  Base nem Catálogo (mesmo Base, que só está "vinculado" a
+#                  um catalog_product_id, mas não é a folha vencedora, conta
+#                  como catálogo pra este filtro; decisão confirmada com o
+#                  usuário). Antes pegava o 1º anúncio do produto sem filtro
+#                  nenhum — podia cair num MLB pausado ou de catálogo sem
+#                  ninguém perceber. Sem candidato válido, devolve None —
+#                  quem chama decide o que fazer (ver _processar_1_produto
+#                  aqui embaixo e o loop do agente em servidor_agente.py).
 def obter_mlb_do_produto(produto):
-    from mercado_livre.models import VariacaoAnuncioMercadoLivre
-    variacao = VariacaoAnuncioMercadoLivre.objects.filter(produto=produto).select_related('anuncio').first()
+    from mercado_livre.models import VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
+    variacao = VariacaoAnuncioMercadoLivre.objects.filter(
+        produto=produto,
+        anuncio__tipo_de_anuncio__status=TipoDeAnuncioMercadoLivre.Status.ATIVO,
+        anuncio__tipo_de_anuncio__classificacao_catalogo=TipoDeAnuncioMercadoLivre.ClassificacaoCatalogo.SIMPLES,
+    ).select_related('anuncio').first()
     return variacao.anuncio.mlb if variacao else None
 
 
@@ -150,7 +163,7 @@ def _processar_1_produto(item, controle_teclado, aviso, arquivador, pasta_tempor
 
     mlb = obter_mlb_do_produto(produto)
     if mlb is None:
-        _marcar_item(item, StatusItemExecucao.FALHOU, 'Produto sem MLB vinculado (VariacaoAnuncioMercadoLivre).')
+        _marcar_item(item, StatusItemExecucao.FALHOU, 'Produto sem MLB Ativo do tipo Simples vinculado (excluindo Base/Catálogo).')
         return
 
     # --- Baixando ---
