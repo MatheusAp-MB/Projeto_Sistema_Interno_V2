@@ -419,35 +419,57 @@ def _aguardar_entre_leituras_verificacao(segundos, aviso, controle):
     return True
 
 
-# * [EXPLICAÇÃO] → Fase 1 (27/08) da Verificação de Aprovação — LEITURA,
-#                  reaproveitando a MESMA blindagem de F8/F9/foco perdido
-#                  já validada em Postagem/Replicação (AvisoExecucao +
-#                  ControleTeclado). Fase 2 (01/09) — depois de cada
-#                  leitura, avisa o Django (marcar_estado_verificacao); só
-#                  aplica mudança de status quando o estado lido tem
-#                  mapeamento certo (ver MAPEAMENTO_ESTADO_PARA_STATUS em
-#                  agenda_videos/funcoes_auxiliares/verificacao_aprovacao.py)
-#                  — EM REVISÃO/PAUSADO/None não mexem em nada.
-def _processar_verificacao_aprovacao(mlbs, empresa):
+# * [EXPLICAÇÃO] → Fase 1 (27/08) — LEITURA, reaproveitando a MESMA
+#                  blindagem de F8/F9/foco perdido já validada em
+#                  Postagem/Replicação (AvisoExecucao + ControleTeclado).
+#                  Fase 2 (01/09) — aplica mudança de status via
+#                  MAPEAMENTO_ESTADO_PARA_STATUS. Fase 3 (01/09, esta
+#                  versão) — ganhou execução rastreada no banco (igual
+#                  Postagem/Replicação): heartbeat, item_id por produto,
+#                  tela de progresso. mlbs deixa de vir direto na URL —
+#                  agora vem de cliente_api.listar_itens_verificacao,
+#                  igual aos outros 2 fluxos.
+def _processar_verificacao_aprovacao(execucao_id, empresa):
     aviso = AvisoExecucao()
     aviso.atualizar('AGUARDANDO — foque a janela certa e pressione F8 pra iniciar  |  F9 cancela', '#d68910')
 
     controle = ControleTeclado()
     controle.aguardar_inicio()
 
+    evento_parar_heartbeat = threading.Event()
+    thread_heartbeat = threading.Thread(
+        target=_enviar_heartbeat_em_loop,
+        args=(cliente_api.enviar_heartbeat_verificacao, execucao_id, empresa, evento_parar_heartbeat), daemon=True,
+    )
+    thread_heartbeat.start()
+
     if controle.foi_cancelado():
+        controle.encerrar()
+        aviso.fechar()
+        try:
+            cliente_api.finalizar_execucao_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa, cancelada=True)
+        except Exception as erro:
+            print(f'[AGENTE] Erro ao avisar cancelamento (verificação): {erro}')
+        _voltar_ao_repouso()
+        return
+
+    try:
+        itens = cliente_api.listar_itens_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa)
+    except Exception as erro:
+        print(f'[AGENTE] Erro ao buscar itens da execução de verificação #{execucao_id}: {erro}')
         controle.encerrar()
         aviso.fechar()
         _voltar_ao_repouso()
         return
 
-    print(f'[AGENTE] Verificação de Aprovação — {len(mlbs)} produto(s) na fila (empresa={empresa}).')
-
     houve_leitura_anterior = False
 
-    for mlb in mlbs:
+    for item in itens:
         if controle.foi_cancelado():
             break
+
+        item_id = item['item_id']
+        mlb = item['mlb']
 
         if houve_leitura_anterior:
             if not _aguardar_entre_leituras_verificacao(DELAY_ENTRE_LEITURAS_VERIFICACAO_SEGUNDOS, aviso, controle):
@@ -462,18 +484,30 @@ def _processar_verificacao_aprovacao(mlbs, empresa):
             estado = ler_estado_aprovacao(mlb, controle.janela_referencia)
         except Exception as erro:
             print(f'[AGENTE] {mlb} — ERRO ao verificar: {erro}')
+            try:
+                cliente_api.marcar_falhou_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, f'Erro ao ler: {erro}', empresa)
+            except Exception:
+                pass
             continue
 
         print(f'[AGENTE] {mlb} — estado lido: {estado}')
 
         try:
-            resultado = cliente_api.marcar_estado_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, mlb, estado, empresa)
-            print(f'[AGENTE] {mlb} — {resultado["status"]}')
+            resultado = cliente_api.marcar_concluido_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, item_id, estado, empresa)
+            print(f'[AGENTE] {mlb} — {resultado["status"]} ({resultado.get("resultado")})')
         except Exception as erro:
             print(f'[AGENTE] {mlb} — lido, mas erro ao avisar o servidor: {erro}')
 
+    foi_cancelado = controle.foi_cancelado()
+    evento_parar_heartbeat.set()
     controle.encerrar()
     aviso.fechar()
+
+    try:
+        cliente_api.finalizar_execucao_verificacao(SERVIDOR_DJANGO, TOKEN_AGENTE, execucao_id, empresa, cancelada=foi_cancelado)
+    except Exception as erro:
+        print(f'[AGENTE] Erro ao avisar que a execução de verificação terminou: {erro}')
+
     _voltar_ao_repouso()
 
 
@@ -541,14 +575,15 @@ def executar_replicacao(execucao_id):
     return jsonify({'status': 'iniciado', 'execucao_id': execucao_id, 'empresa': empresa})
 
 
-# * [EXPLICAÇÃO] → Mesma trava/validação de empresa das rotas de Postagem/
-#                  Replicação — ver comentário lá pro porquê completo.
-#                  Diferença de propósito: esta rota NUNCA fala com o
-#                  Django (fase 1, só leitura/console) — por isso não cria
-#                  execucao_id nenhum, só recebe a lista de itens direto no
-#                  corpo da requisição.
-@app_flask.route('/verificar-aprovacao', methods=['POST'])
-def verificar_aprovacao():
+# * [EXPLICAÇÃO] → Mesma trava/validação de empresa/execucao_em_andamento
+#                  das rotas de Postagem (/executar) e Replicação
+#                  (/executar-replicacao) — ver comentário lá pro porquê
+#                  completo. Substitui /verificar-aprovacao (mlbs na query
+#                  string, sem rastreio) — agora recebe execucao_id, igual
+#                  aos outros 2 fluxos, porque a Verificação passou a ter
+#                  execução própria no banco (tela de progresso).
+@app_flask.route('/executar-verificacao/<int:execucao_id>', methods=['POST'])
+def executar_verificacao(execucao_id):
     if execucao_em_andamento['ativo']:
         return jsonify({'status': 'ocupado', 'mensagem': 'Já existe uma execução rodando neste agente.'}), 409
 
@@ -559,23 +594,15 @@ def verificar_aprovacao():
             'mensagem': f'Parâmetro empresa ausente ou inválido: {empresa!r}.',
         }), 400
 
-    # * [EXPLICAÇÃO] → MLBs vêm na query string (igual execucao_id de
-    #                  Postagem/Replicação), nunca em JSON body — evita a
-    #                  checagem prévia (preflight) do navegador.
-    mlbs_bruto = request.args.get('mlbs', '')
-    mlbs = [mlb for mlb in mlbs_bruto.split(',') if mlb]
-    if not mlbs:
-        return jsonify({'status': 'erro', 'mensagem': 'Nenhum MLB recebido pra verificar.'}), 400
-
     execucao_em_andamento['ativo'] = True
     if icone_referencia['obj'] is not None:
         icone_referencia['obj'].icon = _criar_imagem('blue')
-        icone_referencia['obj'].title = 'Verificação de Aprovação — aguardando F8'
+        icone_referencia['obj'].title = f'Execução de Verificação #{execucao_id} — aguardando F8'
 
-    thread = threading.Thread(target=_processar_verificacao_aprovacao, args=(mlbs, empresa), daemon=True)
+    thread = threading.Thread(target=_processar_verificacao_aprovacao, args=(execucao_id, empresa), daemon=True)
     thread.start()
 
-    return jsonify({'status': 'iniciado', 'total_itens': len(mlbs), 'empresa': empresa})
+    return jsonify({'status': 'iniciado', 'execucao_id': execucao_id, 'empresa': empresa})
 
 
 def _rodar_servidor_flask():

@@ -45,11 +45,13 @@ from agenda_videos.funcoes_auxiliares.a_fazer_hoje import calcular_indicadores_c
 from agenda_videos.funcoes_auxiliares.filtros_agenda_videos import Tela, listar_produtos_agenda_filtrados
 from agenda_videos.funcoes_auxiliares.historico_roadmap import listar_produtos_com_historico, montar_historico_produto
 from agenda_videos.funcoes_auxiliares.postagem_automatica import listar_produtos_elegiveis
+from agenda_videos.funcoes_auxiliares.verificacao_aprovacao import listar_ciclos_aguardando_aprovacao_com_mlb
 from agenda_videos.models import (
     StatusPostagem, Fase, ConfiguracaoFase, CicloVideo, StatusManualAgenda, ParticipacaoAgenda,
     HistoricoStatusManualAgenda, status_manual_atual_do_produto,
     ExecucaoPostagemAutomatica, ItemExecucaoPostagem, StatusItemExecucao,
     ExecucaoReplicacaoAutomatica, ItemExecucaoReplicacao, StatusExecucao, StatusItemExecucaoReplicacao,
+    ExecucaoVerificacaoAprovacao, ItemExecucaoVerificacao, StatusItemExecucaoVerificacao,
 )
 
 
@@ -691,6 +693,79 @@ def view_cancelar_execucao_replicacao_travada(request, execucao_id):
     execucao.finalizado_em = timezone.now()
     execucao.save(update_fields=['status', 'finalizado_em'])
     return redirect(reverse('agenda_videos_progresso_replicacao_automatica', args=[execucao_id]))
+
+
+# ===================================================================
+# Verificação de Aprovação — mesmo padrão de Postagem/Replicação, mas SEM
+# etapa de confirmação (decisão de escopo, 01/09: o botão já parte direto
+# pro "iniciar", evita duplicar mais 1 modal igual aos 2 já existentes).
+# Checagem de "já em andamento" é PRÓPRIA (não usa _obter_execucao_em_
+# andamento, que só olha Postagem/Replicação) — o flag execucao_em_andamento
+# do agente já impede concorrência de verdade entre os 3 tipos.
+# ===================================================================
+
+def _obter_execucao_verificacao_em_andamento():
+    status_em_andamento = [StatusExecucao.AGUARDANDO_INICIO, StatusExecucao.RODANDO, StatusExecucao.PAUSADO]
+    return ExecucaoVerificacaoAprovacao.objects.filter(status__in=status_em_andamento).first()
+
+
+@require_POST
+def view_iniciar_verificacao_aprovacao(request):
+    execucao_em_andamento = _obter_execucao_verificacao_em_andamento()
+    if execucao_em_andamento:
+        return redirect(reverse('agenda_videos_progresso_verificacao_aprovacao', args=[execucao_em_andamento.id]))
+
+    ciclos_elegiveis = listar_ciclos_aguardando_aprovacao_com_mlb()
+
+    execucao = ExecucaoVerificacaoAprovacao.objects.create()
+    for ordem, ciclo in enumerate(ciclos_elegiveis, start=1):
+        ItemExecucaoVerificacao.objects.create(
+            execucao=execucao, produto=ciclo.produto, mlb=ciclo.mlb_postado, ordem=ordem,
+        )
+
+    return redirect(reverse('agenda_videos_progresso_verificacao_aprovacao', args=[execucao.id]))
+
+
+def _montar_contexto_progresso_verificacao(execucao):
+    itens = list(execucao.itens.select_related('produto').all())
+    return {
+        'execucao': execucao,
+        'itens': itens,
+        'total': len(itens),
+        'concluidos': sum(1 for i in itens if i.status == StatusItemExecucaoVerificacao.CONCLUIDO),
+        'falharam': sum(1 for i in itens if i.status == StatusItemExecucaoVerificacao.FALHOU),
+        'cancelados': sum(1 for i in itens if i.status == StatusItemExecucaoVerificacao.CANCELADO),
+        'travada': execucao.travada,
+    }
+
+
+def view_progresso_verificacao_aprovacao(request, execucao_id):
+    execucao = get_object_or_404(ExecucaoVerificacaoAprovacao, id=execucao_id)
+    return render(
+        request, 'agenda_videos/estrutura_progresso_verificacao_aprovacao.html',
+        _montar_contexto_progresso_verificacao(execucao),
+    )
+
+
+def view_progresso_verificacao_aprovacao_parcial(request, execucao_id):
+    execucao = get_object_or_404(ExecucaoVerificacaoAprovacao, id=execucao_id)
+    return render(
+        request, 'agenda_videos/parciais/estrutura_parcial_lista_progresso_verificacao.html',
+        _montar_contexto_progresso_verificacao(execucao),
+    )
+
+
+@require_POST
+def view_cancelar_execucao_verificacao_travada(request, execucao_id):
+    execucao = get_object_or_404(ExecucaoVerificacaoAprovacao, id=execucao_id)
+    execucao.itens.filter(
+        status__in=[StatusItemExecucaoVerificacao.AGUARDANDO],
+    ).update(status=StatusItemExecucaoVerificacao.CANCELADO)
+    execucao.status = StatusExecucao.CANCELADO
+    execucao.finalizado_em = timezone.now()
+    execucao.save(update_fields=['status', 'finalizado_em'])
+    return redirect(reverse('agenda_videos_progresso_verificacao_aprovacao', args=[execucao_id]))
+
 
 # Portal do Drive — Agenda de Vídeos
 # ===================================================================

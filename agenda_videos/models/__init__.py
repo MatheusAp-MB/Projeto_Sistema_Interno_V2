@@ -10,3 +10,5 @@ from .execucao_postagem_automatica import ExecucaoPostagemAutomatica
 from .item_execucao_postagem import ItemExecucaoPostagem, StatusItemExecucao
 from .execucao_replicacao_automatica import ExecucaoReplicacaoAutomatica
 from .item_execucao_replicacao import ItemExecucaoReplicacao, StatusItemExecucaoReplicacao
+from .execucao_verificacao_aprovacao import ExecucaoVerificacaoAprovacao
+from .item_execucao_verificacao import ItemExecucaoVerificacao, StatusItemExecucaoVerificacao

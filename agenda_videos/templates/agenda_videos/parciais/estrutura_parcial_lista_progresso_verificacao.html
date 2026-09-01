@@ -1,0 +1,55 @@
+<div id="progresso-lista"
+     {% if execucao.status == 'aguardando_inicio' or execucao.status == 'rodando' or execucao.status == 'pausado' %}
+     hx-get="{% url 'agenda_videos_progresso_verificacao_aprovacao_parcial' execucao.id %}"
+     hx-trigger="every 2s" hx-swap="outerHTML"
+     {% endif %}>
+
+    <p class="progresso-status-geral progresso-status--{{ execucao.status }}">
+        {{ execucao.get_status_display }}
+    </p>
+
+    {% if travada %}
+    <div class="progresso-erro-agente">
+        <i class="fas fa-triangle-exclamation"></i>
+        Sem notícia do agente há mais de 30 segundos — ele pode ter travado ou sido fechado.
+        <form method="post" action="{% url 'agenda_videos_cancelar_execucao_verificacao_travada' execucao.id %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn-acao">Cancelar esta execução</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="progresso-itens">
+        {% for item in itens %}
+        <div class="progresso-item progresso-item--{{ item.status }}">
+            <div class="progresso-item-cabecalho">
+                <span class="progresso-item-icone">
+                    {% if item.status == 'concluido' %}✓
+                    {% elif item.status == 'falhou' %}✗
+                    {% elif item.status == 'cancelado' %}⊘
+                    {% elif item.status == 'aguardando' %}○
+                    {% else %}⏳{% endif %}
+                </span>
+                <span class="progresso-item-titulo">{{ item.produto.titulo }} ({{ item.produto.marca }}) — MLB {{ item.mlb }}</span>
+                <span class="progresso-item-status">{{ item.get_status_display }}</span>
+            </div>
+
+            {% if item.estado_lido %}
+            <div class="progresso-item-linha-do-tempo">
+                <span>Estado lido: {{ item.estado_lido }}</span>
+                {% if item.resultado_aplicado %}<span>→ {{ item.resultado_aplicado }}</span>{% endif %}
+                {% if item.finalizado_em %}<span>({{ item.finalizado_em|date:"H:i:s" }})</span>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if item.mensagem_erro %}
+            <span class="progresso-item-erro">{{ item.mensagem_erro }}</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <p class="progresso-resumo">
+        {{ total }} produto(s) no total — {{ concluidos }} concluído(s), {{ falharam }} falhou(aram), {{ cancelados }} cancelado(s)
+    </p>
+</div>

@@ -186,16 +186,53 @@ def finalizar_execucao_replicacao(servidor, token, execucao_id, empresa, cancela
 
 
 # ===================================================================
-# Verificação de Aprovação — só 1 rota (Fase 2: aplicar o estado lido).
-# Sem execução/heartbeat, igual à Fase 1.
+# Verificação de Aprovação — mesmo padrão exato de Replicação, endpoints
+# diferentes. Sem "baixar_video" aqui, e sem "outros_mlbs" — Verificação só
+# lê o Estado na tela, nunca interage com outros anúncios.
 # ===================================================================
 
-def marcar_estado_verificacao(servidor, token, mlb, estado, empresa):
+def listar_itens_verificacao(servidor, token, execucao_id, empresa):
+    resposta = requests.get(
+        f'{servidor}/api/verificacao-aprovacao/execucao/{execucao_id}/itens/',
+        headers=_headers(token, empresa), timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()['itens']
+
+
+def marcar_concluido_verificacao(servidor, token, item_id, estado, empresa):
     resposta = requests.post(
-        f'{servidor}/api/verificacao-aprovacao/marcar-estado/',
+        f'{servidor}/api/verificacao-aprovacao/item/{item_id}/concluido/',
         headers=_headers(token, empresa),
-        json={'mlb': mlb, 'estado': estado},
+        json={'estado': estado},
         timeout=TIMEOUT_PADRAO,
     )
     resposta.raise_for_status()
     return resposta.json()
+
+
+def marcar_falhou_verificacao(servidor, token, item_id, mensagem, empresa):
+    resposta = requests.post(
+        f'{servidor}/api/verificacao-aprovacao/item/{item_id}/falhou/',
+        headers=_headers(token, empresa),
+        json={'mensagem': mensagem},
+        timeout=TIMEOUT_PADRAO,
+    )
+    resposta.raise_for_status()
+    return resposta.json()
+
+
+def enviar_heartbeat_verificacao(servidor, token, execucao_id, empresa):
+    requests.post(
+        f'{servidor}/api/verificacao-aprovacao/execucao/{execucao_id}/heartbeat/',
+        headers=_headers(token, empresa), timeout=TIMEOUT_PADRAO,
+    ).raise_for_status()
+
+
+def finalizar_execucao_verificacao(servidor, token, execucao_id, empresa, cancelada=False):
+    requests.post(
+        f'{servidor}/api/verificacao-aprovacao/execucao/{execucao_id}/finalizar/',
+        headers=_headers(token, empresa),
+        json={'cancelada': cancelada},
+        timeout=TIMEOUT_PADRAO,
+    ).raise_for_status()
