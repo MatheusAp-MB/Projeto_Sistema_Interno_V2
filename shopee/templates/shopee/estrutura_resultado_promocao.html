@@ -97,4 +97,18 @@
     </div>
 </div>
 
+{% if total_linhas_orfas %}
+<div class="promocao-bloco promocao-bloco--erro promocao-bloco-orfas">
+    <div class="promocao-bloco-header">
+        <span class="promocao-bloco-titulo"><i class="fas fa-question-circle"></i> Linhas do arquivo sem produto no catálogo ({{ total_linhas_orfas }})</span>
+        <a href="{% url 'shopee_baixar_linhas_orfas' token %}" class="promocao-bloco-baixar-todas">
+            <i class="fas fa-download"></i> Baixar
+        </a>
+    </div>
+    <div class="promocao-bloco-lista">
+        <div class="promocao-bloco-vazio">Essas linhas existem no arquivo exportado da Shopee, mas não bateram com nenhum produto cadastrado no sistema, em nenhuma marca — não aparecem separadas por marca porque o arquivo não traz essa coluna.</div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

@@ -229,6 +229,8 @@
     gap: 16px;
 }
 
+.promocao-bloco-orfas { margin-top: 16px; }
+
 .promocao-bloco {
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
@@ -238,6 +240,7 @@
 
 .promocao-bloco--sucesso { border-top: 3px solid #1a8a5f; }
 .promocao-bloco--alerta { border-top: 3px solid #b45309; }
+.promocao-bloco--erro { border-top: 3px solid #c0392b; }
 
 .promocao-bloco-header {
     display: flex;
@@ -255,6 +258,7 @@
 
 .promocao-bloco--sucesso .promocao-bloco-titulo { color: #1a8a5f; }
 .promocao-bloco--alerta .promocao-bloco-titulo { color: #b45309; }
+.promocao-bloco--erro .promocao-bloco-titulo { color: #c0392b; }
 
 .promocao-bloco-baixar-todas {
     font-size: 0.76rem;

@@ -61,6 +61,29 @@ def gerar_excel_detalhes(resultados):
     return buffer.getvalue()
 
 
+# Função Objetivo: Gera o arquivo de LINHAS ÓRFÃS — 1 aba só, não agrupada por marca
+# (o arquivo da Shopee não traz coluna de marca), com toda linha do arquivo que não
+# bateu com produto nenhum do catálogo inteiro (achado 3 do Modo Arquivo).
+def gerar_excel_linhas_orfas(linhas_orfas):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Sem produto no catálogo'
+    ws.append(['ID do Produto', 'SKU', 'SKU de referência', 'Preço na plataforma', 'Estoque na plataforma'])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for linha in linhas_orfas:
+        ws.append([
+            linha.id_produto, linha.sku or '', linha.sku_referencia or '',
+            float(linha.preco_atual) if linha.preco_atual is not None else None,
+            linha.estoque_plataforma,
+        ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 def _adicionar_aba_excecao(wb, nome_aba, resultados):
     ws = wb.create_sheet(nome_aba)
     ws.append(['SKU', 'Título', 'Estoque (sistema)', 'Preço plataforma', 'Preço "De" (sistema)'])

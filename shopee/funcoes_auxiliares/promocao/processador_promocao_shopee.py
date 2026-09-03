@@ -61,6 +61,11 @@ class ProcessadorPromocaoShopee:
         self.cabecalho_arquivo = cabecalho_arquivo
         self.linhas_arquivo_bruto = linhas_arquivo
         self.resultados = []
+        # * [EXPLICAÇÃO] → Só o Modo Arquivo preenche isso (ver processar_modo_arquivo) —
+        #                  linhas do arquivo que não bateram com produto NENHUM do catálogo
+        #                  inteiro (qualquer marca, não só as selecionadas). Fica vazio no
+        #                  Modo Grade.
+        self.linhas_orfas = []
 
     # Função Objetivo: Converte as linhas brutas (já lidas) em LinhaArquivoShopee.
     def _ler_arquivo_shopee(self):
@@ -203,6 +208,26 @@ class ProcessadorPromocaoShopee:
                 marca=produto.marca, estoque_sistema=produto.estoque,
                 linha_arquivo=linha_arquivo, preco_final=preco_final,
             ))
+
+        # * [EXPLICAÇÃO] → Achado 3: o loop acima só percorre produtos das marcas
+        #                  SELECIONADAS — uma linha do arquivo de uma marca não
+        #                  selecionada nunca aparece ali, e isso é esperado (o arquivo
+        #                  da Shopee traz a conta inteira, todas as marcas juntas). Por
+        #                  isso a checagem de órfã é contra Produto.objects SEM filtro
+        #                  de marca: só é órfã de verdade a linha cujo SKU (nem o SKU de
+        #                  referência) bate com produto nenhum, de marca nenhuma, no
+        #                  sistema inteiro. Linha sem SKU e sem SKU de referência não
+        #                  entra na checagem — sem identificador nenhum não tem o que
+        #                  investigar (decisão minha, ainda não confirmada).
+        skus_catalogo_inteiro = set(
+            Produto.objects.exclude(sku__isnull=True).exclude(sku='').values_list('sku', flat=True)
+        )
+        self.linhas_orfas = [
+            linha for linha in linhas_arquivo
+            if (linha.sku or linha.sku_referencia)
+            and linha.sku not in skus_catalogo_inteiro
+            and (not linha.sku_referencia or linha.sku_referencia not in skus_catalogo_inteiro)
+        ]
 
         return self
 
