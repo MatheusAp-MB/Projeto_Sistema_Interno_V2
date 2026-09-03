@@ -79,7 +79,7 @@ def view_processar_promocao(request):
     if not erros:
         try:
             from core.funcoes_auxiliares.leitor_planilha_robusto import ler_linhas_planilha_robusta
-            cabecalho, linhas_arquivo = ler_linhas_planilha_robusta(arquivo, linha_cabecalho=3, primeira_linha_dado=6)
+            cabecalho, linhas_arquivo = ler_linhas_planilha_robusta(arquivo, linha_cabecalho=3, primeira_linha_dado=7)
 
             colunas_esperadas = {'ID do Produto', 'SKU', 'Preço', 'Estoque do Vendedor', 'Variante Identificador', 'SKU de referência'}
             faltando = colunas_esperadas - set(cabecalho)
@@ -114,7 +114,8 @@ def view_processar_promocao(request):
         n_novo = sum(1 for r in resultados_marca if r.categoria == 'novo')
         n_nao_encontrado = sum(1 for r in resultados_marca if r.categoria == 'nao_encontrado')
         n_estoque_inconsistente = sum(1 for r in resultados_marca if r.categoria == 'estoque_inconsistente')
-        n_excecoes = n_divergente + n_novo + n_nao_encontrado + n_estoque_inconsistente
+        n_preco_invalido = sum(1 for r in resultados_marca if r.categoria == 'preco_invalido')
+        n_excecoes = n_divergente + n_novo + n_nao_encontrado + n_estoque_inconsistente + n_preco_invalido
 
         marca_chave = chave_cache_segura(marca)
 
@@ -128,6 +129,7 @@ def view_processar_promocao(request):
                 'marca': marca, 'total': n_excecoes,
                 'divergente': n_divergente, 'novo': n_novo,
                 'nao_encontrado': n_nao_encontrado, 'estoque_inconsistente': n_estoque_inconsistente,
+                'preco_invalido': n_preco_invalido,
             })
 
     cache.set(f'promocao_shopee_{token}_contexto', {

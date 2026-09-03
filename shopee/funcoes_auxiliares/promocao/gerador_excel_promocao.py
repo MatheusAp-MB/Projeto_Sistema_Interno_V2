@@ -1,7 +1,7 @@
 # shopee/funcoes_auxiliares/promocao/gerador_excel_promocao.py
 
 # Função Objetivo: Gera 2 arquivos separados por marca — 1 "seguro pra subir" (só os
-# prontos) e 1 "de conferência" (as 4 categorias de exceção juntas).
+# prontos) e 1 "de conferência" (as 5 categorias de exceção juntas).
 
 import io
 import openpyxl
@@ -45,7 +45,7 @@ def gerar_excel_promocao(resultados):
     return buffer.getvalue()
 
 
-# Função Objetivo: Gera o arquivo DE CONFERÊNCIA — as 4 categorias de exceção, 1 aba cada.
+# Função Objetivo: Gera o arquivo DE CONFERÊNCIA — as 5 categorias de exceção, 1 aba cada.
 def gerar_excel_detalhes(resultados):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
@@ -54,6 +54,7 @@ def gerar_excel_detalhes(resultados):
     _adicionar_aba_excecao(wb, 'Novos (sem Grade)', [r for r in resultados if r.categoria == 'novo'])
     _adicionar_aba_excecao(wb, 'Não encontrados', [r for r in resultados if r.categoria == 'nao_encontrado'])
     _adicionar_aba_excecao(wb, 'Estoque inconsistente', [r for r in resultados if r.categoria == 'estoque_inconsistente'])
+    _adicionar_aba_excecao(wb, 'Preço inválido no arquivo', [r for r in resultados if r.categoria == 'preco_invalido'])
 
     buffer = io.BytesIO()
     wb.save(buffer)

@@ -26,7 +26,7 @@ class LinhaArquivoShopee:
 
 @dataclass
 class ResultadoProduto:
-    categoria: str  # 'pronto' | 'divergente' | 'novo' | 'nao_encontrado' | 'estoque_inconsistente'
+    categoria: str  # 'pronto' | 'divergente' | 'novo' | 'nao_encontrado' | 'estoque_inconsistente' | 'preco_invalido'
     sku: str
     titulo: str
     marca: str
@@ -188,6 +188,14 @@ class ProcessadorPromocaoShopee:
                 ))
                 continue
 
+            if linha_arquivo.preco_atual is None:
+                self.resultados.append(ResultadoProduto(
+                    categoria='preco_invalido', sku=produto.sku, titulo=produto.titulo,
+                    marca=produto.marca, estoque_sistema=produto.estoque,
+                    linha_arquivo=linha_arquivo,
+                ))
+                continue
+
             preco_final = calcular_preco_com_desconto(linha_arquivo.preco_atual, desconto_percentual)
 
             self.resultados.append(ResultadoProduto(
@@ -200,7 +208,10 @@ class ProcessadorPromocaoShopee:
 
     # Função Objetivo: Devolve a contagem por categoria, pra tela de resumo.
     def resumo_geral(self):
-        contagem = {'pronto': 0, 'divergente': 0, 'novo': 0, 'nao_encontrado': 0, 'estoque_inconsistente': 0}
+        contagem = {
+            'pronto': 0, 'divergente': 0, 'novo': 0, 'nao_encontrado': 0,
+            'estoque_inconsistente': 0, 'preco_invalido': 0,
+        }
         for r in self.resultados:
             contagem[r.categoria] += 1
         return contagem
