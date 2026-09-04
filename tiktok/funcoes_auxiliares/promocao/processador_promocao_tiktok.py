@@ -25,7 +25,7 @@ class LinhaArquivoTiktok:
 
 @dataclass
 class ResultadoProdutoTiktok:
-    categoria: str  # 'pronto' | 'divergente' | 'novo' | 'nao_encontrado' | 'estoque_inconsistente'
+    categoria: str  # 'pronto' | 'divergente' | 'novo' | 'nao_encontrado' | 'estoque_inconsistente' | 'preco_invalido'
     sku: str
     titulo: str
     marca: str
