@@ -87,6 +87,52 @@ def gerar_excel_detalhes(resultados):
     return buffer.getvalue()
 
 
+# Função Objetivo: Gera o arquivo de LINHAS ÓRFÃS (achado 3) — 1 aba só, não agrupada por
+# marca (o arquivo do TikTok não traz essa coluna), com toda linha do arquivo que não bateu
+# com produto nenhum do catálogo inteiro, nem direto nem removendo o "1" da frente.
+def gerar_excel_linhas_orfas(linhas_orfas):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Sem produto no catálogo'
+    ws.append(['ID do Produto', 'ID do SKU', 'SKU do vendedor', 'Preço na plataforma', 'Estoque na plataforma'])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for linha in linhas_orfas:
+        ws.append([
+            linha.product_id, linha.sku_id, linha.seller_sku,
+            float(linha.preco_atual) if linha.preco_atual is not None else None,
+            linha.estoque_plataforma,
+        ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+# Função Objetivo: Gera o arquivo de PRODUTOS COM LISTAGEM INCOMPLETA (achado 3, específico
+# do TikTok) — 1 aba só, produto do catálogo que apareceu no arquivo com só 1 dos 2 tipos
+# esperados (Com Afiliado / Sem Afiliado).
+def gerar_excel_produtos_incompletos(produtos_incompletos):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Listagem incompleta'
+    ws.append(['SKU', 'Título', 'Marca', 'Tipo encontrado', 'Tipo faltando'])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    for item in produtos_incompletos:
+        ws.append([
+            item['sku'], item['titulo'], item['marca'],
+            LABEL_TIPO.get(item['tipo_encontrado'], '—'),
+            LABEL_TIPO.get(item['tipo_faltando'], '—'),
+        ])
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
 # Função Objetivo: Aba de conferência (SKU/Produto/Tipo/Estoque) dos itens que FORAM
 # enviados na promoção — só leitura, nunca sobe na plataforma (fica fora do arquivo
 # de subida, que agora é 100% fiel ao modelo oficial, sem colunas extras).

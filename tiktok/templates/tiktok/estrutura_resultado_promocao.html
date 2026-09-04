@@ -93,4 +93,32 @@
     </div>
 </div>
 
+{% if total_linhas_orfas %}
+<div class="promocao-bloco promocao-bloco--erro promocao-bloco-orfas">
+    <div class="promocao-bloco-header">
+        <span class="promocao-bloco-titulo"><i class="fas fa-question-circle"></i> Linhas do arquivo sem produto no catálogo ({{ total_linhas_orfas }})</span>
+        <a href="{% url 'tiktok_baixar_linhas_orfas' token %}" class="promocao-bloco-baixar-todas">
+            <i class="fas fa-download"></i> Baixar
+        </a>
+    </div>
+    <div class="promocao-bloco-lista">
+        <div class="promocao-bloco-vazio">Essas linhas existem no arquivo exportado do TikTok Shop, mas não bateram com nenhum produto cadastrado no sistema (nem direto, nem removendo o "1" do início do SKU do vendedor) — não aparecem separadas por marca porque o arquivo não traz essa coluna.</div>
+    </div>
+</div>
+{% endif %}
+
+{% if total_produtos_incompletos %}
+<div class="promocao-bloco promocao-bloco--erro promocao-bloco-orfas">
+    <div class="promocao-bloco-header">
+        <span class="promocao-bloco-titulo"><i class="fas fa-exclamation-circle"></i> Produtos com listagem incompleta ({{ total_produtos_incompletos }})</span>
+        <a href="{% url 'tiktok_baixar_produtos_incompletos' token %}" class="promocao-bloco-baixar-todas">
+            <i class="fas fa-download"></i> Baixar
+        </a>
+    </div>
+    <div class="promocao-bloco-lista">
+        <div class="promocao-bloco-vazio">Esses produtos apareceram no arquivo com só 1 dos 2 tipos esperados (Com Afiliado e Sem Afiliado) — o outro tipo não tem listagem no arquivo desse envio.</div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

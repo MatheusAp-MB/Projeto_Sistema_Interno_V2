@@ -9,5 +9,7 @@ urlpatterns = [
     path('promocao/processar/', views.view_processar_promocao, name='tiktok_processar_promocao'),
     path('promocao/resultado/<str:token>/', views.view_resultado_promocao, name='tiktok_resultado_promocao'),
     path('promocao/baixar/<str:token>/<path:marca>/<str:tipo>/', views.view_baixar_promocao, name='tiktok_baixar_promocao'),
+    path('promocao/baixar-orfas/<str:token>/', views.view_baixar_linhas_orfas, name='tiktok_baixar_linhas_orfas'),
+    path('promocao/baixar-incompletos/<str:token>/', views.view_baixar_produtos_incompletos, name='tiktok_baixar_produtos_incompletos'),
     path('promocao/baixar-todas/<str:token>/<str:categoria>/', views.view_baixar_todas_promocao, name='tiktok_baixar_todas_promocao'),
 ]

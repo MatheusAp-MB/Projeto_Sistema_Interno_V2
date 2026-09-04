@@ -63,6 +63,18 @@ class ProcessadorPromocaoTiktok:
         self.cabecalho_arquivo = cabecalho_arquivo
         self.linhas_arquivo_bruto = linhas_arquivo
         self.resultados = []
+        # * [EXPLICAÇÃO] → Só o Modo Arquivo preenche isso (ver processar_modo_arquivo) —
+        #                  linhas do arquivo que não bateram com produto NENHUM do catálogo
+        #                  inteiro (qualquer marca, não só as selecionadas), nem direto nem
+        #                  removendo o "1" da frente. Mesmo padrão da Shopee. Fica vazio no
+        #                  Modo Grade.
+        self.linhas_orfas = []
+        # * [EXPLICAÇÃO] → Só o Modo Arquivo preenche isso — produto do catálogo (das marcas
+        #                  selecionadas) que apareceu no arquivo com só 1 dos 2 tipos
+        #                  esperados (Com Afiliado / Sem Afiliado), nunca os 2. Achado
+        #                  específico do TikTok — não existe na Shopee, que só tem 1 SKU por
+        #                  produto. Fica vazio no Modo Grade.
+        self.produtos_incompletos = []
 
     def _ler_arquivo_tiktok(self):
         indice_coluna = {nome: i for i, nome in enumerate(self.cabecalho_arquivo) if nome}
@@ -203,6 +215,17 @@ class ProcessadorPromocaoTiktok:
                 ))
                 continue
 
+            # * [EXPLICAÇÃO] → Achado 3 (TikTok): produto encontrado, mas só com 1 dos 2
+            #                  tipos esperados no arquivo — registra qual faltou, sem
+            #                  impedir o processamento normal do tipo que foi encontrado.
+            if len(encontrados) == 1:
+                tipo_encontrado = encontrados[0][1]
+                tipo_faltando = 'sem_afiliado' if tipo_encontrado == 'com_afiliado' else 'com_afiliado'
+                self.produtos_incompletos.append({
+                    'sku': produto.sku, 'titulo': produto.titulo, 'marca': produto.marca,
+                    'tipo_encontrado': tipo_encontrado, 'tipo_faltando': tipo_faltando,
+                })
+
             for linha_arquivo, tipo in encontrados:
                 if linha_arquivo.preco_atual is None:
                     self.resultados.append(ResultadoProdutoTiktok(
@@ -219,6 +242,25 @@ class ProcessadorPromocaoTiktok:
                     marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
                     linha_arquivo=linha_arquivo, preco_final=preco_final,
                 ))
+
+        # * [EXPLICAÇÃO] → Achado 3 (linhas órfãs): mesma lógica da Shopee — o laço acima só
+        #                  percorre produtos das marcas SELECIONADAS, então uma linha do
+        #                  arquivo de marca não selecionada nunca aparece ali (esperado, o
+        #                  arquivo do TikTok também traz a conta inteira misturada). Por
+        #                  isso a checagem de órfã é contra Produto.objects SEM filtro de
+        #                  marca. Diferente da Shopee: aqui tenta bater o seller_sku direto
+        #                  e, se não bater, removendo o "1" da frente — mesma convenção
+        #                  usada em _buscar_linhas_e_tipos, só invertida (arquivo procurando
+        #                  produto, não produto procurando arquivo). Linha com seller_sku em
+        #                  branco nunca chega aqui — _ler_arquivo_tiktok já descarta isso.
+        skus_catalogo_inteiro = set(
+            Produto.objects.exclude(sku__isnull=True).exclude(sku='').values_list('sku', flat=True)
+        )
+        self.linhas_orfas = [
+            linha for linha in linhas_arquivo
+            if linha.seller_sku not in skus_catalogo_inteiro
+            and not (linha.seller_sku.startswith('1') and linha.seller_sku[1:] in skus_catalogo_inteiro)
+        ]
 
         return self
 

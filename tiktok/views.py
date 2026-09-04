@@ -82,7 +82,7 @@ def view_processar_promocao(request):
     from django.http import HttpResponse
     from django.urls import reverse
     from tiktok.funcoes_auxiliares.promocao.processador_promocao_tiktok import ProcessadorPromocaoTiktok
-    from tiktok.funcoes_auxiliares.promocao.gerador_excel_promocao_tiktok import gerar_excel_promocao, gerar_excel_detalhes
+    from tiktok.funcoes_auxiliares.promocao.gerador_excel_promocao_tiktok import gerar_excel_promocao, gerar_excel_detalhes, gerar_excel_linhas_orfas, gerar_excel_produtos_incompletos
 
     from decimal import Decimal, InvalidOperation
 
@@ -172,8 +172,17 @@ def view_processar_promocao(request):
                 'preco_invalido': n_preco_invalido,
             })
 
+    total_linhas_orfas = len(processador.linhas_orfas)
+    if total_linhas_orfas > 0:
+        cache.set(f'promocao_tiktok_{token}_orfas', gerar_excel_linhas_orfas(processador.linhas_orfas), timeout=3600)
+
+    total_produtos_incompletos = len(processador.produtos_incompletos)
+    if total_produtos_incompletos > 0:
+        cache.set(f'promocao_tiktok_{token}_incompletos', gerar_excel_produtos_incompletos(processador.produtos_incompletos), timeout=3600)
+
     cache.set(f'promocao_tiktok_{token}_contexto', {
         'resumo': resumo, 'marcas_prontas': marcas_prontas, 'marcas_com_divergencia': marcas_com_divergencia,
+        'total_linhas_orfas': total_linhas_orfas, 'total_produtos_incompletos': total_produtos_incompletos,
     }, timeout=3600)
 
     resposta = HttpResponse(status=200)
@@ -216,6 +225,46 @@ def view_baixar_promocao(request, token, marca, tipo):
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
     response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
+    return response
+
+
+# Função Objetivo: Baixa a planilha de linhas órfãs (achado 3) — 1 arquivo só por envio
+# inteiro, sem marca no caminho da URL (essas linhas não têm marca conhecida).
+def view_baixar_linhas_orfas(request, token):
+    from datetime import date
+    from django.core.cache import cache
+    from django.http import HttpResponse
+
+    arquivo_bytes = cache.get(f'promocao_tiktok_{token}_orfas')
+    if arquivo_bytes is None:
+        return HttpResponse('Arquivo expirado — gere a promoção de novo.', status=404)
+
+    data_hoje = date.today().strftime('%d_%m_%y')
+    response = HttpResponse(
+        arquivo_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="Linhas_orfas_TikTok_{data_hoje}.xlsx"'
+    return response
+
+
+# Função Objetivo: Baixa a planilha de produtos com listagem incompleta (achado 3,
+# específico do TikTok) — 1 arquivo só por envio inteiro.
+def view_baixar_produtos_incompletos(request, token):
+    from datetime import date
+    from django.core.cache import cache
+    from django.http import HttpResponse
+
+    arquivo_bytes = cache.get(f'promocao_tiktok_{token}_incompletos')
+    if arquivo_bytes is None:
+        return HttpResponse('Arquivo expirado — gere a promoção de novo.', status=404)
+
+    data_hoje = date.today().strftime('%d_%m_%y')
+    response = HttpResponse(
+        arquivo_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="Listagem_incompleta_TikTok_{data_hoje}.xlsx"'
     return response
 
 
