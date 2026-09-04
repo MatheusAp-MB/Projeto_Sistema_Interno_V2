@@ -79,6 +79,7 @@ def gerar_excel_detalhes(resultados):
     _adicionar_aba_excecao(wb, 'Novos (sem Grade)', [r for r in resultados if r.categoria == 'novo'])
     _adicionar_aba_excecao(wb, 'Não encontrados', [r for r in resultados if r.categoria == 'nao_encontrado'])
     _adicionar_aba_excecao(wb, 'Estoque inconsistente', [r for r in resultados if r.categoria == 'estoque_inconsistente'])
+    _adicionar_aba_excecao(wb, 'Preço inválido no arquivo', [r for r in resultados if r.categoria == 'preco_invalido'])
     _adicionar_aba_enviados(wb, [r for r in resultados if r.categoria == 'pronto'])
 
     buffer = io.BytesIO()

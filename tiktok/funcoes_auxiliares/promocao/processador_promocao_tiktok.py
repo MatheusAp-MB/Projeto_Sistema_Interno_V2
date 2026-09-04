@@ -204,6 +204,14 @@ class ProcessadorPromocaoTiktok:
                 continue
 
             for linha_arquivo, tipo in encontrados:
+                if linha_arquivo.preco_atual is None:
+                    self.resultados.append(ResultadoProdutoTiktok(
+                        categoria='preco_invalido', sku=produto.sku, titulo=produto.titulo,
+                        marca=produto.marca, tipo=tipo, estoque_sistema=produto.estoque,
+                        linha_arquivo=linha_arquivo,
+                    ))
+                    continue
+
                 preco_final = calcular_preco_com_desconto(linha_arquivo.preco_atual, desconto_percentual)
 
                 self.resultados.append(ResultadoProdutoTiktok(
@@ -215,7 +223,10 @@ class ProcessadorPromocaoTiktok:
         return self
 
     def resumo_geral(self):
-        contagem = {'pronto': 0, 'divergente': 0, 'novo': 0, 'nao_encontrado': 0, 'estoque_inconsistente': 0}
+        contagem = {
+            'pronto': 0, 'divergente': 0, 'novo': 0, 'nao_encontrado': 0,
+            'estoque_inconsistente': 0, 'preco_invalido': 0,
+        }
         for r in self.resultados:
             contagem[r.categoria] += 1
         return contagem

@@ -154,7 +154,8 @@ def view_processar_promocao(request):
         n_novo = sum(1 for r in resultados_marca if r.categoria == 'novo')
         n_nao_encontrado = sum(1 for r in resultados_marca if r.categoria == 'nao_encontrado')
         n_estoque_inconsistente = sum(1 for r in resultados_marca if r.categoria == 'estoque_inconsistente')
-        n_excecoes = n_divergente + n_novo + n_nao_encontrado + n_estoque_inconsistente
+        n_preco_invalido = sum(1 for r in resultados_marca if r.categoria == 'preco_invalido')
+        n_excecoes = n_divergente + n_novo + n_nao_encontrado + n_estoque_inconsistente + n_preco_invalido
 
         marca_chave = chave_cache_segura(marca)
 
@@ -168,6 +169,7 @@ def view_processar_promocao(request):
                 'marca': marca, 'total': n_excecoes,
                 'divergente': n_divergente, 'novo': n_novo,
                 'nao_encontrado': n_nao_encontrado, 'estoque_inconsistente': n_estoque_inconsistente,
+                'preco_invalido': n_preco_invalido,
             })
 
     cache.set(f'promocao_tiktok_{token}_contexto', {

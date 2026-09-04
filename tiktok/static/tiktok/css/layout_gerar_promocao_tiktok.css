@@ -330,6 +330,7 @@
 .promocao-mini-tag--novo { background: #eef2f7; color: #1e3a5f; }
 .promocao-mini-tag--nao-encontrado { background: #f3f0fa; color: #6b3fa0; }
 .promocao-mini-tag--estoque { background: #fdecec; color: #c0392b; }
+.promocao-mini-tag--preco-invalido { background: #f8d7da; color: #721c24; }
 
 .promocao-linha-marca-btn {
     background: #eef2f7;

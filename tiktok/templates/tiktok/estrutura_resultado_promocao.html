@@ -33,6 +33,10 @@
         <div class="promocao-resumo-label">Estoque inconsistente</div>
         <div class="promocao-resumo-numero">{{ resumo.estoque_inconsistente }}</div>
     </div>
+    <div class="promocao-resumo-card promocao-resumo-card--erro">
+        <div class="promocao-resumo-label">Preço inválido no arquivo</div>
+        <div class="promocao-resumo-numero">{{ resumo.preco_invalido }}</div>
+    </div>
 </div>
 
 <div class="promocao-blocos-grid">
@@ -78,6 +82,7 @@
                     {% if item.novo %}<span class="promocao-mini-tag promocao-mini-tag--novo">{{ item.novo }} novo{{ item.novo|pluralize }}</span>{% endif %}
                     {% if item.nao_encontrado %}<span class="promocao-mini-tag promocao-mini-tag--nao-encontrado">{{ item.nao_encontrado }} não achado{{ item.nao_encontrado|pluralize }}</span>{% endif %}
                     {% if item.estoque_inconsistente %}<span class="promocao-mini-tag promocao-mini-tag--estoque">{{ item.estoque_inconsistente }} estoque</span>{% endif %}
+                    {% if item.preco_invalido %}<span class="promocao-mini-tag promocao-mini-tag--preco-invalido">{{ item.preco_invalido }} preço inválido</span>{% endif %}
                 </div>
                 <a href="{% url 'tiktok_baixar_promocao' token item.marca 'detalhes' %}" class="promocao-linha-marca-btn" title="Baixar detalhes">
                     <i class="fas fa-download"></i>
