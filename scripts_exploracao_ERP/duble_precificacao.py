@@ -37,6 +37,8 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -83,6 +85,61 @@ PASTA_SAIDAS = os.path.join(_PASTA_ATUAL, 'saidas')
 console = Console(record=True)
 
 resumo_geral = []  # 1 dict por combinação (produto, marketplace, variação, margem) — vira a tabela final
+detalhamento_geral = []  # 1 dict por combinação, campo a campo (custo/créditos/FIXO/taxa/preço) — vira a aba "Detalhamento" do Excel
+passos_geral = []  # 1 dict por PASSO de cada combinação resolvida — vira a aba "Passos" do Excel
+entrada_xml_por_produto = {}  # 1 dict por produto — dado cru da nota fiscal (ICMS/ICMS ST/IPI/PIS/COFINS) — vira a aba "Impostos Entrada (XML)"
+produtos_processados = {}  # 1 dict por produto — identificação básica, pra aba "Produtos" do Excel
+
+
+# ========== Coleta do dado cru da nota fiscal (impostos_entrada) — pra aba "Impostos Entrada (XML)" ==========
+
+# Função Objetivo: Lê produto.impostos_entrada (XML da nota, via Sysemp) e devolve TODOS os campos
+# crus — ICMS, ICMS ST, IPI, PIS, COFINS, quantidade/custo da nota — sem processar nada. É o mesmo
+# dado que hoje só dava pra conferir abrindo o Django Admin; aqui vira parte da auditoria, pronto
+# pra cruzar com o crédito já calculado (aba "Créditos Fiscais") e confirmar se bate com a nota real.
+# Nunca recalcula nada — só lê e organiza. None quando o produto não tem impostos_entrada sincronizado.
+def _coletar_dados_entrada_xml(produto):
+    try:
+        ie = produto.impostos_entrada
+    except ObjectDoesNotExist:
+        return None
+
+    return {
+        'nr_nf': ie.nr_nf,
+        'data_entrada_nota': ie.data_entrada_nota,
+        'fornecedor': ie.fornecedor,
+        'quantidade_nota': ie.quantidade_nota,
+        'custo_total': ie.custo_total,
+        'custo_unitario': ie.custo_unitario,
+        # * [EXPLICAÇÃO] → mesmo critério de "é ST?" usado em creditos_fiscais_para_precificacao.py —
+        #                  se a nota trouxe base ou valor de ICMS ST maior que zero, é regime ST.
+        'regime_st': ie.icms_st.valor > 0 or ie.icms_st.base_calculo > 0,
+        'icms_cst': ie.icms.cst_xml,
+        'icms_base_calculo': ie.icms.base_calculo,
+        'icms_aliquota': ie.icms.aliquota,
+        'icms_reducao': ie.icms.reducao,
+        'icms_valor': ie.icms.valor,
+        'icms_st_base_calculo': ie.icms_st.base_calculo,
+        'icms_st_aliquota': ie.icms_st.aliquota,
+        'icms_st_reducao': ie.icms_st.reducao,
+        'icms_st_valor': ie.icms_st.valor,
+        'icms_st_aliquota_fcp': ie.icms_st.aliquota_fcp,
+        'icms_st_valor_fcp': ie.icms_st.valor_fcp,
+        'ipi_cst': ie.ipi.cst_xml,
+        'ipi_base_calculo': ie.ipi.base_calculo,
+        'ipi_aliquota': ie.ipi.aliquota,
+        'ipi_valor': ie.ipi.valor,
+        'pis_cst': ie.pis.cst_xml,
+        'pis_base_calculo': ie.pis.base_calculo,
+        'pis_aliquota': ie.pis.aliquota,
+        'pis_reducao': ie.pis.reducao,
+        'pis_valor': ie.pis.valor,
+        'cofins_cst': ie.cofins.cst_xml,
+        'cofins_base_calculo': ie.cofins.base_calculo,
+        'cofins_aliquota': ie.cofins.aliquota,
+        'cofins_reducao': ie.cofins.reducao,
+        'cofins_valor': ie.cofins.valor,
+    }
 
 
 # ========== Helpers de impressão (Rich) — reaproveitados por todos os marketplaces ==========
@@ -147,6 +204,81 @@ def _registrar_resumo(produto, marketplace, variacao, margem_chave, status, form
     })
 
 
+# Função Objetivo: Guarda 1 linha campo-a-campo da combinação — mesmos nomes que
+# CAMPOS_DIAGNOSTICO_FALHA já usa, então funciona igual em sucesso e em falha (o que não
+# foi calculado fica None). Vira a aba "Detalhamento" do Excel — a auditoria campo a campo
+# que antes só dava pra montar lendo o log inteiro na mão.
+def _montar_linha_detalhamento(produto, marketplace, variacao_rotulo, margem_chave, margem_alvo_percentual, formula, status):
+    preco_exato = formula.intermediarios.preco_exato_antes_arredondar if formula.intermediarios else None
+    preco_final = formula.saida.preco_final if formula.saida else None
+    frete_usado = formula.saida.frete_usado if formula.saida else None
+    margem_obtida = formula.saida.margem_percentual_obtida if formula.saida else None
+
+    detalhamento_geral.append({
+        'ean': produto.ean, 'titulo': produto.titulo, 'marketplace': marketplace,
+        'variacao': variacao_rotulo or '—', 'margem': margem_chave, 'margem_meta': margem_alvo_percentual,
+        'status': status,
+        'custo_final': getattr(formula, '_custo_final', None),
+        'coleta': getattr(formula, '_coleta', None),
+        'armazenagem': getattr(formula, '_armazenagem', None),
+        'credito_icms_entrada': getattr(formula, '_credito_icms_entrada', None),
+        'credito_pis': getattr(formula, '_credito_pis', None),
+        'credito_cofins': getattr(formula, '_credito_cofins', None),
+        'fixo': getattr(formula, '_fixo', None),
+        'comissao_percentual': getattr(formula, '_comissao_percentual', None),
+        'icms_saida_percentual': getattr(formula, '_icms_saida_percentual', None),
+        'pis_saida_percentual': getattr(formula, '_pis_saida_percentual', None),
+        'cofins_saida_percentual': getattr(formula, '_cofins_saida_percentual', None),
+        'taxa_percentual': getattr(formula, '_taxa_percentual', None),
+        'denominador': getattr(formula, '_denominador', None),
+        'preco_exato': preco_exato, 'preco_final': preco_final,
+        'frete_usado': frete_usado, 'margem_obtida': margem_obtida,
+    })
+
+
+# Função Objetivo: Guarda 1 linha por PASSO de formula.passos() — só chamada quando a
+# fórmula resolveu (passos() precisa de entrada/intermediarios/saida já montados).
+# Vira a aba "Passos" do Excel.
+def _registrar_passos(produto, marketplace, variacao_rotulo, margem_chave, formula):
+    for passo in formula.passos():
+        passos_geral.append({
+            'ean': produto.ean, 'titulo': produto.titulo, 'marketplace': marketplace,
+            'variacao': variacao_rotulo or '—', 'margem': margem_chave,
+            'ordem': passo['ordem'], 'rotulo': passo['rotulo'],
+            'formula': passo['formula'], 'resultado': passo['resultado'],
+        })
+
+
+# * [EXPLICAÇÃO] → nomes internos (com "_" na frente) são IDÊNTICOS nas 6 classes de
+#                  fórmula — conferido direto no código de calcular_fixo/montar_taxa_e_
+#                  denominador de todas elas. Por isso 1 lista só, genérica, cobre todo
+#                  mundo — o que existir na instância no momento da falha é mostrado.
+CAMPOS_DIAGNOSTICO_FALHA = [
+    '_custo_final', '_coleta', '_armazenagem',
+    '_credito_icms_entrada', '_credito_pis', '_credito_cofins', '_fixo',
+    '_comissao_percentual', '_icms_saida_percentual', '_pis_saida_percentual',
+    '_cofins_saida_percentual', '_taxa_percentual', '_denominador',
+]
+
+
+# Função Objetivo: Mostra o que já tinha sido calculado até o ponto da falha — essencial
+# pra diagnosticar ERRO DE ASSERT/SEM CÁLCULO, já que formula.entrada/intermediarios/
+# saida continuam None quando a fórmula não resolve (só são montados em caso de sucesso).
+def _imprimir_estado_interno_na_falha(formula):
+    tabela = Table(title='Estado interno no momento da falha (o que já tinha sido calculado)')
+    tabela.add_column('Campo', style='cyan', no_wrap=True)
+    tabela.add_column('Valor', style='yellow')
+    algum_campo = False
+    for nome in CAMPOS_DIAGNOSTICO_FALHA:
+        if hasattr(formula, nome):
+            tabela.add_row(nome.lstrip('_'), str(getattr(formula, nome)))
+            algum_campo = True
+    if algum_campo:
+        console.print(tabela)
+    else:
+        console.print('[dim]Nenhum campo intermediário chegou a ser calculado (falhou logo na busca de crédito fiscal).[/dim]')
+
+
 # Função Objetivo: Roda 1 combinação (produto, marketplace, variação, margem) por
 # completo — instancia a fórmula real (via construir_formula, sem calcular ainda),
 # chama .calcular(), imprime Entrada/Intermediários/Passos/Saída/Resultado, e sempre
@@ -155,12 +287,20 @@ def _rodar_e_exibir(produto, marketplace, variacao_rotulo, margem_chave, margem_
     rotulo_variacao = f' — {variacao_rotulo}' if variacao_rotulo else ''
     console.rule(f'[bold]{marketplace}{rotulo_variacao} | margem {margem_chave} ({margem_alvo_percentual}%) | {produto.ean}[/bold]')
 
+    # * [EXPLICAÇÃO] → formula é instanciada e SÓ DEPOIS .calcular() é chamado, separado —
+    #                  se estivesse tudo numa linha só (formula = construir_formula().calcular()),
+    #                  um AssertionError no meio do .calcular() faria a atribuição nunca
+    #                  completar, e o except não teria acesso a NADA do estado já calculado.
+    formula = construir_formula()
     try:
-        formula = construir_formula().calcular()
+        formula.calcular()
     except AssertionError as e:
         console.print(Panel(f'[bold red]ERRO DE ASSERT[/bold red]\n{e}', border_style='red'))
         console.print()
+        _imprimir_estado_interno_na_falha(formula)
+        console.print()
         _registrar_resumo(produto, marketplace, variacao_rotulo, margem_chave, 'ERRO DE ASSERT', margem_alvo=margem_alvo_percentual, detalhe=str(e))
+        _montar_linha_detalhamento(produto, marketplace, variacao_rotulo, margem_chave, margem_alvo_percentual, formula, 'ERRO DE ASSERT')
         return
 
     if not formula.resolvida:
@@ -171,7 +311,10 @@ def _rodar_e_exibir(produto, marketplace, variacao_rotulo, margem_chave, margem_
         )
         console.print(Panel(f'[bold yellow]SEM CÁLCULO POSSÍVEL[/bold yellow]\n{motivo}', border_style='yellow'))
         console.print()
+        _imprimir_estado_interno_na_falha(formula)
+        console.print()
         _registrar_resumo(produto, marketplace, variacao_rotulo, margem_chave, 'SEM CÁLCULO', margem_alvo=margem_alvo_percentual, detalhe=motivo)
+        _montar_linha_detalhamento(produto, marketplace, variacao_rotulo, margem_chave, margem_alvo_percentual, formula, 'SEM CÁLCULO')
         return
 
     _imprimir_dataclass('Entrada (dado cru — banco/planilha/config)', formula.entrada)
@@ -189,6 +332,8 @@ def _rodar_e_exibir(produto, marketplace, variacao_rotulo, margem_chave, margem_
 
     status = 'OK' if formula.saida.margem_percentual_obtida >= margem_alvo_percentual else 'MARGEM ABAIXO DA META'
     _registrar_resumo(produto, marketplace, variacao_rotulo, margem_chave, status, formula=formula, margem_alvo=margem_alvo_percentual)
+    _montar_linha_detalhamento(produto, marketplace, variacao_rotulo, margem_chave, margem_alvo_percentual, formula, status)
+    _registrar_passos(produto, marketplace, variacao_rotulo, margem_chave, formula)
 
 
 # ========== Carga de configuração (1x, fora do loop de produtos) ==========
@@ -328,6 +473,13 @@ for ean in EANS_TESTE:
     console.rule(f'[bold blue]PRODUTO: {produto.ean} — {produto.titulo}[/bold blue]', style='blue')
     console.print(f'SKU: {produto.sku}  |  Marca: {produto.marca}  |  Custo: R$ {produto.custo:.2f}')
     console.print()
+
+    entrada_xml_por_produto[ean] = _coletar_dados_entrada_xml(produto)
+    produtos_processados[ean] = {
+        'ean': produto.ean, 'sku': produto.sku, 'cod_fabricante': produto.cod_fabricante,
+        'titulo': produto.titulo, 'marca': produto.marca, 'categoria': produto.categoria,
+        'ncm': produto.ncm, 'custo': produto.custo,
+    }
 
     _processar_mercado_livre(produto)
     _processar_raia(produto)
