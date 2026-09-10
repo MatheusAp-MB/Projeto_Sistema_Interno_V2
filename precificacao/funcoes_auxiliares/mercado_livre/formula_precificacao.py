@@ -16,6 +16,14 @@
 #
 # Mínima/Padrão/Máxima/Competição NÃO são subclasses — são a MESMA classe, instanciada 4
 # vezes com margem_alvo_percentual diferente (dado diferente, não comportamento diferente).
+#
+# ProvaFiscalEntrada/peso_fisico+peso_cubico/armazenagem_valor_diario (10/09) — Camada 2 da
+# tela de auditoria: nenhum dado NOVO no banco, só campos que a fórmula já calculava e
+# descartava (o valor bruto da nota antes de dividir por unidade; os 2 pesos antes do
+# max(); a taxa diária da faixa antes de multiplicar pelo período), agora fotografados
+# junto pra a tela poder provar a conta em vez de só mostrar o resultado. Linhas calculadas
+# ANTES dessa mudança não têm esses campos — passam None, e quem consome (Camada 3) precisa
+# tratar como opcional.
 
 from dataclasses import dataclass, asdict
 from decimal import Decimal
@@ -27,6 +35,29 @@ from produtos.funcoes_auxiliares.dimensoes_fisicas import (
 from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import (
     montar_creditos_fiscais_para_precificacao,
 )
+
+
+# Função Objetivo: 1 imposto de entrada, com o valor bruto da nota E a conta que gerou ele.
+@dataclass
+class ProvaImposto:
+    valor: Decimal          # já como veio da nota — ainda NÃO dividido por unidade
+    base_calculo: Decimal
+    aliquota: Decimal
+
+
+# Função Objetivo: Foto da nota fiscal de entrada, crua — prova de onde cada crédito vem.
+# Explicação em detalhe: quantidade_nota é o divisor que transforma cada .valor daqui no
+# "R$/unidade" que DadosIntermediarios usa (ex: ipi_valor = ipi.valor ÷ quantidade_nota).
+# icms_st só vem preenchido quando tem_icms_st=True — nunca finge um ICMS ST que não existe.
+@dataclass
+class ProvaFiscalEntrada:
+    quantidade_nota: Decimal
+    tem_icms_st: bool
+    ipi: ProvaImposto
+    icms: ProvaImposto
+    icms_st: ProvaImposto | None
+    pis: ProvaImposto
+    cofins: ProvaImposto
 
 
 # Função Objetivo: Foto imutável de tudo que a fórmula consumiu.
@@ -59,12 +90,25 @@ class DadosEntrada:
     comprimento: Decimal
     peso: Decimal
     origem_dimensao: str  # 'variacao_ml' ou 'produto_erp'
+    # * [EXPLICAÇÃO] → None quando a origem é 'variacao_ml' e o vendedor
+    #                  não declarou os 2 separados (não deveria acontecer,
+    #                  já que dimensao_completa exige peso_declarado_kg —
+    #                  mas nunca finge um valor que não foi resolvido).
+    peso_fisico: Decimal | None
+    peso_cubico: Decimal | None
 
     fator_coleta: Decimal
     periodo_armazenagem: Decimal
 
     rebate_percentual: Decimal
     preco_original: Decimal | None
+
+    # * [EXPLICAÇÃO] → None só quando obter_creditos_fiscais() nunca achou
+    #                  impostos_entrada (produto sem NF sincronizada) —
+    #                  nesse caso a fórmula nem chega a resolver, então
+    #                  na prática, se DadosEntrada existe, prova_fiscal
+    #                  também existe.
+    prova_fiscal: ProvaFiscalEntrada | None
 
 
 # Função Objetivo: Cada pedaço calculado, passo a passo, com o par número/percentual.
@@ -79,6 +123,11 @@ class DadosIntermediarios:
 
     armazenagem_origem: str  # 'planilha' ou 'faixa_dimensao'
     armazenagem: Decimal
+    # * [EXPLICAÇÃO] → só existe quando armazenagem_origem='faixa_dimensao'
+    #                  — armazenagem = valor_diario × periodo_armazenagem.
+    #                  Na origem 'planilha' não tem taxa diária nenhuma
+    #                  por trás (é 1 valor fixo já validado), fica None.
+    armazenagem_valor_diario: Decimal | None
 
     credito_icms_entrada: Decimal
     credito_pis: Decimal
@@ -142,6 +191,8 @@ class FormulaPrecificacao:
         self.saida = None
         self.resolvida = False
         self._creditos = None
+        self._impostos_entrada = None
+        self._armazenagem_valor_diario = None
 
     # Função Objetivo: Busca os créditos fiscais de entrada, já resolvidos e por unidade.
     def obter_creditos_fiscais(self):
@@ -150,6 +201,12 @@ class FormulaPrecificacao:
         except ObjectDoesNotExist:
             self._creditos = None
             return
+
+        # * [EXPLICAÇÃO] → Guarda o objeto CRU (10/09) — não só o crédito
+        #                  já dividido por unidade. É a prova que a tela
+        #                  de auditoria usa pra mostrar "valor da nota ÷
+        #                  quantidade", não só o resultado já pronto.
+        self._impostos_entrada = impostos_entrada
 
         creditos = montar_creditos_fiscais_para_precificacao(impostos_entrada)
 
@@ -194,6 +251,7 @@ class FormulaPrecificacao:
         if produto.armazenagem_planilha is not None:
             self._armazenagem_origem = 'planilha'
             self._armazenagem = produto.armazenagem_planilha
+            self._armazenagem_valor_diario = None
             return
 
         if self.faixas_armazenagem is not None:
@@ -204,6 +262,7 @@ class FormulaPrecificacao:
 
         faixa_usada = selecionar_faixa_por_dimensao(dim.altura, dim.largura, dim.comprimento, faixas)
         self._armazenagem_origem = 'faixa_dimensao'
+        self._armazenagem_valor_diario = faixa_usada.valor_diario if faixa_usada else None
         self._armazenagem = (faixa_usada.valor_diario * self.config_geral.periodo_armazenagem) if faixa_usada else Decimal('0')
 
     # Função Objetivo: Soma os 3 pedaços do FIXO e desconta os créditos de ICMS/PIS/COFINS.
@@ -324,6 +383,30 @@ class FormulaPrecificacao:
         self._montar_dados_saida()
         return self
 
+    # Função Objetivo: Monta a foto crua da nota fiscal — a prova por trás dos créditos.
+    # Explicação em detalhe: mesma checagem de tem_icms_st que _produto_tem_icms_st (em
+    # impostos/funcoes_auxiliares/creditos_fiscais_para_precificacao.py) — reimplementada
+    # aqui de propósito (é uma função privada daquele módulo, não pensada pra ser
+    # importada) em vez de reaproveitada; se a regra mudar lá, precisa mudar aqui junto.
+    def _montar_prova_fiscal(self):
+        ie = self._impostos_entrada
+        if ie is None:
+            return None
+
+        tem_st = ie.icms_st.valor > 0 or ie.icms_st.base_calculo > 0
+
+        return ProvaFiscalEntrada(
+            quantidade_nota=ie.quantidade_nota,
+            tem_icms_st=tem_st,
+            ipi=ProvaImposto(valor=ie.ipi.valor, base_calculo=ie.ipi.base_calculo, aliquota=ie.ipi.aliquota),
+            icms=ProvaImposto(valor=ie.icms.valor, base_calculo=ie.icms.base_calculo, aliquota=ie.icms.aliquota),
+            icms_st=ProvaImposto(
+                valor=ie.icms_st.valor, base_calculo=ie.icms_st.base_calculo, aliquota=ie.icms_st.aliquota,
+            ) if tem_st else None,
+            pis=ProvaImposto(valor=ie.pis.valor, base_calculo=ie.pis.base_calculo, aliquota=ie.pis.aliquota),
+            cofins=ProvaImposto(valor=ie.cofins.valor, base_calculo=ie.cofins.base_calculo, aliquota=ie.cofins.aliquota),
+        )
+
     # Função Objetivo: Monta a foto imutável de tudo que foi consumido.
     def _montar_dados_entrada(self):
         produto = self.produto
@@ -349,10 +432,13 @@ class FormulaPrecificacao:
             comprimento=dim.comprimento,
             peso=dim.peso,
             origem_dimensao=dim.origem.value,
+            peso_fisico=dim.peso_fisico,
+            peso_cubico=dim.peso_cubico,
             fator_coleta=self.config_geral.fator_coleta,
             periodo_armazenagem=self.config_geral.periodo_armazenagem,
             rebate_percentual=self.rebate_percentual,
             preco_original=self.preco_original,
+            prova_fiscal=self._montar_prova_fiscal(),
         )
 
     # Função Objetivo: Monta cada pedaço calculado, passo a passo.
@@ -365,6 +451,7 @@ class FormulaPrecificacao:
             coleta=self._coleta,
             armazenagem_origem=self._armazenagem_origem,
             armazenagem=self._armazenagem,
+            armazenagem_valor_diario=self._armazenagem_valor_diario,
             credito_icms_entrada=self._credito_icms_entrada,
             credito_pis=self._credito_pis,
             credito_cofins=self._credito_cofins,

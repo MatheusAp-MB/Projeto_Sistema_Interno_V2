@@ -8,6 +8,12 @@
 # maior entre físico e cúbico — regra oficial do Mercado Livre, replicada aqui. Dimensões (nos
 # 2 branches) usam sempre os campos "_ordenada_cm" (21/07) — nunca os brutos direto — pra
 # bater certo nas faixas de armazenagem/frete sem depender de rótulo de eixo original.
+#
+# peso_fisico/peso_cubico (10/09) — os 2 já eram calculados nos 2 branches só pra tirar o
+# max() e descartados em seguida. Passaram a ser guardados também, pra tela de auditoria
+# poder provar QUAL dos 2 venceu, não só mostrar o resultado já resolvido. Default None
+# (não os 2 campos com nome errado — None de verdade) pra não quebrar quem já constrói
+# DimensoesEfetivas direto (ex: _dim_padrao() nos testes) sem passar esses 2.
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -28,6 +34,8 @@ class DimensoesEfetivas:
     comprimento: Decimal
     peso: Decimal
     origem: OrigemDimensao
+    peso_fisico: Decimal = None
+    peso_cubico: Decimal = None
 
 
 # Função Objetivo: Diz se a variação tem as 4 dimensões (já ordenadas) declaradas pelo vendedor no ML.
@@ -64,6 +72,8 @@ def resolver_dimensoes_efetivas(produto, variacao=None):
             comprimento=comprimento,
             peso=max(peso_fisico, peso_cubico),
             origem=OrigemDimensao.VARIACAO_ML,
+            peso_fisico=peso_fisico,
+            peso_cubico=peso_cubico,
         )
 
     altura = produto.altura_ordenada_cm or Decimal('0')
@@ -78,4 +88,6 @@ def resolver_dimensoes_efetivas(produto, variacao=None):
         comprimento=comprimento,
         peso=max(peso_fisico, peso_cubico),
         origem=OrigemDimensao.PRODUTO_ERP,
+        peso_fisico=peso_fisico,
+        peso_cubico=peso_cubico,
     )
