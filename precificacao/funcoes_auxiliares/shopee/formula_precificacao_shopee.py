@@ -316,9 +316,45 @@ class FormulaPrecificacaoShopee:
             preco_de_exibicao=self._preco_de_exibicao,
         )
 
+    # Função Objetivo: Devolve a fórmula em forma abstrata, sem números.
+    def formula_abstrata(self):
+        return 'preço = (frete + adicional fixo da faixa + FIXO) ÷ (1 − taxa − margem-alvo)'
+
+    # Função Objetivo: Devolve a fórmula com os números reais já preenchidos.
+    def formula_preenchida(self):
+        i = self.intermediarios
+        s = self.saida
+        return (
+            f'preço = (R$ {s.frete_usado} + R$ {i.adicional_fixo} + R$ {i.fixo}) '
+            f'÷ {i.denominador} = R$ {s.preco_final}'
+        )
+
+    # Função Objetivo: Devolve o passo a passo ordenado, pronto pro modal de auditoria.
+    def passos(self):
+        e = self.entrada
+        i = self.intermediarios
+        s = self.saida
+        return [
+            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete CIF/FOB', 'resultado': i.custo_final},
+            {'ordem': 2, 'rotulo': 'Coleta', 'formula': 'metro_cúbico × fator_coleta', 'resultado': i.coleta},
+            {'ordem': 3, 'rotulo': 'Armazenagem', 'formula': f'origem: {i.armazenagem_origem}', 'resultado': i.armazenagem},
+            {'ordem': 4, 'rotulo': 'FIXO', 'formula': 'coleta + armazenagem + custo_final − créditos', 'resultado': i.fixo},
+            {'ordem': 5, 'rotulo': 'Faixa de comissão escolhida', 'formula': f'busca por preço, faixa R$ {i.faixa_comissao_preco_min}–{i.faixa_comissao_preco_max}', 'resultado': i.comissao_percentual},
+            {'ordem': 6, 'rotulo': 'Adicional fixo da faixa', 'formula': 'valor fixo em R$ da mesma faixa de comissão', 'resultado': i.adicional_fixo},
+            {'ordem': 7, 'rotulo': 'Taxa', 'formula': 'comissão da faixa + ICMS saída + PIS + COFINS', 'resultado': i.taxa_percentual},
+            {'ordem': 8, 'rotulo': 'Denominador', 'formula': '1 − taxa − margem-alvo', 'resultado': i.denominador},
+            {'ordem': 9, 'rotulo': 'Frete (fixo, configurado)', 'formula': 'sem faixa por peso — vem direto da Configuração Shopee', 'resultado': s.frete_usado},
+            {'ordem': 10, 'rotulo': 'Preço exato', 'formula': '(frete + adicional fixo + FIXO) ÷ denominador', 'resultado': i.preco_exato_antes_arredondar},
+            {'ordem': 11, 'rotulo': 'Preço final (arredondado ,90)', 'formula': 'RoundUp90 — sempre pra CIMA', 'resultado': s.preco_final},
+            {'ordem': 12, 'rotulo': 'Margem obtida', 'formula': 'preço×(1−taxa) − FIXO − frete − adicional fixo', 'resultado': s.margem_percentual_obtida},
+            {'ordem': 13, 'rotulo': 'Preço de exibição (vitrine, decorativo)', 'formula': f'preço ÷ (1 − desconto vitrine {e.desconto_vitrine_percentual}%) — nunca usado em conta de margem', 'resultado': s.preco_de_exibicao},
+        ]
+
+    # Função Objetivo: Devolve as 3 dataclasses já serializadas, prontas pro JSONField.
     def para_dict_auditoria(self):
         return {
             'entrada': asdict(self.entrada),
             'intermediarios': asdict(self.intermediarios),
             'saida': asdict(self.saida),
+            'passos': self.passos(),
         }
