@@ -85,6 +85,7 @@ class DadosIntermediarios:
     taxa_valor: Decimal
     denominador: Decimal
     margem_alvo_valor: Decimal
+    taxa_unidade: Decimal
 
     faixa_frete_peso_min: Decimal
     faixa_frete_peso_max: Decimal | None
@@ -345,6 +346,7 @@ class FormulaPrecificacaoMagalu:
             taxa_valor=self._taxa_valor,
             denominador=self._denominador,
             margem_alvo_valor=self._margem_alvo_valor,
+            taxa_unidade=self._taxa_unidade,
             faixa_frete_peso_min=self._faixa_frete.peso_min,
             faixa_frete_peso_max=self._faixa_frete.peso_max,
             preco_exato_antes_arredondar=self._preco_exato_antes_arredondar,
@@ -363,13 +365,16 @@ class FormulaPrecificacaoMagalu:
 
     # Função Objetivo: Devolve a fórmula em forma abstrata, sem números.
     def formula_abstrata(self):
-        return 'preço = (frete + FIXO) ÷ (1 − taxa − margem-alvo)'
+        return 'preço = (frete + taxa fixa por unidade + FIXO) ÷ (1 − taxa − margem-alvo)'
 
     # Função Objetivo: Devolve a fórmula com os números reais já preenchidos.
     def formula_preenchida(self):
         i = self.intermediarios
         s = self.saida
-        return f'preço = (R$ {s.frete_usado} + R$ {i.fixo}) ÷ {i.denominador} = R$ {s.preco_final}'
+        return (
+            f'preço = (R$ {s.frete_usado} + R$ {i.taxa_unidade} + R$ {i.fixo}) '
+            f'÷ {i.denominador} = R$ {s.preco_final}'
+        )
 
     # Função Objetivo: Devolve o passo a passo ordenado, pronto pro modal de auditoria.
     def passos(self):
@@ -384,9 +389,10 @@ class FormulaPrecificacaoMagalu:
             {'ordem': 5, 'rotulo': 'Taxa', 'formula': 'comissão Magalu + ICMS saída + PIS + COFINS', 'resultado': i.taxa_percentual},
             {'ordem': 6, 'rotulo': 'Denominador', 'formula': '1 − taxa − margem-alvo', 'resultado': i.denominador},
             {'ordem': 7, 'rotulo': 'Frete por peso e reputação', 'formula': f'peso {e.peso}kg, faixa {e.faixa_reputacao}', 'resultado': s.frete_usado},
-            {'ordem': 8, 'rotulo': 'Preço exato', 'formula': '(frete + FIXO) ÷ denominador', 'resultado': i.preco_exato_antes_arredondar},
-            {'ordem': 9, 'rotulo': 'Preço final (arredondado ,90)', 'formula': 'RoundUp90 — sempre pra CIMA', 'resultado': s.preco_final},
-            {'ordem': 10, 'rotulo': 'Margem obtida', 'formula': 'preço×(1−taxa) − FIXO − frete', 'resultado': s.margem_percentual_obtida},
+            {'ordem': 8, 'rotulo': 'Taxa fixa por unidade', 'formula': 'valor fixo em R$, configurado no Magalu — independente do preço', 'resultado': i.taxa_unidade},
+            {'ordem': 9, 'rotulo': 'Preço exato', 'formula': '(frete + taxa fixa por unidade + FIXO) ÷ denominador', 'resultado': i.preco_exato_antes_arredondar},
+            {'ordem': 10, 'rotulo': 'Preço final (arredondado ,90)', 'formula': 'RoundUp90 — sempre pra CIMA', 'resultado': s.preco_final},
+            {'ordem': 11, 'rotulo': 'Margem obtida', 'formula': 'preço×(1−taxa) − FIXO − frete − taxa fixa por unidade', 'resultado': s.margem_percentual_obtida},
         ]
 
     # Função Objetivo: Devolve as 3 dataclasses já serializadas, prontas pro JSONField.
