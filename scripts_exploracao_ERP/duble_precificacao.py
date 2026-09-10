@@ -70,6 +70,14 @@ from precificacao.funcoes_auxiliares.tiktok.formula_precificacao_tiktok import F
 from amazon.models import ConfiguracaoAmazon
 from precificacao.funcoes_auxiliares.amazon.formula_precificacao_amazon import FormulaPrecificacaoAmazon
 
+from produtos.funcoes_auxiliares.dimensoes_fisicas import resolver_dimensao_produto
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.worksheet.table import Table as TabelaExcel, TableStyleInfo
+
 
 # ========== Configuração do Duble ==========
 
@@ -461,6 +469,464 @@ def _processar_amazon(produto):
             )
 
 
+# ========== Geração do Excel — 8 abas, direto do que já foi coletado acima ==========
+
+_FONTE = 'Arial'
+_FUNDO_CABECALHO = PatternFill('solid', fgColor='1F3864')
+_FONTE_CABECALHO = Font(name=_FONTE, bold=True, color='FFFFFF', size=10)
+_FONTE_TITULO = Font(name=_FONTE, bold=True, size=14, color='1F3864')
+_FONTE_SUBTITULO = Font(name=_FONTE, italic=True, size=10, color='595959')
+_FONTE_CORPO = Font(name=_FONTE, size=10)
+_FONTE_CORPO_NEGRITO = Font(name=_FONTE, size=10, bold=True)
+_FUNDO_OK = PatternFill('solid', fgColor='C6EFCE')
+_FONTE_OK = Font(name=_FONTE, size=10, color='006100')
+_FUNDO_ERRO = PatternFill('solid', fgColor='FFC7CE')
+_FONTE_ERRO = Font(name=_FONTE, size=10, color='9C0006', bold=True)
+_FUNDO_SEM_CALCULO = PatternFill('solid', fgColor='FFEB9C')
+_FONTE_SEM_CALCULO = Font(name=_FONTE, size=10, color='9C6500')
+_FUNDO_SEM_DADO = PatternFill('solid', fgColor='F2F2F2')
+_FONTE_SEM_DADO = Font(name=_FONTE, size=10, italic=True, color='7F7F7F')
+_BORDA_FINA = Side(style='thin', color='D9D9D9')
+_BORDA = Border(left=_BORDA_FINA, right=_BORDA_FINA, top=_BORDA_FINA, bottom=_BORDA_FINA)
+
+MARGEM_LABEL = {'minima': 'Mínima', 'padrao': 'Padrão', 'maxima': 'Máxima', 'competicao': 'Competição'}
+
+
+# Função Objetivo: Conta pura — Decimal/None pro tipo que o openpyxl grava melhor (float/None).
+def _num(valor):
+    return float(valor) if valor is not None else None
+
+
+def _estilo_cabecalho(ws, linha=1, n_colunas=None):
+    n_colunas = n_colunas or ws.max_column
+    for c in range(1, n_colunas + 1):
+        celula = ws.cell(row=linha, column=c)
+        celula.font = _FONTE_CABECALHO
+        celula.fill = _FUNDO_CABECALHO
+        celula.alignment = Alignment(vertical='center', wrap_text=True, horizontal='center')
+    ws.row_dimensions[linha].height = 30
+
+
+def _autosize(ws, larguras):
+    for i, largura in enumerate(larguras, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = largura
+
+
+# Função Objetivo: Gera o log de saída "de verdade" — um .xlsx com 1 aba por tipo de dado,
+# a partir só do que já foi coletado durante a execução (produtos_processados,
+# entrada_xml_por_produto, detalhamento_geral, passos_geral). Segue a estrutura do mockup
+# aprovado (10/09) — a diferença é que agora TODOS os dados são reais, inclusive a aba
+# "Impostos Entrada (XML)" (antes só existia como EXEMPLO no mockup, porque o Duble ainda
+# não buscava o dado — agora busca, via _coletar_dados_entrada_xml). Nunca recalcula nada,
+# só organiza o que já foi apurado durante a execução acima.
+def _gerar_excel(caminho):
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    # ---------- Capa ----------
+    ws = wb.create_sheet('Capa')
+    ws.sheet_view.showGridLines = False
+    ws['B2'] = 'Duble de Precificação — Auditoria Completa'
+    ws['B2'].font = _FONTE_TITULO
+    ws['B3'] = (
+        f'Gerado em {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} — todos os dados vêm '
+        f'direto do banco, sem precisar abrir o Django Admin.'
+    )
+    ws['B3'].font = _FONTE_SUBTITULO
+
+    linhas = [
+        '',
+        'O que é este arquivo:',
+        'Auditoria completa do Duble de Precificação — os 6 marketplaces (Mercado Livre, Raia, Magalu,',
+        'Shopee, TikTok, Amazon), todas as variações internas e as 4 margens, pros produtos de EANS_TESTE.',
+        'Cada aba cobre uma camada da conta: identificação do produto, dado cru da nota fiscal de entrada,',
+        'créditos fiscais já calculados, impostos de saída, o cálculo campo a campo (inclusive combinações',
+        'que falharam) e o passo a passo completo de auditoria de cada combinação que resolveu.',
+        '',
+        'Legenda de cores:',
+    ]
+    r = 5
+    for linha in linhas:
+        celula = ws.cell(row=r, column=2, value=linha)
+        celula.font = _FONTE_CORPO_NEGRITO if linha.endswith(':') else _FONTE_CORPO
+        r += 1
+
+    legenda = [
+        (_FUNDO_OK, _FONTE_OK, 'OK — margem obtida atingiu a meta'),
+        (_FUNDO_ERRO, _FONTE_ERRO, 'ERRO DE ASSERT — RoundUp90 devolveu margem abaixo da meta'),
+        (_FUNDO_SEM_CALCULO, _FONTE_SEM_CALCULO, 'SEM CÁLCULO — nenhuma faixa gerou solução consistente'),
+        (_FUNDO_SEM_DADO, _FONTE_SEM_DADO, 'SEM DADO — produto sem nota de entrada sincronizada (Sysemp)'),
+    ]
+    r += 1
+    for fundo, fonte, texto in legenda:
+        ws.cell(row=r, column=2, value='   ').fill = fundo
+        celula_texto = ws.cell(row=r, column=3, value=texto)
+        celula_texto.font = fonte
+        r += 1
+
+    r += 2
+    ws.cell(row=r, column=2, value='Abas deste arquivo:').font = _FONTE_CORPO_NEGRITO
+    r += 1
+    abas_desc = [
+        ('Resumo', 'Visão geral — 1 linha por combinação (produto × marketplace × variação × margem), status colorido.'),
+        ('Produtos', 'Identificação, dimensões e ICMS Saída SP dos produtos testados.'),
+        ('Impostos Entrada (XML)', 'Dado cru da nota fiscal (ICMS, ICMS ST, IPI, PIS, COFINS, nº NF, quantidade) — direto do Sysemp.'),
+        ('Créditos Fiscais', 'Créditos de entrada já calculados (ICMS/PIS/COFINS por unidade) + proporção crédito ICMS ÷ custo final.'),
+        ('Impostos Saída', 'Os campos da Camada 1 (ICMS Saída SP, ICMS Saída Média, PIS, COFINS) por produto.'),
+        ('Detalhamento', 'Todas as combinações, campo a campo (Custo Final, Coleta, Armazenagem, FIXO, Taxa, Denominador, Preço, Margem) — inclusive as que falharam.'),
+        ('Passos', 'O passo a passo completo (fórmula + valor real) de cada combinação que resolveu com sucesso.'),
+    ]
+    for nome, desc in abas_desc:
+        ws.cell(row=r, column=2, value=nome).font = _FONTE_CORPO_NEGRITO
+        ws.cell(row=r, column=3, value=desc).font = _FONTE_CORPO
+        r += 1
+
+    _autosize(ws, [3, 24, 95])
+
+    # ---------- Resumo ----------
+    ws = wb.create_sheet('Resumo')
+    colunas = ['EAN', 'Produto', 'Marketplace', 'Variação', 'Margem', 'Status',
+               'Preço Final (R$)', 'Frete Usado (R$)', 'Margem Obtida (%)', 'Margem Meta (%)', 'Motivo (se falhou)']
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    linha_atual = 2
+    for d in detalhamento_geral:
+        motivo = ''
+        if d['status'] == 'ERRO DE ASSERT':
+            motivo = 'RoundUp90 devolveu margem abaixo da meta (ver aba Detalhamento)'
+        elif d['status'] == 'SEM CÁLCULO':
+            motivo = 'Nenhuma faixa gerou solução consistente'
+        valores = [
+            d['ean'], d['titulo'], d['marketplace'], d['variacao'],
+            MARGEM_LABEL.get(d['margem'], d['margem']), d['status'],
+            _num(d['preco_final']), _num(d['frete_usado']), _num(d['margem_obtida']), _num(d['margem_meta']), motivo,
+        ]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c in (7, 8):
+                celula.number_format = 'R$ #,##0.00'
+            if c in (9, 10):
+                celula.number_format = '0.00"%"'
+        linha_atual += 1
+
+    ultima_linha = linha_atual - 1
+    if ultima_linha >= 2:
+        tabela = TabelaExcel(displayName='TabResumo', ref=f'A1:K{ultima_linha}')
+        tabela.tableStyleInfo = TableStyleInfo(name='TableStyleMedium2', showRowStripes=True)
+        ws.add_table(tabela)
+        ws.conditional_formatting.add(f'F2:F{ultima_linha}', CellIsRule(operator='equal', formula=['"OK"'], fill=_FUNDO_OK, font=_FONTE_OK))
+        ws.conditional_formatting.add(f'F2:F{ultima_linha}', CellIsRule(operator='equal', formula=['"ERRO DE ASSERT"'], fill=_FUNDO_ERRO, font=_FONTE_ERRO))
+        ws.conditional_formatting.add(f'F2:F{ultima_linha}', CellIsRule(operator='equal', formula=['"SEM CÁLCULO"'], fill=_FUNDO_SEM_CALCULO, font=_FONTE_SEM_CALCULO))
+
+    _autosize(ws, [14, 34, 16, 14, 12, 16, 14, 14, 15, 12, 48])
+
+    # ---------- Produtos ----------
+    ws = wb.create_sheet('Produtos')
+    colunas = ['EAN', 'SKU', 'Cód. Fabricante', 'Título', 'Marca', 'Categoria', 'NCM',
+               'Custo (R$)', 'ICMS Saída SP (%)', 'Altura (cm)', 'Largura (cm)', 'Comprimento (cm)', 'Peso (kg)']
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    linha_atual = 2
+    for ean, p in produtos_processados.items():
+        valores = [
+            p['ean'], p['sku'], p['cod_fabricante'], p['titulo'], p['marca'], p['categoria'], p['ncm'],
+            _num(p['custo']), _num(p['icms_saida_sp']), _num(p['altura']), _num(p['largura']),
+            _num(p['comprimento']), _num(p['peso']),
+        ]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c == 8:
+                celula.number_format = 'R$ #,##0.00'
+            if c == 9:
+                celula.number_format = '0.00"%"'
+            if c in (10, 11, 12, 13):
+                celula.number_format = '#,##0.000'
+        linha_atual += 1
+
+    _autosize(ws, [14, 20, 16, 46, 14, 18, 12, 14, 15, 12, 12, 15, 10])
+
+    # ---------- Impostos Entrada (XML) ----------
+    ws = wb.create_sheet('Impostos Entrada (XML)')
+    colunas = [
+        'EAN', 'Produto', 'Nº NF', 'Data Entrada', 'Fornecedor', 'Qtde Nota',
+        'Custo Total Nota (R$)', 'Custo Unitário Nota (R$)', 'Regime ST?',
+        'ICMS CST', 'ICMS Base Cálc. (R$)', 'ICMS Alíquota (%)', 'ICMS Redução (%)', 'ICMS Valor (R$)',
+        'ICMS ST Base Cálc. (R$)', 'ICMS ST Alíquota (%)', 'ICMS ST Redução (%)', 'ICMS ST Valor (R$)',
+        'ICMS ST Alíq. FCP (%)', 'ICMS ST Valor FCP (R$)',
+        'IPI CST', 'IPI Base Cálc. (R$)', 'IPI Alíquota (%)', 'IPI Valor (R$)',
+        'PIS CST', 'PIS Base Cálc. (R$)', 'PIS Alíquota (%)', 'PIS Redução (%)', 'PIS Valor (R$)',
+        'COFINS CST', 'COFINS Base Cálc. (R$)', 'COFINS Alíquota (%)', 'COFINS Redução (%)', 'COFINS Valor (R$)',
+    ]
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    colunas_moeda = {7, 8, 11, 14, 15, 18, 20, 22, 24, 26, 29, 31, 34}
+    colunas_percentual = {12, 13, 16, 17, 19, 23, 27, 28, 32, 33}
+
+    linha_atual = 2
+    for ean, p in produtos_processados.items():
+        entrada = entrada_xml_por_produto.get(ean)
+        if entrada is None:
+            for c in (1, 2, 3):
+                celula = ws.cell(
+                    row=linha_atual, column=c,
+                    value=[ean, p['titulo'], 'SEM DADO — produto sem nota de entrada sincronizada (Sysemp)'][c - 1],
+                )
+                celula.font = _FONTE_SEM_DADO
+                celula.fill = _FUNDO_SEM_DADO
+            ws.merge_cells(start_row=linha_atual, start_column=3, end_row=linha_atual, end_column=34)
+            linha_atual += 1
+            continue
+
+        valores = [
+            ean, p['titulo'], entrada['nr_nf'], entrada['data_entrada_nota'], entrada['fornecedor'],
+            entrada['quantidade_nota'], _num(entrada['custo_total']), _num(entrada['custo_unitario']),
+            'Sim' if entrada['regime_st'] else 'Não',
+            entrada['icms_cst'], _num(entrada['icms_base_calculo']), _num(entrada['icms_aliquota']),
+            _num(entrada['icms_reducao']), _num(entrada['icms_valor']),
+            _num(entrada['icms_st_base_calculo']), _num(entrada['icms_st_aliquota']),
+            _num(entrada['icms_st_reducao']), _num(entrada['icms_st_valor']),
+            _num(entrada['icms_st_aliquota_fcp']), _num(entrada['icms_st_valor_fcp']),
+            entrada['ipi_cst'], _num(entrada['ipi_base_calculo']), _num(entrada['ipi_aliquota']), _num(entrada['ipi_valor']),
+            entrada['pis_cst'], _num(entrada['pis_base_calculo']), _num(entrada['pis_aliquota']),
+            _num(entrada['pis_reducao']), _num(entrada['pis_valor']),
+            entrada['cofins_cst'], _num(entrada['cofins_base_calculo']), _num(entrada['cofins_aliquota']),
+            _num(entrada['cofins_reducao']), _num(entrada['cofins_valor']),
+        ]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c in colunas_moeda:
+                celula.number_format = 'R$ #,##0.00'
+            if c in colunas_percentual:
+                celula.number_format = '0.00"%"'
+            if c == 4 and valor is not None:
+                celula.number_format = 'DD/MM/YYYY'
+        linha_atual += 1
+
+    nota_linha = linha_atual + 1
+    ws.cell(
+        row=nota_linha, column=1,
+        value='"Regime ST?" usa o mesmo critério de creditos_fiscais_para_precificacao.py: ICMS ST > 0 (valor ou base) na nota de entrada.',
+    ).font = _FONTE_SUBTITULO
+    ws.merge_cells(start_row=nota_linha, start_column=1, end_row=nota_linha, end_column=34)
+
+    _autosize(ws, [
+        14, 30, 14, 12, 26, 9, 15, 16, 10,
+        9, 14, 12, 12, 12,
+        14, 12, 12, 12, 12, 13,
+        9, 14, 12, 12,
+        9, 14, 12, 12, 12,
+        10, 14, 12, 12, 12,
+    ])
+
+    # ---------- Créditos Fiscais ----------
+    ws = wb.create_sheet('Créditos Fiscais')
+    colunas = ['EAN', 'Produto', 'Marketplace/Margem de referência', 'Custo Final (R$)', 'Coleta (R$)',
+               'Armazenagem (R$)', 'Crédito ICMS/unid (R$)', 'Crédito PIS/unid (R$)', 'Crédito COFINS/unid (R$)',
+               'FIXO (R$)', 'Créd. ICMS ÷ Custo Final']
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    linha_atual = 2
+    primeira_linha_dados = linha_atual
+    for ean, p in produtos_processados.items():
+        referencia = next((d for d in detalhamento_geral if d['ean'] == ean), None)
+        rotulo_referencia = (
+            f"{referencia['marketplace']} — {MARGEM_LABEL.get(referencia['margem'], referencia['margem'])}"
+            if referencia else '—'
+        )
+        custo_final = _num(referencia['custo_final']) if referencia else None
+        coleta = _num(referencia['coleta']) if referencia else None
+        armazenagem = _num(referencia['armazenagem']) if referencia else None
+        credito_icms = _num(referencia['credito_icms_entrada']) if referencia else None
+        credito_pis = _num(referencia['credito_pis']) if referencia else None
+        credito_cofins = _num(referencia['credito_cofins']) if referencia else None
+        fixo = _num(referencia['fixo']) if referencia else None
+
+        valores = [ean, p['titulo'], rotulo_referencia, custo_final, coleta, armazenagem,
+                   credito_icms, credito_pis, credito_cofins, fixo]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c in (4, 5, 6, 7, 8, 9, 10):
+                celula.number_format = 'R$ #,##0.00'
+        if custo_final:
+            razao = ws.cell(row=linha_atual, column=11, value=f'=G{linha_atual}/D{linha_atual}')
+            razao.number_format = '0.0"x"'
+            razao.font = _FONTE_CORPO
+            razao.border = _BORDA
+        if fixo is not None and fixo < 0:
+            ws.cell(row=linha_atual, column=10).font = Font(name=_FONTE, size=10, bold=True, color='C00000')
+        linha_atual += 1
+
+    ultima_linha = linha_atual - 1
+    if ultima_linha >= primeira_linha_dados:
+        ws.conditional_formatting.add(
+            f'K{primeira_linha_dados}:K{ultima_linha}',
+            CellIsRule(operator='greaterThan', formula=['1'], fill=_FUNDO_ERRO, font=_FONTE_ERRO),
+        )
+    nota_linha = ultima_linha + 2
+    ws.cell(
+        row=nota_linha, column=1,
+        value=(
+            'Coluna K em vermelho quando o crédito de ICMS de entrada sozinho já é maior que o custo final — sinal de '
+            'alerta. "Marketplace/Margem de referência" é a 1ª combinação processada pra esse produto — Coleta/Armazenagem '
+            'variam por marketplace, mas os créditos fiscais vêm da nota de entrada e não mudam (ver aba Detalhamento pra '
+            'todas as combinações).'
+        ),
+    ).font = _FONTE_SUBTITULO
+    ws.merge_cells(start_row=nota_linha, start_column=1, end_row=nota_linha, end_column=11)
+
+    _autosize(ws, [14, 40, 26, 15, 12, 14, 16, 15, 17, 13, 16])
+
+    # ---------- Impostos Saída ----------
+    ws = wb.create_sheet('Impostos Saída')
+    colunas = ['EAN', 'Produto', 'ICMS Saída SP (%)', 'ICMS Saída Média (%)', 'PIS (%)', 'COFINS (%)']
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    linha_atual = 2
+    for ean, p in produtos_processados.items():
+        referencia = next((d for d in detalhamento_geral if d['ean'] == ean), None)
+        icms_saida_media = _num(referencia['icms_saida_percentual']) if referencia else None
+        pis_saida = _num(referencia['pis_saida_percentual']) if referencia else None
+        cofins_saida = _num(referencia['cofins_saida_percentual']) if referencia else None
+        icms_saida_sp = _num(p['icms_saida_sp'])
+
+        valores = [ean, p['titulo'], icms_saida_sp, icms_saida_media, pis_saida, cofins_saida]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c in (3, 4, 5, 6):
+                celula.number_format = '0.00"%"'
+        if icms_saida_media == 0 and pis_saida == 0 and cofins_saida == 0:
+            for c in (3, 4, 5, 6):
+                ws.cell(row=linha_atual, column=c).font = Font(name=_FONTE, size=10, italic=True, color='9C6500')
+        linha_atual += 1
+
+    nota_linha = linha_atual + 1
+    ws.cell(
+        row=nota_linha, column=1,
+        value='Linhas com ICMS Saída Média/PIS/COFINS zerados: produto não foi alcançado pela Camada 1 (Busca Legal).',
+    ).font = _FONTE_SUBTITULO
+    ws.merge_cells(start_row=nota_linha, start_column=1, end_row=nota_linha, end_column=6)
+
+    _autosize(ws, [14, 40, 16, 18, 10, 12])
+
+    # ---------- Detalhamento ----------
+    ws = wb.create_sheet('Detalhamento')
+    colunas = ['EAN', 'Produto', 'Marketplace', 'Variação', 'Margem', 'Status',
+               'Custo Final (R$)', 'Coleta (R$)', 'Armazenagem (R$)',
+               'Créd. ICMS (R$)', 'Créd. PIS (R$)', 'Créd. COFINS (R$)', 'FIXO (R$)',
+               'Comissão (%)', 'ICMS Saída (%)', 'PIS Saída (%)', 'COFINS Saída (%)',
+               'Taxa Total (fração)', 'Denominador', 'Preço Exato (R$)', 'Preço Final (R$)',
+               'Frete Usado (R$)', 'Margem Obtida (%)', 'Margem Meta (%)']
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    linha_atual = 2
+    primeira_linha_dados = linha_atual
+    for d in detalhamento_geral:
+        valores = [
+            d['ean'], d['titulo'], d['marketplace'], d['variacao'],
+            MARGEM_LABEL.get(d['margem'], d['margem']), d['status'],
+            _num(d['custo_final']), _num(d['coleta']), _num(d['armazenagem']),
+            _num(d['credito_icms_entrada']), _num(d['credito_pis']), _num(d['credito_cofins']), _num(d['fixo']),
+            _num(d['comissao_percentual']), _num(d['icms_saida_percentual']), _num(d['pis_saida_percentual']),
+            _num(d['cofins_saida_percentual']), _num(d['taxa_percentual']), _num(d['denominador']),
+            _num(d['preco_exato']), _num(d['preco_final']), _num(d['frete_usado']),
+            _num(d['margem_obtida']), _num(d['margem_meta']),
+        ]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c in (7, 8, 9, 10, 11, 12, 13, 20, 21, 22):
+                celula.number_format = 'R$ #,##0.00'
+            if c in (14, 15, 16, 17, 23, 24):
+                celula.number_format = '0.00"%"'
+            if c in (18, 19):
+                celula.number_format = '0.0000'
+        linha_atual += 1
+
+    ultima_linha = linha_atual - 1
+    if ultima_linha >= primeira_linha_dados:
+        tabela = TabelaExcel(displayName='TabDetalhamento', ref=f'A1:X{ultima_linha}')
+        tabela.tableStyleInfo = TableStyleInfo(name='TableStyleMedium2', showRowStripes=True)
+        ws.add_table(tabela)
+        ws.conditional_formatting.add(f'F{primeira_linha_dados}:F{ultima_linha}', CellIsRule(operator='equal', formula=['"OK"'], fill=_FUNDO_OK, font=_FONTE_OK))
+        ws.conditional_formatting.add(f'F{primeira_linha_dados}:F{ultima_linha}', CellIsRule(operator='equal', formula=['"ERRO DE ASSERT"'], fill=_FUNDO_ERRO, font=_FONTE_ERRO))
+        ws.conditional_formatting.add(f'F{primeira_linha_dados}:F{ultima_linha}', CellIsRule(operator='equal', formula=['"SEM CÁLCULO"'], fill=_FUNDO_SEM_CALCULO, font=_FONTE_SEM_CALCULO))
+        ws.conditional_formatting.add(f'M{primeira_linha_dados}:M{ultima_linha}', CellIsRule(operator='lessThan', formula=['0'], fill=_FUNDO_ERRO, font=_FONTE_ERRO))
+
+    _autosize(ws, [14, 30, 14, 13, 11, 16, 13, 10, 12, 12, 11, 13, 13, 11, 12, 11, 13, 13, 11, 14, 13, 13, 14, 11])
+
+    # ---------- Passos ----------
+    ws = wb.create_sheet('Passos')
+    colunas = ['EAN', 'Produto', 'Marketplace', 'Variação', 'Margem', '#', 'Rótulo', 'Fórmula (valores reais)', 'Resultado']
+    for c, cabecalho in enumerate(colunas, start=1):
+        ws.cell(row=1, column=c, value=cabecalho)
+    _estilo_cabecalho(ws)
+    ws.freeze_panes = 'A2'
+
+    linha_atual = 2
+    primeira_linha_dados = linha_atual
+    for passo in passos_geral:
+        try:
+            resultado_excel = float(passo['resultado'])
+        except (TypeError, ValueError):
+            resultado_excel = str(passo['resultado'])
+        valores = [
+            passo['ean'], passo['titulo'], passo['marketplace'], passo['variacao'],
+            MARGEM_LABEL.get(passo['margem'], passo['margem']), passo['ordem'], passo['rotulo'],
+            passo['formula'], resultado_excel,
+        ]
+        for c, valor in enumerate(valores, start=1):
+            celula = ws.cell(row=linha_atual, column=c, value=valor)
+            celula.font = _FONTE_CORPO
+            celula.border = _BORDA
+            if c == 9 and isinstance(valor, float):
+                celula.number_format = 'R$ #,##0.00'
+        linha_atual += 1
+
+    ultima_linha = linha_atual - 1
+    if ultima_linha >= primeira_linha_dados:
+        tabela = TabelaExcel(displayName='TabPassos', ref=f'A1:I{ultima_linha}')
+        tabela.tableStyleInfo = TableStyleInfo(name='TableStyleMedium2', showRowStripes=True)
+        ws.add_table(tabela)
+
+    _autosize(ws, [14, 30, 14, 13, 11, 5, 30, 55, 16])
+
+    ordem = ['Capa', 'Resumo', 'Produtos', 'Impostos Entrada (XML)', 'Créditos Fiscais',
+             'Impostos Saída', 'Detalhamento', 'Passos']
+    wb._sheets = [wb[nome] for nome in ordem]
+    wb.active = 0
+
+    wb.save(caminho)
+
+
 # ========== Execução — N produtos × 6 marketplaces × variações × 4 margens ==========
 
 for ean in EANS_TESTE:
@@ -475,10 +941,13 @@ for ean in EANS_TESTE:
     console.print()
 
     entrada_xml_por_produto[ean] = _coletar_dados_entrada_xml(produto)
+    altura, largura, comprimento, peso = resolver_dimensao_produto(produto)
     produtos_processados[ean] = {
         'ean': produto.ean, 'sku': produto.sku, 'cod_fabricante': produto.cod_fabricante,
         'titulo': produto.titulo, 'marca': produto.marca, 'categoria': produto.categoria,
         'ncm': produto.ncm, 'custo': produto.custo,
+        'altura': altura, 'largura': largura, 'comprimento': comprimento, 'peso': peso,
+        'icms_saida_sp': produto.icms_saida_sp,
     }
 
     _processar_mercado_livre(produto)
@@ -533,3 +1002,7 @@ carimbo = datetime.now().strftime('%Y%m%d_%H%M%S')
 CAMINHO_LOG = os.path.join(PASTA_SAIDAS, f'duble_precificacao_{carimbo}.txt')
 console.print(f'\n[dim]Log completo salvo em: {CAMINHO_LOG}[/dim]')
 console.save_text(CAMINHO_LOG)
+
+CAMINHO_EXCEL = os.path.join(PASTA_SAIDAS, f'duble_precificacao_{carimbo}.xlsx')
+_gerar_excel(CAMINHO_EXCEL)
+console.print(f'[dim]Auditoria completa (Excel, 8 abas) salva em: {CAMINHO_EXCEL}[/dim]')
