@@ -287,9 +287,41 @@ class FormulaPrecificacaoRaia:
             margem_exata_percentual=self._margem_exata_percentual, margem_exata_valor=self._margem_exata_valor,
         )
 
+    # Função Objetivo: Devolve a fórmula em forma abstrata, sem números.
+    def formula_abstrata(self):
+        return 'preço = (frete + FIXO) ÷ (1 − taxa − margem-alvo)'
+
+    # Função Objetivo: Devolve a fórmula com os números reais já preenchidos.
+    def formula_preenchida(self):
+        i = self.intermediarios
+        s = self.saida
+        return (
+            f'preço = (R$ {s.frete_usado} + R$ {i.fixo}) '
+            f'÷ {i.denominador} = R$ {s.preco_final}'
+        )
+
+    # Função Objetivo: Devolve o passo a passo ordenado, pronto pro modal de auditoria.
+    def passos(self):
+        i = self.intermediarios
+        s = self.saida
+        return [
+            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete CIF/FOB', 'resultado': i.custo_final},
+            {'ordem': 2, 'rotulo': 'Coleta', 'formula': 'metro_cúbico × fator_coleta', 'resultado': i.coleta},
+            {'ordem': 3, 'rotulo': 'Armazenagem', 'formula': f'origem: {i.armazenagem_origem}', 'resultado': i.armazenagem},
+            {'ordem': 4, 'rotulo': 'FIXO', 'formula': 'coleta + armazenagem + custo_final − créditos', 'resultado': i.fixo},
+            {'ordem': 5, 'rotulo': 'Taxa', 'formula': 'comissão + ICMS saída + PIS + COFINS', 'resultado': i.taxa_percentual},
+            {'ordem': 6, 'rotulo': 'Denominador', 'formula': '1 − taxa − margem-alvo', 'resultado': i.denominador},
+            {'ordem': 7, 'rotulo': 'Frete (fixo, configurado)', 'formula': 'sem faixa, sem tabela — vem direto da Configuração Raia', 'resultado': s.frete_usado},
+            {'ordem': 8, 'rotulo': 'Preço exato', 'formula': '(frete + FIXO) ÷ denominador', 'resultado': i.preco_exato_antes_arredondar},
+            {'ordem': 9, 'rotulo': 'Preço final (arredondado ,90)', 'formula': 'RoundUp90 — sempre pra CIMA', 'resultado': s.preco_final},
+            {'ordem': 10, 'rotulo': 'Margem obtida', 'formula': 'preço×(1−taxa) − FIXO − frete', 'resultado': s.margem_percentual_obtida},
+        ]
+
+    # Função Objetivo: Devolve as 3 dataclasses já serializadas, prontas pro JSONField.
     def para_dict_auditoria(self):
         return {
             'entrada': asdict(self.entrada),
             'intermediarios': asdict(self.intermediarios),
             'saida': asdict(self.saida),
+            'passos': self.passos(),
         }
