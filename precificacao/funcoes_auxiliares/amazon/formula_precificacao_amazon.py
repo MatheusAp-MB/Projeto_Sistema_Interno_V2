@@ -349,9 +349,58 @@ class FormulaPrecificacaoAmazon:
             margem_exata_percentual=self._margem_exata_percentual, margem_exata_valor=self._margem_exata_valor,
         )
 
+    # Função Objetivo: Devolve a fórmula em forma abstrata, sem números.
+    def formula_abstrata(self):
+        return 'preço = (frete + FIXO) ÷ (1 − taxa − margem-alvo)'
+
+    # Função Objetivo: Devolve a fórmula com os números reais já preenchidos.
+    def formula_preenchida(self):
+        i = self.intermediarios
+        s = self.saida
+        return (
+            f'preço = (R$ {s.frete_usado} + R$ {i.fixo}) '
+            f'÷ {i.denominador} = R$ {s.preco_final}'
+        )
+
+    # Função Objetivo: Devolve o passo a passo ordenado, pronto pro modal de auditoria.
+    def passos(self):
+        e = self.entrada
+        i = self.intermediarios
+        s = self.saida
+
+        # * [EXPLICAÇÃO] → Frete da Amazon tem 3 formas possíveis de ter sido
+        #                  resolvido (ver _frete_para_faixa) — peso_min_usado
+        #                  vem None só no caso 1 (faixa barata, frete fixo).
+        if i.peso_min_usado is None:
+            frete_descricao = (
+                f"tipo='{e.tipo}' — faixa de preço R$ {i.faixa_preco_min}–{i.faixa_preco_max}, "
+                f'frete fixo dessa faixa (peso não importa)'
+            )
+        else:
+            frete_descricao = (
+                f"tipo='{e.tipo}' — faixa de preço R$ {i.faixa_preco_min}–{i.faixa_preco_max}, "
+                f'peso {e.peso}kg dentro de {i.peso_min_usado}–{i.peso_max_usado}kg da matriz '
+                f'(acima do teto da matriz, soma taxa por kg adicional)'
+            )
+
+        return [
+            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete CIF/FOB', 'resultado': i.custo_final},
+            {'ordem': 2, 'rotulo': 'Coleta', 'formula': 'metro_cúbico × fator_coleta', 'resultado': i.coleta},
+            {'ordem': 3, 'rotulo': 'Armazenagem', 'formula': f'origem: {i.armazenagem_origem}', 'resultado': i.armazenagem},
+            {'ordem': 4, 'rotulo': 'FIXO', 'formula': 'coleta + armazenagem + custo_final − créditos', 'resultado': i.fixo},
+            {'ordem': 5, 'rotulo': 'Taxa', 'formula': 'comissão flat + ICMS saída + PIS + COFINS', 'resultado': i.taxa_percentual},
+            {'ordem': 6, 'rotulo': 'Denominador', 'formula': '1 − taxa − margem-alvo', 'resultado': i.denominador},
+            {'ordem': 7, 'rotulo': 'Frete resolvido', 'formula': frete_descricao, 'resultado': s.frete_usado},
+            {'ordem': 8, 'rotulo': 'Preço exato', 'formula': '(frete + FIXO) ÷ denominador', 'resultado': i.preco_exato_antes_arredondar},
+            {'ordem': 9, 'rotulo': 'Preço final (arredondado ,90)', 'formula': 'RoundUp90 — sempre pra CIMA', 'resultado': s.preco_final},
+            {'ordem': 10, 'rotulo': 'Margem obtida', 'formula': 'preço×(1−taxa) − FIXO − frete', 'resultado': s.margem_percentual_obtida},
+        ]
+
+    # Função Objetivo: Devolve as 3 dataclasses já serializadas, prontas pro JSONField.
     def para_dict_auditoria(self):
         return {
             'entrada': asdict(self.entrada),
             'intermediarios': asdict(self.intermediarios),
             'saida': asdict(self.saida),
+            'passos': self.passos(),
         }
