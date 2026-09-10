@@ -937,3 +937,209 @@
     color: #667;
     margin-top: 2px;
 }
+
+/*
+* [RESUMO] → Tela de Auditoria de Precificação (10/09, Camada 4) — estilo do conteúdo
+* interno do modal "como chegamos nesse preço" (a casca .grade-detalhe-painel/cabecalho
+* continua a mesma de sempre, só o miolo mudou). Prefixo .audit- de propósito, pra não
+* colidir com as classes .grade-detalhe-* antigas (algumas ficaram órfãs, ver nota na
+* entrega — deixadas no arquivo até serem removidas de vez).
+*
+* Paleta reaproveitada do que a página já usa: #1e3a5f (navy already-existente),
+* #1d4ed8/#dbeafe (Clássico), #8b4fc7 (Premium), #1a8a5f (verde de margem existente),
+* #fffbeb/#b45309 (badge âmbar já usado em outro canto do arquivo). Só vermelho (alerta)
+* e teal (tag Saída) são novos — não havia equivalente no arquivo.
+*/
+
+.audit-painel {
+    --audit-navy: #1e3a5f;
+    --audit-blue: #1d4ed8;
+    --audit-blue-bg: #dbeafe;
+    --audit-blue-ink: #0c447c;
+    --audit-amber-bg: #fffbeb;
+    --audit-amber-ink: #b45309;
+    --audit-teal-bg: #e3f6f3;
+    --audit-teal-ink: #0f6e63;
+    --audit-slate-bg: #eef2f7;
+    --audit-slate-ink: #556;
+    --audit-green: #1a8a5f;
+    --audit-green-bg: #e8f6ec;
+    --audit-green-border: #b7e2bd;
+    --audit-red: #b02318;
+    --audit-red-bg: #fdecea;
+    --audit-red-border: #f3c2bc;
+    --audit-ink: #1a1a2e;
+    --audit-ink-soft: #445;
+    --audit-ink-mid: #667;
+    --audit-line: #e5e8ec;
+    --audit-card: #fff;
+
+    padding-bottom: 8px;
+}
+
+.audit-meta {
+    padding: 10px 20px 0;
+    font-size: 12.5px;
+    color: var(--audit-ink-mid);
+}
+.audit-meta b { color: var(--audit-ink); }
+
+/* Veredito */
+.audit-veredito {
+    margin: 12px 20px 0;
+    padding: 13px 16px;
+    border-radius: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+}
+.audit-veredito--ok { background: var(--audit-green-bg); border: 1px solid var(--audit-green-border); }
+.audit-veredito--alerta { background: var(--audit-red-bg); border: 1px solid var(--audit-red-border); }
+.audit-veredito-icone { font-size: 19px; line-height: 1; margin-top: 1px; }
+.audit-veredito-texto b { display: block; font-size: 14px; margin-bottom: 4px; }
+.audit-veredito--ok .audit-veredito-texto b { color: var(--audit-green); }
+.audit-veredito--alerta .audit-veredito-texto b { color: var(--audit-red); }
+.audit-veredito-lista { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.audit-veredito-lista li { margin-bottom: 3px; }
+.audit-veredito-lista button {
+    background: none; border: none; padding: 2px 0; font: inherit; color: var(--audit-ink);
+    cursor: pointer; text-align: left; text-decoration: underline;
+    text-decoration-color: var(--audit-red-border); text-underline-offset: 2px; font-weight: 600;
+}
+.audit-veredito-lista button:hover { color: var(--audit-red); }
+.audit-veredito-sub { font-size: 13px; color: var(--audit-ink-soft); }
+
+/* Caixa "investigar" */
+.audit-investigar-box {
+    margin: 12px 20px 0;
+    padding: 12px 15px;
+    border-left: 3px solid var(--audit-red);
+    background: var(--audit-red-bg);
+    border-radius: 0 9px 9px 0;
+    font-size: 13px;
+    color: var(--audit-ink);
+    line-height: 1.5;
+}
+.audit-investigar-box b { display: block; color: var(--audit-red); margin-bottom: 4px; font-size: 13.5px; }
+
+/* Tags de proveniência */
+.audit-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    padding: 1.5px 7px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: 1px;
+    white-space: nowrap;
+}
+.audit-tag--produto { background: var(--audit-amber-bg); color: var(--audit-amber-ink); }
+.audit-tag--nf { background: var(--audit-blue-bg); color: var(--audit-blue-ink); }
+.audit-tag--saida { background: var(--audit-teal-bg); color: var(--audit-teal-ink); }
+.audit-tag--config { background: var(--audit-slate-bg); color: var(--audit-slate-ink); }
+.audit-tag--calc, .audit-tag--calculado { background: var(--audit-navy); color: #fff; }
+.audit-mini-form { color: var(--audit-ink-mid); font-size: 11px; font-weight: 400; margin-left: 4px; }
+
+/* Bloco "Dados do Produto" */
+.audit-bloco-produto {
+    margin: 12px 20px 0;
+    border: 1px solid var(--audit-line);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.audit-bloco-produto-cabecalho {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: #fafbfd; border: none; cursor: pointer; font-family: inherit; text-align: left;
+}
+.audit-bloco-produto[data-flag="1"] .audit-bloco-produto-cabecalho { background: var(--audit-red-bg); }
+.audit-bloco-produto-titulo { flex: 1; font-size: 13.5px; font-weight: 700; color: var(--audit-ink); }
+.audit-bloco-produto-resumo { font-size: 12.5px; color: var(--audit-ink-mid); }
+.audit-bloco-produto[data-flag="1"] .audit-bloco-produto-resumo { color: var(--audit-red); font-weight: 600; }
+.audit-bloco-produto-seta { color: var(--audit-ink-mid); font-size: 13px; transition: transform .15s ease; }
+.audit-bloco-produto[data-estado="expandido"] .audit-bloco-produto-seta { transform: rotate(90deg); }
+.audit-bloco-produto-corpo { display: none; padding: 11px 14px 13px; border-top: 1px solid var(--audit-line); }
+.audit-bloco-produto[data-estado="expandido"] .audit-bloco-produto-corpo { display: block; }
+
+.audit-secao-titulo {
+    font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--audit-ink-mid); padding: 16px 20px 8px;
+}
+
+/* Passo a passo */
+.audit-passos { padding: 0 20px; }
+.audit-passo { border-bottom: 1px solid var(--audit-line); }
+.audit-passo:last-child { border-bottom: none; }
+.audit-passo-linha {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 4px;
+    background: none; border: none; cursor: pointer; font-family: inherit; text-align: left;
+}
+.audit-passo-linha:hover { background: #fafbfd; }
+.audit-passo-num {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--audit-blue-bg); color: var(--audit-blue-ink);
+    font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.audit-passo[data-flag="1"] .audit-passo-num { background: var(--audit-red); color: #fff; }
+.audit-passo-label { flex: 1; font-size: 14px; color: var(--audit-ink); font-weight: 600; }
+.audit-passo-resultado { font-size: 14px; font-weight: 700; color: var(--audit-navy); font-variant-numeric: tabular-nums; }
+.audit-passo[data-flag="1"] .audit-passo-resultado { color: var(--audit-red); }
+.audit-passo-flag-icone { font-size: 13px; }
+.audit-passo-seta { color: var(--audit-ink-mid); font-size: 13px; transition: transform .15s ease; width: 14px; text-align: center; }
+.audit-passo[data-estado="expandido"] .audit-passo-seta { transform: rotate(90deg); }
+.audit-passo-detalhe { display: none; padding: 2px 4px 15px 32px; }
+.audit-passo[data-estado="expandido"] .audit-passo-detalhe { display: block; }
+
+.audit-inputs-box {
+    border: 1px solid var(--audit-line); border-radius: 9px; padding: 8px 12px; margin-bottom: 9px; background: #fbfbfd;
+}
+.audit-input-linha {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    padding: 3.5px 0; font-size: 13px; flex-wrap: wrap;
+}
+.audit-input-linha .k { color: var(--audit-ink-soft); }
+.audit-input-linha .v { font-weight: 600; color: var(--audit-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.audit-passo-abstrata { font-size: 11px; color: var(--audit-ink-mid); margin-bottom: 5px; }
+.audit-passo-conta { font-size: 14px; color: var(--audit-ink); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.audit-passo-conta b { color: var(--audit-navy); font-weight: 700; }
+.audit-passo[data-flag="1"] .audit-passo-conta b { color: var(--audit-red); }
+
+.audit-badge {
+    display: inline-block; margin-left: 6px; font-size: 11px; font-weight: 700;
+    padding: 1.5px 8px; border-radius: 20px;
+}
+.audit-badge--ok { background: var(--audit-green-bg); color: var(--audit-green); }
+.audit-badge--ruim { background: var(--audit-red-bg); color: var(--audit-red); border: 1px solid var(--audit-red-border); }
+
+/* Link "ver prova" + caixa de prova */
+.audit-ver-nota-link {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700;
+    color: var(--audit-blue-ink); cursor: pointer; background: none; border: none; padding: 2px 0; font-family: inherit;
+}
+.audit-ver-nota-link:hover { text-decoration: underline; }
+.audit-seta2 { transition: transform .15s ease; display: inline-block; font-size: 10px; }
+.audit-ver-nota-link--aberto .audit-seta2 { transform: rotate(90deg); }
+
+.audit-prova {
+    display: none; margin-top: 9px; border-radius: 9px; padding: 10px 13px;
+    border-left: 3px solid var(--audit-blue); background: var(--audit-blue-bg);
+}
+.audit-prova--aberta { display: block; }
+.audit-prova--flag { border-left-color: var(--audit-red); background: var(--audit-red-bg); }
+.audit-prova-fonte { font-size: 11px; color: var(--audit-ink-mid); margin-bottom: 6px; font-weight: 600; }
+.audit-prova-linha { display: flex; justify-content: space-between; padding: 2.5px 0; font-size: 13px; }
+.audit-prova-linha--total {
+    border-top: 1px solid rgba(0,0,0,.08); margin-top: 5px; padding-top: 6px; font-weight: 700; color: var(--audit-navy);
+}
+.audit-prova--flag .audit-prova-linha--total { color: var(--audit-red); }
+.audit-prova-linha .k { color: var(--audit-ink-soft); }
+.audit-prova-linha .v { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--audit-ink); }
+.audit-prova-nota-obs { font-size: 12px; color: var(--audit-ink-soft); margin-top: 7px; line-height: 1.45; }
+
+/* Resultado */
+.audit-tabela-saida { width: calc(100% - 40px); margin: 4px 20px 4px; border-collapse: collapse; }
+.audit-tabela-saida td { padding: 7px 4px; font-size: 13.5px; border-bottom: 1px solid var(--audit-line); color: var(--audit-ink-soft); }
+.audit-tabela-saida td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--audit-ink); }
+.audit-tabela-saida tr:last-child td { border-bottom: none; }
+.audit-linha-destaque td { font-weight: 700; font-size: 15.5px; color: var(--audit-navy); }
+.audit-linha-destaque td:first-child { color: var(--audit-navy); font-size: 14px; }
