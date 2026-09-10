@@ -9,8 +9,8 @@ from precificacao.views.comum import (
 )
 from precificacao.views.modal_comum import (
     PassoFaixaFrete, PassoPrecoExato,
-    montar_tabela_percentuais, montar_pis_cofins, montar_valores_soltos,
-    montar_dimensao, montar_passos_1_a_6, montar_saida,
+    montar_tabela_percentuais, montar_valores_soltos,
+    montar_dimensao, montar_passos_1_a_6, montar_saida, montar_alertas,
 )
 
 # * [EXPLICAÇÃO] → GradePrecificacaoML.tipo_anuncio usa 'classico'/
@@ -252,8 +252,13 @@ def view_grade_precificacao_ml(request):
 class DetalheFormulaExibida:
     tipo_label: str
     margem_label: str
+    sku: str
+    ean: str
+    custo: object
+    custo_com_boni: object
+    margem_alvo_percentual: object
+    margem_obtida_percentual: object
     tabela_percentuais: list
-    pis_cofins: object
     valores_soltos: list
     dimensao: object
     passo_1: object
@@ -265,6 +270,7 @@ class DetalheFormulaExibida:
     passo_7: object
     passo_8: object
     saida: list
+    alertas: list
 
     # Função Objetivo: Lê o detalhamento já persistido e monta a exibição completa.
     # Explicação em detalhe: NUNCA recalcula nada ao vivo — só lê o que já foi persistido.
@@ -295,16 +301,32 @@ class DetalheFormulaExibida:
             denominador=dec(i.get('denominador')), resultado=dec(i.get('preco_exato_antes_arredondar')),
         )
 
+        custo = dec(e.get('custo'))
+        custo_com_boni = dec(e.get('custo_com_boni'))
+        margem_alvo = dec(e.get('margem_alvo_percentual'))
+        margem_obtida = dec(s.get('margem_percentual_obtida'))
+        dimensao = montar_dimensao(e, dec, origem_label)
+
         return cls(
             tipo_label=tipo_label,
             margem_label=margem_label,
+            sku=e.get('sku'),
+            ean=e.get('ean'),
+            custo=custo,
+            custo_com_boni=custo_com_boni,
+            margem_alvo_percentual=margem_alvo,
+            margem_obtida_percentual=margem_obtida,
             tabela_percentuais=montar_tabela_percentuais(e, i, dec),
-            pis_cofins=montar_pis_cofins(e, i, dec),
             valores_soltos=montar_valores_soltos(e, dec),
-            dimensao=montar_dimensao(e, dec, origem_label),
+            dimensao=dimensao,
             passo_1=passo_1, passo_2=passo_2, passo_3=passo_3, passo_4=passo_4,
             passo_5=passo_5, passo_6=passo_6, passo_7=passo_7, passo_8=passo_8,
             saida=montar_saida(i, s, dec),
+            alertas=montar_alertas(
+                fixo=dec(i.get('fixo')), custo=custo, custo_com_boni=custo_com_boni,
+                altura=dimensao.altura, largura=dimensao.largura, comprimento=dimensao.comprimento,
+                margem_alvo=margem_alvo, margem_obtida=margem_obtida,
+            ),
         )
 
 
@@ -320,33 +342,6 @@ def view_grade_detalhe(request, produto_id, tipo, margem):
         linha = GradePrecificacaoML.objects.filter(
             produto_id=produto_id, variacao_id=variacao_id,
             tipo_anuncio=tipo_grade, margem=margem,
-        ).select_related('produto', 'variacao__anuncio').first()
-
-    if not linha or not linha.detalhamento:
-        return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe.html', {
-            'sem_detalhamento': True,
-        })
-
-    tipo_label = 'Clássico' if tipo_grade == 'classico' else 'Premium'
-    margem_label = MARGENS_POR_CHAVE[margem].label_base
-
-    if linha.variacao_id:
-        mlb = linha.variacao.anuncio.mlb
-        titulo_anuncio = linha.variacao.anuncio.titulo_anuncio or linha.produto.titulo
-    else:
-        mlb = None
-        titulo_anuncio = linha.produto.titulo
-
-    det = DetalheFormulaExibida.montar(linha, tipo_label, margem_label)
-
-    return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe.html', {
-        'det': det,
-        'mlb': mlb,
-        'titulo_anuncio': titulo_anuncio,
-        'produto_id': produto_id,
-        'tipo': tipo,
-        'variacao_id': variacao_id or '',
-    })
 
 
 # Função Objetivo: Monta a subquery que busca 1 campo de 1 marketplace/margem, por produto.
