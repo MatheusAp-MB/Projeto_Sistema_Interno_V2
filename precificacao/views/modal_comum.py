@@ -3,6 +3,14 @@
 # Função Objetivo: Dataclasses de exibição do modal de auditoria — puro formato, sem
 # nenhuma lógica de marketplace embutida. Reaproveitadas pelos modais de TODOS os
 # marketplaces (ML, Magalu, e os que vierem depois).
+#
+# Taxonomia de proveniência (campo `origem` em LinhaPercentualValor/LinhaValorUnico) —
+# 5 categorias, usadas pela tela de auditoria pra marcar "isso veio de onde":
+#   'produto'   → cadastro do produto (custo, dimensão declarada, frete_cif_fob%...)
+#   'nf'        → nota fiscal de entrada / crédito fiscal (ICMS/IPI/PIS/COFINS entrada)
+#   'saida'     → imposto aplicado na venda (ICMS/PIS/COFINS saída)
+#   'config'    → parâmetro operacional (fator de coleta, comissão, margem-alvo, faixas)
+#   'calculado' → resultado de fórmula, não é dado bruto (default)
 
 from dataclasses import dataclass
 
@@ -12,19 +20,14 @@ class LinhaPercentualValor:
     label: str
     percentual: object
     valor: object
+    origem: str = 'calculado'
 
 
 @dataclass
 class LinhaValorUnico:
     label: str
     valor: object
-
-
-@dataclass
-class BlocoPisCofins:
-    percentual: object
-    credito_entrada: object
-    taxa_saida: object
+    origem: str = 'produto'
 
 
 @dataclass
@@ -41,7 +44,6 @@ class PassoCustoFinal:
     custo_com_boni: object
     ipi_valor: object
     frete_cif_fob_valor: object
-    st_valor: object
     resultado: object
 
 
@@ -66,6 +68,7 @@ class PassoFixo:
     custo_final: object
     credito_icms: object
     credito_pis: object
+    credito_cofins: object
     resultado: object
 
 
@@ -112,35 +115,33 @@ class LinhaSaida:
     destaque: bool = False
 
 
-# Função Objetivo: Monta a tabela dos 6 percentuais com par direto em R$ — comum a qualquer marketplace.
+# Função Objetivo: Monta a tabela de valores de entrada (créditos de NF + saída + config) —
+# comum a qualquer marketplace. Substitui a antiga montar_tabela_percentuais + montar_pis_cofins
+# (10/09) — os 2 créditos que faltavam (PIS e COFINS separados) já estavam persistidos em
+# 'intermediarios' desde sempre, só nunca tinham sido lidos aqui.
 def montar_tabela_percentuais(e, i, dec, label_comissao='Comissão'):
     return [
-        LinhaPercentualValor('IPI', dec(e.get('ipi_percentual')), dec(i.get('ipi_valor'))),
-        LinhaPercentualValor('Frete CIF/FOB', dec(e.get('frete_cif_fob_percentual')), dec(i.get('frete_cif_fob_valor'))),
-        LinhaPercentualValor('ICMS entrada', dec(e.get('icms_entrada_percentual')), dec(i.get('credito_icms_entrada'))),
-        LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor'))),
-        LinhaPercentualValor(label_comissao, dec(e.get('comissao_percentual')), dec(i.get('comissao_valor'))),
-        LinhaPercentualValor('Margem-alvo', dec(e.get('margem_alvo_percentual')), dec(i.get('margem_alvo_valor'))),
+        LinhaPercentualValor('IPI (crédito de entrada)', None, dec(i.get('ipi_valor')), origem='nf'),
+        LinhaPercentualValor('Frete CIF/FOB', dec(e.get('frete_cif_fob_percentual')), dec(i.get('frete_cif_fob_valor')), origem='produto'),
+        LinhaPercentualValor('Crédito ICMS (entrada)', None, dec(i.get('credito_icms_entrada')), origem='nf'),
+        LinhaPercentualValor('Crédito PIS (entrada)', None, dec(i.get('credito_pis')), origem='nf'),
+        LinhaPercentualValor('Crédito COFINS (entrada)', None, dec(i.get('credito_cofins')), origem='nf'),
+        LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor')), origem='saida'),
+        LinhaPercentualValor(label_comissao, dec(e.get('comissao_percentual')), dec(i.get('comissao_valor')), origem='config'),
+        LinhaPercentualValor('Margem-alvo', dec(e.get('margem_alvo_percentual')), dec(i.get('margem_alvo_valor')), origem='config'),
     ]
 
 
-# Função Objetivo: Monta o bloco de PIS/COFINS (2 usos, bases diferentes) — comum.
-def montar_pis_cofins(e, i, dec):
-    return BlocoPisCofins(
-        percentual=dec(e.get('pis_cofins_percentual')),
-        credito_entrada=dec(i.get('credito_pis')),
-        taxa_saida=dec(i.get('pis_cofins_valor')),
-    )
-
-
-# Função Objetivo: Monta a lista de valores soltos (custo, ST, fator de coleta...) — comum.
+# Função Objetivo: Monta a lista de valores soltos (custo, fator de coleta...) — comum.
+# Explicação em detalhe: removido 'Substituição tributária (ST)' (10/09) — não existe
+# campo nenhum de ST em DadosEntrada/DadosIntermediarios, a linha sempre renderizou em
+# branco. custo_final real não tem termo de ST (ver formula_precificacao.py).
 def montar_valores_soltos(e, dec):
     return [
-        LinhaValorUnico('Custo do produto', dec(e.get('custo'))),
-        LinhaValorUnico('Custo com bonificação', dec(e.get('custo_com_boni'))),
-        LinhaValorUnico('Substituição tributária (ST)', dec(e.get('st_valor'))),
-        LinhaValorUnico('Fator de coleta', dec(e.get('fator_coleta'))),
-        LinhaValorUnico('Período de armazenagem (dias)', dec(e.get('periodo_armazenagem'))),
+        LinhaValorUnico('Custo do produto', dec(e.get('custo')), origem='produto'),
+        LinhaValorUnico('Custo com bonificação', dec(e.get('custo_com_boni')), origem='produto'),
+        LinhaValorUnico('Fator de coleta', dec(e.get('fator_coleta')), origem='config'),
+        LinhaValorUnico('Período de armazenagem (dias)', dec(e.get('periodo_armazenagem')), origem='config'),
     ]
 
 
@@ -156,10 +157,16 @@ def montar_dimensao(e, dec, origem_label):
 # Função Objetivo: Monta os passos 1-6 (custo final até denominador) — IDÊNTICOS entre
 # marketplaces. Passos 7/8 (frete + preço exato) ficam por conta de quem chama, já que
 # o significado da faixa (preço vs peso) e a existência de rebate diferem por canal.
+#
+# Explicação em detalhe (10/09): Passo 1 não leva mais st_valor (campo morto, nunca existiu
+# na fórmula real). Passo 4 ganhou credito_cofins (já vinha persistido, nunca era lido).
+# Passo 5 passou de 3 pra 4 itens — PIS saída e COFINS saída eram somados escondidos atrás
+# de uma chave 'pis_cofins_valor' que não existe mais em DadosIntermediarios; agora lê
+# pis_saida_valor/cofins_saida_valor, os campos reais.
 def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
     passo_1 = PassoCustoFinal(
         custo_com_boni=dec(e.get('custo_com_boni')), ipi_valor=dec(i.get('ipi_valor')),
-        frete_cif_fob_valor=dec(i.get('frete_cif_fob_valor')), st_valor=dec(e.get('st_valor')),
+        frete_cif_fob_valor=dec(i.get('frete_cif_fob_valor')),
         resultado=dec(i.get('custo_final')),
     )
     passo_2 = PassoColeta(
@@ -173,13 +180,15 @@ def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
     passo_4 = PassoFixo(
         coleta=dec(i.get('coleta')), armazenagem=dec(i.get('armazenagem')),
         custo_final=dec(i.get('custo_final')), credito_icms=dec(i.get('credito_icms_entrada')),
-        credito_pis=dec(i.get('credito_pis')), resultado=dec(i.get('fixo')),
+        credito_pis=dec(i.get('credito_pis')), credito_cofins=dec(i.get('credito_cofins')),
+        resultado=dec(i.get('fixo')),
     )
     passo_5 = PassoTaxa(
         itens=[
-            LinhaPercentualValor(label_comissao, dec(e.get('comissao_percentual')), dec(i.get('comissao_valor'))),
-            LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor'))),
-            LinhaPercentualValor('PIS/COFINS (saída)', dec(e.get('pis_cofins_percentual')), dec(i.get('pis_cofins_valor'))),
+            LinhaPercentualValor(label_comissao, dec(e.get('comissao_percentual')), dec(i.get('comissao_valor')), origem='config'),
+            LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor')), origem='saida'),
+            LinhaPercentualValor('PIS saída', dec(e.get('pis_saida_percentual')), dec(i.get('pis_saida_valor')), origem='saida'),
+            LinhaPercentualValor('COFINS saída', dec(e.get('cofins_saida_percentual')), dec(i.get('cofins_saida_valor')), origem='saida'),
         ],
         resultado=dec(i.get('taxa_percentual')),
     )
