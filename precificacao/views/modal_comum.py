@@ -258,4 +258,24 @@ def montar_alertas(fixo, custo, custo_com_boni, altura, largura, comprimento, ma
     sem_custo = not custo and not custo_com_boni
     sem_dimensao = not altura and not largura and not comprimento
     if sem_custo or sem_dimensao:
-        if sem_custo and
+        if sem_custo and sem_dimensao:
+            texto = 'Produto sem custo e sem dimensões cadastrados'
+        elif sem_custo:
+            texto = 'Produto sem custo cadastrado (custo e custo com bonificação zerados)'
+        else:
+            texto = 'Produto sem dimensões cadastradas (altura/largura/comprimento zerados)'
+        alertas.append({'texto': texto, 'alvo': 'produto'})
+
+    if fixo is not None and fixo < 0:
+        alertas.append({
+            'texto': f'Crédito fiscal de entrada maior que o custo final — FIXO negativo (R$ {fixo:.2f})',
+            'alvo': 4,
+        })
+
+    if margem_alvo is not None and margem_obtida is not None and margem_obtida < margem_alvo:
+        alertas.append({
+            'texto': f'Margem obtida ({margem_obtida:.2f}%) abaixo da margem-alvo ({margem_alvo:.2f}%)',
+            'alvo': 8,
+        })
+
+    return alertas
