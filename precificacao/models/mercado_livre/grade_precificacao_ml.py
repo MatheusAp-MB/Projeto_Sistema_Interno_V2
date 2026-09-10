@@ -48,6 +48,18 @@ class GradePrecificacaoML(models.Model):
 
     detalhamento = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
 
+    # * [EXPLICAÇÃO] → resolvida/motivo_nao_resolvida (10/09) — antes, quando o cálculo não
+    #                  resolvia (meta inatingível ou AssertionError), a linha simplesmente não
+    #                  era gravada nem atualizada (_registrar_linhas fazia 'continue'). Isso
+    #                  impedia diferenciar "nunca calculado" de "calculado e sem solução", e
+    #                  deixava linha antiga (de um cálculo que ANTES resolvia) obsoleta pra
+    #                  sempre, sem aviso, se o mesmo produto parasse de resolver depois. Agora
+    #                  toda combinação processada sempre grava uma linha — resolvida=True com
+    #                  os campos de preço preenchidos, ou resolvida=False com motivo e os campos
+    #                  de preço nulos (nunca mistura dado antigo de uma resolução anterior).
+    resolvida = models.BooleanField(default=True)
+    motivo_nao_resolvida = models.CharField(max_length=255, null=True, blank=True)
+
     calculado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

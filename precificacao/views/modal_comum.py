@@ -34,6 +34,18 @@ class LinhaValorUnico:
     origem: str = 'produto'
 
 
+# Função Objetivo: Bloco de PIS/COFINS (2 usos, bases diferentes) — usado pelos marketplaces
+# que ainda não migraram pro padrão de campos separados do ML (Raia/Magalu/Shopee/TikTok/
+# Amazon). Restaurado em 10/09: tinha sido removido junto com a Camada 3 do ML, mas
+# modal_comum.py é compartilhado — os outros 5 marketplaces ainda chamam montar_pis_cofins()
+# direto daqui, e a remoção quebrava o import deles (ImportError em cascata na app inteira).
+@dataclass
+class BlocoPisCofins:
+    percentual: object
+    credito_entrada: object
+    taxa_saida: object
+
+
 @dataclass
 class DimensaoUsada:
     origem_label: str
@@ -144,6 +156,20 @@ def montar_tabela_percentuais(e, i, dec, label_comissao='Comissão'):
         LinhaPercentualValor(label_comissao, dec(e.get('comissao_percentual')), dec(i.get('comissao_valor')), origem='config'),
         LinhaPercentualValor('Margem-alvo', dec(e.get('margem_alvo_percentual')), dec(i.get('margem_alvo_valor')), origem='config'),
     ]
+
+
+# Função Objetivo: Monta o bloco de PIS/COFINS (2 usos, bases diferentes) — usado pelos
+# marketplaces que ainda não migraram pro padrão de campos separados do ML. Nota: 'percentual'
+# e 'taxa_saida' já vinham sempre em branco antes da Camada 3 também (pis_cofins_percentual/
+# pis_cofins_valor não existem em NENHUMA das 6 fórmulas — mesma causa raiz do Duble antigo
+# quebrado); só 'credito_entrada' é dado real. Restaurado tal como estava — corrigir isso de
+# verdade é migrar os outros 5 marketplaces pro padrão do ML, fora de escopo por ora.
+def montar_pis_cofins(e, i, dec):
+    return BlocoPisCofins(
+        percentual=dec(e.get('pis_cofins_percentual')),
+        credito_entrada=dec(i.get('credito_pis')),
+        taxa_saida=dec(i.get('pis_cofins_valor')),
+    )
 
 
 # Função Objetivo: Monta a lista de valores soltos (custo, fator de coleta...) — comum.

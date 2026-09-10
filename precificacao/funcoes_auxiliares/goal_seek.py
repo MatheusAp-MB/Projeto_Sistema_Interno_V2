@@ -78,6 +78,18 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
 
     for faixa in faixas_validas:
         frete = Decimal(str(faixa.valor))
+
+        # * [EXPLICAÇÃO] → guarda FIXO Negativo (10/09) — a garantia do RoundUp90 (arredondar
+        #                  pra cima só AUMENTA a margem) só vale quando (frete + fixo - rebate)
+        #                  é positivo. Quando esse total fica negativo (ex: crédito fiscal de
+        #                  entrada maior que o custo — produto com custo/custo_com_boni
+        #                  zerados no cadastro, ver Bug Conhecido "FIXO Negativo"), a relação
+        #                  margem×preço se INVERTE e arredondar pra cima DIMINUI a margem — o
+        #                  assert abaixo quebraria por um problema de DADO, não de fórmula.
+        #                  Pula a faixa (mesmo sinal de "não resolveu" que piso/teto já usam).
+        if (frete + fixo - rebate_valor) < 0:
+            continue
+
         preco_exato = (frete + fixo - rebate_valor) / denominador
         preco_90 = arredondar_para_90(preco_exato)
 
@@ -153,6 +165,14 @@ def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, fre
     taxa_unidade = Decimal(str(taxa_unidade))
     rebate_valor = Decimal(str(rebate_valor))
     margem_alvo_percentual = margem_alvo_fracao * 100
+
+    # * [EXPLICAÇÃO] → guarda FIXO Negativo (10/09) — mesma razão de resolver_preco_por_margem:
+    #                  a garantia do RoundUp90 só vale com (frete + taxa_unidade + fixo -
+    #                  rebate) positivo. Sem faixa pra tentar outra combinação (frete é fixo
+    #                  aqui, ao contrário de resolver_preco_por_margem), quando viola devolve
+    #                  None — mesmo sinal de "sem solução" que denominador <= 0 já usa acima.
+    if (frete + taxa_unidade + fixo - rebate_valor) < 0:
+        return None
 
     preco_exato = (frete + taxa_unidade + fixo - rebate_valor) / denominador
     preco_90 = arredondar_para_90(preco_exato)
@@ -232,6 +252,12 @@ def resolver_preco_por_faixa_comissao(fixo, margem_alvo_fracao, custo_produto, f
 
         denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
         if denominador <= 0:
+            continue
+
+        # * [EXPLICAÇÃO] → guarda FIXO Negativo (10/09) — mesma razão das outras 2 funções
+        #                  deste módulo: a garantia do RoundUp90 só vale com (frete +
+        #                  adicional_fixo + fixo - rebate) positivo. Pula a faixa.
+        if (frete + adicional_fixo + fixo - rebate_valor) < 0:
             continue
 
         preco_exato = (frete + adicional_fixo + fixo - rebate_valor) / denominador

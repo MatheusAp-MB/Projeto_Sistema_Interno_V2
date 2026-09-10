@@ -342,6 +342,33 @@ def view_grade_detalhe(request, produto_id, tipo, margem):
         linha = GradePrecificacaoML.objects.filter(
             produto_id=produto_id, variacao_id=variacao_id,
             tipo_anuncio=tipo_grade, margem=margem,
+        ).select_related('produto', 'variacao__anuncio').first()
+
+    if not linha or not linha.detalhamento:
+        return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe.html', {
+            'sem_detalhamento': True,
+        })
+
+    tipo_label = 'Clássico' if tipo_grade == 'classico' else 'Premium'
+    margem_label = MARGENS_POR_CHAVE[margem].label_base
+
+    if linha.variacao_id:
+        mlb = linha.variacao.anuncio.mlb
+        titulo_anuncio = linha.variacao.anuncio.titulo_anuncio or linha.produto.titulo
+    else:
+        mlb = None
+        titulo_anuncio = linha.produto.titulo
+
+    det = DetalheFormulaExibida.montar(linha, tipo_label, margem_label)
+
+    return render(request, 'precificacao/parciais/estrutura_parcial_grade_detalhe.html', {
+        'det': det,
+        'mlb': mlb,
+        'titulo_anuncio': titulo_anuncio,
+        'produto_id': produto_id,
+        'tipo': tipo,
+        'variacao_id': variacao_id or '',
+    })
 
 
 # Função Objetivo: Monta a subquery que busca 1 campo de 1 marketplace/margem, por produto.

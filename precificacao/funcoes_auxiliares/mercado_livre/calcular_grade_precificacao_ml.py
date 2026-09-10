@@ -10,6 +10,11 @@
 # é discreta por peso — isso é aproveitado dentro de FormulaPrecificacao.filtrar_faixas_frete()).
 # Salva no formato LONGO (1 linha por variação × tipo_anuncio × margem), igual
 # RecomendacaoPrecificacao — chega de campo prefixado.
+#
+# resolvida/motivo_nao_resolvida (10/09) — antes, quando 1 margem não resolvia (meta inatingível
+# ou AssertionError), _registrar_linhas pulava a linha com 'continue': não gravava, não
+# atualizava, não apagava. Agora toda combinação processada SEMPRE grava uma linha — nunca mais
+# deixa linha antiga (de uma resolução anterior que parou de valer) obsoleta e silenciosa.
 
 import time
 from collections import defaultdict
@@ -34,12 +39,20 @@ def _assinatura(dim):
 
 
 # Função Objetivo: Roda FormulaPrecificacao pras 4 margens dessa assinatura, ou reaproveita do cache.
+# Explicação em detalhe: motivos[margem_chave] só existe (não-None) quando formulas[margem_chave]
+# é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
+# AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
                                config_geral, cache_formulas, variacao, tipo, erros):
     if assinatura in cache_formulas:
-        return {'formulas': cache_formulas[assinatura], 'novos': 0, 'reaproveitados': 4, 'sem_calculo': 0}
+        cache = cache_formulas[assinatura]
+        return {
+            'formulas': cache['formulas'], 'motivos': cache['motivos'],
+            'novos': 0, 'reaproveitados': 4, 'sem_calculo': 0,
+        }
 
     formulas = {}
+    motivos = {}
     novos = 0
     sem_calculo = 0
     for margem_chave, margem_valor in _margens_do_tipo(config):
@@ -53,32 +66,47 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
             if not formula.resolvida:
                 sem_calculo += 1
                 formulas[margem_chave] = None
+                motivos[margem_chave] = (
+                    'Meta de margem inatingível — nenhuma faixa de frete gerou solução consistente'
+                )
             else:
                 formulas[margem_chave] = formula
+                motivos[margem_chave] = None
         except AssertionError as e:
             alvo = f'MLB {variacao.anuncio.mlb}' if variacao else 'fallback'
             erros.append(f'{produto} | {alvo} | {tipo} | {margem_chave} | {e}')
             formulas[margem_chave] = None
+            motivos[margem_chave] = str(e)
 
-    cache_formulas[assinatura] = formulas
-    return {'formulas': formulas, 'novos': novos, 'reaproveitados': 0, 'sem_calculo': sem_calculo}
+    cache_formulas[assinatura] = {'formulas': formulas, 'motivos': motivos}
+    return {'formulas': formulas, 'motivos': motivos, 'novos': novos, 'reaproveitados': 0, 'sem_calculo': sem_calculo}
 
 
 # Função Objetivo: Cria ou atualiza as 4 linhas (1 por margem) de 1 (produto, variação, tipo).
-def _registrar_linhas(produto, variacao, tipo_grade, formulas, existentes, para_criar, para_atualizar):
+# Explicação em detalhe: SEMPRE grava — não pula mais quando formula é None. resolvida=False
+# limpa os campos de preço (nunca deixa preço de uma resolução ANTERIOR sobrevivendo junto com
+# um motivo de falha ATUAL — ou os 2 batem, ou nenhum dos 2 aparece).
+def _registrar_linhas(produto, variacao, tipo_grade, formulas, motivos, existentes, para_criar, para_atualizar):
     from precificacao.models import GradePrecificacaoML
 
     for margem_chave, formula in formulas.items():
         if formula is None:
-            continue
-
-        dados = dict(
-            preco=formula.saida.preco_final,
-            margem_percentual_obtida=formula.saida.margem_percentual_obtida,
-            frete_usado=formula.saida.frete_usado,
-            origem_dimensao=formula.entrada.origem_dimensao,
-            detalhamento=formula.para_dict_auditoria(),
-        )
+            dados = dict(
+                resolvida=False,
+                motivo_nao_resolvida=(motivos.get(margem_chave) or 'Não resolvida')[:255],
+                preco=None, margem_percentual_obtida=None, frete_usado=None,
+                origem_dimensao=None, detalhamento=None,
+            )
+        else:
+            dados = dict(
+                resolvida=True,
+                motivo_nao_resolvida=None,
+                preco=formula.saida.preco_final,
+                margem_percentual_obtida=formula.saida.margem_percentual_obtida,
+                frete_usado=formula.saida.frete_usado,
+                origem_dimensao=formula.entrada.origem_dimensao,
+                detalhamento=formula.para_dict_auditoria(),
+            )
 
         chave = (produto.id, variacao.id if variacao else None, tipo_grade, margem_chave)
         existente = existentes.get(chave)
@@ -177,7 +205,10 @@ def calcular_grade_precificacao_ml(stdout, style):
             qtd_calculos += resultado_fallback['novos']
             qtd_reaproveitados += resultado_fallback['reaproveitados']
             sem_calculo += resultado_fallback['sem_calculo']
-            _registrar_linhas(produto, None, tipo_grade, resultado_fallback['formulas'], existentes, para_criar, para_atualizar)
+            _registrar_linhas(
+                produto, None, tipo_grade, resultado_fallback['formulas'], resultado_fallback['motivos'],
+                existentes, para_criar, para_atualizar,
+            )
 
             # * Variações reais do tipo.
             for variacao in grupos[tipo]:
@@ -189,7 +220,10 @@ def calcular_grade_precificacao_ml(stdout, style):
                 qtd_calculos += resultado['novos']
                 qtd_reaproveitados += resultado['reaproveitados']
                 sem_calculo += resultado['sem_calculo']
-                _registrar_linhas(produto, variacao, tipo_grade, resultado['formulas'], existentes, para_criar, para_atualizar)
+                _registrar_linhas(
+                    produto, variacao, tipo_grade, resultado['formulas'], resultado['motivos'],
+                    existentes, para_criar, para_atualizar,
+                )
 
     tempo_calculo_total = time.perf_counter() - inicio_calculo
     stdout.write(f'  ⏱ Loop de cálculo, total: {tempo_calculo_total:.1f}s')
@@ -198,7 +232,10 @@ def calcular_grade_precificacao_ml(stdout, style):
 
     inicio_salvar = time.perf_counter()
 
-    campos_atualizaveis = ['preco', 'margem_percentual_obtida', 'frete_usado', 'origem_dimensao', 'detalhamento']
+    campos_atualizaveis = [
+        'preco', 'margem_percentual_obtida', 'frete_usado', 'origem_dimensao', 'detalhamento',
+        'resolvida', 'motivo_nao_resolvida',
+    ]
 
     if para_criar:
         GradePrecificacaoML.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
