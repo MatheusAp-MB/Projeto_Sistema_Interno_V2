@@ -63,16 +63,6 @@ def _formulas_sem_dimensao(config):
 # Explicação em detalhe: motivos[margem_chave] só existe (não-None) quando formulas[margem_chave]
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
 # AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
-def _formulas_sem_dimensao(config):
-    motivo = 'Produto sem dimensão/peso de embalagem cadastrados no ERP (e sem variação ML com dimensão declarada)'
-    formulas = {}
-    motivos = {}
-    for margem_chave, _ in _margens_do_tipo(config):
-        formulas[margem_chave] = None
-        motivos[margem_chave] = motivo
-    return formulas, motivos
-
-
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
                                config_geral, cache_formulas, variacao, tipo, erros):
     if assinatura in cache_formulas:
@@ -201,7 +191,6 @@ def calcular_grade_precificacao_ml(stdout, style):
     para_atualizar = []
     erros = []
     sem_calculo = 0
-    sem_dimensao = 0
     sem_dimensao = 0
 
     inicio_calculo = time.perf_counter()
