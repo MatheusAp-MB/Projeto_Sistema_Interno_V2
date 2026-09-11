@@ -9,7 +9,7 @@ from precificacao.views.comum import (
 )
 from precificacao.views.modal_comum import (
     PassoFaixaFrete, PassoPrecoExato,
-    montar_tabela_percentuais, montar_valores_soltos,
+    montar_tabela_percentuais, montar_valores_soltos, montar_tabela_itens_agrupada,
     montar_dimensao, montar_passos_1_a_6, montar_saida, montar_alertas,
 )
 
@@ -258,8 +258,18 @@ class DetalheFormulaExibida:
     custo_com_boni: object
     margem_alvo_percentual: object
     margem_obtida_percentual: object
+    # * [EXPLICAÇÃO] → preço final e margem final EM R$ — direto, sem
+    #                  precisar procurar dentro de `saida` por label.
+    #                  Usados pela Fórmula completa (11/09).
+    preco_final: object
+    margem_valor: object
     tabela_percentuais: list
     valores_soltos: list
+    # * [EXPLICAÇÃO] → tabela única agrupada (Item | Como foi obtido |
+    #                  R$ | %) pro topo do modal — pedido explícito de
+    #                  auditoria (11/09), não substitui tabela_percentuais/
+    #                  valores_soltos acima (mantidos como estavam).
+    tabela_itens: list
     dimensao: object
     passo_1: object
     passo_2: object
@@ -316,8 +326,11 @@ class DetalheFormulaExibida:
             custo_com_boni=custo_com_boni,
             margem_alvo_percentual=margem_alvo,
             margem_obtida_percentual=margem_obtida,
+            preco_final=dec(s.get('preco_final')),
+            margem_valor=dec(s.get('margem_valor')),
             tabela_percentuais=montar_tabela_percentuais(e, i, dec),
             valores_soltos=montar_valores_soltos(e, dec),
+            tabela_itens=montar_tabela_itens_agrupada(e, i, s, dec),
             dimensao=dimensao,
             passo_1=passo_1, passo_2=passo_2, passo_3=passo_3, passo_4=passo_4,
             passo_5=passo_5, passo_6=passo_6, passo_7=passo_7, passo_8=passo_8,

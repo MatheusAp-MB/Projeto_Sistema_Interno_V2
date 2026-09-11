@@ -86,6 +86,32 @@
             </div>
         </div>
 
+        <div class="audit-secao-titulo">Todos os itens usados no cálculo</div>
+        <div class="audit-secao-sub">Cada valor, isolado, do jeito que aparece na planilha de referência — pra comparar linha a linha.</div>
+        <div class="audit-tabela-itens-wrap">
+            <table class="audit-tabela-itens">
+                <thead>
+                    <tr><th>Item</th><th>Como foi obtido</th><th class="audit-num">Valor em R$</th><th class="audit-num">Valor em %</th></tr>
+                </thead>
+                <tbody>
+                    {% for grupo in det.tabela_itens %}
+                    <tr class="audit-tabela-itens-grupo"><td colspan="4">{{ grupo.titulo }}</td></tr>
+                    {% for linha in grupo.linhas %}
+                    <tr>
+                        <td class="audit-tabela-itens-item">{{ linha.label }}</td>
+                        <td>
+                            <span class="audit-tag audit-tag--{{ linha.origem }}">{{ linha.origem|capfirst }}</span>
+                            {% if linha.mini_form %}<span class="audit-mini-form">{{ linha.mini_form }}</span>{% endif %}
+                        </td>
+                        <td class="audit-num">{% if linha.valor_reais is not None %}R$ {{ linha.valor_reais|floatformat:2 }}{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
+                        <td class="audit-num">{% if linha.valor_percentual is not None %}{{ linha.valor_percentual|floatformat:2 }}%{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <div class="audit-secao-titulo">Passo a passo</div>
         <div class="audit-passos">
 
@@ -234,16 +260,16 @@
             <div class="audit-passo" data-numero="5" data-estado="colapsado">
                 <button type="button" class="audit-passo-linha" onclick="togglePasso(this)">
                     <span class="audit-passo-num">5</span><span class="audit-passo-label">Taxa</span>
-                    <span class="audit-passo-resultado">{{ det.passo_5.resultado|floatformat:2 }}%</span><span class="audit-passo-seta">›</span>
+                    <span class="audit-passo-resultado">{{ det.passo_5.resultado|floatformat:2 }}%<span class="sub">R$ {{ det.passo_5.resultado_valor|floatformat:2 }}</span></span><span class="audit-passo-seta">›</span>
                 </button>
                 <div class="audit-passo-detalhe">
                     <div class="audit-inputs-box">
                         {% for item in det.passo_5.itens %}
-                        <div class="audit-input-linha"><span class="k">{{ item.label }} <span class="audit-tag audit-tag--{{ item.origem }}">{{ item.origem|capfirst }}</span></span><span class="v">{{ item.percentual|floatformat:2 }}%</span></div>
+                        <div class="audit-input-linha"><span class="k">{{ item.label }} <span class="audit-tag audit-tag--{{ item.origem }}">{{ item.origem|capfirst }}</span></span><span class="v">{{ item.percentual|floatformat:2 }}% · R$ {{ item.valor|floatformat:2 }}</span></div>
                         {% endfor %}
                     </div>
-                    <div class="audit-passo-abstrata">comissão + ICMS saída + PIS saída + COFINS saída</div>
-                    <div class="audit-passo-conta">Taxa total = <b>{{ det.passo_5.resultado|floatformat:2 }}%</b></div>
+                    <div class="audit-passo-abstrata">comissão + ICMS saída + PIS saída + COFINS saída (% sobre o preço final)</div>
+                    <div class="audit-passo-conta">Taxa total = <b>{{ det.passo_5.resultado|floatformat:2 }}%</b> = <b>R$ {{ det.passo_5.resultado_valor|floatformat:2 }}</b></div>
                 </div>
             </div>
 
@@ -254,10 +280,10 @@
                 </button>
                 <div class="audit-passo-detalhe">
                     <div class="audit-inputs-box">
-                        <div class="audit-input-linha"><span class="k">Taxa total <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">{{ det.passo_6.taxa_percentual|floatformat:2 }}%</span></div>
-                        <div class="audit-input-linha"><span class="k">Margem-alvo ({{ det.margem_label }}) <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{{ det.passo_6.margem_alvo_percentual|floatformat:2 }}%</span></div>
+                        <div class="audit-input-linha"><span class="k">Taxa total <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">{{ det.passo_6.taxa_percentual|floatformat:2 }}% · R$ {{ det.passo_6.taxa_valor|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Margem-alvo ({{ det.margem_label }}) <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{{ det.passo_6.margem_alvo_percentual|floatformat:2 }}% · R$ {{ det.passo_6.margem_alvo_valor|floatformat:2 }}</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">1 − taxa − margem-alvo</div>
+                    <div class="audit-passo-abstrata">1 − taxa − margem-alvo <span class="audit-mini-form">(denominador é um fator, não tem R$ próprio — os 2 valores que o compõem já aparecem em R$ acima)</span></div>
                     <div class="audit-passo-conta">1 − {{ det.passo_6.taxa_percentual|floatformat:2 }}% − {{ det.passo_6.margem_alvo_percentual|floatformat:2 }}% = <b>{{ det.passo_6.resultado|floatformat:4 }}</b></div>
                 </div>
             </div>
@@ -312,6 +338,7 @@
                     <td>{{ linha.label }}</td>
                     <td>
                         {% if linha.tipo == 'reais' %}R$ {{ linha.valor|floatformat:2 }}{% else %}{{ linha.valor|floatformat:2 }}%{% endif %}
+                        {% if linha.valor_par is not None %}<span class="sub">{% if linha.tipo == 'reais' %}{{ linha.valor_par|floatformat:2 }}%{% else %}R$ {{ linha.valor_par|floatformat:2 }}{% endif %}</span>{% endif %}
                         {% if linha.label == 'Margem final' %}
                             {% if det.margem_obtida_percentual >= det.margem_alvo_percentual %}<span class="audit-badge audit-badge--ok">≥ meta</span>{% else %}<span class="audit-badge audit-badge--ruim">abaixo da meta</span>{% endif %}
                         {% endif %}
@@ -320,6 +347,23 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        <div class="audit-formula-box">
+            <div class="audit-formula-titulo">Fórmula completa — abstrata e com todos os números substituídos</div>
+            <div class="audit-formula-linha">preço = (frete + FIXO − rebate) ÷ (1 − taxa − margem-alvo)</div>
+            <div class="audit-formula-linha">onde FIXO = coleta + armazenagem + custo_final − crédito_ICMS − crédito_PIS − crédito_COFINS</div>
+            <div class="audit-formula-linha">onde custo_final = custo_com_boni + IPI + frete_CIF/FOB</div>
+            <div class="audit-formula-linha">onde taxa = comissão + ICMS_saída + PIS_saída + COFINS_saída</div>
+            <div class="audit-formula-linha audit-formula-linha--num">
+                preço = (R$ {{ det.passo_8.frete|floatformat:2 }} + [R$ {{ det.passo_4.coleta|floatformat:2 }} + R$ {{ det.passo_4.armazenagem|floatformat:2 }} + (R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }} + R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }}) − R$ {{ det.passo_4.credito_icms|floatformat:2 }} − R$ {{ det.passo_4.credito_pis|floatformat:2 }} − R$ {{ det.passo_4.credito_cofins|floatformat:2 }}] − R$ {{ det.passo_8.rebate|floatformat:2 }}) ÷ (1 − {{ det.passo_6.taxa_percentual|floatformat:2 }}% − {{ det.passo_6.margem_alvo_percentual|floatformat:2 }}%)
+            </div>
+            <div class="audit-formula-linha">preço = (R$ {{ det.passo_8.frete|floatformat:2 }} + R$ {{ det.passo_4.resultado|floatformat:2 }} − R$ {{ det.passo_8.rebate|floatformat:2 }}) ÷ {{ det.passo_6.resultado|floatformat:4 }}</div>
+            <div class="audit-formula-linha">preço = <b>R$ {{ det.passo_8.resultado|floatformat:2 }}</b> (preço exato)</div>
+            <div class="audit-formula-linha audit-formula-linha--resultado">
+                preço final = RoundUp90(R$ {{ det.passo_8.resultado|floatformat:2 }}) = <b>R$ {{ det.preco_final|floatformat:2 }}</b>
+                · margem final = <b>{{ det.margem_obtida_percentual|floatformat:2 }}% (R$ {{ det.margem_valor|floatformat:2 }})</b>
+            </div>
+        </div>
 
     </div>
 </div>

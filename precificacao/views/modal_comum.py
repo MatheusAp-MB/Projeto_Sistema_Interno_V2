@@ -104,6 +104,10 @@ class PassoFixo:
 class PassoTaxa:
     itens: list
     resultado: object
+    # * [EXPLICAÇÃO] → R$ equivalente do resultado (% sobre o preço
+    #                  final) — pedido explícito de auditoria: todo
+    #                  percentual mostra o par em R$ ao lado (11/09).
+    resultado_valor: object = None
 
 
 @dataclass
@@ -111,6 +115,12 @@ class PassoDenominador:
     taxa_percentual: object
     margem_alvo_percentual: object
     resultado: object
+    # * [EXPLICAÇÃO] → R$ dos 2 componentes do denominador — mesmo
+    #                  motivo do PassoTaxa.resultado_valor acima. O
+    #                  denominador em si (resultado) continua sem par
+    #                  em R$: é um fator (0-1), não um valor monetário.
+    taxa_valor: object = None
+    margem_alvo_valor: object = None
 
 
 # Função Objetivo: Passo 7 — faixa de frete escolhida (de PREÇO no ML, de PESO no Magalu).
@@ -141,6 +151,29 @@ class LinhaSaida:
     valor: object
     tipo: str  # 'reais' ou 'percentual'
     destaque: bool = False
+    # * [EXPLICAÇÃO] → par no OUTRO formato (R$ quando tipo='percentual',
+    #                  e vice-versa) — pedido explícito de auditoria:
+    #                  todo percentual mostra o R$ ao lado (11/09). None
+    #                  quando o item não tem um par natural (ex: preço
+    #                  final não tem "% de quê").
+    valor_par: object = None
+
+
+# Função Objetivo: 1 item da tabela única de auditoria (Item | Como foi obtido | R$ | %).
+@dataclass
+class LinhaItemAuditoria:
+    label: str
+    origem: str  # 'produto' | 'nf' | 'saida' | 'config' | 'calculado'
+    valor_reais: object = None
+    valor_percentual: object = None
+    mini_form: str = ''
+
+
+# Função Objetivo: 1 grupo (seção) da tabela única de auditoria — ex: "Comissão", "Taxas".
+@dataclass
+class GrupoItensAuditoria:
+    titulo: str
+    linhas: list
 
 
 # Função Objetivo: Monta a tabela de valores de entrada (créditos de NF + saída + config) —
@@ -253,10 +286,12 @@ def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
             LinhaPercentualValor('COFINS saída', dec(e.get('cofins_saida_percentual')), dec(i.get('cofins_saida_valor')), origem='saida'),
         ],
         resultado=dec(i.get('taxa_percentual')),
+        resultado_valor=dec(i.get('taxa_valor')),
     )
     passo_6 = PassoDenominador(
         taxa_percentual=dec(i.get('taxa_percentual')), margem_alvo_percentual=dec(e.get('margem_alvo_percentual')),
         resultado=dec(i.get('denominador')),
+        taxa_valor=dec(i.get('taxa_valor')), margem_alvo_valor=dec(i.get('margem_alvo_valor')),
     )
     return passo_1, passo_2, passo_3, passo_4, passo_5, passo_6
 
@@ -265,10 +300,98 @@ def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
 def montar_saida(i, s, dec):
     return [
         LinhaSaida('Preço exato', dec(i.get('preco_exato_antes_arredondar')), 'reais'),
-        LinhaSaida('Margem exata', dec(s.get('margem_exata_percentual')), 'percentual'),
+        LinhaSaida('Margem exata', dec(s.get('margem_exata_percentual')), 'percentual', valor_par=dec(s.get('margem_exata_valor'))),
         LinhaSaida('Preço final (arredondado pra ,90)', dec(s.get('preco_final')), 'reais', destaque=True),
-        LinhaSaida('Margem final', dec(s.get('margem_percentual_obtida')), 'percentual', destaque=True),
+        LinhaSaida('Margem final', dec(s.get('margem_percentual_obtida')), 'percentual', destaque=True, valor_par=dec(s.get('margem_valor'))),
         LinhaSaida('Custo de frete final', dec(s.get('frete_usado')), 'reais'),
+    ]
+
+
+# Função Objetivo: Monta a tabela única de auditoria (Item | Como foi obtido | R$ | %),
+# TODOS os itens que a fórmula usa, agrupados por tipo em ordem lógica — pra bater linha a
+# linha com uma planilha de referência que usa cada valor solto. Só ML por enquanto (usa
+# faixa_frete_peso_min/max, que é conceito específico do ML — Magalu usa faixa por peso).
+def montar_tabela_itens_agrupada(e, i, s, dec):
+    qtd_nota = dec(_quantidade_nota(e))
+    # * [CORREÇÃO] → _prova_imposto devolve os valores CRUS do JSON
+    #                (string, não Decimal) — precisa passar por dec()
+    #                aqui, igual montar_passos_1_a_6 já fazia no ponto
+    #                de uso. Sem isso, o f'{valor:.2f}' de mini() quebra
+    #                com ValueError pra qualquer produto que tenha prova
+    #                fiscal com alíquota (ex: crédito ICMS normal, não-ST).
+    ipi_valor_nota_raw, _, _ = _prova_imposto(e, 'ipi')
+    icms_valor_nota_raw, _, icms_aliquota_raw = _prova_imposto(e, 'icms')
+    pis_valor_nota_raw, _, pis_aliquota_raw = _prova_imposto(e, 'pis')
+    cofins_valor_nota_raw, _, cofins_aliquota_raw = _prova_imposto(e, 'cofins')
+
+    ipi_valor_nota = dec(ipi_valor_nota_raw)
+    icms_valor_nota, icms_aliquota = dec(icms_valor_nota_raw), dec(icms_aliquota_raw)
+    pis_valor_nota, pis_aliquota = dec(pis_valor_nota_raw), dec(pis_aliquota_raw)
+    cofins_valor_nota, cofins_aliquota = dec(cofins_valor_nota_raw), dec(cofins_aliquota_raw)
+
+    def mini(valor_nota, aliquota):
+        if valor_nota is None or qtd_nota is None:
+            return ''
+        if aliquota is not None:
+            return f'R$ {valor_nota:.2f} nota × {aliquota:.2f}% ÷ {qtd_nota:.0f} unid.'
+        return f'R$ {valor_nota:.2f} nota ÷ {qtd_nota:.0f} unid.'
+
+    return [
+        GrupoItensAuditoria('1. Produto / Custo base', [
+            LinhaItemAuditoria('Custo do produto', 'produto', valor_reais=dec(e.get('custo'))),
+            LinhaItemAuditoria('Custo com bonificação', 'produto', valor_reais=dec(e.get('custo_com_boni'))),
+        ]),
+        GrupoItensAuditoria('2. Dimensões e peso', [
+            LinhaItemAuditoria('Altura', 'produto', valor_reais=dec(e.get('altura'))),
+            LinhaItemAuditoria('Largura', 'produto', valor_reais=dec(e.get('largura'))),
+            LinhaItemAuditoria('Comprimento', 'produto', valor_reais=dec(e.get('comprimento'))),
+            LinhaItemAuditoria('Peso físico', 'produto', valor_reais=dec(e.get('peso_fisico'))),
+            LinhaItemAuditoria('Peso cúbico', 'calculado', valor_reais=dec(e.get('peso_cubico'))),
+            LinhaItemAuditoria('Peso usado (maior entre físico e cúbico)', 'calculado', valor_reais=dec(e.get('peso'))),
+        ]),
+        GrupoItensAuditoria('3. Créditos fiscais de entrada (NF)', [
+            LinhaItemAuditoria('IPI', 'nf', valor_reais=dec(i.get('ipi_valor')), mini_form=mini(ipi_valor_nota, None)),
+            LinhaItemAuditoria('Crédito ICMS entrada', 'nf', valor_reais=dec(i.get('credito_icms_entrada')), valor_percentual=dec(icms_aliquota), mini_form=mini(icms_valor_nota, icms_aliquota)),
+            LinhaItemAuditoria('Crédito PIS entrada', 'nf', valor_reais=dec(i.get('credito_pis')), valor_percentual=dec(pis_aliquota), mini_form=mini(pis_valor_nota, pis_aliquota)),
+            LinhaItemAuditoria('Crédito COFINS entrada', 'nf', valor_reais=dec(i.get('credito_cofins')), valor_percentual=dec(cofins_aliquota), mini_form=mini(cofins_valor_nota, cofins_aliquota)),
+        ]),
+        GrupoItensAuditoria('4. Frete de entrada (CIF/FOB)', [
+            LinhaItemAuditoria('Frete CIF/FOB', 'produto', valor_reais=dec(i.get('frete_cif_fob_valor')), valor_percentual=dec(e.get('frete_cif_fob_percentual'))),
+        ]),
+        GrupoItensAuditoria('5. Coleta e armazenagem', [
+            LinhaItemAuditoria('Metro cúbico', 'calculado', valor_reais=dec(i.get('metro_cubico'))),
+            LinhaItemAuditoria('Fator de coleta', 'config', valor_reais=dec(e.get('fator_coleta'))),
+            LinhaItemAuditoria('Coleta', 'calculado', valor_reais=dec(i.get('coleta'))),
+            LinhaItemAuditoria('Faixa de armazenagem (valor/dia)', 'config', valor_reais=dec(i.get('armazenagem_valor_diario'))),
+            LinhaItemAuditoria('Período de armazenagem', 'config', valor_reais=dec(e.get('periodo_armazenagem'))),
+            LinhaItemAuditoria('Armazenagem', 'calculado', valor_reais=dec(i.get('armazenagem'))),
+        ]),
+        GrupoItensAuditoria('6. Comissão', [
+            LinhaItemAuditoria('Comissão', 'config', valor_reais=dec(i.get('comissao_valor')), valor_percentual=dec(e.get('comissao_percentual'))),
+        ]),
+        GrupoItensAuditoria('7. Impostos de saída', [
+            LinhaItemAuditoria('ICMS saída', 'saida', valor_reais=dec(i.get('icms_saida_valor')), valor_percentual=dec(e.get('icms_saida_percentual'))),
+            LinhaItemAuditoria('PIS saída', 'saida', valor_reais=dec(i.get('pis_saida_valor')), valor_percentual=dec(e.get('pis_saida_percentual'))),
+            LinhaItemAuditoria('COFINS saída', 'saida', valor_reais=dec(i.get('cofins_saida_valor')), valor_percentual=dec(e.get('cofins_saida_percentual'))),
+        ]),
+        GrupoItensAuditoria('8. Taxas (soma)', [
+            LinhaItemAuditoria('Taxa total', 'calculado', valor_reais=dec(i.get('taxa_valor')), valor_percentual=dec(i.get('taxa_percentual'))),
+            LinhaItemAuditoria('Margem-alvo', 'config', valor_reais=dec(i.get('margem_alvo_valor')), valor_percentual=dec(e.get('margem_alvo_percentual'))),
+            LinhaItemAuditoria('Denominador', 'calculado', mini_form='1 − taxa − margem-alvo (fator, sem R$/% próprio)'),
+        ]),
+        GrupoItensAuditoria('9. Frete de saída (Mercado Livre)', [
+            LinhaItemAuditoria('Peso usado pra faixa', 'calculado', valor_reais=dec(e.get('peso'))),
+            LinhaItemAuditoria('Frete final usado (faixa FreteML)', 'config', valor_reais=dec(s.get('frete_usado'))),
+        ]),
+        GrupoItensAuditoria('10. Resultado', [
+            LinhaItemAuditoria('Custo final', 'calculado', valor_reais=dec(i.get('custo_final'))),
+            LinhaItemAuditoria('FIXO', 'calculado', valor_reais=dec(i.get('fixo'))),
+            LinhaItemAuditoria('Rebate de promoção', 'calculado', valor_reais=dec(i.get('rebate_valor')), valor_percentual=dec(e.get('rebate_percentual'))),
+            LinhaItemAuditoria('Preço exato (antes de arredondar)', 'calculado', valor_reais=dec(i.get('preco_exato_antes_arredondar'))),
+            LinhaItemAuditoria('Preço final (arredondado ,90)', 'calculado', valor_reais=dec(s.get('preco_final'))),
+            LinhaItemAuditoria('Margem exata (antes de arredondar)', 'calculado', valor_reais=dec(s.get('margem_exata_valor')), valor_percentual=dec(s.get('margem_exata_percentual'))),
+            LinhaItemAuditoria('Margem final', 'calculado', valor_reais=dec(s.get('margem_valor')), valor_percentual=dec(s.get('margem_percentual_obtida'))),
+        ]),
     ]
 
 

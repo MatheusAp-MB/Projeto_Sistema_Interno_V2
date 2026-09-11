@@ -1142,4 +1142,49 @@
 .audit-tabela-saida td:last-child { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--audit-ink); }
 .audit-tabela-saida tr:last-child td { border-bottom: none; }
 .audit-linha-destaque td { font-weight: 700; font-size: 15.5px; color: var(--audit-navy); }
+.audit-tabela-saida td .sub { display: block; font-size: 12px; font-weight: 600; color: var(--audit-ink-mid); margin-top: 1px; }
+.audit-linha-destaque td .sub { color: var(--audit-green); font-weight: 700; }
+
+/* Passo 5 (Taxa) — R$ em linha menor sob o % no cabeçalho do passo */
+.audit-passo-resultado .sub { display: block; font-size: 11.5px; font-weight: 600; color: var(--audit-ink-mid); text-align: right; }
+
+/* Tabela única de itens (11/09) — Item | Como foi obtido | R$ | % */
+.audit-secao-sub { font-size: 12px; color: var(--audit-ink-mid); padding: 0 20px 8px; margin-top: -6px; }
+.audit-tabela-itens-wrap { padding: 0 20px 6px; overflow-x: auto; }
+.audit-tabela-itens { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 560px; }
+.audit-tabela-itens thead th {
+    text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .3px;
+    color: var(--audit-ink-mid); padding: 6px 8px; border-bottom: 2px solid var(--audit-line);
+}
+.audit-tabela-itens thead th.audit-num { text-align: right; }
+.audit-tabela-itens tbody td { padding: 6px 8px; border-bottom: 1px solid var(--audit-line); vertical-align: middle; }
+.audit-tabela-itens-grupo td {
+    background: var(--audit-slate-bg); font-weight: 700; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .3px; color: var(--audit-navy); padding: 6px 8px;
+}
+.audit-tabela-itens-item { color: var(--audit-ink); }
+.audit-tabela-itens td.audit-num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.audit-tabela-itens-vazio { color: var(--audit-ink-mid); font-weight: 400; font-style: italic; }
+
+/* Fórmula completa (11/09) — bloco no fim do modal */
+.audit-formula-box {
+    margin: 8px 20px 4px; border: 1.5px solid var(--audit-navy); border-radius: 10px;
+    padding: 14px 16px; background: #fafbfe;
+}
+.audit-formula-titulo {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+    color: var(--audit-navy); margin-bottom: 9px;
+}
+.audit-formula-linha {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    font-size: 12px; color: var(--audit-ink-soft); line-height: 1.75; padding: 2px 0;
+    white-space: pre-wrap; word-break: break-word;
+}
+.audit-formula-linha b { color: var(--audit-navy); }
+.audit-formula-linha--num { font-size: 11.5px; }
+.audit-formula-linha--resultado {
+    font-size: 14px; color: var(--audit-navy); font-weight: 700; border-top: 1px dashed var(--audit-line);
+    margin-top: 7px; padding-top: 9px;
+}
+.audit-formula-linha--resultado b { color: var(--audit-green); }
 .audit-linha-destaque td:first-child { color: var(--audit-navy); font-size: 14px; }
