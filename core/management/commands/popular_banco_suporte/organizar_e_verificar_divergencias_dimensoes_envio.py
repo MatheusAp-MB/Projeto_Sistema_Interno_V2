@@ -10,6 +10,19 @@
 # sozinho. Roda depois de PRODUTOS ERP e DIMENSÕES DECLARADAS ML, e ANTES de qualquer GRADE
 # (que já depende dos campos "_ordenada_cm" calculados aqui). Pode rodar sozinho a qualquer
 # momento (via o comando fino em commands/), sempre recalculando do zero — idempotente.
+#
+# * [EXPLICAÇÃO] → Correção (11/09/2026) — Produto sem NENHUMA VariacaoAnuncioMercadoLivre
+#                  nunca era visitado aqui (o loop original só percorre variações), então
+#                  altura/largura/comprimento_ordenada_cm ficavam None pra sempre — mesmo com
+#                  embalagem certinha no ERP. Isso quebrava exatamente o caso que a linha de
+#                  fallback da Grade (variacao=None, "sempre calculado, mesmo sem MLB
+#                  publicado") foi feita pra cobrir: sem esses campos, o fallback também caía
+#                  em SEM CÁLCULO. Confirmado em produção (11/09/2026): 198/198 produtos
+#                  MAGAZINE e 198/198 SAMVALE em "dimensão zerada" eram exatamente esse caso —
+#                  zero exceções com erro real de cadastro. `processar_produtos_sem_variacao`
+#                  fecha essa lacuna: processa direto do lado Produto (só ERP, sem lado ML pra
+#                  comparar — não há variação nenhuma), reaproveitando o mesmo
+#                  obter_dimensoes_envio() que o loop principal já usa.
 
 from mercado_livre.models import VariacaoAnuncioMercadoLivre
 from produtos.models import Produto
@@ -76,6 +89,7 @@ class OrganizadorDivergenciaDimensaoEnvio:
         #                  do mesmo produto várias vezes.
         self.produtos_para_atualizar = {}
         self.contagem_por_situacao = {estado.value: 0 for estado in SituacaoDimensaoEnvio}
+        self.produtos_sem_variacao_processados = 0
 
     # Função Objetivo: Carrega todas as variações, com o produto já pré-carregado.
     def carregar_variacoes(self):
@@ -100,6 +114,26 @@ class OrganizadorDivergenciaDimensaoEnvio:
                 processador.aplicar_no_produto()
                 self.produtos_para_atualizar[variacao.produto.pk] = variacao.produto
 
+    # Função Objetivo: Processa direto do lado Produto os que não têm NENHUMA variação —
+    # o loop acima nunca os alcança (só percorre VariacaoAnuncioMercadoLivre existente).
+    # Explicação em detalhe: sem variação não há o que comparar nem SituacaoDimensaoEnvio pra
+    # gravar (esse campo mora na Variação, que não existe aqui) — só organiza o lado ERP mesmo,
+    # pra pelo menos a linha de fallback da Grade (variacao=None) ter dado de verdade pra
+    # calcular, em vez de cair em "dimensão zerada" só por nunca ter sido visitada.
+    def processar_produtos_sem_variacao(self):
+        produtos_com_variacao_ids = {
+            variacao.produto_id for variacao in self.variacoes if variacao.produto_id is not None
+        }
+        produtos_sem_variacao = Produto.objects.exclude(id__in=produtos_com_variacao_ids)
+
+        for produto in produtos_sem_variacao.iterator():
+            dimensoes = produto.obter_dimensoes_envio()
+            produto.altura_ordenada_cm = dimensoes.dimensao_menor
+            produto.largura_ordenada_cm = dimensoes.dimensao_media
+            produto.comprimento_ordenada_cm = dimensoes.dimensao_maior
+            self.produtos_para_atualizar[produto.pk] = produto
+            self.produtos_sem_variacao_processados += 1
+
     # Função Objetivo: Grava tudo no banco em lote — 1 bulk_update por model.
     def salvar(self):
         if self.variacoes_para_atualizar:
@@ -115,6 +149,7 @@ class OrganizadorDivergenciaDimensaoEnvio:
     def rodar(self):
         self.carregar_variacoes()
         self.processar_variacoes()
+        self.processar_produtos_sem_variacao()
         self.salvar()
         return self
 
@@ -123,6 +158,7 @@ class OrganizadorDivergenciaDimensaoEnvio:
         linhas = [
             '[DIMENSÃO DE ENVIO — ORGANIZAR E COMPARAR] Concluído!',
             f'    Variações processadas: {len(self.variacoes_para_atualizar)}',
+            f'    Produtos sem nenhuma variação (processados só pelo lado ERP): {self.produtos_sem_variacao_processados}',
             f'    Produtos com dimensão ordenada atualizada: {len(self.produtos_para_atualizar)}',
         ]
         for estado in SituacaoDimensaoEnvio:

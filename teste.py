@@ -1,111 +1,75 @@
-# teste.py — script de uso único.
+# teste.py
 #
-# Corrige os cabeçalhos das 2 planilhas de produto ERP da Samvale (SV) pra
-# baterem exatamente com o que o importador real do projeto
-# (importar_produtos_erp.py) espera — esse código lê cada coluna pelo nome
-# EXATO (acento e maiúscula/minúscula importam), sem nenhuma tolerância.
+# Rodar da raiz do projeto (mesma pasta do manage.py), com:
+#   python -u "teste.py"
 #
-# Rode 1 vez, antes do Passo 5 (popular_banco) do passo a passo da SV.
-# Depois de confirmar que deu certo, pode apagar este arquivo — ele não faz
-# parte do projeto, é só uma ferramenta descartável.
-#
-# Uso: poetry run python teste.py   (rodar na raiz do repositório)
+# Objetivo: dentro do grupo de produtos "SEM CALCULO por dimensao zerada"
+# (GradePrecificacaoML.resolvida=False), separa quem tem pelo menos 1
+# VariacaoAnuncioMercadoLivre vinculada (provavel erro real de cadastro
+# de embalagem no ERP) de quem nao tem nenhuma (nao e bug — produto
+# ainda nao foi anunciado no Mercado Livre, entao organizar_e_verificar_
+# divergencias_dimensoes_envio nunca calculou altura_ordenada_cm/etc pra
+# ele). So leitura — nenhum write no banco.
 
-import shutil
-from pathlib import Path
+import os
+import sys
 
-import openpyxl
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 
-# --- 1. Ajuste os 2 caminhos abaixo se o nome real do arquivo for diferente
-ARQUIVOS = [
-    Path('Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Ativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'),
-    # Path('Arquivos usados para Popular Banco/Produtos ERP/Relatorio_Todos_Produtos_Inativos_Tela_Cadastro_Produtos_ERP_SV.xlsx'),
-]
+import django
+django.setup()
 
-# --- 2. Mapa de renomeação: nome real na SV -> nome que o código exige -----
-RENOMEAR = {
-    'Código Auxiliar': 'Codigo Auxiliar',
-    'Código de Barras': 'Codigo de Barras',
-    'Código Fabricante': 'Codigo do Fabricante',
-    'Custo Samvale': 'Custo',
-    'altura': 'Altura',
-    'largura': 'Largura',
-    'comprimento': 'Comprimento',
-    'peso_bruto': 'Peso Bruto',
-    'inativo': 'Inativo',
-    'Produto': 'Detalhes do Produto',  # <- PALPITE — ver aviso no final, confirmar pela amostra
-}
-
-# --- 3. Colunas que precisam de conferência visual (ambíguas ou sensíveis) -
-COLUNAS_PARA_AMOSTRAR = ['Produto', 'Detalhe do produto', 'inativo']
+from django.db.models import Q
+from precificacao.models import GradePrecificacaoML
+from produtos.models import Produto
+from mercado_livre.models import VariacaoAnuncioMercadoLivre
 
 
-def fazer_backup(caminho):
-    backup = caminho.with_name(caminho.stem + '_BACKUP_ANTES_DO_RENAME' + caminho.suffix)
-    if not backup.exists():
-        shutil.copy2(caminho, backup)
-        print(f'  Backup criado: {backup.name}')
-    else:
-        print(f'  Backup já existia, não sobrescrito: {backup.name}')
+def investigar(alias):
+    print(f"\n===== {alias.upper()} =====")
 
+    sem_calculo = GradePrecificacaoML.objects.using(alias).filter(resolvida=False)
+    produtos_ids = set(sem_calculo.values_list('produto_id', flat=True).distinct())
 
-def processar_arquivo(caminho):
-    print(f'\n{"=" * 70}')
-    print(f'Arquivo: {caminho.name}')
-    print(f'{"=" * 70}')
+    dimensao_zerada_qs = Produto.objects.using(alias).filter(id__in=produtos_ids).filter(
+        Q(altura_ordenada_cm__isnull=True) | Q(altura_ordenada_cm=0)
+        | Q(largura_ordenada_cm__isnull=True) | Q(largura_ordenada_cm=0)
+        | Q(comprimento_ordenada_cm__isnull=True) | Q(comprimento_ordenada_cm=0)
+    )
+    dim_ids = set(dimensao_zerada_qs.values_list('id', flat=True))
 
-    if not caminho.exists():
-        print('  [ERRO] Arquivo não encontrado nesse caminho. Pulando.')
-        print(f'         Caminho tentado: {caminho.resolve()}')
-        return
+    tem_mlb_ids = set(
+        VariacaoAnuncioMercadoLivre.objects.using(alias)
+        .filter(produto_id__in=dim_ids)
+        .values_list('produto_id', flat=True)
+        .distinct()
+    )
+    sem_mlb_ids = dim_ids - tem_mlb_ids
 
-    fazer_backup(caminho)
+    print(f"Produtos SEM CALCULO (ML), total: {len(produtos_ids)}")
+    print(f"Dimensao zerada, total: {len(dim_ids)}")
+    print(f"  ...COM MLB vinculado (provavel erro real de cadastro no ERP): {len(tem_mlb_ids)}")
+    print(f"  ...SEM nenhum MLB vinculado (nao e bug, produto nao anunciado ainda): {len(sem_mlb_ids)}")
 
-    wb = openpyxl.load_workbook(caminho)
-    aba = wb.active
-
-    cabecalho = [celula.value for celula in aba[1]]
-    print(f'  Colunas encontradas: {len(cabecalho)}')
-
-    # Mostra amostra real das colunas sensíveis, ANTES de renomear qualquer coisa
-    for nome_coluna in COLUNAS_PARA_AMOSTRAR:
-        if nome_coluna in cabecalho:
-            idx = cabecalho.index(nome_coluna) + 1  # openpyxl é 1-indexado
-            amostras = [aba.cell(row=linha, column=idx).value for linha in range(2, 7)]
-            print(f'  [AMOSTRA] Coluna "{nome_coluna}" (5 primeiras linhas de dado): {amostras}')
-
-    # Aplica os renames
-    renomeados = []
-    for coluna_idx, valor in enumerate(cabecalho, start=1):
-        if valor in RENOMEAR:
-            novo_nome = RENOMEAR[valor]
-            aba.cell(row=1, column=coluna_idx).value = novo_nome
-            renomeados.append(f'{valor!r} -> {novo_nome!r}')
-
-    if renomeados:
-        print('  Renomeado:')
-        for linha in renomeados:
-            print(f'    - {linha}')
-    else:
-        print('  Nenhuma coluna do mapa foi encontrada (já renomeado antes?).')
-
-    wb.save(caminho)
-    print('  Salvo.')
+    if tem_mlb_ids:
+        print("\n  Amostra (ate 15) dos 'COM MLB vinculado, ainda assim zerado':")
+        amostra = Produto.objects.using(alias).filter(id__in=list(tem_mlb_ids)[:15]).values(
+            'id', 'sku', 'ean', 'titulo',
+            'altura_ordenada_cm', 'largura_ordenada_cm', 'comprimento_ordenada_cm',
+            'altura_produto_apos_embalado', 'largura_produto_apos_embalado',
+            'comprimento_produto_apos_embalado',
+        )
+        for p in amostra:
+            print(f"    id={p['id']} sku={p['sku']} ean={p['ean']} titulo={p['titulo']!r}")
+            print(
+                f"      ordenada(a/l/c)={p['altura_ordenada_cm']}/{p['largura_ordenada_cm']}/{p['comprimento_ordenada_cm']}"
+                f"   apos_embalado(a/l/c)={p['altura_produto_apos_embalado']}/{p['largura_produto_apos_embalado']}/{p['comprimento_produto_apos_embalado']}"
+            )
 
 
 if __name__ == '__main__':
-    for arquivo in ARQUIVOS:
-        processar_arquivo(arquivo)
-
-    print(f'\n{"=" * 70}')
-    print('CONFIRA ANTES DE RODAR O popular_banco:')
-    print('  1) Olhe a [AMOSTRA] da coluna que virou "Detalhes do Produto".')
-    print('     Tem nome completo e descritivo do produto (ex: "TENIS X")?')
-    print('     Se parecer errado, me avisa ANTES de importar — é só trocar')
-    print('     1 linha no RENOMEAR e rodar de novo (o backup já existe).')
-    print('  2) Olhe a [AMOSTRA] da coluna "inativo": no arquivo de Ativos')
-    print('     deveria ser "F" (ou vazio); no de Inativos, "T". Se a SV usa')
-    print('     outro código (ex: "Sim"/"Não"), me avisa que ajusto a regra')
-    print('     no importador em vez de mexer no dado.')
-    print(f'{"=" * 70}')
-
+    for empresa_alias in ("magazine", "samvale"):
+        try:
+            investigar(empresa_alias)
+        except Exception as exc:
+            print(f"\n[ERRO ao investigar {empresa_alias.upper()}] {exc!r}", file=sys.stderr)
