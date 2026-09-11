@@ -15,6 +15,14 @@
 # ou AssertionError), _registrar_linhas pulava a linha com 'continue': não gravava, não
 # atualizava, não apagava. Agora toda combinação processada SEMPRE grava uma linha — nunca mais
 # deixa linha antiga (de uma resolução anterior que parou de valer) obsoleta e silenciosa.
+#
+# * [CORREÇÃO 11/09/2026] → resolver_dimensoes_efetivas agora devolve None quando não há
+#   embalagem cadastrada no ERP nem variação ML com dimensão declarada (ver dimensoes_
+#   efetivas.py — antes fabricava altura/largura/comprimento/peso = 0, e isso "resolvia"
+#   com sucesso usando a faixa de frete mais barata, silenciosamente). Os 2 pontos que
+#   chamam resolver_dimensoes_efetivas agora tratam esse None ANTES de tentar calcular
+#   qualquer coisa — grava direto resolvida=False com motivo claro, sem nem instanciar
+#   FormulaPrecificacao.
 
 import time
 from collections import defaultdict
@@ -55,6 +63,16 @@ def _formulas_sem_dimensao(config):
 # Explicação em detalhe: motivos[margem_chave] só existe (não-None) quando formulas[margem_chave]
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
 # AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
+def _formulas_sem_dimensao(config):
+    motivo = 'Produto sem dimensão/peso de embalagem cadastrados no ERP (e sem variação ML com dimensão declarada)'
+    formulas = {}
+    motivos = {}
+    for margem_chave, _ in _margens_do_tipo(config):
+        formulas[margem_chave] = None
+        motivos[margem_chave] = motivo
+    return formulas, motivos
+
+
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
                                config_geral, cache_formulas, variacao, tipo, erros):
     if assinatura in cache_formulas:
@@ -183,6 +201,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     para_atualizar = []
     erros = []
     sem_calculo = 0
+    sem_dimensao = 0
     sem_dimensao = 0
 
     inicio_calculo = time.perf_counter()

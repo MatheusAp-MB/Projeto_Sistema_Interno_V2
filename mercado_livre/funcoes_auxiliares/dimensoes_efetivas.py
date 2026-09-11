@@ -14,6 +14,23 @@
 # poder provar QUAL dos 2 venceu, não só mostrar o resultado já resolvido. Default None
 # (não os 2 campos com nome errado — None de verdade) pra não quebrar quem já constrói
 # DimensoesEfetivas direto (ex: _dim_padrao() nos testes) sem passar esses 2.
+#
+# * [CORREÇÃO 11/09/2026] → resolver_dimensoes_efetivas devolvia, no branch do Produto
+#   ERP, "produto.altura_ordenada_cm or Decimal('0')" pros 3 eixos + peso — quando a
+#   embalagem não está cadastrada no ERP (altura/largura/comprimento_ordenada_cm = None),
+#   isso montava uma DimensoesEfetivas com TUDO zerado, um objeto VÁLIDO, não "sem dado".
+#   filtrar_faixas_frete() (formula_precificacao.py) filtra a faixa de frete só por peso
+#   (peso_min <= peso) — e a tabela FreteML sempre tem faixa peso_min=0.000 (a mais leve),
+#   então o cálculo "resolvia" com sucesso, só que usando frete de produto até 300g sem
+#   saber o peso/dimensão real. Silencioso — não aparecia em SEM CÁLCULO nem em erros de
+#   assert. Confirmado em produção: 3084 linhas MAGAZINE / 4804 linhas SAMVALE
+#   (369 / 533 produtos distintos) resolvidas=True vindo exatamente desse fallback quebrado
+#   (frete_usado entre R$5,65 e R$20,95 — sempre a faixa mais barata). Não existe fallback
+#   legítimo pra usar em vez disso: Produto.altura_produto_sem_embalar (dimensão sem caixa)
+#   não serve pra frete, que depende da embalagem. Agora devolve None quando nem a
+#   variação nem o Produto ERP têm dado suficiente — quem chama decide o que fazer
+#   (calcular_grade_precificacao_ml grava resolvida=False com motivo claro, sem tentar
+#   calcular nada com peso fabricado).
 
 from dataclasses import dataclass
 from decimal import Decimal
@@ -86,9 +103,6 @@ def resolver_dimensoes_efetivas(produto, variacao=None):
     peso_cubico = produto.peso_cubado or Decimal('0')
     peso = max(peso_fisico, peso_cubico)
 
-    # * [EXPLICAÇÃO] → peso == 0 cobre também o caso em que altura/largura/comprimento
-    #                  estão presentes mas peso_produto_apos_embalado E peso_cubado os 2
-    #                  ausentes — um produto físico embalado nunca pesa 0kg de verdade.
     if altura is None or largura is None or comprimento is None or peso == 0:
         return None
 
