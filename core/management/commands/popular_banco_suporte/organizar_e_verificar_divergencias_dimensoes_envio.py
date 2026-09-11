@@ -121,10 +121,15 @@ class OrganizadorDivergenciaDimensaoEnvio:
     # pra pelo menos a linha de fallback da Grade (variacao=None) ter dado de verdade pra
     # calcular, em vez de cair em "dimensão zerada" só por nunca ter sido visitada.
     def processar_produtos_sem_variacao(self):
-        produtos_com_variacao_ids = {
+        # * [EXPLICAÇÃO] → variacao.produto_id NÃO é o PK do Produto aqui — o FK usa
+        #                  to_field='sku' (VariacaoAnuncioMercadoLivre.produto, ver
+        #                  mercado_livre/models/variacao.py), então produto_id guarda o SKU
+        #                  (string). Exclude tem que comparar contra Produto.sku, nunca
+        #                  Produto.id — comparar com id quebra (ValueError, string vs inteiro).
+        skus_com_variacao = {
             variacao.produto_id for variacao in self.variacoes if variacao.produto_id is not None
         }
-        produtos_sem_variacao = Produto.objects.exclude(id__in=produtos_com_variacao_ids)
+        produtos_sem_variacao = Produto.objects.exclude(sku__in=skus_com_variacao)
 
         for produto in produtos_sem_variacao.iterator():
             dimensoes = produto.obter_dimensoes_envio()
