@@ -390,6 +390,15 @@ def _margens_do_tipo_ml(config):
 
 def _processar_mercado_livre(produto):
     dim = resolver_dimensoes_efetivas(produto, variacao=None)
+    if dim is None:
+        console.print(Panel(
+            '[bold yellow]SEM DIMENSÃO DE EMBALAGEM[/bold yellow]\n'
+            'Produto sem altura/largura/comprimento_ordenada_cm cadastrados no ERP '
+            '(e sem variação ML com dimensão declarada) — não dá pra calcular frete.',
+            border_style='yellow',
+        ))
+        _registrar_resumo(produto, 'Mercado Livre', None, '—', 'SEM DIMENSÃO', detalhe='Produto sem embalagem cadastrada no ERP')
+        return
     for tipo, tipo_rotulo in [(TipoAnuncio.CLASSICO, 'Clássico'), (TipoAnuncio.PREMIUM, 'Premium')]:
         config_tipo = configs_ml.get(tipo)
         if not config_tipo:

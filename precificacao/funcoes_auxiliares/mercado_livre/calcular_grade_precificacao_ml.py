@@ -38,6 +38,19 @@ def _assinatura(dim):
     return (dim.altura, dim.largura, dim.comprimento, dim.peso, dim.origem)
 
 
+# Função Objetivo: Monta formulas/motivos "tudo não resolvida" pras 4 margens do tipo, sem
+# calcular nada — usado quando resolver_dimensoes_efetivas devolveu None (sem embalagem no
+# ERP e sem variação ML com dimensão declarada).
+def _formulas_sem_dimensao(config):
+    motivo = 'Produto sem dimensão/peso de embalagem cadastrados no ERP (e sem variação ML com dimensão declarada)'
+    formulas = {}
+    motivos = {}
+    for margem_chave, _ in _margens_do_tipo(config):
+        formulas[margem_chave] = None
+        motivos[margem_chave] = motivo
+    return formulas, motivos
+
+
 # Função Objetivo: Roda FormulaPrecificacao pras 4 margens dessa assinatura, ou reaproveita do cache.
 # Explicação em detalhe: motivos[margem_chave] só existe (não-None) quando formulas[margem_chave]
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
@@ -170,6 +183,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     para_atualizar = []
     erros = []
     sem_calculo = 0
+    sem_dimensao = 0
 
     inicio_calculo = time.perf_counter()
     qtd_calculos = 0
@@ -198,21 +212,37 @@ def calcular_grade_precificacao_ml(stdout, style):
 
             # * Fallback do produto (variacao=None) — sempre calculado, mesmo sem MLB publicado.
             dim_fallback = resolver_dimensoes_efetivas(produto, variacao=None)
-            resultado_fallback = _calcular_ou_reaproveitar(
-                _assinatura(dim_fallback), dim_fallback, produto, config, frete_todas,
-                faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros
-            )
-            qtd_calculos += resultado_fallback['novos']
-            qtd_reaproveitados += resultado_fallback['reaproveitados']
-            sem_calculo += resultado_fallback['sem_calculo']
-            _registrar_linhas(
-                produto, None, tipo_grade, resultado_fallback['formulas'], resultado_fallback['motivos'],
-                existentes, para_criar, para_atualizar,
-            )
+            if dim_fallback is None:
+                formulas_fallback, motivos_fallback = _formulas_sem_dimensao(config)
+                sem_dimensao += len(formulas_fallback)
+                _registrar_linhas(
+                    produto, None, tipo_grade, formulas_fallback, motivos_fallback,
+                    existentes, para_criar, para_atualizar,
+                )
+            else:
+                resultado_fallback = _calcular_ou_reaproveitar(
+                    _assinatura(dim_fallback), dim_fallback, produto, config, frete_todas,
+                    faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros
+                )
+                qtd_calculos += resultado_fallback['novos']
+                qtd_reaproveitados += resultado_fallback['reaproveitados']
+                sem_calculo += resultado_fallback['sem_calculo']
+                _registrar_linhas(
+                    produto, None, tipo_grade, resultado_fallback['formulas'], resultado_fallback['motivos'],
+                    existentes, para_criar, para_atualizar,
+                )
 
             # * Variações reais do tipo.
             for variacao in grupos[tipo]:
                 dim = resolver_dimensoes_efetivas(produto, variacao=variacao)
+                if dim is None:
+                    formulas_variacao, motivos_variacao = _formulas_sem_dimensao(config)
+                    sem_dimensao += len(formulas_variacao)
+                    _registrar_linhas(
+                        produto, variacao, tipo_grade, formulas_variacao, motivos_variacao,
+                        existentes, para_criar, para_atualizar,
+                    )
+                    continue
                 resultado = _calcular_ou_reaproveitar(
                     _assinatura(dim), dim, produto, config, frete_todas,
                     faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros
@@ -252,6 +282,7 @@ def calcular_grade_precificacao_ml(stdout, style):
         f'    Linhas criadas: {len(para_criar)}\n'
         f'    Linhas atualizadas: {len(para_atualizar)}\n'
         f'    Sem cálculo possível (meta inatingível): {sem_calculo}\n'
+        f'    Sem cálculo possível (sem dimensão/peso de embalagem no ERP): {sem_dimensao}\n'
         f'    Erros de assert: {len(erros)}'
     ))
 

@@ -58,6 +58,9 @@ def _calcular_peso_cubico(altura, largura, comprimento):
 
 
 # Função Objetivo: Resolve a dimensão efetiva de 1 MLB — Variação ML ou fallback do Produto ERP.
+# Explicação em detalhe: devolve None (em vez de fabricar zero) quando nem a variação nem o
+# Produto ERP têm dado suficiente. Quem chama tem que tratar o None explicitamente, nunca
+# repassar direto pra FormulaPrecificacao.
 def resolver_dimensoes_efetivas(produto, variacao=None):
     if _variacao_tem_dimensao_completa(variacao):
         altura = variacao.altura_ordenada_cm
@@ -76,17 +79,24 @@ def resolver_dimensoes_efetivas(produto, variacao=None):
             peso_cubico=peso_cubico,
         )
 
-    altura = produto.altura_ordenada_cm or Decimal('0')
-    largura = produto.largura_ordenada_cm or Decimal('0')
-    comprimento = produto.comprimento_ordenada_cm or Decimal('0')
+    altura = produto.altura_ordenada_cm
+    largura = produto.largura_ordenada_cm
+    comprimento = produto.comprimento_ordenada_cm
     peso_fisico = produto.peso_produto_apos_embalado or Decimal('0')
     peso_cubico = produto.peso_cubado or Decimal('0')
+    peso = max(peso_fisico, peso_cubico)
+
+    # * [EXPLICAÇÃO] → peso == 0 cobre também o caso em que altura/largura/comprimento
+    #                  estão presentes mas peso_produto_apos_embalado E peso_cubado os 2
+    #                  ausentes — um produto físico embalado nunca pesa 0kg de verdade.
+    if altura is None or largura is None or comprimento is None or peso == 0:
+        return None
 
     return DimensoesEfetivas(
         altura=altura,
         largura=largura,
         comprimento=comprimento,
-        peso=max(peso_fisico, peso_cubico),
+        peso=peso,
         origem=OrigemDimensao.PRODUTO_ERP,
         peso_fisico=peso_fisico,
         peso_cubico=peso_cubico,
