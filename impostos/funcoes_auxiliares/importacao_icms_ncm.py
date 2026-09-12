@@ -90,14 +90,38 @@ class LinhaIcmsNcm:
 # Função Objetivo: Registra a rejeição de 1 NCM — qual UF divergiu e entre quais EANs.
 class NcmRejeitado:
 
+    MAXIMO_EXEMPLOS_POR_GRUPO = 3
+
     def __init__(self, ncm, uf, valores_conflitantes):
         self.ncm = ncm
         self.uf = uf
         self.valores_conflitantes = valores_conflitantes  # lista de (ean, valor)
 
+    # Função Objetivo: Agrupa os EANs conflitantes por valor, do mais pro menos frequente.
+    # Explicação em detalhe: o valor mais comum normalmente é o "certo" e os
+    # poucos que destoam são o problema real de verdade — separar isso é o
+    # que deixa o relatório legível, em vez de despejar todos os EANs numa
+    # linha só (o que virava ilegível com NCMs de 20+ produtos).
+    def _grupos_por_valor(self):
+        grupos = {}
+        for ean, valor in self.valores_conflitantes:
+            grupos.setdefault(valor, []).append(ean)
+        return sorted(grupos.items(), key=lambda item: -len(item[1]))
+
     def __str__(self):
-        detalhes = ', '.join(f'EAN {ean}={valor}' for ean, valor in self.valores_conflitantes)
-        return f'NCM {self.ncm} rejeitado — UF {self.uf} diverge entre EANs: {detalhes}'
+        grupos = self._grupos_por_valor()
+        total = len(self.valores_conflitantes)
+
+        linhas = [f'NCM {self.ncm} — UF {self.uf} diverge entre {total} EANs:']
+        for valor, eans in grupos:
+            valor_exibido = str(valor) if valor is not None else 'em branco'
+            if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
+                exemplos = ', '.join(eans)
+                linhas.append(f'    {valor_exibido}: {len(eans)} EAN(s) — {exemplos}')
+            else:
+                exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
+                linhas.append(f'    {valor_exibido}: {len(eans)} EANs — ex: {exemplos}, ...')
+        return '\n'.join(linhas)
 
 
 # Função Objetivo: Agrupa as linhas por NCM e aplica a regra de consistência.
@@ -228,7 +252,8 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
         stdout.write('')
         stdout.write(style.WARNING('[NCMs REJEITADOS — DIVERGÊNCIA ENTRE EANs, NADA GRAVADO DESTES]'))
         for rejeitado in agrupador.rejeitados:
-            stdout.write(style.WARNING(f'    {rejeitado}'))
+            stdout.write('')
+            stdout.write(style.WARNING(str(rejeitado)))
 
     persistidor = PersistidorIcmsNcm()
     persistidor.carregar_existentes()
