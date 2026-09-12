@@ -69,7 +69,7 @@ function rolar_para_celula(celula, container) {
 
 function destacar_celula(ncm, uf) {
     limpar_destaque();
-j
+
     var celula = document.querySelector(
         `td[data-ncm="${ncm}"][data-uf="${uf}"]`
     );
