@@ -45,6 +45,43 @@
     cursor: not-allowed;
 }
 
+.combo-ncm {
+    position: relative;
+}
+
+.combo-ncm-opcoes {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 220px;
+    overflow-y: auto;
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.combo-ncm-opcoes.aberto {
+    display: block;
+}
+
+.combo-ncm-item {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    color: #333;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.combo-ncm-item:hover,
+.combo-ncm-item.ativo {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
 .btn-calcular {
     background-color: var(--cor-primaria-clara);
     color: var(--cor-texto-claro);
@@ -100,6 +137,7 @@
 
 .grade-container {
     overflow-x: auto;
+    overflow-y: auto;
     border-radius: 8px;
     border: 1px solid var(--cor-borda);
 }

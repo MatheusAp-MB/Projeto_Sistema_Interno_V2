@@ -24,18 +24,17 @@
 
             <div class="col-md-5">
                 <label>NCM</label>
-                <input type="text" name="ncm" id="input-ncm" list="lista-ncms" autocomplete="off"
-                    placeholder="Digite ou selecione o NCM..."
-                    hx-get="{% url 'impostos_csts_disponiveis_pis_cofins_ncm_cst' %}"
-                    hx-trigger="input changed delay:300ms, change"
-                    hx-target="#input-cst"
-                    hx-swap="outerHTML"
-                    hx-include="#form-calcular">
-                <datalist id="lista-ncms">
-                    {% for ncm in ncms_disponiveis %}
-                        <option value="{{ ncm }}"></option>
-                    {% endfor %}
-                </datalist>
+                <div class="combo-ncm" id="combo-ncm">
+                    <input type="text" name="ncm" id="input-ncm" autocomplete="off"
+                        placeholder="Digite ou selecione o NCM..."
+                        hx-get="{% url 'impostos_csts_disponiveis_pis_cofins_ncm_cst' %}"
+                        hx-trigger="input changed delay:300ms, change"
+                        hx-target="#input-cst"
+                        hx-swap="outerHTML"
+                        hx-include="#form-calcular">
+                    <div class="combo-ncm-opcoes" id="combo-ncm-opcoes"></div>
+                </div>
+                {{ ncms_disponiveis|json_script:"dados-ncms-disponiveis" }}
             </div>
 
             <div class="col-md-3">
