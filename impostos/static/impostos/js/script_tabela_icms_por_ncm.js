@@ -37,10 +37,15 @@ function rolar_para_celula(celula, container) {
     var containerRect = container.getBoundingClientRect();
     var celulaRect = celula.getBoundingClientRect();
 
+    // A borda "crua" do getBoundingClientRect() inclui o espaço da barra
+    // de rolagem (ela não sabe que aquele espaço não é conteúdo visível).
+    // clientWidth/clientHeight e clientLeft/clientTop já descontam a
+    // barra e as bordas — por isso usamos eles pra achar o limite real
+    // da área visível, em vez de containerRect.right/bottom direto.
     var areaVisivelTop = containerRect.top + alturaCabecalho;
     var areaVisivelLeft = containerRect.left + larguraColunaNcm;
-    var areaVisivelBottom = containerRect.bottom;
-    var areaVisivelRight = containerRect.right;
+    var areaVisivelBottom = containerRect.top + container.clientTop + container.clientHeight;
+    var areaVisivelRight = containerRect.left + container.clientLeft + container.clientWidth;
 
     var deltaX = 0;
     var deltaY = 0;
@@ -64,7 +69,7 @@ function rolar_para_celula(celula, container) {
 
 function destacar_celula(ncm, uf) {
     limpar_destaque();
-
+j
     var celula = document.querySelector(
         `td[data-ncm="${ncm}"][data-uf="${uf}"]`
     );
