@@ -1,0 +1,163 @@
+/*
+* [RESUMO] → CSS da tela de PIS/COFINS de Saída por NCM + CST.
+* Contém os estilos da calculadora, resultado e tabela NCM+CST.
+* Espelha layout_tabela_icms_por_ncm.css, mesmas variáveis de cor do V2 —
+* mesma técnica de contraste (painel sólido na cor primária, resultado
+* com borda colorida, tabela sempre visível e quieta).
+*/
+
+.calculadora-container {
+    background-color: var(--cor-primaria);
+    border-radius: 10px;
+    padding: 24px;
+    color: var(--cor-texto-claro);
+    margin-bottom: 16px;
+}
+
+.calculadora-container label {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.calculadora-container input,
+.calculadora-container select {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    width: 100%;
+    font-family: inherit;
+}
+
+.calculadora-container input:focus,
+.calculadora-container select:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.3);
+}
+
+.calculadora-container select:disabled {
+    color: var(--cor-texto-muted);
+    background-color: #eef1f5;
+    cursor: not-allowed;
+}
+
+.btn-calcular {
+    background-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 24px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.btn-calcular:hover {
+    background-color: var(--cor-primaria);
+}
+
+.resultado-container {
+    margin-bottom: 16px;
+    min-height: 60px;
+}
+
+.resultado-icms {
+    background-color: var(--cor-fundo-card);
+    border: 2px solid var(--cor-primaria-clara);
+    border-radius: 10px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.resultado-icms .valor-item { display: flex; flex-direction: column; gap: 2px; }
+.resultado-icms .valor-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--cor-texto-muted);
+}
+.resultado-icms .valor {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    font-variant-numeric: tabular-nums;
+}
+.resultado-icms .valor.em-branco { font-size: 1.1rem; font-weight: 600; font-style: italic; color: var(--cor-texto-muted); }
+
+.resultado-icms .descricao {
+    font-size: 0.9rem;
+    color: var(--cor-texto-muted);
+}
+
+.grade-container {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--cor-borda);
+}
+
+.tabela-pc {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.tabela-pc th {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    padding: 10px 12px;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--cor-primaria-clara);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.tabela-pc th.col-pis, .tabela-pc th.col-cofins { text-align: right; }
+
+.tabela-pc td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--cor-borda);
+    white-space: nowrap;
+    color: #333;
+}
+.tabela-pc td.col-ncm { color: var(--cor-primaria); font-weight: 600; }
+.tabela-pc td.col-pis, .tabela-pc td.col-cofins { text-align: right; }
+.tabela-pc td.valor-em-branco { color: var(--cor-texto-muted); font-style: italic; }
+
+.tabela-pc tbody tr:hover td { background-color: rgba(46, 123, 181, 0.08); }
+
+.tabela-pc tr.destaque td {
+    background-color: rgba(46, 123, 181, 0.16) !important;
+    font-weight: 700;
+}
+
+.badge-multi-cst {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 7px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 9px;
+    background-color: #e8ecf1;
+    color: var(--cor-texto-muted);
+    vertical-align: 1px;
+}
+
+.rodape-nota {
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    margin-top: 10px;
+    line-height: 1.5;
+}

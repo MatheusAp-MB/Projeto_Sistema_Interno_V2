@@ -1,0 +1,109 @@
+<!--
+* [RESUMO] → Tela da tabela de PIS/COFINS de Saída por NCM + CST.
+* Exibe a calculadora de consulta (NCM digitável + CST dependente) e a
+* tabela completa NCM+CST, sempre visível — mesma técnica de contraste da
+* Tabela de ICMS por NCM: painel sólido na cor primária pra consulta,
+* tabela quieta abaixo, sem toggle nenhum.
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}PIS/COFINS por NCM + CST — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}PIS/COFINS de Saída por NCM + CST{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'impostos/css/layout_tabela_pis_cofins_por_ncm_cst.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+    <!-- Calculadora -->
+    <div class="calculadora-container" id="form-calcular">
+        <h6 class="mb-3">Consultar PIS/COFINS por NCM + CST</h6>
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-5">
+                <label>NCM</label>
+                <input type="text" name="ncm" id="input-ncm" list="lista-ncms" autocomplete="off"
+                    placeholder="Digite ou selecione o NCM..."
+                    hx-get="{% url 'impostos_csts_disponiveis_pis_cofins_ncm_cst' %}"
+                    hx-trigger="input changed delay:300ms, change"
+                    hx-target="#input-cst"
+                    hx-swap="outerHTML"
+                    hx-include="#form-calcular">
+                <datalist id="lista-ncms">
+                    {% for ncm in ncms_disponiveis %}
+                        <option value="{{ ncm }}"></option>
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="col-md-3">
+                <label>CST</label>
+                <select name="cst" id="input-cst" disabled>
+                    <option value="">Digite o NCM primeiro...</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+               <button class="btn-calcular"
+                    hx-post="{% url 'impostos_calcular_pis_cofins_ncm_cst' %}"
+                    hx-target="#resultado-calculadora"
+                    hx-include="#form-calcular">
+                    <i class="fas fa-calculator"></i> Consultar
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Resultado -->
+    <div id="resultado-calculadora" class="resultado-container">
+        <div class="resultado-icms">
+            <span class="descricao">Digite o NCM e selecione o CST para consultar o PIS e o COFINS.</span>
+        </div>
+    </div>
+
+    <!-- Tabela completa PIS/COFINS por NCM+CST -->
+    <div class="grade-container">
+        <table class="tabela-pc">
+            <thead>
+                <tr>
+                    <th class="col-ncm">NCM</th>
+                    <th class="col-cst">CST</th>
+                    <th class="col-pis">PIS</th>
+                    <th class="col-cofins">COFINS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhas %}
+                <tr data-ncm="{{ linha.ncm }}" data-cst="{{ linha.cst }}">
+                    <td class="col-ncm">
+                        {% if linha.mostrar_ncm %}
+                            {{ linha.ncm }}
+                            {% if linha.total_csts_do_ncm > 1 %}
+                                <span class="badge-multi-cst">{{ linha.total_csts_do_ncm }} CSTs</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="col-cst">{{ linha.cst }}</td>
+                    <td class="col-pis {% if linha.pis is None %}valor-em-branco{% endif %}">
+                        {% if linha.pis is not None %}{{ linha.pis|floatformat:2 }}%{% else %}em branco{% endif %}
+                    </td>
+                    <td class="col-cofins {% if linha.cofins is None %}valor-em-branco{% endif %}">
+                        {% if linha.cofins is not None %}{{ linha.cofins|floatformat:2 }}%{% else %}em branco{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="rodape-nota">
+        Cada linha é 1 combinação <strong>NCM + CST</strong> que existe de verdade na planilha — não 1 linha por NCM. Quando um NCM aparece com o selo de CSTs, cada CST tem seu próprio PIS/COFINS: pode ser variação tributária legítima, mas também pode ser cadastro errado — no levantamento real, os NCMs com mais de 1 CST bateram, produto por produto, com os mesmos itens que já divergiam no ICMS por UF.
+    </p>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'impostos/js/script_tabela_pis_cofins_por_ncm_cst.js' %}"></script>
+{% endblock %}

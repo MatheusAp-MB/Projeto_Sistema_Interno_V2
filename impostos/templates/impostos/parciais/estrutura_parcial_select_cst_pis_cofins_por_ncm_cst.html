@@ -1,0 +1,26 @@
+<!--
+* [RESUMO] → Partial do <select> de CST, dependente do NCM.
+* Retornado pelo HTMX quando o campo NCM muda (hx-swap="outerHTML") —
+* mostra só os CSTs que existem de verdade pro NCM digitado. Nunca deixa
+* o usuário cruzar um par NCM+CST inexistente.
+-->
+{% if not ncm %}
+    <select name="cst" id="input-cst" disabled>
+        <option value="">Digite o NCM primeiro...</option>
+    </select>
+{% elif not csts %}
+    <select name="cst" id="input-cst" disabled>
+        <option value="">NCM não encontrado</option>
+    </select>
+{% else %}
+    <select name="cst" id="input-cst">
+        {% if csts|length == 1 %}
+            <option value="{{ csts.0 }}" selected>CST {{ csts.0 }}</option>
+        {% else %}
+            <option value="">Selecione ({{ csts|length }} CSTs)...</option>
+            {% for cst in csts %}
+                <option value="{{ cst }}">CST {{ cst }}</option>
+            {% endfor %}
+        {% endif %}
+    </select>
+{% endif %}

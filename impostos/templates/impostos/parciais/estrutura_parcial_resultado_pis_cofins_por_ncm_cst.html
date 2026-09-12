@@ -1,0 +1,38 @@
+<!--
+* [RESUMO] → Resultado da calculadora de PIS/COFINS por NCM + CST.
+* Retornado pelo HTMX após a consulta — injetado em #resultado-calculadora.
+* Chama destacar_grupo() para iluminar a linha correspondente na tabela.
+-->
+{% if erro %}
+    <div class="resultado-icms">
+        <span class="descricao">Erro ao consultar: {{ erro }}</span>
+    </div>
+
+{% elif ncm_ou_cst_em_branco %}
+    <div class="resultado-icms">
+        <span class="descricao">Digite o NCM e selecione o CST para consultar o PIS e o COFINS.</span>
+    </div>
+
+{% elif not encontrado %}
+    <div class="resultado-icms">
+        <span class="descricao">Não há PIS/COFINS cadastrado pra NCM {{ ncm }} + CST {{ cst }}.</span>
+    </div>
+
+{% else %}
+    <div class="resultado-icms">
+        <span class="valor-item">
+            <span class="valor-label">PIS</span>
+            <span class="valor {% if pis is None %}em-branco{% endif %}">
+                {% if pis is not None %}{{ pis|floatformat:2 }}%{% else %}em branco{% endif %}
+            </span>
+        </span>
+        <span class="valor-item">
+            <span class="valor-label">COFINS</span>
+            <span class="valor {% if cofins is None %}em-branco{% endif %}">
+                {% if cofins is not None %}{{ cofins|floatformat:2 }}%{% else %}em branco{% endif %}
+            </span>
+        </span>
+        <span class="descricao">NCM {{ ncm }} — CST {{ cst }}.</span>
+    </div>
+    <script>destacar_grupo('{{ ncm }}', '{{ cst }}');</script>
+{% endif %}
