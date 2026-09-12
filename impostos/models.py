@@ -1,7 +1,8 @@
 # impostos/models.py
 
-# Função Objetivo: Schema das tabelas de impostos e custos de entrada de 1
-# produto, vindas do XML/Cadastro da nota fiscal (via Sysemp).
+# Função Objetivo: Schema das tabelas de impostos — de entrada (1 produto,
+# vindas do XML/Cadastro da nota fiscal via Sysemp) e, na seção do fim
+# deste arquivo, de saída (ICMS por NCM/UF).
 #
 # Só o formato das tabelas mora aqui. O resto do domínio vive em arquivos
 # próprios, por responsabilidade:
@@ -183,3 +184,38 @@ class CofinsEntradaProduto(ImpostoComAliquota):
 
     def __str__(self):
         return f'COFINS — {self.impostos_e_custos}'
+
+
+# ---------------------------------------------------------------------------
+# Impostos de SAÍDA (a partir daqui — nada abaixo vem do XML de entrada)
+# ---------------------------------------------------------------------------
+
+
+class IcmsNcmUf(models.Model):
+    # Função Objetivo: Alíquota de ICMS de saída de 1 NCM pra 1 UF de
+    # destino — 1 linha por combinação NCM+UF. O NCM garante os mesmos 27
+    # valores pra qualquer produto que o tenha (decisão no vault), por isso
+    # o dado mora aqui, não em Produto. Espelha o padrão do FreteML
+    # (mercado_livre/models/frete_ml.py): tabela normalizada, pivotada só
+    # na tela — não guarda "Média Ponderada" nenhuma linha, ela é sempre
+    # calculada em tempo real a partir das 27 linhas (SP × 50% + média das
+    # outras 26 × 50%).
+    #
+    # aliquota guarda percentual (ex: 19.42), igual a
+    # Produto.icms_saida_sp/icms_saida_media — nunca fração (0.1942).
+    #
+    # Sem campo de empresa: MAGAZINE e SAMVALE são bancos separados
+    # (EmpresaRouter), cada import roda no banco certo sozinho.
+
+    ncm = models.CharField(max_length=10)
+    uf = models.CharField(max_length=2)
+    aliquota = models.DecimalField(max_digits=6, decimal_places=2)
+
+    class Meta:
+        verbose_name = 'ICMS de Saída por NCM e UF'
+        verbose_name_plural = 'ICMS de Saída por NCM e UF'
+        unique_together = ['ncm', 'uf']
+        ordering = ['ncm', 'uf']
+
+    def __str__(self):
+        return f'NCM {self.ncm} — {self.uf}: {self.aliquota}%'

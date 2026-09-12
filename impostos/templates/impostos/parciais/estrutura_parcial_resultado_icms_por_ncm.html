@@ -1,0 +1,30 @@
+<!--
+* [RESUMO] → Resultado da calculadora de ICMS por NCM.
+* Retornado pelo HTMX após a consulta — injetado em #resultado-calculadora.
+* Chama destacar_celula() para iluminar a célula correspondente na matriz.
+-->
+{% if erro %}
+    <div class="resultado-icms">
+        <span class="descricao">Erro ao consultar: {{ erro }}</span>
+    </div>
+
+{% elif not ncm_encontrado %}
+    <div class="resultado-icms">
+        <span class="descricao">NCM {{ ncm }} não encontrado na tabela.</span>
+    </div>
+
+{% elif aliquota is not None %}
+    <div class="resultado-icms">
+        <span class="valor">{{ aliquota|floatformat:2 }}%</span>
+        <span class="descricao">
+            {% if e_media_ponderada %}Média Ponderada para o NCM {{ ncm }}.{% else %}ICMS de saída — NCM {{ ncm }}, UF {{ uf }}.{% endif %}
+        </span>
+    </div>
+    <script>destacar_celula('{{ ncm }}', '{{ uf }}');</script>
+
+{% else %}
+    <div class="resultado-icms">
+        <span class="descricao">NCM {{ ncm }} não tem ICMS aplicável pra UF {{ uf }} (dado real, não é erro).</span>
+    </div>
+    <script>destacar_celula('{{ ncm }}', '{{ uf }}');</script>
+{% endif %}

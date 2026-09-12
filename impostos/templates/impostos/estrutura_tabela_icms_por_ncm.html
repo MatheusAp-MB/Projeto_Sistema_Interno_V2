@@ -1,0 +1,105 @@
+<!--
+* [RESUMO] → Tela da tabela de ICMS de Saída por NCM.
+* Exibe a calculadora de consulta e a matriz NCM × UF (+ Média Ponderada).
+* Espelha o padrão da Tabela de Frete do ML (mercado_livre/estrutura_tabela_frete_ml.html).
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}ICMS por NCM — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}ICMS de Saída por NCM{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'impostos/css/layout_tabela_icms_por_ncm.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+    <!-- Calculadora -->
+    <div class="calculadora-container" id="form-calcular">
+        <h6 class="mb-3">Consultar ICMS por NCM + UF</h6>
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-4">
+                <label>NCM</label>
+                <select name="ncm" id="input-ncm">
+                    <option value="">Selecione...</option>
+                    {% for ncm in ncms_disponiveis %}
+                        <option value="{{ ncm }}">{{ ncm }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label>UF de destino</label>
+                <select name="uf" id="input-uf">
+                    <option value="">Selecione...</option>
+                    <option value="MEDIA_PONDERADA">Média Ponderada</option>
+                    {% for uf in ufs %}
+                        <option value="{{ uf }}">{{ uf }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-4">
+               <button class="btn-calcular"
+                    hx-post="{% url 'impostos_calcular_icms_ncm' %}"
+                    hx-target="#resultado-calculadora"
+                    hx-include="#form-calcular">
+                    <i class="fas fa-calculator"></i> Consultar
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Resultado -->
+    <div id="resultado-calculadora" class="resultado-container">
+        <div class="resultado-icms">
+            <span class="descricao">Informe o NCM e a UF para consultar o ICMS.</span>
+        </div>
+    </div>
+
+    <!-- Matriz de ICMS por NCM -->
+    <div class="grade-container">
+        <table class="grade-tabela">
+            <thead>
+                <tr>
+                    <th class="col-ncm">NCM</th>
+                    {% for uf in ufs %}
+                        <th>{{ uf }}</th>
+                    {% endfor %}
+                    <th class="col-media">Média Ponderada</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhas %}
+                <tr>
+                    <td class="col-ncm" data-ncm="{{ linha.ncm }}">{{ linha.ncm }}</td>
+                    {% for item in linha.valores %}
+                        <td data-ncm="{{ linha.ncm }}" data-uf="{{ item.uf }}">
+                            {% if item.aliquota is not None %}
+                                {{ item.aliquota|floatformat:2 }}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td class="col-media" data-ncm="{{ linha.ncm }}" data-uf="MEDIA_PONDERADA">
+                        {% if linha.media_ponderada is not None %}
+                            {{ linha.media_ponderada|floatformat:2 }}%
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'impostos/js/script_tabela_icms_por_ncm.js' %}"></script>
+{% endblock %}

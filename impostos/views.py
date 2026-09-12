@@ -2,8 +2,12 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import (
+    consultar_icms_por_ncm, montar_matriz_icms_por_ncm,
+)
 from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 from impostos.funcoes_auxiliares.exportacao_resumo_entrada import gerar_excel_resumo_impostos_entrada
+from impostos.funcoes_auxiliares.importacao_icms_ncm import UFS_ORDENADAS
 from impostos.funcoes_auxiliares.resumo_entrada import (
     ler_busca_resumo_entrada, listar_produtos_resumo_entrada_filtrados,
 )
@@ -76,3 +80,37 @@ def view_exportar_resumo_impostos_entrada(request):
     )
     response['Content-Disposition'] = 'attachment; filename="Relatorio_Impostos_Entrada.xlsx"'
     return response
+
+
+
+def view_tabela_icms_por_ncm(request):
+    linhas = montar_matriz_icms_por_ncm()
+
+    return render(request, 'impostos/estrutura_tabela_icms_por_ncm.html', {
+        'ufs': UFS_ORDENADAS,
+        'linhas': linhas,
+        'ncms_disponiveis': [linha['ncm'] for linha in linhas],
+    })
+
+
+def view_calcular_icms_por_ncm(request):
+    ncm = request.POST.get('ncm', '').strip()
+    uf = request.POST.get('uf', '').strip()
+
+    try:
+        aliquota, ncm_encontrado, e_media_ponderada = consultar_icms_por_ncm(ncm, uf)
+
+        return render(request, 'impostos/parciais/estrutura_parcial_resultado_icms_por_ncm.html', {
+            'aliquota': aliquota,
+            'ncm': ncm,
+            'uf': uf,
+            'ncm_encontrado': ncm_encontrado,
+            'e_media_ponderada': e_media_ponderada,
+        })
+
+    except Exception as e:
+        return render(request, 'impostos/parciais/estrutura_parcial_resultado_icms_por_ncm.html', {
+            'aliquota': None,
+            'ncm_encontrado': False,
+            'erro': str(e),
+        })
