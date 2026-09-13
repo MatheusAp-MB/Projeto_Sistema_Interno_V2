@@ -44,12 +44,27 @@
 # Nunca cria Produto novo a partir de dado fiscal — produto só nasce do ERP
 # (ver importar_produtos_erp.py). EAN sem produto correspondente no banco é
 # só reportado, nunca vira produto novo.
+#
+# Correção de 13/09/2026, mais tarde ainda: a saída no terminal foi
+# reescrita usando rich (Table/Panel/Columns) + pandas (organiza os 3
+# campos vindos das tabelas normalizadas numa única tabela) — mesmo
+# tratamento já aplicado em importacao_icms_ncm.py, pro texto corrido virar
+# tabelas. Nenhuma regra de negócio muda. ImportadorImpostosSaida.relatorio()
+# continua existindo do jeito que estava (mesmo padrão de método que os
+# outros importadores do projeto usam, ver
+# core/management/commands/popular_banco_suporte/*.py) — só deixou de ser
+# chamado por preencher_impostos_saida, que agora monta a saída direto com
+# rich/pandas a partir dos mesmos contadores públicos do importador.
 
 from decimal import Decimal
 
 import openpyxl
-
+import pandas as pd
 from django.core.exceptions import ObjectDoesNotExist
+from rich.columns import Columns
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
@@ -488,18 +503,103 @@ class ImportadorImpostosSaida:
         )
 
 
+# Função Objetivo: Converte um DataFrame (sempre pequeno) num rich.table.Table
+# pronto pra console.print.
+# Explicação em detalhe: mesma função de importacao_icms_ncm.py (não
+# importada de lá — cada módulo de import/preenchimento da planilha Busca
+# Legal fica autocontido, mesmo padrão já usado por
+# _normalizar_codigo_celula, duplicada nos 3 arquivos em vez de virar
+# import cruzado).
+def _dataframe_para_tabela_rich(dataframe, titulo, colunas_numericas=()):
+    tabela = Table(title=titulo)
+    for coluna in dataframe.columns:
+        tabela.add_column(coluna, justify='right' if coluna in colunas_numericas else 'left')
+    for linha in dataframe.itertuples(index=False):
+        tabela.add_row(*(str(valor) for valor in linha))
+    return tabela
+
+
 # Função Objetivo: Ponto de entrada chamado pelo Command.
 def preencher_impostos_saida(stdout, style):
-    stdout.write('[IMPOSTOS DE SAÍDA] Lendo planilha Busca Legal...')
+    console = Console()
+
+    console.print('[bold]Impostos de Saída[/bold] — lendo planilha Busca Legal...')
 
     importador = ImportadorImpostosSaida().rodar_preenchimento_completo()
 
-    stdout.write('')
-    stdout.write(style.SUCCESS(importador.relatorio()))
+    tabela_leitura = Table(title='Impostos de Saída — Leitura da planilha')
+    tabela_leitura.add_column('Métrica')
+    tabela_leitura.add_column('Quantidade', justify='right')
+    tabela_leitura.add_row('Linhas sem EAN na planilha (ignoradas)', str(importador.sem_ean_na_planilha))
+    tabela_leitura.add_row(
+        'EAN duplicado na planilha (mantida a 1ª ocorrência)', str(importador.eans_duplicados_na_planilha),
+    )
+    tabela_leitura.add_row(
+        'EAN da planilha sem produto correspondente no banco', str(importador.sem_produto_correspondente),
+        style='yellow' if importador.sem_produto_correspondente else None,
+    )
+    console.print()
+    console.print(tabela_leitura)
+
+    tabela_cst = Table(title='cst_saida — direto da planilha, por EAN (sem conferência cruzada)')
+    tabela_cst.add_column('Situação')
+    tabela_cst.add_column('Quantidade', justify='right')
+    tabela_cst.add_row('Atualizado pela planilha nesta rodada', str(importador.cst_atualizado_pela_planilha))
+    tabela_cst.add_row('Sem atualização na planilha nesta rodada', str(importador.cst_sem_atualizacao_na_planilha))
+    console.print()
+    console.print(tabela_cst)
+
+    # 1 linha por campo — o pedaço que mais se beneficia de virar tabela:
+    # antes eram 3 linhas de texto corrido, cada 1 com 3 números separados
+    # só por "/", sem nenhum cabeçalho dizendo o que cada número significa.
+    dataframe_campos = pd.DataFrame([
+        {
+            'Campo': 'icms_saida_sp (IcmsNcmUf)',
+            'Validado': importador.icms_sp_validado,
+            'Zerado nesta rodada': importador.icms_sp_zerado_nesta_rodada,
+            'Já vazio, continua vazio': importador.icms_sp_continua_vazio,
+        },
+        {
+            'Campo': 'icms_saida_media (calculado)',
+            'Validado': importador.icms_media_validado,
+            'Zerado nesta rodada': importador.icms_media_zerado_nesta_rodada,
+            'Já vazio, continua vazio': importador.icms_media_continua_vazio,
+        },
+        {
+            'Campo': 'pis/cofins (PisCofinsNcmCst)',
+            'Validado': importador.pis_cofins_validado,
+            'Zerado nesta rodada': importador.pis_cofins_zerado_nesta_rodada,
+            'Já vazio, continua vazio': importador.pis_cofins_continua_vazio,
+        },
+    ], columns=['Campo', 'Validado', 'Zerado nesta rodada', 'Já vazio, continua vazio'])
+
+    console.print()
+    console.print(_dataframe_para_tabela_rich(
+        dataframe_campos,
+        titulo='Campos vindos das tabelas normalizadas (conferência cruzada entre produtos)',
+        colunas_numericas=('Validado', 'Zerado nesta rodada', 'Já vazio, continua vazio'),
+    ))
+
+    console.print()
+    console.print(Panel(
+        f'[bold]Produtos com pelo menos 1 campo atualizado nesta rodada:[/bold] {importador.atualizados}\n'
+        f'(cobre o catálogo inteiro, não só quem tem linha na planilha)',
+        title='Impostos de Saída — Concluído',
+        border_style='green',
+    ))
 
     if importador.eans_sem_produto:
-        stdout.write(style.WARNING(
-            '\n[EAN DA PLANILHA SEM PRODUTO CORRESPONDENTE NO BANCO — CONFERIR]'
+        console.print()
+        console.print(Panel(
+            Columns(importador.eans_sem_produto, equal=True, expand=True),
+            title=(
+                f'{len(importador.eans_sem_produto)} EAN(s) da planilha sem Produto '
+                f'correspondente no banco — conferir'
+            ),
+            border_style='yellow',
         ))
-        for ean in importador.eans_sem_produto:
-            stdout.write(style.WARNING(f'    {ean}'))
+
+    stdout.write(style.SUCCESS(
+        f'[IMPOSTOS DE SAÍDA] Concluído — {importador.atualizados} produto(s) com pelo menos 1 campo '
+        f'atualizado nesta rodada.'
+    ))
