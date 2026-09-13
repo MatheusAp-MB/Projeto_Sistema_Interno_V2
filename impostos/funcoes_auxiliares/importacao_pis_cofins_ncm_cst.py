@@ -48,11 +48,11 @@ from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
     ler_linhas_planilha_impostos_saida,
 )
 from impostos.models import PisCofinsNcmCst, PisCofinsNcmCstRejeitado
+from produtos.models import Produto
 
 COLUNA_NCM = 'NCM'
 COLUNA_PIS = 'PIS'
 COLUNA_COFINS = 'COFINS'
-COLUNA_CST = 'CST'
 
 DUAS_CASAS_DECIMAIS = Decimal('0.01')
 
@@ -96,9 +96,17 @@ class LinhaPisCofinsNcmCst:
     def extrair_campos(self):
         self.ean = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_EAN))
         self.ncm = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_NCM))
-        self.cst = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_CST))
         self.pis = self._fracao_para_percentual_ou_none(self.linha_bruta.get(COLUNA_PIS))
         self.cofins = self._fracao_para_percentual_ou_none(self.linha_bruta.get(COLUNA_COFINS))
+        return self
+
+    # Função Objetivo: Aplica o CST (Produto.cst_saida), buscado em lote por
+    # EAN fora desta classe (ver agrupar_pis_cofins_por_ncm_cst). 13/09/2026
+    # — CST deixou de vir da planilha (Etapa 4 do roteiro de execução, mesma
+    # mudança já aplicada ao ICMS na Etapa 3a): passa a vir de
+    # Produto.cst_saida, já gravado por preencher_CST_produtos.
+    def aplicar_cst_saida(self, cst_saida):
+        self.cst = cst_saida
         return self
 
     # Precisa de NCM E de CST — os dois formam a chave do grupo.
@@ -200,14 +208,18 @@ class AgrupadorPisCofinsPorNcmCst:
 
     def __init__(self):
         self.linhas_por_grupo = {}  # (ncm, cst) -> lista de LinhaPisCofinsNcmCst
-        self.sem_ncm_ou_cst_na_planilha = 0
+        # 13/09/2026 — renomeado de sem_ncm_ou_cst_na_planilha: CST não vem
+        # mais da planilha (Etapa 4), então o nome antigo afirmava uma fonte
+        # que não é mais verdade pro CST (mesmo rename já feito em
+        # importacao_icms_ncm.py na Etapa 3a).
+        self.sem_ncm_na_planilha_ou_sem_cst_no_produto = 0
 
         self.aceitos = {}  # (ncm, cst) -> {'pis': Decimal|None, 'cofins': Decimal|None}
         self.rejeitados = []  # lista de GrupoRejeitado
 
     def adicionar_linha(self, linha):
         if not linha.esta_valida():
-            self.sem_ncm_ou_cst_na_planilha += 1
+            self.sem_ncm_na_planilha_ou_sem_cst_no_produto += 1
             return
         self.linhas_por_grupo.setdefault((linha.ncm, linha.cst), []).append(linha)
 
@@ -259,13 +271,33 @@ class AgrupadorPisCofinsPorNcmCst:
         }
 
 
-# Função Objetivo: Ponto de entrada — lê a planilha inteira e devolve o agrupador já processado.
+# Função Objetivo: Busca em lote (1 única query, nunca N+1) o CST de saída
+# pra um conjunto de EANs — Produto.cst_saida, já gravado por
+# preencher_CST_produtos (Etapa 4 do roteiro de execução, mesmo padrão já
+# usado em importacao_icms_ncm.py). EAN sem Produto correspondente, ou
+# Produto sem cst_saida gravado, simplesmente não aparece com valor no
+# dict — quem chama trata a ausência como cst=None (esta_valida() rejeita
+# a linha, igual sempre foi pra CST ausente).
+def _buscar_cst_saida_por_ean(eans):
+    return dict(Produto.objects.filter(ean__in=eans).values_list('ean', 'cst_saida'))
+
+
+# Função Objetivo: Ponto de entrada — lê a planilha inteira, busca o CST em
+# lote (Produto.cst_saida) e devolve o agrupador já processado.
 def agrupar_pis_cofins_por_ncm_cst(caminho_planilha):
     conversor = ConversorCelulaExcel(origem='openpyxl')
     agrupador = AgrupadorPisCofinsPorNcmCst()
 
-    for linha_bruta in ler_linhas_planilha_impostos_saida(caminho_planilha):
-        linha = LinhaPisCofinsNcmCst(linha_bruta, conversor).extrair_campos()
+    linhas = [
+        LinhaPisCofinsNcmCst(linha_bruta, conversor).extrair_campos()
+        for linha_bruta in ler_linhas_planilha_impostos_saida(caminho_planilha)
+    ]
+
+    eans_da_planilha = {linha.ean for linha in linhas if linha.ean}
+    cst_por_ean = _buscar_cst_saida_por_ean(eans_da_planilha)
+
+    for linha in linhas:
+        linha.aplicar_cst_saida(cst_por_ean.get(linha.ean))
         agrupador.adicionar_linha(linha)
 
     agrupador.processar()
@@ -415,7 +447,8 @@ def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
         'Rejeitados', str(len(agrupador.rejeitados)), style='yellow' if agrupador.rejeitados else None,
     )
     tabela_agrupamento.add_row(
-        'Sem NCM ou CST na planilha (ignoradas)', str(agrupador.sem_ncm_ou_cst_na_planilha),
+        'Sem NCM na planilha ou sem CST no Produto (ignoradas)',
+        str(agrupador.sem_ncm_na_planilha_ou_sem_cst_no_produto),
     )
     console.print()
     console.print(tabela_agrupamento)
