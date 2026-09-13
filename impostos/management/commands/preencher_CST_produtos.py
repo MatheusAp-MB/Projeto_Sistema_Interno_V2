@@ -1,7 +1,7 @@
 # impostos/management/commands/preencher_CST_produtos.py
 
 from core.management.commands._base_empresa import ComandoComEmpresa
-from impostos.funcoes_auxiliares.preenchimento_cst_produtos import preencher_cst_produtos
+from impostos.funcoes_auxiliares.saida.preenchimento_cst_produtos import preencher_cst_produtos
 
 
 class Command(ComandoComEmpresa):

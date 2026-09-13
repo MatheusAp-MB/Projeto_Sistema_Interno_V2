@@ -11,7 +11,7 @@ from datetime import date
 from decimal import Decimal
 
 from impostos.descritores_impostos import DESCRITORES_IMPOSTOS
-from impostos.funcoes_auxiliares.conversao_valores_impostos import valor_por_unidade
+from impostos.funcoes_auxiliares.entrada.conversao_valores_impostos import valor_por_unidade
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
 

@@ -42,7 +42,7 @@ from rich.table import Table
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA,
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,

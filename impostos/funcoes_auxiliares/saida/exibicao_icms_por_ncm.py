@@ -7,7 +7,7 @@
 
 from decimal import Decimal
 
-from impostos.funcoes_auxiliares.importacao_icms_ncm import UFS_ORDENADAS
+from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import UFS_ORDENADAS
 from impostos.models import IcmsNcmUf
 
 DUAS_CASAS_DECIMAIS = Decimal('0.01')

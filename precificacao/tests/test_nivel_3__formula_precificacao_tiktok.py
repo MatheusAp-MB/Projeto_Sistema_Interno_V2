@@ -16,7 +16,7 @@ from produtos.models import Produto
 from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem, TabelaComissaoTiktok
 from tiktok.models import ConfiguracaoTiktok, FreteTiktok
 from precificacao.funcoes_auxiliares.tiktok.formula_precificacao_tiktok import FormulaPrecificacaoTiktok
-from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,

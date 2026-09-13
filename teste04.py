@@ -24,7 +24,7 @@ from decimal import Decimal
 
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA,
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,

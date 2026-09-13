@@ -11,8 +11,8 @@ import pytest
 
 from produtos.models import Produto
 from impostos.models import ImpostosECustosXMLEntradaProduto
-from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
-from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import montar_creditos_fiscais_para_precificacao
+from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.creditos_fiscais_para_precificacao import montar_creditos_fiscais_para_precificacao
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,

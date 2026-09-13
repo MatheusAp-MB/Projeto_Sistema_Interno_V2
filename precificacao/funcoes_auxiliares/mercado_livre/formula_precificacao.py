@@ -32,7 +32,7 @@ from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
 from produtos.funcoes_auxiliares.dimensoes_fisicas import (
     metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao,
 )
-from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import (
+from impostos.funcoes_auxiliares.entrada.creditos_fiscais_para_precificacao import (
     montar_creditos_fiscais_para_precificacao,
 )
 

@@ -30,7 +30,7 @@ from datetime import date
 
 import openpyxl
 
-from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
+from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 

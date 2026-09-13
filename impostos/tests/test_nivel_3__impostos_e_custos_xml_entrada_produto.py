@@ -18,8 +18,8 @@ from impostos.models import (
     ImpostosECustosXMLEntradaProduto, IcmsEntradaProduto, IcmsStEntradaProduto,
     IcmsRetEntradaProduto, IpiEntradaProduto, PisEntradaProduto, CofinsEntradaProduto,
 )
-from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
-from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
+from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import montar_detalhes_para_exibicao
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,

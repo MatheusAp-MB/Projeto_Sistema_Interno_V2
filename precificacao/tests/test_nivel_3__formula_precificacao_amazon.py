@@ -16,7 +16,7 @@ from produtos.models import Produto
 from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem, FreteAmazon, TaxaKgAdicionalAmazon
 from amazon.models import ConfiguracaoAmazon
 from precificacao.funcoes_auxiliares.amazon.formula_precificacao_amazon import FormulaPrecificacaoAmazon
-from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,

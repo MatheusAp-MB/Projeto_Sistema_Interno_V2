@@ -1,7 +1,7 @@
 # impostos/management/commands/importar_pis_cofins_por_ncm_cst.py
 
 from core.management.commands._base_empresa import ComandoComEmpresa
-from impostos.funcoes_auxiliares.importacao_pis_cofins_ncm_cst import importar_pis_cofins_por_ncm_cst
+from impostos.funcoes_auxiliares.saida.importacao_pis_cofins_ncm_cst import importar_pis_cofins_por_ncm_cst
 
 
 class Command(ComandoComEmpresa):

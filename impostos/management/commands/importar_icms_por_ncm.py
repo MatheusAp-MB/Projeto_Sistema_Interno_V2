@@ -1,7 +1,7 @@
 # impostos/management/commands/importar_icms_por_ncm.py
 
 from core.management.commands._base_empresa import ComandoComEmpresa
-from impostos.funcoes_auxiliares.importacao_icms_ncm import importar_icms_por_ncm
+from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import importar_icms_por_ncm
 
 
 class Command(ComandoComEmpresa):

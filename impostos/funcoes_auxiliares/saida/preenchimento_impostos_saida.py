@@ -359,7 +359,7 @@ class ImportadorImpostosSaida:
             # importa de importacao_icms_ncm.py, que por sua vez importa
             # deste módulo (preenchimento_impostos_saida.py) as constantes
             # da planilha. Um import no topo deste arquivo fecharia o ciclo.
-            from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import calcular_media_ponderada
+            from impostos.funcoes_auxiliares.saida.exibicao_icms_por_ncm import calcular_media_ponderada
             media = calcular_media_ponderada(valores_por_uf)
             if media is not None:
                 campos['icms_saida_media'] = media

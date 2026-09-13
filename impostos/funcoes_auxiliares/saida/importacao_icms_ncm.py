@@ -90,7 +90,7 @@ from rich.text import Text
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA,
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
@@ -456,7 +456,7 @@ class PersistidorIcmsNcm:
         # importa UFS_ORDENADAS deste módulo (importacao_icms_ncm.py); um
         # import no topo deste arquivo fecharia o ciclo (mesmo padrão já
         # usado em preenchimento_impostos_saida.py).
-        from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import calcular_media_ponderada
+        from impostos.funcoes_auxiliares.saida.exibicao_icms_por_ncm import calcular_media_ponderada
 
         for (ncm, cst, origem), valores_por_uf in aceitos.items():
             for uf, aliquota in valores_por_uf.items():

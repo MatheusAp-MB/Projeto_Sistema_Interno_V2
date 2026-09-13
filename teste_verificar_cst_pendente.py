@@ -18,8 +18,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.s
 django.setup()
 
 from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
-from impostos.funcoes_auxiliares.importacao_icms_ncm import _normalizar_codigo_celula
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
+from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import _normalizar_codigo_celula
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA, COLUNA_CST, COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
 )

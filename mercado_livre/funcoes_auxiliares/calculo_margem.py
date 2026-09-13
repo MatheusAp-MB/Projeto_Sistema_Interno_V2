@@ -115,7 +115,7 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
     selecionar_faixa_armazenagem já fazem isso internamente."""
     from django.core.exceptions import ObjectDoesNotExist
     from precificacao.models import ConfiguracaoOperacional
-    from impostos.funcoes_auxiliares.creditos_fiscais_para_precificacao import montar_creditos_fiscais_para_precificacao
+    from impostos.funcoes_auxiliares.entrada.creditos_fiscais_para_precificacao import montar_creditos_fiscais_para_precificacao
 
     try:
         impostos_entrada = produto.impostos_entrada

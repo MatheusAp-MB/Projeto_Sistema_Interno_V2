@@ -2,17 +2,17 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import render
 
-from impostos.funcoes_auxiliares.exibicao_auditoria_fiscal import montar_contexto_auditoria_fiscal
-from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import (
+from impostos.funcoes_auxiliares.saida.exibicao_auditoria_fiscal import montar_contexto_auditoria_fiscal
+from impostos.funcoes_auxiliares.saida.exibicao_icms_por_ncm import (
     consultar_icms_por_ncm, montar_matriz_icms_por_ncm,
 )
-from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
-from impostos.funcoes_auxiliares.exibicao_pis_cofins_por_ncm_cst import (
+from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import montar_detalhes_para_exibicao
+from impostos.funcoes_auxiliares.saida.exibicao_pis_cofins_por_ncm_cst import (
     consultar_pis_cofins_por_ncm_cst, listar_csts_disponiveis_para_ncm, montar_tabela_pis_cofins_por_ncm_cst,
 )
-from impostos.funcoes_auxiliares.exportacao_resumo_entrada import gerar_excel_resumo_impostos_entrada
-from impostos.funcoes_auxiliares.importacao_icms_ncm import UFS_ORDENADAS
-from impostos.funcoes_auxiliares.resumo_entrada import (
+from impostos.funcoes_auxiliares.entrada.exportacao_resumo_entrada import gerar_excel_resumo_impostos_entrada
+from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import UFS_ORDENADAS
+from impostos.funcoes_auxiliares.entrada.resumo_entrada import (
     ler_busca_resumo_entrada, listar_produtos_resumo_entrada_filtrados,
 )
 

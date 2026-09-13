@@ -1,7 +1,7 @@
 # impostos/management/commands/preencher_impostos_saida.py
 
 from core.management.commands._base_empresa import ComandoComEmpresa
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import preencher_impostos_saida
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import preencher_impostos_saida
 
 
 class Command(ComandoComEmpresa):

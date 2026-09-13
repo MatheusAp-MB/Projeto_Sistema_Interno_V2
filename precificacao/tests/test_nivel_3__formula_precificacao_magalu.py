@@ -16,7 +16,7 @@ from produtos.models import Produto
 from precificacao.models import ConfiguracaoOperacional, FaixaArmazenagem
 from magalu.models import ConfiguracaoMagalu, FreteMagalu
 from precificacao.funcoes_auxiliares.magalu.formula_precificacao_magalu import FormulaPrecificacaoMagalu
-from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,

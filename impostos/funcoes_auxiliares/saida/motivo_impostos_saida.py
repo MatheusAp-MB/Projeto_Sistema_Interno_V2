@@ -19,8 +19,8 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import calcular_media_ponderada
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import _normalizar_chave_para_busca
+from impostos.funcoes_auxiliares.saida.exibicao_icms_por_ncm import calcular_media_ponderada
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import _normalizar_chave_para_busca
 from impostos.models import IcmsNcmRejeitado, IcmsNcmUf, PisCofinsNcmCst, PisCofinsNcmCstRejeitado
 
 MOTIVO_SEM_NCM = 'sem_ncm'

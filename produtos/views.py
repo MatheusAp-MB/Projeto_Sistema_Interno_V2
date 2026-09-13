@@ -2,8 +2,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, get_object_or_404
 from .models import Produto
 from produtos.funcoes_auxiliares.contexto_tela_produtos import ContextoTelaProdutos
-from impostos.funcoes_auxiliares.exibicao_impostos_entrada import montar_detalhes_para_exibicao
-from impostos.funcoes_auxiliares.motivo_impostos_saida import ClassificadorMotivoFiscal
+from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import montar_detalhes_para_exibicao
+from impostos.funcoes_auxiliares.saida.motivo_impostos_saida import ClassificadorMotivoFiscal
 
 
 def view_produtos(request):

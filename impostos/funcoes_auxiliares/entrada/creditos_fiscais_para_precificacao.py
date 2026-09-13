@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from impostos.funcoes_auxiliares.conversao_valores_impostos import valor_por_unidade
+from impostos.funcoes_auxiliares.entrada.conversao_valores_impostos import valor_por_unidade
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
 

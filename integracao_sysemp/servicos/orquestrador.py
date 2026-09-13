@@ -36,7 +36,7 @@ from api_sysemp import ApiSysemp
 from api_sysemp.core.excecoes import ErroAPISysemp
 from produtos.models import Produto
 
-from impostos.funcoes_auxiliares.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
 from integracao_sysemp.models import SincronizacaoXmlManifestoNotaEntrada
 
 from .arquivos_retorno_api import (

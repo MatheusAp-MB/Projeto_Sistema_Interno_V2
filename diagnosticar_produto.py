@@ -13,8 +13,8 @@ django.setup()
 
 from produtos.models import Produto
 from impostos.models import IcmsNcmUf
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA
-from impostos.funcoes_auxiliares.importacao_icms_ncm import agrupar_icms_por_ncm
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA
+from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import agrupar_icms_por_ncm
 from core.empresa import ALIAS_BANCO_POR_EMPRESA
 
 SKU_PROCURADO = 'F7908050719121.001'

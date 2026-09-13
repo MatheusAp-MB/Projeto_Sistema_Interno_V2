@@ -28,10 +28,10 @@ django.setup()
 from django.core.exceptions import ObjectDoesNotExist
 
 from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
-from impostos.funcoes_auxiliares.motivo_impostos_saida import (
+from impostos.funcoes_auxiliares.saida.motivo_impostos_saida import (
     ClassificadorMotivoFiscal, MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS, MOTIVO_SEM_CST, MOTIVO_SEM_NCM,
 )
-from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA, ImportadorImpostosSaida,
 )
 from produtos.models import Produto
