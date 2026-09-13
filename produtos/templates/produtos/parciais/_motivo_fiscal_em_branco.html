@@ -1,0 +1,43 @@
+{% if motivo %}
+<details class="modal-motivo-fiscal">
+    <summary>Por que este campo está em branco?</summary>
+    <p class="modal-motivo-fiscal-descricao">{{ motivo.descricao }}</p>
+
+    {% if motivo.detalhe_rejeicao %}
+    {% with detalhe=motivo.detalhe_rejeicao %}
+    <div class="modal-motivo-fiscal-detalhe">
+
+        {% for uf, grupos in detalhe.divergencias_por_uf.items %}
+        <div class="modal-motivo-fiscal-grupo">
+            <span class="modal-motivo-fiscal-chave">UF {{ uf }}</span>
+            <ul>
+                {% for grupo in grupos %}
+                <li>
+                    {% if grupo.valor %}{{ grupo.valor }}%{% else %}em branco{% endif %}
+                    — {{ grupo.qtd_eans }} EAN(s): {{ grupo.eans|join:", " }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+
+        {% for campo, grupos in detalhe.campos_divergentes.items %}
+        <div class="modal-motivo-fiscal-grupo">
+            <span class="modal-motivo-fiscal-chave">{{ campo }}</span>
+            <ul>
+                {% for grupo in grupos %}
+                <li>
+                    {% if grupo.valor %}{{ grupo.valor }}%{% else %}em branco{% endif %}
+                    — {{ grupo.qtd_eans }} EAN(s): {{ grupo.eans|join:", " }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+
+        <p class="modal-motivo-fiscal-timestamp">Constatado em {{ detalhe.constatado_em|date:"d/m/Y H:i" }}</p>
+    </div>
+    {% endwith %}
+    {% endif %}
+</details>
+{% endif %}

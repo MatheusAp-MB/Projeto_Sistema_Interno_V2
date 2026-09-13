@@ -9,12 +9,26 @@
 # Regra de validação (decidida no vault): todos os EANs de 1 mesmo NCM
 # precisam concordar em cada 1 das 27 UFs — mesmo valor preenchido, ou
 # todos em branco. Qualquer divergência (inclusive preenchido vs em
-# branco) rejeita o NCM INTEIRO, não só a UF que divergiu — e para na
-# primeira UF divergente encontrada, não avalia as outras.
+# branco) rejeita o NCM INTEIRO, não só a UF que divergiu.
+#
+# Correção de 13/09/2026 (ver Descoberta "Auditoria Fiscal de Impostos de
+# Saida" no vault): a validação agora é EXAUSTIVA — varre as 27 UFs e
+# registra TODAS as que divergem, não só a 1ª encontrada. Antes, achar 1
+# divergência (ex: UF AC) escondia qualquer outra divergência numa UF
+# posterior (ex: SP) — mesmo corrigindo a 1ª na planilha, não dava pra
+# garantir que o NCM não tinha outro problema escondido. Isso NÃO muda se
+# o NCM é aceito ou rejeitado (1 UF divergente já rejeita o NCM inteiro,
+# antes e depois desta correção) — muda só a completude do que fica
+# registrado SOBRE a rejeição, que agora é persistido (Camada A da
+# auditoria, ver IcmsNcmRejeitado em impostos/models.py) em vez de só
+# impresso no stdout e descartado.
 
 from decimal import Decimal
 
-from core.empresa import obter_empresa_ativa
+from django.db import transaction
+from django.utils import timezone
+
+from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
@@ -22,7 +36,7 @@ from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
 )
-from impostos.models import IcmsNcmUf
+from impostos.models import IcmsNcmRejeitado, IcmsNcmUf
 
 COLUNA_NCM = 'NCM'
 
@@ -87,41 +101,76 @@ class LinhaIcmsNcm:
         return bool(self.ncm)
 
 
-# Função Objetivo: Registra a rejeição de 1 NCM — qual UF divergiu e entre quais EANs.
+# Função Objetivo: Registra a rejeição de 1 NCM — TODAS as UFs que
+# divergem entre os EANs desse NCM (não só a 1ª encontrada, ver comentário
+# no topo do arquivo), e quantos EANs formam o grupo.
 class NcmRejeitado:
 
     MAXIMO_EXEMPLOS_POR_GRUPO = 3
 
-    def __init__(self, ncm, uf, valores_conflitantes):
+    def __init__(self, ncm, total_eans_no_grupo, divergencias_por_uf):
         self.ncm = ncm
-        self.uf = uf
-        self.valores_conflitantes = valores_conflitantes  # lista de (ean, valor)
+        self.total_eans_no_grupo = total_eans_no_grupo
+        # {uf: [(ean, valor), ...]} — 1 entrada por UF divergente, TODAS.
+        self.divergencias_por_uf = divergencias_por_uf
 
-    # Função Objetivo: Agrupa os EANs conflitantes por valor, do mais pro menos frequente.
+    # Função Objetivo: Agrupa 1 lista (ean, valor) por valor, do mais pro menos frequente.
     # Explicação em detalhe: o valor mais comum normalmente é o "certo" e os
     # poucos que destoam são o problema real de verdade — separar isso é o
     # que deixa o relatório legível, em vez de despejar todos os EANs numa
-    # linha só (o que virava ilegível com NCMs de 20+ produtos).
-    def _grupos_por_valor(self):
+    # linha só (o que virava ilegível com NCMs de 20+ produtos). Reaproveitada
+    # tanto pelo __str__ (terminal, trunca em 3 exemplos) quanto por
+    # para_dict_auditoria (persistido, sem truncar nenhum).
+    @staticmethod
+    def _grupos_por_valor(conflitantes):
         grupos = {}
-        for ean, valor in self.valores_conflitantes:
+        for ean, valor in conflitantes:
             grupos.setdefault(valor, []).append(ean)
         return sorted(grupos.items(), key=lambda item: -len(item[1]))
 
+    # Função Objetivo: Relatório pro TERMINAL — trunca em 3 exemplos por
+    # grupo de valor, só pra não poluir o stdout num NCM com muitos EANs.
+    # Nunca usado pra persistir nada (ver para_dict_auditoria pra isso).
     def __str__(self):
-        grupos = self._grupos_por_valor()
-        total = len(self.valores_conflitantes)
-
-        linhas = [f'NCM {self.ncm} — UF {self.uf} diverge entre {total} EANs:']
-        for valor, eans in grupos:
-            valor_exibido = str(valor) if valor is not None else 'em branco'
-            if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
-                exemplos = ', '.join(eans)
-                linhas.append(f'    {valor_exibido}: {len(eans)} EAN(s) — {exemplos}')
-            else:
-                exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
-                linhas.append(f'    {valor_exibido}: {len(eans)} EANs — ex: {exemplos}, ...')
+        ufs_ordenadas = sorted(self.divergencias_por_uf)
+        linhas = [
+            f'NCM {self.ncm} — diverge em {len(ufs_ordenadas)} UF(s) de {self.total_eans_no_grupo} '
+            f'EAN(s) no grupo: {", ".join(ufs_ordenadas)}'
+        ]
+        for uf in ufs_ordenadas:
+            conflitantes = self.divergencias_por_uf[uf]
+            linhas.append(f'  UF {uf}:')
+            for valor, eans in self._grupos_por_valor(conflitantes):
+                valor_exibido = str(valor) if valor is not None else 'em branco'
+                if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
+                    exemplos = ', '.join(eans)
+                    linhas.append(f'      {valor_exibido}: {len(eans)} EAN(s) — {exemplos}')
+                else:
+                    exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
+                    linhas.append(f'      {valor_exibido}: {len(eans)} EANs — ex: {exemplos}, ...')
         return '\n'.join(linhas)
+
+    # Função Objetivo: Estrutura COMPLETA, sem truncar — pronta pro
+    # JSONField de IcmsNcmRejeitado (Camada A da auditoria, ver
+    # impostos/models.py). Diferente de __str__ (só terminal, trunca em 3
+    # exemplos), aqui NENHUM EAN fica de fora — decisão do vault, 13/09/2026:
+    # a auditoria persistida não pode esconder exemplo nenhum atrás de um
+    # "...". Decimal vira string (JSON não serializa Decimal nativamente
+    # sem risco de perder precisão) — nunca float, pra nunca arredondar o
+    # que a planilha realmente tinha.
+    def para_dict_auditoria(self):
+        resultado = {}
+        for uf, conflitantes in self.divergencias_por_uf.items():
+            grupos = self._grupos_por_valor(conflitantes)
+            resultado[uf] = [
+                {
+                    'valor': str(valor) if valor is not None else None,
+                    'qtd_eans': len(eans),
+                    'eans': eans,
+                }
+                for valor, eans in grupos
+            ]
+        return resultado
 
 
 # Função Objetivo: Agrupa as linhas por NCM e aplica a regra de consistência.
@@ -144,16 +193,23 @@ class AgrupadorIcmsPorNcm:
     # Explicação em detalhe: usa um set() dos valores encontrados por UF —
     # None entra no set igual a qualquer Decimal, então "1 EAN preenchido +
     # 1 EAN em branco" vira set de tamanho 2 (diverge) exatamente igual a
-    # "2 EANs com valores numéricos diferentes". Para na 1ª UF divergente.
+    # "2 EANs com valores numéricos diferentes". EXAUSTIVO desde 13/09/2026
+    # (ver comentário no topo do arquivo): varre as 27 UFs inteiras,
+    # acumulando TODAS as divergentes em vez de retornar na 1ª encontrada —
+    # o NCM ainda é rejeitado com 1 divergência só, mas o registro da
+    # rejeição agora é completo, nunca escondendo uma 2ª UF problemática.
     def _validar_ncm(self, ncm, linhas):
         if len(linhas) == 1:
             return linhas[0].valores_por_uf, None
 
+        divergencias_por_uf = {}
         for uf in UFS_ORDENADAS:
             valores_encontrados = {linha.valores_por_uf[uf] for linha in linhas}
             if len(valores_encontrados) > 1:
-                conflitantes = [(linha.ean, linha.valores_por_uf[uf]) for linha in linhas]
-                return None, NcmRejeitado(ncm, uf, conflitantes)
+                divergencias_por_uf[uf] = [(linha.ean, linha.valores_por_uf[uf]) for linha in linhas]
+
+        if divergencias_por_uf:
+            return None, NcmRejeitado(ncm, len(linhas), divergencias_por_uf)
 
         return linhas[0].valores_por_uf, None
 
@@ -230,6 +286,31 @@ class PersistidorIcmsNcm:
         )
 
 
+# Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
+# cada NCM rejeitado nesta importação — Camada A da auditoria fiscal (ver
+# IcmsNcmRejeitado em impostos/models.py pro porquê de nunca fazer update
+# incremental aqui, ao contrário de PersistidorIcmsNcm).
+class PersistidorIcmsNcmRejeitado:
+
+    def __init__(self, constatado_em):
+        self.constatado_em = constatado_em
+
+    def salvar(self, rejeitados):
+        IcmsNcmRejeitado.objects.all().delete()
+        novos = [
+            IcmsNcmRejeitado(
+                ncm=rejeitado.ncm,
+                qtd_ufs_divergentes=len(rejeitado.divergencias_por_uf),
+                qtd_eans_no_grupo=rejeitado.total_eans_no_grupo,
+                divergencias_por_uf=rejeitado.para_dict_auditoria(),
+                constatado_em=self.constatado_em,
+            )
+            for rejeitado in rejeitados
+        ]
+        if novos:
+            IcmsNcmRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
+
+
 # Função Objetivo: Ponto de entrada do comando — lê, agrupa, valida e grava, do arquivo ao banco.
 def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
     if caminho_planilha is None:
@@ -255,10 +336,36 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
             stdout.write('')
             stdout.write(style.WARNING(str(rejeitado)))
 
+    # Momento único desta rodada — TODO IcmsNcmRejeitado gravado agora
+    # carrega o MESMO instante, mesmo que a gravação em si leve alguns
+    # milissegundos linha a linha (garantia do vault, 13/09/2026).
+    constatado_em = timezone.now()
+
     persistidor = PersistidorIcmsNcm()
     persistidor.carregar_existentes()
     persistidor.processar(agrupador.aceitos)
-    persistidor.salvar()
+
+    persistidor_rejeitados = PersistidorIcmsNcmRejeitado(constatado_em)
+
+    # 1 ÚNICA transação: os NCMs aceitos (criados/atualizados) e a
+    # substituição total da auditoria de rejeitados entram juntos, ou
+    # nenhum dos dois entra — nunca um sem o outro, mesmo se o processo
+    # cair no meio (garantia do vault, 13/09/2026). using=obter_alias_banco_ativo()
+    # é OBRIGATÓRIO aqui: como o EmpresaRouter roteia os models desta app
+    # pro alias 'magazine'/'samvale' (nunca 'default'), um bare
+    # transaction.atomic() (sem using=) abriria a transação na conexão
+    # ERRADA — a do alias 'default', que é uma conexão DIFERENTE mesmo
+    # apontando pro mesmo banco físico do Magazine — e não protegeria
+    # nenhuma das escritas de verdade, que acontecem na conexão do alias
+    # ativo. Ver core/database_router.py + core/empresa.py.
+    with transaction.atomic(using=obter_alias_banco_ativo()):
+        persistidor.salvar()
+        persistidor_rejeitados.salvar(agrupador.rejeitados)
 
     stdout.write('')
     stdout.write(style.SUCCESS(persistidor.relatorio_resumo()))
+    stdout.write(style.SUCCESS(
+        f'[AUDITORIA] {len(agrupador.rejeitados)} NCM(s) rejeitado(s) registrados pra consulta '
+        f'(tela de produto e tela de Auditoria Fiscal), constatado em '
+        f'{timezone.localtime(constatado_em):%d/%m/%Y %H:%M:%S}.'
+    ))

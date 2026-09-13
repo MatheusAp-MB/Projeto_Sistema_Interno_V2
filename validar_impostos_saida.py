@@ -4,10 +4,19 @@
 # vindos de tabela (icms_saida_sp, icms_saida_media, pis_percentual,
 # cofins_percentual) em Produto batem com o que IcmsNcmUf/PisCofinsNcmCst
 # diriam agora — e, pros produtos que ficaram sem dado validado, classifica
-# o motivo exato (sem NCM / NCM rejeitado na validação / NCM nunca
-# importado / sem CST / NCM+CST rejeitado ou nunca importado). Roda pras 2
-# empresas, 1 execução só. Reaproveita a mesma lógica de busca do
-# ImportadorImpostosSaida — não reimplementa nada.
+# o motivo exato usando o ÚNICO classificador de motivo do sistema
+# (ClassificadorMotivoFiscal, Camada B da auditoria fiscal — ver Descoberta
+# no vault, 13/09/2026). Roda pras 2 empresas, 1 execução só. Reaproveita a
+# mesma lógica de busca do ImportadorImpostosSaida — não reimplementa nada.
+#
+# Correção de 13/09/2026: antes, este script relia a planilha Excel de novo
+# (agrupar_icms_por_ncm/agrupar_pis_cofins_por_ncm_cst) só pra descobrir
+# quais NCMs estavam rejeitados — 2 leituras de arquivo redundantes, e a
+# lógica de classificação vivia só aqui, duplicada se outra tela um dia
+# precisasse do mesmo motivo. Agora consulta só o banco (IcmsNcmRejeitado/
+# PisCofinsNcmCstRejeitado, gravados pela última importação real) através
+# do classificador — mesma fonte que a tela de produto (Camada C) e a tela
+# de Auditoria Fiscal (Camada D) usam, nunca 2 versões da mesma lógica.
 
 import os
 
@@ -17,10 +26,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.s
 django.setup()
 
 from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
-from impostos.funcoes_auxiliares.importacao_icms_ncm import agrupar_icms_por_ncm
-from impostos.funcoes_auxiliares.importacao_pis_cofins_ncm_cst import agrupar_pis_cofins_por_ncm_cst
+from impostos.funcoes_auxiliares.motivo_impostos_saida import (
+    ClassificadorMotivoFiscal, MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS, MOTIVO_SEM_CST, MOTIVO_SEM_NCM,
+)
 from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
-    CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA, ImportadorImpostosSaida, _normalizar_chave_para_busca,
+    CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA, ImportadorImpostosSaida,
 )
 from produtos.models import Produto
 
@@ -37,16 +47,14 @@ def validar_empresa(empresa):
     importador = ImportadorImpostosSaida(caminho_planilha=caminho_planilha)
     importador.carregar_tabelas_normalizadas()
 
-    # NCMs/NCM+CST rejeitados na validação da planilha atual — pra
-    # classificar exatamente por que 1 produto ficou sem dado.
-    ncms_rejeitados_icms = {r.ncm for r in agrupar_icms_por_ncm(caminho_planilha).rejeitados}
-    ncms_cst_rejeitados_pis_cofins = {
-        (r.ncm, r.cst) for r in agrupar_pis_cofins_por_ncm_cst(caminho_planilha).rejeitados
-    }
+    # 1 instância só, carregada 1 vez — classifica quantos produtos
+    # precisar sem repetir query nem reler a planilha (ver motivo_impostos_saida.py).
+    classificador = ClassificadorMotivoFiscal()
 
     mismatches = {'icms_saida_sp': [], 'icms_saida_media': [], 'pis_percentual': [], 'cofins_percentual': []}
     motivos_sem_dado = {
         'sem_ncm': [], 'ncm_rejeitado_icms': [], 'ncm_nunca_importado_icms': [],
+        'icms_media_sem_cobertura_ufs': [],
         'sem_cst': [], 'ncm_cst_rejeitado_pis_cofins': [], 'ncm_cst_nunca_importado_pis_cofins': [],
     }
 
@@ -64,25 +72,36 @@ def validar_empresa(empresa):
             if campo in campos_esperados and campos_esperados[campo] != getattr(produto, campo):
                 mismatches[campo].append((produto.ean, getattr(produto, campo), campos_esperados[campo]))
 
-        ncm_norm = _normalizar_chave_para_busca(produto.ncm)
         if 'icms_saida_sp' not in campos_esperados:
-            if ncm_norm is None:
-                motivos_sem_dado['sem_ncm'].append(produto.ean)
-            elif ncm_norm in ncms_rejeitados_icms:
-                motivos_sem_dado['ncm_rejeitado_icms'].append((produto.ean, produto.ncm))
-            elif ncm_norm not in importador.icms_por_ncm:
-                motivos_sem_dado['ncm_nunca_importado_icms'].append((produto.ean, produto.ncm))
+            motivo = classificador.classificar_icms_sp(produto.ncm)
+            if motivo is not None:
+                # sem_ncm mantém o formato antigo (só o EAN — não tem NCM
+                # nenhum a mais pra mostrar); os outros 2 motivos mostram
+                # o NCM junto, igual ao script original.
+                if motivo.motivo == MOTIVO_SEM_NCM:
+                    motivos_sem_dado[motivo.motivo].append(produto.ean)
+                else:
+                    motivos_sem_dado[motivo.motivo].append((produto.ean, produto.ncm))
+
+        if 'icms_saida_media' not in campos_esperados:
+            motivo = classificador.classificar_icms_media(produto.ncm)
+            if motivo is not None and motivo.motivo == MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS:
+                # Só reporta aqui quando o motivo é ESPECÍFICO da Média
+                # (SP presente, cobertura insuficiente nas outras UFs) —
+                # os outros motivos (sem NCM/rejeitado/nunca importado) já
+                # foram contados acima, junto com icms_saida_sp, pra não
+                # duplicar o mesmo produto nos 2 buckets.
+                motivos_sem_dado[motivo.motivo].append((produto.ean, produto.ncm))
 
         if 'pis_percentual' not in campos_esperados:
-            cst_norm = _normalizar_chave_para_busca(produto.cst_saida)
-            if cst_norm is None:
-                motivos_sem_dado['sem_cst'].append(produto.ean)
-            elif ncm_norm and (ncm_norm, cst_norm) in ncms_cst_rejeitados_pis_cofins:
-                motivos_sem_dado['ncm_cst_rejeitado_pis_cofins'].append((produto.ean, produto.ncm, produto.cst_saida))
-            elif ncm_norm:
-                motivos_sem_dado['ncm_cst_nunca_importado_pis_cofins'].append(
-                    (produto.ean, produto.ncm, produto.cst_saida)
-                )
+            motivo = classificador.classificar_pis_cofins(produto.ncm, produto.cst_saida)
+            if motivo is not None:
+                # sem_cst mantém o formato antigo (só o EAN); os outros 2
+                # motivos mostram NCM + CST junto, igual ao script original.
+                if motivo.motivo == MOTIVO_SEM_CST:
+                    motivos_sem_dado[motivo.motivo].append(produto.ean)
+                else:
+                    motivos_sem_dado[motivo.motivo].append((produto.ean, produto.ncm, produto.cst_saida))
 
     print(f'\nProdutos verificados: {total}')
 

@@ -1,0 +1,139 @@
+<!--
+* [RESUMO] → Tela de Auditoria Fiscal (Camada D, 13/09/2026, ver Descoberta
+* no vault). Lista TODAS as rejeições da última importação de ICMS por NCM
+* e de PIS/COFINS por NCM+CST — sem truncar, ordenadas por impacto — pra
+* ninguém precisar ir produto a produto pra descobrir o que ficou sem
+* dado fiscal e por quê. 2 abas (decisão de Matheus, 13/09/2026): ICMS por
+* NCM / PIS-COFINS por NCM+CST. Nunca lê a planilha Excel — só o que já
+* foi persistido (ver exibicao_auditoria_fiscal.py).
+-->
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Auditoria Fiscal — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Auditoria Fiscal — Impostos de Saída{% endblock %}
+
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'impostos/css/layout_auditoria_fiscal.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+
+    <div class="auditoria-toolbar">
+        <div class="auditoria-toolbar-abas" role="tablist">
+            <button type="button" class="auditoria-aba auditoria-aba-ativa" data-aba="icms" role="tab" aria-selected="true">
+                ICMS por NCM
+                <span class="auditoria-aba-contador">{{ linhas_icms|length }}</span>
+            </button>
+            <button type="button" class="auditoria-aba" data-aba="pis_cofins" role="tab" aria-selected="false">
+                PIS/COFINS por NCM+CST
+                <span class="auditoria-aba-contador">{{ linhas_pis_cofins|length }}</span>
+            </button>
+        </div>
+        <div class="auditoria-toolbar-busca">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" id="auditoria-busca" placeholder="Buscar por NCM, CST ou EAN...">
+        </div>
+    </div>
+
+    <div class="auditoria-painel" id="painel-auditoria-icms" role="tabpanel">
+        <p class="auditoria-timestamp">
+            {% if constatado_em_icms %}
+                <i class="fas fa-clock-rotate-left"></i>
+                Constatado na última importação de ICMS por NCM, em {{ constatado_em_icms|date:"d/m/Y H:i" }}.
+            {% else %}
+                <i class="fas fa-circle-info"></i>
+                A importação de ICMS por NCM ainda não rodou — nenhum dado de auditoria disponível.
+            {% endif %}
+        </p>
+
+        {% if linhas_icms %}
+        <div class="auditoria-lista">
+            {% for linha in linhas_icms %}
+            <details class="auditoria-item" {% if forloop.first %}open{% endif %} data-busca="{{ linha.busca }}">
+                <summary class="auditoria-item-resumo">
+                    <span class="auditoria-item-identificacao">NCM {{ linha.ncm }}</span>
+                    <span class="badge-tabela badge-fiscal-rejeitado">Rejeitado</span>
+                    <span class="auditoria-item-metrica">{{ linha.qtd_ufs_divergentes }} UF{{ linha.qtd_ufs_divergentes|pluralize }} divergente{{ linha.qtd_ufs_divergentes|pluralize }}</span>
+                    <span class="auditoria-item-metrica auditoria-item-metrica-impacto">{{ linha.qtd_eans_no_grupo }} EANs no grupo</span>
+                    <i class="fas fa-chevron-down auditoria-item-seta"></i>
+                </summary>
+                <div class="auditoria-item-corpo">
+                    {% for uf, grupos in linha.divergencias_por_uf.items %}
+                    <div class="auditoria-item-grupo">
+                        <span class="auditoria-item-grupo-chave">UF {{ uf }}</span>
+                        <ul>
+                            {% for grupo in grupos %}
+                            <li>
+                                <strong>{% if grupo.valor %}{{ grupo.valor }}%{% else %}em branco{% endif %}</strong>
+                                — {{ grupo.qtd_eans }} EAN{{ grupo.qtd_eans|pluralize }}: {{ grupo.eans|join:", " }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="auditoria-vazio">
+            <i class="fas fa-circle-check"></i>
+            <p>Nenhum NCM rejeitado na última importação — todos os NCMs bateram entre os EANs.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="auditoria-painel auditoria-painel-oculto" id="painel-auditoria-pis_cofins" role="tabpanel">
+        <p class="auditoria-timestamp">
+            {% if constatado_em_pis_cofins %}
+                <i class="fas fa-clock-rotate-left"></i>
+                Constatado na última importação de PIS/COFINS por NCM+CST, em {{ constatado_em_pis_cofins|date:"d/m/Y H:i" }}.
+            {% else %}
+                <i class="fas fa-circle-info"></i>
+                A importação de PIS/COFINS por NCM+CST ainda não rodou — nenhum dado de auditoria disponível.
+            {% endif %}
+        </p>
+
+        {% if linhas_pis_cofins %}
+        <div class="auditoria-lista">
+            {% for linha in linhas_pis_cofins %}
+            <details class="auditoria-item" {% if forloop.first %}open{% endif %} data-busca="{{ linha.busca }}">
+                <summary class="auditoria-item-resumo">
+                    <span class="auditoria-item-identificacao">NCM {{ linha.ncm }} + CST {{ linha.cst }}</span>
+                    <span class="badge-tabela badge-fiscal-rejeitado">Rejeitado</span>
+                    <span class="auditoria-item-metrica">{{ linha.campos_divergentes|length }} campo{{ linha.campos_divergentes|length|pluralize }} divergente{{ linha.campos_divergentes|length|pluralize }}</span>
+                    <span class="auditoria-item-metrica auditoria-item-metrica-impacto">{{ linha.qtd_eans_no_grupo }} EANs no grupo</span>
+                    <i class="fas fa-chevron-down auditoria-item-seta"></i>
+                </summary>
+                <div class="auditoria-item-corpo">
+                    {% for campo, grupos in linha.campos_divergentes.items %}
+                    <div class="auditoria-item-grupo">
+                        <span class="auditoria-item-grupo-chave">{{ campo }}</span>
+                        <ul>
+                            {% for grupo in grupos %}
+                            <li>
+                                <strong>{% if grupo.valor %}{{ grupo.valor }}%{% else %}em branco{% endif %}</strong>
+                                — {{ grupo.qtd_eans }} EAN{{ grupo.qtd_eans|pluralize }}: {{ grupo.eans|join:", " }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="auditoria-vazio">
+            <i class="fas fa-circle-check"></i>
+            <p>Nenhum grupo NCM+CST rejeitado na última importação — todos bateram entre os EANs.</p>
+        </div>
+        {% endif %}
+    </div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'impostos/js/script_auditoria_fiscal.js' %}"></script>
+{% endblock %}

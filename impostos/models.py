@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
 from produtos.models import Produto
@@ -257,3 +258,106 @@ class PisCofinsNcmCst(models.Model):
         pis_exibido = f'{self.pis}%' if self.pis is not None else 'em branco'
         cofins_exibido = f'{self.cofins}%' if self.cofins is not None else 'em branco'
         return f'NCM {self.ncm} + CST {self.cst}: PIS {pis_exibido}, COFINS {cofins_exibido}'
+
+
+# ---------------------------------------------------------------------------
+# AUDITORIA FISCAL — motivo de rejeição, persistido (Camada A da auditoria
+# fiscal, decidida no vault em 13/09/2026 — ver Descoberta "Auditoria Fiscal
+# de Impostos de Saida, Camadas A-D Planejadas").
+#
+# Até 13/09/2026, o motivo de um NCM (ou NCM+CST) ter sido rejeitado numa
+# importação era calculado em memória e só impresso no stdout do comando —
+# nunca gravado em lugar nenhum. Resultado: não existia NENHUMA tela nem
+# log que explicasse, depois do fato, por que um campo fiscal de saída
+# estava em branco (achado real: produto F7908050719121.001, NCM 84244100).
+#
+# Semântica de SUBSTITUIÇÃO TOTAL a cada rodada — o OPOSTO de
+# IcmsNcmUf/PisCofinsNcmCst (que só criam/atualizam, nunca apagam um NCM(+CST)
+# já aceito antes). Aqui, a cada execução de importar_icms_por_ncm /
+# importar_pis_cofins_por_ncm_cst, a tabela inteira é apagada e recriada do
+# zero com os rejeitados de AGORA. Isso é proposital e obrigatório (garantia
+# exigida por Matheus, 13/09/2026): um NCM que deixou de ser rejeitado (a
+# planilha foi corrigida) precisa DESAPARECER daqui no exato instante em que
+# a próxima rodada roda — senão viraria um "fantasma" contradizendo um NCM
+# que já foi corrigido, exatamente o tipo de dado sujo/desatualizado que
+# essa camada existe pra impedir.
+class IcmsNcmRejeitado(models.Model):
+    # Função Objetivo: 1 linha por NCM rejeitado na ÚLTIMA importação de
+    # ICMS por NCM — com TODAS as UFs divergentes (não só a 1ª encontrada,
+    # corrigido em 13/09/2026 junto com esta camada — ver
+    # AgrupadorIcmsPorNcm._validar_ncm em importacao_icms_ncm.py).
+
+    ncm = models.CharField(max_length=10, unique=True)
+
+    # Quantidade de UFs (das 27) que divergem entre os EANs deste NCM —
+    # sempre >= 1 (um NCM só aparece aqui se pelo menos 1 UF divergiu).
+    qtd_ufs_divergentes = models.PositiveSmallIntegerField()
+
+    # Quantidade de EANs da planilha agrupados sob este NCM nesta rodada —
+    # é uma contagem sobre a PLANILHA, não uma nova consulta ao catálogo de
+    # Produto (mantém a gravação em 1 única query em lote, sem N+1 por NCM
+    # rejeitado — guarantee de eficiência do vault). Nem todo EAN da
+    # planilha necessariamente tem Produto correspondente no banco (ver
+    # sem_produto_correspondente em ImportadorImpostosSaida) — o nome não
+    # afirma "produtos", só o que é literalmente contável aqui.
+    qtd_eans_no_grupo = models.PositiveIntegerField()
+
+    # Detalhe COMPLETO, sem truncar (diferente do __str__ de NcmRejeitado,
+    # que trunca em 3 exemplos só pro stdout do terminal) — decisão do
+    # vault, 13/09/2026: a auditoria não pode esconder exemplo nenhum atrás
+    # de um "...". 1 chave JSON por UF divergente:
+    #   {"AC": [{"valor": "5.60", "qtd_eans": 42, "eans": [...]},
+    #           {"valor": "8.80", "qtd_eans": 2, "eans": [...]}], ...}
+    # Um NCM com centenas de EANs por grupo produz, no pior caso realista,
+    # poucos KB de JSON (EANs são strings de ~13 dígitos) — muito abaixo de
+    # qualquer limite prático do tipo JSON do MySQL (max_allowed_packet,
+    # tipicamente dezenas de MB) — decisão em aberto do vault, resolvida
+    # aqui: não é problema de tamanho.
+    divergencias_por_uf = models.JSONField(default=dict, encoder=DjangoJSONEncoder)
+
+    # Capturado 1 ÚNICA vez por execução do comando (timezone.now() chamado
+    # 1 vez em importar_icms_por_ncm, nunca por NCM) — todo NCM rejeitado
+    # numa mesma rodada compartilha o MESMO instante, mesmo que a gravação
+    # em si leve alguns milissegundos linha a linha (garantia do vault).
+    constatado_em = models.DateTimeField()
+
+    class Meta:
+        verbose_name = 'ICMS de Saída — NCM Rejeitado (Auditoria)'
+        verbose_name_plural = 'ICMS de Saída — NCMs Rejeitados (Auditoria)'
+        ordering = ['-qtd_eans_no_grupo', 'ncm']
+
+    def __str__(self):
+        return (
+            f'NCM {self.ncm} — rejeitado em {self.qtd_ufs_divergentes} UF(s), '
+            f'{self.qtd_eans_no_grupo} EAN(s) no grupo'
+        )
+
+
+class PisCofinsNcmCstRejeitado(models.Model):
+    # Função Objetivo: 1 linha por grupo NCM+CST rejeitado na ÚLTIMA
+    # importação de PIS/COFINS por NCM+CST — com TODOS os campos
+    # divergentes (PIS e/ou COFINS, não só o 1º encontrado, corrigido em
+    # 13/09/2026 — ver AgrupadorPisCofinsPorNcmCst._validar_grupo em
+    # importacao_pis_cofins_ncm_cst.py). Mesma semântica de substituição
+    # total do IcmsNcmRejeitado, ver comentário acima da seção.
+
+    ncm = models.CharField(max_length=10)
+    cst = models.CharField(max_length=4)
+
+    qtd_eans_no_grupo = models.PositiveIntegerField()
+
+    # {"PIS": [{"valor": "1.65", "qtd_eans": 10, "eans": [...]}, ...],
+    #  "COFINS": [...]} — só as chaves que de fato divergiram (1 ou 2).
+    campos_divergentes = models.JSONField(default=dict, encoder=DjangoJSONEncoder)
+
+    constatado_em = models.DateTimeField()
+
+    class Meta:
+        verbose_name = 'PIS/COFINS de Saída — NCM+CST Rejeitado (Auditoria)'
+        verbose_name_plural = 'PIS/COFINS de Saída — NCM+CST Rejeitados (Auditoria)'
+        unique_together = ['ncm', 'cst']
+        ordering = ['-qtd_eans_no_grupo', 'ncm', 'cst']
+
+    def __str__(self):
+        campos = ', '.join(sorted(self.campos_divergentes.keys()))
+        return f'NCM {self.ncm} + CST {self.cst} — diverge em {campos}, {self.qtd_eans_no_grupo} EAN(s) no grupo'

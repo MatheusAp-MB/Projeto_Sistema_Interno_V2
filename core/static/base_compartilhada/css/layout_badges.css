@@ -139,6 +139,40 @@
 
 
 /* ================================================
+   AUDITORIA FISCAL — IMPOSTOS DE SAÍDA (13/09/2026)
+   Severidade de 1 campo fiscal (ICMS SP/Média, PIS, COFINS) — tela de
+   Produto (aba Impostos) e tela de Auditoria Fiscal. 4 cores, 4
+   significados fixos, nunca misturados:
+   ================================================ */
+/* * [EXPLICAÇÃO] → Verde reaproveitado de propósito — MESMO significado
+ *                  já usado em badge-full/badge-winning/postagem-aprovado/
+ *                  video-gerado (positivo/completo/resolvido), não um
+ *                  conceito novo. Campo com valor real cadastrado. */
+.badge-fiscal-validado             { background: #dcfce7; color: #15803d; }
+/* * [EXPLICAÇÃO] → Cinza reaproveitado de propósito — MESMO significado já
+ *                  usado em badge-sem-dado (sem dado, neutro). O problema
+ *                  é no PRÓPRIO produto (falta NCM ou CST cadastrado),
+ *                  não na planilha de impostos. */
+.badge-fiscal-cadastro-incompleto  { background: #e5e7eb; color: #6b7280; }
+/* * [EXPLICAÇÃO] → Laranja NOVO, escolhido de propósito pra NÃO colidir com
+ *                  nenhum laranja/âmbar já em uso (badge-atrasado/
+ *                  badge-agencia usam #ffedd5/#9a3412; badge-coleta/
+ *                  postagem-aguardando/badge-listed usam #fef3c7/#92400e-
+ *                  b45309) — "cobertura pendente" não é nem atraso nem
+ *                  aguardando coleta, é um NCM(+CST) que ainda não foi
+ *                  importado/coberto, precisa de tom próprio pra não
+ *                  herdar por acidente o significado de outro badge. */
+.badge-fiscal-cobertura-pendente   { background: #ffe8cc; color: #b6540a; }
+/* * [EXPLICAÇÃO] → Vermelho reaproveitado de propósito — MESMO significado
+ *                  já usado em badge-conta-propria/badge-competing/
+ *                  postagem-recusado/status-encerrado (crítico/rejeitado),
+ *                  não um conceito novo. NCM(+CST) rejeitado por
+ *                  divergência real entre EANs — o caso mais grave, exige
+ *                  corrigir a planilha Busca Legal. */
+.badge-fiscal-rejeitado             { background: #fee2e2; color: #b91c1c; }
+
+
+/* ================================================
    EMPRESA ATIVA (Magazine/Samvale) — badge fixo na toolbar
    ================================================ */
 .badge-empresa {

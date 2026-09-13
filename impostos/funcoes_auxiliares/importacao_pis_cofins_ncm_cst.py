@@ -18,10 +18,23 @@
 # com mais de 1 CST — no levantamento real, isso bateu, EAN por EAN, com
 # os mesmos itens que já divergiam no ICMS por NCM: provável cadastro de
 # CST errado, não variação tributária legítima. Não impede o import.
+#
+# Correção de 13/09/2026 (ver Descoberta "Auditoria Fiscal de Impostos de
+# Saida" no vault): a validação agora é EXAUSTIVA — checa PIS E COFINS
+# sempre, registrando os 2 se os 2 divergirem, em vez de parar no 1º campo
+# divergente encontrado. Não muda se o grupo é aceito ou rejeitado (1
+# campo divergente já rejeita o grupo inteiro, antes e depois desta
+# correção) — muda só a completude do que fica registrado sobre a
+# rejeição, agora persistida (Camada A da auditoria, ver
+# PisCofinsNcmCstRejeitado em impostos/models.py) em vez de só impressa
+# no stdout e descartada.
 
 from decimal import Decimal
 
-from core.empresa import obter_empresa_ativa
+from django.db import transaction
+from django.utils import timezone
+
+from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from core.management.commands.popular_banco_suporte.conversor_celula_excel import ConversorCelulaExcel
 from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
@@ -29,7 +42,7 @@ from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
 )
-from impostos.models import PisCofinsNcmCst
+from impostos.models import PisCofinsNcmCst, PisCofinsNcmCstRejeitado
 
 COLUNA_NCM = 'NCM'
 COLUNA_PIS = 'PIS'
@@ -88,40 +101,71 @@ class LinhaPisCofinsNcmCst:
         return bool(self.ncm) and bool(self.cst)
 
 
-# Função Objetivo: Registra a rejeição de 1 grupo NCM+CST — qual campo
-# (PIS ou COFINS) divergiu e entre quais EANs.
+# Função Objetivo: Registra a rejeição de 1 grupo NCM+CST — TODOS os
+# campos (PIS e/ou COFINS) que divergem entre os EANs do grupo (não só o
+# 1º encontrado, ver comentário no topo do arquivo), e quantos EANs
+# formam o grupo.
 class GrupoRejeitado:
 
     MAXIMO_EXEMPLOS_POR_GRUPO = 3
 
-    def __init__(self, ncm, cst, campo, valores_conflitantes):
+    def __init__(self, ncm, cst, total_eans_no_grupo, divergencias_por_campo):
         self.ncm = ncm
         self.cst = cst
-        self.campo = campo
-        self.valores_conflitantes = valores_conflitantes  # lista de (ean, valor)
+        self.total_eans_no_grupo = total_eans_no_grupo
+        # {'PIS': [(ean, valor), ...], 'COFINS': [...]} — só os campos que
+        # de fato divergiram (1 ou os 2).
+        self.divergencias_por_campo = divergencias_por_campo
 
-    # Agrupa os EANs conflitantes por valor, do mais pro menos frequente —
-    # mesma lógica de NcmRejeitado em importacao_icms_ncm.py.
-    def _grupos_por_valor(self):
+    # Agrupa 1 lista (ean, valor) por valor, do mais pro menos frequente —
+    # mesma lógica de NcmRejeitado._grupos_por_valor em importacao_icms_ncm.py.
+    # Reaproveitada pelo __str__ (trunca em 3 exemplos) e por
+    # para_dict_auditoria (persistido, sem truncar nenhum).
+    @staticmethod
+    def _grupos_por_valor(conflitantes):
         grupos = {}
-        for ean, valor in self.valores_conflitantes:
+        for ean, valor in conflitantes:
             grupos.setdefault(valor, []).append(ean)
         return sorted(grupos.items(), key=lambda item: -len(item[1]))
 
+    # Função Objetivo: Relatório pro TERMINAL — trunca em 3 exemplos por
+    # grupo de valor. Nunca usado pra persistir nada (ver para_dict_auditoria).
     def __str__(self):
-        grupos = self._grupos_por_valor()
-        total = len(self.valores_conflitantes)
-
-        linhas = [f'NCM {self.ncm} + CST {self.cst} — campo {self.campo} diverge entre {total} EANs:']
-        for valor, eans in grupos:
-            valor_exibido = str(valor) if valor is not None else 'em branco'
-            if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
-                exemplos = ', '.join(eans)
-                linhas.append(f'    {valor_exibido}: {len(eans)} EAN(s) — {exemplos}')
-            else:
-                exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
-                linhas.append(f'    {valor_exibido}: {len(eans)} EANs — ex: {exemplos}, ...')
+        campos_ordenados = sorted(self.divergencias_por_campo)
+        linhas = [
+            f'NCM {self.ncm} + CST {self.cst} — diverge em {len(campos_ordenados)} campo(s) de '
+            f'{self.total_eans_no_grupo} EAN(s) no grupo: {", ".join(campos_ordenados)}'
+        ]
+        for campo in campos_ordenados:
+            conflitantes = self.divergencias_por_campo[campo]
+            linhas.append(f'  {campo}:')
+            for valor, eans in self._grupos_por_valor(conflitantes):
+                valor_exibido = str(valor) if valor is not None else 'em branco'
+                if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
+                    exemplos = ', '.join(eans)
+                    linhas.append(f'      {valor_exibido}: {len(eans)} EAN(s) — {exemplos}')
+                else:
+                    exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
+                    linhas.append(f'      {valor_exibido}: {len(eans)} EANs — ex: {exemplos}, ...')
         return '\n'.join(linhas)
+
+    # Função Objetivo: Estrutura COMPLETA, sem truncar — pronta pro
+    # JSONField de PisCofinsNcmCstRejeitado (Camada A da auditoria, ver
+    # impostos/models.py). Mesma lógica de NcmRejeitado.para_dict_auditoria
+    # em importacao_icms_ncm.py — nunca esconde EAN nenhum atrás de "...".
+    def para_dict_auditoria(self):
+        resultado = {}
+        for campo, conflitantes in self.divergencias_por_campo.items():
+            grupos = self._grupos_por_valor(conflitantes)
+            resultado[campo] = [
+                {
+                    'valor': str(valor) if valor is not None else None,
+                    'qtd_eans': len(eans),
+                    'eans': eans,
+                }
+                for valor, eans in grupos
+            ]
+        return resultado
 
 
 # Função Objetivo: Agrupa as linhas por NCM+CST e aplica a regra de consistência.
@@ -141,18 +185,24 @@ class AgrupadorPisCofinsPorNcmCst:
         self.linhas_por_grupo.setdefault((linha.ncm, linha.cst), []).append(linha)
 
     # Função Objetivo: Decide se 1 grupo NCM+CST é aceito (e com quais
-    # valores) ou rejeitado (e por quê). Checa PIS e COFINS separadamente
-    # — se só 1 dos 2 divergir, rejeita mesmo assim (o grupo inteiro).
+    # valores) ou rejeitado (e por quê). Checa PIS e COFINS — EXAUSTIVO
+    # desde 13/09/2026 (ver comentário no topo do arquivo): sempre avalia
+    # os 2 campos, registrando ambos se os 2 divergirem, em vez de parar
+    # no 1º divergente. O grupo ainda é rejeitado com 1 campo divergente
+    # só, mas o registro da rejeição agora é completo.
     def _validar_grupo(self, ncm, cst, linhas):
         if len(linhas) == 1:
             linha = linhas[0]
             return {'pis': linha.pis, 'cofins': linha.cofins}, None
 
+        divergencias_por_campo = {}
         for campo, extrator in [('PIS', lambda l: l.pis), ('COFINS', lambda l: l.cofins)]:
             valores_encontrados = {extrator(linha) for linha in linhas}
             if len(valores_encontrados) > 1:
-                conflitantes = [(linha.ean, extrator(linha)) for linha in linhas]
-                return None, GrupoRejeitado(ncm, cst, campo, conflitantes)
+                divergencias_por_campo[campo] = [(linha.ean, extrator(linha)) for linha in linhas]
+
+        if divergencias_por_campo:
+            return None, GrupoRejeitado(ncm, cst, len(linhas), divergencias_por_campo)
 
         return {'pis': linhas[0].pis, 'cofins': linhas[0].cofins}, None
 
@@ -245,6 +295,32 @@ class PersistidorPisCofinsNcmCst:
         )
 
 
+# Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
+# cada grupo NCM+CST rejeitado nesta importação — Camada A da auditoria
+# fiscal (ver PisCofinsNcmCstRejeitado em impostos/models.py pro porquê de
+# nunca fazer update incremental aqui, ao contrário de
+# PersistidorPisCofinsNcmCst).
+class PersistidorPisCofinsNcmCstRejeitado:
+
+    def __init__(self, constatado_em):
+        self.constatado_em = constatado_em
+
+    def salvar(self, rejeitados):
+        PisCofinsNcmCstRejeitado.objects.all().delete()
+        novos = [
+            PisCofinsNcmCstRejeitado(
+                ncm=rejeitado.ncm,
+                cst=rejeitado.cst,
+                qtd_eans_no_grupo=rejeitado.total_eans_no_grupo,
+                campos_divergentes=rejeitado.para_dict_auditoria(),
+                constatado_em=self.constatado_em,
+            )
+            for rejeitado in rejeitados
+        ]
+        if novos:
+            PisCofinsNcmCstRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
+
+
 # Função Objetivo: Ponto de entrada do comando — lê, agrupa, valida e grava, do arquivo ao banco.
 def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
     if caminho_planilha is None:
@@ -281,10 +357,25 @@ def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
             descricao_csts = ', '.join(f'CST {cst} ({total} EAN(s))' for cst, total in csts)
             stdout.write(style.WARNING(f'    NCM {ncm}: {descricao_csts}'))
 
+    # Momento único desta rodada — mesma garantia de importar_icms_por_ncm.
+    constatado_em = timezone.now()
+
     persistidor = PersistidorPisCofinsNcmCst()
     persistidor.carregar_existentes()
     persistidor.processar(agrupador.aceitos)
-    persistidor.salvar()
+
+    persistidor_rejeitados = PersistidorPisCofinsNcmCstRejeitado(constatado_em)
+
+    # 1 ÚNICA transação — mesma garantia (e mesmo motivo pro using=) de
+    # importar_icms_por_ncm em importacao_icms_ncm.py.
+    with transaction.atomic(using=obter_alias_banco_ativo()):
+        persistidor.salvar()
+        persistidor_rejeitados.salvar(agrupador.rejeitados)
 
     stdout.write('')
-    stdout.write(style.SUCCESS(persistidor.relatorio_resumo())) 
+    stdout.write(style.SUCCESS(persistidor.relatorio_resumo()))
+    stdout.write(style.SUCCESS(
+        f'[AUDITORIA] {len(agrupador.rejeitados)} grupo(s) NCM+CST rejeitado(s) registrados pra '
+        f'consulta (tela de produto e tela de Auditoria Fiscal), constatado em '
+        f'{timezone.localtime(constatado_em):%d/%m/%Y %H:%M:%S}.'
+    )) 

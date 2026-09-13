@@ -445,6 +445,11 @@
                     <div class="card">
                         <div class="card-header modal-card-cabecalho modal-card-cabecalho-icms-saida-sp">
                             <strong>ICMS Saída SP</strong>
+                            {% if produto.obter_dados_fiscais.icms_saida_sp is not None %}
+                                <span class="badge-tabela badge-fiscal-validado">Validado</span>
+                            {% elif motivo_icms_saida_sp %}
+                                <span class="badge-tabela {{ motivo_icms_saida_sp.badge_classe }}">{{ motivo_icms_saida_sp.badge_rotulo }}</span>
+                            {% endif %}
                         </div>
                         <div class="card-body">
                             <table class="modal-tabela modal-tabela-par">
@@ -454,12 +459,18 @@
                                     <td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_saida_sp|floatformat:2 }}%</td>
                                 </tr>
                             </table>
+                            {% include "produtos/parciais/_motivo_fiscal_em_branco.html" with motivo=motivo_icms_saida_sp %}
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header modal-card-cabecalho modal-card-cabecalho-icms-saida-media">
                             <strong>ICMS Saída Média</strong>
+                            {% if produto.obter_dados_fiscais.icms_saida_media is not None %}
+                                <span class="badge-tabela badge-fiscal-validado">Validado</span>
+                            {% elif motivo_icms_saida_media %}
+                                <span class="badge-tabela {{ motivo_icms_saida_media.badge_classe }}">{{ motivo_icms_saida_media.badge_rotulo }}</span>
+                            {% endif %}
                         </div>
                         <div class="card-body">
                             <table class="modal-tabela modal-tabela-par">
@@ -469,12 +480,18 @@
                                     <td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_saida_media|floatformat:2 }}%</td>
                                 </tr>
                             </table>
+                            {% include "produtos/parciais/_motivo_fiscal_em_branco.html" with motivo=motivo_icms_saida_media %}
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header modal-card-cabecalho modal-card-cabecalho-pis">
                             <strong>PIS</strong>
+                            {% if produto.obter_dados_fiscais.pis_percentual is not None %}
+                                <span class="badge-tabela badge-fiscal-validado">Validado</span>
+                            {% elif motivo_pis_cofins %}
+                                <span class="badge-tabela {{ motivo_pis_cofins.badge_classe }}">{{ motivo_pis_cofins.badge_rotulo }}</span>
+                            {% endif %}
                         </div>
                         <div class="card-body">
                             <table class="modal-tabela modal-tabela-par">
@@ -484,12 +501,18 @@
                                     <td class="modal-td-valor">{{ produto.obter_dados_fiscais.pis_percentual|floatformat:2 }}%</td>
                                 </tr>
                             </table>
+                            {% include "produtos/parciais/_motivo_fiscal_em_branco.html" with motivo=motivo_pis_cofins %}
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header modal-card-cabecalho modal-card-cabecalho-cofins">
                             <strong>COFINS</strong>
+                            {% if produto.obter_dados_fiscais.cofins_percentual is not None %}
+                                <span class="badge-tabela badge-fiscal-validado">Validado</span>
+                            {% elif motivo_pis_cofins %}
+                                <span class="badge-tabela {{ motivo_pis_cofins.badge_classe }}">{{ motivo_pis_cofins.badge_rotulo }}</span>
+                            {% endif %}
                         </div>
                         <div class="card-body">
                             <table class="modal-tabela modal-tabela-par">
@@ -499,6 +522,7 @@
                                     <td class="modal-td-valor">{{ produto.obter_dados_fiscais.cofins_percentual|floatformat:2 }}%</td>
                                 </tr>
                             </table>
+                            {% include "produtos/parciais/_motivo_fiscal_em_branco.html" with motivo=motivo_pis_cofins %}
                         </div>
                     </div>
 

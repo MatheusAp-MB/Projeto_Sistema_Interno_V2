@@ -2,6 +2,7 @@ from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from impostos.funcoes_auxiliares.exibicao_auditoria_fiscal import montar_contexto_auditoria_fiscal
 from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import (
     consultar_icms_por_ncm, montar_matriz_icms_por_ncm,
 )
@@ -84,6 +85,11 @@ def view_exportar_resumo_impostos_entrada(request):
     response['Content-Disposition'] = 'attachment; filename="Relatorio_Impostos_Entrada.xlsx"'
     return response
 
+
+
+def view_auditoria_fiscal(request):
+    contexto = montar_contexto_auditoria_fiscal()
+    return render(request, 'impostos/estrutura_auditoria_fiscal.html', contexto)
 
 
 def view_tabela_icms_por_ncm(request):

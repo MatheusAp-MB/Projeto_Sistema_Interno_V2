@@ -806,3 +806,69 @@
 .modal-popover-formula {
     font-size: 13px;
 }
+
+/* ================================================
+   AUDITORIA FISCAL NA TELA DE PRODUTO (Camada C, 13/09/2026)
+   Badge de severidade no cabeçalho de cada card de imposto de SAÍDA +
+   bloco expansível com o motivo, quando o campo está em branco. Classes
+   de cor do badge em si (.badge-fiscal-*) ficam em layout_badges.css —
+   sistema único de badges, nunca duplicado aqui.
+   ================================================ */
+.modal-card-cabecalho-icms-saida-sp,
+.modal-card-cabecalho-icms-saida-media,
+.modal-card-cabecalho-pis,
+.modal-card-cabecalho-cofins {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.modal-motivo-fiscal {
+    margin-top: 10px;
+    font-size: 0.82rem;
+}
+
+.modal-motivo-fiscal summary {
+    cursor: pointer;
+    color: var(--cor-primaria-clara);
+    font-weight: 600;
+}
+
+.modal-motivo-fiscal-descricao {
+    margin: 6px 0 0;
+    color: var(--cor-texto-muted);
+}
+
+.modal-motivo-fiscal-detalhe {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: 6px;
+}
+
+.modal-motivo-fiscal-grupo {
+    margin-bottom: 6px;
+}
+
+.modal-motivo-fiscal-grupo:last-child {
+    margin-bottom: 0;
+}
+
+.modal-motivo-fiscal-chave {
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.modal-motivo-fiscal-grupo ul {
+    margin: 2px 0 0;
+    padding-left: 18px;
+}
+
+.modal-motivo-fiscal-timestamp {
+    margin: 8px 0 0;
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    font-style: italic;
+}
