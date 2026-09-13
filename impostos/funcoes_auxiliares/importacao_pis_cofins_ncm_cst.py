@@ -29,10 +29,15 @@
 # PisCofinsNcmCstRejeitado em impostos/models.py) em vez de só impressa
 # no stdout e descartada.
 
+import shutil
 from decimal import Decimal
 
+import pandas as pd
 from django.db import transaction
 from django.utils import timezone
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
@@ -167,6 +172,28 @@ class GrupoRejeitado:
             ]
         return resultado
 
+    # Função Objetivo: Mesmos dados de __str__ (por campo, agrupado por
+    # valor — do mais pro menos frequente), só que como DataFrame, pronto
+    # pra virar rich.table.Table no terminal (ver
+    # importar_pis_cofins_por_ncm_cst). Trunca exemplos em
+    # MAXIMO_EXEMPLOS_POR_GRUPO igual ao __str__ — é exibição de terminal;
+    # quem nunca trunca nada é para_dict_auditoria, que vai pro banco.
+    # Mesmo padrão de NcmRejeitado.montar_dataframe_divergencias em
+    # importacao_icms_ncm.py, trocando 'UF' por 'Campo' (aqui só existem 2
+    # campos possíveis — PIS e COFINS —, nunca 27 UFs como lá).
+    def montar_dataframe_divergencias(self):
+        linhas = []
+        for campo in sorted(self.divergencias_por_campo):
+            for valor, eans in self._grupos_por_valor(self.divergencias_por_campo[campo]):
+                valor_exibido = str(valor) if valor is not None else 'em branco'
+                if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
+                    exemplos = ', '.join(eans)
+                else:
+                    exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
+                    exemplos += f', ... (+{len(eans) - self.MAXIMO_EXEMPLOS_POR_GRUPO})'
+                linhas.append({'Campo': campo, 'Valor': valor_exibido, 'Qtd EANs': len(eans), 'Exemplos': exemplos})
+        return pd.DataFrame(linhas, columns=['Campo', 'Valor', 'Qtd EANs', 'Exemplos'])
+
 
 # Função Objetivo: Agrupa as linhas por NCM+CST e aplica a regra de consistência.
 class AgrupadorPisCofinsPorNcmCst:
@@ -231,14 +258,6 @@ class AgrupadorPisCofinsPorNcmCst:
             if len(csts) > 1
         }
 
-    def relatorio_resumo(self):
-        return (
-            f'[PIS/COFINS POR NCM+CST] Grupos (NCM+CST) distintos encontrados: {len(self.linhas_por_grupo)}\n'
-            f'    Aceitos:    {len(self.aceitos)}\n'
-            f'    Rejeitados: {len(self.rejeitados)}\n'
-            f'    Linhas sem NCM ou sem CST na planilha (ignoradas): {self.sem_ncm_ou_cst_na_planilha}'
-        )
-
 
 # Função Objetivo: Ponto de entrada — lê a planilha inteira e devolve o agrupador já processado.
 def agrupar_pis_cofins_por_ncm_cst(caminho_planilha):
@@ -287,13 +306,6 @@ class PersistidorPisCofinsNcmCst:
         if self.para_atualizar:
             PisCofinsNcmCst.objects.bulk_update(self.para_atualizar, ['pis', 'cofins'], batch_size=BATCH_SIZE_PADRAO)
 
-    def relatorio_resumo(self):
-        return (
-            f'[PIS/COFINS POR NCM+CST] Gravação concluída!\n'
-            f'    Criados (NCM+CST novos):            {len(self.para_criar)}\n'
-            f'    Atualizados (NCM+CST já existiam):  {len(self.para_atualizar)}'
-        )
-
 
 # Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
 # cada grupo NCM+CST rejeitado nesta importação — Camada A da auditoria
@@ -321,8 +333,64 @@ class PersistidorPisCofinsNcmCstRejeitado:
             PisCofinsNcmCstRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
 
 
+# Função Objetivo: 1 linha por grupo NCM+CST rejeitado — visão geral pra
+# saber, sem entrar no detalhe campo-a-campo de nenhum grupo, quantos EANs
+# e quais campos (PIS e/ou COFINS) cada rejeição envolve. Recebe a lista
+# já na ordem que deve aparecer — não ordena de novo aqui (ver
+# importar_pis_cofins_por_ncm_cst). Mesmo padrão de
+# _montar_dataframe_resumo_rejeitados em importacao_icms_ncm.py.
+def _montar_dataframe_resumo_rejeitados(rejeitados_ordenados):
+    linhas = []
+    for rejeitado in rejeitados_ordenados:
+        campos_ordenados = sorted(rejeitado.divergencias_por_campo)
+        linhas.append({
+            'NCM': rejeitado.ncm,
+            'CST': rejeitado.cst,
+            'Campos Divergentes': ', '.join(campos_ordenados),
+            'EANs no Grupo': rejeitado.total_eans_no_grupo,
+        })
+    return pd.DataFrame(linhas, columns=['NCM', 'CST', 'Campos Divergentes', 'EANs no Grupo'])
+
+
+# Função Objetivo: Cria o Console com 1 coluna de margem abaixo da
+# largura detectada do terminal (mesma correção de importacao_icms_ncm.py
+# e preenchimento_impostos_saida.py, ver comentário lá — duplicada aqui de
+# propósito, cada módulo fica autocontido). Panel sempre estica pra
+# largura TOTAL do console (Table segue o conteúdo); quando essa largura
+# bate exatamente com a do terminal real do usuário, o terminal quebra
+# linha sem \n e cola a borda do Panel no conteúdo. A margem de 1 coluna
+# evita a disputa pela última coluna.
+def _console_com_margem():
+    largura_detectada = shutil.get_terminal_size(fallback=(80, 24)).columns
+    return Console(width=max(largura_detectada - 1, 20))
+
+
+# Função Objetivo: Converte um DataFrame (sempre pequeno — resumo ou
+# detalhe de 1 grupo, nunca a planilha inteira) num rich.table.Table
+# pronto pra console.print — única ponte entre pandas (organiza/ordena as
+# linhas) e rich (exibe colorido no terminal). Mesma função de
+# importacao_icms_ncm.py, duplicada aqui pelo mesmo motivo de
+# _console_com_margem.
+def _dataframe_para_tabela_rich(dataframe, titulo, colunas_numericas=(), border_style=None):
+    tabela = Table(title=titulo, border_style=border_style)
+    for coluna in dataframe.columns:
+        tabela.add_column(coluna, justify='right' if coluna in colunas_numericas else 'left')
+    for linha in dataframe.itertuples(index=False):
+        tabela.add_row(*(str(valor) for valor in linha))
+    return tabela
+
+
 # Função Objetivo: Ponto de entrada do comando — lê, agrupa, valida e grava, do arquivo ao banco.
+# Redesenho de 13/09/2026: mesmo tratamento visual (Rich + pandas) já
+# aplicado em importacao_icms_ncm.py e preenchimento_impostos_saida.py —
+# console com margem (evita o bug de borda do Panel colada), tabelas em
+# vez de texto corrido, título de cada widget curto (evita o bug de
+# título fragmentado em Table estreita), identidade de cada grupo impressa
+# 1 vez em texto plano antes do detalhe. A lógica de agrupar/validar/gravar
+# não muda em nada — só a exibição no terminal.
 def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
+    console = _console_com_margem()
+
     if caminho_planilha is None:
         empresa = obter_empresa_ativa()
         if empresa is None:
@@ -332,30 +400,82 @@ def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
             )
         caminho_planilha = CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA[empresa]
 
-    stdout.write('[PIS/COFINS POR NCM+CST] Lendo planilha Busca Legal...')
+    console.print('[bold]PIS/COFINS por NCM+CST[/bold] — lendo planilha Busca Legal...')
 
     agrupador = agrupar_pis_cofins_por_ncm_cst(caminho_planilha)
 
-    stdout.write('')
-    stdout.write(style.SUCCESS(agrupador.relatorio_resumo()))
+    tabela_agrupamento = Table(title='PIS/COFINS por NCM+CST — Agrupamento (NCM + CST)')
+    tabela_agrupamento.add_column('Métrica')
+    tabela_agrupamento.add_column('Quantidade', justify='right')
+    tabela_agrupamento.add_row(
+        'Grupos (NCM+CST) distintos encontrados', str(len(agrupador.linhas_por_grupo)),
+    )
+    tabela_agrupamento.add_row('Aceitos', str(len(agrupador.aceitos)), style='green')
+    tabela_agrupamento.add_row(
+        'Rejeitados', str(len(agrupador.rejeitados)), style='yellow' if agrupador.rejeitados else None,
+    )
+    tabela_agrupamento.add_row(
+        'Sem NCM ou CST na planilha (ignoradas)', str(agrupador.sem_ncm_ou_cst_na_planilha),
+    )
+    console.print()
+    console.print(tabela_agrupamento)
 
     if agrupador.rejeitados:
-        stdout.write('')
-        stdout.write(style.WARNING('[GRUPOS REJEITADOS — DIVERGÊNCIA ENTRE EANs, NADA GRAVADO DESTES]'))
-        for rejeitado in agrupador.rejeitados:
-            stdout.write('')
-            stdout.write(style.WARNING(str(rejeitado)))
+        # Mesma ordem na visão geral E no detalhe abaixo — maior grupo
+        # primeiro nas 2 (mesma correção de 13/09/2026 de
+        # importacao_icms_ncm.py).
+        rejeitados_ordenados = sorted(agrupador.rejeitados, key=lambda r: -r.total_eans_no_grupo)
+
+        console.print()
+        console.print(
+            f'[yellow]{len(agrupador.rejeitados)} grupo(s) rejeitado(s)[/yellow] — nada gravado destes '
+            f'(regra: PIS e COFINS precisam bater entre todos os EANs do grupo).'
+        )
+
+        console.print()
+        console.print(_dataframe_para_tabela_rich(
+            _montar_dataframe_resumo_rejeitados(rejeitados_ordenados),
+            titulo='Visão geral — 1 linha por grupo rejeitado (maior grupo primeiro)',
+            colunas_numericas=('EANs no Grupo',),
+        ))
+
+        for rejeitado in rejeitados_ordenados:
+            campos_ordenados = sorted(rejeitado.divergencias_por_campo)
+
+            # Identidade do grupo impressa 1 VEZ só, como texto corrido —
+            # mesma correção de 13/09/2026 de importacao_icms_ncm.py: título
+            # comprido numa Table estreita fragmenta em várias linhas
+            # centralizadas (Table dimensiona pelo conteúdo, não pela
+            # largura do console; Panel não tem esse problema, mas repetir a
+            # mesma frase longa em cada widget também é ruído).
+            titulo_grupo = (
+                f'NCM {rejeitado.ncm} + CST {rejeitado.cst} — diverge em {len(campos_ordenados)} '
+                f'campo(s) de {rejeitado.total_eans_no_grupo} EAN(s) no grupo: {", ".join(campos_ordenados)}'
+            )
+            console.print()
+            console.print(f'[bold]{titulo_grupo}[/bold]')
+
+            console.print(_dataframe_para_tabela_rich(
+                rejeitado.montar_dataframe_divergencias(),
+                titulo='Detalhe por campo',
+                colunas_numericas=('Qtd EANs',),
+            ))
 
     multi_cst = agrupador.ncms_com_multiplos_csts()
     if multi_cst:
-        stdout.write('')
-        stdout.write(style.WARNING(
-            '[AVISO INFORMATIVO — NÃO BLOQUEIA O IMPORT] '
-            'NCMs com mais de 1 CST — confira se é variação tributária legítima ou cadastro errado:'
-        ))
+        console.print()
+        console.print(
+            '[yellow]Aviso informativo (não bloqueia o import):[/yellow] NCMs com mais de 1 CST aceito — '
+            'confira se é variação tributária legítima ou cadastro de CST errado.'
+        )
+
+        tabela_multi_cst = Table(title='NCMs com mais de 1 CST aceito')
+        tabela_multi_cst.add_column('NCM')
+        tabela_multi_cst.add_column('CSTs (qtd. de EANs)')
         for ncm, csts in sorted(multi_cst.items()):
             descricao_csts = ', '.join(f'CST {cst} ({total} EAN(s))' for cst, total in csts)
-            stdout.write(style.WARNING(f'    NCM {ncm}: {descricao_csts}'))
+            tabela_multi_cst.add_row(ncm, descricao_csts)
+        console.print(tabela_multi_cst)
 
     # Momento único desta rodada — mesma garantia de importar_icms_por_ncm.
     constatado_em = timezone.now()
@@ -372,10 +492,16 @@ def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
         persistidor.salvar()
         persistidor_rejeitados.salvar(agrupador.rejeitados)
 
-    stdout.write('')
-    stdout.write(style.SUCCESS(persistidor.relatorio_resumo()))
+    resumo_final = (
+        f'[bold]Criados[/bold] (NCM+CST novos)            {len(persistidor.para_criar)}\n'
+        f'[bold]Atualizados[/bold] (NCM+CST já existiam)  {len(persistidor.para_atualizar)}\n'
+        f'Rejeitados registrados p/ auditoria               {len(agrupador.rejeitados)}'
+    )
+    console.print()
+    console.print(Panel(resumo_final, title='PIS/COFINS por NCM+CST — Gravação concluída', border_style='green'))
+
     stdout.write(style.SUCCESS(
-        f'[AUDITORIA] {len(agrupador.rejeitados)} grupo(s) NCM+CST rejeitado(s) registrados pra '
-        f'consulta (tela de produto e tela de Auditoria Fiscal), constatado em '
+        f'[PIS/COFINS POR NCM+CST] Importação concluída — {len(agrupador.rejeitados)} grupo(s) rejeitado(s) '
+        f'registrado(s) pra consulta (tela de produto e tela de Auditoria Fiscal), constatado em '
         f'{timezone.localtime(constatado_em):%d/%m/%Y %H:%M:%S}.'
     )) 
