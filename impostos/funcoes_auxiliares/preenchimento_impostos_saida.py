@@ -2,24 +2,29 @@
 
 # Função Objetivo: Preenche os 5 campos fiscais de saída do Produto a
 # partir de 2 fontes — camada 1 do plano de Impostos de Saída (ver
-# checkpoint no vault), agora reescrita pra fonte única (ver Decisão no
-# vault: "Campos Fiscais de Saida no Produto Passam a Ser Alimentados
-# pelas Tabelas Normalizadas"):
+# checkpoint no vault), reescrita pra fonte única (ver Decisão no vault:
+# "Campos Fiscais de Saida no Produto Passam a Ser Alimentados pelas
+# Tabelas Normalizadas") e depois corrigida pra rodar sobre o catálogo
+# inteiro, não só quem está na planilha (ver Descoberta no vault):
 #   - cst_saida: direto da planilha Busca Legal, por EAN (sem tabela
 #     normalizada própria — ele É a chave de busca usada em
-#     PisCofinsNcmCst).
+#     PisCofinsNcmCst). Único campo que ainda depende de o produto estar
+#     na planilha desta rodada.
 #   - icms_saida_sp / icms_saida_media: de IcmsNcmUf, por NCM do Produto
 #     (SP direto; Média reaproveitando calcular_media_ponderada(), já
 #     usada na tela de ICMS por NCM — nunca recalculada aqui de outro
-#     jeito).
+#     jeito). Rodam pra TODO produto com NCM salvo, esteja ele na planilha
+#     ou não.
 #   - pis_percentual / cofins_percentual: de PisCofinsNcmCst, por NCM do
-#     Produto + CST lido NESTA MESMA linha da planilha.
+#     Produto + CST — o CST lido nesta rodada da planilha quando existir,
+#     senão o cst_saida que já estava gravado (não precisa vir tudo da
+#     mesma linha). Rodam pra TODO produto com NCM+CST salvos.
 #
 # Regra de fallback (decidida no vault, vale pros 5 campos): quando não
 # existe dado validado pra 1 campo (produto sem NCM, NCM sem tabela, CST
-# sem match, ou coluna vazia na planilha pro CST), esse campo específico
-# não é tocado — o valor que já estava gravado permanece. Nunca zera nem
-# limpa por falta de dado.
+# sem match, ou nenhum CST disponível), esse campo específico não é
+# tocado — o valor que já estava gravado permanece. Nunca zera nem limpa
+# por falta de dado.
 #
 # Nunca cria Produto novo a partir de dado fiscal — produto só nasce do ERP
 # (ver importar_produtos_erp.py). EAN sem produto correspondente no banco é
@@ -152,9 +157,14 @@ class LinhaImpostoSaida:
         return dados
 
 
-# Função Objetivo: Orquestra o preenchimento inteiro — planilha (cst_saida)
-# + tabelas normalizadas IcmsNcmUf/PisCofinsNcmCst (os outros 4 campos) —
-# até o banco.
+# Função Objetivo: Orquestra o preenchimento inteiro — planilha (só
+# cst_saida) + tabelas normalizadas IcmsNcmUf/PisCofinsNcmCst (os outros 4
+# campos) — até o banco. Roda sobre TODO produto carregado, não só quem
+# tem linha na planilha desta rodada — a planilha deixou de ser "lista de
+# presença": só decide quem recebe cst_saida atualizado; os outros 4
+# campos são recalculados pra qualquer produto com NCM/CST já salvos (ver
+# Descoberta no vault sobre o loop restrito à planilha deixando produto de
+# fora).
 class ImportadorImpostosSaida:
 
     # Função Objetivo: Resolve o caminho da planilha sozinho a partir da empresa ativa, se não vier explícito.
@@ -175,6 +185,7 @@ class ImportadorImpostosSaida:
 
         self.icms_por_ncm = {}            # ncm normalizado -> {uf: aliquota}
         self.pis_cofins_por_ncm_cst = {}  # (ncm normalizado, cst normalizado) -> (pis, cofins)
+        self.cst_por_ean = {}             # ean -> cst_saida lido nesta rodada da planilha
 
         self.atualizados = 0
         self.sem_ean_na_planilha = 0
@@ -268,8 +279,10 @@ class ImportadorImpostosSaida:
 
         return campos
 
-    # Função Objetivo: Lê a planilha inteira e casa cada linha com o Produto correspondente.
-    def processar_planilha(self):
+    # Função Objetivo: Lê a planilha só pra extrair EAN + CST — a ÚNICA
+    # coisa que ainda vem dela. Não decide mais quem é processado (isso
+    # agora é processar_todos_os_produtos); só alimenta cst_por_ean.
+    def carregar_cst_da_planilha(self):
         eans_ja_processados = set()
 
         for linha_bruta in ler_linhas_planilha_impostos_saida(self.caminho_planilha):
@@ -284,40 +297,59 @@ class ImportadorImpostosSaida:
                 continue
             eans_ja_processados.add(linha.ean)
 
-            produto = self.produtos_por_ean.get(linha.ean)
-            if produto is None:
+            if linha.ean not in self.produtos_por_ean:
                 self.sem_produto_correspondente += 1
                 self.eans_sem_produto.append(linha.ean)
                 continue
 
-            campos_planilha = linha.para_dict_produto()
-            campos_tabela = self._calcular_campos_por_tabela(produto, linha.cst_saida)
+            if linha.cst_saida is not None:
+                self.cst_por_ean[linha.ean] = linha.cst_saida
 
-            if 'cst_saida' in campos_planilha:
+    # Função Objetivo: Passa por TODO produto carregado — não só quem tem
+    # linha na planilha desta rodada. cst_saida só atualiza pra quem tem
+    # linha (via cst_por_ean); os outros 4 campos são recalculados pra
+    # qualquer produto que já tenha NCM/CST salvos, esteja ele na planilha
+    # de hoje ou não.
+    # Explicação em detalhe: quando a planilha não trouxe CST novo pra
+    # este EAN nesta rodada, usa o cst_saida que já está gravado no
+    # produto (de uma rodada anterior) como chave de busca em
+    # PisCofinsNcmCst — não precisa vir tudo da mesma linha pra continuar
+    # funcionando.
+    def processar_todos_os_produtos(self):
+        for ean, produto in self.produtos_por_ean.items():
+            cst_da_planilha = self.cst_por_ean.get(ean)
+            cst_para_busca = cst_da_planilha if cst_da_planilha is not None else produto.cst_saida
+
+            campos = {}
+            if cst_da_planilha is not None:
+                campos['cst_saida'] = cst_da_planilha
+            campos.update(self._calcular_campos_por_tabela(produto, cst_para_busca))
+
+            if 'cst_saida' in campos:
                 self.cst_de_planilha += 1
             else:
                 self.cst_mantido += 1
 
-            if 'icms_saida_sp' in campos_tabela:
+            if 'icms_saida_sp' in campos:
                 self.icms_sp_de_tabela += 1
             else:
                 self.icms_sp_mantido += 1
 
-            if 'icms_saida_media' in campos_tabela:
+            if 'icms_saida_media' in campos:
                 self.icms_media_de_tabela += 1
             else:
                 self.icms_media_mantido += 1
 
-            if 'pis_percentual' in campos_tabela:
+            if 'pis_percentual' in campos:
                 self.pis_cofins_de_tabela += 1
             else:
                 self.pis_cofins_mantido += 1
 
-            for campo, valor in {**campos_planilha, **campos_tabela}.items():
-                setattr(produto, campo, valor)
-
-            self.produtos_para_atualizar.append(produto)
-            self.atualizados += 1
+            if campos:
+                for campo, valor in campos.items():
+                    setattr(produto, campo, valor)
+                self.produtos_para_atualizar.append(produto)
+                self.atualizados += 1
 
     # Função Objetivo: Grava tudo no banco em lote, 1 única vez.
     def salvar(self):
@@ -326,11 +358,12 @@ class ImportadorImpostosSaida:
                 self.produtos_para_atualizar, LinhaImpostoSaida.CAMPOS_PRODUTO, batch_size=BATCH_SIZE_PADRAO,
             )
 
-    # Função Objetivo: Roda o preenchimento inteiro, da planilha e das tabelas normalizadas ao banco.
+    # Função Objetivo: Roda o preenchimento inteiro — produtos + tabelas + CST da planilha — até o banco.
     def rodar_preenchimento_completo(self):
         self.carregar_produtos_existentes()
         self.carregar_tabelas_normalizadas()
-        self.processar_planilha()
+        self.carregar_cst_da_planilha()
+        self.processar_todos_os_produtos()
         self.salvar()
         return self
 
@@ -338,7 +371,8 @@ class ImportadorImpostosSaida:
     def relatorio(self):
         return (
             f'[IMPOSTOS DE SAÍDA] Concluído!\n'
-            f'    Produtos atualizados: {self.atualizados}\n'
+            f'    Produtos com pelo menos 1 campo atualizado nesta rodada: {self.atualizados}\n'
+            f'    (agora cobre o catálogo inteiro, não só quem tem linha na planilha)\n'
             f'    Linhas sem EAN na planilha (ignoradas): {self.sem_ean_na_planilha}\n'
             f'    EAN duplicado na planilha (mantida a 1ª ocorrência): {self.eans_duplicados_na_planilha}\n'
             f'    EAN da planilha sem produto correspondente no banco: {self.sem_produto_correspondente}\n'
