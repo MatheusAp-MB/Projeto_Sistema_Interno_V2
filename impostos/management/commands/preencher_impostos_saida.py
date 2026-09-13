@@ -6,7 +6,7 @@ from impostos.funcoes_auxiliares.preenchimento_impostos_saida import preencher_i
 
 class Command(ComandoComEmpresa):
     help = (
-        'Preenche icms_saida_sp, icms_saida_media, pis_percentual e cofins_percentual '
+        'Preenche cst_saida, icms_saida_sp, icms_saida_media, pis_percentual e cofins_percentual '
         'do Produto a partir da planilha Busca Legal.'
     )
 

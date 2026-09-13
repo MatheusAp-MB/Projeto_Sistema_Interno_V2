@@ -1,10 +1,18 @@
 # impostos/funcoes_auxiliares/preenchimento_impostos_saida.py
 
-# Função Objetivo: Preenche os 4 campos fiscais de saída do Produto
-# (icms_saida_sp, icms_saida_media, pis_percentual, cofins_percentual) a
-# partir da planilha Busca Legal — camada 1 do plano de Impostos de Saída
-# (ver checkpoint no vault). Só lê ICMS/ICMS MÉDIA/PIS/COFINS — CST e as 27
-# colunas por UF ficam pras camadas 3 e 5, ainda não existem no modelo.
+# Função Objetivo: Preenche os 5 campos fiscais de saída do Produto
+# (cst_saida, icms_saida_sp, icms_saida_media, pis_percentual,
+# cofins_percentual) a partir da planilha Busca Legal — camada 1 do plano
+# de Impostos de Saída (ver checkpoint no vault).
+#
+# [ATUALIZAÇÃO] cst_saida: sempre direto da planilha, por EAN (igual aos
+# outros campos desta camada, sem tabela normalizada própria — ele É a
+# chave de busca usada em PisCofinsNcmCst). icms_saida_sp/icms_saida_media/
+# pis_percentual/cofins_percentual: em reescrita pra fonte única (tabelas
+# normalizadas IcmsNcmUf/PisCofinsNcmCst) — ver Decisão no vault. Feito em
+# camadas: esta primeira leva só adiciona a leitura/gravação de cst_saida;
+# os outros 4 campos continuam com o comportamento antigo (cópia direta da
+# planilha) até a próxima leva.
 #
 # Nunca cria Produto novo a partir de dado fiscal — produto só nasce do ERP
 # (ver importar_produtos_erp.py). EAN sem produto correspondente no banco é
@@ -35,6 +43,7 @@ COLUNA_ICMS = 'ICMS'
 COLUNA_ICMS_MEDIA = 'ICMS MÉDIA'
 COLUNA_PIS = 'PIS'
 COLUNA_COFINS = 'COFINS'
+COLUNA_CST = 'CST'  # * [NOVO] mesma coluna que importacao_pis_cofins_ncm_cst.py já lê
 
 DUAS_CASAS_DECIMAIS = Decimal('0.01')
 
@@ -62,14 +71,17 @@ def ler_linhas_planilha_impostos_saida(caminho):
     return linhas_como_dicionario
 
 
-# Função Objetivo: Normaliza o EAN lido da célula.
+# Função Objetivo: Normaliza um código textual (EAN, CST) lido da célula.
 # Explicação em detalhe: mesma lógica já usada em
-# preencher_cest_planilha_samvale.py — se o Excel converteu o código de
-# barras pra número (perde o formato texto), remove o ".0" residual do
-# float. Nunca faz padding de zero à esquerda: se um EAN perder zero à
-# esquerda, é melhor não casar com nada (contabilizado como "sem produto
-# correspondente") do que casar errado com outro produto.
-def _normalizar_ean(valor):
+# preencher_cest_planilha_samvale.py e em importacao_icms_ncm.py/
+# importacao_pis_cofins_ncm_cst.py (lá como _normalizar_codigo_celula) — se
+# o Excel converteu o código pra número (perde o formato texto), remove o
+# ".0" residual do float. Nunca faz padding de zero à esquerda: melhor não
+# casar com nada (contabilizado como "sem correspondência") do que casar
+# errado. Renomeada de _normalizar_ean pra _normalizar_codigo_celula porque
+# agora normaliza EAN e CST — mesmo nome já usado pra essa lógica idêntica
+# nos outros 2 módulos de import da planilha Busca Legal.
+def _normalizar_codigo_celula(valor):
     if valor is None:
         return None
     if isinstance(valor, float):
@@ -80,16 +92,21 @@ def _normalizar_ean(valor):
     return texto or None
 
 
-# Função Objetivo: Representa 1 linha da planilha, já convertida pros 4 campos desta camada.
+# Função Objetivo: Representa 1 linha da planilha, já convertida pros 5 campos desta camada.
 class LinhaImpostoSaida:
 
-    CAMPOS_PRODUTO = ['icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual']
+    # * [ATUALIZAÇÃO] cst_saida entra aqui (sempre direto da planilha). Os
+    #                 outros 4 continuam nesta lista por enquanto — a
+    #                 reescrita deles pra fonte única (tabelas normalizadas)
+    #                 vem numa próxima leva.
+    CAMPOS_PRODUTO = ['cst_saida', 'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual']
 
     def __init__(self, linha_bruta, conversor):
         self.linha_bruta = linha_bruta
         self.conversor = conversor
 
         self.ean = None
+        self.cst_saida = None
         self.icms_saida_sp = None
         self.icms_saida_media = None
         self.pis_percentual = None
@@ -106,7 +123,8 @@ class LinhaImpostoSaida:
         return (fracao * 100).quantize(DUAS_CASAS_DECIMAIS)
 
     def extrair_campos(self):
-        self.ean = _normalizar_ean(self.linha_bruta.get(COLUNA_EAN))
+        self.ean = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_EAN))
+        self.cst_saida = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_CST))
         self.icms_saida_sp = self._fracao_para_percentual(self.linha_bruta.get(COLUNA_ICMS))
         self.icms_saida_media = self._fracao_para_percentual(self.linha_bruta.get(COLUNA_ICMS_MEDIA))
         self.pis_percentual = self._fracao_para_percentual(self.linha_bruta.get(COLUNA_PIS))
@@ -118,13 +136,22 @@ class LinhaImpostoSaida:
         return bool(self.ean)
 
     # Função Objetivo: Devolve os campos prontos pra sobrescrever num Produto existente.
+    # Explicação em detalhe: cst_saida só entra no dict se a planilha trouxe
+    # valor pra essa linha — se vier em branco, o campo nem aparece aqui, e
+    # quem chama (setattr campo a campo) simplesmente não toca no produto,
+    # mantendo o valor antigo (regra "sem dado validado, fica o antigo",
+    # decidida no vault). Os outros 4 campos ainda são sempre incluídos —
+    # comportamento antigo, sem tabela normalizada nesta leva ainda.
     def para_dict_produto(self):
-        return dict(
+        dados = dict(
             icms_saida_sp=self.icms_saida_sp,
             icms_saida_media=self.icms_saida_media,
             pis_percentual=self.pis_percentual,
             cofins_percentual=self.cofins_percentual,
         )
+        if self.cst_saida is not None:
+            dados['cst_saida'] = self.cst_saida
+        return dados
 
 
 # Função Objetivo: Orquestra o preenchimento inteiro, da planilha Busca Legal ao banco.
@@ -159,7 +186,8 @@ class ImportadorImpostosSaida:
         self.produtos_por_ean = {
             produto.ean: produto
             for produto in Produto.objects.only(
-                'id', 'ean', 'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual',
+                'id', 'ean', 'cst_saida',
+                'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual',
             )
         }
 
