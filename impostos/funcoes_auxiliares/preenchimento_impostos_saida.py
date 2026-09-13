@@ -68,6 +68,7 @@
 # cst_saida parece alarmante mas é esperado (produto fora da planilha
 # desta rodada) — ganhou legenda pra não confundir com anomalia.
 
+import shutil
 from decimal import Decimal
 
 import openpyxl
@@ -516,9 +517,22 @@ class ImportadorImpostosSaida:
         )
 
 
+# Função Objetivo: Cria o Console com 1 coluna de margem abaixo da
+# largura detectada do terminal (mesma correção de
+# importacao_icms_ncm.py, ver comentário lá — duplicada aqui de
+# propósito, cada módulo de preenchimento fica autocontido). Panel
+# sempre estica pra largura TOTAL do console (Table segue o conteúdo);
+# quando essa largura bate exatamente com a do terminal real do
+# usuário, o terminal quebra linha sem \n e cola a borda do Panel no
+# conteúdo. A margem de 1 coluna evita a disputa pela última coluna.
+def _console_com_margem():
+    largura_detectada = shutil.get_terminal_size(fallback=(80, 24)).columns
+    return Console(width=max(largura_detectada - 1, 20))
+
+
 # Função Objetivo: Ponto de entrada chamado pelo Command.
 def preencher_impostos_saida(stdout, style):
-    console = Console()
+    console = _console_com_margem()
 
     console.print('[bold]Impostos de Saída[/bold] — lendo planilha Busca Legal...')
 

@@ -70,6 +70,7 @@
 # tabela UF-a-UF continua existindo (ainda serve pra conferir os valores
 # de verdade), só que como detalhe secundário, depois do diagnóstico.
 
+import shutil
 from decimal import Decimal
 
 import pandas as pd
@@ -487,6 +488,19 @@ def _montar_dataframe_resumo_rejeitados(rejeitados_ordenados):
     ])
 
 
+# Função Objetivo: Cria o Console com 1 coluna de margem abaixo da
+# largura detectada do terminal. Corrigido em 13/09/2026: Panel sempre
+# estica pra largura TOTAL do console (diferente de Table, que segue o
+# conteúdo) — quando essa largura bate exatamente com a largura real do
+# terminal do usuário, o próprio terminal quebra linha sem imprimir \n,
+# colando a borda do Panel no conteúdo (visto em terminais MINGW64/Git
+# Bash reais do Matheus, sempre em Panel, nunca em Table). A margem de
+# 1 coluna evita que o Rich e o terminal disputem a última coluna.
+def _console_com_margem():
+    largura_detectada = shutil.get_terminal_size(fallback=(80, 24)).columns
+    return Console(width=max(largura_detectada - 1, 20))
+
+
 # Função Objetivo: Converte um DataFrame (sempre pequeno — resumo ou
 # detalhe de 1 grupo, nunca a planilha inteira) num rich.table.Table
 # pronto pra console.print — única ponte entre pandas (organiza/ordena as
@@ -519,7 +533,7 @@ def _tabela_resumo_rejeitados_para_rich(dataframe):
 
 # Função Objetivo: Ponto de entrada do comando — lê, agrupa, valida e grava, do arquivo ao banco.
 def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
-    console = Console()
+    console = _console_com_margem()
 
     if caminho_planilha is None:
         empresa = obter_empresa_ativa()
