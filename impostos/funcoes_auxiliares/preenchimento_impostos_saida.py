@@ -20,11 +20,19 @@
 #     senão o cst_saida que já estava gravado (não precisa vir tudo da
 #     mesma linha). Rodam pra TODO produto com NCM+CST salvos.
 #
-# Regra de fallback (decidida no vault, vale pros 5 campos): quando não
-# existe dado validado pra 1 campo (produto sem NCM, NCM sem tabela, CST
-# sem match, ou nenhum CST disponível), esse campo específico não é
-# tocado — o valor que já estava gravado permanece. Nunca zera nem limpa
-# por falta de dado.
+# Regra de fallback (decidida no vault, 13/09/2026 — revista): pro
+# cst_saida, quando o EAN não está na planilha desta rodada, o campo não
+# é tocado, mantém o valor antigo (nunca existiu uma versão "pré-tabela"
+# desse campo pra desconfiar). Pros outros 4 campos (vindos das tabelas
+# normalizadas), a regra mudou: quando não existe mais dado validado, o
+# campo é explicitamente limpo (None) em vez de manter o que estava lá —
+# porque esse valor antigo pode ser resquício de antes de qualquer
+# validação por NCM existir (dado nunca conferido, indistinguível de um
+# validado só de olhar o campo). Isso é seguro mesmo com planilhas
+# futuras menores ou com divergência nova: IcmsNcmUf/PisCofinsNcmCst
+# nunca apagam nem regridem um NCM(+CST) já aceito antes — só param de
+# tocar nele quando sai da planilha ou é rejeitado numa rodada futura —
+# então um produto que já validou uma vez nunca perde esse dado depois.
 #
 # Nunca cria Produto novo a partir de dado fiscal — produto só nasce do ERP
 # (ver importar_produtos_erp.py). EAN sem produto correspondente no banco é
@@ -164,7 +172,10 @@ class LinhaImpostoSaida:
 # presença": só decide quem recebe cst_saida atualizado; os outros 4
 # campos são recalculados pra qualquer produto com NCM/CST já salvos (ver
 # Descoberta no vault sobre o loop restrito à planilha deixando produto de
-# fora).
+# fora). Os 4 campos recalculados são explicitamente limpos (None) quando
+# deixam de ter dado validado — nunca ficam com um valor de antes da
+# reescrita pra fonte única, sem validação nenhuma por trás (ver Decisão
+# no vault, 13/09/2026).
 class ImportadorImpostosSaida:
 
     # Função Objetivo: Resolve o caminho da planilha sozinho a partir da empresa ativa, se não vier explícito.
@@ -193,17 +204,29 @@ class ImportadorImpostosSaida:
         self.sem_produto_correspondente = 0
         self.eans_sem_produto = []
 
-        # Contadores por campo — "de_tabela"/"de_planilha" é quanto veio de
-        # dado validado nesta rodada; "mantido" é quanto ficou com o valor
-        # antigo por falta de dado (regra do vault: nunca zera por acidente).
+        # cst_saida: só vem direto da planilha, por EAN — nunca teve uma
+        # "versão pré-validação" pra limpar, então continua com só 2
+        # situações (achou na planilha desta rodada / manteve o que já
+        # tinha, regra original do vault, inalterada pra este campo).
         self.cst_de_planilha = 0
         self.cst_mantido = 0
-        self.icms_sp_de_tabela = 0
-        self.icms_sp_mantido = 0
-        self.icms_media_de_tabela = 0
-        self.icms_media_mantido = 0
-        self.pis_cofins_de_tabela = 0
-        self.pis_cofins_mantido = 0
+
+        # Os outros 4 campos vêm das tabelas normalizadas — decisão do
+        # vault (13/09/2026): quando não há mais dado validado, o campo é
+        # explicitamente limpo (None), nunca deixado com um valor antigo
+        # que pode ser resquício de antes de qualquer validação por NCM
+        # existir. 3 situações por campo: validado nesta rodada / limpo
+        # por não ter mais dado validado (tinha valor, virou None) / sem
+        # dado validado desde sempre (já estava vazio, nada muda).
+        self.icms_sp_validado = 0
+        self.icms_sp_limpo_por_obsoleto = 0
+        self.icms_sp_sem_dado_desde_sempre = 0
+        self.icms_media_validado = 0
+        self.icms_media_limpo_por_obsoleto = 0
+        self.icms_media_sem_dado_desde_sempre = 0
+        self.pis_cofins_validado = 0
+        self.pis_cofins_limpo_por_obsoleto = 0
+        self.pis_cofins_sem_dado_desde_sempre = 0
 
     # Função Objetivo: Carrega em memória os produtos já existentes, só com os campos que este comando toca.
     # Explicação em detalhe: 'ncm' entra aqui porque agora é a chave de
@@ -237,8 +260,9 @@ class ImportadorImpostosSaida:
 
     # Função Objetivo: Resolve os 4 campos vindos das tabelas normalizadas
     # pra 1 produto — só entra no dict o que foi de fato encontrado; o que
-    # não foi encontrado nem aparece, e quem chama (setattr campo a campo)
-    # não toca no produto, mantendo o valor antigo.
+    # não foi encontrado nem aparece aqui (quem decide o que fazer com a
+    # ausência — limpar pra None ou deixar como já estava vazio — é quem
+    # chama, em processar_todos_os_produtos, não esta função).
     # Explicação em detalhe: o CST usado na busca de PIS/COFINS é o LIDO
     # NESTA MESMA LINHA da planilha (cst_saida_da_linha), não o que já
     # estava gravado no produto — os dois vêm da mesma linha/planilha, e
@@ -307,43 +331,64 @@ class ImportadorImpostosSaida:
 
     # Função Objetivo: Passa por TODO produto carregado — não só quem tem
     # linha na planilha desta rodada. cst_saida só atualiza pra quem tem
-    # linha (via cst_por_ean); os outros 4 campos são recalculados pra
-    # qualquer produto que já tenha NCM/CST salvos, esteja ele na planilha
-    # de hoje ou não.
+    # linha (via cst_por_ean), mantendo o valor antigo quando não tem —
+    # nunca existiu uma "versão pré-validação" desse campo pra desconfiar.
+    # Os outros 4 campos são diferentes: quando não há mais dado validado
+    # pra eles, são explicitamente limpos (None) em vez de manter o que
+    # estivesse lá — esse valor antigo pode ser resquício de antes de
+    # qualquer validação por NCM existir (ver Descoberta no vault).
     # Explicação em detalhe: quando a planilha não trouxe CST novo pra
     # este EAN nesta rodada, usa o cst_saida que já está gravado no
     # produto (de uma rodada anterior) como chave de busca em
     # PisCofinsNcmCst — não precisa vir tudo da mesma linha pra continuar
-    # funcionando.
+    # funcionando. Isso é seguro mesmo com planilhas futuras menores ou
+    # com divergência nova: IcmsNcmUf/PisCofinsNcmCst nunca apagam nem
+    # regridem um NCM(+CST) já aceito antes (ver PersistidorIcmsNcm/
+    # PersistidorPisCofinsNcmCst) — só ficam sem tocar nele quando sai da
+    # planilha ou é rejeitado numa rodada futura, então um produto que já
+    # validou uma vez nunca perde esse dado depois.
     def processar_todos_os_produtos(self):
         for ean, produto in self.produtos_por_ean.items():
             cst_da_planilha = self.cst_por_ean.get(ean)
             cst_para_busca = cst_da_planilha if cst_da_planilha is not None else produto.cst_saida
 
+            campos_tabela = self._calcular_campos_por_tabela(produto, cst_para_busca)
+
             campos = {}
             if cst_da_planilha is not None:
                 campos['cst_saida'] = cst_da_planilha
-            campos.update(self._calcular_campos_por_tabela(produto, cst_para_busca))
-
-            if 'cst_saida' in campos:
                 self.cst_de_planilha += 1
             else:
                 self.cst_mantido += 1
 
-            if 'icms_saida_sp' in campos:
-                self.icms_sp_de_tabela += 1
+            if 'icms_saida_sp' in campos_tabela:
+                campos['icms_saida_sp'] = campos_tabela['icms_saida_sp']
+                self.icms_sp_validado += 1
+            elif produto.icms_saida_sp is not None:
+                campos['icms_saida_sp'] = None
+                self.icms_sp_limpo_por_obsoleto += 1
             else:
-                self.icms_sp_mantido += 1
+                self.icms_sp_sem_dado_desde_sempre += 1
 
-            if 'icms_saida_media' in campos:
-                self.icms_media_de_tabela += 1
+            if 'icms_saida_media' in campos_tabela:
+                campos['icms_saida_media'] = campos_tabela['icms_saida_media']
+                self.icms_media_validado += 1
+            elif produto.icms_saida_media is not None:
+                campos['icms_saida_media'] = None
+                self.icms_media_limpo_por_obsoleto += 1
             else:
-                self.icms_media_mantido += 1
+                self.icms_media_sem_dado_desde_sempre += 1
 
-            if 'pis_percentual' in campos:
-                self.pis_cofins_de_tabela += 1
+            if 'pis_percentual' in campos_tabela:
+                campos['pis_percentual'] = campos_tabela['pis_percentual']
+                campos['cofins_percentual'] = campos_tabela['cofins_percentual']
+                self.pis_cofins_validado += 1
+            elif produto.pis_percentual is not None or produto.cofins_percentual is not None:
+                campos['pis_percentual'] = None
+                campos['cofins_percentual'] = None
+                self.pis_cofins_limpo_por_obsoleto += 1
             else:
-                self.pis_cofins_mantido += 1
+                self.pis_cofins_sem_dado_desde_sempre += 1
 
             if campos:
                 for campo, valor in campos.items():
@@ -377,11 +422,19 @@ class ImportadorImpostosSaida:
             f'    EAN duplicado na planilha (mantida a 1ª ocorrência): {self.eans_duplicados_na_planilha}\n'
             f'    EAN da planilha sem produto correspondente no banco: {self.sem_produto_correspondente}\n'
             f'\n'
-            f'    Por campo (validado nesta rodada / manteve valor antigo):\n'
-            f'        cst_saida:                    {self.cst_de_planilha} / {self.cst_mantido}\n'
-            f'        icms_saida_sp (IcmsNcmUf):    {self.icms_sp_de_tabela} / {self.icms_sp_mantido}\n'
-            f'        icms_saida_media (calculado): {self.icms_media_de_tabela} / {self.icms_media_mantido}\n'
-            f'        pis/cofins (PisCofinsNcmCst): {self.pis_cofins_de_tabela} / {self.pis_cofins_mantido}'
+            f'    cst_saida (direto da planilha, por EAN — validado nesta rodada / manteve valor antigo):\n'
+            f'        {self.cst_de_planilha} / {self.cst_mantido}\n'
+            f'\n'
+            f'    Os outros 4 campos (buscados por NCM/CST nas tabelas normalizadas — validado nesta '
+            f'rodada / limpo por não ter mais dado validado / sem dado validado desde sempre):\n'
+            f'        icms_saida_sp (IcmsNcmUf):    '
+            f'{self.icms_sp_validado} / {self.icms_sp_limpo_por_obsoleto} / {self.icms_sp_sem_dado_desde_sempre}\n'
+            f'        icms_saida_media (calculado): '
+            f'{self.icms_media_validado} / {self.icms_media_limpo_por_obsoleto} / '
+            f'{self.icms_media_sem_dado_desde_sempre}\n'
+            f'        pis/cofins (PisCofinsNcmCst): '
+            f'{self.pis_cofins_validado} / {self.pis_cofins_limpo_por_obsoleto} / '
+            f'{self.pis_cofins_sem_dado_desde_sempre}'
         )
 
 
