@@ -47,7 +47,12 @@ def montar_matriz_icms_por_ncm():
         valores_por_grupo.setdefault(chave, {})[registro.uf] = registro.aliquota
 
     linhas = []
-    for (ncm, cst, origem) in sorted(valores_por_grupo.keys()):
+    # key= evita comparar None com string: origem pode ser None (produto
+    # sem impostos_entrada sincronizado) convivendo com outro grupo do
+    # mesmo NCM+CST com origem preenchida — sorted() puro quebra nesse
+    # caso (TypeError, comparação None vs str), então trata None como ''
+    # só pra fins de ordenação, sem mudar o valor real armazenado.
+    for (ncm, cst, origem) in sorted(valores_por_grupo.keys(), key=lambda chave: (chave[0], chave[1], chave[2] or '')):
         valores_por_uf = valores_por_grupo[(ncm, cst, origem)]
         linhas.append({
             'ncm': ncm,

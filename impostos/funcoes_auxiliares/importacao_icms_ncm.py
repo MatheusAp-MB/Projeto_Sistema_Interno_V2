@@ -41,11 +41,26 @@
 #     como outro qualquer (mesma filosofia de PisCofinsNcmCst.pis/cofins:
 #     em branco continua em branco, nunca vira um valor por acidente),
 #     nunca motivo pra excluir a linha da validação.
+#
+# Correção de 13/09/2026, mais tarde ainda: a saída no terminal foi
+# reescrita usando rich (Table/Panel) + pandas (organiza e ordena as
+# linhas antes de virar Table) — antes, cada grupo rejeitado imprimia um
+# bloco de texto puro, aninhado UF-a-UF e valor-a-valor, que ficava difícil
+# de ler com muitos EANs no grupo. A regra de negócio (validação,
+# agrupamento, gravação) não muda em nada — só a FORMA como o que já era
+# calculado aparece no terminal. NcmRejeitado.__str__ e para_dict_auditoria
+# continuam do jeito que estavam (o 1º ainda serve pra depuração no shell,
+# o 2º é o que grava a auditoria completa em IcmsNcmRejeitado) — nenhum dos
+# dois é usado pelo stdout do comando desde esta correção.
 
 from decimal import Decimal
 
+import pandas as pd
 from django.db import transaction
 from django.utils import timezone
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
@@ -210,6 +225,24 @@ class NcmRejeitado:
             ]
         return resultado
 
+    # Função Objetivo: Mesmos dados de __str__ (por UF, agrupado por valor —
+    # do mais pro menos frequente), só que como DataFrame, pronto pra virar
+    # rich.table.Table no terminal (ver importar_icms_por_ncm). Trunca
+    # exemplos em MAXIMO_EXEMPLOS_POR_GRUPO igual ao __str__ — é exibição de
+    # terminal; quem nunca trunca nada é para_dict_auditoria, que vai pro banco.
+    def montar_dataframe_divergencias(self):
+        linhas = []
+        for uf in sorted(self.divergencias_por_uf):
+            for valor, eans in self._grupos_por_valor(self.divergencias_por_uf[uf]):
+                valor_exibido = str(valor) if valor is not None else 'em branco'
+                if len(eans) <= self.MAXIMO_EXEMPLOS_POR_GRUPO:
+                    exemplos = ', '.join(eans)
+                else:
+                    exemplos = ', '.join(eans[:self.MAXIMO_EXEMPLOS_POR_GRUPO])
+                    exemplos += f', ... (+{len(eans) - self.MAXIMO_EXEMPLOS_POR_GRUPO})'
+                linhas.append({'UF': uf, 'Valor': valor_exibido, 'Qtd EANs': len(eans), 'Exemplos': exemplos})
+        return pd.DataFrame(linhas, columns=['UF', 'Valor', 'Qtd EANs', 'Exemplos'])
+
 
 # Função Objetivo: Agrupa as linhas por NCM+CST+Origem e aplica a regra de consistência.
 class AgrupadorIcmsPorNcm:
@@ -259,14 +292,6 @@ class AgrupadorIcmsPorNcm:
                 self.rejeitados.append(rejeicao)
             else:
                 self.aceitos[(ncm, cst, origem)] = {uf: valor for uf, valor in valores.items() if valor is not None}
-
-    def relatorio_resumo(self):
-        return (
-            f'[ICMS POR NCM] Grupos (NCM+CST+Origem) distintos encontrados: {len(self.linhas_por_grupo)}\n'
-            f'    Aceitos:    {len(self.aceitos)}\n'
-            f'    Rejeitados: {len(self.rejeitados)}\n'
-            f'    Linhas sem NCM ou sem CST na planilha (ignoradas): {self.sem_ncm_ou_cst_na_planilha}'
-        )
 
 
 # Função Objetivo: Busca em lote (1 única query, nunca N+1) a Origem da
@@ -342,13 +367,6 @@ class PersistidorIcmsNcm:
         if self.para_atualizar:
             IcmsNcmUf.objects.bulk_update(self.para_atualizar, ['aliquota'], batch_size=BATCH_SIZE_PADRAO)
 
-    def relatorio_resumo(self):
-        return (
-            f'[ICMS POR NCM] Gravação concluída!\n'
-            f'    Criados (NCM+CST+Origem+UF novos):            {len(self.para_criar)}\n'
-            f'    Atualizados (NCM+CST+Origem+UF já existiam):  {len(self.para_atualizar)}'
-        )
-
 
 # Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
 # cada grupo NCM+CST+Origem rejeitado nesta importação — Camada A da
@@ -377,8 +395,45 @@ class PersistidorIcmsNcmRejeitado:
             IcmsNcmRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
 
 
+# Função Objetivo: 1 linha por grupo NCM+CST+Origem rejeitado — visão geral
+# pra escanear rápido quais grupos merecem mais atenção, antes de entrar no
+# detalhe UF-a-UF de cada 1 (ver importar_icms_por_ncm). Ordenado pelo
+# grupo com MAIS EANs primeiro — normalmente o de maior impacto real.
+def _montar_dataframe_resumo_rejeitados(rejeitados):
+    linhas = [
+        {
+            'NCM': rejeitado.ncm,
+            'CST': rejeitado.cst,
+            'Origem': (
+                rejeitado.origem_mercadoria_cadastro
+                if rejeitado.origem_mercadoria_cadastro is not None else 'em branco'
+            ),
+            'EANs no Grupo': rejeitado.total_eans_no_grupo,
+            'UFs Divergentes': len(rejeitado.divergencias_por_uf),
+        }
+        for rejeitado in rejeitados
+    ]
+    dataframe = pd.DataFrame(linhas, columns=['NCM', 'CST', 'Origem', 'EANs no Grupo', 'UFs Divergentes'])
+    return dataframe.sort_values(by='EANs no Grupo', ascending=False, ignore_index=True)
+
+
+# Função Objetivo: Converte um DataFrame (sempre pequeno — resumo ou
+# detalhe de 1 grupo, nunca a planilha inteira) num rich.table.Table
+# pronto pra console.print — única ponte entre pandas (organiza/ordena as
+# linhas) e rich (exibe colorido no terminal).
+def _dataframe_para_tabela_rich(dataframe, titulo, colunas_numericas=()):
+    tabela = Table(title=titulo)
+    for coluna in dataframe.columns:
+        tabela.add_column(coluna, justify='right' if coluna in colunas_numericas else 'left')
+    for linha in dataframe.itertuples(index=False):
+        tabela.add_row(*(str(valor) for valor in linha))
+    return tabela
+
+
 # Função Objetivo: Ponto de entrada do comando — lê, agrupa, valida e grava, do arquivo ao banco.
 def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
+    console = Console()
+
     if caminho_planilha is None:
         empresa = obter_empresa_ativa()
         if empresa is None:
@@ -388,19 +443,56 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
             )
         caminho_planilha = CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA[empresa]
 
-    stdout.write('[ICMS POR NCM] Lendo planilha Busca Legal...')
+    console.print('[bold]ICMS por NCM[/bold] — lendo planilha Busca Legal...')
 
     agrupador = agrupar_icms_por_ncm(caminho_planilha)
 
-    stdout.write('')
-    stdout.write(style.SUCCESS(agrupador.relatorio_resumo()))
+    tabela_agrupamento = Table(title='ICMS por NCM — Agrupamento (NCM + CST + Origem)')
+    tabela_agrupamento.add_column('Métrica')
+    tabela_agrupamento.add_column('Quantidade', justify='right')
+    tabela_agrupamento.add_row(
+        'Grupos (NCM+CST+Origem) distintos encontrados', str(len(agrupador.linhas_por_grupo)),
+    )
+    tabela_agrupamento.add_row('Aceitos', str(len(agrupador.aceitos)), style='green')
+    tabela_agrupamento.add_row(
+        'Rejeitados', str(len(agrupador.rejeitados)), style='yellow' if agrupador.rejeitados else None,
+    )
+    tabela_agrupamento.add_row(
+        'Sem NCM ou CST na planilha (ignoradas)', str(agrupador.sem_ncm_ou_cst_na_planilha),
+    )
+    console.print()
+    console.print(tabela_agrupamento)
 
     if agrupador.rejeitados:
-        stdout.write('')
-        stdout.write(style.WARNING('[GRUPOS REJEITADOS — DIVERGÊNCIA ENTRE EANs, NADA GRAVADO DESTES]'))
+        console.print()
+        console.print(Panel(
+            'Nada foi gravado destes grupos — os EANs de 1 mesmo NCM+CST+Origem precisam '
+            'concordar em todas as 27 UFs (mesmo valor preenchido, ou todos em branco).',
+            title=f'{len(agrupador.rejeitados)} grupo(s) rejeitado(s)',
+            border_style='yellow',
+        ))
+
+        console.print()
+        console.print(_dataframe_para_tabela_rich(
+            _montar_dataframe_resumo_rejeitados(agrupador.rejeitados),
+            titulo='Visão geral — 1 linha por grupo rejeitado (maior grupo primeiro)',
+            colunas_numericas=('EANs no Grupo', 'UFs Divergentes'),
+        ))
+
         for rejeitado in agrupador.rejeitados:
-            stdout.write('')
-            stdout.write(style.WARNING(str(rejeitado)))
+            origem_exibida = (
+                rejeitado.origem_mercadoria_cadastro
+                if rejeitado.origem_mercadoria_cadastro is not None else 'em branco'
+            )
+            console.print()
+            console.print(_dataframe_para_tabela_rich(
+                rejeitado.montar_dataframe_divergencias(),
+                titulo=(
+                    f'NCM {rejeitado.ncm} + CST {rejeitado.cst} + Origem {origem_exibida} — '
+                    f'{len(rejeitado.divergencias_por_uf)} UF(s) de {rejeitado.total_eans_no_grupo} EAN(s) no grupo'
+                ),
+                colunas_numericas=('Qtd EANs',),
+            ))
 
     # Momento único desta rodada — TODO IcmsNcmRejeitado gravado agora
     # carrega o MESMO instante, mesmo que a gravação em si leve alguns
@@ -413,25 +505,20 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
 
     persistidor_rejeitados = PersistidorIcmsNcmRejeitado(constatado_em)
 
-    # 1 ÚNICA transação: os grupos aceitos (criados/atualizados) e a
-    # substituição total da auditoria de rejeitados entram juntos, ou
-    # nenhum dos dois entra — nunca um sem o outro, mesmo se o processo
-    # cair no meio (garantia do vault, 13/09/2026). using=obter_alias_banco_ativo()
-    # é OBRIGATÓRIO aqui: como o EmpresaRouter roteia os models desta app
-    # pro alias 'magazine'/'samvale' (nunca 'default'), um bare
-    # transaction.atomic() (sem using=) abriria a transação na conexão
-    # ERRADA — a do alias 'default', que é uma conexão DIFERENTE mesmo
-    # apontando pro mesmo banco físico do Magazine — e não protegeria
-    # nenhuma das escritas de verdade, que acontecem na conexão do alias
-    # ativo. Ver core/database_router.py + core/empresa.py.
     with transaction.atomic(using=obter_alias_banco_ativo()):
         persistidor.salvar()
         persistidor_rejeitados.salvar(agrupador.rejeitados)
 
-    stdout.write('')
-    stdout.write(style.SUCCESS(persistidor.relatorio_resumo()))
+    resumo_final = (
+        f'[bold]Criados[/bold] (NCM+CST+Origem+UF novos)             {len(persistidor.para_criar)}\n'
+        f'[bold]Atualizados[/bold] (NCM+CST+Origem+UF já existiam)   {len(persistidor.para_atualizar)}\n'
+        f'Rejeitados registrados p/ auditoria                        {len(agrupador.rejeitados)}'
+    )
+    console.print()
+    console.print(Panel(resumo_final, title='ICMS por NCM — Gravação concluída', border_style='green'))
+
     stdout.write(style.SUCCESS(
-        f'[AUDITORIA] {len(agrupador.rejeitados)} grupo(s) NCM+CST+Origem rejeitado(s) registrados pra '
-        f'consulta (tela de produto e tela de Auditoria Fiscal), constatado em '
+        f'[ICMS POR NCM] Importação concluída — {len(agrupador.rejeitados)} grupo(s) rejeitado(s) '
+        f'registrado(s) pra consulta (tela de produto e tela de Auditoria Fiscal), constatado em '
         f'{timezone.localtime(constatado_em):%d/%m/%Y %H:%M:%S}.'
     ))
