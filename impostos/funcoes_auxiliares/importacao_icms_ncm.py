@@ -95,7 +95,7 @@ from impostos.funcoes_auxiliares.preenchimento_impostos_saida import (
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
 )
-from impostos.models import IcmsNcmRejeitado, IcmsNcmUf
+from impostos.models import IcmsNcmRejeitado, IcmsNcmUf, IcmsSaidaMediaPorNcmCstOrigem
 from produtos.models import Produto
 
 COLUNA_NCM = 'NCM'
@@ -412,12 +412,20 @@ def agrupar_icms_por_ncm(caminho_planilha):
     return agrupador
 
 
-# Função Objetivo: Grava em IcmsNcmUf os grupos aceitos por AgrupadorIcmsPorNcm.
+# Função Objetivo: Grava em IcmsNcmUf os grupos aceitos por AgrupadorIcmsPorNcm
+# — e, desde 13/09/2026 (decisão do vault: "Media Ponderada do ICMS Passa a
+# Ser Persistida em Tabela Propria" — Etapa 3b do roteiro de execução),
+# também grava a Média Ponderada de cada grupo em
+# IcmsSaidaMediaPorNcmCstOrigem — 1 registro por (ncm, cst, origem), nunca
+# por UF, calculada 1 única vez por grupo a partir do mesmo valores_por_uf
+# já usado pra gravar as até 27 linhas de IcmsNcmUf (calcular_media_ponderada,
+# já existente em exibicao_icms_por_ncm.py — nunca duplicada aqui).
 # Explicação em detalhe: nunca compara valor novo com o que já está
 # gravado — o dado que chegou e passou na validação é sempre a verdade,
-# sobrescreve sem comparar (decisão do Matheus). NCM+CST+Origem+UF que não
-# vieram nessa rodada continuam como estavam — a planilha só atualiza/cria
-# o que ela possui, nunca apaga o que já existe.
+# sobrescreve sem comparar (decisão do Matheus). NCM+CST+Origem+UF (e o
+# grupo de Média correspondente) que não vieram nessa rodada continuam
+# como estavam — a planilha só atualiza/cria o que ela possui, nunca apaga
+# o que já existe.
 class PersistidorIcmsNcm:
 
     def __init__(self):
@@ -425,13 +433,31 @@ class PersistidorIcmsNcm:
         self.para_criar = []
         self.para_atualizar = []
 
+        self.existentes_media = {}  # (ncm, cst, origem) -> IcmsSaidaMediaPorNcmCstOrigem
+        self.media_para_criar = []
+        self.media_para_atualizar = []
+        # Grupo aceito, mas calcular_media_ponderada() devolveu None (sem SP
+        # ou sem nenhuma outra UF preenchida) — dado real, não erro, mas
+        # vale contar pra visibilidade no relatório.
+        self.grupos_sem_media_calculavel = 0
+
     def carregar_existentes(self):
         self.existentes = {
             (r.ncm, r.cst, r.origem_mercadoria_cadastro, r.uf): r
             for r in IcmsNcmUf.objects.all()
         }
+        self.existentes_media = {
+            (r.ncm, r.cst, r.origem_mercadoria_cadastro): r
+            for r in IcmsSaidaMediaPorNcmCstOrigem.objects.all()
+        }
 
     def processar(self, aceitos):
+        # Import local — evita ciclo de import: exibicao_icms_por_ncm.py
+        # importa UFS_ORDENADAS deste módulo (importacao_icms_ncm.py); um
+        # import no topo deste arquivo fecharia o ciclo (mesmo padrão já
+        # usado em preenchimento_impostos_saida.py).
+        from impostos.funcoes_auxiliares.exibicao_icms_por_ncm import calcular_media_ponderada
+
         for (ncm, cst, origem), valores_por_uf in aceitos.items():
             for uf, aliquota in valores_por_uf.items():
                 chave = (ncm, cst, origem, uf)
@@ -444,11 +470,35 @@ class PersistidorIcmsNcm:
                     self.para_criar.append(novo)
                     self.existentes[chave] = novo
 
+            media = calcular_media_ponderada(valores_por_uf)
+            if media is None:
+                self.grupos_sem_media_calculavel += 1
+                continue
+
+            chave_media = (ncm, cst, origem)
+            existente_media = self.existentes_media.get(chave_media)
+            if existente_media:
+                existente_media.media_ponderada = media
+                self.media_para_atualizar.append(existente_media)
+            else:
+                nova_media = IcmsSaidaMediaPorNcmCstOrigem(
+                    ncm=ncm, cst=cst, origem_mercadoria_cadastro=origem, media_ponderada=media,
+                )
+                self.media_para_criar.append(nova_media)
+                self.existentes_media[chave_media] = nova_media
+
     def salvar(self):
         if self.para_criar:
             IcmsNcmUf.objects.bulk_create(self.para_criar, batch_size=BATCH_SIZE_PADRAO)
         if self.para_atualizar:
             IcmsNcmUf.objects.bulk_update(self.para_atualizar, ['aliquota'], batch_size=BATCH_SIZE_PADRAO)
+
+        if self.media_para_criar:
+            IcmsSaidaMediaPorNcmCstOrigem.objects.bulk_create(self.media_para_criar, batch_size=BATCH_SIZE_PADRAO)
+        if self.media_para_atualizar:
+            IcmsSaidaMediaPorNcmCstOrigem.objects.bulk_update(
+                self.media_para_atualizar, ['media_ponderada'], batch_size=BATCH_SIZE_PADRAO,
+            )
 
 
 # Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
@@ -683,6 +733,9 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
     resumo_final = (
         f'[bold]Criados[/bold] (NCM+CST+Origem+UF novos)             {len(persistidor.para_criar)}\n'
         f'[bold]Atualizados[/bold] (NCM+CST+Origem+UF já existiam)   {len(persistidor.para_atualizar)}\n'
+        f'[bold]Média Ponderada[/bold] — criados / atualizados        '
+        f'{len(persistidor.media_para_criar)} / {len(persistidor.media_para_atualizar)}'
+        f'{f" ({persistidor.grupos_sem_media_calculavel} sem média calculável)" if persistidor.grupos_sem_media_calculavel else ""}\n'
         f'Rejeitados registrados p/ auditoria                        {len(agrupador.rejeitados)}'
     )
     console.print()
