@@ -25,6 +25,8 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.settings')
 django.setup()
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from impostos.funcoes_auxiliares.motivo_impostos_saida import (
     ClassificadorMotivoFiscal, MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS, MOTIVO_SEM_CST, MOTIVO_SEM_NCM,
@@ -58,39 +60,47 @@ def validar_empresa(empresa):
         'sem_cst': [], 'ncm_cst_rejeitado_pis_cofins': [], 'ncm_cst_nunca_importado_pis_cofins': [],
     }
 
-    produtos = Produto.objects.only(
+    produtos = Produto.objects.select_related('impostos_entrada').only(
         'id', 'ean', 'ncm', 'cst_saida',
         'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual',
+        'impostos_entrada__origem_mercadoria_cadastro',
     )
 
     total = 0
     for produto in produtos:
         total += 1
-        campos_esperados = importador._calcular_campos_por_tabela(produto, produto.cst_saida)
+
+        try:
+            origem_produto = produto.impostos_entrada.origem_mercadoria_cadastro
+        except ObjectDoesNotExist:
+            origem_produto = None
+
+        campos_esperados = importador._calcular_campos_por_tabela(produto, produto.cst_saida, origem_produto)
 
         for campo in ('icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual'):
             if campo in campos_esperados and campos_esperados[campo] != getattr(produto, campo):
                 mismatches[campo].append((produto.ean, getattr(produto, campo), campos_esperados[campo]))
 
         if 'icms_saida_sp' not in campos_esperados:
-            motivo = classificador.classificar_icms_sp(produto.ncm)
+            motivo = classificador.classificar_icms_sp(produto.ncm, produto.cst_saida, origem_produto)
             if motivo is not None:
-                # sem_ncm mantém o formato antigo (só o EAN — não tem NCM
-                # nenhum a mais pra mostrar); os outros 2 motivos mostram
-                # o NCM junto, igual ao script original.
-                if motivo.motivo == MOTIVO_SEM_NCM:
+                # sem_ncm/sem_cst mantêm o formato antigo (só o EAN — não
+                # tem NCM nenhum a mais pra mostrar); os outros 2 motivos
+                # mostram o NCM junto, igual ao script original.
+                if motivo.motivo in (MOTIVO_SEM_NCM, MOTIVO_SEM_CST):
                     motivos_sem_dado[motivo.motivo].append(produto.ean)
                 else:
                     motivos_sem_dado[motivo.motivo].append((produto.ean, produto.ncm))
 
         if 'icms_saida_media' not in campos_esperados:
-            motivo = classificador.classificar_icms_media(produto.ncm)
+            motivo = classificador.classificar_icms_media(produto.ncm, produto.cst_saida, origem_produto)
             if motivo is not None and motivo.motivo == MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS:
                 # Só reporta aqui quando o motivo é ESPECÍFICO da Média
                 # (SP presente, cobertura insuficiente nas outras UFs) —
-                # os outros motivos (sem NCM/rejeitado/nunca importado) já
-                # foram contados acima, junto com icms_saida_sp, pra não
-                # duplicar o mesmo produto nos 2 buckets.
+                # os outros motivos (sem NCM/sem CST/rejeitado/nunca
+                # importado) já foram contados acima, junto com
+                # icms_saida_sp, pra não duplicar o mesmo produto nos 2
+                # buckets.
                 motivos_sem_dado[motivo.motivo].append((produto.ean, produto.ncm))
 
         if 'pis_percentual' not in campos_esperados:

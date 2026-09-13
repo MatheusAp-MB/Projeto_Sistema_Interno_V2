@@ -8,13 +8,20 @@
 # inteiro, não só quem está na planilha (ver Descoberta no vault):
 #   - cst_saida: direto da planilha Busca Legal, por EAN (sem tabela
 #     normalizada própria — ele É a chave de busca usada em
-#     PisCofinsNcmCst). Único campo que ainda depende de o produto estar
-#     na planilha desta rodada.
-#   - icms_saida_sp / icms_saida_media: de IcmsNcmUf, por NCM do Produto
-#     (SP direto; Média reaproveitando calcular_media_ponderada(), já
-#     usada na tela de ICMS por NCM — nunca recalculada aqui de outro
-#     jeito). Rodam pra TODO produto com NCM salvo, esteja ele na planilha
-#     ou não.
+#     PisCofinsNcmCst, e agora também em IcmsNcmUf). Único campo que ainda
+#     depende de o produto estar na planilha desta rodada.
+#   - icms_saida_sp / icms_saida_media: de IcmsNcmUf, por NCM + CST +
+#     Origem da Mercadoria (Cadastro) do Produto (decisão no vault,
+#     13/09/2026 — "Chave de Consolidacao do ICMS por NCM Passa a Incluir
+#     CST e Origem da Mercadoria": NCM sozinho não garante os mesmos 27
+#     valores). SP direto; Média reaproveitando calcular_media_ponderada(),
+#     já usada na tela de ICMS por NCM — nunca recalculada aqui de outro
+#     jeito. Precisam de CST pra buscar (igual PIS/COFINS já precisava) —
+#     produto sem CST não tem como ter os 2 campos preenchidos por esta
+#     tabela agora. Origem vem de
+#     produto.impostos_entrada.origem_mercadoria_cadastro — None quando o
+#     produto não tem essa sincronização ainda, e None é um valor de chave
+#     válido (mesma filosofia do resto da auditoria).
 #   - pis_percentual / cofins_percentual: de PisCofinsNcmCst, por NCM do
 #     Produto + CST — o CST lido nesta rodada da planilha quando existir,
 #     senão o cst_saida que já estava gravado (não precisa vir tudo da
@@ -41,6 +48,8 @@
 from decimal import Decimal
 
 import openpyxl
+
+from django.core.exceptions import ObjectDoesNotExist
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
@@ -194,7 +203,10 @@ class ImportadorImpostosSaida:
         self.produtos_por_ean = {}
         self.produtos_para_atualizar = []
 
-        self.icms_por_ncm = {}            # ncm normalizado -> {uf: aliquota}
+        # (ncm, cst, origem) normalizados -> {uf: aliquota} — chave
+        # expandida em 13/09/2026 (ver Decisão no vault sobre CST+Origem
+        # no ICMS).
+        self.icms_por_grupo = {}
         self.pis_cofins_por_ncm_cst = {}  # (ncm normalizado, cst normalizado) -> (pis, cofins)
         self.cst_por_ean = {}             # ean -> cst_saida lido nesta rodada da planilha
 
@@ -241,11 +253,19 @@ class ImportadorImpostosSaida:
     # busca nas tabelas normalizadas — sem isso no .only(), cada acesso a
     # produto.ncm dispararia 1 query extra por produto (N+1).
     def carregar_produtos_existentes(self):
+        # select_related('impostos_entrada') + only(...) com o campo por
+        # trás do "." — 1 único JOIN pra todo o catálogo, nunca 1 query
+        # extra por produto pra descobrir a Origem do Cadastro (mesma
+        # garantia de "sem N+1" do resto do arquivo). Produto sem
+        # impostos_entrada sincronizado continua acessível — só o acesso a
+        # produto.impostos_entrada levanta ObjectDoesNotExist, tratado em
+        # processar_todos_os_produtos.
         self.produtos_por_ean = {
             produto.ean: produto
-            for produto in Produto.objects.only(
+            for produto in Produto.objects.select_related('impostos_entrada').only(
                 'id', 'ean', 'ncm', 'cst_saida',
                 'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual',
+                'impostos_entrada__origem_mercadoria_cadastro',
             )
         }
 
@@ -255,9 +275,11 @@ class ImportadorImpostosSaida:
     def carregar_tabelas_normalizadas(self):
         for registro in IcmsNcmUf.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
-            if ncm is None:
+            cst = _normalizar_chave_para_busca(registro.cst)
+            if ncm is None or cst is None:
                 continue
-            self.icms_por_ncm.setdefault(ncm, {})[registro.uf] = registro.aliquota
+            origem = _normalizar_chave_para_busca(registro.origem_mercadoria_cadastro)
+            self.icms_por_grupo.setdefault((ncm, cst, origem), {})[registro.uf] = registro.aliquota
 
         for registro in PisCofinsNcmCst.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
@@ -271,22 +293,34 @@ class ImportadorImpostosSaida:
     # não foi encontrado nem aparece aqui (quem decide o que fazer com a
     # ausência — limpar pra None ou deixar como já estava vazio — é quem
     # chama, em processar_todos_os_produtos, não esta função).
-    # Explicação em detalhe: o CST usado na busca de PIS/COFINS é o LIDO
-    # NESTA MESMA LINHA da planilha (cst_saida_da_linha), não o que já
-    # estava gravado no produto — os dois vêm da mesma linha/planilha, e
-    # usar um CST antigo aqui poderia buscar com chave desatualizada.
-    # NCM+CST encontrado é considerado dado validado mesmo quando pis/cofins
-    # vêm em branco na tabela (produto monofásico) — em branco ali é uma
-    # resposta validada (0%), não "sem dado", por isso grava 0 em vez de
-    # manter o antigo.
-    def _calcular_campos_por_tabela(self, produto, cst_saida_da_linha):
+    # Explicação em detalhe: o CST usado na busca (ICMS E PIS/COFINS,
+    # desde 13/09/2026 — ver Decisão no vault) é o LIDO NESTA MESMA LINHA
+    # da planilha (cst_saida_da_linha), não o que já estava gravado no
+    # produto — os dois vêm da mesma linha/planilha, e usar um CST antigo
+    # aqui poderia buscar com chave desatualizada. origem_produto é
+    # sempre a Origem do CADASTRO (produto.impostos_entrada — resolvida
+    # por quem chama, nunca aqui, pra não repetir o try/except em cada
+    # produto), None quando o produto não tem essa sincronização ainda —
+    # None é um valor de chave válido, casa com IcmsNcmUf que também tem
+    # origem=None pros mesmos casos.
+    # Grupo (NCM+CST+Origem) encontrado é considerado dado validado mesmo
+    # quando os campos vêm em branco na tabela (produto monofásico, ou
+    # ICMS genuinamente ausente numa UF) — em branco ali é uma resposta
+    # validada, não "sem dado".
+    def _calcular_campos_por_tabela(self, produto, cst_saida_da_linha, origem_produto):
         campos = {}
 
         ncm_produto = _normalizar_chave_para_busca(produto.ncm)
         if ncm_produto is None:
             return campos
 
-        valores_por_uf = self.icms_por_ncm.get(ncm_produto)
+        cst_normalizado = _normalizar_chave_para_busca(cst_saida_da_linha)
+        if cst_normalizado is None:
+            return campos
+
+        origem_normalizada = _normalizar_chave_para_busca(origem_produto)
+
+        valores_por_uf = self.icms_por_grupo.get((ncm_produto, cst_normalizado, origem_normalizada))
         if valores_por_uf:
             aliquota_sp = valores_por_uf.get('SP')
             if aliquota_sp is not None:
@@ -301,13 +335,11 @@ class ImportadorImpostosSaida:
             if media is not None:
                 campos['icms_saida_media'] = media
 
-        cst_normalizado = _normalizar_chave_para_busca(cst_saida_da_linha)
-        if cst_normalizado is not None:
-            chave = (ncm_produto, cst_normalizado)
-            if chave in self.pis_cofins_por_ncm_cst:
-                pis, cofins = self.pis_cofins_por_ncm_cst[chave]
-                campos['pis_percentual'] = pis if pis is not None else Decimal('0')
-                campos['cofins_percentual'] = cofins if cofins is not None else Decimal('0')
+        chave_pis_cofins = (ncm_produto, cst_normalizado)
+        if chave_pis_cofins in self.pis_cofins_por_ncm_cst:
+            pis, cofins = self.pis_cofins_por_ncm_cst[chave_pis_cofins]
+            campos['pis_percentual'] = pis if pis is not None else Decimal('0')
+            campos['cofins_percentual'] = cofins if cofins is not None else Decimal('0')
 
         return campos
 
@@ -360,7 +392,15 @@ class ImportadorImpostosSaida:
             cst_da_planilha = self.cst_por_ean.get(ean)
             cst_para_busca = cst_da_planilha if cst_da_planilha is not None else produto.cst_saida
 
-            campos_tabela = self._calcular_campos_por_tabela(produto, cst_para_busca)
+            # Origem do Cadastro — só existe quando o produto já tem
+            # impostos_entrada sincronizado (Sysemp/XML). Ausência é caso
+            # normal (mesmo padrão de produtos/views.py), nunca erro.
+            try:
+                origem_produto = produto.impostos_entrada.origem_mercadoria_cadastro
+            except ObjectDoesNotExist:
+                origem_produto = None
+
+            campos_tabela = self._calcular_campos_por_tabela(produto, cst_para_busca, origem_produto)
 
             campos = {}
             if cst_da_planilha is not None:

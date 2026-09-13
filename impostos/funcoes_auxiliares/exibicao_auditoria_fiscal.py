@@ -28,11 +28,19 @@ def _todos_eans(estrutura_divergencias):
 def _linha_icms(rejeitado):
     return {
         'ncm': rejeitado.ncm,
+        'cst': rejeitado.cst,
+        'origem_mercadoria_cadastro': rejeitado.origem_mercadoria_cadastro,
         'qtd_eans_no_grupo': rejeitado.qtd_eans_no_grupo,
         'qtd_ufs_divergentes': rejeitado.qtd_ufs_divergentes,
         'divergencias_por_uf': rejeitado.divergencias_por_uf,
         'constatado_em': rejeitado.constatado_em,
-        'busca': (' '.join([rejeitado.ncm] + _todos_eans(rejeitado.divergencias_por_uf))).lower(),
+        'busca': (
+            ' '.join(
+                [rejeitado.ncm, rejeitado.cst]
+                + ([rejeitado.origem_mercadoria_cadastro] if rejeitado.origem_mercadoria_cadastro else [])
+                + _todos_eans(rejeitado.divergencias_por_uf)
+            )
+        ).lower(),
     }
 
 

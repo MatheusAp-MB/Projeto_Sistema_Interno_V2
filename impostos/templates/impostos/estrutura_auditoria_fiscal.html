@@ -52,7 +52,9 @@
             {% for linha in linhas_icms %}
             <details class="auditoria-item" {% if forloop.first %}open{% endif %} data-busca="{{ linha.busca }}">
                 <summary class="auditoria-item-resumo">
-                    <span class="auditoria-item-identificacao">NCM {{ linha.ncm }}</span>
+                    <span class="auditoria-item-identificacao">
+                        NCM {{ linha.ncm }} + CST {{ linha.cst }}{% if linha.origem_mercadoria_cadastro %} + Origem {{ linha.origem_mercadoria_cadastro }}{% endif %}
+                    </span>
                     <span class="badge-tabela badge-fiscal-rejeitado">Rejeitado</span>
                     <span class="auditoria-item-metrica">{{ linha.qtd_ufs_divergentes }} UF{{ linha.qtd_ufs_divergentes|pluralize }} divergente{{ linha.qtd_ufs_divergentes|pluralize }}</span>
                     <span class="auditoria-item-metrica auditoria-item-metrica-impacto">{{ linha.qtd_eans_no_grupo }} EANs no grupo</span>

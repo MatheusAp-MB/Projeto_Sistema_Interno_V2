@@ -35,11 +35,18 @@ def view_painel_produto(request, produto_id):
     dados_fiscais = produto.obter_dados_fiscais()
     classificador = ClassificadorMotivoFiscal()
 
+    # Origem do Cadastro — reaproveita o mesmo impostos_entrada já
+    # resolvido acima (com o mesmo try/except pra ausência), nunca uma 2ª
+    # consulta pra buscar de novo.
+    origem_produto = impostos_entrada.origem_mercadoria_cadastro if impostos_entrada is not None else None
+
     motivo_icms_saida_sp = (
-        classificador.classificar_icms_sp(produto.ncm) if dados_fiscais.icms_saida_sp is None else None
+        classificador.classificar_icms_sp(produto.ncm, dados_fiscais.cst_saida, origem_produto)
+        if dados_fiscais.icms_saida_sp is None else None
     )
     motivo_icms_saida_media = (
-        classificador.classificar_icms_media(produto.ncm) if dados_fiscais.icms_saida_media is None else None
+        classificador.classificar_icms_media(produto.ncm, dados_fiscais.cst_saida, origem_produto)
+        if dados_fiscais.icms_saida_media is None else None
     )
     motivo_pis_cofins = (
         classificador.classificar_pis_cofins(produto.ncm, dados_fiscais.cst_saida)

@@ -33,15 +33,26 @@ def calcular_media_ponderada(valores_por_uf):
 
 # Função Objetivo: Monta as linhas da matriz — 1 por NCM, já com a Média Ponderada calculada.
 def montar_matriz_icms_por_ncm():
-    valores_por_ncm = {}
+    # 13/09/2026 — chave expandida pra (NCM, CST, Origem): agrupar só por
+    # NCM aqui misturava, na mesma linha, alíquotas de combinações CST/
+    # Origem diferentes (ex: NCM 84248229 com CST 20 e CST 00) — a última
+    # lida por UF sobrescrevia silenciosamente a anterior, o mesmo bug que
+    # motivou a correção da chave em IcmsNcmUf (ver Decisão no vault).
+    # AVISO: o template desta tela ainda espera 1 linha por NCM — ver
+    # ressalva na conversa sobre este diff antes de usar 'cst'/
+    # 'origem_mercadoria_cadastro' na tela.
+    valores_por_grupo = {}
     for registro in IcmsNcmUf.objects.all():
-        valores_por_ncm.setdefault(registro.ncm, {})[registro.uf] = registro.aliquota
+        chave = (registro.ncm, registro.cst, registro.origem_mercadoria_cadastro)
+        valores_por_grupo.setdefault(chave, {})[registro.uf] = registro.aliquota
 
     linhas = []
-    for ncm in sorted(valores_por_ncm.keys()):
-        valores_por_uf = valores_por_ncm[ncm]
+    for (ncm, cst, origem) in sorted(valores_por_grupo.keys()):
+        valores_por_uf = valores_por_grupo[(ncm, cst, origem)]
         linhas.append({
             'ncm': ncm,
+            'cst': cst,
+            'origem_mercadoria_cadastro': origem,
             'valores': [
                 {'uf': uf, 'aliquota': valores_por_uf.get(uf)}
                 for uf in UFS_ORDENADAS

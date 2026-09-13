@@ -43,7 +43,10 @@ DESCRICAO_POR_MOTIVO = {
         'NCM aceito e com ICMS SP cadastrado, mas nenhuma das outras 26 UFs tem alíquota '
         'suficiente pra calcular a Média Ponderada (SP × 50% + média das outras 26 × 50%).'
     ),
-    MOTIVO_SEM_CST: 'Produto sem CST de saída cadastrado — não há como buscar PIS/COFINS por NCM+CST sem ele.',
+    MOTIVO_SEM_CST: (
+        'Produto sem CST de saída cadastrado — não há como buscar ICMS ou PIS/COFINS por '
+        'NCM+CST sem ele.'
+    ),
     MOTIVO_NCM_CST_REJEITADO_PIS_COFINS: (
         'NCM+CST rejeitado na última importação — os EANs deste grupo divergem em PIS e/ou COFINS.'
     ),
@@ -100,15 +103,19 @@ class MotivoFiscal:
 class ClassificadorMotivoFiscal:
 
     def __init__(self):
-        # ncm normalizado -> {uf: aliquota} — mesma fonte que
+        # (ncm, cst, origem) normalizados -> {uf: aliquota} — chave
+        # expandida em 13/09/2026 (ver Decisão no vault sobre CST+Origem
+        # no ICMS). Mesma fonte que
         # exibicao_icms_por_ncm.montar_matriz_icms_por_ncm usa pra tela de
         # ICMS por NCM, nunca uma 2ª leitura reimplementada diferente.
-        self.icms_valores_por_ncm = {}
+        self.icms_valores_por_grupo = {}
         for registro in IcmsNcmUf.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
-            if ncm is None:
+            cst = _normalizar_chave_para_busca(registro.cst)
+            if ncm is None or cst is None:
                 continue
-            self.icms_valores_por_ncm.setdefault(ncm, {})[registro.uf] = registro.aliquota
+            origem = _normalizar_chave_para_busca(registro.origem_mercadoria_cadastro)
+            self.icms_valores_por_grupo.setdefault((ncm, cst, origem), {})[registro.uf] = registro.aliquota
 
         # (ncm normalizado, cst normalizado) -> True — só precisa saber SE
         # o grupo está aceito, não os valores (esses vêm de Produto direto).
@@ -119,8 +126,13 @@ class ClassificadorMotivoFiscal:
             if ncm_norm is not None and cst_norm is not None:
                 self.pis_cofins_grupos_aceitos.add((ncm_norm, cst_norm))
 
-        self.rejeitados_icms_por_ncm = {
-            _normalizar_chave_para_busca(r.ncm): r for r in IcmsNcmRejeitado.objects.all()
+        self.rejeitados_icms_por_grupo = {
+            (
+                _normalizar_chave_para_busca(r.ncm),
+                _normalizar_chave_para_busca(r.cst),
+                _normalizar_chave_para_busca(r.origem_mercadoria_cadastro),
+            ): r
+            for r in IcmsNcmRejeitado.objects.all()
         }
         self.rejeitados_pis_cofins_por_grupo = {
             (_normalizar_chave_para_busca(r.ncm), _normalizar_chave_para_busca(r.cst)): r
@@ -130,17 +142,31 @@ class ClassificadorMotivoFiscal:
     # Função Objetivo: Motivo de icms_saida_sp estar em branco — None
     # quando não há motivo nenhum (não deveria estar em branco; quem
     # chamou já devia ter conferido que o campo é None antes de perguntar).
-    def classificar_icms_sp(self, ncm_produto):
+    # Explicação em detalhe (13/09/2026): passa a exigir CST e Origem
+    # também — desde a mudança de chave do ICMS (ver Decisão no vault),
+    # produto sem CST cadastrado não tem mais como ser buscado aqui, igual
+    # já acontecia com PIS/COFINS (reaproveita o mesmo MOTIVO_SEM_CST).
+    # Origem pode ser None (produto sem impostos_entrada sincronizado) —
+    # é um valor de chave válido, nunca bloqueia sozinho.
+    def classificar_icms_sp(self, ncm_produto, cst_produto, origem_produto):
         ncm_norm = _normalizar_chave_para_busca(ncm_produto)
         if ncm_norm is None:
             return MotivoFiscal(MOTIVO_SEM_NCM, DESCRICAO_POR_MOTIVO[MOTIVO_SEM_NCM])
-        if ncm_norm in self.rejeitados_icms_por_ncm:
+
+        cst_norm = _normalizar_chave_para_busca(cst_produto)
+        if cst_norm is None:
+            return MotivoFiscal(MOTIVO_SEM_CST, DESCRICAO_POR_MOTIVO[MOTIVO_SEM_CST])
+
+        origem_norm = _normalizar_chave_para_busca(origem_produto)
+        chave = (ncm_norm, cst_norm, origem_norm)
+
+        if chave in self.rejeitados_icms_por_grupo:
             return MotivoFiscal(
                 MOTIVO_NCM_REJEITADO_ICMS,
                 DESCRICAO_POR_MOTIVO[MOTIVO_NCM_REJEITADO_ICMS],
-                self.rejeitados_icms_por_ncm[ncm_norm],
+                self.rejeitados_icms_por_grupo[chave],
             )
-        if ncm_norm not in self.icms_valores_por_ncm:
+        if chave not in self.icms_valores_por_grupo:
             return MotivoFiscal(MOTIVO_NCM_NUNCA_IMPORTADO_ICMS, DESCRICAO_POR_MOTIVO[MOTIVO_NCM_NUNCA_IMPORTADO_ICMS])
         return None
 
@@ -157,13 +183,15 @@ class ClassificadorMotivoFiscal:
     # correção, só classificava o motivo olhando pra SP — Média em branco
     # por essa razão específica ficava sem motivo NENHUM registrado em
     # lugar algum, o mesmo tipo de lacuna que motivou toda essa auditoria.
-    def classificar_icms_media(self, ncm_produto):
-        motivo_base = self.classificar_icms_sp(ncm_produto)
+    def classificar_icms_media(self, ncm_produto, cst_produto, origem_produto):
+        motivo_base = self.classificar_icms_sp(ncm_produto, cst_produto, origem_produto)
         if motivo_base is not None:
             return motivo_base
 
         ncm_norm = _normalizar_chave_para_busca(ncm_produto)
-        valores_por_uf = self.icms_valores_por_ncm.get(ncm_norm)
+        cst_norm = _normalizar_chave_para_busca(cst_produto)
+        origem_norm = _normalizar_chave_para_busca(origem_produto)
+        valores_por_uf = self.icms_valores_por_grupo.get((ncm_norm, cst_norm, origem_norm))
         if valores_por_uf and calcular_media_ponderada(valores_por_uf) is None:
             return MotivoFiscal(
                 MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS, DESCRICAO_POR_MOTIVO[MOTIVO_ICMS_MEDIA_SEM_COBERTURA_UFS],
