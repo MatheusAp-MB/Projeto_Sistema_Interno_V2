@@ -553,7 +553,13 @@ def preencher_impostos_saida(stdout, style):
     console.print(tabela_leitura)
 
     tabela_cst = Table(
-        title='cst_saida — direto da planilha, por EAN (sem conferência cruzada)',
+        # Título curto de propósito (13/09/2026): título comprido numa
+        # tabela de só 2 colunas estreitas quebra em linhas fragmentadas,
+        # cada 1 centralizada por conta própria (Table encolhe pro
+        # conteúdo, não estica pro console como Panel) — mesmo bug do
+        # título das tabelas de diagnóstico de EAN, aqui achado numa
+        # tabela que já existia antes daquela correção.
+        title='cst_saida (sem conferência cruzada)',
         caption='"Sem atualização" é esperado pra EAN que não veio na planilha desta rodada — mantém o CST antigo, não é anomalia.',
     )
     tabela_cst.add_column('Situação')
