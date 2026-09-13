@@ -27,6 +27,11 @@ function ajustar_altura_grade() {
 ajustar_altura_grade();
 window.addEventListener('resize', ajustar_altura_grade);
 
+// A troca do HTMX (resultado da consulta, ou o <select> de CST) muda a
+// altura do que vem antes da tabela — sem isso, o max-height calculado
+// no carregamento da página fica desatualizado e sobra scroll externo.
+document.body.addEventListener('htmx:afterSwap', ajustar_altura_grade);
+
 function destacar_grupo(ncm, cst) {
     limpar_destaque_pis_cofins();
 

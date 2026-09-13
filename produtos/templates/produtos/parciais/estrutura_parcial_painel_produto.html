@@ -428,10 +428,81 @@
         <p class="modal-sem-dado">Produto ainda sem dados de impostos de entrada sincronizados (Sysemp).</p>
         {% endif %}
 
-        <details class="card modal-secao-pendente">
-            <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Impostos de saída — ainda sem fonte de dado</summary>
+        <details class="card" open>
+            <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Impostos de saída — por produto</summary>
             <div class="card-body">
-                <p class="modal-sem-dado">API de saída do Sysemp ainda em desenvolvimento, sem prazo. Estrutura de colunas será a mesma da entrada quando existir.</p>
+                <table class="modal-tabela modal-tabela-par modal-tabela-espacamento">
+                    <colgroup>
+                        <col class="modal-col-dado"><col class="modal-col-valor">
+                    </colgroup>
+                    <tr>
+                        <td class="modal-td-dado">CST de Saída</td>
+                        <td class="modal-td-valor">{{ produto.obter_dados_fiscais.cst_saida|default_if_none:"—" }}</td>
+                    </tr>
+                </table>
+                <div class="modal-grade-cards-imposto">
+
+                    <div class="card">
+                        <div class="card-header modal-card-cabecalho-icms-saida-sp">
+                            <strong>ICMS Saída SP</strong>
+                        </div>
+                        <div class="card-body">
+                            <table class="modal-tabela modal-tabela-par">
+                                <colgroup><col class="modal-col-dado"><col class="modal-col-valor"></colgroup>
+                                <tr>
+                                    <td class="modal-td-dado">Alíquota</td>
+                                    <td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_saida_sp|floatformat:2 }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header modal-card-cabecalho-icms-saida-media">
+                            <strong>ICMS Saída Média</strong>
+                        </div>
+                        <div class="card-body">
+                            <table class="modal-tabela modal-tabela-par">
+                                <colgroup><col class="modal-col-dado"><col class="modal-col-valor"></colgroup>
+                                <tr>
+                                    <td class="modal-td-dado">Alíquota</td>
+                                    <td class="modal-td-valor">{{ produto.obter_dados_fiscais.icms_saida_media|floatformat:2 }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header modal-card-cabecalho-pis">
+                            <strong>PIS</strong>
+                        </div>
+                        <div class="card-body">
+                            <table class="modal-tabela modal-tabela-par">
+                                <colgroup><col class="modal-col-dado"><col class="modal-col-valor"></colgroup>
+                                <tr>
+                                    <td class="modal-td-dado">Alíquota</td>
+                                    <td class="modal-td-valor">{{ produto.obter_dados_fiscais.pis_percentual|floatformat:2 }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header modal-card-cabecalho-cofins">
+                            <strong>COFINS</strong>
+                        </div>
+                        <div class="card-body">
+                            <table class="modal-tabela modal-tabela-par">
+                                <colgroup><col class="modal-col-dado"><col class="modal-col-valor"></colgroup>
+                                <tr>
+                                    <td class="modal-td-dado">Alíquota</td>
+                                    <td class="modal-td-valor">{{ produto.obter_dados_fiscais.cofins_percentual|floatformat:2 }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
             </div>
         </details>
 

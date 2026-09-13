@@ -35,6 +35,7 @@ class DadosFinanceirosProduto:
 # Função Objetivo: Agrupa os dados fiscais do Produto.
 @dataclass
 class DadosFiscaisProduto:
+    cst_saida: str
     icms_saida_sp: Decimal
     icms_saida_media: Decimal
     pis_percentual: Decimal
@@ -171,6 +172,14 @@ class Produto(models.Model):
     peso_cubado = models.DecimalField(
         max_digits=8, decimal_places=3, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → CST de saída — único campo fiscal de saída sem
+    #                  tabela normalizada própria: ele É a chave de busca
+    #                  usada em PisCofinsNcmCst (ver domínio `impostos`),
+    #                  não produto de uma tabela. Alimentado direto da
+    #                  planilha Busca Legal, por EAN — mesmo padrão dos
+    #                  campos de impostos de entrada.
+    cst_saida = models.CharField(max_length=10, blank=True, null=True)
+
     icms_saida_sp = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
     icms_saida_media = models.DecimalField(
@@ -247,6 +256,7 @@ class Produto(models.Model):
     # Função Objetivo: Devolve os dados fiscais deste produto.
     def obter_dados_fiscais(self):
         return DadosFiscaisProduto(
+            cst_saida=self.cst_saida,
             icms_saida_sp=self.icms_saida_sp, icms_saida_media=self.icms_saida_media,
             pis_percentual=self.pis_percentual, cofins_percentual=self.cofins_percentual,
             frete_cif_fob=self.frete_cif_fob,

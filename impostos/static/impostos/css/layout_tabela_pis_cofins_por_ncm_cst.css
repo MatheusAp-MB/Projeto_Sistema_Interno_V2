@@ -193,9 +193,9 @@
     vertical-align: 1px;
 }
 
-.rodape-nota {
+.nota-tabela {
     font-size: 0.75rem;
     color: var(--cor-texto-muted);
-    margin-top: 10px;
+    margin: 0 0 10px;
     line-height: 1.5;
 }

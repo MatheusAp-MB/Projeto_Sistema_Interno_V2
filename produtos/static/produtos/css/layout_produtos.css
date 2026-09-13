@@ -766,6 +766,29 @@
     color: #7A4560;
 }
 
+/* Impostos de saída (modal de Produto) — ICMS SP e ICMS Média reaproveitam
+   de propósito a cor do ICMS de entrada (mesma família de imposto, dois
+   critérios de UF diferentes); PIS e COFINS de saída reaproveitam as
+   classes de entrada já existentes acima (mesmo imposto, direção
+   diferente). */
+.modal-card-cabecalho-icms-saida-sp,
+.modal-card-cabecalho-icms-saida-media {
+    background-color: #7D5B0A;
+}
+
+.card:has(> .card-header.modal-card-cabecalho-icms-saida-sp) .modal-td-dado,
+.card:has(> .card-header.modal-card-cabecalho-icms-saida-media) .modal-td-dado {
+    background-color: rgb(237, 232, 221);
+    color: #3C3120;
+    border-bottom-color: rgb(210, 198, 169);
+}
+.card:has(> .card-header.modal-card-cabecalho-icms-saida-sp) .modal-td-valor,
+.card:has(> .card-header.modal-card-cabecalho-icms-saida-media) .modal-td-valor {
+    background-color: rgb(246, 244, 238);
+    color: #3C3120;
+    border-bottom-color: rgb(210, 198, 169);
+}
+
 /* Ícone de calculadora e conteúdo do popover — fallback de cor caso o
    ícone apareça fora de um card com tom próprio (não deveria acontecer). */
 .modal-icone-calculado {
