@@ -1,3 +1,5 @@
+# impostos/funcoes_auxiliares/exibicao_auditoria_fiscal.py
+
 # Função Objetivo: Monta o dado pronto pra exibir a tela de Auditoria
 # Fiscal (Camada D da auditoria fiscal — ver Descoberta "Auditoria Fiscal
 # de Impostos de Saida" no vault, 13/09/2026) — 2 abas (ICMS por NCM e

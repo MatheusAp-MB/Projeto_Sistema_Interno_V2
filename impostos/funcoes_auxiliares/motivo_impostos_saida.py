@@ -1,3 +1,5 @@
+# impostos/funcoes_auxiliares/motivo_impostos_saida.py
+
 # Função Objetivo: Classifica, pra 1 produto, o motivo exato de cada campo
 # fiscal de saída vindo de tabela normalizada (icms_saida_sp,
 # icms_saida_media, pis_percentual, cofins_percentual) estar em branco —

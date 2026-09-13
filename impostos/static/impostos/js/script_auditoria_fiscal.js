@@ -1,3 +1,4 @@
+// impostos/static/impostos/js/script_auditoria_fiscal.js
 //
 // Função Objetivo: Troca de aba (ICMS / PIS-COFINS) e busca por
 // NCM/CST/EAN na tela de Auditoria Fiscal (Camada D, 13/09/2026).
