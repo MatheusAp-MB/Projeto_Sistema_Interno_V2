@@ -52,6 +52,23 @@
 # continuam do jeito que estavam (o 1º ainda serve pra depuração no shell,
 # o 2º é o que grava a auditoria completa em IcmsNcmRejeitado) — nenhum dos
 # dois é usado pelo stdout do comando desde esta correção.
+#
+# Correção de 13/09/2026, mais tarde ainda (achado do Matheus, vendo o
+# output real): virar texto corrido em tabela resolve legibilidade, mas
+# não resolve UTILIDADE — reparamos que, num grupo rejeitado com muitas
+# UFs divergentes, o padrão de divergência costuma se repetir IDÊNTICO em
+# quase todas as UFs (o mesmo 1 EAN sempre no lado minoritário), e a
+# tabela UF-a-UF escondia isso atrás de repetição em vez de mostrar. Esta
+# tela é debug pro Matheus e pra mim (Claude) entendermos se o CÓDIGO tá
+# se comportando certo — não é tela de usuário final (essa é a Auditoria
+# Fiscal em HTML) — então o que importa aqui é responder rápido "isso é
+# 1 produto cadastrado errado (dado sujo, comportamento normal) ou um
+# padrão estranho que sugere bug na minha lógica de agrupamento?".
+# NcmRejeitado.montar_diagnostico_eans/resumir_diagnostico fazem essa
+# pergunta por EAN (quantas UFs cada EAN ficou no lado minoritário) em vez
+# de deixar quem lê escanear 24 linhas repetidas pra perceber à mão. A
+# tabela UF-a-UF continua existindo (ainda serve pra conferir os valores
+# de verdade), só que como detalhe secundário, depois do diagnóstico.
 
 from decimal import Decimal
 
@@ -61,6 +78,7 @@ from django.utils import timezone
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
@@ -243,6 +261,53 @@ class NcmRejeitado:
                 linhas.append({'UF': uf, 'Valor': valor_exibido, 'Qtd EANs': len(eans), 'Exemplos': exemplos})
         return pd.DataFrame(linhas, columns=['UF', 'Valor', 'Qtd EANs', 'Exemplos'])
 
+    # Função Objetivo: Pra cada EAN do grupo, conta em quantas UFs
+    # divergentes ele ficou no lado MINORITÁRIO (fora do maior grupo de
+    # valor daquela UF) — sem isso, quem olha o terminal tem que escanear
+    # UF por UF pra perceber à mão se é sempre o mesmo produto causando a
+    # rejeição inteira, ou se são vários produtos diferentes sem padrão.
+    # UFs onde os valores empatam no topo (sem 1 grupo majoritário claro,
+    # ex: 50%/50%) não contam ninguém como minoria — ninguém é claramente
+    # "o errado" ali — e entram no 2º valor de retorno (ufs_sem_maioria_clara).
+    def montar_diagnostico_eans(self):
+        total_ufs = len(self.divergencias_por_uf)
+        vezes_em_minoria = {}
+        ufs_sem_maioria_clara = 0
+        for conflitantes in self.divergencias_por_uf.values():
+            grupos = self._grupos_por_valor(conflitantes)
+            empate_no_topo = len(grupos) > 1 and len(grupos[0][1]) == len(grupos[1][1])
+            if empate_no_topo:
+                ufs_sem_maioria_clara += 1
+                continue
+            eans_maioria = set(grupos[0][1])
+            for ean, valor in conflitantes:
+                if ean not in eans_maioria:
+                    vezes_em_minoria[ean] = vezes_em_minoria.get(ean, 0) + 1
+        linhas = [
+            {'EAN': ean, 'Divergiu': f'{qtd} de {total_ufs} UF(s)'}
+            for ean, qtd in sorted(vezes_em_minoria.items(), key=lambda item: -item[1])
+        ]
+        dataframe = pd.DataFrame(linhas, columns=['EAN', 'Divergiu'])
+        return dataframe, ufs_sem_maioria_clara
+
+    # Função Objetivo: Resumo de 1 linha do diagnóstico acima, com estilo
+    # (cor) — verde quando há 1 causador claro (caso mais simples: 1
+    # produto errado, resto do grupo consistente), amarelo quando há mais
+    # de 1 EAN suspeito (precisa olhar com mais calma), vermelho quando
+    # nenhum EAN se destaca (divergência bem distribuída — pode ser
+    # divergência real de tabela, não 1 produto cadastrado errado).
+    def resumir_diagnostico(self):
+        dataframe, ufs_ambiguas = self.montar_diagnostico_eans()
+        if dataframe.empty:
+            texto, estilo = 'sem padrão claro', 'red'
+        elif len(dataframe) == 1:
+            texto, estilo = f'1 EAN provável ({dataframe.iloc[0]["EAN"]})', 'green'
+        else:
+            texto, estilo = f'{len(dataframe)} EAN(s) suspeitos', 'yellow'
+        if ufs_ambiguas:
+            texto += f' (+{ufs_ambiguas} UF sem maioria clara)'
+        return texto, estilo
+
 
 # Função Objetivo: Agrupa as linhas por NCM+CST+Origem e aplica a regra de consistência.
 class AgrupadorIcmsPorNcm:
@@ -395,38 +460,60 @@ class PersistidorIcmsNcmRejeitado:
             IcmsNcmRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
 
 
-# Função Objetivo: 1 linha por grupo NCM+CST+Origem rejeitado — visão geral
-# pra escanear rápido quais grupos merecem mais atenção, antes de entrar no
-# detalhe UF-a-UF de cada 1 (ver importar_icms_por_ncm). Ordenado pelo
-# grupo com MAIS EANs primeiro — normalmente o de maior impacto real.
-def _montar_dataframe_resumo_rejeitados(rejeitados):
-    linhas = [
-        {
+# Função Objetivo: 1 linha por grupo NCM+CST+Origem rejeitado, já com o
+# diagnóstico de causa (ver NcmRejeitado.resumir_diagnostico) — visão geral
+# pra saber, sem entrar no detalhe UF-a-UF de nenhum grupo, se é 1 produto
+# errado (fácil, verde) ou uma divergência sem causador claro (precisa
+# olhar com mais calma, amarelo/vermelho). Recebe a lista já na ordem que
+# deve aparecer — não ordena de novo aqui (ver importar_icms_por_ncm).
+def _montar_dataframe_resumo_rejeitados(rejeitados_ordenados):
+    linhas = []
+    for rejeitado in rejeitados_ordenados:
+        texto_diagnostico, estilo_diagnostico = rejeitado.resumir_diagnostico()
+        linhas.append({
             'NCM': rejeitado.ncm,
             'CST': rejeitado.cst,
             'Origem': (
                 rejeitado.origem_mercadoria_cadastro
                 if rejeitado.origem_mercadoria_cadastro is not None else 'em branco'
             ),
+            'Diagnóstico': texto_diagnostico,
+            'Estilo': estilo_diagnostico,  # só orienta a cor da célula — nunca vira coluna exibida
             'EANs no Grupo': rejeitado.total_eans_no_grupo,
             'UFs Divergentes': len(rejeitado.divergencias_por_uf),
-        }
-        for rejeitado in rejeitados
-    ]
-    dataframe = pd.DataFrame(linhas, columns=['NCM', 'CST', 'Origem', 'EANs no Grupo', 'UFs Divergentes'])
-    return dataframe.sort_values(by='EANs no Grupo', ascending=False, ignore_index=True)
+        })
+    return pd.DataFrame(linhas, columns=[
+        'NCM', 'CST', 'Origem', 'Diagnóstico', 'Estilo', 'EANs no Grupo', 'UFs Divergentes',
+    ])
 
 
 # Função Objetivo: Converte um DataFrame (sempre pequeno — resumo ou
 # detalhe de 1 grupo, nunca a planilha inteira) num rich.table.Table
 # pronto pra console.print — única ponte entre pandas (organiza/ordena as
 # linhas) e rich (exibe colorido no terminal).
-def _dataframe_para_tabela_rich(dataframe, titulo, colunas_numericas=()):
-    tabela = Table(title=titulo)
+def _dataframe_para_tabela_rich(dataframe, titulo, colunas_numericas=(), border_style=None):
+    tabela = Table(title=titulo, border_style=border_style)
     for coluna in dataframe.columns:
         tabela.add_column(coluna, justify='right' if coluna in colunas_numericas else 'left')
     for linha in dataframe.itertuples(index=False):
         tabela.add_row(*(str(valor) for valor in linha))
+    return tabela
+
+
+# Função Objetivo: Mesma ideia de _dataframe_para_tabela_rich, só que pra
+# visão geral dos rejeitados especificamente — precisa colorir só a
+# CÉLULA de Diagnóstico conforme a coluna 'Estilo' (nunca exibida como
+# coluna de verdade), e a genérica só sabe estilizar coluna inteira.
+def _tabela_resumo_rejeitados_para_rich(dataframe):
+    tabela = Table(title='Visão geral — 1 linha por grupo rejeitado (maior grupo primeiro)')
+    colunas_exibidas = [coluna for coluna in dataframe.columns if coluna != 'Estilo']
+    for coluna in colunas_exibidas:
+        tabela.add_column(coluna, justify='right' if coluna in ('EANs no Grupo', 'UFs Divergentes') else 'left')
+    for registro in dataframe.to_dict('records'):
+        tabela.add_row(*(
+            Text(str(registro[coluna]), style=registro['Estilo']) if coluna == 'Diagnóstico' else str(registro[coluna])
+            for coluna in colunas_exibidas
+        ))
     return tabela
 
 
@@ -471,33 +558,78 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
         # confundia mais do que ajudava).
         rejeitados_ordenados = sorted(agrupador.rejeitados, key=lambda r: -r.total_eans_no_grupo)
 
+        # Nota de 1 linha só — quem roda isso já conhece a regra (é dev do
+        # próprio sistema), repetir o parágrafo inteiro toda rodada é
+        # ruído, não ajuda a debugar nada novo.
         console.print()
-        console.print(Panel(
-            'Nada foi gravado destes grupos — os EANs de 1 mesmo NCM+CST+Origem precisam '
-            'concordar em todas as 27 UFs (mesmo valor preenchido, ou todos em branco).',
-            title=f'{len(agrupador.rejeitados)} grupo(s) rejeitado(s)',
-            border_style='yellow',
-        ))
+        console.print(
+            f'[yellow]{len(agrupador.rejeitados)} grupo(s) rejeitado(s)[/yellow] — nada gravado destes '
+            f'(regra: 100% de acordo entre os EANs do grupo, em todas as 27 UFs).'
+        )
 
         console.print()
-        console.print(_dataframe_para_tabela_rich(
-            _montar_dataframe_resumo_rejeitados(rejeitados_ordenados),
-            titulo='Visão geral — 1 linha por grupo rejeitado (maior grupo primeiro)',
-            colunas_numericas=('EANs no Grupo', 'UFs Divergentes'),
-        ))
+        console.print(_tabela_resumo_rejeitados_para_rich(_montar_dataframe_resumo_rejeitados(rejeitados_ordenados)))
 
         for rejeitado in rejeitados_ordenados:
             origem_exibida = (
                 rejeitado.origem_mercadoria_cadastro
                 if rejeitado.origem_mercadoria_cadastro is not None else 'em branco'
             )
+            titulo_grupo = (
+                f'NCM {rejeitado.ncm} + CST {rejeitado.cst} + Origem {origem_exibida} — '
+                f'{len(rejeitado.divergencias_por_uf)} UF(s) de {rejeitado.total_eans_no_grupo} EAN(s) no grupo'
+            )
+            dataframe_eans, ufs_ambiguas = rejeitado.montar_diagnostico_eans()
+
+            # Identidade do grupo impressa 1 VEZ só, como texto corrido —
+            # achado real de 13/09/2026 (Matheus viu no terminal de
+            # verdade): repetir essa string longa como title= de Table
+            # quebra feio, porque rich.table.Table dimensiona a caixa pelo
+            # conteúdo das colunas, não pela largura do terminal — numa
+            # tabela estreita (ex: só EAN + Divergiu), um título mais
+            # comprido que a tabela vira várias linhas centralizadas
+            # fragmentadas. Panel não tem esse problema (estica pra largura
+            # do console), mas repetir a mesma frase longa 3x por grupo
+            # (Panel/Table/Table) também era ruído. Título de cada widget
+            # agora é curto e fixo; a identidade completa do grupo vem 1
+            # vez, em texto plano, antes de tudo.
             console.print()
+            console.print(f'[bold]{titulo_grupo}[/bold]')
+
+            # Diagnóstico primeiro — é a pergunta que importa pra debugar
+            # ("isso é 1 produto errado, ou parece bug na minha lógica?"),
+            # antes do detalhe UF-a-UF (que continua abaixo, pra quem
+            # quiser conferir os valores de verdade).
+            if dataframe_eans.empty:
+                console.print(Panel(
+                    'Divergência dividida igualmente entre os EANs em todas as UFs — nenhum EAN se '
+                    'destaca como causador; pode ser divergência real de tabela, não 1 produto '
+                    'cadastrado errado. Vale conferir a lógica de agrupamento se isso for inesperado.',
+                    title='Sem causador claro', border_style='red',
+                ))
+            elif len(dataframe_eans) == 1:
+                (ean_causador,) = dataframe_eans['EAN']
+                divergiu_texto = dataframe_eans.iloc[0]['Divergiu']
+                console.print(Panel(
+                    f'[bold green]EAN {ean_causador}[/bold green] é o único que diverge — provável '
+                    f'causador (diverge em {divergiu_texto}). Os outros EANs do grupo concordam entre '
+                    f'si em todas as UFs — caso simples de conferir no cadastro do produto.',
+                    title='Provável causador', border_style='green',
+                ))
+            else:
+                console.print(_dataframe_para_tabela_rich(
+                    dataframe_eans, titulo='EANs suspeitos', border_style='yellow',
+                ))
+
+            if ufs_ambiguas:
+                console.print(
+                    f'[yellow]{ufs_ambiguas} UF(s) sem maioria clara[/yellow] (dividido igualmente entre '
+                    f'valores — não contado no diagnóstico acima).'
+                )
+
             console.print(_dataframe_para_tabela_rich(
                 rejeitado.montar_dataframe_divergencias(),
-                titulo=(
-                    f'NCM {rejeitado.ncm} + CST {rejeitado.cst} + Origem {origem_exibida} — '
-                    f'{len(rejeitado.divergencias_por_uf)} UF(s) de {rejeitado.total_eans_no_grupo} EAN(s) no grupo'
-                ),
+                titulo='Detalhe UF-a-UF',
                 colunas_numericas=('Qtd EANs',),
             ))
 

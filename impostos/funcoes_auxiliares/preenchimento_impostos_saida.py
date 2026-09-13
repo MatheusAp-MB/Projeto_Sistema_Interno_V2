@@ -55,6 +55,18 @@
 # core/management/commands/popular_banco_suporte/*.py) — só deixou de ser
 # chamado por preencher_impostos_saida, que agora monta a saída direto com
 # rich/pandas a partir dos mesmos contadores públicos do importador.
+#
+# Correção de 13/09/2026, mais tarde ainda (achado do Matheus): virar
+# tabela resolve legibilidade, mas não usa cor nenhuma pra separar "número
+# normal" de "número que merece atenção" — e o mais importante dos 3
+# contadores por campo é "zerado nesta rodada" (dado que ANTES estava
+# validado e acabou de ser apagado agora), não "validado" nem "continua
+# vazio". Essa tela é debug (pro Matheus e pra mim, Claude, entendermos se
+# o código tá se comportando certo — não é tela de usuário final), então o
+# que importa é esse número saltar aos olhos quando não for 0, em vez de
+# ficar com o mesmo peso visual dos outros 2. Também: "sem atualização" em
+# cst_saida parece alarmante mas é esperado (produto fora da planilha
+# desta rodada) — ganhou legenda pra não confundir com anomalia.
 
 from decimal import Decimal
 
@@ -65,6 +77,7 @@ from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
@@ -503,22 +516,6 @@ class ImportadorImpostosSaida:
         )
 
 
-# Função Objetivo: Converte um DataFrame (sempre pequeno) num rich.table.Table
-# pronto pra console.print.
-# Explicação em detalhe: mesma função de importacao_icms_ncm.py (não
-# importada de lá — cada módulo de import/preenchimento da planilha Busca
-# Legal fica autocontido, mesmo padrão já usado por
-# _normalizar_codigo_celula, duplicada nos 3 arquivos em vez de virar
-# import cruzado).
-def _dataframe_para_tabela_rich(dataframe, titulo, colunas_numericas=()):
-    tabela = Table(title=titulo)
-    for coluna in dataframe.columns:
-        tabela.add_column(coluna, justify='right' if coluna in colunas_numericas else 'left')
-    for linha in dataframe.itertuples(index=False):
-        tabela.add_row(*(str(valor) for valor in linha))
-    return tabela
-
-
 # Função Objetivo: Ponto de entrada chamado pelo Command.
 def preencher_impostos_saida(stdout, style):
     console = Console()
@@ -541,7 +538,10 @@ def preencher_impostos_saida(stdout, style):
     console.print()
     console.print(tabela_leitura)
 
-    tabela_cst = Table(title='cst_saida — direto da planilha, por EAN (sem conferência cruzada)')
+    tabela_cst = Table(
+        title='cst_saida — direto da planilha, por EAN (sem conferência cruzada)',
+        caption='"Sem atualização" é esperado pra EAN que não veio na planilha desta rodada — mantém o CST antigo, não é anomalia.',
+    )
     tabela_cst.add_column('Situação')
     tabela_cst.add_column('Quantidade', justify='right')
     tabela_cst.add_row('Atualizado pela planilha nesta rodada', str(importador.cst_atualizado_pela_planilha))
@@ -573,19 +573,42 @@ def preencher_impostos_saida(stdout, style):
         },
     ], columns=['Campo', 'Validado', 'Zerado nesta rodada', 'Já vazio, continua vazio'])
 
+    # Monta a tabela à mão, célula a célula, em vez de 1 função genérica
+    # DataFrame->Table (como em importacao_icms_ncm.py) porque "Zerado
+    # nesta rodada" precisa de cor por CÉLULA quando > 0 — é o número mais
+    # importante dos 3 (dado que ANTES validava e agora foi apagado), e
+    # não pode ficar com o mesmo peso visual de "Validado" (esperado/bom)
+    # ou "Já vazio" (não mudou nada).
+    tabela_campos = Table(title='Campos vindos das tabelas normalizadas (conferência cruzada entre produtos)')
+    tabela_campos.add_column('Campo')
+    tabela_campos.add_column('Validado', justify='right')
+    tabela_campos.add_column('Zerado nesta rodada', justify='right')
+    tabela_campos.add_column('Já vazio, continua vazio', justify='right')
+    houve_zeragem = False
+    for registro in dataframe_campos.to_dict('records'):
+        zerado = registro['Zerado nesta rodada']
+        houve_zeragem = houve_zeragem or zerado > 0
+        celula_zerado = Text(str(zerado), style='bold red') if zerado > 0 else Text(str(zerado))
+        tabela_campos.add_row(
+            registro['Campo'], str(registro['Validado']), celula_zerado, str(registro['Já vazio, continua vazio']),
+        )
     console.print()
-    console.print(_dataframe_para_tabela_rich(
-        dataframe_campos,
-        titulo='Campos vindos das tabelas normalizadas (conferência cruzada entre produtos)',
-        colunas_numericas=('Validado', 'Zerado nesta rodada', 'Já vazio, continua vazio'),
-    ))
+    console.print(tabela_campos)
 
     console.print()
-    console.print(Panel(
+    texto_final = (
         f'[bold]Produtos com pelo menos 1 campo atualizado nesta rodada:[/bold] {importador.atualizados}\n'
-        f'(cobre o catálogo inteiro, não só quem tem linha na planilha)',
+        f'(cobre o catálogo inteiro, não só quem tem linha na planilha)'
+    )
+    if houve_zeragem:
+        texto_final += (
+            '\n[bold yellow]Atenção:[/bold yellow] algum campo foi zerado nesta rodada (ver "Zerado nesta '
+            'rodada" na tabela acima) — confirme se é esperado antes de seguir.'
+        )
+    console.print(Panel(
+        texto_final,
         title='Impostos de Saída — Concluído',
-        border_style='green',
+        border_style='yellow' if houve_zeragem else 'green',
     ))
 
     if importador.eans_sem_produto:
