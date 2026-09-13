@@ -193,33 +193,57 @@ class CofinsEntradaProduto(ImpostoComAliquota):
 
 
 class IcmsNcmUf(models.Model):
-    # Função Objetivo: Alíquota de ICMS de saída de 1 NCM pra 1 UF de
-    # destino — 1 linha por combinação NCM+UF. O NCM garante os mesmos 27
-    # valores pra qualquer produto que o tenha (decisão no vault), por isso
-    # o dado mora aqui, não em Produto. Espelha o padrão do FreteML
-    # (mercado_livre/models/frete_ml.py): tabela normalizada, pivotada só
-    # na tela — não guarda "Média Ponderada" nenhuma linha, ela é sempre
-    # calculada em tempo real a partir das 27 linhas (SP × 50% + média das
-    # outras 26 × 50%).
+    # Função Objetivo: Alíquota de ICMS de saída de 1 NCM+CST+Origem pra 1
+    # UF de destino — 1 linha por combinação NCM+CST+Origem+UF. Espelha o
+    # padrão do FreteML (mercado_livre/models/frete_ml.py): tabela
+    # normalizada, pivotada só na tela — não guarda "Média Ponderada"
+    # nenhuma linha, ela é sempre calculada em tempo real a partir das 27
+    # linhas (SP × 50% + média das outras 26 × 50%).
     #
     # aliquota guarda percentual (ex: 19.42), igual a
     # Produto.icms_saida_sp/icms_saida_media — nunca fração (0.1942).
     #
     # Sem campo de empresa: MAGAZINE e SAMVALE são bancos separados
     # (EmpresaRouter), cada import roda no banco certo sozinho.
-
+    #
+    # 13/09/2026 — decisão do vault ("Decisao - Chave de Consolidacao do
+    # ICMS por NCM Passa a Incluir CST e Origem da Mercadoria"): NCM
+    # sozinho NÃO garante os mesmos 27 valores — CST (regime de
+    # tributação, Tabela B) e Origem da Mercadoria (nacional/importado,
+    # Tabela A) também definem legitimamente a alíquota dentro de um
+    # mesmo NCM (ex: NCM 84248229 tem CST 20 e CST 00 convivendo de forma
+    # legítima, cada um com seus próprios 27 valores por UF — não é erro
+    # de cadastro). Por isso os dois entram na chave de identidade, junto
+    # com NCM e UF.
+    #
+    # cst: mesma convenção de PisCofinsNcmCst.cst (max_length=4, sem
+    # null/blank) — vem preenchido direto da coluna "CST" da própria
+    # planilha do Busca Legal, no momento em que a linha é lida.
+    #
+    # origem_mercadoria_cadastro: SEMPRE a Origem do CADASTRO DO PRODUTO,
+    # nunca do XML de entrada — mesmo nome, mesmo max_length e mesma
+    # convenção de null/blank de
+    # ImpostosECustosXMLEntradaProduto.origem_mercadoria_cadastro. Pode
+    # ficar em branco quando o produto ainda não tem essa origem
+    # sincronizada no cadastro no momento do import — não é um "0" por
+    # acidente.
     ncm = models.CharField(max_length=10)
     uf = models.CharField(max_length=2)
+    cst = models.CharField(max_length=4)
+    origem_mercadoria_cadastro = models.CharField(max_length=5, null=True, blank=True)
     aliquota = models.DecimalField(max_digits=6, decimal_places=2)
 
     class Meta:
-        verbose_name = 'ICMS de Saída por NCM e UF'
-        verbose_name_plural = 'ICMS de Saída por NCM e UF'
-        unique_together = ['ncm', 'uf']
-        ordering = ['ncm', 'uf']
+        verbose_name = 'ICMS de Saída por NCM, CST, Origem e UF'
+        verbose_name_plural = 'ICMS de Saída por NCM, CST, Origem e UF'
+        unique_together = ['ncm', 'cst', 'origem_mercadoria_cadastro', 'uf']
+        ordering = ['ncm', 'cst', 'origem_mercadoria_cadastro', 'uf']
 
     def __str__(self):
-        return f'NCM {self.ncm} — {self.uf}: {self.aliquota}%'
+        return (
+            f'NCM {self.ncm} + CST {self.cst} + Origem {self.origem_mercadoria_cadastro} — '
+            f'{self.uf}: {self.aliquota}%'
+        )
 
 
 class PisCofinsNcmCst(models.Model):
@@ -282,24 +306,34 @@ class PisCofinsNcmCst(models.Model):
 # que já foi corrigido, exatamente o tipo de dado sujo/desatualizado que
 # essa camada existe pra impedir.
 class IcmsNcmRejeitado(models.Model):
-    # Função Objetivo: 1 linha por NCM rejeitado na ÚLTIMA importação de
-    # ICMS por NCM — com TODAS as UFs divergentes (não só a 1ª encontrada,
-    # corrigido em 13/09/2026 junto com esta camada — ver
+    # Função Objetivo: 1 linha por NCM+CST+Origem rejeitado na ÚLTIMA
+    # importação de ICMS por NCM — com TODAS as UFs divergentes (não só a
+    # 1ª encontrada, corrigido em 13/09/2026 junto com esta camada — ver
     # AgrupadorIcmsPorNcm._validar_ncm em importacao_icms_ncm.py).
+    #
+    # 13/09/2026 — mesma decisão de IcmsNcmUf: o agrupamento não é mais só
+    # por NCM, é por NCM + CST + Origem da Mercadoria (Cadastro). Antes só
+    # existia 1 linha de rejeitado por NCM (por isso `ncm` sozinho era
+    # `unique=True`) — agora o MESMO NCM pode ter uma combinação aprovada
+    # (ex: CST 20, nacional) e outra rejeitada (ex: CST 00, importado) ao
+    # mesmo tempo, então a unicidade vira composta (ver unique_together).
 
-    ncm = models.CharField(max_length=10, unique=True)
+    ncm = models.CharField(max_length=10)
+    cst = models.CharField(max_length=4)
+    origem_mercadoria_cadastro = models.CharField(max_length=5, null=True, blank=True)
 
-    # Quantidade de UFs (das 27) que divergem entre os EANs deste NCM —
-    # sempre >= 1 (um NCM só aparece aqui se pelo menos 1 UF divergiu).
+    # Quantidade de UFs (das 27) que divergem entre os EANs deste
+    # NCM+CST+Origem — sempre >= 1 (um grupo só aparece aqui se pelo menos
+    # 1 UF divergiu).
     qtd_ufs_divergentes = models.PositiveSmallIntegerField()
 
-    # Quantidade de EANs da planilha agrupados sob este NCM nesta rodada —
-    # é uma contagem sobre a PLANILHA, não uma nova consulta ao catálogo de
-    # Produto (mantém a gravação em 1 única query em lote, sem N+1 por NCM
-    # rejeitado — guarantee de eficiência do vault). Nem todo EAN da
-    # planilha necessariamente tem Produto correspondente no banco (ver
-    # sem_produto_correspondente em ImportadorImpostosSaida) — o nome não
-    # afirma "produtos", só o que é literalmente contável aqui.
+    # Quantidade de EANs da planilha agrupados sob este NCM+CST+Origem
+    # nesta rodada — é uma contagem sobre a PLANILHA, não uma nova consulta
+    # ao catálogo de Produto (mantém a gravação em 1 única query em lote,
+    # sem N+1 por grupo rejeitado — guarantee de eficiência do vault). Nem
+    # todo EAN da planilha necessariamente tem Produto correspondente no
+    # banco (ver sem_produto_correspondente em ImportadorImpostosSaida) — o
+    # nome não afirma "produtos", só o que é literalmente contável aqui.
     qtd_eans_no_grupo = models.PositiveIntegerField()
 
     # Detalhe COMPLETO, sem truncar (diferente do __str__ de NcmRejeitado,
@@ -324,11 +358,13 @@ class IcmsNcmRejeitado(models.Model):
     class Meta:
         verbose_name = 'ICMS de Saída — NCM Rejeitado (Auditoria)'
         verbose_name_plural = 'ICMS de Saída — NCMs Rejeitados (Auditoria)'
-        ordering = ['-qtd_eans_no_grupo', 'ncm']
+        unique_together = ['ncm', 'cst', 'origem_mercadoria_cadastro']
+        ordering = ['-qtd_eans_no_grupo', 'ncm', 'cst', 'origem_mercadoria_cadastro']
 
     def __str__(self):
         return (
-            f'NCM {self.ncm} — rejeitado em {self.qtd_ufs_divergentes} UF(s), '
+            f'NCM {self.ncm} + CST {self.cst} + Origem {self.origem_mercadoria_cadastro} — '
+            f'rejeitado em {self.qtd_ufs_divergentes} UF(s), '
             f'{self.qtd_eans_no_grupo} EAN(s) no grupo'
         )
 
