@@ -464,6 +464,13 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
     console.print(tabela_agrupamento)
 
     if agrupador.rejeitados:
+        # Mesma ordem na visão geral E no detalhe abaixo — maior grupo
+        # primeiro nas 2 (achado real de 13/09/2026: sem isso, a visão
+        # geral promete "maior grupo primeiro" mas o detalhe entrava na
+        # ordem de leitura da planilha, as 2 listas discordavam entre si e
+        # confundia mais do que ajudava).
+        rejeitados_ordenados = sorted(agrupador.rejeitados, key=lambda r: -r.total_eans_no_grupo)
+
         console.print()
         console.print(Panel(
             'Nada foi gravado destes grupos — os EANs de 1 mesmo NCM+CST+Origem precisam '
@@ -474,12 +481,12 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
 
         console.print()
         console.print(_dataframe_para_tabela_rich(
-            _montar_dataframe_resumo_rejeitados(agrupador.rejeitados),
+            _montar_dataframe_resumo_rejeitados(rejeitados_ordenados),
             titulo='Visão geral — 1 linha por grupo rejeitado (maior grupo primeiro)',
             colunas_numericas=('EANs no Grupo', 'UFs Divergentes'),
         ))
 
-        for rejeitado in agrupador.rejeitados:
+        for rejeitado in rejeitados_ordenados:
             origem_exibida = (
                 rejeitado.origem_mercadoria_cadastro
                 if rejeitado.origem_mercadoria_cadastro is not None else 'em branco'
