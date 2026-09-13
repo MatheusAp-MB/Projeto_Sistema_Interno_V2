@@ -181,15 +181,17 @@ class Produto(models.Model):
     cst_saida = models.CharField(max_length=10, blank=True, null=True)
 
     icms_saida_sp = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0)
+        max_digits=6, decimal_places=2, default=0, null=True, blank=True)
     icms_saida_media = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0)
+        max_digits=6, decimal_places=2, default=0, null=True, blank=True)
 
     # Únicos campos de PIS/COFINS do Produto — sempre de saída. O crédito
     # de entrada vem de impostos_entrada (ver domínio `impostos`), nunca
-    # daqui.
-    pis_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0)
-    cofins_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    # daqui. null=True porque preenchimento_impostos_saida.py grava None
+    # de propósito quando não há dado validado (13/09/2026) — antes disso
+    # o campo nunca era None de verdade no banco, só 0 por default.
+    pis_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0, null=True, blank=True)
+    cofins_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0, null=True, blank=True)
 
     frete_cif_fob = models.DecimalField(
         max_digits=6, decimal_places=2, default=0)
