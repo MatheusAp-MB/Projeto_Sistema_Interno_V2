@@ -31,16 +31,22 @@
 # e COFINS São Função de NCM + CST") confirmaram que NCM sozinho não
 # garante os mesmos 27 valores — CST (regime de tributação) e Origem da
 # Mercadoria (nacional/importado) também definem legitimamente a alíquota
-# dentro de um mesmo NCM. Por isso:
-#   - CST: vem direto da planilha, mesma coluna 'CST' que
-#     importacao_pis_cofins_ncm_cst.py já lê (nunca inventado aqui).
-#   - Origem da Mercadoria: NÃO existe na planilha — vem do CADASTRO DO
-#     PRODUTO (Produto → impostos_entrada.origem_mercadoria_cadastro),
-#     buscada em lote por EAN (1 única query, nunca N+1). Produto sem essa
-#     origem sincronizada entra com origem=None — um valor de chave válido
-#     como outro qualquer (mesma filosofia de PisCofinsNcmCst.pis/cofins:
-#     em branco continua em branco, nunca vira um valor por acidente),
-#     nunca motivo pra excluir a linha da validação.
+# dentro de um mesmo NCM. Por isso os 2 entram na chave do grupo, junto
+# com NCM.
+#
+# 13/09/2026, mais tarde ainda (Decisão no vault: "Fluxo de Impostos de
+# Saida Passa a 4 Comandos Auto-Suficientes, CST Isolado em Comando
+# Proprio Como Fonte Unica" — Etapa 3a do roteiro de execução): CST DEIXA
+# de vir da planilha — passa a vir de Produto.cst_saida, já gravado por
+# preencher_CST_produtos (Passo 1 do fluxo). Origem da Mercadoria já
+# vinha do Produto desde mais cedo (NÃO existe coluna própria na
+# planilha). Os 2 agora são buscados JUNTOS, numa única query em lote
+# por EAN (1 query, nunca N+1) — Produto sem cst_saida gravado ou sem
+# origem sincronizada entra com o campo em None: um valor de chave
+# válido como outro qualquer (mesma filosofia de
+# PisCofinsNcmCst.pis/cofins — em branco continua em branco, nunca vira
+# um valor por acidente); linha sem CST (None) continua rejeitada por
+# esta_valida(), igual sempre foi.
 #
 # Correção de 13/09/2026, mais tarde ainda: a saída no terminal foi
 # reescrita usando rich (Table/Panel) + pandas (organiza e ordena as
@@ -93,7 +99,6 @@ from impostos.models import IcmsNcmRejeitado, IcmsNcmUf
 from produtos.models import Produto
 
 COLUNA_NCM = 'NCM'
-COLUNA_CST = 'CST'  # mesma coluna que importacao_pis_cofins_ncm_cst.py já lê
 
 UFS_ORDENADAS = [
     'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT',
@@ -149,17 +154,20 @@ class LinhaIcmsNcm:
     def extrair_campos(self):
         self.ean = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_EAN))
         self.ncm = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_NCM))
-        self.cst = _normalizar_codigo_celula(self.linha_bruta.get(COLUNA_CST))
         self.valores_por_uf = {
             uf: self._fracao_para_percentual_ou_none(self.linha_bruta.get(uf))
             for uf in UFS_ORDENADAS
         }
         return self
 
-    # Função Objetivo: Aplica a Origem do Cadastro (buscada em lote por
-    # EAN, fora desta classe — ver agrupar_icms_por_ncm) — nunca lida
-    # direto da planilha, que não tem essa coluna.
-    def aplicar_origem_cadastro(self, origem_mercadoria_cadastro):
+    # Função Objetivo: Aplica CST (Produto.cst_saida) e Origem do Cadastro
+    # (Produto → impostos_entrada.origem_mercadoria_cadastro) — os 2
+    # buscados em lote por EAN, fora desta classe (ver agrupar_icms_por_ncm).
+    # 13/09/2026 — CST deixou de vir da planilha (Etapa 3a do roteiro de
+    # execução): agora os 2 campos têm a mesma origem (Produto) e são
+    # aplicados juntos.
+    def aplicar_cst_e_origem(self, cst_saida, origem_mercadoria_cadastro):
+        self.cst = cst_saida
         self.origem_mercadoria_cadastro = origem_mercadoria_cadastro
         return self
 
@@ -315,14 +323,17 @@ class AgrupadorIcmsPorNcm:
 
     def __init__(self):
         self.linhas_por_grupo = {}  # (ncm, cst, origem) -> lista de LinhaIcmsNcm
-        self.sem_ncm_ou_cst_na_planilha = 0
+        # 13/09/2026 — renomeado de sem_ncm_ou_cst_na_planilha: CST não
+        # vem mais da planilha (Etapa 3a), então o nome antigo afirmava
+        # uma fonte que não é mais verdade pro CST.
+        self.sem_ncm_na_planilha_ou_sem_cst_no_produto = 0
 
         self.aceitos = {}  # (ncm, cst, origem) -> {uf: Decimal}, só UFs preenchidas
         self.rejeitados = []  # lista de NcmRejeitado
 
     def adicionar_linha(self, linha):
         if not linha.esta_valida():
-            self.sem_ncm_ou_cst_na_planilha += 1
+            self.sem_ncm_na_planilha_ou_sem_cst_no_produto += 1
             return
         chave = (linha.ncm, linha.cst, linha.origem_mercadoria_cadastro)
         self.linhas_por_grupo.setdefault(chave, []).append(linha)
@@ -360,21 +371,26 @@ class AgrupadorIcmsPorNcm:
                 self.aceitos[(ncm, cst, origem)] = {uf: valor for uf, valor in valores.items() if valor is not None}
 
 
-# Função Objetivo: Busca em lote (1 única query, nunca N+1) a Origem da
-# Mercadoria do Cadastro pra um conjunto de EANs — usada só aqui, porque a
-# planilha Busca Legal não tem essa coluna (ver comentário no topo do
-# arquivo). EAN sem Produto correspondente, ou Produto sem
-# impostos_entrada sincronizado, simplesmente não aparece com valor no
-# dict (values_list faz LEFT JOIN — vem None, nunca lança exceção) — quem
-# chama trata a ausência como origem=None (valor de chave válido).
-def _buscar_origem_cadastro_por_ean(eans):
-    return dict(
-        Produto.objects.filter(ean__in=eans).values_list('ean', 'impostos_entrada__origem_mercadoria_cadastro')
-    )
+# Função Objetivo: Busca em lote (1 única query, nunca N+1) o CST de saída
+# e a Origem da Mercadoria do Cadastro pra um conjunto de EANs — os 2 vêm
+# do Produto agora (CST desde a Etapa 3a do roteiro de execução, Origem já
+# vinha assim porque a planilha Busca Legal nunca teve essa coluna). EAN
+# sem Produto correspondente, Produto sem cst_saida gravado, ou sem
+# impostos_entrada sincronizado, simplesmente não aparece (ou aparece com
+# None) no dict — values_list faz LEFT JOIN na relação de impostos_entrada,
+# nunca lança exceção — quem chama trata a ausência como (None, None),
+# valores de chave válidos.
+def _buscar_cst_saida_e_origem_cadastro_por_ean(eans):
+    return {
+        ean: (cst_saida, origem)
+        for ean, cst_saida, origem in Produto.objects.filter(ean__in=eans).values_list(
+            'ean', 'cst_saida', 'impostos_entrada__origem_mercadoria_cadastro',
+        )
+    }
 
 
-# Função Objetivo: Ponto de entrada — lê a planilha inteira, busca a Origem
-# do Cadastro em lote e devolve o agrupador já processado.
+# Função Objetivo: Ponto de entrada — lê a planilha inteira, busca CST +
+# Origem do Cadastro em lote (Produto) e devolve o agrupador já processado.
 def agrupar_icms_por_ncm(caminho_planilha):
     conversor = ConversorCelulaExcel(origem='openpyxl')
     agrupador = AgrupadorIcmsPorNcm()
@@ -385,10 +401,11 @@ def agrupar_icms_por_ncm(caminho_planilha):
     ]
 
     eans_da_planilha = {linha.ean for linha in linhas if linha.ean}
-    origem_por_ean = _buscar_origem_cadastro_por_ean(eans_da_planilha)
+    dados_por_ean = _buscar_cst_saida_e_origem_cadastro_por_ean(eans_da_planilha)
 
     for linha in linhas:
-        linha.aplicar_origem_cadastro(origem_por_ean.get(linha.ean))
+        cst_saida, origem = dados_por_ean.get(linha.ean, (None, None))
+        linha.aplicar_cst_e_origem(cst_saida, origem)
         agrupador.adicionar_linha(linha)
 
     agrupador.processar()
@@ -559,7 +576,8 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
         'Rejeitados', str(len(agrupador.rejeitados)), style='yellow' if agrupador.rejeitados else None,
     )
     tabela_agrupamento.add_row(
-        'Sem NCM ou CST na planilha (ignoradas)', str(agrupador.sem_ncm_ou_cst_na_planilha),
+        'Sem NCM na planilha ou sem CST no Produto (ignoradas)',
+        str(agrupador.sem_ncm_na_planilha_ou_sem_cst_no_produto),
     )
     console.print()
     console.print(tabela_agrupamento)
