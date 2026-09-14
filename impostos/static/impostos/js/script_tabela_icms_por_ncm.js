@@ -28,11 +28,20 @@ window.addEventListener('resize', ajustar_altura_grade);
 // (às vezes nem rola). Por isso calculamos a rolagem manualmente aqui.
 function rolar_para_celula(celula, container) {
     var thHeader = document.querySelector('.grade-tabela thead th');
-    var tdNcm = document.querySelector('.grade-tabela td.col-ncm');
-    if (!thHeader || !tdNcm) return;
+    // 14/09/2026 — trocado de td.col-ncm pra td.col-cst: desde a 6b, o
+    // bloco fixo à esquerda não é mais só o NCM (100px) — é
+    // NCM+Origem+CST juntos (~260px). Medir só a largura do NCM
+    // subestimava a área coberta, e a rolagem parava cedo demais,
+    // deixando a célula alvo escondida atrás de Origem/CST sempre que
+    // precisava voltar pra esquerda. td.col-cst é sempre a última
+    // coluna do bloco fixo (nunca tem rowspan, existe em toda linha),
+    // então a borda direita dela já É o limite real da área visível —
+    // sem precisar somar larguras na mão, e sem quebrar de novo se o
+    // bloco fixo mudar no futuro.
+    var tdCst = document.querySelector('.grade-tabela td.col-cst');
+    if (!thHeader || !tdCst) return;
 
     var alturaCabecalho = thHeader.getBoundingClientRect().height;
-    var larguraColunaNcm = tdNcm.getBoundingClientRect().width;
 
     var containerRect = container.getBoundingClientRect();
     var celulaRect = celula.getBoundingClientRect();
@@ -43,7 +52,7 @@ function rolar_para_celula(celula, container) {
     // barra e as bordas — por isso usamos eles pra achar o limite real
     // da área visível, em vez de containerRect.right/bottom direto.
     var areaVisivelTop = containerRect.top + alturaCabecalho;
-    var areaVisivelLeft = containerRect.left + larguraColunaNcm;
+    var areaVisivelLeft = tdCst.getBoundingClientRect().right;
     var areaVisivelBottom = containerRect.top + container.clientTop + container.clientHeight;
     var areaVisivelRight = containerRect.left + container.clientLeft + container.clientWidth;
 
