@@ -10,18 +10,22 @@
 #     normalizada própria — ele É a chave de busca usada em
 #     PisCofinsNcmCst, e agora também em IcmsNcmUf). Único campo que ainda
 #     depende de o produto estar na planilha desta rodada.
-#   - icms_saida_sp / icms_saida_media: de IcmsNcmUf, por NCM + CST +
-#     Origem da Mercadoria (Cadastro) do Produto (decisão no vault,
-#     13/09/2026 — "Chave de Consolidacao do ICMS por NCM Passa a Incluir
-#     CST e Origem da Mercadoria": NCM sozinho não garante os mesmos 27
-#     valores). SP direto; Média reaproveitando calcular_media_ponderada(),
-#     já usada na tela de ICMS por NCM — nunca recalculada aqui de outro
-#     jeito. Precisam de CST pra buscar (igual PIS/COFINS já precisava) —
-#     produto sem CST não tem como ter os 2 campos preenchidos por esta
-#     tabela agora. Origem vem de
-#     produto.impostos_entrada.origem_mercadoria_cadastro — None quando o
-#     produto não tem essa sincronização ainda, e None é um valor de chave
-#     válido (mesma filosofia do resto da auditoria).
+#   - icms_saida_sp: de IcmsNcmUf, por NCM + CST + Origem da Mercadoria
+#     (Cadastro) do Produto (decisão no vault, 13/09/2026 — "Chave de
+#     Consolidacao do ICMS por NCM Passa a Incluir CST e Origem da
+#     Mercadoria": NCM sozinho não garante os mesmos 27 valores) — SP
+#     lido direto da linha certa dentro de IcmsNcmUf.
+#   - icms_saida_media: de IcmsSaidaMediaPorNcmCstOrigem, mesma chave
+#     NCM+CST+Origem — lida direto, NUNCA recalculada aqui (Etapa 5 do
+#     roteiro de Impostos de Saída, ver checkpoint no vault: a média já
+#     foi validada e persistida na Etapa 3b, recalcular de novo aqui só
+#     arriscaria divergir do que já está gravado).
+#     Os 2 campos (icms_saida_sp e icms_saida_media) precisam de CST pra
+#     buscar (igual PIS/COFINS já precisava) — produto sem CST não tem
+#     como ter nenhum dos 2 preenchidos por nenhuma das 2 tabelas agora.
+#     Origem vem de produto.impostos_entrada.origem_mercadoria_cadastro
+#     — None quando o produto não tem essa sincronização ainda, e None é
+#     um valor de chave válido (mesma filosofia do resto da auditoria).
 #   - pis_percentual / cofins_percentual: de PisCofinsNcmCst, por NCM do
 #     Produto + CST — o CST lido nesta rodada da planilha quando existir,
 #     senão o cst_saida que já estava gravado (não precisa vir tudo da
@@ -82,7 +86,7 @@ from rich.text import Text
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
-from impostos.models import IcmsNcmUf, PisCofinsNcmCst
+from impostos.models import IcmsNcmUf, IcmsSaidaMediaPorNcmCstOrigem, PisCofinsNcmCst
 from produtos.models import Produto
 
 CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA = {
@@ -236,6 +240,11 @@ class ImportadorImpostosSaida:
         # expandida em 13/09/2026 (ver Decisão no vault sobre CST+Origem
         # no ICMS).
         self.icms_por_grupo = {}
+        # (ncm, cst, origem) normalizados -> Decimal da média ponderada —
+        # lido direto de IcmsSaidaMediaPorNcmCstOrigem (Etapa 5 do roteiro
+        # de Impostos de Saída), nunca recalculado a partir de
+        # self.icms_por_grupo.
+        self.media_por_grupo = {}
         self.pis_cofins_por_ncm_cst = {}  # (ncm normalizado, cst normalizado) -> (pis, cofins)
         self.cst_por_ean = {}             # ean -> cst_saida lido nesta rodada da planilha
 
@@ -298,7 +307,7 @@ class ImportadorImpostosSaida:
             )
         }
 
-    # Função Objetivo: Carrega em memória, 1 única vez, as 2 tabelas
+    # Função Objetivo: Carrega em memória, 1 única vez, as 3 tabelas
     # normalizadas (fonte única) — mesmo padrão de carregar_produtos_existentes,
     # pra não bater no banco por produto.
     def carregar_tabelas_normalizadas(self):
@@ -309,6 +318,17 @@ class ImportadorImpostosSaida:
                 continue
             origem = _normalizar_chave_para_busca(registro.origem_mercadoria_cadastro)
             self.icms_por_grupo.setdefault((ncm, cst, origem), {})[registro.uf] = registro.aliquota
+
+        # Etapa 5 do roteiro de Impostos de Saída: a média ponderada já
+        # foi calculada e persistida na Etapa 3b (PersistidorIcmsNcm) — só
+        # lida aqui, nunca recalculada a partir de self.icms_por_grupo.
+        for registro in IcmsSaidaMediaPorNcmCstOrigem.objects.all():
+            ncm = _normalizar_chave_para_busca(registro.ncm)
+            cst = _normalizar_chave_para_busca(registro.cst)
+            if ncm is None or cst is None:
+                continue
+            origem = _normalizar_chave_para_busca(registro.origem_mercadoria_cadastro)
+            self.media_por_grupo[(ncm, cst, origem)] = registro.media_ponderada
 
         for registro in PisCofinsNcmCst.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
@@ -355,14 +375,14 @@ class ImportadorImpostosSaida:
             if aliquota_sp is not None:
                 campos['icms_saida_sp'] = aliquota_sp
 
-            # Import local — evita ciclo de import: exibicao_icms_por_ncm.py
-            # importa de importacao_icms_ncm.py, que por sua vez importa
-            # deste módulo (preenchimento_impostos_saida.py) as constantes
-            # da planilha. Um import no topo deste arquivo fecharia o ciclo.
-            from impostos.funcoes_auxiliares.saida.exibicao_icms_por_ncm import calcular_media_ponderada
-            media = calcular_media_ponderada(valores_por_uf)
-            if media is not None:
-                campos['icms_saida_media'] = media
+        # Etapa 5 do roteiro de Impostos de Saída: lida direto de
+        # IcmsSaidaMediaPorNcmCstOrigem — nunca mais recalculada aqui a
+        # partir de valores_por_uf (a média já foi validada e persistida
+        # na Etapa 3b; recalcular de novo só arriscaria divergir do que
+        # já está gravado).
+        media = self.media_por_grupo.get((ncm_produto, cst_normalizado, origem_normalizada))
+        if media is not None:
+            campos['icms_saida_media'] = media
 
         chave_pis_cofins = (ncm_produto, cst_normalizado)
         if chave_pis_cofins in self.pis_cofins_por_ncm_cst:
