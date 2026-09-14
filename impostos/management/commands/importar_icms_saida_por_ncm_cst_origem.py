@@ -6,7 +6,7 @@ from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import importar_icms_
 
 class Command(ComandoComEmpresa):
     help = (
-        'Lê a planilha Busca Legal, agrupa por NCM e grava em IcmsNcmUf — '
+        'Lê a planilha Busca Legal, agrupa por NCM e grava em IcmsSaidaPorNcmCstOrigemUf — '
         'rejeita e informa (sem gravar) qualquer NCM com divergência entre seus EANs.'
     )
 

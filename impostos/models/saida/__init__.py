@@ -6,8 +6,8 @@
 # impostos.models import X` continua funcionando idêntico em todo o resto
 # do repo.
 
-from .icms_ncm_uf import IcmsNcmUf
-from .pis_cofins_ncm_cst import PisCofinsNcmCst
-from .icms_ncm_rejeitado import IcmsNcmRejeitado
-from .pis_cofins_ncm_cst_rejeitado import PisCofinsNcmCstRejeitado
+from .icms_saida_por_ncm_cst_origem_uf import IcmsSaidaPorNcmCstOrigemUf
+from .pis_cofins_saida_por_ncm_cst import PisCofinsSaidaPorNcmCst
+from .icms_saida_por_ncm_cst_origem_rejeitado import IcmsSaidaPorNcmCstOrigemRejeitado
+from .pis_cofins_saida_por_ncm_cst_rejeitado import PisCofinsSaidaPorNcmCstRejeitado
 from .icms_saida_media_por_ncm_cst_origem import IcmsSaidaMediaPorNcmCstOrigem

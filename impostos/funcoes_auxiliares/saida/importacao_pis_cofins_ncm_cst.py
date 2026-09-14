@@ -2,7 +2,7 @@
 
 # Função Objetivo: Lê a planilha Busca Legal, agrupa por NCM + CST e valida
 # consistência entre os EANs de cada grupo — produz o dado já "tratado",
-# pronto pra gravar em PisCofinsNcmCst (mesmo padrão do ICMS: import
+# pronto pra gravar em PisCofinsSaidaPorNcmCst (mesmo padrão do ICMS: import
 # tratado, nunca direto). Não grava no banco — isso fica pra outro módulo,
 # na camada seguinte.
 #
@@ -26,7 +26,7 @@
 # campo divergente já rejeita o grupo inteiro, antes e depois desta
 # correção) — muda só a completude do que fica registrado sobre a
 # rejeição, agora persistida (Camada A da auditoria, ver
-# PisCofinsNcmCstRejeitado em impostos/models.py) em vez de só impressa
+# PisCofinsSaidaPorNcmCstRejeitado em impostos/models.py) em vez de só impressa
 # no stdout e descartada.
 
 import shutil
@@ -47,7 +47,7 @@ from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
 )
-from impostos.models import PisCofinsNcmCst, PisCofinsNcmCstRejeitado
+from impostos.models import PisCofinsSaidaPorNcmCst, PisCofinsSaidaPorNcmCstRejeitado
 from produtos.models import Produto
 
 COLUNA_NCM = 'NCM'
@@ -73,7 +73,7 @@ def _normalizar_codigo_celula(valor):
 
 
 # Função Objetivo: Representa 1 linha (EAN) já reduzida a NCM + CST + PIS + COFINS.
-class LinhaPisCofinsNcmCst:
+class LinhaPisCofinsSaidaPorNcmCst:
 
     def __init__(self, linha_bruta, conversor):
         self.linha_bruta = linha_bruta
@@ -163,7 +163,7 @@ class GrupoRejeitado:
         return '\n'.join(linhas)
 
     # Função Objetivo: Estrutura COMPLETA, sem truncar — pronta pro
-    # JSONField de PisCofinsNcmCstRejeitado (Camada A da auditoria, ver
+    # JSONField de PisCofinsSaidaPorNcmCstRejeitado (Camada A da auditoria, ver
     # impostos/models.py). Mesma lógica de NcmRejeitado.para_dict_auditoria
     # em importacao_icms_ncm.py — nunca esconde EAN nenhum atrás de "...".
     def para_dict_auditoria(self):
@@ -207,7 +207,7 @@ class GrupoRejeitado:
 class AgrupadorPisCofinsPorNcmCst:
 
     def __init__(self):
-        self.linhas_por_grupo = {}  # (ncm, cst) -> lista de LinhaPisCofinsNcmCst
+        self.linhas_por_grupo = {}  # (ncm, cst) -> lista de LinhaPisCofinsSaidaPorNcmCst
         # 13/09/2026 — renomeado de sem_ncm_ou_cst_na_planilha: CST não vem
         # mais da planilha (Etapa 4), então o nome antigo afirmava uma fonte
         # que não é mais verdade pro CST (mesmo rename já feito em
@@ -289,7 +289,7 @@ def agrupar_pis_cofins_por_ncm_cst(caminho_planilha):
     agrupador = AgrupadorPisCofinsPorNcmCst()
 
     linhas = [
-        LinhaPisCofinsNcmCst(linha_bruta, conversor).extrair_campos()
+        LinhaPisCofinsSaidaPorNcmCst(linha_bruta, conversor).extrair_campos()
         for linha_bruta in ler_linhas_planilha_impostos_saida(caminho_planilha)
     ]
 
@@ -304,21 +304,21 @@ def agrupar_pis_cofins_por_ncm_cst(caminho_planilha):
     return agrupador
 
 
-# Função Objetivo: Grava em PisCofinsNcmCst os grupos aceitos por
+# Função Objetivo: Grava em PisCofinsSaidaPorNcmCst os grupos aceitos por
 # AgrupadorPisCofinsPorNcmCst.
 # Explicação em detalhe: mesmo padrão de PersistidorIcmsNcm — nunca
 # compara valor novo com o que já está gravado, o dado que passou na
 # validação é sempre a verdade, sobrescreve sem comparar. NCM+CST que não
 # veio nessa rodada continua como estava.
-class PersistidorPisCofinsNcmCst:
+class PersistidorPisCofinsSaidaPorNcmCst:
 
     def __init__(self):
-        self.existentes = {}  # (ncm, cst) -> PisCofinsNcmCst
+        self.existentes = {}  # (ncm, cst) -> PisCofinsSaidaPorNcmCst
         self.para_criar = []
         self.para_atualizar = []
 
     def carregar_existentes(self):
-        self.existentes = {(r.ncm, r.cst): r for r in PisCofinsNcmCst.objects.all()}
+        self.existentes = {(r.ncm, r.cst): r for r in PisCofinsSaidaPorNcmCst.objects.all()}
 
     def processar(self, aceitos):
         for (ncm, cst), valores in aceitos.items():
@@ -328,31 +328,31 @@ class PersistidorPisCofinsNcmCst:
                 existente.cofins = valores['cofins']
                 self.para_atualizar.append(existente)
             else:
-                novo = PisCofinsNcmCst(ncm=ncm, cst=cst, pis=valores['pis'], cofins=valores['cofins'])
+                novo = PisCofinsSaidaPorNcmCst(ncm=ncm, cst=cst, pis=valores['pis'], cofins=valores['cofins'])
                 self.para_criar.append(novo)
                 self.existentes[(ncm, cst)] = novo
 
     def salvar(self):
         if self.para_criar:
-            PisCofinsNcmCst.objects.bulk_create(self.para_criar, batch_size=BATCH_SIZE_PADRAO)
+            PisCofinsSaidaPorNcmCst.objects.bulk_create(self.para_criar, batch_size=BATCH_SIZE_PADRAO)
         if self.para_atualizar:
-            PisCofinsNcmCst.objects.bulk_update(self.para_atualizar, ['pis', 'cofins'], batch_size=BATCH_SIZE_PADRAO)
+            PisCofinsSaidaPorNcmCst.objects.bulk_update(self.para_atualizar, ['pis', 'cofins'], batch_size=BATCH_SIZE_PADRAO)
 
 
 # Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
 # cada grupo NCM+CST rejeitado nesta importação — Camada A da auditoria
-# fiscal (ver PisCofinsNcmCstRejeitado em impostos/models.py pro porquê de
+# fiscal (ver PisCofinsSaidaPorNcmCstRejeitado em impostos/models.py pro porquê de
 # nunca fazer update incremental aqui, ao contrário de
-# PersistidorPisCofinsNcmCst).
-class PersistidorPisCofinsNcmCstRejeitado:
+# PersistidorPisCofinsSaidaPorNcmCst).
+class PersistidorPisCofinsSaidaPorNcmCstRejeitado:
 
     def __init__(self, constatado_em):
         self.constatado_em = constatado_em
 
     def salvar(self, rejeitados):
-        PisCofinsNcmCstRejeitado.objects.all().delete()
+        PisCofinsSaidaPorNcmCstRejeitado.objects.all().delete()
         novos = [
-            PisCofinsNcmCstRejeitado(
+            PisCofinsSaidaPorNcmCstRejeitado(
                 ncm=rejeitado.ncm,
                 cst=rejeitado.cst,
                 qtd_eans_no_grupo=rejeitado.total_eans_no_grupo,
@@ -362,7 +362,7 @@ class PersistidorPisCofinsNcmCstRejeitado:
             for rejeitado in rejeitados
         ]
         if novos:
-            PisCofinsNcmCstRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
+            PisCofinsSaidaPorNcmCstRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
 
 
 # Função Objetivo: 1 linha por grupo NCM+CST rejeitado — visão geral pra
@@ -513,11 +513,11 @@ def importar_pis_cofins_por_ncm_cst(stdout, style, caminho_planilha=None):
     # Momento único desta rodada — mesma garantia de importar_icms_por_ncm.
     constatado_em = timezone.now()
 
-    persistidor = PersistidorPisCofinsNcmCst()
+    persistidor = PersistidorPisCofinsSaidaPorNcmCst()
     persistidor.carregar_existentes()
     persistidor.processar(agrupador.aceitos)
 
-    persistidor_rejeitados = PersistidorPisCofinsNcmCstRejeitado(constatado_em)
+    persistidor_rejeitados = PersistidorPisCofinsSaidaPorNcmCstRejeitado(constatado_em)
 
     # 1 ÚNICA transação — mesma garantia (e mesmo motivo pro using=) de
     # importar_icms_por_ncm em importacao_icms_ncm.py.

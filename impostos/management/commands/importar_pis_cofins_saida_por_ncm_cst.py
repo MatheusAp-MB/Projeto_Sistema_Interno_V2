@@ -6,7 +6,7 @@ from impostos.funcoes_auxiliares.saida.importacao_pis_cofins_ncm_cst import impo
 
 class Command(ComandoComEmpresa):
     help = (
-        'Lê a planilha Busca Legal, agrupa por NCM+CST e grava em PisCofinsNcmCst — '
+        'Lê a planilha Busca Legal, agrupa por NCM+CST e grava em PisCofinsSaidaPorNcmCst — '
         'rejeita e informa (sem gravar) qualquer grupo com divergência de PIS/COFINS entre seus EANs, '
         'e avisa (sem bloquear) sobre NCMs que aparecem com mais de 1 CST.'
     )

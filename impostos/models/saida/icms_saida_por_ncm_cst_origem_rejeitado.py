@@ -20,7 +20,7 @@ from produtos.models import Produto
 # estava em branco (achado real: produto F7908050719121.001, NCM 84244100).
 #
 # Semântica de SUBSTITUIÇÃO TOTAL a cada rodada — o OPOSTO de
-# IcmsNcmUf/PisCofinsNcmCst (que só criam/atualizam, nunca apagam um NCM(+CST)
+# IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst (que só criam/atualizam, nunca apagam um NCM(+CST)
 # já aceito antes). Aqui, a cada execução de importar_icms_por_ncm /
 # importar_pis_cofins_por_ncm_cst, a tabela inteira é apagada e recriada do
 # zero com os rejeitados de AGORA. Isso é proposital e obrigatório (garantia
@@ -29,13 +29,13 @@ from produtos.models import Produto
 # a próxima rodada roda — senão viraria um "fantasma" contradizendo um NCM
 # que já foi corrigido, exatamente o tipo de dado sujo/desatualizado que
 # essa camada existe pra impedir.
-class IcmsNcmRejeitado(models.Model):
+class IcmsSaidaPorNcmCstOrigemRejeitado(models.Model):
     # Função Objetivo: 1 linha por NCM+CST+Origem rejeitado na ÚLTIMA
     # importação de ICMS por NCM — com TODAS as UFs divergentes (não só a
     # 1ª encontrada, corrigido em 13/09/2026 junto com esta camada — ver
     # AgrupadorIcmsPorNcm._validar_ncm em importacao_icms_ncm.py).
     #
-    # 13/09/2026 — mesma decisão de IcmsNcmUf: o agrupamento não é mais só
+    # 13/09/2026 — mesma decisão de IcmsSaidaPorNcmCstOrigemUf: o agrupamento não é mais só
     # por NCM, é por NCM + CST + Origem da Mercadoria (Cadastro). Antes só
     # existia 1 linha de rejeitado por NCM (por isso `ncm` sozinho era
     # `unique=True`) — agora o MESMO NCM pode ter uma combinação aprovada

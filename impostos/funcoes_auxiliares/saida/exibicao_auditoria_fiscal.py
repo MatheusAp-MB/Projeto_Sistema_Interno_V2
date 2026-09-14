@@ -6,11 +6,11 @@
 # PIS/COFINS por NCM+CST), cada 1 listando TODAS as rejeições da última
 # importação, sem truncar, já ordenadas por impacto (qtd_eans_no_grupo,
 # maior primeiro — Meta.ordering dos próprios models). Só lê
-# IcmsNcmRejeitado/PisCofinsNcmCstRejeitado — nunca a planilha Excel ao
+# IcmsSaidaPorNcmCstOrigemRejeitado/PisCofinsSaidaPorNcmCstRejeitado — nunca a planilha Excel ao
 # vivo (mesma garantia de motivo_impostos_saida.py: a tela nunca desalinha
 # do banco).
 
-from impostos.models import IcmsNcmRejeitado, PisCofinsNcmCstRejeitado
+from impostos.models import IcmsSaidaPorNcmCstOrigemRejeitado, PisCofinsSaidaPorNcmCstRejeitado
 
 
 # Função Objetivo: Extrai todos os EANs de 1 estrutura de divergências
@@ -62,12 +62,12 @@ def _linha_pis_cofins(rejeitado):
 # decisão do vault, 13/09/2026; volume esperado é de dezenas de NCMs
 # rejeitados, não milhares).
 def montar_contexto_auditoria_fiscal():
-    rejeitados_icms = list(IcmsNcmRejeitado.objects.all())
-    rejeitados_pis_cofins = list(PisCofinsNcmCstRejeitado.objects.all())
+    rejeitados_icms = list(IcmsSaidaPorNcmCstOrigemRejeitado.objects.all())
+    rejeitados_pis_cofins = list(PisCofinsSaidaPorNcmCstRejeitado.objects.all())
 
     return {
         'linhas_icms': [_linha_icms(r) for r in rejeitados_icms],
-        # Todo IcmsNcmRejeitado desta rodada compartilha o MESMO
+        # Todo IcmsSaidaPorNcmCstOrigemRejeitado desta rodada compartilha o MESMO
         # constatado_em (garantia do vault) — o 1º da lista já representa
         # a rodada inteira. None quando a tabela está vazia (comando nunca
         # rodou, ou rodou e não achou rejeição nenhuma — os 2 casos são

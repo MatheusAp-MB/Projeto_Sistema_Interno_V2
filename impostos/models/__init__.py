@@ -18,9 +18,9 @@ from .entrada import (
     CofinsEntradaProduto,
 )
 from .saida import (
-    IcmsNcmUf,
-    PisCofinsNcmCst,
-    IcmsNcmRejeitado,
-    PisCofinsNcmCstRejeitado,
+    IcmsSaidaPorNcmCstOrigemUf,
+    PisCofinsSaidaPorNcmCst,
+    IcmsSaidaPorNcmCstOrigemRejeitado,
+    PisCofinsSaidaPorNcmCstRejeitado,
     IcmsSaidaMediaPorNcmCstOrigem,
 )

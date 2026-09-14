@@ -8,13 +8,13 @@
 # inteiro, não só quem está na planilha (ver Descoberta no vault):
 #   - cst_saida: direto da planilha Busca Legal, por EAN (sem tabela
 #     normalizada própria — ele É a chave de busca usada em
-#     PisCofinsNcmCst, e agora também em IcmsNcmUf). Único campo que ainda
+#     PisCofinsSaidaPorNcmCst, e agora também em IcmsSaidaPorNcmCstOrigemUf). Único campo que ainda
 #     depende de o produto estar na planilha desta rodada.
-#   - icms_saida_sp: de IcmsNcmUf, por NCM + CST + Origem da Mercadoria
+#   - icms_saida_sp: de IcmsSaidaPorNcmCstOrigemUf, por NCM + CST + Origem da Mercadoria
 #     (Cadastro) do Produto (decisão no vault, 13/09/2026 — "Chave de
 #     Consolidacao do ICMS por NCM Passa a Incluir CST e Origem da
 #     Mercadoria": NCM sozinho não garante os mesmos 27 valores) — SP
-#     lido direto da linha certa dentro de IcmsNcmUf.
+#     lido direto da linha certa dentro de IcmsSaidaPorNcmCstOrigemUf.
 #   - icms_saida_media: de IcmsSaidaMediaPorNcmCstOrigem, mesma chave
 #     NCM+CST+Origem — lida direto, NUNCA recalculada aqui (Etapa 5 do
 #     roteiro de Impostos de Saída, ver checkpoint no vault: a média já
@@ -26,7 +26,7 @@
 #     Origem vem de produto.impostos_entrada.origem_mercadoria_cadastro
 #     — None quando o produto não tem essa sincronização ainda, e None é
 #     um valor de chave válido (mesma filosofia do resto da auditoria).
-#   - pis_percentual / cofins_percentual: de PisCofinsNcmCst, por NCM do
+#   - pis_percentual / cofins_percentual: de PisCofinsSaidaPorNcmCst, por NCM do
 #     Produto + CST — o CST lido nesta rodada da planilha quando existir,
 #     senão o cst_saida que já estava gravado (não precisa vir tudo da
 #     mesma linha). Rodam pra TODO produto com NCM+CST salvos.
@@ -40,7 +40,7 @@
 # porque esse valor antigo pode ser resquício de antes de qualquer
 # validação por NCM existir (dado nunca conferido, indistinguível de um
 # validado só de olhar o campo). Isso é seguro mesmo com planilhas
-# futuras menores ou com divergência nova: IcmsNcmUf/PisCofinsNcmCst
+# futuras menores ou com divergência nova: IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst
 # nunca apagam nem regridem um NCM(+CST) já aceito antes — só param de
 # tocar nele quando sai da planilha ou é rejeitado numa rodada futura —
 # então um produto que já validou uma vez nunca perde esse dado depois.
@@ -86,7 +86,7 @@ from rich.text import Text
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
-from impostos.models import IcmsNcmUf, IcmsSaidaMediaPorNcmCstOrigem, PisCofinsNcmCst
+from impostos.models import IcmsSaidaPorNcmCstOrigemUf, IcmsSaidaMediaPorNcmCstOrigem, PisCofinsSaidaPorNcmCst
 from produtos.models import Produto
 
 CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA = {
@@ -100,7 +100,7 @@ CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA = {
 #                  com o cabeçalho real da planilha, a coluna some do
 #                  dicionário da linha. ICMS/ICMS MÉDIA/PIS/COFINS não são
 #                  mais lidos daqui pra alimentar o Produto — só CST (os
-#                  outros 4 campos agora vêm de IcmsNcmUf/PisCofinsNcmCst).
+#                  outros 4 campos agora vêm de IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst).
 COLUNA_EAN = 'Cód Barras'
 COLUNA_CST = 'CST'  # mesma coluna que importacao_pis_cofins_ncm_cst.py já lê
 
@@ -150,7 +150,7 @@ def _normalizar_codigo_celula(valor):
 
 
 # Função Objetivo: Normaliza um código JÁ PERSISTIDO (NCM do Produto, ou
-# vindo de IcmsNcmUf/PisCofinsNcmCst) pra comparação na busca da fonte
+# vindo de IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst) pra comparação na busca da fonte
 # única.
 # Explicação em detalhe (13/09/2026): diferente de _normalizar_codigo_celula
 # (que trata valor CRU vindo do Excel, podendo ser float) — aqui os 2 lados
@@ -159,7 +159,7 @@ def _normalizar_codigo_celula(valor):
 # normalizadas), porque Produto.ncm vem do ERP via conversão genérica pra
 # texto (ConversorCelulaExcel.para_texto), que NÃO tira esse ".0" quando o
 # Excel do ERP lê o NCM como número — diferente da normalização já aplicada
-# ao gravar IcmsNcmUf/PisCofinsNcmCst. Normaliza os 2 lados sempre, mesmo
+# ao gravar IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst. Normaliza os 2 lados sempre, mesmo
 # quando 1 deles já devia estar limpo, pra nunca depender de as duas fontes
 # virem no mesmo formato por acaso (decisão do Matheus, 13/09/2026).
 def _normalizar_chave_para_busca(valor):
@@ -208,7 +208,7 @@ class LinhaImpostoSaida:
 
 
 # Função Objetivo: Orquestra o preenchimento inteiro — planilha (só
-# cst_saida) + tabelas normalizadas IcmsNcmUf/PisCofinsNcmCst (os outros 4
+# cst_saida) + tabelas normalizadas IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst (os outros 4
 # campos) — até o banco. Roda sobre TODO produto carregado, não só quem
 # tem linha na planilha desta rodada — a planilha deixou de ser "lista de
 # presença": só decide quem recebe cst_saida atualizado; os outros 4
@@ -311,7 +311,7 @@ class ImportadorImpostosSaida:
     # normalizadas (fonte única) — mesmo padrão de carregar_produtos_existentes,
     # pra não bater no banco por produto.
     def carregar_tabelas_normalizadas(self):
-        for registro in IcmsNcmUf.objects.all():
+        for registro in IcmsSaidaPorNcmCstOrigemUf.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
             cst = _normalizar_chave_para_busca(registro.cst)
             if ncm is None or cst is None:
@@ -330,7 +330,7 @@ class ImportadorImpostosSaida:
             origem = _normalizar_chave_para_busca(registro.origem_mercadoria_cadastro)
             self.media_por_grupo[(ncm, cst, origem)] = registro.media_ponderada
 
-        for registro in PisCofinsNcmCst.objects.all():
+        for registro in PisCofinsSaidaPorNcmCst.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
             cst = _normalizar_chave_para_busca(registro.cst)
             if ncm is None or cst is None:
@@ -350,7 +350,7 @@ class ImportadorImpostosSaida:
     # sempre a Origem do CADASTRO (produto.impostos_entrada — resolvida
     # por quem chama, nunca aqui, pra não repetir o try/except em cada
     # produto), None quando o produto não tem essa sincronização ainda —
-    # None é um valor de chave válido, casa com IcmsNcmUf que também tem
+    # None é um valor de chave válido, casa com IcmsSaidaPorNcmCstOrigemUf que também tem
     # origem=None pros mesmos casos.
     # Grupo (NCM+CST+Origem) encontrado é considerado dado validado mesmo
     # quando os campos vêm em branco na tabela (produto monofásico, ou
@@ -429,11 +429,11 @@ class ImportadorImpostosSaida:
     # Explicação em detalhe: quando a planilha não trouxe CST novo pra
     # este EAN nesta rodada, usa o cst_saida que já está gravado no
     # produto (de uma rodada anterior) como chave de busca em
-    # PisCofinsNcmCst — não precisa vir tudo da mesma linha pra continuar
+    # PisCofinsSaidaPorNcmCst — não precisa vir tudo da mesma linha pra continuar
     # funcionando. Isso é seguro mesmo com planilhas futuras menores ou
-    # com divergência nova: IcmsNcmUf/PisCofinsNcmCst nunca apagam nem
+    # com divergência nova: IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst nunca apagam nem
     # regridem um NCM(+CST) já aceito antes (ver PersistidorIcmsNcm/
-    # PersistidorPisCofinsNcmCst) — só ficam sem tocar nele quando sai da
+    # PersistidorPisCofinsSaidaPorNcmCst) — só ficam sem tocar nele quando sai da
     # planilha ou é rejeitado numa rodada futura, então um produto que já
     # validou uma vez nunca perde esse dado depois.
     def processar_todos_os_produtos(self):
@@ -526,12 +526,12 @@ class ImportadorImpostosSaida:
             f'    Os outros 4 campos (buscados por NCM/CST nas tabelas normalizadas, com conferência '
             f'cruzada entre produtos — validado / zerado nesta rodada por falta de dado validado / '
             f'já estava vazio, continua vazio):\n'
-            f'        icms_saida_sp (IcmsNcmUf):    '
+            f'        icms_saida_sp (IcmsSaidaPorNcmCstOrigemUf):    '
             f'{self.icms_sp_validado} / {self.icms_sp_zerado_nesta_rodada} / {self.icms_sp_continua_vazio}\n'
             f'        icms_saida_media (calculado): '
             f'{self.icms_media_validado} / {self.icms_media_zerado_nesta_rodada} / '
             f'{self.icms_media_continua_vazio}\n'
-            f'        pis/cofins (PisCofinsNcmCst): '
+            f'        pis/cofins (PisCofinsSaidaPorNcmCst): '
             f'{self.pis_cofins_validado} / {self.pis_cofins_zerado_nesta_rodada} / '
             f'{self.pis_cofins_continua_vazio}'
         )
@@ -594,7 +594,7 @@ def preencher_impostos_saida(stdout, style):
     # só por "/", sem nenhum cabeçalho dizendo o que cada número significa.
     dataframe_campos = pd.DataFrame([
         {
-            'Campo': 'icms_saida_sp (IcmsNcmUf)',
+            'Campo': 'icms_saida_sp (IcmsSaidaPorNcmCstOrigemUf)',
             'Validado': importador.icms_sp_validado,
             'Zerado nesta rodada': importador.icms_sp_zerado_nesta_rodada,
             'Já vazio, continua vazio': importador.icms_sp_continua_vazio,
@@ -606,7 +606,7 @@ def preencher_impostos_saida(stdout, style):
             'Já vazio, continua vazio': importador.icms_media_continua_vazio,
         },
         {
-            'Campo': 'pis/cofins (PisCofinsNcmCst)',
+            'Campo': 'pis/cofins (PisCofinsSaidaPorNcmCst)',
             'Validado': importador.pis_cofins_validado,
             'Zerado nesta rodada': importador.pis_cofins_zerado_nesta_rodada,
             'Já vazio, continua vazio': importador.pis_cofins_continua_vazio,

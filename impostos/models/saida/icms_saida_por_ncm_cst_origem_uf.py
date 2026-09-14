@@ -13,7 +13,7 @@ from produtos.models import Produto
 # ---------------------------------------------------------------------------
 
 
-class IcmsNcmUf(models.Model):
+class IcmsSaidaPorNcmCstOrigemUf(models.Model):
     # Função Objetivo: Alíquota de ICMS de saída de 1 NCM+CST+Origem pra 1
     # UF de destino — 1 linha por combinação NCM+CST+Origem+UF. Espelha o
     # padrão do FreteML (mercado_livre/models/frete_ml.py): tabela
@@ -24,7 +24,7 @@ class IcmsNcmUf(models.Model):
     # mais calculada em tempo real a partir das 27 linhas daqui — passou a
     # ser persistida em tabela própria, IcmsSaidaMediaPorNcmCstOrigem
     # (1 linha por grupo NCM+CST+Origem, nunca por UF). Esta tabela
-    # (IcmsNcmUf) continua sendo a fonte das 27 alíquotas por UF; só a
+    # (IcmsSaidaPorNcmCstOrigemUf) continua sendo a fonte das 27 alíquotas por UF; só a
     # média deixou de ser recalculada aqui.
     #
     # aliquota guarda percentual (ex: 19.42), igual a
@@ -43,7 +43,7 @@ class IcmsNcmUf(models.Model):
     # de cadastro). Por isso os dois entram na chave de identidade, junto
     # com NCM e UF.
     #
-    # cst: mesma convenção de PisCofinsNcmCst.cst (max_length=4, sem
+    # cst: mesma convenção de PisCofinsSaidaPorNcmCst.cst (max_length=4, sem
     # null/blank) — vem preenchido direto da coluna "CST" da própria
     # planilha do Busca Legal, no momento em que a linha é lida.
     #

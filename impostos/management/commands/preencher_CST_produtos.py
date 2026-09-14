@@ -8,7 +8,7 @@ class Command(ComandoComEmpresa):
     help = (
         'Lê CST da planilha Busca Legal (por EAN) e grava só Produto.cst_saida — Passo 1 do fluxo '
         'de 4 comandos auto-suficientes. Único lugar do sistema que lê essa coluna; os demais '
-        'comandos (importar_icms_por_ncm, importar_pis_cofins_por_ncm_cst) leem cst_saida daqui.'
+        'comandos (importar_icms_saida_por_ncm_cst_origem, importar_pis_cofins_saida_por_ncm_cst) leem cst_saida daqui.'
     )
 
     def handle(self, *args, **options):

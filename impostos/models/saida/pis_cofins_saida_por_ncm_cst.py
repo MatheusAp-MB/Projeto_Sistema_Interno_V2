@@ -8,7 +8,7 @@ from django.db import models
 from produtos.models import Produto
 
 
-class PisCofinsNcmCst(models.Model):
+class PisCofinsSaidaPorNcmCst(models.Model):
     # Função Objetivo: PIS e COFINS de saída de 1 NCM + CST — 1 linha por
     # combinação NCM+CST. Diferente do ICMS (que é função só de NCM), PIS e
     # COFINS só bateram 100% (0 divergência, nas 2 empresas) quando
@@ -20,7 +20,7 @@ class PisCofinsNcmCst(models.Model):
     # pis/cofins guardam percentual (ex: 1.65), igual a
     # Produto.pis_percentual/cofins_percentual — nunca fração (0.0165).
     #
-    # Diferente de IcmsNcmUf: aqui pis/cofins PODEM ser null — um NCM+CST
+    # Diferente de IcmsSaidaPorNcmCstOrigemUf: aqui pis/cofins PODEM ser null — um NCM+CST
     # monofásico (ex: combustível) tem PIS/COFINS genuinamente em branco
     # na planilha, e não existe "outra UF" pra essa linha representar em
     # vez disso (a chave já é só 1 linha por NCM+CST). Em branco continua

@@ -2,7 +2,7 @@
 #
 # Funcao Objetivo: diagnostico read-only de por que um produto especifico
 # esta sem imposto de saida validado - reaproveita a mesma logica de
-# rejeicao do importar_icms_por_ncm, sem gravar nada em nenhum banco.
+# rejeicao do importar_icms_saida_por_ncm_cst_origem, sem gravar nada em nenhum banco.
 
 import os
 
@@ -12,7 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_interno_mb_sv.s
 django.setup()
 
 from produtos.models import Produto
-from impostos.models import IcmsNcmUf
+from impostos.models import IcmsSaidaPorNcmCstOrigemUf
 from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA
 from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import agrupar_icms_por_ncm
 from core.empresa import ALIAS_BANCO_POR_EMPRESA
@@ -32,8 +32,8 @@ def diagnosticar(sku):
         print(f'EAN: {produto.ean}  SKU: {produto.sku}  NCM: {produto.ncm}  CST_saida: {produto.cst_saida}')
         print(f'icms_saida_sp: {produto.icms_saida_sp}  icms_saida_media: {produto.icms_saida_media}')
         print(f'pis_percentual: {produto.pis_percentual}  cofins_percentual: {produto.cofins_percentual}')
-        linhas_icms_ncm = IcmsNcmUf.objects.using(alias).filter(ncm=produto.ncm).count()
-        print(f'Linhas hoje em IcmsNcmUf pra NCM {produto.ncm}: {linhas_icms_ncm}')
+        linhas_icms_ncm = IcmsSaidaPorNcmCstOrigemUf.objects.using(alias).filter(ncm=produto.ncm).count()
+        print(f'Linhas hoje em IcmsSaidaPorNcmCstOrigemUf pra NCM {produto.ncm}: {linhas_icms_ncm}')
         caminho = CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA[empresa]
         resultado = agrupar_icms_por_ncm(caminho)
         rejeicao = next((r for r in resultado.rejeitados if r.ncm == produto.ncm), None)

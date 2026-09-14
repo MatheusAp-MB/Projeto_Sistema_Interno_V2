@@ -2,7 +2,7 @@
 
 # Função Objetivo: Lê a planilha Busca Legal, agrupa por NCM + CST + Origem
 # da Mercadoria (Cadastro) e valida consistência entre os EANs de cada
-# grupo — produz o dado já "tratado", pronto pra gravar em IcmsNcmUf
+# grupo — produz o dado já "tratado", pronto pra gravar em IcmsSaidaPorNcmCstOrigemUf
 # (decisão no vault: import tratado, nunca direto). Não grava no banco —
 # isso fica pra outro módulo, na camada seguinte.
 #
@@ -21,7 +21,7 @@
 # o grupo é aceito ou rejeitado (1 UF divergente já rejeita o grupo
 # inteiro, antes e depois desta correção) — muda só a completude do que
 # fica registrado SOBRE a rejeição, que agora é persistido (Camada A da
-# auditoria, ver IcmsNcmRejeitado em impostos/models.py) em vez de só
+# auditoria, ver IcmsSaidaPorNcmCstOrigemRejeitado em impostos/models.py) em vez de só
 # impresso no stdout e descartado.
 #
 # Correção de 13/09/2026, mais tarde (ver Decisão no vault: "Chave de
@@ -44,7 +44,7 @@
 # por EAN (1 query, nunca N+1) — Produto sem cst_saida gravado ou sem
 # origem sincronizada entra com o campo em None: um valor de chave
 # válido como outro qualquer (mesma filosofia de
-# PisCofinsNcmCst.pis/cofins — em branco continua em branco, nunca vira
+# PisCofinsSaidaPorNcmCst.pis/cofins — em branco continua em branco, nunca vira
 # um valor por acidente); linha sem CST (None) continua rejeitada por
 # esta_valida(), igual sempre foi.
 #
@@ -56,7 +56,7 @@
 # agrupamento, gravação) não muda em nada — só a FORMA como o que já era
 # calculado aparece no terminal. NcmRejeitado.__str__ e para_dict_auditoria
 # continuam do jeito que estavam (o 1º ainda serve pra depuração no shell,
-# o 2º é o que grava a auditoria completa em IcmsNcmRejeitado) — nenhum dos
+# o 2º é o que grava a auditoria completa em IcmsSaidaPorNcmCstOrigemRejeitado) — nenhum dos
 # dois é usado pelo stdout do comando desde esta correção.
 #
 # Correção de 13/09/2026, mais tarde ainda (achado do Matheus, vendo o
@@ -95,7 +95,7 @@ from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import (
     COLUNA_EAN,
     ler_linhas_planilha_impostos_saida,
 )
-from impostos.models import IcmsNcmRejeitado, IcmsNcmUf, IcmsSaidaMediaPorNcmCstOrigem
+from impostos.models import IcmsSaidaPorNcmCstOrigemRejeitado, IcmsSaidaPorNcmCstOrigemUf, IcmsSaidaMediaPorNcmCstOrigem
 from produtos.models import Produto
 
 COLUNA_NCM = 'NCM'
@@ -231,7 +231,7 @@ class NcmRejeitado:
         return '\n'.join(linhas)
 
     # Função Objetivo: Estrutura COMPLETA, sem truncar — pronta pro
-    # JSONField de IcmsNcmRejeitado (Camada A da auditoria, ver
+    # JSONField de IcmsSaidaPorNcmCstOrigemRejeitado (Camada A da auditoria, ver
     # impostos/models.py). Diferente de __str__ (só terminal, trunca em 3
     # exemplos), aqui NENHUM EAN fica de fora — decisão do vault, 13/09/2026:
     # a auditoria persistida não pode esconder exemplo nenhum atrás de um
@@ -412,13 +412,13 @@ def agrupar_icms_por_ncm(caminho_planilha):
     return agrupador
 
 
-# Função Objetivo: Grava em IcmsNcmUf os grupos aceitos por AgrupadorIcmsPorNcm
+# Função Objetivo: Grava em IcmsSaidaPorNcmCstOrigemUf os grupos aceitos por AgrupadorIcmsPorNcm
 # — e, desde 13/09/2026 (decisão do vault: "Media Ponderada do ICMS Passa a
 # Ser Persistida em Tabela Propria" — Etapa 3b do roteiro de execução),
 # também grava a Média Ponderada de cada grupo em
 # IcmsSaidaMediaPorNcmCstOrigem — 1 registro por (ncm, cst, origem), nunca
 # por UF, calculada 1 única vez por grupo a partir do mesmo valores_por_uf
-# já usado pra gravar as até 27 linhas de IcmsNcmUf (calcular_media_ponderada,
+# já usado pra gravar as até 27 linhas de IcmsSaidaPorNcmCstOrigemUf (calcular_media_ponderada,
 # já existente em exibicao_icms_por_ncm.py — nunca duplicada aqui).
 # Explicação em detalhe: nunca compara valor novo com o que já está
 # gravado — o dado que chegou e passou na validação é sempre a verdade,
@@ -429,7 +429,7 @@ def agrupar_icms_por_ncm(caminho_planilha):
 class PersistidorIcmsNcm:
 
     def __init__(self):
-        self.existentes = {}  # (ncm, cst, origem, uf) -> IcmsNcmUf
+        self.existentes = {}  # (ncm, cst, origem, uf) -> IcmsSaidaPorNcmCstOrigemUf
         self.para_criar = []
         self.para_atualizar = []
 
@@ -444,7 +444,7 @@ class PersistidorIcmsNcm:
     def carregar_existentes(self):
         self.existentes = {
             (r.ncm, r.cst, r.origem_mercadoria_cadastro, r.uf): r
-            for r in IcmsNcmUf.objects.all()
+            for r in IcmsSaidaPorNcmCstOrigemUf.objects.all()
         }
         self.existentes_media = {
             (r.ncm, r.cst, r.origem_mercadoria_cadastro): r
@@ -466,7 +466,7 @@ class PersistidorIcmsNcm:
                     existente.aliquota = aliquota
                     self.para_atualizar.append(existente)
                 else:
-                    novo = IcmsNcmUf(ncm=ncm, cst=cst, origem_mercadoria_cadastro=origem, uf=uf, aliquota=aliquota)
+                    novo = IcmsSaidaPorNcmCstOrigemUf(ncm=ncm, cst=cst, origem_mercadoria_cadastro=origem, uf=uf, aliquota=aliquota)
                     self.para_criar.append(novo)
                     self.existentes[chave] = novo
 
@@ -489,9 +489,9 @@ class PersistidorIcmsNcm:
 
     def salvar(self):
         if self.para_criar:
-            IcmsNcmUf.objects.bulk_create(self.para_criar, batch_size=BATCH_SIZE_PADRAO)
+            IcmsSaidaPorNcmCstOrigemUf.objects.bulk_create(self.para_criar, batch_size=BATCH_SIZE_PADRAO)
         if self.para_atualizar:
-            IcmsNcmUf.objects.bulk_update(self.para_atualizar, ['aliquota'], batch_size=BATCH_SIZE_PADRAO)
+            IcmsSaidaPorNcmCstOrigemUf.objects.bulk_update(self.para_atualizar, ['aliquota'], batch_size=BATCH_SIZE_PADRAO)
 
         if self.media_para_criar:
             IcmsSaidaMediaPorNcmCstOrigem.objects.bulk_create(self.media_para_criar, batch_size=BATCH_SIZE_PADRAO)
@@ -503,17 +503,17 @@ class PersistidorIcmsNcm:
 
 # Função Objetivo: Grava (substituição TOTAL, a cada rodada) o motivo de
 # cada grupo NCM+CST+Origem rejeitado nesta importação — Camada A da
-# auditoria fiscal (ver IcmsNcmRejeitado em impostos/models.py pro porquê
+# auditoria fiscal (ver IcmsSaidaPorNcmCstOrigemRejeitado em impostos/models.py pro porquê
 # de nunca fazer update incremental aqui, ao contrário de PersistidorIcmsNcm).
-class PersistidorIcmsNcmRejeitado:
+class PersistidorIcmsSaidaPorNcmCstOrigemRejeitado:
 
     def __init__(self, constatado_em):
         self.constatado_em = constatado_em
 
     def salvar(self, rejeitados):
-        IcmsNcmRejeitado.objects.all().delete()
+        IcmsSaidaPorNcmCstOrigemRejeitado.objects.all().delete()
         novos = [
-            IcmsNcmRejeitado(
+            IcmsSaidaPorNcmCstOrigemRejeitado(
                 ncm=rejeitado.ncm,
                 cst=rejeitado.cst,
                 origem_mercadoria_cadastro=rejeitado.origem_mercadoria_cadastro,
@@ -525,7 +525,7 @@ class PersistidorIcmsNcmRejeitado:
             for rejeitado in rejeitados
         ]
         if novos:
-            IcmsNcmRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
+            IcmsSaidaPorNcmCstOrigemRejeitado.objects.bulk_create(novos, batch_size=BATCH_SIZE_PADRAO)
 
 
 # Função Objetivo: 1 linha por grupo NCM+CST+Origem rejeitado, já com o
@@ -715,7 +715,7 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
                 colunas_numericas=('Qtd EANs',),
             ))
 
-    # Momento único desta rodada — TODO IcmsNcmRejeitado gravado agora
+    # Momento único desta rodada — TODO IcmsSaidaPorNcmCstOrigemRejeitado gravado agora
     # carrega o MESMO instante, mesmo que a gravação em si leve alguns
     # milissegundos linha a linha (garantia do vault, 13/09/2026).
     constatado_em = timezone.now()
@@ -724,7 +724,7 @@ def importar_icms_por_ncm(stdout, style, caminho_planilha=None):
     persistidor.carregar_existentes()
     persistidor.processar(agrupador.aceitos)
 
-    persistidor_rejeitados = PersistidorIcmsNcmRejeitado(constatado_em)
+    persistidor_rejeitados = PersistidorIcmsSaidaPorNcmCstOrigemRejeitado(constatado_em)
 
     with transaction.atomic(using=obter_alias_banco_ativo()):
         persistidor.salvar()

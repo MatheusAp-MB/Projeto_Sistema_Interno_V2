@@ -17,8 +17,8 @@ from core.management.commands._base_empresa import ComandoComEmpresa
 
 COMANDOS_DE_IMPOSTOS_SAIDA_EM_ORDEM = (
     'preencher_CST_produtos',
-    'importar_icms_por_ncm',
-    'importar_pis_cofins_por_ncm_cst',
+    'importar_icms_saida_por_ncm_cst_origem',
+    'importar_pis_cofins_saida_por_ncm_cst',
     'preencher_impostos_saida',
 )
 

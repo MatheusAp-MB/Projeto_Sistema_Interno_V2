@@ -2,7 +2,7 @@
 #
 # Função Objetivo: Valida, sem gravar nada, se os 4 campos fiscais de saída
 # vindos de tabela (icms_saida_sp, icms_saida_media, pis_percentual,
-# cofins_percentual) em Produto batem com o que IcmsNcmUf/PisCofinsNcmCst
+# cofins_percentual) em Produto batem com o que IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst
 # diriam agora — e, pros produtos que ficaram sem dado validado, classifica
 # o motivo exato usando o ÚNICO classificador de motivo do sistema
 # (ClassificadorMotivoFiscal, Camada B da auditoria fiscal — ver Descoberta
@@ -13,8 +13,8 @@
 # (agrupar_icms_por_ncm/agrupar_pis_cofins_por_ncm_cst) só pra descobrir
 # quais NCMs estavam rejeitados — 2 leituras de arquivo redundantes, e a
 # lógica de classificação vivia só aqui, duplicada se outra tela um dia
-# precisasse do mesmo motivo. Agora consulta só o banco (IcmsNcmRejeitado/
-# PisCofinsNcmCstRejeitado, gravados pela última importação real) através
+# precisasse do mesmo motivo. Agora consulta só o banco (IcmsSaidaPorNcmCstOrigemRejeitado/
+# PisCofinsSaidaPorNcmCstRejeitado, gravados pela última importação real) através
 # do classificador — mesma fonte que a tela de produto (Camada C) e a tela
 # de Auditoria Fiscal (Camada D) usam, nunca 2 versões da mesma lógica.
 

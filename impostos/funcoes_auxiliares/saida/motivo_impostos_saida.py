@@ -9,8 +9,8 @@
 # tela de produto (Camada C) e pela tela de Auditoria Fiscal (Camada D) —
 # nunca duplicada em 2 lugares (garantia do vault).
 #
-# Nunca lê a planilha Excel: só consulta IcmsNcmUf/PisCofinsNcmCst (o que
-# já está validado agora) e IcmsNcmRejeitado/PisCofinsNcmCstRejeitado (o
+# Nunca lê a planilha Excel: só consulta IcmsSaidaPorNcmCstOrigemUf/PisCofinsSaidaPorNcmCst (o que
+# já está validado agora) e IcmsSaidaPorNcmCstOrigemRejeitado/PisCofinsSaidaPorNcmCstRejeitado (o
 # motivo já persistido da última rejeição, gravado por
 # importacao_icms_ncm.py/importacao_pis_cofins_ncm_cst.py) — garante que
 # qualquer tela que use isso nunca desalinha do banco (guarantee de
@@ -21,7 +21,7 @@ from typing import Optional
 
 from impostos.funcoes_auxiliares.saida.exibicao_icms_por_ncm import calcular_media_ponderada
 from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import _normalizar_chave_para_busca
-from impostos.models import IcmsNcmRejeitado, IcmsNcmUf, PisCofinsNcmCst, PisCofinsNcmCstRejeitado
+from impostos.models import IcmsSaidaPorNcmCstOrigemRejeitado, IcmsSaidaPorNcmCstOrigemUf, PisCofinsSaidaPorNcmCst, PisCofinsSaidaPorNcmCstRejeitado
 
 MOTIVO_SEM_NCM = 'sem_ncm'
 MOTIVO_NCM_REJEITADO_ICMS = 'ncm_rejeitado_icms'
@@ -82,7 +82,7 @@ class MotivoFiscal:
     # Função Objetivo: 1 motivo classificado, pronto pra exibir — motivo
     # (chave estável, pra lógica/agrupamento) + descricao (texto pronto,
     # sempre a mesma fonte) + detalhe_rejeicao (o registro persistido de
-    # IcmsNcmRejeitado/PisCofinsNcmCstRejeitado, só quando o motivo for
+    # IcmsSaidaPorNcmCstOrigemRejeitado/PisCofinsSaidaPorNcmCstRejeitado, só quando o motivo for
     # de rejeição — None nos outros casos, nunca inventa detalhe que não existe).
     motivo: str
     descricao: str
@@ -109,7 +109,7 @@ class ClassificadorMotivoFiscal:
         # exibicao_icms_por_ncm.montar_matriz_icms_por_ncm usa pra tela de
         # ICMS por NCM, nunca uma 2ª leitura reimplementada diferente.
         self.icms_valores_por_grupo = {}
-        for registro in IcmsNcmUf.objects.all():
+        for registro in IcmsSaidaPorNcmCstOrigemUf.objects.all():
             ncm = _normalizar_chave_para_busca(registro.ncm)
             cst = _normalizar_chave_para_busca(registro.cst)
             if ncm is None or cst is None:
@@ -120,7 +120,7 @@ class ClassificadorMotivoFiscal:
         # (ncm normalizado, cst normalizado) -> True — só precisa saber SE
         # o grupo está aceito, não os valores (esses vêm de Produto direto).
         self.pis_cofins_grupos_aceitos = set()
-        for ncm, cst in PisCofinsNcmCst.objects.values_list('ncm', 'cst'):
+        for ncm, cst in PisCofinsSaidaPorNcmCst.objects.values_list('ncm', 'cst'):
             ncm_norm = _normalizar_chave_para_busca(ncm)
             cst_norm = _normalizar_chave_para_busca(cst)
             if ncm_norm is not None and cst_norm is not None:
@@ -132,11 +132,11 @@ class ClassificadorMotivoFiscal:
                 _normalizar_chave_para_busca(r.cst),
                 _normalizar_chave_para_busca(r.origem_mercadoria_cadastro),
             ): r
-            for r in IcmsNcmRejeitado.objects.all()
+            for r in IcmsSaidaPorNcmCstOrigemRejeitado.objects.all()
         }
         self.rejeitados_pis_cofins_por_grupo = {
             (_normalizar_chave_para_busca(r.ncm), _normalizar_chave_para_busca(r.cst)): r
-            for r in PisCofinsNcmCstRejeitado.objects.all()
+            for r in PisCofinsSaidaPorNcmCstRejeitado.objects.all()
         }
 
     # Função Objetivo: Motivo de icms_saida_sp estar em branco — None

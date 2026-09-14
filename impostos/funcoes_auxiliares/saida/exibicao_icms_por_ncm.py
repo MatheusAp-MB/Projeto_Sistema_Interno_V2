@@ -1,14 +1,14 @@
 # impostos/funcoes_auxiliares/exibicao_icms_por_ncm.py
 
 # Função Objetivo: Monta o dado pronto pra exibir a tela de ICMS por NCM
-# (matriz NCM × UF + Média Ponderada) — nunca grava nada, só lê IcmsNcmUf
+# (matriz NCM × UF + Média Ponderada) — nunca grava nada, só lê IcmsSaidaPorNcmCstOrigemUf
 # e calcula a Média Ponderada em tempo real (decisão no vault: ela nunca
 # é gravada, sempre calculada na hora, pra nunca ficar desatualizada).
 
 from decimal import Decimal
 
 from impostos.funcoes_auxiliares.saida.importacao_icms_ncm import UFS_ORDENADAS
-from impostos.models import IcmsNcmUf
+from impostos.models import IcmsSaidaPorNcmCstOrigemUf
 
 DUAS_CASAS_DECIMAIS = Decimal('0.01')
 PESO_SP = Decimal('0.5')
@@ -40,9 +40,9 @@ def montar_matriz_icms_por_ncm():
     # NCM aqui misturava, na mesma linha, alíquotas de combinações CST/
     # Origem diferentes (ex: NCM 84248229 com CST 20 e CST 00) — a última
     # lida por UF sobrescrevia silenciosamente a anterior, o mesmo bug que
-    # motivou a correção da chave em IcmsNcmUf (ver Decisão no vault).
+    # motivou a correção da chave em IcmsSaidaPorNcmCstOrigemUf (ver Decisão no vault).
     valores_por_grupo = {}
-    for registro in IcmsNcmUf.objects.all():
+    for registro in IcmsSaidaPorNcmCstOrigemUf.objects.all():
         chave = (registro.ncm, registro.cst, registro.origem_mercadoria_cadastro)
         valores_por_grupo.setdefault(chave, {})[registro.uf] = registro.aliquota
 
@@ -113,7 +113,7 @@ def listar_origens_disponiveis_para_ncm(ncm):
     # values_list, e o DISTINCT deixa de funcionar de verdade (bug real
     # encontrado em 13/09/2026: devolvia 1 linha por UF, 27 repetições de
     # cada Origem, em vez de 1 só).
-    origens = IcmsNcmUf.objects.filter(ncm=ncm).order_by().values_list(
+    origens = IcmsSaidaPorNcmCstOrigemUf.objects.filter(ncm=ncm).order_by().values_list(
         'origem_mercadoria_cadastro', flat=True,
     ).distinct()
     # key= mesma lógica já usada em montar_matriz_icms_por_ncm: None não
@@ -129,7 +129,7 @@ def listar_origens_disponiveis_para_ncm(ncm):
 # nível também pode devolver mais de 1 opção, igual o de Origem acima.
 def listar_csts_disponiveis_para_ncm_origem(ncm, origem):
     return list(
-        IcmsNcmUf.objects.filter(ncm=ncm, origem_mercadoria_cadastro=origem)
+        IcmsSaidaPorNcmCstOrigemUf.objects.filter(ncm=ncm, origem_mercadoria_cadastro=origem)
         .order_by('cst').values_list('cst', flat=True).distinct()
     )
 
@@ -146,7 +146,7 @@ def listar_csts_disponiveis_para_ncm_origem(ncm, origem):
 def consultar_icms_por_ncm(ncm, origem, cst, uf):
     valores_por_uf = {
         registro.uf: registro.aliquota
-        for registro in IcmsNcmUf.objects.filter(ncm=ncm, origem_mercadoria_cadastro=origem, cst=cst)
+        for registro in IcmsSaidaPorNcmCstOrigemUf.objects.filter(ncm=ncm, origem_mercadoria_cadastro=origem, cst=cst)
     }
 
     grupo_encontrado = bool(valores_por_uf)
