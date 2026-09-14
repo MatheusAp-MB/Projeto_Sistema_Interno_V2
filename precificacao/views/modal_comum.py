@@ -177,12 +177,16 @@ class LinhaTeardown:
 # implementação independente) de verdade, com o preço final já persistido. 'disponivel=False'
 # quando o produto não tem dados fiscais de entrada sincronizados ou não há faixa de frete pra
 # esse preço (calcular_margem já devolve None nesses casos — nunca finge um número).
+# 'bate' (14/09): antes o template mostrava "✓ Bate" fixo, sem comparar nada de verdade — agora
+# 'bate' vem de uma comparação real (tolerância de R$ 0,05) entre esta margem e a oficial.
 @dataclass
 class ContraprovaVisao1:
     disponivel: bool
     margem_valor: object = None
     margem_percentual: object = None
     motivo_indisponivel: str = ''
+    bate: bool = False
+    diferenca_valor: object = None
 
 
 # Função Objetivo: 1 item da tabela única de auditoria (Item | Como foi obtido | Valor | %).

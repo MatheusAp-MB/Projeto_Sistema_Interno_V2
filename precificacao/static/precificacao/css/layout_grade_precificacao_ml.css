@@ -1227,7 +1227,10 @@
     font-variant-numeric: tabular-nums;
 }
 .audit-contraprova-bate { font-weight: 700; color: var(--audit-green); margin-top: 4px; }
+.audit-contraprova-diverge { font-weight: 700; color: var(--audit-red); margin-top: 4px; }
 .audit-contraprova-indisponivel { font-weight: 600; color: var(--audit-red); margin-top: 6px; }
+.audit-contraprova--diverge { border-color: var(--audit-red-border); background: var(--audit-red-bg); }
+.audit-contraprova--diverge .audit-contraprova-titulo { background: var(--audit-red); }
 
 /* Visão 2 — desmontagem item a item (teardown) */
 .audit-teardown { padding: 4px 20px 0; }

@@ -248,14 +248,21 @@ def view_grade_precificacao_ml(request):
     return render(request, 'precificacao/estrutura_grade_precificacao_ml.html', vars(contexto))
 
 
-# Função Objetivo: Contraprova da Visão 1 (14/09) — chama calcular_margem() de verdade
-# (mercado_livre/funcoes_auxiliares/calculo_margem.py), implementação SEPARADA e independente
-# (já usada no Hub de Promoções), com o preço final já persistido. ÚNICA exceção ao "nunca
-# recalcula ao vivo" desta tela — é só pra exibir a prova visual, nunca grava nem substitui o
-# valor oficial da grade. Explicação em detalhe: taxa/FIXO/frete usados aqui são recalculados
-# por DENTRO dessa função, não são os mesmos objetos da Visão 1 — por isso o template não tenta
-# substituir número por número, só compara o resultado final.
-def _montar_contraprova_visao_1(produto, preco_final, tipo_anuncio_grade):
+# Função Objetivo: Contraprova da Visão 1 (14/09, corrigida 14/09) — chama calcular_margem() de
+# verdade (mercado_livre/funcoes_auxiliares/calculo_margem.py), implementação SEPARADA e
+# independente (já usada no Hub de Promoções), com o preço final já persistido. ÚNICA exceção
+# ao "nunca recalcula ao vivo" desta tela — é só pra exibir a prova visual, nunca grava nem
+# substitui o valor oficial da grade. Explicação em detalhe: taxa/FIXO/frete usados aqui são
+# recalculados por DENTRO dessa função, não são os mesmos objetos da Visão 1 — por isso o
+# template não tenta substituir número por número, só compara o resultado final.
+#
+# Correção 14/09/2026: passa `variacao` pra calcular_margem — sem isso, a dimensão usada aqui
+# era sempre a do Produto ERP, mesmo quando o preço oficial foi calculado com a dimensão
+# declarada no anúncio do ML (resolver_dimensoes_efetivas). Causava divergência real (não só
+# arredondamento) pra qualquer produto com dimensão do ML diferente do ERP. Também calcula
+# `bate`/`diferenca_valor` comparando contra `margem_valor_oficial` — antes o template mostrava
+# "✓ Bate" fixo, sem checar nada de verdade.
+def _montar_contraprova_visao_1(produto, preco_final, tipo_anuncio_grade, variacao, margem_valor_oficial):
     from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem
     from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre
 
@@ -267,14 +274,25 @@ def _montar_contraprova_visao_1(produto, preco_final, tipo_anuncio_grade):
     if not config_tipo:
         return ContraprovaVisao1(disponivel=False, motivo_indisponivel='Configuração do tipo de anúncio não encontrada.')
 
-    resultado = calcular_margem(produto, preco_final, config_tipo=config_tipo)
+    resultado = calcular_margem(produto, preco_final, config_tipo=config_tipo, variacao=variacao)
     if not resultado:
-        return ContraprovaVisao1(disponivel=False, motivo_indisponivel='Produto sem dados fiscais de entrada sincronizados, ou sem faixa de frete pra esse preço.')
+        return ContraprovaVisao1(disponivel=False, motivo_indisponivel='Produto sem dados fiscais de entrada sincronizados, sem faixa de frete pra esse preço, ou sem dimensão/peso suficientes pra resolver a embalagem efetiva.')
+
+    # * [EXPLICAÇÃO] → Tolerância de R$ 0,05: absorve ruído legítimo de
+    #                  arredondamento entre 2 cadeias de conta Decimal
+    #                  independentes — nunca pra esconder uma divergência real.
+    diferenca_valor = None
+    bate = False
+    if margem_valor_oficial is not None:
+        diferenca_valor = abs(resultado['margem_valor'] - margem_valor_oficial)
+        bate = diferenca_valor <= Decimal('0.05')
 
     return ContraprovaVisao1(
         disponivel=True,
         margem_valor=resultado['margem_valor'],
         margem_percentual=resultado['margem_percentual'],
+        bate=bate,
+        diferenca_valor=diferenca_valor,
     )
 
 
@@ -362,7 +380,9 @@ class DetalheFormulaExibida:
             passo_1, passo_2, passo_3, passo_4, passo_5, passo_8,
             preco_final, margem_valor, margem_obtida, dec,
         )
-        contraprova_1 = _montar_contraprova_visao_1(linha.produto, preco_final, linha.tipo_anuncio)
+        contraprova_1 = _montar_contraprova_visao_1(
+            linha.produto, preco_final, linha.tipo_anuncio, linha.variacao, margem_valor,
+        )
 
         return cls(
             tipo_label=tipo_label,

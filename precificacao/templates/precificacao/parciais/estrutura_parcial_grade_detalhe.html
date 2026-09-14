@@ -348,14 +348,18 @@
 
         </div>
 
-        <div class="audit-contraprova">
-            <div class="audit-contraprova-titulo">✓ Contraprova da Visão 1</div>
+        <div class="audit-contraprova{% if det.contraprova_1.disponivel and not det.contraprova_1.bate %} audit-contraprova--diverge{% endif %}">
+            <div class="audit-contraprova-titulo">{% if det.contraprova_1.disponivel and not det.contraprova_1.bate %}✗ Contraprova da Visão 1{% else %}✓ Contraprova da Visão 1{% endif %}</div>
             <div class="audit-contraprova-corpo">
                 Rodando o preço final (R$ {{ det.preco_final|floatformat:2 }}) na fórmula <b>independente</b> que já existe no sistema pro caminho contrário — "dado um preço, qual é a margem?" (<code>calculo_margem.py</code>, usada no Hub de Promoções):
                 {% if det.contraprova_1.disponivel %}
                 <div class="audit-formula-linha">margem_valor = Preço × (1 − Taxa) − FIXO − Frete + Rebate <span class="audit-mini-form">(Taxa, FIXO e Frete recalculados de forma independente por essa função — não são os mesmos objetos da Visão 1, só devem bater no resultado)</span></div>
                 <div class="audit-contraprova-resultado">R$ {{ det.contraprova_1.margem_valor|floatformat:2 }} · {{ det.contraprova_1.margem_percentual|floatformat:2 }}%</div>
+                {% if det.contraprova_1.bate %}
                 <div class="audit-contraprova-bate">✓ Bate com a margem obtida na Visão 1 (R$ {{ det.margem_valor|floatformat:2 }} / {{ det.margem_obtida_percentual|floatformat:2 }}%) — 2 implementações diferentes, mesmo resultado.</div>
+                {% else %}
+                <div class="audit-contraprova-diverge">✗ NÃO bate com a margem obtida na Visão 1 (R$ {{ det.margem_valor|floatformat:2 }} / {{ det.margem_obtida_percentual|floatformat:2 }}%) — diferença de R$ {{ det.contraprova_1.diferenca_valor|floatformat:2 }}. Vale investigar antes de confiar neste preço.</div>
+                {% endif %}
                 {% else %}
                 <div class="audit-contraprova-indisponivel">⚠ Contraprova indisponível — {{ det.contraprova_1.motivo_indisponivel }}</div>
                 {% endif %}
