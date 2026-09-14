@@ -159,6 +159,32 @@ class LinhaSaida:
     valor_par: object = None
 
 
+# Função Objetivo: 1 linha da Visão 2 (De onde vem o lucro) — desmontagem do preço final até
+# sobrar o lucro. 'sinal' controla o símbolo e o estilo visual no template: 'inicio' (preço
+# final, ponto de partida), 'menos'/'mais' (linhas normais de subtração/soma), 'checkpoint'
+# (conferência interna, não soma na conta visual — só confirma que os componentes do FIXO
+# batem com o FIXO da Visão 1) e 'final' (lucro, resultado).
+@dataclass
+class LinhaTeardown:
+    label: str
+    valor_reais: object
+    valor_percentual: object
+    sinal: str
+    mini_explicacao: str = ''
+
+
+# Função Objetivo: Resultado da contraprova da Visão 1 — chama calcular_margem() (calculo_margem.py,
+# implementação independente) de verdade, com o preço final já persistido. 'disponivel=False'
+# quando o produto não tem dados fiscais de entrada sincronizados ou não há faixa de frete pra
+# esse preço (calcular_margem já devolve None nesses casos — nunca finge um número).
+@dataclass
+class ContraprovaVisao1:
+    disponivel: bool
+    margem_valor: object = None
+    margem_percentual: object = None
+    motivo_indisponivel: str = ''
+
+
 # Função Objetivo: 1 item da tabela única de auditoria (Item | Como foi obtido | R$ | %).
 @dataclass
 class LinhaItemAuditoria:
@@ -428,3 +454,58 @@ def montar_alertas(fixo, custo, custo_com_boni, altura, largura, comprimento, ma
         })
 
     return alertas
+
+
+# Função Objetivo: Monta a Visão 2 (De onde vem o lucro) — mesmo preço final e mesmos dados
+# da Visão 1, só que de trás pra frente: parte do preço de venda e vai subtraindo cada custo,
+# 1 de cada vez (inclusive os que valem R$ 0,00), até sobrar só o lucro. Pedido explícito
+# (14/09): nada resumido em bloco — cada componente do FIXO também vira linha própria aqui,
+# na mesma ordem das camadas 1/2/3 da Visão 1 (custo final → coleta → armazenagem). Não
+# recalcula nada — só reapresenta de trás pra frente os mesmos passos 1-8 já calculados.
+def montar_visao_2_teardown(passo_1, passo_2, passo_3, passo_4, passo_5, passo_8, preco_final, margem_valor, margem_percentual, dec):
+    def pct(valor):
+        if valor is None or not preco_final:
+            return None
+        return (valor / preco_final) * 100
+
+    linhas = [
+        LinhaTeardown('Preço final de venda', preco_final, dec('100'), 'inicio'),
+    ]
+
+    for item in passo_5.itens:
+        linhas.append(LinhaTeardown(item.label, item.valor, item.percentual, 'menos'))
+
+    linhas.append(LinhaTeardown('Frete', passo_8.frete, pct(passo_8.frete), 'menos'))
+
+    linhas.append(LinhaTeardown('Custo do produto', passo_1.custo_com_boni, pct(passo_1.custo_com_boni), 'menos'))
+    linhas.append(LinhaTeardown('IPI (crédito da nota de entrada)', passo_1.ipi_valor, pct(passo_1.ipi_valor), 'menos'))
+    linhas.append(LinhaTeardown('Frete CIF/FOB', passo_1.frete_cif_fob_valor, pct(passo_1.frete_cif_fob_valor), 'menos'))
+    linhas.append(LinhaTeardown('Coleta', passo_2.resultado, pct(passo_2.resultado), 'menos'))
+    linhas.append(LinhaTeardown('Armazenagem', passo_3.resultado, pct(passo_3.resultado), 'menos'))
+
+    linhas.append(LinhaTeardown(
+        'Crédito de ICMS (nota de entrada)', passo_4.credito_icms, pct(passo_4.credito_icms), 'mais',
+        'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
+    ))
+    linhas.append(LinhaTeardown(
+        'Crédito de PIS (nota de entrada)', passo_4.credito_pis, pct(passo_4.credito_pis), 'mais',
+        'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
+    ))
+    linhas.append(LinhaTeardown(
+        'Crédito de COFINS (nota de entrada)', passo_4.credito_cofins, pct(passo_4.credito_cofins), 'mais',
+        'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
+    ))
+
+    linhas.append(LinhaTeardown(
+        'Conferência: soma dos 8 itens acima', passo_4.resultado, pct(passo_4.resultado), 'checkpoint',
+        'Deve bater com o FIXO da Visão 1 (Passo 4).',
+    ))
+
+    linhas.append(LinhaTeardown(
+        'Rebate', passo_8.rebate, pct(passo_8.rebate), 'mais',
+        'Desconto de promoção que o ML devolve — soma de volta ao preço.',
+    ))
+
+    linhas.append(LinhaTeardown('Lucro (margem valor)', margem_valor, margem_percentual, 'final'))
+
+    return linhas

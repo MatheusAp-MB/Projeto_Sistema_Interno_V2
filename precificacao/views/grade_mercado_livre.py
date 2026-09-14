@@ -8,9 +8,10 @@ from precificacao.views.comum import (
     LinhaMargemExibida, _opcoes_filtro_produto, _filtrar_paginar_produtos_grade,
 )
 from precificacao.views.modal_comum import (
-    PassoFaixaFrete, PassoPrecoExato,
+    PassoFaixaFrete, PassoPrecoExato, ContraprovaVisao1,
     montar_tabela_percentuais, montar_valores_soltos, montar_tabela_itens_agrupada,
     montar_dimensao, montar_passos_1_a_6, montar_saida, montar_alertas,
+    montar_visao_2_teardown,
 )
 
 # * [EXPLICAÇÃO] → GradePrecificacaoML.tipo_anuncio usa 'classico'/
@@ -247,6 +248,36 @@ def view_grade_precificacao_ml(request):
     return render(request, 'precificacao/estrutura_grade_precificacao_ml.html', vars(contexto))
 
 
+# Função Objetivo: Contraprova da Visão 1 (14/09) — chama calcular_margem() de verdade
+# (mercado_livre/funcoes_auxiliares/calculo_margem.py), implementação SEPARADA e independente
+# (já usada no Hub de Promoções), com o preço final já persistido. ÚNICA exceção ao "nunca
+# recalcula ao vivo" desta tela — é só pra exibir a prova visual, nunca grava nem substitui o
+# valor oficial da grade. Explicação em detalhe: taxa/FIXO/frete usados aqui são recalculados
+# por DENTRO dessa função, não são os mesmos objetos da Visão 1 — por isso o template não tenta
+# substituir número por número, só compara o resultado final.
+def _montar_contraprova_visao_1(produto, preco_final, tipo_anuncio_grade):
+    from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem
+    from mercado_livre.models import ConfiguracaoTipoAnuncioMercadoLivre
+
+    if not preco_final:
+        return ContraprovaVisao1(disponivel=False, motivo_indisponivel='Sem preço final calculado.')
+
+    tipo_ml = TIPO_GRADE_PARA_ML.get(tipo_anuncio_grade)
+    config_tipo = ConfiguracaoTipoAnuncioMercadoLivre.objects.filter(tipo_anuncio=tipo_ml).first() if tipo_ml else None
+    if not config_tipo:
+        return ContraprovaVisao1(disponivel=False, motivo_indisponivel='Configuração do tipo de anúncio não encontrada.')
+
+    resultado = calcular_margem(produto, preco_final, config_tipo=config_tipo)
+    if not resultado:
+        return ContraprovaVisao1(disponivel=False, motivo_indisponivel='Produto sem dados fiscais de entrada sincronizados, ou sem faixa de frete pra esse preço.')
+
+    return ContraprovaVisao1(
+        disponivel=True,
+        margem_valor=resultado['margem_valor'],
+        margem_percentual=resultado['margem_percentual'],
+    )
+
+
 # Função Objetivo: Representa tudo que o modal de auditoria precisa pra se desenhar.
 @dataclass
 class DetalheFormulaExibida:
@@ -281,6 +312,13 @@ class DetalheFormulaExibida:
     passo_8: object
     saida: list
     alertas: list
+    # * [EXPLICAÇÃO] → Visão 2 (14/09) — desmontagem do preço final até sobrar o lucro,
+    #                  item a item (mesmos dados dos passos 1-8, sem recalcular nada).
+    visao_2: list
+    # * [EXPLICAÇÃO] → Contraprova da Visão 1 (14/09) — ÚNICA chamada ao vivo desta tela
+    #                  (calcular_margem, implementação independente). Só pra exibir a
+    #                  prova, nunca substitui nem grava o valor oficial da grade.
+    contraprova_1: object
 
     # Função Objetivo: Lê o detalhamento já persistido e monta a exibição completa.
     # Explicação em detalhe: NUNCA recalcula nada ao vivo — só lê o que já foi persistido.
@@ -317,6 +355,15 @@ class DetalheFormulaExibida:
         margem_obtida = dec(s.get('margem_percentual_obtida'))
         dimensao = montar_dimensao(e, dec, origem_label)
 
+        preco_final = dec(s.get('preco_final'))
+        margem_valor = dec(s.get('margem_valor'))
+
+        visao_2 = montar_visao_2_teardown(
+            passo_1, passo_2, passo_3, passo_4, passo_5, passo_8,
+            preco_final, margem_valor, margem_obtida, dec,
+        )
+        contraprova_1 = _montar_contraprova_visao_1(linha.produto, preco_final, linha.tipo_anuncio)
+
         return cls(
             tipo_label=tipo_label,
             margem_label=margem_label,
@@ -326,8 +373,8 @@ class DetalheFormulaExibida:
             custo_com_boni=custo_com_boni,
             margem_alvo_percentual=margem_alvo,
             margem_obtida_percentual=margem_obtida,
-            preco_final=dec(s.get('preco_final')),
-            margem_valor=dec(s.get('margem_valor')),
+            preco_final=preco_final,
+            margem_valor=margem_valor,
             tabela_percentuais=montar_tabela_percentuais(e, i, dec),
             valores_soltos=montar_valores_soltos(e, dec),
             tabela_itens=montar_tabela_itens_agrupada(e, i, s, dec),
@@ -340,6 +387,8 @@ class DetalheFormulaExibida:
                 altura=dimensao.altura, largura=dimensao.largura, comprimento=dimensao.comprimento,
                 margem_alvo=margem_alvo, margem_obtida=margem_obtida,
             ),
+            visao_2=visao_2,
+            contraprova_1=contraprova_1,
         )
 
 

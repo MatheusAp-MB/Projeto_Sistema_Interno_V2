@@ -112,7 +112,13 @@
             </table>
         </div>
 
-        <div class="audit-secao-titulo">Passo a passo</div>
+        <div class="audit-visao-abas" role="tablist">
+            <button type="button" class="audit-visao-aba audit-visao-aba--ativa" data-visao="1" onclick="trocarVisaoAuditoria(this)">① Como o preço foi montado</button>
+            <button type="button" class="audit-visao-aba" data-visao="2" onclick="trocarVisaoAuditoria(this)">② De onde vem o lucro</button>
+        </div>
+
+        <div class="audit-visao-painel" data-visao-painel="1">
+        <div class="audit-secao-sub">Mesma ordem em que o sistema calcula de verdade, camada por camada. Cada camada mostra de onde cada número vem, a conta exata (sempre em R$; quando fizer sentido, também em %, nunca só em %) e o resultado.</div>
         <div class="audit-passos">
 
             <div class="audit-passo" data-numero="1" data-estado="{% if not det.custo and not det.custo_com_boni %}expandido{% else %}colapsado{% endif %}" {% if not det.custo and not det.custo_com_boni %}data-flag="1"{% endif %}>
@@ -124,7 +130,7 @@
                 </button>
                 <div class="audit-passo-detalhe">
                     <div class="audit-inputs-box">
-                        <div class="audit-input-linha"><span class="k">Custo com bonificação <span class="audit-tag audit-tag--produto">Produto</span></span><span class="v">R$ {{ det.passo_1.custo_com_boni|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Custo do produto <span class="audit-tag audit-tag--produto">Produto</span></span><span class="v">R$ {{ det.passo_1.custo_com_boni|floatformat:2 }}</span></div>
                         <div class="audit-input-linha">
                             <span class="k">IPI <span class="audit-tag audit-tag--nf">NF</span>
                                 {% if det.passo_1.ipi_valor_nota is not None and det.passo_1.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_1.ipi_valor_nota|floatformat:2 }} nota ÷ {{ det.passo_1.quantidade_nota|floatformat:0 }} unid.)</span>{% endif %}
@@ -133,18 +139,22 @@
                         </div>
                         <div class="audit-input-linha"><span class="k">Frete CIF/FOB R$ <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }}</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">custo_com_boni + IPI + frete CIF/FOB</div>
+                    <div class="audit-passo-abstrata">Custo do produto + IPI + Frete CIF/FOB</div>
                     <div class="audit-passo-conta">
                         R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }} + R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }}
                         = <b>R$ {{ det.passo_1.resultado|floatformat:2 }}</b>
                         {% if not det.custo and not det.custo_com_boni %}<span class="audit-badge audit-badge--ruim">só o IPI, sem custo</span>{% endif %}
+                    </div>
+                    <button type="button" class="audit-ver-nota-link" onclick="toggleProva(this)"><span class="audit-seta2">▸</span> Por que "Custo do produto", sem bonificação?</button>
+                    <div class="audit-prova">
+                        <div class="audit-prova-fonte">📦 Cadastro do Produto</div>
+                        <div class="audit-prova-nota-obs">Até 13/09/2026 existia um campo separado "Custo com bonificação" que, se preenchido, substituiria o custo aqui. Decidido em 14/09/2026 (nenhum produto tem esse campo preenchido na base real) que a fórmula usa sempre o campo Custo puro do produto, sem esse desvio.</div>
                     </div>
                     {% if not det.custo and not det.custo_com_boni %}
                     <button type="button" class="audit-ver-nota-link" onclick="toggleProva(this)"><span class="audit-seta2">▸</span> Mais detalhe sobre o custo zerado</button>
                     <div class="audit-prova audit-prova--flag">
                         <div class="audit-prova-fonte">📦 Cadastro do Produto</div>
                         <div class="audit-prova-linha"><span class="k">Custo cadastrado</span><span class="v">R$ 0,00</span></div>
-                        <div class="audit-prova-linha"><span class="k">Custo com bonificação</span><span class="v">vazio</span></div>
                         <div class="audit-prova-linha audit-prova-linha--total"><span class="k">Custo final usado</span><span class="v">R$ {{ det.passo_1.resultado|floatformat:2 }} (só IPI)</span></div>
                         <div class="audit-prova-nota-obs">Sem custo cadastrado, o "custo final" vira só o pedaço de IPI — não representa o custo real do produto.</div>
                     </div>
@@ -168,7 +178,7 @@
                         </div>
                         <div class="audit-input-linha"><span class="k">Fator de coleta <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{{ det.passo_2.fator_coleta|floatformat:3 }}</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">metro cúbico × fator de coleta</div>
+                    <div class="audit-passo-abstrata">Metro cúbico × Fator de coleta</div>
                     <div class="audit-passo-conta">
                         {{ det.passo_2.metro_cubico|floatformat:5 }} m³ × {{ det.passo_2.fator_coleta|floatformat:3 }} = <b>R$ {{ det.passo_2.resultado|floatformat:2 }}</b>
                         {% if not det.passo_2.metro_cubico %}<span class="audit-badge audit-badge--ruim">dimensão zerada</span>{% endif %}
@@ -183,14 +193,14 @@
                 </button>
                 <div class="audit-passo-detalhe">
                     {% if det.passo_3.origem == 'planilha' %}
-                    <div class="audit-passo-abstrata">Valor já validado na planilha de precificação</div>
-                    <div class="audit-passo-conta">R$ {{ det.passo_3.resultado|floatformat:2 }} (direto da planilha)</div>
+                    <div class="audit-passo-abstrata">Valor importado anteriormente da planilha de precificação — fonte legada, específica deste produto <span class="audit-mini-form">(produtos novos usam a faixa por dimensão, ver abaixo)</span></div>
+                    <div class="audit-passo-conta">R$ {{ det.passo_3.resultado|floatformat:2 }} (direto da planilha importada)</div>
                     {% else %}
                     <div class="audit-inputs-box">
-                        <div class="audit-input-linha"><span class="k">Faixa de armazenagem selecionada <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{% if det.passo_3.valor_diario is not None %}R$ {{ det.passo_3.valor_diario|floatformat:4 }}/dia{% else %}—{% endif %}</span></div>
-                        <div class="audit-input-linha"><span class="k">Período de armazenagem <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{{ det.passo_3.periodo_dias|floatformat:0 }} dias</span></div>
+                        <div class="audit-input-linha"><span class="k">Faixa de armazenagem aplicada <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{% if det.passo_3.valor_diario is not None %}R$ {{ det.passo_3.valor_diario|floatformat:4 }}/dia{% else %}—{% endif %}</span></div>
+                        <div class="audit-input-linha"><span class="k">Período considerado <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{{ det.passo_3.periodo_dias|floatformat:0 }} dias</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">valor diário da faixa × período de armazenagem</div>
+                    <div class="audit-passo-abstrata">A única fonte pra este produto é a configuração de armazenagem do sistema — faixas por dimensão da embalagem, cada uma com valor diário fixo.</div>
                     <div class="audit-passo-conta">
                         {% if det.passo_3.valor_diario is not None %}R$ {{ det.passo_3.valor_diario|floatformat:4 }} × {{ det.passo_3.periodo_dias|floatformat:0 }} dias = {% endif %}<b>R$ {{ det.passo_3.resultado|floatformat:2 }}</b>
                     </div>
@@ -207,9 +217,9 @@
                 </button>
                 <div class="audit-passo-detalhe">
                     <div class="audit-inputs-box">
-                        <div class="audit-input-linha"><span class="k">Coleta <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.coleta|floatformat:2 }}</span></div>
-                        <div class="audit-input-linha"><span class="k">Armazenagem <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.armazenagem|floatformat:2 }}</span></div>
-                        <div class="audit-input-linha"><span class="k">Custo final <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.custo_final|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Custo final (Passo 1) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.custo_final|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Coleta (Passo 2) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.coleta|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Armazenagem (Passo 3) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.armazenagem|floatformat:2 }}</span></div>
                         <div class="audit-input-linha">
                             <span class="k">Crédito ICMS <span class="audit-tag audit-tag--nf">NF</span>
                                 {% if det.passo_4.icms_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.icms_valor_nota|floatformat:2 }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:0 }} unid.)</span>{% endif %}
@@ -229,9 +239,9 @@
                             <span class="v">R$ {{ det.passo_4.credito_cofins|floatformat:2 }}</span>
                         </div>
                     </div>
-                    <div class="audit-passo-abstrata">coleta + armazenagem + custo final − crédito ICMS − crédito PIS − crédito COFINS</div>
+                    <div class="audit-passo-abstrata">Custo final + Coleta + Armazenagem − Crédito ICMS − Crédito PIS − Crédito COFINS</div>
                     <div class="audit-passo-conta">
-                        R$ {{ det.passo_4.coleta|floatformat:2 }} + R$ {{ det.passo_4.armazenagem|floatformat:2 }} + R$ {{ det.passo_4.custo_final|floatformat:2 }}
+                        R$ {{ det.passo_4.custo_final|floatformat:2 }} + R$ {{ det.passo_4.coleta|floatformat:2 }} + R$ {{ det.passo_4.armazenagem|floatformat:2 }}
                         − R$ {{ det.passo_4.credito_icms|floatformat:2 }} − R$ {{ det.passo_4.credito_pis|floatformat:2 }} − R$ {{ det.passo_4.credito_cofins|floatformat:2 }}
                         = <b>R$ {{ det.passo_4.resultado|floatformat:2 }}</b>
                     </div>
@@ -268,7 +278,7 @@
                         <div class="audit-input-linha"><span class="k">{{ item.label }} <span class="audit-tag audit-tag--{{ item.origem }}">{{ item.origem|capfirst }}</span></span><span class="v">{{ item.percentual|floatformat:2 }}% · R$ {{ item.valor|floatformat:2 }}</span></div>
                         {% endfor %}
                     </div>
-                    <div class="audit-passo-abstrata">comissão + ICMS saída + PIS saída + COFINS saída (% sobre o preço final)</div>
+                    <div class="audit-passo-abstrata">Comissão + ICMS saída + PIS saída + COFINS saída (% sobre o preço final)</div>
                     <div class="audit-passo-conta">Taxa total = <b>{{ det.passo_5.resultado|floatformat:2 }}%</b> = <b>R$ {{ det.passo_5.resultado_valor|floatformat:2 }}</b></div>
                 </div>
             </div>
@@ -283,7 +293,7 @@
                         <div class="audit-input-linha"><span class="k">Taxa total <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">{{ det.passo_6.taxa_percentual|floatformat:2 }}% · R$ {{ det.passo_6.taxa_valor|floatformat:2 }}</span></div>
                         <div class="audit-input-linha"><span class="k">Margem-alvo ({{ det.margem_label }}) <span class="audit-tag audit-tag--config">Config</span></span><span class="v">{{ det.passo_6.margem_alvo_percentual|floatformat:2 }}% · R$ {{ det.passo_6.margem_alvo_valor|floatformat:2 }}</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">1 − taxa − margem-alvo <span class="audit-mini-form">(denominador é um fator, não tem R$ próprio — os 2 valores que o compõem já aparecem em R$ acima)</span></div>
+                    <div class="audit-passo-abstrata">1 − Taxa − Margem-alvo <span class="audit-mini-form">(denominador é um fator, não tem R$ próprio — os 2 valores que o compõem já aparecem em R$ acima)</span></div>
                     <div class="audit-passo-conta">1 − {{ det.passo_6.taxa_percentual|floatformat:2 }}% − {{ det.passo_6.margem_alvo_percentual|floatformat:2 }}% = <b>{{ det.passo_6.resultado|floatformat:4 }}</b></div>
                 </div>
             </div>
@@ -298,9 +308,9 @@
                         <div class="audit-input-linha"><span class="k">Peso usado <span class="audit-tag audit-tag--calc">Calculado</span><span class="audit-mini-form">(maior entre físico e cúbico)</span></span><span class="v">{{ det.passo_7.peso|floatformat:3 }} kg</span></div>
                         <div class="audit-input-linha"><span class="k">Tabela de frete por preço <span class="audit-tag audit-tag--config">Config</span></span><span class="v">FreteML</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">peso → faixa de peso × preço na tabela FreteML</div>
+                    <div class="audit-passo-abstrata">Peso → faixa de peso × preço na tabela FreteML</div>
                     <div class="audit-passo-conta">
-                        peso {{ det.passo_7.peso|floatformat:3 }}kg → faixa R$ {{ det.passo_7.faixa_min|floatformat:2 }}–{% if det.passo_7.faixa_max %}R$ {{ det.passo_7.faixa_max|floatformat:2 }}{% else %}sem teto{% endif %}
+                        Peso {{ det.passo_7.peso|floatformat:3 }}kg → faixa R$ {{ det.passo_7.faixa_min|floatformat:2 }}–{% if det.passo_7.faixa_max %}R$ {{ det.passo_7.faixa_max|floatformat:2 }}{% else %}sem teto{% endif %}
                         = <b>R$ {{ det.passo_7.resultado|floatformat:2 }}</b>
                     </div>
                 </div>
@@ -315,12 +325,12 @@
                 </button>
                 <div class="audit-passo-detalhe">
                     <div class="audit-inputs-box">
-                        <div class="audit-input-linha"><span class="k">Frete <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_8.frete|floatformat:2 }}</span></div>
-                        <div class="audit-input-linha"><span class="k">FIXO <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_8.fixo|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Frete (Passo 7) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_8.frete|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">FIXO (Passo 4) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_8.fixo|floatformat:2 }}</span></div>
                         <div class="audit-input-linha"><span class="k">Rebate de promoção <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_8.rebate|floatformat:2 }}</span></div>
-                        <div class="audit-input-linha"><span class="k">Denominador <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">{{ det.passo_8.denominador|floatformat:4 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Denominador (Passo 6) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">{{ det.passo_8.denominador|floatformat:4 }}</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">(frete + FIXO − rebate) ÷ denominador</div>
+                    <div class="audit-passo-abstrata">(Frete + FIXO − Rebate) ÷ Denominador</div>
                     <div class="audit-passo-conta">
                         (R$ {{ det.passo_8.frete|floatformat:2 }} + R$ {{ det.passo_8.fixo|floatformat:2 }} − R$ {{ det.passo_8.rebate|floatformat:2 }}) ÷ {{ det.passo_8.denominador|floatformat:4 }}
                         = <b>R$ {{ det.passo_8.resultado|floatformat:2 }}</b>
@@ -328,41 +338,76 @@
                 </div>
             </div>
 
+            <div class="audit-passo" data-numero="9" data-estado="colapsado">
+                <button type="button" class="audit-passo-linha" onclick="togglePasso(this)">
+                    <span class="audit-passo-num">9</span><span class="audit-passo-label">Preço final — RoundUp90</span>
+                    <span class="audit-passo-resultado">R$ {{ det.preco_final|floatformat:2 }}</span><span class="audit-passo-seta">›</span>
+                </button>
+                <div class="audit-passo-detalhe">
+                    <div class="audit-passo-abstrata">O preço nunca fecha "quebrado" — sempre arredonda pra CIMA até terminar em ",90". Nunca pra baixo — é isso que garante matematicamente que a margem real nunca fica abaixo da meta.</div>
+                    <div class="audit-passo-conta">Primeiro valor terminando em ",90" ≥ R$ {{ det.passo_8.resultado|floatformat:4 }} → <b>R$ {{ det.preco_final|floatformat:2 }}</b></div>
+                </div>
+            </div>
+
+            <div class="audit-passo" data-numero="10" data-estado="colapsado">
+                <button type="button" class="audit-passo-linha" onclick="togglePasso(this)">
+                    <span class="audit-passo-num">10</span><span class="audit-passo-label">Margem obtida (conferência)</span>
+                    <span class="audit-passo-resultado">{{ det.margem_obtida_percentual|floatformat:2 }}%<span class="sub">R$ {{ det.margem_valor|floatformat:2 }}</span></span><span class="audit-passo-seta">›</span>
+                </button>
+                <div class="audit-passo-detalhe">
+                    <div class="audit-passo-abstrata">O sistema recalcula "pra frente" com o preço já arredondado — nunca confia cegamente na conta inversa.</div>
+                    <div class="audit-passo-abstrata">Margem valor = Preço × (1 − Taxa) − FIXO − Frete</div>
+                    <div class="audit-passo-conta">Margem valor = {{ det.preco_final|floatformat:2 }} × (1 − {{ det.passo_6.taxa_percentual|floatformat:2 }}%) − {{ det.passo_4.resultado|floatformat:2 }} − {{ det.passo_8.frete|floatformat:2 }} = <b>R$ {{ det.margem_valor|floatformat:2 }}</b></div>
+                    <div class="audit-passo-conta">Margem % = Margem valor ÷ Preço final = {{ det.margem_valor|floatformat:2 }} ÷ {{ det.preco_final|floatformat:2 }} = <b>{{ det.margem_obtida_percentual|floatformat:2 }}%</b>
+                        {% if det.margem_obtida_percentual >= det.margem_alvo_percentual %}<span class="audit-badge audit-badge--ok">≥ meta</span>{% else %}<span class="audit-badge audit-badge--ruim">abaixo da meta</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <div class="audit-secao-titulo">Resultado</div>
-        <table class="audit-tabela-saida">
-            <tbody>
-                {% for linha in det.saida %}
-                <tr class="{% if linha.destaque %}audit-linha-destaque{% endif %}">
-                    <td>{{ linha.label }}</td>
-                    <td>
-                        {% if linha.tipo == 'reais' %}R$ {{ linha.valor|floatformat:2 }}{% else %}{{ linha.valor|floatformat:2 }}%{% endif %}
-                        {% if linha.valor_par is not None %}<span class="sub">{% if linha.tipo == 'reais' %}{{ linha.valor_par|floatformat:2 }}%{% else %}R$ {{ linha.valor_par|floatformat:2 }}{% endif %}</span>{% endif %}
-                        {% if linha.label == 'Margem final' %}
-                            {% if det.margem_obtida_percentual >= det.margem_alvo_percentual %}<span class="audit-badge audit-badge--ok">≥ meta</span>{% else %}<span class="audit-badge audit-badge--ruim">abaixo da meta</span>{% endif %}
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="audit-contraprova">
+            <div class="audit-contraprova-titulo">✓ Contraprova da Visão 1</div>
+            <div class="audit-contraprova-corpo">
+                Rodando o preço final (R$ {{ det.preco_final|floatformat:2 }}) na fórmula <b>independente</b> que já existe no sistema pro caminho contrário — "dado um preço, qual é a margem?" (<code>calculo_margem.py</code>, usada no Hub de Promoções):
+                {% if det.contraprova_1.disponivel %}
+                <div class="audit-formula-linha">margem_valor = Preço × (1 − Taxa) − FIXO − Frete + Rebate <span class="audit-mini-form">(Taxa, FIXO e Frete recalculados de forma independente por essa função — não são os mesmos objetos da Visão 1, só devem bater no resultado)</span></div>
+                <div class="audit-contraprova-resultado">R$ {{ det.contraprova_1.margem_valor|floatformat:2 }} · {{ det.contraprova_1.margem_percentual|floatformat:2 }}%</div>
+                <div class="audit-contraprova-bate">✓ Bate com a margem obtida na Visão 1 (R$ {{ det.margem_valor|floatformat:2 }} / {{ det.margem_obtida_percentual|floatformat:2 }}%) — 2 implementações diferentes, mesmo resultado.</div>
+                {% else %}
+                <div class="audit-contraprova-indisponivel">⚠ Contraprova indisponível — {{ det.contraprova_1.motivo_indisponivel }}</div>
+                {% endif %}
+            </div>
+        </div>
+        </div>
 
-        <div class="audit-formula-box">
-            <div class="audit-formula-titulo">Fórmula completa — abstrata e com todos os números substituídos</div>
-            <div class="audit-formula-linha">preço = (frete + FIXO − rebate) ÷ (1 − taxa − margem-alvo)</div>
-            <div class="audit-formula-linha">onde FIXO = coleta + armazenagem + custo_final − crédito_ICMS − crédito_PIS − crédito_COFINS</div>
-            <div class="audit-formula-linha">onde custo_final = custo_com_boni + IPI + frete_CIF/FOB</div>
-            <div class="audit-formula-linha">onde taxa = comissão + ICMS_saída + PIS_saída + COFINS_saída</div>
-            <div class="audit-formula-linha audit-formula-linha--num">
-                preço = (R$ {{ det.passo_8.frete|floatformat:2 }} + [R$ {{ det.passo_4.coleta|floatformat:2 }} + R$ {{ det.passo_4.armazenagem|floatformat:2 }} + (R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }} + R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }}) − R$ {{ det.passo_4.credito_icms|floatformat:2 }} − R$ {{ det.passo_4.credito_pis|floatformat:2 }} − R$ {{ det.passo_4.credito_cofins|floatformat:2 }}] − R$ {{ det.passo_8.rebate|floatformat:2 }}) ÷ (1 − {{ det.passo_6.taxa_percentual|floatformat:2 }}% − {{ det.passo_6.margem_alvo_percentual|floatformat:2 }}%)
+        <div class="audit-visao-painel audit-visao-painel--oculto" data-visao-painel="2">
+        <div class="audit-secao-sub">Mesmo produto, mesmo preço final — só que agora de trás pra frente: parte do preço de venda e vai tirando cada custo, 1 de cada vez (inclusive os que valem R$ 0,00), até sobrar só o lucro.</div>
+
+        <div class="audit-teardown">
+            {% for linha in det.visao_2 %}
+            <div class="audit-teardown-linha audit-teardown-linha--{{ linha.sinal }}">
+                <span class="audit-teardown-sinal">{% if linha.sinal == 'menos' %}−{% elif linha.sinal == 'mais' %}+{% else %}={% endif %}</span>
+                <span class="audit-teardown-desc">
+                    {{ linha.label }}
+                    {% if linha.mini_explicacao %}<small>{{ linha.mini_explicacao }}</small>{% endif %}
+                </span>
+                <span class="audit-teardown-valor">{% if linha.valor_reais is not None %}R$ {{ linha.valor_reais|floatformat:2 }}{% else %}—{% endif %}</span>
+                <span class="audit-teardown-pct">{% if linha.valor_percentual is not None %}{{ linha.valor_percentual|floatformat:2 }}%{% else %}—{% endif %}</span>
             </div>
-            <div class="audit-formula-linha">preço = (R$ {{ det.passo_8.frete|floatformat:2 }} + R$ {{ det.passo_4.resultado|floatformat:2 }} − R$ {{ det.passo_8.rebate|floatformat:2 }}) ÷ {{ det.passo_6.resultado|floatformat:4 }}</div>
-            <div class="audit-formula-linha">preço = <b>R$ {{ det.passo_8.resultado|floatformat:2 }}</b> (preço exato)</div>
-            <div class="audit-formula-linha audit-formula-linha--resultado">
-                preço final = RoundUp90(R$ {{ det.passo_8.resultado|floatformat:2 }}) = <b>R$ {{ det.preco_final|floatformat:2 }}</b>
-                · margem final = <b>{{ det.margem_obtida_percentual|floatformat:2 }}% (R$ {{ det.margem_valor|floatformat:2 }})</b>
+            {% endfor %}
+        </div>
+
+        <div class="audit-contraprova">
+            <div class="audit-contraprova-titulo">✓ Contraprova da Visão 2</div>
+            <div class="audit-contraprova-corpo">
+                A conta mais simples que existe: lucro dividido pelo preço de venda.
+                <div class="audit-formula-linha">Margem % = Lucro ÷ Preço de venda</div>
+                <div class="audit-formula-linha">Margem % = {{ det.margem_valor|floatformat:2 }} ÷ {{ det.preco_final|floatformat:2 }}</div>
+                <div class="audit-contraprova-resultado">{{ det.margem_obtida_percentual|floatformat:2 }}%</div>
+                <div class="audit-contraprova-bate">✓ Bate com a margem-% mostrada acima e com a margem-alvo configurada ({{ det.margem_alvo_percentual|floatformat:2 }}%{% if det.margem_obtida_percentual > det.margem_alvo_percentual %}, superada porque o RoundUp90 arredonda sempre pra cima{% endif %}).</div>
             </div>
+        </div>
         </div>
 
     </div>
@@ -398,5 +443,21 @@ function irParaProduto(btn) {
     if (!alvo) return;
     alvo.dataset.estado = 'expandido';
     alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+// * [EXPLICAÇÃO] → troca de aba Visão 1/Visão 2 — mesmo padrão já usado em
+//                  script_auditoria_fiscal.js, escopado ao .audit-painel deste
+//                  modal (pode ter vários abertos ao mesmo tempo — Clássico e
+//                  Premium — cada um com seu próprio par de abas independente).
+function trocarVisaoAuditoria(btn) {
+    var painel = btn.closest('.audit-painel');
+    if (!painel) return;
+    var visao = btn.dataset.visao;
+
+    painel.querySelectorAll('.audit-visao-aba').forEach(function (aba) {
+        aba.classList.toggle('audit-visao-aba--ativa', aba === btn);
+    });
+    painel.querySelectorAll('.audit-visao-painel').forEach(function (bloco) {
+        bloco.classList.toggle('audit-visao-painel--oculto', bloco.dataset.visaoPainel !== visao);
+    });
 }
 </script>
