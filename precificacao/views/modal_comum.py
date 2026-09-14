@@ -185,7 +185,7 @@ class ContraprovaVisao1:
     motivo_indisponivel: str = ''
 
 
-# Função Objetivo: 1 item da tabela única de auditoria (Item | Como foi obtido | R$ | %).
+# Função Objetivo: 1 item da tabela única de auditoria (Item | Como foi obtido | Valor | %).
 @dataclass
 class LinhaItemAuditoria:
     label: str
@@ -193,6 +193,9 @@ class LinhaItemAuditoria:
     valor_reais: object = None
     valor_percentual: object = None
     mini_form: str = ''
+    # unidade controla como o template formata `valor_reais`:
+    # 'reais' (padrão, R$ 0,00) | 'reais_dia' (R$ 0,0000/dia) | 'cm' | 'kg' | 'm3' | 'dias' | 'fator' (número puro, sem sufixo)
+    unidade: str = 'reais'
 
 
 # Função Objetivo: 1 grupo (seção) da tabela única de auditoria — ex: "Comissão", "Taxas".
@@ -368,12 +371,12 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
             LinhaItemAuditoria('Custo com bonificação', 'produto', valor_reais=dec(e.get('custo_com_boni'))),
         ]),
         GrupoItensAuditoria('2. Dimensões e peso', [
-            LinhaItemAuditoria('Altura', 'produto', valor_reais=dec(e.get('altura'))),
-            LinhaItemAuditoria('Largura', 'produto', valor_reais=dec(e.get('largura'))),
-            LinhaItemAuditoria('Comprimento', 'produto', valor_reais=dec(e.get('comprimento'))),
-            LinhaItemAuditoria('Peso físico', 'produto', valor_reais=dec(e.get('peso_fisico'))),
-            LinhaItemAuditoria('Peso cúbico', 'calculado', valor_reais=dec(e.get('peso_cubico'))),
-            LinhaItemAuditoria('Peso usado (maior entre físico e cúbico)', 'calculado', valor_reais=dec(e.get('peso'))),
+            LinhaItemAuditoria('Altura', 'produto', valor_reais=dec(e.get('altura')), unidade='cm'),
+            LinhaItemAuditoria('Largura', 'produto', valor_reais=dec(e.get('largura')), unidade='cm'),
+            LinhaItemAuditoria('Comprimento', 'produto', valor_reais=dec(e.get('comprimento')), unidade='cm'),
+            LinhaItemAuditoria('Peso físico', 'produto', valor_reais=dec(e.get('peso_fisico')), unidade='kg'),
+            LinhaItemAuditoria('Peso cúbico', 'calculado', valor_reais=dec(e.get('peso_cubico')), unidade='kg'),
+            LinhaItemAuditoria('Peso usado (maior entre físico e cúbico)', 'calculado', valor_reais=dec(e.get('peso')), unidade='kg'),
         ]),
         GrupoItensAuditoria('3. Créditos fiscais de entrada (NF)', [
             LinhaItemAuditoria('IPI', 'nf', valor_reais=dec(i.get('ipi_valor')), mini_form=mini(ipi_valor_nota, None)),
@@ -385,11 +388,11 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
             LinhaItemAuditoria('Frete CIF/FOB', 'produto', valor_reais=dec(i.get('frete_cif_fob_valor')), valor_percentual=dec(e.get('frete_cif_fob_percentual'))),
         ]),
         GrupoItensAuditoria('5. Coleta e armazenagem', [
-            LinhaItemAuditoria('Metro cúbico', 'calculado', valor_reais=dec(i.get('metro_cubico'))),
-            LinhaItemAuditoria('Fator de coleta', 'config', valor_reais=dec(e.get('fator_coleta'))),
+            LinhaItemAuditoria('Metro cúbico', 'calculado', valor_reais=dec(i.get('metro_cubico')), unidade='m3'),
+            LinhaItemAuditoria('Fator de coleta', 'config', valor_reais=dec(e.get('fator_coleta')), unidade='fator'),
             LinhaItemAuditoria('Coleta', 'calculado', valor_reais=dec(i.get('coleta'))),
-            LinhaItemAuditoria('Faixa de armazenagem (valor/dia)', 'config', valor_reais=dec(i.get('armazenagem_valor_diario'))),
-            LinhaItemAuditoria('Período de armazenagem', 'config', valor_reais=dec(e.get('periodo_armazenagem'))),
+            LinhaItemAuditoria('Faixa de armazenagem (valor/dia)', 'config', valor_reais=dec(i.get('armazenagem_valor_diario')), unidade='reais_dia'),
+            LinhaItemAuditoria('Período de armazenagem', 'config', valor_reais=dec(e.get('periodo_armazenagem')), unidade='dias'),
             LinhaItemAuditoria('Armazenagem', 'calculado', valor_reais=dec(i.get('armazenagem'))),
         ]),
         GrupoItensAuditoria('6. Comissão', [
@@ -406,7 +409,7 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
             LinhaItemAuditoria('Denominador', 'calculado', mini_form='1 − taxa − margem-alvo (fator, sem R$/% próprio)'),
         ]),
         GrupoItensAuditoria('9. Frete de saída (Mercado Livre)', [
-            LinhaItemAuditoria('Peso usado pra faixa', 'calculado', valor_reais=dec(e.get('peso'))),
+            LinhaItemAuditoria('Peso usado pra faixa', 'calculado', valor_reais=dec(e.get('peso')), unidade='kg'),
             LinhaItemAuditoria('Frete final usado (faixa FreteML)', 'config', valor_reais=dec(s.get('frete_usado'))),
         ]),
         GrupoItensAuditoria('10. Resultado', [

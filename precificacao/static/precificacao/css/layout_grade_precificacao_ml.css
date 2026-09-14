@@ -1041,25 +1041,34 @@
 .audit-tag--calc, .audit-tag--calculado { background: var(--audit-navy); color: #fff; }
 .audit-mini-form { color: var(--audit-ink-mid); font-size: 11px; font-weight: 400; margin-left: 4px; }
 
-/* Bloco "Dados do Produto" */
-.audit-bloco-produto {
+/* Seção colapsável genérica (hoje usada só em "Todos os itens usados no cálculo") */
+.audit-secao-colapsavel {
     margin: 12px 20px 0;
     border: 1px solid var(--audit-line);
     border-radius: 10px;
     overflow: hidden;
 }
-.audit-bloco-produto-cabecalho {
+.audit-secao-colapsavel-cabecalho {
     width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 14px;
     background: #fafbfd; border: none; cursor: pointer; font-family: inherit; text-align: left;
 }
-.audit-bloco-produto[data-flag="1"] .audit-bloco-produto-cabecalho { background: var(--audit-red-bg); }
-.audit-bloco-produto-titulo { flex: 1; font-size: 13.5px; font-weight: 700; color: var(--audit-ink); }
-.audit-bloco-produto-resumo { font-size: 12.5px; color: var(--audit-ink-mid); }
-.audit-bloco-produto[data-flag="1"] .audit-bloco-produto-resumo { color: var(--audit-red); font-weight: 600; }
-.audit-bloco-produto-seta { color: var(--audit-ink-mid); font-size: 13px; transition: transform .15s ease; }
-.audit-bloco-produto[data-estado="expandido"] .audit-bloco-produto-seta { transform: rotate(90deg); }
-.audit-bloco-produto-corpo { display: none; padding: 11px 14px 13px; border-top: 1px solid var(--audit-line); }
-.audit-bloco-produto[data-estado="expandido"] .audit-bloco-produto-corpo { display: block; }
+.audit-secao-colapsavel[data-flag="1"] .audit-secao-colapsavel-cabecalho { background: var(--audit-red-bg); }
+.audit-secao-colapsavel-titulo { flex: 1; font-size: 13.5px; font-weight: 700; color: var(--audit-ink); }
+.audit-secao-colapsavel-resumo { font-size: 12.5px; color: var(--audit-ink-mid); }
+.audit-secao-colapsavel[data-flag="1"] .audit-secao-colapsavel-resumo { color: var(--audit-red); font-weight: 600; }
+.audit-secao-colapsavel-seta { color: var(--audit-ink-mid); font-size: 13px; transition: transform .15s ease; }
+.audit-secao-colapsavel[data-estado="expandido"] .audit-secao-colapsavel-seta { transform: rotate(90deg); }
+.audit-secao-colapsavel-corpo { display: none; padding: 11px 14px 13px; border-top: 1px solid var(--audit-line); }
+.audit-secao-colapsavel[data-estado="expandido"] .audit-secao-colapsavel-corpo { display: block; }
+
+/* [EXPLICAÇÃO] A tabela e o .audit-secao-sub já têm padding lateral de 20px pensado pra
+   quando ficam soltos na página. Agora que os dois vivem dentro do corpo do colapsável
+   (que já tem 14px de padding próprio), sem essas 2 regras o espaçamento lateral dobraria
+   (20px + 14px = 34px). Aqui zeramos o padding lateral deles só dentro deste contexto —
+   as regras originais .audit-secao-sub / .audit-tabela-itens-wrap continuam intactas pra
+   quem mais usa (Visão 1 / Visão 2). */
+.audit-secao-colapsavel-corpo .audit-secao-sub { padding: 0 0 8px; margin-top: 0; }
+.audit-secao-colapsavel-corpo .audit-tabela-itens-wrap { padding: 0 0 6px; }
 
 .audit-secao-titulo {
     font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;

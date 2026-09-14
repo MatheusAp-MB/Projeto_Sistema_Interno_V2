@@ -54,62 +54,40 @@
         </div>
         {% endif %}
 
-        <div class="audit-bloco-produto" {% if not det.custo and not det.custo_com_boni or not det.dimensao.altura %}data-flag="1"{% endif %} data-estado="colapsado">
-            <button type="button" class="audit-bloco-produto-cabecalho" onclick="toggleBlocoProduto(this)">
-                <span class="audit-bloco-produto-titulo">📦 Dados do Produto</span>
-                <span class="audit-bloco-produto-resumo">
-                    {% if not det.custo and not det.custo_com_boni %}⚠ custo zerado{% else %}custo R$ {{ det.custo|floatformat:2 }}{% endif %}
+        <div class="audit-secao-colapsavel" {% if not det.custo and not det.custo_com_boni or not det.dimensao.altura %}data-flag="1"{% endif %} data-estado="colapsado">
+            <button type="button" class="audit-secao-colapsavel-cabecalho" onclick="toggleSecaoColapsavel(this)">
+                <span class="audit-secao-colapsavel-titulo">📋 Todos os itens usados no cálculo</span>
+                <span class="audit-secao-colapsavel-resumo">
+                    {% if not det.custo and not det.custo_com_boni %}⚠ custo zerado{% else %}custo R$ {{ det.custo|floatformat:2 }}{% endif %} · clique pra expandir
                 </span>
-                <span class="audit-bloco-produto-seta">›</span>
+                <span class="audit-secao-colapsavel-seta">›</span>
             </button>
-            <div class="audit-bloco-produto-corpo">
-                <div class="audit-input-linha">
-                    <span class="k">Custo <span class="audit-tag audit-tag--produto">Produto</span></span>
-                    <span class="v">{% if det.custo %}R$ {{ det.custo|floatformat:2 }}{% else %}R$ 0,00 ⚠{% endif %}</span>
-                </div>
-                <div class="audit-input-linha">
-                    <span class="k">Custo com bonificação <span class="audit-tag audit-tag--produto">Produto</span></span>
-                    <span class="v">{% if det.custo_com_boni %}R$ {{ det.custo_com_boni|floatformat:2 }}{% else %}— vazio (usa o custo){% endif %}</span>
-                </div>
-                <div class="audit-input-linha">
-                    <span class="k">Altura × Largura × Comprimento <span class="audit-tag audit-tag--produto">Produto</span> <span class="audit-mini-form">({{ det.dimensao.origem_label }})</span></span>
-                    <span class="v">{{ det.dimensao.altura|floatformat:0 }} × {{ det.dimensao.largura|floatformat:0 }} × {{ det.dimensao.comprimento|floatformat:0 }} cm{% if not det.dimensao.altura %} ⚠{% endif %}</span>
-                </div>
-                <div class="audit-input-linha">
-                    <span class="k">Peso físico / Peso cúbico <span class="audit-tag audit-tag--produto">Produto</span></span>
-                    <span class="v">
-                        {% if det.dimensao.peso_fisico is not None %}{{ det.dimensao.peso_fisico|floatformat:3 }}{% else %}—{% endif %}
-                        /
-                        {% if det.dimensao.peso_cubico is not None %}{{ det.dimensao.peso_cubico|floatformat:3 }} kg{% else %}— kg{% endif %}
-                    </span>
+            <div class="audit-secao-colapsavel-corpo">
+                <div class="audit-secao-sub">Cada valor, isolado, do jeito que aparece na planilha de referência — pra comparar linha a linha.</div>
+                <div class="audit-tabela-itens-wrap">
+                    <table class="audit-tabela-itens">
+                        <thead>
+                            <tr><th>Item</th><th>Como foi obtido</th><th class="audit-num">Valor</th><th class="audit-num">Valor em %</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for grupo in det.tabela_itens %}
+                            <tr class="audit-tabela-itens-grupo"><td colspan="4">{{ grupo.titulo }}</td></tr>
+                            {% for linha in grupo.linhas %}
+                            <tr>
+                                <td class="audit-tabela-itens-item">{{ linha.label }}</td>
+                                <td>
+                                    <span class="audit-tag audit-tag--{{ linha.origem }}">{{ linha.origem|capfirst }}</span>
+                                    {% if linha.mini_form %}<span class="audit-mini-form">{{ linha.mini_form }}</span>{% endif %}
+                                </td>
+                                <td class="audit-num">{% if linha.valor_reais is not None %}{% if linha.unidade == 'cm' %}{{ linha.valor_reais|floatformat:0 }} cm{% elif linha.unidade == 'kg' %}{{ linha.valor_reais|floatformat:3 }} kg{% elif linha.unidade == 'm3' %}{{ linha.valor_reais|floatformat:5 }} m³{% elif linha.unidade == 'dias' %}{{ linha.valor_reais|floatformat:0 }} dias{% elif linha.unidade == 'fator' %}{{ linha.valor_reais|floatformat:3 }}{% elif linha.unidade == 'reais_dia' %}R$ {{ linha.valor_reais|floatformat:4 }}/dia{% else %}R$ {{ linha.valor_reais|floatformat:2 }}{% endif %}{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
+                                <td class="audit-num">{% if linha.valor_percentual is not None %}{{ linha.valor_percentual|floatformat:2 }}%{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-
-        <div class="audit-secao-titulo">Todos os itens usados no cálculo</div>
-        <div class="audit-secao-sub">Cada valor, isolado, do jeito que aparece na planilha de referência — pra comparar linha a linha.</div>
-        <div class="audit-tabela-itens-wrap">
-            <table class="audit-tabela-itens">
-                <thead>
-                    <tr><th>Item</th><th>Como foi obtido</th><th class="audit-num">Valor em R$</th><th class="audit-num">Valor em %</th></tr>
-                </thead>
-                <tbody>
-                    {% for grupo in det.tabela_itens %}
-                    <tr class="audit-tabela-itens-grupo"><td colspan="4">{{ grupo.titulo }}</td></tr>
-                    {% for linha in grupo.linhas %}
-                    <tr>
-                        <td class="audit-tabela-itens-item">{{ linha.label }}</td>
-                        <td>
-                            <span class="audit-tag audit-tag--{{ linha.origem }}">{{ linha.origem|capfirst }}</span>
-                            {% if linha.mini_form %}<span class="audit-mini-form">{{ linha.mini_form }}</span>{% endif %}
-                        </td>
-                        <td class="audit-num">{% if linha.valor_reais is not None %}R$ {{ linha.valor_reais|floatformat:2 }}{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
-                        <td class="audit-num">{% if linha.valor_percentual is not None %}{{ linha.valor_percentual|floatformat:2 }}%{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                    {% endfor %}
-                </tbody>
-            </table>
         </div>
 
         <div class="audit-visao-abas" role="tablist">
@@ -419,8 +397,8 @@ function togglePasso(btn) {
     var passo = btn.closest('.audit-passo');
     passo.dataset.estado = passo.dataset.estado === 'expandido' ? 'colapsado' : 'expandido';
 }
-function toggleBlocoProduto(btn) {
-    var bloco = btn.closest('.audit-bloco-produto');
+function toggleSecaoColapsavel(btn) {
+    var bloco = btn.closest('.audit-secao-colapsavel');
     bloco.dataset.estado = bloco.dataset.estado === 'expandido' ? 'colapsado' : 'expandido';
 }
 function toggleProva(btn) {
@@ -439,7 +417,7 @@ function irParaPasso(btn, numero) {
 function irParaProduto(btn) {
     var painel = btn.closest('.audit-painel');
     if (!painel) return;
-    var alvo = painel.querySelector('.audit-bloco-produto');
+    var alvo = painel.querySelector('.audit-secao-colapsavel');
     if (!alvo) return;
     alvo.dataset.estado = 'expandido';
     alvo.scrollIntoView({ behavior: 'smooth', block: 'center' });
