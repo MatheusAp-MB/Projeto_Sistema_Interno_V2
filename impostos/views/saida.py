@@ -74,14 +74,29 @@ def view_csts_disponiveis_icms_ncm_origem(request):
 
 def view_calcular_icms_por_ncm(request):
     ncm = request.POST.get('ncm', '').strip()
+    origem_bruta = request.POST.get('origem', '').strip()
+    cst = request.POST.get('cst', '').strip()
     uf = request.POST.get('uf', '').strip()
+    origem = None if origem_bruta == SENTINELA_ORIGEM_EM_BRANCO else (origem_bruta or None)
 
     try:
-        aliquota, ncm_encontrado, e_media_ponderada = consultar_icms_por_ncm(ncm, uf)
+        if not ncm or not origem_bruta or not cst or not uf:
+            return render(request, 'impostos/parciais/estrutura_parcial_resultado_icms_por_ncm.html', {
+                'ncm': ncm,
+                'origem_bruta': origem_bruta,
+                'cst': cst,
+                'uf': uf,
+                'ncm_encontrado': False,
+                'campos_em_branco': True,
+            })
+
+        aliquota, ncm_encontrado, e_media_ponderada = consultar_icms_por_ncm(ncm, origem, cst, uf)
 
         return render(request, 'impostos/parciais/estrutura_parcial_resultado_icms_por_ncm.html', {
             'aliquota': aliquota,
             'ncm': ncm,
+            'origem_bruta': origem_bruta,
+            'cst': cst,
             'uf': uf,
             'ncm_encontrado': ncm_encontrado,
             'e_media_ponderada': e_media_ponderada,
@@ -89,7 +104,6 @@ def view_calcular_icms_por_ncm(request):
 
     except Exception as e:
         return render(request, 'impostos/parciais/estrutura_parcial_resultado_icms_por_ncm.html', {
-            'aliquota': None,
             'ncm_encontrado': False,
             'erro': str(e),
         })

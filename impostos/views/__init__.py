@@ -17,6 +17,8 @@ from impostos.views.saida import (
     view_auditoria_fiscal,
     view_tabela_icms_por_ncm,
     view_calcular_icms_por_ncm,
+    view_origens_disponiveis_icms_ncm,
+    view_csts_disponiveis_icms_ncm_origem,
     view_tabela_pis_cofins_por_ncm_cst,
     view_csts_disponiveis_pis_cofins_ncm_cst,
     view_calcular_pis_cofins_por_ncm_cst,

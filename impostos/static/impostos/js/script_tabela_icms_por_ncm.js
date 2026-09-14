@@ -78,20 +78,20 @@ function rolar_para_celula(celula, container) {
 
 // Função Objetivo: Destaca a célula da matriz correspondente ao resultado
 // da calculadora (linha, coluna, rótulos NCM/Origem/CST e cabeçalho).
-// Explicação em detalhe: 14/09/2026 — trocado de índice de posição
-// (Array.from(linha.children).indexOf/tr.children[colIndex]) pra busca
-// por data-col. Motivo: o rowspan (Etapa 6b) faz uma linha "coberta"
-// (que não é dona do grupo NCM/Origem) ter menos <td> de rótulo que uma
-// linha "dona" — o número de filhos por <tr> passa a variar, e o índice
-// de posição aponta pra coluna errada assim que a busca cruza uma
-// fronteira de rowspan. data-col é fixo por coluna, independente de
-// quantos <td> a linha tem — mesma técnica validada no Mockup 2 aprovado
-// no vault.
-function destacar_celula(ncm, uf) {
+// Explicação em detalhe: 14/09/2026 (6b) — trocado de índice de posição
+// pra busca por data-col (rowspan quebra a contagem de posição). 14/09/2026
+// (6c) — assinatura ganha origem/cst: a busca da célula agora casa pelos
+// 4 campos (NCM+Origem+CST+UF), não só NCM+UF — sem isso, um NCM com mais
+// de 1 grupo (CST/Origem diferentes) destacava sempre a 1ª célula
+// encontrada, ignorando qual grupo o usuário realmente consultou (mesmo
+// bug de sobrescrita silenciosa da calculadora, agora corrigido também no
+// destaque). origem chega já no formato usado no data-origem da matriz
+// (valor real, ou o sentinela __NULL__ pra Origem em branco).
+function destacar_celula(ncm, origem, cst, uf) {
     limpar_destaque();
 
     var celula = document.querySelector(
-        `td[data-ncm="${ncm}"][data-uf="${uf}"]`
+        `td[data-ncm="${ncm}"][data-origem="${origem}"][data-cst="${cst}"][data-uf="${uf}"]`
     );
     if (!celula) return;
 

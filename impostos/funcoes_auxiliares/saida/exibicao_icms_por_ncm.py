@@ -135,18 +135,15 @@ def listar_csts_disponiveis_para_ncm_origem(ncm, origem):
 
 
 # Função Objetivo: Resolve 1 consulta NCM + Origem + CST + UF (ou Média
-# Ponderada) pra calculadora da tela — versão corrigida de
-# consultar_icms_por_ncm (abaixo), que filtra só por NCM e por isso sofre
-# de sobrescrita silenciosa quando o NCM tem mais de 1 grupo CST/Origem
-# (ver Descoberta no vault: "Tela de ICMS por NCM Redesenhada..."). Exige
-# os 4 campos porque, sem Origem e CST, não tem como saber qual dos
-# possíveis grupos daquele NCM o usuário quer consultar.
-# Ainda não chamada por nenhuma view — isso é a Etapa 6c, quando a
-# calculadora ganhar os 3 selects dependentes (NCM → Origem → CST → UF)
-# capazes de fornecer os 4 valores. Nome "_grupo" é temporário: quando a
-# função antiga for removida na Etapa 6c, esta assume o nome
-# consultar_icms_por_ncm de volta, sem precisar de sufixo pra distinguir.
-def consultar_icms_por_ncm_grupo(ncm, origem, cst, uf):
+# Ponderada) pra calculadora da tela. Exige os 4 campos porque, sem
+# Origem e CST, não tem como saber qual dos possíveis grupos daquele NCM
+# o usuário quer consultar — a versão antiga, que filtrava só por NCM,
+# sofria de sobrescrita silenciosa quando o NCM tinha mais de 1 grupo
+# (ver Descoberta no vault: "Tela de ICMS por NCM Redesenhada..."),
+# removida nesta etapa (Etapa 6c), agora que a calculadora tem os 3
+# selects dependentes (NCM → Origem → CST → UF) capazes de fornecer os
+# 4 valores.
+def consultar_icms_por_ncm(ncm, origem, cst, uf):
     valores_por_uf = {
         registro.uf: registro.aliquota
         for registro in IcmsNcmUf.objects.filter(ncm=ncm, origem_mercadoria_cadastro=origem, cst=cst)
@@ -156,33 +153,6 @@ def consultar_icms_por_ncm_grupo(ncm, origem, cst, uf):
     e_media_ponderada = (uf == 'MEDIA_PONDERADA')
 
     if not grupo_encontrado:
-        return None, False, e_media_ponderada
-
-    if e_media_ponderada:
-        return calcular_media_ponderada(valores_por_uf), True, True
-
-    return valores_por_uf.get(uf), True, False
-
-
-# Função Objetivo: Resolve 1 consulta NCM + UF (ou Média Ponderada) pra calculadora da tela.
-# * [ATENÇÃO] Bug conhecido, ainda ativo nesta função: filtra só por NCM,
-#   então um NCM com mais de 1 grupo (CST/Origem diferentes) sobrescreve
-#   silenciosamente por ordem de leitura do banco — pode devolver o valor
-#   errado (ver Descoberta no vault: "Tela de ICMS por NCM Redesenhada
-#   para Mostrar Origem e CST"). Substituída por consultar_icms_por_ncm_grupo
-#   (acima) na Etapa 6c, quando a calculadora passar a exigir Origem+CST —
-#   mantida aqui sem alteração até a troca acontecer, pra não quebrar a
-#   tela (que hoje funciona, com esse bug latente) no meio do caminho.
-def consultar_icms_por_ncm(ncm, uf):
-    valores_por_uf = {
-        registro.uf: registro.aliquota
-        for registro in IcmsNcmUf.objects.filter(ncm=ncm)
-    }
-
-    ncm_encontrado = bool(valores_por_uf)
-    e_media_ponderada = (uf == 'MEDIA_PONDERADA')
-
-    if not ncm_encontrado:
         return None, False, e_media_ponderada
 
     if e_media_ponderada:
