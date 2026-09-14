@@ -65,19 +65,33 @@
         <table class="grade-tabela">
             <thead>
                 <tr>
-                    <th class="col-ncm">NCM</th>
+                    <th class="col-ncm" data-col="ncm">NCM</th>
+                    <th class="col-origem" data-col="origem">Origem</th>
+                    <th class="col-cst" data-col="cst">CST</th>
                     {% for uf in ufs %}
-                        <th>{{ uf }}</th>
+                        <th data-col="{{ uf }}">{{ uf }}</th>
                     {% endfor %}
-                    <th class="col-media">Média Ponderada</th>
+                    <th class="col-media" data-col="media">Média Ponderada</th>
                 </tr>
             </thead>
             <tbody>
                 {% for linha in linhas %}
                 <tr>
-                    <td class="col-ncm" data-ncm="{{ linha.ncm }}">{{ linha.ncm }}</td>
+                    {% if linha.mostrar_ncm %}
+                        <td class="col-ncm" data-col="ncm" data-ncm="{{ linha.ncm }}" rowspan="{{ linha.rowspan_ncm }}">{{ linha.ncm }}</td>
+                    {% endif %}
+                    {% if linha.mostrar_origem %}
+                        <td class="col-origem{% if linha.origem_mercadoria_cadastro is None %} origem-em-branco{% endif %}" data-col="origem" data-ncm="{{ linha.ncm }}" rowspan="{{ linha.rowspan_origem }}">
+                            {% if linha.origem_mercadoria_cadastro is not None %}
+                                {{ linha.origem_mercadoria_cadastro }}
+                            {% else %}
+                                <em>sem origem</em>
+                            {% endif %}
+                        </td>
+                    {% endif %}
+                    <td class="col-cst" data-col="cst" data-ncm="{{ linha.ncm }}">{{ linha.cst }}</td>
                     {% for item in linha.valores %}
-                        <td data-ncm="{{ linha.ncm }}" data-uf="{{ item.uf }}">
+                        <td data-col="{{ item.uf }}" data-ncm="{{ linha.ncm }}" data-uf="{{ item.uf }}">
                             {% if item.aliquota is not None %}
                                 {{ item.aliquota|floatformat:2 }}%
                             {% else %}
@@ -85,7 +99,7 @@
                             {% endif %}
                         </td>
                     {% endfor %}
-                    <td class="col-media" data-ncm="{{ linha.ncm }}" data-uf="MEDIA_PONDERADA">
+                    <td class="col-media" data-col="media" data-ncm="{{ linha.ncm }}" data-uf="MEDIA_PONDERADA">
                         {% if linha.media_ponderada is not None %}
                             {{ linha.media_ponderada|floatformat:2 }}%
                         {% else %}

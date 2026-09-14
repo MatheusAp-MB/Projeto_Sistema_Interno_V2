@@ -31,39 +31,67 @@ def calcular_media_ponderada(valores_por_uf):
     return ponderada.quantize(DUAS_CASAS_DECIMAIS)
 
 
-# Função Objetivo: Monta as linhas da matriz — 1 por NCM, já com a Média Ponderada calculada.
+# Função Objetivo: Monta as linhas da matriz — 1 por grupo NCM+Origem+CST,
+# já com mostrar_ncm/rowspan_ncm e mostrar_origem/rowspan_origem prontos
+# pra tela renderizar as 2 colunas mescladas (rowspan real), e a Média
+# Ponderada calculada.
 def montar_matriz_icms_por_ncm():
     # 13/09/2026 — chave expandida pra (NCM, CST, Origem): agrupar só por
     # NCM aqui misturava, na mesma linha, alíquotas de combinações CST/
     # Origem diferentes (ex: NCM 84248229 com CST 20 e CST 00) — a última
     # lida por UF sobrescrevia silenciosamente a anterior, o mesmo bug que
     # motivou a correção da chave em IcmsNcmUf (ver Decisão no vault).
-    # AVISO: o template desta tela ainda espera 1 linha por NCM — ver
-    # ressalva na conversa sobre este diff antes de usar 'cst'/
-    # 'origem_mercadoria_cadastro' na tela.
     valores_por_grupo = {}
     for registro in IcmsNcmUf.objects.all():
         chave = (registro.ncm, registro.cst, registro.origem_mercadoria_cadastro)
         valores_por_grupo.setdefault(chave, {})[registro.uf] = registro.aliquota
 
-    linhas = []
+    # 14/09/2026 — ordenação passa de (ncm, cst, origem) pra
+    # (ncm, origem, cst): a tela (Mockup 1 aprovado) agrupa visualmente
+    # NCM → Origem → CST, com célula mesclada (rowspan) em NCM e em
+    # Origem — os grupos da mesma Origem precisam ficar fisicamente
+    # juntos na lista, senão o rowspan cobre linhas erradas.
     # key= evita comparar None com string: origem pode ser None (produto
     # sem impostos_entrada sincronizado) convivendo com outro grupo do
     # mesmo NCM+CST com origem preenchida — sorted() puro quebra nesse
     # caso (TypeError, comparação None vs str), então trata None como ''
     # só pra fins de ordenação, sem mudar o valor real armazenado.
-    for (ncm, cst, origem) in sorted(valores_por_grupo.keys(), key=lambda chave: (chave[0], chave[1], chave[2] or '')):
+    grupos_ordenados = sorted(
+        valores_por_grupo.keys(),
+        key=lambda chave: (chave[0], chave[2] or '', chave[1]),
+    )
+
+    # Conta quantos grupos cada NCM tem, e quantos grupos cada par
+    # (NCM, Origem) tem — é o tamanho do rowspan de cada célula mesclada.
+    total_grupos_por_ncm = {}
+    total_grupos_por_ncm_origem = {}
+    for (ncm, cst, origem) in grupos_ordenados:
+        total_grupos_por_ncm[ncm] = total_grupos_por_ncm.get(ncm, 0) + 1
+        chave_ncm_origem = (ncm, origem)
+        total_grupos_por_ncm_origem[chave_ncm_origem] = total_grupos_por_ncm_origem.get(chave_ncm_origem, 0) + 1
+
+    linhas = []
+    ncm_anterior = None
+    ncm_origem_anterior = None
+    for (ncm, cst, origem) in grupos_ordenados:
         valores_por_uf = valores_por_grupo[(ncm, cst, origem)]
+        chave_ncm_origem = (ncm, origem)
         linhas.append({
             'ncm': ncm,
             'cst': cst,
             'origem_mercadoria_cadastro': origem,
+            'mostrar_ncm': ncm != ncm_anterior,
+            'rowspan_ncm': total_grupos_por_ncm[ncm],
+            'mostrar_origem': chave_ncm_origem != ncm_origem_anterior,
+            'rowspan_origem': total_grupos_por_ncm_origem[chave_ncm_origem],
             'valores': [
                 {'uf': uf, 'aliquota': valores_por_uf.get(uf)}
                 for uf in UFS_ORDENADAS
             ],
             'media_ponderada': calcular_media_ponderada(valores_por_uf),
         })
+        ncm_anterior = ncm
+        ncm_origem_anterior = chave_ncm_origem
 
     return linhas
 

@@ -109,6 +109,28 @@
     position: sticky;
     left: 0;
     z-index: 3;
+    width: 100px;
+    min-width: 100px;
+}
+
+.grade-tabela th.col-origem,
+.grade-tabela th.col-cst {
+    background-color: var(--cor-primaria-escura);
+    text-align: left;
+    position: sticky;
+    z-index: 3;
+}
+
+.grade-tabela th.col-origem {
+    left: 100px;
+    width: 90px;
+    min-width: 90px;
+}
+
+.grade-tabela th.col-cst {
+    left: 190px;
+    width: 70px;
+    min-width: 70px;
 }
 
 .grade-tabela th.col-media {
@@ -131,6 +153,36 @@
     position: sticky;
     left: 0;
     z-index: 1;
+    width: 100px;
+    min-width: 100px;
+}
+
+.grade-tabela td.col-origem,
+.grade-tabela td.col-cst {
+    background-color: #f0f4f8;
+    color: var(--cor-primaria);
+    font-weight: 600;
+    text-align: left;
+    position: sticky;
+    z-index: 1;
+}
+
+.grade-tabela td.col-origem {
+    left: 100px;
+    width: 90px;
+    min-width: 90px;
+}
+
+.grade-tabela td.col-cst {
+    left: 190px;
+    width: 70px;
+    min-width: 70px;
+}
+
+.grade-tabela td.origem-em-branco {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--cor-texto-muted);
 }
 
 .grade-tabela td.col-media {
@@ -143,7 +195,9 @@
     background-color: rgba(46, 123, 181, 0.08);
 }
 
-.grade-tabela tbody tr:hover td.col-ncm {
+.grade-tabela tbody tr:hover td.col-ncm,
+.grade-tabela tbody tr:hover td.col-origem,
+.grade-tabela tbody tr:hover td.col-cst {
     background-color: #dce8f0;
 }
 
