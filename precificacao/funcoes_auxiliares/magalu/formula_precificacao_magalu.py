@@ -148,22 +148,25 @@ class FormulaPrecificacaoMagalu:
 
         self._creditos = creditos
 
-    # Função Objetivo: Calcula o custo final (custo com boni + IPI + frete CIF/FOB).
+    # Função Objetivo: Calcula o custo final (IPI + frete CIF/FOB, sobre o custo).
     def calcular_custo_final(self):
         produto = self.produto
-        custo_com_boni = produto.custo_com_boni or produto.custo
         frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
 
         # IPI já vem em R$ pronto (dividido por unidade em impostos_entrada) —
         # nunca recalculado aqui a partir de percentual.
         ipi_valor = self._creditos.ipi
-        frete_cif_fob_valor = custo_com_boni * (frete_cif_fob_percentual / 100)
+        frete_cif_fob_valor = produto.custo * (frete_cif_fob_percentual / 100)
 
-        self._custo_com_boni = custo_com_boni
+        # Decisão do Matheus (14/09/2026): custo_com_boni nunca é preenchido na
+        # prática (nenhum importador/script grava valor ali) — parou de ser lido.
+        # self._custo_com_boni continua existindo só pelo nome (usado pela
+        # auditoria/modal), mas agora É produto.custo, sem fallback nenhum.
+        self._custo_com_boni = produto.custo
         self._frete_cif_fob_percentual = frete_cif_fob_percentual
         self._frete_cif_fob_valor = frete_cif_fob_valor
         self._ipi_valor = ipi_valor
-        self._custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor
+        self._custo_final = produto.custo + ipi_valor + frete_cif_fob_valor
 
     # Função Objetivo: Calcula a coleta a partir do metro cúbico da dimensão resolvida.
     def calcular_coleta(self):

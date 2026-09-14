@@ -128,15 +128,16 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
 
     config = config_geral if config_geral is not None else ConfiguracaoOperacional.obter()
 
-    custo_com_boni = produto.custo_com_boni or produto.custo
     frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
     frete_cif_fob = frete_cif_fob_percentual / 100
 
     # IPI já vem em R$ pronto (dividido por unidade em impostos_entrada) —
     # nunca recalculado aqui a partir de percentual.
     ipi_valor = creditos.ipi
-    frete_cif_fob_valor = custo_com_boni * frete_cif_fob
-    custo_final = custo_com_boni + ipi_valor + frete_cif_fob_valor
+    frete_cif_fob_valor = produto.custo * frete_cif_fob
+    # Decisão do Matheus (14/09/2026): custo_com_boni nunca é preenchido na
+    # prática — parou de ser lido. custo_final usa sempre produto.custo direto.
+    custo_final = produto.custo + ipi_valor + frete_cif_fob_valor
 
     metro_cubico = calcular_metro_cubico(produto)
     coleta = metro_cubico * config.fator_coleta
@@ -159,7 +160,7 @@ def calcular_fixo_detalhado(produto, config_geral=None, faixas_armazenagem=None)
 
     componentes = {
         'custo': produto.custo,
-        'custo_com_boni': custo_com_boni,
+        'custo_com_boni': produto.custo,  # sempre igual a 'custo' agora — sem fallback
         'ipi_valor': ipi_valor,
         'frete_cif_fob_percentual': frete_cif_fob_percentual,
         'frete_cif_fob_valor': frete_cif_fob_valor,
