@@ -1,0 +1,25 @@
+<!--
+* [RESUMO] → Partial do <select> de CST, dependente do NCM + Origem.
+* Retornado pelo HTMX quando o campo Origem muda (hx-swap="outerHTML") —
+* mostra só os CSTs que existem de verdade pra essa combinação NCM+Origem.
+-->
+{% if not ncm or not origem_bruta %}
+    <select name="cst" id="input-cst" disabled>
+        <option value="">Selecione a Origem primeiro...</option>
+    </select>
+{% elif not csts %}
+    <select name="cst" id="input-cst" disabled>
+        <option value="">Combinação não encontrada</option>
+    </select>
+{% else %}
+    <select name="cst" id="input-cst">
+        {% if csts|length == 1 %}
+            <option value="{{ csts.0 }}" selected>CST {{ csts.0 }}</option>
+        {% else %}
+            <option value="">Selecione ({{ csts|length }} CSTs)...</option>
+            {% for cst in csts %}
+                <option value="{{ cst }}">CST {{ cst }}</option>
+            {% endfor %}
+        {% endif %}
+    </select>
+{% endif %}

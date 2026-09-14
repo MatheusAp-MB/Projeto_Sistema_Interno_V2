@@ -17,12 +17,17 @@
 
     <!-- Calculadora -->
     <div class="calculadora-container" id="form-calcular">
-        <h6 class="mb-3">Consultar ICMS por NCM + UF</h6>
+        <h6 class="mb-3">Consultar ICMS por NCM + Origem + CST + UF</h6>
         <div class="row g-3 align-items-end">
 
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>NCM</label>
-                <select name="ncm" id="input-ncm">
+                <select name="ncm" id="input-ncm"
+                    hx-get="{% url 'impostos_origens_disponiveis_icms_ncm' %}"
+                    hx-trigger="change"
+                    hx-target="#input-origem"
+                    hx-swap="outerHTML"
+                    hx-include="#form-calcular">
                     <option value="">Selecione...</option>
                     {% for ncm in ncms_disponiveis %}
                         <option value="{{ ncm }}">{{ ncm }}</option>
@@ -30,7 +35,21 @@
                 </select>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label>Origem</label>
+                <select name="origem" id="input-origem" disabled>
+                    <option value="">Selecione o NCM primeiro...</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label>CST</label>
+                <select name="cst" id="input-cst" disabled>
+                    <option value="">Selecione a Origem primeiro...</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
                 <label>UF de destino</label>
                 <select name="uf" id="input-uf">
                     <option value="">Selecione...</option>
@@ -41,7 +60,7 @@
                 </select>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-2">
                <button class="btn-calcular"
                     hx-post="{% url 'impostos_calcular_icms_ncm' %}"
                     hx-target="#resultado-calculadora"
@@ -91,7 +110,7 @@
                     {% endif %}
                     <td class="col-cst" data-col="cst" data-ncm="{{ linha.ncm }}">{{ linha.cst }}</td>
                     {% for item in linha.valores %}
-                        <td data-col="{{ item.uf }}" data-ncm="{{ linha.ncm }}" data-uf="{{ item.uf }}">
+                        <td data-col="{{ item.uf }}" data-ncm="{{ linha.ncm }}" data-origem="{% if linha.origem_mercadoria_cadastro is not None %}{{ linha.origem_mercadoria_cadastro }}{% else %}{{ sentinela_origem_em_branco }}{% endif %}" data-cst="{{ linha.cst }}" data-uf="{{ item.uf }}">
                             {% if item.aliquota is not None %}
                                 {{ item.aliquota|floatformat:2 }}%
                             {% else %}
@@ -99,7 +118,7 @@
                             {% endif %}
                         </td>
                     {% endfor %}
-                    <td class="col-media" data-col="media" data-ncm="{{ linha.ncm }}" data-uf="MEDIA_PONDERADA">
+                    <td class="col-media" data-col="media" data-ncm="{{ linha.ncm }}" data-origem="{% if linha.origem_mercadoria_cadastro is not None %}{{ linha.origem_mercadoria_cadastro }}{% else %}{{ sentinela_origem_em_branco }}{% endif %}" data-cst="{{ linha.cst }}" data-uf="MEDIA_PONDERADA">
                         {% if linha.media_ponderada is not None %}
                             {{ linha.media_ponderada|floatformat:2 }}%
                         {% else %}

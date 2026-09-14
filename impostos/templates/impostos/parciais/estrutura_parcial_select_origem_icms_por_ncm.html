@@ -1,0 +1,47 @@
+<!--
+* [RESUMO] → Partial do <select> de Origem da Mercadoria, dependente do NCM.
+* Retornado pelo HTMX quando o campo NCM muda (hx-swap="outerHTML") —
+* mostra só as Origens que existem de verdade pro NCM escolhido. Origem
+* em branco usa o sentinela __NULL__ (nunca "", que já é o placeholder
+* "Selecione..."), pra não ficar indistinguível — mesmo padrão do
+* Mockup 2 aprovado no vault.
+* hx-trigger="load, change": "load" faz o próprio <select> disparar a
+* busca de CST assim que é inserido no DOM — sem isso, quando só existe
+* 1 Origem (auto-selecionada), o CST nunca seria buscado, porque nenhum
+* "change" de verdade acontece.
+-->
+{% if not ncm %}
+    <select name="origem" id="input-origem" disabled>
+        <option value="">Selecione o NCM primeiro...</option>
+    </select>
+{% elif not origens %}
+    <select name="origem" id="input-origem" disabled>
+        <option value="">NCM não encontrado</option>
+    </select>
+{% else %}
+    <select name="origem" id="input-origem"
+        hx-get="{% url 'impostos_csts_disponiveis_icms_ncm_origem' %}"
+        hx-trigger="load, change"
+        hx-target="#input-cst"
+        hx-swap="outerHTML"
+        hx-include="#form-calcular">
+        {% if origens|length == 1 %}
+            {% with origem=origens.0 %}
+                {% if origem is not None %}
+                    <option value="{{ origem }}" selected>{{ origem }}</option>
+                {% else %}
+                    <option value="{{ sentinela_origem_em_branco }}" selected>sem origem</option>
+                {% endif %}
+            {% endwith %}
+        {% else %}
+            <option value="">Selecione ({{ origens|length }} origens)...</option>
+            {% for origem in origens %}
+                {% if origem is not None %}
+                    <option value="{{ origem }}">{{ origem }}</option>
+                {% else %}
+                    <option value="{{ sentinela_origem_em_branco }}">sem origem</option>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </select>
+{% endif %}
