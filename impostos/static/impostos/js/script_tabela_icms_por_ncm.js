@@ -67,6 +67,17 @@ function rolar_para_celula(celula, container) {
     }
 }
 
+// Função Objetivo: Destaca a célula da matriz correspondente ao resultado
+// da calculadora (linha, coluna, rótulos NCM/Origem/CST e cabeçalho).
+// Explicação em detalhe: 14/09/2026 — trocado de índice de posição
+// (Array.from(linha.children).indexOf/tr.children[colIndex]) pra busca
+// por data-col. Motivo: o rowspan (Etapa 6b) faz uma linha "coberta"
+// (que não é dona do grupo NCM/Origem) ter menos <td> de rótulo que uma
+// linha "dona" — o número de filhos por <tr> passa a variar, e o índice
+// de posição aponta pra coluna errada assim que a busca cruza uma
+// fronteira de rowspan. data-col é fixo por coluna, independente de
+// quantos <td> a linha tem — mesma técnica validada no Mockup 2 aprovado
+// no vault.
 function destacar_celula(ncm, uf) {
     limpar_destaque();
 
@@ -82,24 +93,49 @@ function destacar_celula(ncm, uf) {
         rolar_para_celula(celula, container);
     }
 
+    var colAlvo = celula.dataset.col;
     var linha = celula.parentElement;
-    var colIndex = Array.from(linha.children).indexOf(celula);
-    Array.from(linha.children).slice(0, colIndex).forEach(function(td) {
-        td.classList.add('destaque-linha');
+
+    // destaque-linha: toda célula da MESMA linha que vem ANTES da coluna
+    // alvo, na ordem em que aparece no HTML (não depende de índice fixo).
+    var vistaColunaAlvo = false;
+    Array.from(linha.children).forEach(function(td) {
+        if (td.dataset.col === colAlvo) {
+            vistaColunaAlvo = true;
+            return;
+        }
+        if (!vistaColunaAlvo) td.classList.add('destaque-linha');
     });
 
+    // destaque-coluna: mesma coluna (mesmo data-col) nas linhas ACIMA.
     var tabela = celula.closest('table');
-    var linhaIndex = Array.from(tabela.querySelectorAll('tbody tr')).indexOf(linha);
-    tabela.querySelectorAll('tbody tr').forEach(function(tr, i) {
+    var linhasCorpo = Array.from(tabela.querySelectorAll('tbody tr'));
+    var linhaIndex = linhasCorpo.indexOf(linha);
+    linhasCorpo.forEach(function(tr, i) {
         if (i < linhaIndex) {
-            var td = tr.children[colIndex];
+            var td = tr.querySelector(`[data-col="${colAlvo}"]`);
             if (td) td.classList.add('destaque-coluna');
         }
     });
 
     var ths = tabela.querySelectorAll('thead th');
-    if (ths[colIndex]) ths[colIndex].classList.add('destaque');
+    ths.forEach(function(th) {
+        if (th.dataset.col === colAlvo) th.classList.add('destaque');
+    });
 
-    var tdsNcm = linha.querySelectorAll('td.col-ncm');
-    tdsNcm.forEach(function(td) { td.classList.add('destaque'); });
+    // Rótulos do grupo (NCM/Origem/CST): com rowspan, a linha clicada pode
+    // não ser a "dona" da célula mesclada — sobe linha por linha até
+    // achar quem realmente renderiza aquele rótulo (mesma busca "pra
+    // trás" descrita no Mockup 2 aprovado).
+    ['ncm', 'origem', 'cst'].forEach(function(colRotulo) {
+        var i = linhaIndex;
+        while (i >= 0) {
+            var td = linhasCorpo[i].querySelector(`[data-col="${colRotulo}"]`);
+            if (td) {
+                td.classList.add('destaque');
+                break;
+            }
+            i--;
+        }
+    });
 }
