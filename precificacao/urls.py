@@ -10,6 +10,10 @@ urlpatterns = [
         'grade-mercado-livre/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/',
         views.view_grade_detalhe, name='precificacao_grade_detalhe',
     ),
+    path(
+        'grade-mercado-livre/detalhe/<int:produto_id>/<str:tipo>/<str:margem>/imprimir/',
+        views.view_imprimir_grade_detalhe, name='precificacao_imprimir_grade_detalhe',
+    ),
     path('resumo-marketplaces/', views.view_resumo_marketplaces, name='precificacao_resumo_marketplaces'),
     path('configuracoes-operacionais/', views.view_configuracoes_operacionais, name='precificacao_configuracoes_operacionais'),
     path('grade-magalu/', views.view_grade_precificacao_magalu, name='precificacao_grade_magalu'),

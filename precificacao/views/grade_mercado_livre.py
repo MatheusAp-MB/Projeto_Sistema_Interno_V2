@@ -429,7 +429,51 @@ def view_grade_detalhe(request, produto_id, tipo, margem):
         'titulo_anuncio': titulo_anuncio,
         'produto_id': produto_id,
         'tipo': tipo,
+        'margem': margem,
         'variacao_id': variacao_id or '',
+    })
+
+
+# Função Objetivo: Página standalone de exportação/impressão da auditoria — mesmos
+# dados do modal (mesmo DetalheFormulaExibida.montar), mas com "Todos os itens" e as
+# 2 Visões sempre expandidas, sem abas, sem nenhuma interação por JS. Quem usa aperta
+# Ctrl+P (ou o botão "Imprimir / Salvar como PDF" da própria página) e usa a tela de
+# impressão do navegador — mesmo padrão já validado no relatório de Devolução
+# (ver imprimir_relatorio_devolucao, no projeto Sistema de Relatório de Devoluções).
+def view_imprimir_grade_detalhe(request, produto_id, tipo, margem):
+    from precificacao.models import GradePrecificacaoML
+
+    variacao_id = request.GET.get('variacao') or None
+    tipo_grade = TIPO_ML_PARA_GRADE.get(tipo)
+
+    linha = None
+    if tipo_grade and margem in MARGENS_POR_CHAVE:
+        linha = GradePrecificacaoML.objects.filter(
+            produto_id=produto_id, variacao_id=variacao_id,
+            tipo_anuncio=tipo_grade, margem=margem,
+        ).select_related('produto', 'variacao__anuncio').first()
+
+    if not linha or not linha.detalhamento:
+        return render(request, 'precificacao/grade_detalhe_impressao.html', {
+            'sem_detalhamento': True,
+        })
+
+    tipo_label = 'Clássico' if tipo_grade == 'classico' else 'Premium'
+    margem_label = MARGENS_POR_CHAVE[margem].label_base
+
+    if linha.variacao_id:
+        mlb = linha.variacao.anuncio.mlb
+        titulo_anuncio = linha.variacao.anuncio.titulo_anuncio or linha.produto.titulo
+    else:
+        mlb = None
+        titulo_anuncio = linha.produto.titulo
+
+    det = DetalheFormulaExibida.montar(linha, tipo_label, margem_label)
+
+    return render(request, 'precificacao/grade_detalhe_impressao.html', {
+        'det': det,
+        'mlb': mlb,
+        'titulo_anuncio': titulo_anuncio,
     })
 
 
