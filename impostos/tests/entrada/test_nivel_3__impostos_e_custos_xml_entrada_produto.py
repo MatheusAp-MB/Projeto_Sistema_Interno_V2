@@ -1,4 +1,4 @@
-# impostos/tests/test_nivel_3__impostos_e_custos_xml_entrada_produto.py
+# impostos/tests/entrada/test_nivel_3__impostos_e_custos_xml_entrada_produto.py
 
 # Função Objetivo: Nível 3 (banco real) do domínio de impostos de entrada
 # — cobre o único ponto de escrita, sincronizar_impostos_entrada_do_xml():

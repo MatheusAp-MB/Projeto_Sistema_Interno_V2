@@ -1,4 +1,4 @@
-# impostos/tests/test_nivel_3__creditos_fiscais_para_precificacao.py
+# impostos/tests/entrada/test_nivel_3__creditos_fiscais_para_precificacao.py
 
 # Função Objetivo: Nível 3 (banco real) de montar_creditos_fiscais_para_
 # precificacao() — cobre a regra de diferimento do ICMS ST: produto sem
