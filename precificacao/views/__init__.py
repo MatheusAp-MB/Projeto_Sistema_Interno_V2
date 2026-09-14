@@ -16,6 +16,7 @@ from .grade_mercado_livre import (
     TIPO_GRADE_PARA_ML, TIPO_ML_PARA_GRADE, FAIXAS_PRECO_GRADE,
     CardMLB, ItemGradeProduto, AgrupadorLinhasGrade, ContextoGradePrecificacao,
     DetalheFormulaExibida, view_grade_precificacao_ml, view_grade_detalhe,
+    view_imprimir_grade_detalhe,
 )
 from .grade_magalu import (
     FAIXAS_PRECO_GRADE_MAGALU, ItemGradeMagaluProduto, AgrupadorLinhasGradeMagalu,

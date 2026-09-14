@@ -51,10 +51,6 @@
             <a href="{% url 'precificacao_imprimir_grade_detalhe' produto_id tipo margem %}{% if variacao_id %}?variacao={{ variacao_id }}{% endif %}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:var(--audit-navy, #1a3a5c);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;">🖨️ Exportar PDF</a>
         </div>
 
-        <div style="display:flex;justify-content:flex-end;padding:10px 20px 0;">
-            <a href="{% url 'precificacao_imprimir_grade_detalhe' produto_id tipo margem %}{% if variacao_id %}?variacao={{ variacao_id }}{% endif %}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:var(--audit-navy, #1a3a5c);color:#fff;text-decoration:none;font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:6px;">🖨️ Exportar PDF</a>
-        </div>
-
         {% if not det.custo and not det.custo_com_boni or not det.dimensao.altura %}
         <div class="audit-investigar-box">
             <b>⚠ Isso não se resolve editando o cadastro</b>
