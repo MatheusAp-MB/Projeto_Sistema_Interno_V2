@@ -47,13 +47,15 @@ from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 CONTA = "MB"                # "MB" ou "SV"
-ORDER_ID = 2000018341680948 # numero do pedido que você já sabe ser devolução
+ORDER_ID = 2000017597909662 # numero do pedido que você já sabe ser devolução
 MOSTRAR_JSON_CRU = True     # True = imprime o JSON cru de TODAS as etapas (0 a 5), sem
                              # nenhuma tradução — útil pra investigar campo por campo
                              # qualquer resposta da API, não só a devolução
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
+PASTA_LOGS.mkdir(parents=True, exist_ok=True)  # garante que a pasta existe mesmo se o
+                                                # script quebrar antes da 1ª chamada de API
 NOME_LOG = "consultar_fluxo_devolucao"
 HEADER_FORMATO_NOVO = {"x-format-new": "true"}
 FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")  # normaliza toda data exibida pra
@@ -62,7 +64,12 @@ FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")  # normaliza toda data exi
                                                         # diferente (confirmado no JSON cru:
                                                         # date_created em +00:00, date_closed
                                                         # em -04:00, no mesmo objeto)
-console = Console()
+ARQUIVO_SAIDA_CONSOLE = PASTA_LOGS / "saida_console.txt"  # tudo que aparece no terminal
+                                                           # também é salvo aqui (sobrescrito
+                                                           # a cada execução), pra poder
+                                                           # copiar/mandar quando não coube
+                                                           # no console
+console = Console(record=True)  # record=True é o que permite exportar tudo depois
 
 
 # ---------------------------------------------------------------------------
@@ -540,3 +547,10 @@ try:
 
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
     console.print(f"\n[bold red]Erro ao chamar a API:[/bold red] {escape(str(erro))}")
+
+finally:
+    # roda sempre — mesmo se o script quebrar com uma exceção que não é
+    # ErroAPI/ErroAutenticacaoAPI (ex: um bug no próprio script) — pra nunca
+    # perder a saída de uma execução que travou no meio do caminho
+    console.save_text(str(ARQUIVO_SAIDA_CONSOLE), styles=False)
+    print(f"\n(saída completa também salva em: {ARQUIVO_SAIDA_CONSOLE})")
