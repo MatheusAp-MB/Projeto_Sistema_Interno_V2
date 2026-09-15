@@ -101,6 +101,55 @@ def buscar_historico_envio(shipment_id):
     return resposta.json()
 
 
+def buscar_claim_detalhe(claim_id):
+    # * [FONTE] → doc oficial "Gerenciar resolução de reclamações": a resposta
+    #   de GET /post-purchase/v1/claims/$CLAIM_ID traz o objeto completo da
+    #   reclamação (reason_id, players, resolution) -- a busca em
+    #   /claims/search não confirma trazer esses campos.
+    resposta = chamar_api(
+        "GET", f"/post-purchase/v1/claims/{claim_id}",
+        pasta_logs=PASTA_LOGS, conta=CONTA,
+        nome_log=NOME_LOG,
+    )
+    return resposta.json()
+
+
+def categorizar_motivo(reason_id):
+    # * [FONTE] → doc oficial: as 3 primeiras letras do reason_id definem o
+    #   tipo -- "PNR" (pago e não recebido) ou "PDD" (produto defeituoso).
+    #   Não existe um texto livre de "motivo" documentado -- é sempre esse
+    #   código categórico.
+    if not reason_id:
+        return "—"
+    prefixo = reason_id[:3].upper()
+    categorias = {
+        "PNR": "Pago e não recebido",
+        "PDD": "Produto defeituoso",
+    }
+    categoria = categorias.get(prefixo, "categoria desconhecida")
+    return f"{reason_id} ({categoria})"
+
+
+def data_abertura_disputa(claim_id):
+    # * [FONTE] → doc oficial "Gerenciar mensagem de uma reclamação": cada
+    #   mensagem carrega o campo "stage" -- a primeira mensagem com
+    #   stage="dispute" é a melhor aproximação disponível hoje pra "quando a
+    #   mediação foi aberta" (não existe campo de data dedicado pra isso).
+    try:
+        resposta = chamar_api(
+            "GET", f"/post-purchase/v1/claims/{claim_id}/messages",
+            pasta_logs=PASTA_LOGS, conta=CONTA,
+            nome_log=NOME_LOG,
+        )
+    except (ErroAPI, ErroAutenticacaoAPI):
+        return None
+    mensagens = resposta.json()
+    mensagens_dispute = [m for m in mensagens if m.get("stage") == "dispute"]
+    if not mensagens_dispute:
+        return None
+    return min(m.get("date_created") for m in mensagens_dispute if m.get("date_created"))
+
+
 try:
     console.print(f"[bold]Pedido {ORDER_ID}[/bold] — conta {CONTA}")
 
@@ -132,7 +181,7 @@ try:
         except (ErroAPI, ErroAutenticacaoAPI):
             continue
         devolucao = resposta_devolucao.json()
-        claim = candidata
+        claim = buscar_claim_detalhe(candidata["id"])
         break
 
     if devolucao is None:
@@ -141,10 +190,14 @@ try:
         console.print("  Pode significar que o caso foi resolvido sem devolução física (reembolso direto, troca, etc).")
         console.print("  Dados disponíveis direto da(s) reclamação(ões) encontrada(s):")
         for c in claims_em_ordem_de_tentativa:
-            titulo_etapa("—", f"Reclamação {c.get('id')}")
-            campo("Tipo / Etapa", "claims.search → type / stage", f"{c.get('type')} / {c.get('stage')}")
-            campo("Status", "claims.search → status", c.get("status") or "—")
-            campo("Data de abertura", "claims.search → date_created", formatar_data(c.get("date_created")))
+            c_detalhe = buscar_claim_detalhe(c["id"])
+            titulo_etapa("—", f"Reclamação {c_detalhe.get('id')}")
+            campo("Tipo / Etapa", "claims/{id} → type / stage", f"{c_detalhe.get('type')} / {c_detalhe.get('stage')}")
+            campo("Status", "claims/{id} → status", c_detalhe.get("status") or "—")
+            campo("Motivo", "claims/{id} → reason_id", categorizar_motivo(c_detalhe.get("reason_id")))
+            campo("Data de abertura", "claims/{id} → date_created", formatar_data(c_detalhe.get("date_created")))
+            resolucao = c_detalhe.get("resolution")
+            campo("Resolução", "claims/{id} → resolution", resolucao if resolucao else "ainda não resolvida / não informada")
         sys.exit(0)
 
     # ----- Pedido -----
@@ -183,9 +236,14 @@ try:
             destino_chegada = (envio.get("destination") or {}).get("name")
 
     # ----- Branch da etapa 4 -----
-    # Nota (15/09): "stage" começa em "claim" pra qualquer tipo de reclamação --
-    # não é sinal de mediação por si só. Só "type" confirma.
-    eh_mediacao = claim.get("type") == "mediations"
+    # Nota (15/09), com base na doc oficial: um player com role="mediator"
+    # SÓ aparece no array "players" quando a reclamação já escalou pra
+    # stage="dispute" -- "type": "mediations" sozinho não confirma mediação
+    # ativa (a doc mostra um exemplo com type mediations e stage claim, sem
+    # mediador nos players ainda).
+    players = claim.get("players", [])
+    tem_mediador = any(p.get("role") == "mediator" for p in players)
+    eh_mediacao = tem_mediador or claim.get("stage") == "dispute"
     ramo = "Mediação" if eh_mediacao else "Devolução simples (sem mediação)"
 
     # ================= IMPRESSÃO =================
@@ -197,10 +255,10 @@ try:
           formatar_data(data_entrega_cliente) if data_entrega_cliente else "não encontrado no histórico")
 
     titulo_etapa(2, "Reclamação")
-    campo("Data de abertura", "claims.search → date_created", formatar_data(claim.get("date_created")))
-    campo("Tipo / Etapa", "claims.search → type / stage",
+    campo("Data de abertura", "claims/{id} → date_created", formatar_data(claim.get("date_created")))
+    campo("Tipo / Etapa", "claims/{id} → type / stage",
           f"{claim.get('type')} / {claim.get('stage')}")
-    campo("Motivo da reclamação", "endpoint ainda não identificado", "—", confirmado=False)
+    campo("Motivo da reclamação", "claims/{id} → reason_id", categorizar_motivo(claim.get("reason_id")))
     campo("Data em que virou devolução", "claims/{id}/returns → date_created",
           formatar_data(devolucao.get("date_created")))
 
@@ -215,8 +273,13 @@ try:
     console.print(f"  Ramo: [bold]{ramo}[/bold]")
     campo("Status da devolução", "claims/{id}/returns → status",
           devolucao.get("status") or "—")
-    campo("Data de abertura da mediação", "aproximação: claims.search → date_created",
-          formatar_data(claim.get("date_created")), confirmado=False)
+    if eh_mediacao:
+        data_dispute = data_abertura_disputa(claim.get("id"))
+        campo("Data de abertura da mediação", "claims/{id}/messages → 1ª mensagem com stage=dispute",
+              formatar_data(data_dispute) if data_dispute else "não encontrada nas mensagens",
+              confirmado=bool(data_dispute))
+    else:
+        campo("Data de abertura da mediação", "não se aplica — sem mediador nos players", "—")
     campo("Data de encerramento", "claims/{id}/returns → date_closed",
           formatar_data(devolucao.get("date_closed")) if devolucao.get("date_closed") else "ainda em aberto")
     campo("Status do dinheiro", "claims/{id}/returns → status_money",
