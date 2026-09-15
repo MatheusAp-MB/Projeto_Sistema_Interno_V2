@@ -34,7 +34,7 @@ from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 CONTA = "MB"    # "MB" (Magazine) ou "SV" (Samvale) — troque pra investigar a outra conta
-LIMITE = 10     # quantas reclamações/devoluções mais recentes trazer
+LIMITE = 20     # quantas reclamações/devoluções mais recentes trazer
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
