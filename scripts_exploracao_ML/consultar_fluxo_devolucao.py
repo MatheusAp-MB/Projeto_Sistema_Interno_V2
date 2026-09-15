@@ -21,12 +21,23 @@
 #
 # Exige o chamar_api() já aceitando headers_extra (mudança aplicada antes
 # do script investigar_shipment.py).
+#
+# JSON cru de cada uma dessas chamadas aparece quando MOSTRAR_JSON_CRU = True.
+# Toda a saída do terminal usa a lib rich (painéis, tabelas, JSON colorido,
+# spinner enquanto cada chamada está em andamento).
 
 import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
+
+from rich import box
+from rich.console import Console
+from rich.markup import escape
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.table import Table
 
 _RAIZ_DO_PROJETO = Path(__file__).resolve().parent.parent
 if str(_RAIZ_DO_PROJETO) not in sys.path:
@@ -35,11 +46,11 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "MB"                       # "MB" ou "SV"
-ORDER_ID = 2000018341680948        # numero do pedido que você já sabe ser devolução
-MOSTRAR_JSON_CRU_DEVOLUCAO = True  # True = imprime o JSON cru da devolução (Etapa 2), sem
-                                    # nenhuma tradução — útil pra investigar campo por campo,
-                                    # ex: conferir o offset de fuso exato de cada data
+CONTA = "MB"                # "MB" ou "SV"
+ORDER_ID = 2000018341680948 # numero do pedido que você já sabe ser devolução
+MOSTRAR_JSON_CRU = True     # True = imprime o JSON cru de TODAS as etapas (0 a 5), sem
+                             # nenhuma tradução — útil pra investigar campo por campo
+                             # qualquer resposta da API, não só a devolução
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
@@ -51,6 +62,7 @@ FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")  # normaliza toda data exi
                                                         # diferente (confirmado no JSON cru:
                                                         # date_created em +00:00, date_closed
                                                         # em -04:00, no mesmo objeto)
+console = Console()
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +216,7 @@ def formatar_data(valor_iso):
     except ValueError:
         return valor_iso
     instante = instante.astimezone(FUSO_HORARIO_EXIBICAO)
-    return instante.strftime("%d/%m/%Y às %H:%M")
+    return instante.strftime("%d/%m/%Y às %H:%M"),
 
 
 def traduzir(dicionario, codigo, rotulo_generico="valor"):
@@ -237,14 +249,29 @@ def nome_substatus(substatus_id, mapa_oficial):
 
 
 def imprimir_secao(numero, titulo):
-    print()
-    print("=" * 78)
-    print(f"ETAPA {numero} — {titulo}")
-    print("=" * 78)
+    console.print()
+    console.print(Panel(titulo, title=f"ETAPA {numero}", title_align="left", border_style="bold blue", expand=False))
 
 
 def campo(rotulo, valor):
-    print(f"  {rotulo:<38}: {valor}")
+    console.print(f"  [bold cyan]{rotulo:<38}[/bold cyan]: {escape(str(valor))}")
+
+
+def imprimir_json_cru(rotulo, dados):
+    """Imprime o JSON cru de uma resposta da API, sem nenhuma tradução —
+    controlado pela flag MOSTRAR_JSON_CRU, pra poder investigar campo por
+    campo qualquer etapa do fluxo (não só a devolução) quando o dicionário
+    de tradução do script não é suficiente."""
+    if not MOSTRAR_JSON_CRU:
+        return
+    texto_json = json.dumps(dados, ensure_ascii=False, indent=2)
+    console.print()
+    console.print(Panel(
+        Syntax(texto_json, "json", theme="ansi_dark", word_wrap=True, background_color="default"),
+        title=f"JSON cru — {rotulo}",
+        title_align="left",
+        border_style="grey42",
+    ))
 
 
 def carregar_traducoes_de_envio():
@@ -253,71 +280,98 @@ def carregar_traducoes_de_envio():
     SUBSTATUS_CONHECIDOS acima. Se essa chamada falhar, só avisa e segue —
     é um bônus, não um requisito do fluxo."""
     mapa = {}
-    try:
-        resposta = chamar_api(
-            "GET", "/shipment_statuses",
-            pasta_logs=PASTA_LOGS, conta=CONTA,
-            headers_extra=HEADER_FORMATO_NOVO,
-            nome_log=NOME_LOG,
-        )
-        for status in resposta.json():
-            for substatus in status.get("substatuses", []):
-                mapa[substatus["id"]] = substatus["name"]
-    except (ErroAPI, ErroAutenticacaoAPI):
-        print("  (aviso: não consegui carregar o dicionário oficial de sub-status —")
-        print("   sub-status desconhecidos vão aparecer só com o código original)")
+    with console.status("[bold green]Carregando dicionário oficial de status de envio...[/bold green]", spinner="dots"):
+        try:
+            resposta = chamar_api(
+                "GET", "/shipment_statuses",
+                pasta_logs=PASTA_LOGS, conta=CONTA,
+                headers_extra=HEADER_FORMATO_NOVO,
+                nome_log=NOME_LOG,
+            )
+        except (ErroAPI, ErroAutenticacaoAPI):
+            resposta = None
+
+    if resposta is None:
+        console.print("  [yellow](aviso: não consegui carregar o dicionário oficial de sub-status —[/yellow]")
+        console.print("   [yellow]sub-status desconhecidos vão aparecer só com o código original)[/yellow]")
+        return mapa
+
+    dados = resposta.json()
+    imprimir_json_cru("dicionário de status de envio (/shipment_statuses)", dados)
+    for status in dados:
+        for substatus in status.get("substatuses", []):
+            mapa[substatus["id"]] = substatus["name"]
     return mapa
 
 
 def imprimir_timeline_envio(shipment_id, mapa_substatus):
-    try:
-        resposta = chamar_api(
-            "GET", f"/shipments/{shipment_id}/history",
-            pasta_logs=PASTA_LOGS, conta=CONTA,
-            headers_extra=HEADER_FORMATO_NOVO,
-            nome_log=NOME_LOG,
-        )
-    except (ErroAPI, ErroAutenticacaoAPI) as erro:
-        print(f"    (não consegui buscar o histórico deste envio: {erro})")
-        return
+    with console.status(f"[bold green]Buscando histórico do envio {shipment_id}...[/bold green]", spinner="dots"):
+        try:
+            resposta = chamar_api(
+                "GET", f"/shipments/{shipment_id}/history",
+                pasta_logs=PASTA_LOGS, conta=CONTA,
+                headers_extra=HEADER_FORMATO_NOVO,
+                nome_log=NOME_LOG,
+            )
+        except (ErroAPI, ErroAutenticacaoAPI) as erro:
+            console.print(f"    [red](não consegui buscar o histórico deste envio: {escape(str(erro))})[/red]")
+            return
 
-    for evento in resposta.json():
+    eventos = resposta.json()
+    imprimir_json_cru(f"histórico do envio {shipment_id} (/shipments/{shipment_id}/history)", eventos)
+
+    tabela = Table(box=box.SIMPLE_HEAD, header_style="bold")
+    tabela.add_column("Data")
+    tabela.add_column("Status")
+    tabela.add_column("Sub-status")
+    for evento in eventos:
         status_pt = traduzir(STATUS_ENVIO, evento.get("status"), "status de envio")
         sub_pt = nome_substatus(evento.get("substatus"), mapa_substatus)
         data_pt = formatar_data(evento.get("date")) if evento.get("date") else "?"
-        print(f"    {data_pt:<22} {status_pt:<35} {sub_pt}")
+        tabela.add_row(data_pt, escape(status_pt), escape(sub_pt))
+    console.print(tabela)
 
 
 try:
     imprimir_secao(0, "Carregando dicionário de tradução de sub-status de envio")
     mapa_substatus_oficial = carregar_traducoes_de_envio()
     if mapa_substatus_oficial:
-        print(f"  OK — {len(mapa_substatus_oficial)} sub-status conhecidos pelo Mercado Livre carregados.")
+        console.print(f"  [green]OK[/green] — {len(mapa_substatus_oficial)} sub-status conhecidos pelo Mercado Livre carregados.")
     else:
-        print("  Seguindo só com o dicionário manual do script.")
+        console.print("  Seguindo só com o dicionário manual do script.")
 
     # -----------------------------------------------------------------
     imprimir_secao(1, f"Buscando reclamação vinculada ao pedido {ORDER_ID}")
-    resposta_claims = chamar_api(
-        "GET", "/post-purchase/v1/claims/search",
-        pasta_logs=PASTA_LOGS, conta=CONTA,
-        params={"order_id": ORDER_ID},
-        nome_log=NOME_LOG,
-    )
-    claims = resposta_claims.json().get("data", [])
+    with console.status(f"[bold green]Buscando reclamações do pedido {ORDER_ID}...[/bold green]", spinner="dots"):
+        resposta_claims = chamar_api(
+            "GET", "/post-purchase/v1/claims/search",
+            pasta_logs=PASTA_LOGS, conta=CONTA,
+            params={"order_id": ORDER_ID},
+            nome_log=NOME_LOG,
+        )
+    dados_claims = resposta_claims.json()
+    imprimir_json_cru("busca de reclamações (/post-purchase/v1/claims/search)", dados_claims)
+    claims = dados_claims.get("data", [])
 
     if not claims:
-        print("  Nenhuma reclamação encontrada pra esse pedido. Fim do fluxo aqui.")
+        console.print("  Nenhuma reclamação encontrada pra esse pedido. Fim do fluxo aqui.")
         sys.exit(0)
 
-    print(f"  {len(claims)} reclamação(ões) encontrada(s) nesse pedido:")
+    tabela_claims = Table(title=f"{len(claims)} reclamação(ões) encontrada(s) nesse pedido", box=box.SIMPLE_HEAD, header_style="bold")
+    tabela_claims.add_column("ID")
+    tabela_claims.add_column("Tipo")
+    tabela_claims.add_column("Etapa")
+    tabela_claims.add_column("Status")
+    tabela_claims.add_column("Criada em")
     for c in claims:
-        print()
-        campo("ID da reclamação", c.get("id"))
-        campo("Tipo", traduzir(TIPO_RECLAMACAO, c.get("type"), "tipo de reclamação"))
-        campo("Etapa", traduzir(ETAPA_RECLAMACAO, c.get("stage"), "etapa da reclamação"))
-        campo("Status", traduzir(STATUS_RECLAMACAO, c.get("status"), "status da reclamação"))
-        campo("Criada em", formatar_data(c.get("date_created")))
+        tabela_claims.add_row(
+            str(c.get("id")),
+            escape(traduzir(TIPO_RECLAMACAO, c.get("type"), "tipo de reclamação")),
+            escape(traduzir(ETAPA_RECLAMACAO, c.get("stage"), "etapa da reclamação")),
+            escape(traduzir(STATUS_RECLAMACAO, c.get("status"), "status da reclamação")),
+            formatar_data(c.get("date_created")),
+        )
+    console.print(tabela_claims)
 
     # IMPORTANTE (achado testando com pedido real): o campo "type" da
     # reclamação NÃO é confiável pra saber se ela tem devolução — uma
@@ -333,32 +387,27 @@ try:
     devolucao = None
     claim_id = None
     for candidata in claims_em_ordem_de_tentativa:
-        try:
-            resposta_devolucao = chamar_api(
-                "GET", f"/post-purchase/v2/claims/{candidata['id']}/returns",
-                pasta_logs=PASTA_LOGS, conta=CONTA,
-                nome_log=NOME_LOG,
-            )
-        except (ErroAPI, ErroAutenticacaoAPI):
-            continue  # essa reclamação não tem devolução associada — tenta a próxima
+        with console.status(f"[bold green]Verificando devolução na reclamação {candidata['id']}...[/bold green]", spinner="dots"):
+            try:
+                resposta_devolucao = chamar_api(
+                    "GET", f"/post-purchase/v2/claims/{candidata['id']}/returns",
+                    pasta_logs=PASTA_LOGS, conta=CONTA,
+                    nome_log=NOME_LOG,
+                )
+            except (ErroAPI, ErroAutenticacaoAPI):
+                continue  # essa reclamação não tem devolução associada — tenta a próxima
         devolucao = resposta_devolucao.json()
         claim_id = candidata["id"]
-
-        if MOSTRAR_JSON_CRU_DEVOLUCAO:
-            print()
-            print("  --- JSON cru da devolução (sem tradução nenhuma) ---")
-            print(json.dumps(devolucao, ensure_ascii=False, indent=2))
-            print("  --- fim do JSON cru ---")
-
+        imprimir_json_cru(f"devolução da reclamação {claim_id} (/post-purchase/v2/claims/{claim_id}/returns)", devolucao)
         break
 
     if devolucao is None:
-        print()
-        print("  Nenhuma das reclamações encontradas tem devolução associada. Fim do fluxo aqui.")
+        console.print()
+        console.print("  Nenhuma das reclamações encontradas tem devolução associada. Fim do fluxo aqui.")
         sys.exit(0)
 
-    print()
-    print(f"  → Achei devolução na reclamação {claim_id} "
+    console.print()
+    console.print(f"  → Achei devolução na reclamação {claim_id} "
           f"({traduzir(TIPO_RECLAMACAO, next(c for c in claims if c['id'] == claim_id).get('type'))})")
 
     # -----------------------------------------------------------------
@@ -376,37 +425,52 @@ try:
 
     itens_devolvidos = devolucao.get("orders", [])
     if itens_devolvidos:
-        print()
-        print("  Itens envolvidos na devolução:")
+        tabela_itens = Table(title="Itens envolvidos na devolução", box=box.SIMPLE_HEAD, header_style="bold")
+        tabela_itens.add_column("Item ID")
+        tabela_itens.add_column("Devolvendo")
+        tabela_itens.add_column("De")
         for item in itens_devolvidos:
-            print(f"    - Item {item.get('item_id')}: devolvendo "
-                  f"{formatar_quantidade(item.get('return_quantity'))} de "
-                  f"{formatar_quantidade(item.get('total_quantity'))} unidade(s)")
+            tabela_itens.add_row(
+                str(item.get("item_id")),
+                formatar_quantidade(item.get("return_quantity")),
+                f"{formatar_quantidade(item.get('total_quantity'))} unidade(s)",
+            )
+        console.print()
+        console.print(tabela_itens)
 
     envios_da_devolucao = devolucao.get("shipments", [])
     shipment_id_volta_lista = []
     if envios_da_devolucao:
-        print()
-        print(f"  {len(envios_da_devolucao)} envio(s) de volta relacionados a essa devolução:")
+        tabela_envios_volta = Table(title=f"{len(envios_da_devolucao)} envio(s) de volta relacionados a essa devolução", box=box.SIMPLE_HEAD, header_style="bold")
+        tabela_envios_volta.add_column("ID do envio")
+        tabela_envios_volta.add_column("Tipo dessa perna")
+        tabela_envios_volta.add_column("Status")
+        tabela_envios_volta.add_column("Indo para")
+        tabela_envios_volta.add_column("Rastreio")
         for envio in envios_da_devolucao:
-            print()
-            campo("  ID do envio de volta", envio.get("shipment_id"))
-            campo("  Tipo dessa perna", traduzir(TIPO_ENVIO_DEVOLUCAO, envio.get("type"), "tipo de envio de devolução"))
-            campo("  Status", traduzir(STATUS_ENVIO_DEVOLUCAO, envio.get("status"), "status do envio de devolução"))
-            campo("  Indo para", traduzir(DESTINO_ENVIO_DEVOLUCAO, (envio.get("destination") or {}).get("name"), "destino"))
-            campo("  Rastreio", envio.get("tracking_number") or "sem rastreio")
+            tabela_envios_volta.add_row(
+                str(envio.get("shipment_id")),
+                escape(traduzir(TIPO_ENVIO_DEVOLUCAO, envio.get("type"), "tipo de envio de devolução")),
+                escape(traduzir(STATUS_ENVIO_DEVOLUCAO, envio.get("status"), "status do envio de devolução")),
+                escape(traduzir(DESTINO_ENVIO_DEVOLUCAO, (envio.get("destination") or {}).get("name"), "destino")),
+                envio.get("tracking_number") or "sem rastreio",
+            )
             shipment_id_volta_lista.append(envio.get("shipment_id"))
+        console.print()
+        console.print(tabela_envios_volta)
     else:
-        print("  Nenhum envio de volta registrado ainda pra essa devolução.")
+        console.print("  Nenhum envio de volta registrado ainda pra essa devolução.")
 
     # -----------------------------------------------------------------
     imprimir_secao(3, f"Buscando dados do pedido original ({ORDER_ID})")
-    resposta_pedido = chamar_api(
-        "GET", f"/orders/{ORDER_ID}",
-        pasta_logs=PASTA_LOGS, conta=CONTA,
-        nome_log=NOME_LOG,
-    )
+    with console.status(f"[bold green]Buscando pedido {ORDER_ID}...[/bold green]", spinner="dots"):
+        resposta_pedido = chamar_api(
+            "GET", f"/orders/{ORDER_ID}",
+            pasta_logs=PASTA_LOGS, conta=CONTA,
+            nome_log=NOME_LOG,
+        )
     pedido = resposta_pedido.json()
+    imprimir_json_cru(f"pedido {ORDER_ID} (/orders/{ORDER_ID})", pedido)
 
     comprador = pedido.get("buyer") or {}
     nome_comprador = " ".join(filter(None, [comprador.get("first_name"), comprador.get("last_name")])) \
@@ -415,34 +479,40 @@ try:
     campo("Status do pedido", traduzir(STATUS_PEDIDO, pedido.get("status"), "status de pedido"))
     campo("Criado em", formatar_data(pedido.get("date_created")))
 
-    print()
-    print("  Itens do pedido:")
+    tabela_itens_pedido = Table(title="Itens do pedido", box=box.SIMPLE_HEAD, header_style="bold")
+    tabela_itens_pedido.add_column("Qtd")
+    tabela_itens_pedido.add_column("Título")
+    tabela_itens_pedido.add_column("Preço unitário")
     for item in pedido.get("order_items", []):
         titulo = (item.get("item") or {}).get("title", "?")
         qtd = item.get("quantity")
         preco = item.get("unit_price")
         moeda = pedido.get("currency_id", "")
-        print(f"    - {qtd}x {titulo} — {preco} {moeda} cada")
+        tabela_itens_pedido.add_row(str(qtd), escape(titulo), f"{preco} {moeda}")
+    console.print()
+    console.print(tabela_itens_pedido)
 
     shipping_info = pedido.get("shipping") or {}
     shipping_id_ida = shipping_info.get("id")
-    print()
+    console.print()
     campo("ID do envio de ida", shipping_id_ida or "(pedido sem envio gerenciado pelo ML)")
 
     if not shipping_id_ida:
-        print()
-        print("Fim do fluxo — esse pedido não tem envio de ida gerenciado pelo Mercado Livre.")
+        console.print()
+        console.print("Fim do fluxo — esse pedido não tem envio de ida gerenciado pelo Mercado Livre.")
         sys.exit(0)
 
     # -----------------------------------------------------------------
     imprimir_secao(4, f"Buscando envio de ida (entrega ao cliente) — {shipping_id_ida}")
-    resposta_envio_ida = chamar_api(
-        "GET", f"/shipments/{shipping_id_ida}",
-        pasta_logs=PASTA_LOGS, conta=CONTA,
-        headers_extra=HEADER_FORMATO_NOVO,
-        nome_log=NOME_LOG,
-    )
+    with console.status(f"[bold green]Buscando envio {shipping_id_ida}...[/bold green]", spinner="dots"):
+        resposta_envio_ida = chamar_api(
+            "GET", f"/shipments/{shipping_id_ida}",
+            pasta_logs=PASTA_LOGS, conta=CONTA,
+            headers_extra=HEADER_FORMATO_NOVO,
+            nome_log=NOME_LOG,
+        )
     envio_ida = resposta_envio_ida.json()
+    imprimir_json_cru(f"envio de ida {shipping_id_ida} (/shipments/{shipping_id_ida})", envio_ida)
 
     logistic = envio_ida.get("logistic") or {}
     eh_full = logistic.get("type") == "fulfillment"
@@ -452,23 +522,21 @@ try:
     campo("Destinatário", (envio_ida.get("destination") or {}).get("receiver_name", "—"))
     campo("Última atualização", formatar_data(envio_ida.get("last_updated")))
 
-    print()
-    print("  Linha do tempo completa do envio de ida:")
+    console.print()
+    console.print("  Linha do tempo completa do envio de ida:")
     imprimir_timeline_envio(shipping_id_ida, mapa_substatus_oficial)
 
     # -----------------------------------------------------------------
     imprimir_secao(5, "Linha do tempo do(s) envio(s) de volta")
     if shipment_id_volta_lista:
         for shipment_id_volta in shipment_id_volta_lista:
-            print(f"\n  Envio de volta {shipment_id_volta}:")
+            console.print(f"\n  Envio de volta {shipment_id_volta}:")
             imprimir_timeline_envio(shipment_id_volta, mapa_substatus_oficial)
     else:
-        print("  (pulado — nenhum envio de volta foi encontrado na Etapa 2)")
+        console.print("  (pulado — nenhum envio de volta foi encontrado na Etapa 2)")
 
-    print()
-    print("=" * 78)
-    print("Fim do fluxo.")
-    print("=" * 78)
+    console.print()
+    console.print(Panel("Fim do fluxo.", border_style="bold blue", expand=False))
 
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
-    print(f"\nErro ao chamar a API: {erro}")
+    console.print(f"\n[bold red]Erro ao chamar a API:[/bold red] {escape(str(erro))}")
