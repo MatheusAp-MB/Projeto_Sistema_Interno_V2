@@ -22,6 +22,7 @@
 # Exige o chamar_api() já aceitando headers_extra (mudança aplicada antes
 # do script investigar_shipment.py).
 
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -35,6 +36,9 @@ from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 CONTA = "MB"                       # "MB" ou "SV"
 ORDER_ID = 2000018341680948        # numero do pedido que você já sabe ser devolução
+MOSTRAR_JSON_CRU_DEVOLUCAO = True  # True = imprime o JSON cru da devolução (Etapa 2), sem
+                                    # nenhuma tradução — útil pra investigar campo por campo,
+                                    # ex: conferir o offset de fuso exato de cada data
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
@@ -329,8 +333,15 @@ try:
             )
         except (ErroAPI, ErroAutenticacaoAPI):
             continue  # essa reclamação não tem devolução associada — tenta a próxima
-        devolucao = resposta_devolucao.json()
-        claim_id = candidata["id"]
+            devolucao = resposta_devolucao.json()
+
+    if MOSTRAR_JSON_CRU_DEVOLUCAO:
+        print()
+        print("  --- JSON cru da devolução (sem tradução nenhuma) ---")
+        print(json.dumps(devolucao, ensure_ascii=False, indent=2))
+        print("  --- fim do JSON cru ---")
+
+    campo("ID da devolução", devolucao.get("id"))
         break
 
     if devolucao is None:
