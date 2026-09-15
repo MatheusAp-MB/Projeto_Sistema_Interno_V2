@@ -273,6 +273,9 @@ try:
     console.print(f"  Ramo: [bold]{ramo}[/bold]")
     campo("Status da devolução", "claims/{id}/returns → status",
           devolucao.get("status") or "—")
+    resolucao = claim.get("resolution")
+    campo("Resolução da reclamação", "claims/{id} → resolution",
+          resolucao if resolucao else "ainda não resolvida")
     if eh_mediacao:
         data_dispute = data_abertura_disputa(claim.get("id"))
         campo("Data de abertura da mediação", "claims/{id}/messages → 1ª mensagem com stage=dispute",
