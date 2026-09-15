@@ -10,7 +10,15 @@
 # Não chama /orders, /shipments, /post-purchase/v2/claims/$ID/returns nem
 # nenhum outro recurso — isso fica pra depois, com o numero_pedido em mãos.
 #
-# Só leitura. Não toca no banco, não grava nada além do arquivo de saída.
+# O arquivo de saída guarda só os campos essenciais de cada claim (id,
+# resource_id, type, stage, status, reason_id, date_created, players
+# reduzido a role+user_id, e resolution inteiro) — o resto (available_actions,
+# fulfilled, quantity_type, claim_version, site_id, last_updated,
+# related_entities...) é real na API mas não ajuda a decidir mediador ou
+# applied_coverage, só infla o arquivo sem necessidade.
+#
+# Só leitura. Não toca no banco. Sobrescreve o arquivo de saída (nunca
+# acrescenta) a cada execução.
 
 import json
 import sys
@@ -31,6 +39,28 @@ LIMITE = 10     # quantas reclamações/devoluções mais recentes trazer
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
 CAMINHO_SAIDA = Path(__file__).resolve().parent / f"investigacao_claims_recentes_{CONTA}.json"
+
+
+def filtrar_campos_essenciais_do_claim(claim_bruto):
+    # Descarta o que só serve pra decidir uma ação de UI (available_actions,
+    # due_date por ação) ou pra rastrear o recurso por dentro (fulfilled,
+    # quantity_type, claim_version, site_id, related_entities) — nada disso
+    # ajuda a decidir se o claim teve mediador ou qual cobertura foi aplicada.
+    players_essenciais = [
+        {"role": player.get("role"), "user_id": player.get("user_id")}
+        for player in claim_bruto.get("players", [])
+    ]
+    return {
+        "id": claim_bruto.get("id"),
+        "resource_id": claim_bruto.get("resource_id"),
+        "type": claim_bruto.get("type"),
+        "stage": claim_bruto.get("stage"),
+        "status": claim_bruto.get("status"),
+        "reason_id": claim_bruto.get("reason_id"),
+        "date_created": claim_bruto.get("date_created"),
+        "players": players_essenciais,
+        "resolution": claim_bruto.get("resolution"),
+    }
 
 
 try:
@@ -67,18 +97,28 @@ try:
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
     print(f"Erro ao chamar a API: {erro}")
 else:
-    resultado_cru = resposta_claims.json()  # sem tocar em nada — cru, do jeito que a API mandou
+    resultado_cru = resposta_claims.json()  # cru só em memória — o que vai pro arquivo é o filtrado abaixo
+
+    claims_filtrados = [
+        filtrar_campos_essenciais_do_claim(claim)
+        for claim in resultado_cru.get("data", [])
+    ]
+    resultado_reduzido = {
+        "paging": resultado_cru.get("paging"),  # total real de claims que existem, além do LIMITE trazido
+        "data": claims_filtrados,
+    }
 
     # Oculta SÓ o seu próprio user_id (o do vendedor) antes de salvar — o
     # único dado que você pediu pra não ficar me passando. Faz isso em cima
     # do texto já serializado, pra pegar o ID em qualquer posição do JSON
     # (ex: dentro de "players[].user_id"), sem precisar mapear campo por
     # campo. Não mascara o id do comprador (complainant) nem mais nada.
-    texto_json = json.dumps(resultado_cru, ensure_ascii=False, indent=2)
+    texto_json = json.dumps(resultado_reduzido, ensure_ascii=False, indent=2)
     texto_json_oculto = texto_json.replace(str(user_id), "SEU_USER_ID_OCULTO")
 
-    with open(CAMINHO_SAIDA, "w", encoding="utf-8") as f:
+    with open(CAMINHO_SAIDA, "w", encoding="utf-8") as f:  # "w" sobrescreve — zera o arquivo a cada execução
         f.write(texto_json_oculto)
 
-    print(f"Retorno (com seu user_id oculto) salvo em: {CAMINHO_SAIDA}")
+    print(f"Retorno reduzido ({len(claims_filtrados)} reclamação(ões), só campos essenciais, "
+          f"user_id oculto) salvo em: {CAMINHO_SAIDA}")
     print("Suba esse arquivo na conversa pra eu analisar.")
