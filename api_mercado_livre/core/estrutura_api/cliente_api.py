@@ -93,7 +93,7 @@ def _calcular_espera_backoff(tentativa: int, resposta) -> float:
     return min(espera_calculada, TETO_ESPERA_SEGUNDOS)
 
 
-def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api"):
+def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None):
     """
     Ponto único de chamada à API do ML.
 
@@ -103,6 +103,10 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
     nome_log: nome do arquivo de log, sem ".log" — pra scripts diferentes que compartilham a mesma
               pasta_logs não sobrescreverem o log um do outro. Default "api" preserva o comportamento
               anterior, pra qualquer chamador que não especificar.
+    headers_extra: headers adicionais além do Authorization (ex: {"x-format-new": "true"},
+                   exigido por /shipments desde 12/10/2025; {"X-Api-Version": "2"}, exigido por
+                   certos recursos de /orders). Opcional, default None preserva 100% do
+                   comportamento anterior pra quem não especificar.
     """
     logger = _configurar_logger(pasta_logs, nome_log)
     url = f"{BASE_URL}{endpoint}"
@@ -110,9 +114,11 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
     for tentativa in range(max_tentativas):
         token = obter_token_valido(conta)
         headers = {"Authorization": f"Bearer {token}"}
+        if headers_extra:
+            headers.update(headers_extra)
 
         _log_seguro(logger, f"Chamando {metodo} {_mascarar_endpoint(endpoint)}", {
-                    "params": params, "tentativa": tentativa + 1})
+                    "params": params, "headers_extra": headers_extra, "tentativa": tentativa + 1})
 
         try:
             resposta = requests.request(
@@ -137,6 +143,8 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             time.sleep(ESPERA_RETRY_206_SEGUNDOS)
             token = obter_token_valido(conta)
             headers = {"Authorization": f"Bearer {token}"}
+            if headers_extra:
+                headers.update(headers_extra)
             resposta_retry = requests.request(
                 metodo, url, headers=headers, params=params, json=json_body,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
