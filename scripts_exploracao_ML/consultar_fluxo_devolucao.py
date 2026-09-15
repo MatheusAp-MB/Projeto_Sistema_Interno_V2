@@ -26,6 +26,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 _RAIZ_DO_PROJETO = Path(__file__).resolve().parent.parent
 if str(_RAIZ_DO_PROJETO) not in sys.path:
@@ -44,6 +45,12 @@ MOSTRAR_JSON_CRU_DEVOLUCAO = True  # True = imprime o JSON cru da devolução (E
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
 NOME_LOG = "consultar_fluxo_devolucao"
 HEADER_FORMATO_NOVO = {"x-format-new": "true"}
+FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")  # normaliza toda data exibida pra
+                                                        # este fuso, já que a API do ML manda
+                                                        # cada campo de data com um offset
+                                                        # diferente (confirmado no JSON cru:
+                                                        # date_created em +00:00, date_closed
+                                                        # em -04:00, no mesmo objeto)
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +203,7 @@ def formatar_data(valor_iso):
         instante = datetime.fromisoformat(valor_iso)
     except ValueError:
         return valor_iso
+    instante = instante.astimezone(FUSO_HORARIO_EXIBICAO)
     return instante.strftime("%d/%m/%Y às %H:%M")
 
 
@@ -333,15 +341,15 @@ try:
             )
         except (ErroAPI, ErroAutenticacaoAPI):
             continue  # essa reclamação não tem devolução associada — tenta a próxima
-            devolucao = resposta_devolucao.json()
+        devolucao = resposta_devolucao.json()
+        claim_id = candidata["id"]
 
-    if MOSTRAR_JSON_CRU_DEVOLUCAO:
-        print()
-        print("  --- JSON cru da devolução (sem tradução nenhuma) ---")
-        print(json.dumps(devolucao, ensure_ascii=False, indent=2))
-        print("  --- fim do JSON cru ---")
+        if MOSTRAR_JSON_CRU_DEVOLUCAO:
+            print()
+            print("  --- JSON cru da devolução (sem tradução nenhuma) ---")
+            print(json.dumps(devolucao, ensure_ascii=False, indent=2))
+            print("  --- fim do JSON cru ---")
 
-    campo("ID da devolução", devolucao.get("id"))
         break
 
     if devolucao is None:
