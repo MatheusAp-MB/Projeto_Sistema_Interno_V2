@@ -216,7 +216,7 @@ def formatar_data(valor_iso):
     except ValueError:
         return valor_iso
     instante = instante.astimezone(FUSO_HORARIO_EXIBICAO)
-    return instante.strftime("%d/%m/%Y às %H:%M"),
+    return instante.strftime("%d/%m/%Y às %H:%M")
 
 
 def traduzir(dicionario, codigo, rotulo_generico="valor"):
