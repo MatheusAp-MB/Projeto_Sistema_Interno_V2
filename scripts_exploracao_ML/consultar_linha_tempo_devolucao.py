@@ -31,7 +31,7 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "MB"  # "MB" ou "SV"
+CONTA = "SV"  # "MB" ou "SV"
 # ========================================
 
 
