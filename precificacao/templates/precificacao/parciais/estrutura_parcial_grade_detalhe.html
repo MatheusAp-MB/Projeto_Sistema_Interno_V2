@@ -282,19 +282,55 @@
 
             <div class="audit-passo" data-numero="7" data-estado="colapsado">
                 <button type="button" class="audit-passo-linha" onclick="togglePasso(this)">
-                    <span class="audit-passo-num">7</span><span class="audit-passo-label">Faixa de frete</span>
-                    <span class="audit-passo-resultado">R$ {{ det.passo_7.resultado|floatformat:2 }}</span><span class="audit-passo-seta">›</span>
+                    <span class="audit-passo-num">7</span>
+                    <span class="audit-passo-label">Frete</span>
+                    <span class="audit-frete-badges">
+                        <span class="audit-tag audit-tag--api">API real</span>
+                        <span class="audit-tag audit-tag--referencia" title="Frete pela tabela interna — só comparação, não entra na conta">Tabela R$ {{ det.passo_7.resultado|floatformat:2 }}</span>
+                    </span>
+                    <span class="audit-passo-resultado">{% if det.passo_7.frete_real %}R$ {{ det.passo_7.frete_real|floatformat:2 }}{% else %}—{% endif %}</span>
+                    <span class="audit-passo-seta">›</span>
                 </button>
                 <div class="audit-passo-detalhe">
-                    <div class="audit-inputs-box">
-                        <div class="audit-input-linha"><span class="k">Peso usado <span class="audit-tag audit-tag--calc">Calculado</span><span class="audit-mini-form">(maior entre físico e cúbico)</span></span><span class="v">{{ det.passo_7.peso|floatformat:3 }} kg</span></div>
-                        <div class="audit-input-linha"><span class="k">Tabela de frete por preço <span class="audit-tag audit-tag--config">Config</span></span><span class="v">FreteML</span></div>
+
+                    <div class="frete-secao frete-secao--real">
+                        <div class="frete-secao-titulo"><span class="audit-tag audit-tag--api" style="margin-left:0">API real</span> Frete real — é este valor que vai pro Passo 8</div>
+                        <div class="audit-inputs-box">
+                            <div class="audit-input-linha"><span class="k">Origem <span class="audit-tag audit-tag--api">API</span></span><span class="v">{% if mlb %}Anúncio publicado MLB {{ mlb }}{% else %}—{% endif %}</span></div>
+                            <div class="audit-input-linha"><span class="k">Dimensões usadas pelo ML <span class="audit-tag audit-tag--api">Declarada no ML</span><span class="audit-mini-form">embalagem de envio do anúncio</span></span><span class="v">{% if det.passo_7.dimensoes_ml %}{{ det.passo_7.dimensoes_ml }}{% else %}—{% endif %}</span></div>
+                            <div class="audit-input-linha"><span class="k">Peso cobrado pela API <span class="audit-tag audit-tag--api">API</span><span class="audit-mini-form">billable_weight, devolvido pronto</span></span><span class="v">{% if det.passo_7.peso_billable %}{{ det.passo_7.peso_billable|floatformat:3 }} kg{% else %}—{% endif %}</span></div>
+                        </div>
+                        <div class="audit-passo-abstrata">Não é uma fórmula nossa — é o valor que a própria API do Mercado Livre devolve pra esse anúncio específico, já com o desconto do ML aplicado.</div>
+                        <div class="audit-passo-conta">Resposta da API (<span class="audit-mini-form">list_cost</span>) = <b>{% if det.passo_7.frete_real %}R$ {{ det.passo_7.frete_real|floatformat:2 }}{% else %}ainda não implementado{% endif %}</b></div>
                     </div>
-                    <div class="audit-passo-abstrata">Peso → faixa de peso × preço na tabela FreteML</div>
-                    <div class="audit-passo-conta">
-                        Peso {{ det.passo_7.peso|floatformat:3 }}kg → faixa R$ {{ det.passo_7.faixa_min|floatformat:2 }}–{% if det.passo_7.faixa_max %}R$ {{ det.passo_7.faixa_max|floatformat:2 }}{% else %}sem teto{% endif %}
-                        = <b>R$ {{ det.passo_7.resultado|floatformat:2 }}</b>
+
+                    <div class="frete-secao-colapsavel" data-estado="colapsado">
+                        <button type="button" class="frete-secao-colapsavel-cabecalho" onclick="toggleFreteColapsavel(this)">
+                            <span class="audit-tag audit-tag--referencia" style="margin-left:0">Tabela</span>
+                            <span class="frete-secao-colapsavel-titulo">Frete calculado — só comparação, não entra na conta</span>
+                            <span class="frete-secao-colapsavel-resumo">R$ {{ det.passo_7.resultado|floatformat:2 }} · clique pra expandir</span>
+                            <span class="frete-secao-colapsavel-seta">›</span>
+                        </button>
+                        <div class="frete-secao-colapsavel-corpo">
+                            <div class="audit-inputs-box">
+                                <div class="audit-input-linha"><span class="k">Dimensões usadas no cálculo <span class="audit-tag audit-tag--produto">Embalagem ERP</span><span class="audit-mini-form">cadastro do produto, não o anúncio</span></span><span class="v">{{ det.dimensao.altura|floatformat:0 }} × {{ det.dimensao.largura|floatformat:0 }} × {{ det.dimensao.comprimento|floatformat:0 }} cm</span></div>
+                                <div class="audit-input-linha"><span class="k">Peso usado <span class="audit-tag audit-tag--calc">Calculado</span><span class="audit-mini-form">(maior entre físico e cúbico)</span></span><span class="v">{{ det.passo_7.peso|floatformat:3 }} kg</span></div>
+                                <div class="audit-input-linha"><span class="k">Tabela de frete por preço <span class="audit-tag audit-tag--config">Config</span></span><span class="v">FreteML</span></div>
+                            </div>
+                            <div class="audit-passo-abstrata">Fórmula: peso → faixa de peso × faixa de preço na tabela FreteML</div>
+                            <div class="audit-passo-conta">
+                                Peso {{ det.passo_7.peso|floatformat:3 }}kg → faixa R$ {{ det.passo_7.faixa_min|floatformat:2 }}–{% if det.passo_7.faixa_max %}R$ {{ det.passo_7.faixa_max|floatformat:2 }}{% else %}sem teto{% endif %}
+                                = <b>R$ {{ det.passo_7.resultado|floatformat:2 }}</b>
+                            </div>
+                        </div>
                     </div>
+
+                    {% if det.passo_7.frete_real %}
+                    <div class="audit-frete-diferenca">
+                        {% if det.passo_7.frete_real >= det.passo_7.resultado %}API real acima da tabela{% else %}API real abaixo da tabela{% endif %}
+                    </div>
+                    {% endif %}
+
                 </div>
             </div>
 
@@ -413,6 +449,10 @@ function toggleProva(btn) {
     btn.classList.toggle('audit-ver-nota-link--aberto');
     var prova = btn.nextElementSibling;
     if (prova) prova.classList.toggle('audit-prova--aberta');
+}
+function toggleFreteColapsavel(btn) {
+    var bloco = btn.closest('.frete-secao-colapsavel');
+    bloco.dataset.estado = bloco.dataset.estado === 'expandido' ? 'colapsado' : 'expandido';
 }
 function irParaPasso(btn, numero) {
     var painel = btn.closest('.audit-painel');

@@ -41,6 +41,26 @@ class GradePrecificacaoML(models.Model):
     margem_percentual_obtida = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     frete_usado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
+    # * [EXPLICAÇÃO] → frete_usado continua sendo o valor que a fórmula de
+    #                  precificação consome (nada mais no sistema muda). A
+    #                  partir de 21/09/2026, frete_usado passa a receber o
+    #                  frete real da API do ML quando disponível, ou o
+    #                  frete_calculado como fallback — origem_frete sempre
+    #                  registra qual dos dois foi usado naquela linha
+    #                  (nunca fica implícito). frete_calculado é preenchido
+    #                  em toda linha, sempre — é a tabela interna (dimensão
+    #                  do ML se existe variação, do ERP se for fallback do
+    #                  produto — mesmo critério de origem_dimensao logo
+    #                  abaixo). O timestamp de quando o frete real foi
+    #                  buscado mora em VariacaoAnuncioMercadoLivre.
+    #                  frete_real_atualizado_em (já existia, desde 15/07 —
+    #                  não duplicar aqui).
+    frete_calculado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    origem_frete = models.CharField(
+        max_length=20, null=True, blank=True,
+        choices=[('api_real', 'API Real'), ('tabela_calculada', 'Tabela Calculada')],
+    )
+
     origem_dimensao = models.CharField(
         max_length=15, null=True, blank=True,
         choices=[('variacao_ml', 'Variação ML'), ('produto_erp', 'Produto ERP')],

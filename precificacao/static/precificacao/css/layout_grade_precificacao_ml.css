@@ -1039,6 +1039,8 @@
 .audit-tag--saida { background: var(--audit-teal-bg); color: var(--audit-teal-ink); }
 .audit-tag--config { background: var(--audit-slate-bg); color: var(--audit-slate-ink); }
 .audit-tag--calc, .audit-tag--calculado { background: var(--audit-navy); color: #fff; }
+.audit-tag--api { background: var(--audit-green-bg); color: var(--audit-green); border: 1px solid var(--audit-green-border); }
+.audit-tag--referencia { background: var(--audit-slate-bg); color: var(--audit-slate-ink); }
 .audit-mini-form { color: var(--audit-ink-mid); font-size: 11px; font-weight: 400; margin-left: 4px; }
 
 /* Seção colapsável genérica (hoje usada só em "Todos os itens usados no cálculo") */
@@ -1107,6 +1109,35 @@
 }
 .audit-input-linha .k { color: var(--audit-ink-soft); }
 .audit-input-linha .v { font-weight: 600; color: var(--audit-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Passo 7 (Frete) — badges no cabeçalho, bloco real e bloco "Tabela" colapsável (21/09/2026) */
+.audit-frete-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.audit-frete-diferenca {
+    font-size: 12px; font-weight: 600; color: var(--audit-amber-ink);
+    background: var(--audit-amber-bg); border-radius: 8px; padding: 8px 12px; margin-top: 4px;
+}
+
+.frete-secao {
+    border-radius: 9px; padding: 12px 13px; margin-bottom: 12px;
+    border-left: 3px solid var(--audit-green); background: rgba(26,138,95,.05);
+}
+.frete-secao-titulo {
+    font-size: 12.5px; font-weight: 700; margin-bottom: 9px; display: flex; align-items: center; gap: 7px;
+    color: var(--audit-ink);
+}
+
+.frete-secao-colapsavel { border: 1px solid var(--audit-line); border-radius: 9px; overflow: hidden; margin-bottom: 4px; }
+.frete-secao-colapsavel-cabecalho {
+    width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+    background: var(--audit-slate-bg); border: none; cursor: pointer; font-family: inherit; text-align: left;
+}
+.frete-secao-colapsavel-titulo { flex: 1; font-size: 12.5px; font-weight: 700; color: var(--audit-ink); }
+.frete-secao-colapsavel-resumo { font-size: 12px; color: var(--audit-ink-mid); }
+.frete-secao-colapsavel-seta { color: var(--audit-ink-mid); font-size: 13px; transition: transform .15s ease; }
+.frete-secao-colapsavel[data-estado="expandido"] .frete-secao-colapsavel-seta { transform: rotate(90deg); }
+.frete-secao-colapsavel[data-estado="expandido"] .frete-secao-colapsavel-resumo { display: none; }
+.frete-secao-colapsavel-corpo { display: none; padding: 12px 13px 13px; border-top: 1px solid var(--audit-line); }
+.frete-secao-colapsavel[data-estado="expandido"] .frete-secao-colapsavel-corpo { display: block; }
 
 .audit-passo-abstrata { font-size: 11px; color: var(--audit-ink-mid); margin-bottom: 5px; }
 .audit-passo-conta { font-size: 14px; color: var(--audit-ink); margin-bottom: 8px; font-variant-numeric: tabular-nums; }
