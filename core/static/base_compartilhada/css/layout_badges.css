@@ -173,6 +173,37 @@
 
 
 /* ================================================
+   BADGES FISCAIS — PIS/COFINS SAÍDA E ICMS ENTRADA
+   (21/09/2026) — mostram se o produto está sendo
+   calculado de forma reduzida ou integral. Tela de
+   Produto (aba Impostos) e Grade de Precificação ML.
+   3 cores, 3 significados fixos, nunca misturados:
+   ================================================ */
+/* * [EXPLICAÇÃO] → Índigo NOVO, de propósito — não é o mesmo azul de
+ *                  badge-classico/status-em-revisao/badge-sharing_first_place
+ *                  (#dbeafe/#1d4ed8), pra não herdar por acidente o
+ *                  significado deles. INTEGRAL é o estado padrão (sem
+ *                  redução aplicada), não "positivo" nem "negativo". */
+.badge-fiscal-integral               { background: #e0e7ff; color: #4338ca; }
+/* * [EXPLICAÇÃO] → Teal NOVO, de propósito — distinto do verde já usado em
+ *                  badge-full/badge-winning/badge-fiscal-validado
+ *                  (#dcfce7/#15803d) e do ciano de badge-diagnostico-drive
+ *                  (#cffafe/#0e7490). REDUZIDO é um estado fiscal
+ *                  específico (percentual de redução aplicado), não o
+ *                  mesmo "positivo/completo" genérico dos outros verdes. */
+.badge-fiscal-reduzido               { background: #ccfbf1; color: #0f766e; }
+/* * [EXPLICAÇÃO] → Bronze/dourado NOVO, de propósito — a paleta já tem 4
+ *                  variações de laranja/âmbar em uso (badge-agencia/
+ *                  badge-atrasado #ffedd5/#9a3412, badge-coleta
+ *                  #fef3c7/#b45309, badge-listed/postagem-aguardando
+ *                  #fef3c7/#92400e, badge-fiscal-cobertura-pendente
+ *                  #ffe8cc/#b6540a) — ST precisa de um tom que não brigue
+ *                  visualmente com nenhum desses, mesmo lado a lado no
+ *                  mesmo card. */
+.badge-fiscal-st                     { background: #f4e4bc; color: #8a6116; }
+
+
+/* ================================================
    EMPRESA ATIVA (Magazine/Samvale) — badge fixo na toolbar
    ================================================ */
 .badge-empresa {

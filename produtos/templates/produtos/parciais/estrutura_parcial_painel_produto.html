@@ -256,6 +256,12 @@
 
     <div class="tab-pane fade" id="aba-impostos" role="tabpanel" aria-labelledby="aba-impostos-btn">
 
+        <div class="modal-badges-fiscais">
+            <span class="badge-tabela {{ badges_fiscais.pis_classe }}">{{ badges_fiscais.pis_rotulo }}</span>
+            <span class="badge-tabela {{ badges_fiscais.cofins_classe }}">{{ badges_fiscais.cofins_rotulo }}</span>
+            <span class="badge-tabela {{ badges_fiscais.icms_classe }}">{{ badges_fiscais.icms_rotulo }}</span>
+        </div>
+
         {% if impostos_entrada %}
         <details class="card" open>
             <summary class="card-header modal-card-cabecalho modal-card-cabecalho-recolhivel">Resumo da nota</summary>

@@ -104,6 +104,13 @@ CAMINHOS_IMPOSTOS_SAIDA_POR_EMPRESA = {
 COLUNA_EAN = 'Cód Barras'
 COLUNA_CST = 'CST'  # mesma coluna que importacao_pis_cofins_ncm_cst.py já lê
 
+# * [EXPLICAÇÃO] → Mesma constante de importacao_pis_cofins_ncm_cst.py — usada só aqui pra
+#                  arredondar o percentual de PIS/COFINS de saída já com a redução de base
+#                  de cálculo aplicada (ver _aplicar_reducao_pis_cofins abaixo), na mesma
+#                  casa decimal do campo no banco (Produto.pis_percentual/cofins_percentual,
+#                  decimal_places=2).
+DUAS_CASAS_DECIMAIS = Decimal('0.01')
+
 
 # Função Objetivo: Lê a planilha Busca Legal (cabeçalho de 2 linhas), devolvendo 1 dicionário por linha de dado.
 # Explicação em detalhe: diferente de ler_linhas_planilha_erp (cabeçalho de
@@ -169,6 +176,30 @@ def _normalizar_chave_para_busca(valor):
     if texto.endswith('.0'):
         texto = texto[:-2]
     return texto or None
+
+
+# Função Objetivo: Aplica a redução de base de cálculo de PIS/COFINS (calculada na
+# entrada, ver impostos/funcoes_auxiliares/entrada/sincronizacao_impostos_entrada.py —
+# Base de Cálculo ÷ Custo Total da nota de entrada mais recente) sobre o percentual
+# "integral" (nominal) achado na planilha Busca Legal.
+# Explicação em detalhe: mudança pontual (21/09/2026, pedido do superior de Matheus,
+# confirmada com ele) — a planilha Busca Legal traz PIS/COFINS de saída sem considerar
+# a redução real do produto; enquanto ela não é refeita, a redução já calculada na
+# entrada é reaproveitada aqui. Matematicamente equivalente a reduzir a BASE de cálculo
+# em vez da alíquota (base × (1−r) × alíquota = base × [alíquota × (1−r)]) — aplicada na
+# alíquota porque o sistema de precificação usa "percentual × preço" direto em toda
+# fórmula (goal_seek, formula_precificacao, calculo_margem), sem nenhuma base de cálculo
+# de saída separada — reduzir aqui dá o mesmo resultado final sem precisar mexer em
+# nenhuma fórmula já validada.
+# Escopo: só PIS e COFINS — ICMS de saída não entra nessa mudança (fora do pedido).
+# reducao=None (produto sem PIS/COFINS de entrada sincronizado) mantém o percentual
+# integral, sem nenhum ajuste (decisão do usuário, 21/09/2026) — nunca finge uma redução
+# que não dá pra calcular. percentual aqui nunca é None (quem chama já resolveu pra
+# Decimal('0') quando a planilha trouxe o campo em branco) — só reducao pode ser None.
+def _aplicar_reducao_pis_cofins(percentual, reducao):
+    if reducao is None:
+        return percentual
+    return (percentual * (Decimal('1') - reducao / 100)).quantize(DUAS_CASAS_DECIMAIS)
 
 
 # Função Objetivo: Representa 1 linha da planilha, já reduzida ao que essa
@@ -291,19 +322,24 @@ class ImportadorImpostosSaida:
     # busca nas tabelas normalizadas — sem isso no .only(), cada acesso a
     # produto.ncm dispararia 1 query extra por produto (N+1).
     def carregar_produtos_existentes(self):
-        # select_related('impostos_entrada') + only(...) com o campo por
-        # trás do "." — 1 único JOIN pra todo o catálogo, nunca 1 query
-        # extra por produto pra descobrir a Origem do Cadastro (mesma
-        # garantia de "sem N+1" do resto do arquivo). Produto sem
-        # impostos_entrada sincronizado continua acessível — só o acesso a
-        # produto.impostos_entrada levanta ObjectDoesNotExist, tratado em
-        # processar_todos_os_produtos.
+        # select_related('impostos_entrada', 'impostos_entrada__pis', 'impostos_entrada__cofins')
+        # + only(...) com o campo por trás de cada "." — ainda 1 único conjunto de JOINs pra
+        # todo o catálogo, nunca 1 query extra por produto (mesma garantia de "sem N+1" do
+        # resto do arquivo). impostos_entrada__pis/impostos_entrada__cofins ampliados em
+        # 21/09/2026 (mudança pontual de redução de base de cálculo, ver
+        # _aplicar_reducao_pis_cofins acima) — precisam da própria reducao de PIS/COFINS de
+        # entrada. Produto sem impostos_entrada sincronizado continua acessível — só o
+        # acesso a produto.impostos_entrada (ou .pis/.cofins por trás dele) levanta
+        # ObjectDoesNotExist, tratado em processar_todos_os_produtos.
         self.produtos_por_ean = {
             produto.ean: produto
-            for produto in Produto.objects.select_related('impostos_entrada').only(
+            for produto in Produto.objects.select_related(
+                'impostos_entrada', 'impostos_entrada__pis', 'impostos_entrada__cofins',
+            ).only(
                 'id', 'ean', 'ncm', 'cst_saida',
                 'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual',
                 'impostos_entrada__origem_mercadoria_cadastro',
+                'impostos_entrada__pis__reducao', 'impostos_entrada__cofins__reducao',
             )
         }
 
@@ -356,7 +392,11 @@ class ImportadorImpostosSaida:
     # quando os campos vêm em branco na tabela (produto monofásico, ou
     # ICMS genuinamente ausente numa UF) — em branco ali é uma resposta
     # validada, não "sem dado".
-    def _calcular_campos_por_tabela(self, produto, cst_saida_da_linha, origem_produto):
+    # reducao_pis/reducao_cofins (21/09/2026, mudança pontual): mesma origem e mesmo
+    # padrão de origem_produto — resolvidos por quem chama (produto.impostos_entrada.pis/
+    # .cofins.reducao), nunca aqui, pra não repetir o try/except em cada produto. Aplicados
+    # só em cima do percentual de PIS/COFINS (nunca em ICMS) via _aplicar_reducao_pis_cofins.
+    def _calcular_campos_por_tabela(self, produto, cst_saida_da_linha, origem_produto, reducao_pis, reducao_cofins):
         campos = {}
 
         ncm_produto = _normalizar_chave_para_busca(produto.ncm)
@@ -387,8 +427,10 @@ class ImportadorImpostosSaida:
         chave_pis_cofins = (ncm_produto, cst_normalizado)
         if chave_pis_cofins in self.pis_cofins_por_ncm_cst:
             pis, cofins = self.pis_cofins_por_ncm_cst[chave_pis_cofins]
-            campos['pis_percentual'] = pis if pis is not None else Decimal('0')
-            campos['cofins_percentual'] = cofins if cofins is not None else Decimal('0')
+            pis_integral = pis if pis is not None else Decimal('0')
+            cofins_integral = cofins if cofins is not None else Decimal('0')
+            campos['pis_percentual'] = _aplicar_reducao_pis_cofins(pis_integral, reducao_pis)
+            campos['cofins_percentual'] = _aplicar_reducao_pis_cofins(cofins_integral, reducao_cofins)
 
         return campos
 
@@ -441,15 +483,26 @@ class ImportadorImpostosSaida:
             cst_da_planilha = self.cst_por_ean.get(ean)
             cst_para_busca = cst_da_planilha if cst_da_planilha is not None else produto.cst_saida
 
-            # Origem do Cadastro — só existe quando o produto já tem
-            # impostos_entrada sincronizado (Sysemp/XML). Ausência é caso
-            # normal (mesmo padrão de produtos/views.py), nunca erro.
+            # Origem do Cadastro, e a redução de base de cálculo de PIS/COFINS (mudança
+            # pontual de 21/09/2026 — a planilha Busca Legal traz alíquota integral de
+            # PIS/COFINS, sem considerar a redução real do produto; enquanto ela não é
+            # refeita, a redução já calculada na entrada é reaproveitada aqui) — todos só
+            # existem quando o produto já tem impostos_entrada sincronizado (Sysemp/XML).
+            # Ausência é caso normal (mesmo padrão de produtos/views.py), nunca erro — sem
+            # redução disponível, _calcular_campos_por_tabela mantém o percentual integral.
             try:
-                origem_produto = produto.impostos_entrada.origem_mercadoria_cadastro
+                impostos_entrada = produto.impostos_entrada
+                origem_produto = impostos_entrada.origem_mercadoria_cadastro
+                reducao_pis = impostos_entrada.pis.reducao
+                reducao_cofins = impostos_entrada.cofins.reducao
             except ObjectDoesNotExist:
                 origem_produto = None
+                reducao_pis = None
+                reducao_cofins = None
 
-            campos_tabela = self._calcular_campos_por_tabela(produto, cst_para_busca, origem_produto)
+            campos_tabela = self._calcular_campos_por_tabela(
+                produto, cst_para_busca, origem_produto, reducao_pis, reducao_cofins,
+            )
 
             campos = {}
             if cst_da_planilha is not None:

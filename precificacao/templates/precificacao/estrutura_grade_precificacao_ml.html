@@ -157,6 +157,9 @@
                 {% if item.produto.marca %}<span class="grade-card-chip">{{ item.produto.marca }}</span>{% endif %}
                 {% if item.produto.categoria %}<span class="grade-card-chip">{{ item.produto.categoria }}</span>{% endif %}
                 {% if item.produto.curva %}<span class="grade-card-chip grade-card-chip--curva">Curva {{ item.produto.curva }}</span>{% endif %}
+                <span class="badge-tabela {{ item.badges_fiscais.pis_classe }}">{{ item.badges_fiscais.pis_rotulo }}</span>
+                <span class="badge-tabela {{ item.badges_fiscais.cofins_classe }}">{{ item.badges_fiscais.cofins_rotulo }}</span>
+                <span class="badge-tabela {{ item.badges_fiscais.icms_classe }}">{{ item.badges_fiscais.icms_rotulo }}</span>
             </div>
             <div class="grade-card-titulo-linha">
                 <span class="card-copiavel card-copiavel-titulo">

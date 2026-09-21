@@ -600,6 +600,18 @@
    ABA IMPOSTOS — MESMO PADRÃO DE CARD/TABELA DA
    ABA VISÃO GERAL, SEM COR NOVA (15/08/2026)
    ================================================ */
+/* * [EXPLICAÇÃO] → Badges fiscais explícitas (21/09/2026) — linha de
+ *                  badges logo no topo da aba, sempre visível mesmo sem
+ *                  impostos_entrada sincronizado. Pílula em si é a classe
+ *                  global badge-tabela (ver layout_badges.css) — aqui só
+ *                  o espaçamento entre as 3, específico desta aba. */
+.modal-badges-fiscais {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
 .modal-card-cabecalho-recolhivel {
     cursor: pointer;
     text-align: left;

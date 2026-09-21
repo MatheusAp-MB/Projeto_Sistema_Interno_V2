@@ -1,5 +1,6 @@
 # precificacao/views/grade_mercado_livre.py
 
+from django.core.exceptions import ObjectDoesNotExist
 from dataclasses import dataclass, field
 from decimal import Decimal
 from django.shortcuts import render
@@ -13,6 +14,7 @@ from precificacao.views.modal_comum import (
     montar_dimensao, montar_passos_1_a_6, montar_saida, montar_alertas,
     montar_visao_2_teardown,
 )
+from impostos.funcoes_auxiliares.entrada.badges_fiscais_produto import montar_badges_fiscais_produto
 
 # * [EXPLICAÇÃO] → GradePrecificacaoML.tipo_anuncio usa 'classico'/
 #                  'premium' (valores próprios, simples). URLs e os
@@ -108,6 +110,11 @@ class ItemGradeProduto:
     cards_simples_base: list
     cards_catalogo: list
     total_mlbs: int
+    # * [EXPLICAÇÃO] → Badges fiscais explícitas (21/09/2026) — PIS/COFINS
+    #                  saída (reduzido/integral) + ICMS entrada (integral/
+    #                  reduzido/ST). Mesma classificação usada na tela de
+    #                  Produto (aba Impostos) — badges_fiscais_produto.py.
+    badges_fiscais: object
 
     # Função Objetivo: Monta 1 item completo a partir do produto e das linhas já agrupadas.
     @classmethod
@@ -131,6 +138,16 @@ class ItemGradeProduto:
         cards_simples_base.sort(key=lambda c: ORDEM_TIPO.get(c.prefixo, 2))
         cards_catalogo.sort(key=lambda c: ORDEM_TIPO.get(c.prefixo, 2))
 
+        # * [EXPLICAÇÃO] → Badges fiscais (21/09/2026) — impostos_entrada já
+        #                  vem select_related por view_grade_precificacao_ml
+        #                  (impostos_entrada + pis/cofins/icms/icms_st),
+        #                  então este acesso não gera consulta extra.
+        try:
+            impostos_entrada_raw = produto.impostos_entrada
+        except ObjectDoesNotExist:
+            impostos_entrada_raw = None
+        badges_fiscais = montar_badges_fiscais_produto(impostos_entrada_raw)
+
         return cls(
             produto=produto,
             linhas_classico=LinhaMargemExibida.montar_bloco(fallback_classico, labels_classico),
@@ -138,6 +155,7 @@ class ItemGradeProduto:
             cards_simples_base=cards_simples_base,
             cards_catalogo=cards_catalogo,
             total_mlbs=len(reais),
+            badges_fiscais=badges_fiscais,
         )
 
 
@@ -202,6 +220,18 @@ def view_grade_precificacao_ml(request):
 
     filtros, pagina, querystring_sem_pagina = _filtrar_paginar_produtos_grade(
         request, 'grade_precificacao_ml', FAIXAS_PRECO_GRADE, _aplicar_filtro_preco_ml
+    )
+
+    # * [EXPLICAÇÃO] → select_related isolado, só pra esta view (ML) — pras
+    #                  badges fiscais (21/09/2026). Aplicado depois da
+    #                  paginação, direto no object_list já fatiado
+    #                  (select_related não conflita com slice, só filter/
+    #                  exclude/order_by conflitariam) — nunca em
+    #                  _filtrar_paginar_produtos_grade, que é compartilhada
+    #                  com os outros 5 marketplaces.
+    pagina.object_list = pagina.object_list.select_related(
+        'impostos_entrada', 'impostos_entrada__pis', 'impostos_entrada__cofins',
+        'impostos_entrada__icms', 'impostos_entrada__icms_st',
     )
 
     produtos_ids = [p.id for p in pagina.object_list]
