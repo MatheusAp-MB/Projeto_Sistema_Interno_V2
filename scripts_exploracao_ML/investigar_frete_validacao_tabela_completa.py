@@ -140,14 +140,29 @@ def montar_params(category_id, listing_type_id, condition, peso_gramas, preco):
         "category_id": category_id,
         "listing_type_id": listing_type_id,
         "mode": "me2",
-        "free_shipping": "true",
+        "free_shipping": "false",
     }
 
 
-def avaliar_resposta(resposta_json, valor_esperado, peso_min_kg, peso_max_kg):
+def aplicar_teto_produtos_baratos(valor_nominal_tabela, item_price):
+    # Regra oficial do ML (doc "Custos dos Envios no Mercado Livre para
+    # MercadoLíder, reputação verde ou sem reputação", rodapé da tabela
+    # principal): "Os produtos de menos de R$19 pagam no máximo metade
+    # do preço do produto". O valor nominal da tabela (peso x faixa de
+    # preço) só vale como teto máximo pra item_price < 19 — o custo real
+    # é o menor entre os dois.
+    if item_price < 19:
+        return min(valor_nominal_tabela, item_price / 2)
+    return valor_nominal_tabela
+
+
+def avaliar_resposta(resposta_json, valor_nominal_tabela, peso_min_kg, peso_max_kg, item_price):
     coverage = resposta_json.get("coverage", {}).get("all_country", {})
     list_cost = coverage.get("list_cost")
     billable_weight_g = coverage.get("billable_weight")
+
+    valor_esperado = aplicar_teto_produtos_baratos(valor_nominal_tabela, item_price)
+    teto_metade_preco_aplicado = valor_esperado != valor_nominal_tabela
 
     valor_bateu = (
         list_cost is not None
@@ -163,6 +178,8 @@ def avaliar_resposta(resposta_json, valor_esperado, peso_min_kg, peso_max_kg):
 
     return {
         "list_cost_retornado": list_cost,
+        "list_cost_nominal_da_tabela": valor_nominal_tabela,
+        "teto_metade_preco_aplicado": teto_metade_preco_aplicado,
         "list_cost_esperado_pela_tabela": valor_esperado,
         "valor_bateu": valor_bateu,
         "billable_weight_retornado_g": billable_weight_g,
@@ -218,6 +235,7 @@ for linha in TABELA_FRETE:
             resposta,
             linha["precos"][indice_coluna_preco_fixo_parte_1],
             linha["peso_min"], linha["peso_max"],
+            PRECO_FIXO_PARTE_1,
         )
         resultado["parte_1_preco_fixo_percorre_peso"][chave] = {
             "peso_testado_gramas": peso_gramas,
@@ -238,6 +256,7 @@ for indice_coluna, coluna in enumerate(COLUNAS_PRECO):
             resposta,
             linha_peso_fixo["precos"][indice_coluna],
             linha_peso_fixo["peso_min"], linha_peso_fixo["peso_max"],
+            coluna["preco_teste"],
         )
         resultado["parte_2_peso_fixo_percorre_preco"][chave] = {
             "peso_testado_gramas": PESO_FIXO_PARTE_2_GRAMAS,
@@ -260,6 +279,7 @@ for indice_linha, indice_coluna in COMBINACOES_ALEATORIAS_MEIO:
             resposta,
             linha["precos"][indice_coluna],
             linha["peso_min"], linha["peso_max"],
+            coluna["preco_teste"],
         )
         resultado["parte_3_combinacoes_meio_da_tabela"][chave] = {
             "peso_testado_gramas": peso_gramas,
