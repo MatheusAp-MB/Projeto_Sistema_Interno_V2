@@ -283,7 +283,7 @@ if not resultados_opcao1['padrao'].resolvida:
 # números, isolando só a origem do frete como variável.
 custo_produto = produto.custo
 fixo = resultados_opcao1['padrao'].intermediarios.fixo
-taxa_percentual = resultados_opcao1['padrao'].intermediarios.taxa_percentual
+taxa_percentual = resultados_opcao1['padrao'].intermediarios.taxa_percentual / Decimal('100')
 rebate_valor = resultados_opcao1['padrao'].intermediarios.rebate_valor
 
 # ---------- Opção 2: mesma fórmula, frete vindo da API ----------
@@ -353,18 +353,23 @@ for margem_chave, margem_valor in margens:
             "faixa_preco": f"{f1.intermediarios.faixa_frete_preco_min}-{f1.intermediarios.faixa_frete_preco_max}",
         }
 
-    linha_opcao2 = None
     if r2.get("resolvida"):
         linha_opcao2 = {
+            "resolvida": True,
             "preco_calculado": r2["preco_calculado"],
             "frete_usado": r2["frete_usado"],
             "margem_percentual_obtida": r2["margem_percentual_obtida"],
             "faixa_preco": f"{r2['faixa_frete'].preco_min}-{r2['faixa_frete'].preco_max}",
             "rodadas_ate_confirmar": r2["rodadas"],
         }
+    else:
+        linha_opcao2 = {
+            "resolvida": False,
+            "motivo": r2.get("motivo") or r2.get("erro") or "motivo desconhecido",
+        }
 
     bateu = (
-        linha_opcao1 is not None and linha_opcao2 is not None
+        linha_opcao1 is not None and linha_opcao2.get("resolvida")
         and linha_opcao1["preco_calculado"] == linha_opcao2["preco_calculado"]
         and linha_opcao1["frete_usado"] == linha_opcao2["frete_usado"]
     )
@@ -380,23 +385,26 @@ linhas_df = []
 for margem_chave, dados in comparacao["margens"].items():
     o1 = dados["opcao_1_tabela_local"]
     o2 = dados["opcao_2_via_api"]
+    o2_resolvida = bool(o2 and o2.get("resolvida"))
     linhas_df.append({
         "Margem": margem_chave.capitalize(),
         "Meta %": dados["margem_alvo_percentual"],
         "Opção 1 — Preço": o1["preco_calculado"] if o1 else None,
         "Opção 1 — Frete": o1["frete_usado"] if o1 else None,
         "Opção 1 — Margem % obtida": o1["margem_percentual_obtida"] if o1 else None,
-        "Opção 2 — Preço": o2["preco_calculado"] if o2 else None,
-        "Opção 2 — Frete": o2["frete_usado"] if o2 else None,
-        "Opção 2 — Margem % obtida": o2["margem_percentual_obtida"] if o2 else None,
-        "Rodadas (Opção 2)": o2["rodadas_ate_confirmar"] if o2 else None,
+        "Opção 2 — Preço": o2["preco_calculado"] if o2_resolvida else None,
+        "Opção 2 — Frete": o2["frete_usado"] if o2_resolvida else None,
+        "Opção 2 — Margem % obtida": o2["margem_percentual_obtida"] if o2_resolvida else None,
+        "Rodadas (Opção 2)": o2["rodadas_ate_confirmar"] if o2_resolvida else None,
+        "Motivo (se Opção 2 falhou)": None if o2_resolvida else (o2["motivo"] if o2 else None),
         "Status": "IGUAL" if dados["bateu"] else "DIFERENTE",
     })
 df_comparacao = pd.DataFrame(linhas_df)
 
 tabela_final = Table(title='Comparação Opção 1 (tabela local) x Opção 2 (API) — Chinelo, Clássico')
 for coluna in df_comparacao.columns:
-    tabela_final.add_column(coluna, justify='left' if coluna in ('Margem', 'Status') else 'right')
+    justify = 'left' if coluna in ('Margem', 'Status', 'Motivo (se Opção 2 falhou)') else 'right'
+    tabela_final.add_column(coluna, justify=justify)
 for _, linha in df_comparacao.iterrows():
     valores = [str(linha[coluna]) if pd.notna(linha[coluna]) else '—' for coluna in df_comparacao.columns]
     estilo = 'bold green' if linha['Status'] == 'IGUAL' else 'bold red'
