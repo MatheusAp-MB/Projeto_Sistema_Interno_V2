@@ -56,8 +56,14 @@ from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimenso
 from precificacao.funcoes_auxiliares.mercado_livre.formula_precificacao import FormulaPrecificacao
 from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
 
+import pandas as pd
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
+console = Console()
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 CONTA = "MB"
@@ -197,22 +203,22 @@ def _decimal_para_str(obj):
 
 # ========== Fluxo principal ==========
 
-print("Buscando produto (Chinelo) e resolvendo dimensão efetiva...")
+console.print(Panel('[bold]Goal Seek via API — Opção 1 (tabela local) x Opção 2 (API)[/bold]\n'
+                     'Chinelo Nuvem Sandália Ortopédica Fly Feet — Clássico — conta MB',
+                     border_style='blue'))
+
 produto = Produto.objects.get(ean=EAN_CHINELO)
 dim = resolver_dimensoes_efetivas(produto, variacao=None)
 if dim is None:
-    print("Produto sem dimensão de embalagem suficiente no ERP — abortando.")
+    console.print('[bold red]Produto sem dimensão de embalagem suficiente no ERP — abortando.[/bold red]')
     sys.exit(1)
-
-print(f"Peso faturável: {dim.peso}kg (físico={dim.peso_fisico}kg, cúbico={dim.peso_cubico}kg) | "
-      f"Dimensões: {dim.altura}x{dim.largura}x{dim.comprimento}cm")
 
 variacao_qualquer = VariacaoAnuncioMercadoLivre.objects.filter(produto=produto).select_related('anuncio').first()
 if variacao_qualquer is None:
-    print("Produto sem nenhum MLB publicado no banco — não dá pra buscar category_id. Abortando.")
+    console.print('[bold red]Produto sem nenhum MLB publicado no banco — não dá pra buscar '
+                   'category_id. Abortando.[/bold red]')
     sys.exit(1)
 mlb_referencia = variacao_qualquer.anuncio.mlb
-print(f"MLB usado só pra pegar category_id: {mlb_referencia}")
 
 try:
     resposta_me = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS, conta=CONTA,
@@ -223,16 +229,26 @@ try:
                                 nome_log="testar_goal_seek_via_api_chinelo")
     category_id = resposta_item.json()["category_id"]
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
-    print(f"Erro buscando user_id/category_id: {erro}")
+    console.print(f'[bold red]Erro buscando user_id/category_id: {erro}[/bold red]')
     sys.exit(1)
-
-print(f"category_id: {category_id}")
 
 dimensions_str = (
     f"{_formatar_dimensao(dim.altura)}x{_formatar_dimensao(dim.largura)}x{_formatar_dimensao(dim.comprimento)},"
     f"{int((dim.peso * 1000).to_integral_value())}"
 )
-print(f"dimensions (formato API): {dimensions_str}")
+
+tabela_contexto = Table(title='Produto e contexto resolvidos', show_header=False, box=None, padding=(0, 2))
+tabela_contexto.add_column(style='dim')
+tabela_contexto.add_column()
+tabela_contexto.add_row('SKU / EAN', f'{produto.sku} / {produto.ean}')
+tabela_contexto.add_row('Custo', f'R$ {produto.custo}')
+tabela_contexto.add_row('Peso físico / cúbico', f'{dim.peso_fisico}kg / {dim.peso_cubico}kg')
+tabela_contexto.add_row('Peso faturável (usado)', f'[bold]{dim.peso}kg[/bold]')
+tabela_contexto.add_row('Dimensões (AxLxC)', f'{dim.altura}x{dim.largura}x{dim.comprimento}cm')
+tabela_contexto.add_row('MLB usado pra category_id', mlb_referencia)
+tabela_contexto.add_row('category_id', category_id)
+tabela_contexto.add_row('dimensions (parâmetro da API)', dimensions_str)
+console.print(tabela_contexto)
 
 config_geral = ConfiguracaoOperacional.obter()
 faixas_armazenagem = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
@@ -247,7 +263,7 @@ margens = [
 ]
 
 # ---------- Opção 1: baseline real do sistema (tabela local FreteML) ----------
-print("\nRodando Opção 1 (tabela local) pras 4 margens...")
+console.print(Panel('[bold]Opção 1 — tabela local (FreteML)[/bold]', border_style='cyan'))
 resultados_opcao1 = {}
 for margem_chave, margem_valor in margens:
     formula = FormulaPrecificacao(
@@ -258,8 +274,8 @@ for margem_chave, margem_valor in margens:
     resultados_opcao1[margem_chave] = formula
 
 if not resultados_opcao1['padrao'].resolvida:
-    print("Opção 1 (baseline) não resolveu nem a margem padrão — produto provavelmente sem "
-          "impostos_entrada sincronizados no ERP. Abortando.")
+    console.print('[bold red]Opção 1 (baseline) não resolveu nem a margem padrão — produto '
+                   'provavelmente sem impostos_entrada sincronizados no ERP. Abortando.[/bold red]')
     sys.exit(1)
 
 # fixo/taxa/rebate não dependem da margem (só o denominador depende) — pego 1x da margem
@@ -271,25 +287,34 @@ taxa_percentual = resultados_opcao1['padrao'].intermediarios.taxa_percentual
 rebate_valor = resultados_opcao1['padrao'].intermediarios.rebate_valor
 
 # ---------- Opção 2: mesma fórmula, frete vindo da API ----------
-print("\nMontando faixas de frete via API (Opção 2) — isso faz algumas chamadas reais...")
+console.print(Panel('[bold]Opção 2 — via API (chamadas reais ao Mercado Livre)[/bold]', border_style='magenta'))
 faixas_reais_da_faixa_de_peso = [
     f for f in frete_todas_ml_real
     if f.peso_min <= dim.peso and (f.peso_max is None or f.peso_max >= dim.peso)
 ]
-print(f"{len(faixas_reais_da_faixa_de_peso)} faixas de preço na faixa de peso do Chinelo (peso={dim.peso}kg)")
+console.print(f'[dim]{len(faixas_reais_da_faixa_de_peso)} faixas de preço na faixa de peso do Chinelo '
+              f'(peso={dim.peso}kg) — montando estimativa via API...[/dim]')
 
 try:
     frete_todas_opcao2_estimativa = montar_frete_todas_opcao2_estimativa(
         faixas_reais_da_faixa_de_peso, user_id, category_id, dimensions_str, custo_produto,
     )
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
-    print(f"Erro montando faixas via API: {erro}")
+    console.print(f'[bold red]Erro montando faixas via API: {erro}[/bold red]')
     sys.exit(1)
 
-print(f"{len(frete_todas_opcao2_estimativa)} faixas testadas na API "
-      f"(as outras tinham teto abaixo do custo R${custo_produto}, puladas)")
+tabela_faixas_api = Table(title='Faixas testadas na API (estimativa, preço = piso da faixa)', box=None)
+tabela_faixas_api.add_column('Faixa de preço')
+tabela_faixas_api.add_column('Preço testado', justify='right')
+tabela_faixas_api.add_column('list_cost retornado', justify='right')
+for faixa in frete_todas_opcao2_estimativa:
+    preco_testado = faixa.preco_min if faixa.preco_min > 0 else Decimal('0.01')
+    teto = 'sem teto' if faixa.preco_max is None else f'R$ {faixa.preco_max}'
+    tabela_faixas_api.add_row(f'R$ {faixa.preco_min} a {teto}', f'R$ {preco_testado}', f'R$ {faixa.valor}')
+console.print(tabela_faixas_api)
+console.print(f'[dim]{len(faixas_reais_da_faixa_de_peso) - len(frete_todas_opcao2_estimativa)} faixas com '
+              f'teto abaixo do custo (R$ {custo_produto}) foram puladas.[/dim]\n')
 
-print("\nRodando Opção 2 (via API, com confirmação) pras 4 margens...")
 resultados_opcao2 = {}
 for margem_chave, margem_valor in margens:
     try:
@@ -351,15 +376,37 @@ for margem_chave, margem_valor in margens:
         "bateu": bateu,
     }
 
-print("\n===== COMPARAÇÃO OPÇÃO 1 (tabela local) x OPÇÃO 2 (API) — Chinelo, Clássico =====")
+linhas_df = []
 for margem_chave, dados in comparacao["margens"].items():
-    status = "IGUAL" if dados["bateu"] else "DIFERENTE"
-    print(f"\n{margem_chave.upper()} (meta {dados['margem_alvo_percentual']}%): {status}")
-    print(f"  Opção 1: {dados['opcao_1_tabela_local']}")
-    print(f"  Opção 2: {dados['opcao_2_via_api']}")
+    o1 = dados["opcao_1_tabela_local"]
+    o2 = dados["opcao_2_via_api"]
+    linhas_df.append({
+        "Margem": margem_chave.capitalize(),
+        "Meta %": dados["margem_alvo_percentual"],
+        "Opção 1 — Preço": o1["preco_calculado"] if o1 else None,
+        "Opção 1 — Frete": o1["frete_usado"] if o1 else None,
+        "Opção 1 — Margem % obtida": o1["margem_percentual_obtida"] if o1 else None,
+        "Opção 2 — Preço": o2["preco_calculado"] if o2 else None,
+        "Opção 2 — Frete": o2["frete_usado"] if o2 else None,
+        "Opção 2 — Margem % obtida": o2["margem_percentual_obtida"] if o2 else None,
+        "Rodadas (Opção 2)": o2["rodadas_ate_confirmar"] if o2 else None,
+        "Status": "IGUAL" if dados["bateu"] else "DIFERENTE",
+    })
+df_comparacao = pd.DataFrame(linhas_df)
+
+tabela_final = Table(title='Comparação Opção 1 (tabela local) x Opção 2 (API) — Chinelo, Clássico')
+for coluna in df_comparacao.columns:
+    tabela_final.add_column(coluna, justify='left' if coluna in ('Margem', 'Status') else 'right')
+for _, linha in df_comparacao.iterrows():
+    valores = [str(linha[coluna]) if pd.notna(linha[coluna]) else '—' for coluna in df_comparacao.columns]
+    estilo = 'bold green' if linha['Status'] == 'IGUAL' else 'bold red'
+    tabela_final.add_row(*valores, style=estilo)
+
+console.print()
+console.print(tabela_final)
 
 with open(CAMINHO_SAIDA, "w", encoding="utf-8") as f:
     json.dump(_decimal_para_str(comparacao), f, ensure_ascii=False, indent=2)
 
-print(f"\nResultado completo salvo em: {CAMINHO_SAIDA}")
-print("Suba esse arquivo na conversa pra eu analisar.")
+console.print(f'\n[dim]Resultado completo salvo em:[/dim] {CAMINHO_SAIDA}')
+console.print('[dim]Suba esse arquivo na conversa pra eu analisar.[/dim]')
