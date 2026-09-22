@@ -406,12 +406,27 @@ class DetalheFormulaExibida:
             )
         frete_real_detalhe = (variacao.frete_real_detalhamento or {}) if variacao else {}
 
+        # * [EXPLICAÇÃO] → billable_weight/1000 (22/09) — a API do ML devolve esse
+        #                  campo em GRAMAS (confirmado na doc oficial: "peso em
+        #                  gramas inteiros"), mas o Passo 7 exibe em kg (mesma
+        #                  unidade do peso calculado, pra comparação fazer
+        #                  sentido lado a lado). Achado revisando o print real:
+        #                  peso_billable aparecia como "8802,000 kg" (8,8
+        #                  toneladas, fisicamente impossível pra a embalagem)
+        #                  quando devia ser 8,802 kg. frete_real_detalhamento
+        #                  continua guardando o valor cru da API, sem conversão
+        #                  — a conversão é só na hora de exibir.
+        peso_billable_gramas = frete_real_detalhe.get('billable_weight')
+        peso_billable_kg = (
+            dec(peso_billable_gramas) / Decimal('1000') if peso_billable_gramas is not None else None
+        )
+
         passo_7 = PassoFaixaFrete(
             peso=dec(e.get('peso')), faixa_min=dec(i.get('faixa_frete_preco_min')),
             faixa_max=dec(i.get('faixa_frete_preco_max')), resultado=dec(s.get('frete_usado')),
             frete_real=dec(variacao.frete_real) if variacao else None,
             dimensoes_ml=dimensoes_ml,
-            peso_billable=dec(frete_real_detalhe.get('billable_weight')),
+            peso_billable=peso_billable_kg,
         )
         passo_8 = PassoPrecoExato(
             frete=dec(s.get('frete_usado')), fixo=dec(i.get('fixo')), rebate=dec(i.get('rebate_valor')),
