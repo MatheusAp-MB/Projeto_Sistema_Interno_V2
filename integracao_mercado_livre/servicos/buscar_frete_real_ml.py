@@ -66,24 +66,37 @@ def _obter_user_id(conta: str) -> str:
     return user_id
 
 
-# Função Objetivo: Extrai (valor, tipo_de_desconto) da resposta de shipping_options/free.
+# Função Objetivo: Extrai (valor, detalhamento) da resposta de shipping_options/free.
 # Explicação em detalhe: coverage.all_country.list_cost é o campo validado na investigação —
-# bate exatamente com o Resumo de Custos real do anúncio. discount.type só entra no log
-# (mandatory/fs_optional/etc.) — não tem campo próprio no banco pra isso ainda.
+# bate exatamente com o Resumo de Custos real do anúncio. detalhamento (22/09) junta o resto
+# do que a API devolve nesse mesmo nível — billable_weight e o bloco discount inteiro
+# (type/rate/promoted_amount) — pra gravar como apoio/auditoria, sem virar campo oficial.
+# ATENÇÃO: billable_weight/rate/promoted_amount ainda não foram conferidos byte-a-byte
+# contra uma resposta real (só list_cost e discount.type foram validados na investigação
+# original) — a suposição aqui é que ficam no mesmo nível dentro de coverage.all_country.
+# Vale conferir contra 1 log real (integracao_mercado_livre/logs/.../buscar_frete_real_ml*)
+# antes de rodar em massa de novo.
 def _extrair_frete_real(resposta_json: dict):
     coverage = resposta_json.get('coverage', {}) or {}
     all_country = coverage.get('all_country', {}) or {}
     list_cost = all_country.get('list_cost')
+    billable_weight = all_country.get('billable_weight')
     discount = all_country.get('discount', {}) or {}
-    tipo_desconto = discount.get('type')
+
+    detalhamento = {
+        "billable_weight": billable_weight,
+        "discount_type": discount.get('type'),
+        "discount_rate": discount.get('rate'),
+        "discount_promoted_amount": discount.get('promoted_amount'),
+    }
 
     if list_cost is None:
-        return None, tipo_desconto
+        return None, detalhamento
 
     try:
-        return Decimal(str(list_cost)), tipo_desconto
+        return Decimal(str(list_cost)), detalhamento
     except InvalidOperation:
-        return None, tipo_desconto
+        return None, detalhamento
 
 
 # Função Objetivo: Busca e grava o frete real de 1 variação (1 chamada à API).
@@ -96,16 +109,17 @@ def buscar_frete_real_variacao(variacao, conta: str, user_id: str, pasta_logs: P
         params={"item_id": mlb, "verbose": "true"},
         nome_log="buscar_frete_real_ml",
     )
-    valor, tipo_desconto = _extrair_frete_real(resposta.json())
+    valor, detalhamento = _extrair_frete_real(resposta.json())
 
     if valor is None:
         return {"mlb": mlb, "sucesso": False, "motivo": "resposta sem coverage.all_country.list_cost"}
 
     variacao.frete_real = valor
     variacao.frete_real_atualizado_em = timezone.now()
-    variacao.save(update_fields=["frete_real", "frete_real_atualizado_em"])
+    variacao.frete_real_detalhamento = detalhamento
+    variacao.save(update_fields=["frete_real", "frete_real_atualizado_em", "frete_real_detalhamento"])
 
-    return {"mlb": mlb, "sucesso": True, "valor": valor, "discount_type": tipo_desconto}
+    return {"mlb": mlb, "sucesso": True, "valor": valor, "discount_type": detalhamento.get("discount_type")}
 
 
 def buscar_frete_real_ml(empresa: str) -> dict:

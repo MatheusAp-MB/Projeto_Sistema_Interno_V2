@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.serializers.json import DjangoJSONEncoder
 from produtos.models import Produto
 from mercado_livre.funcoes_auxiliares.comparador_dimensao_envio import SituacaoDimensaoEnvio
 
@@ -97,6 +98,14 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     #                  temos essa medição, usa a tabela normalmente.
     frete_real = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     frete_real_atualizado_em = models.DateTimeField(blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Resto do que a API devolveu junto com list_cost (22/09) —
+    #                  billable_weight e o bloco discount (type/rate/promoted_amount).
+    #                  Guardado à parte de frete_real pra não misturar valor oficial
+    #                  com dado de apoio/auditoria. None até a 1ª busca bem-sucedida
+    #                  (ou pra quem já tinha frete_real de antes desse campo existir —
+    #                  precisa rodar buscar_frete_real_ml de novo pra preencher).
+    frete_real_detalhamento = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
 
     # * [EXPLICAÇÃO] → Dimensões/peso DECLARADOS pelo vendedor no
     #                  Mercado Livre (atributos SELLER_PACKAGE_* da

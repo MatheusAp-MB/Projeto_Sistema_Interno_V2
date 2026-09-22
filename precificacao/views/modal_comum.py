@@ -130,6 +130,12 @@ class PassoFaixaFrete:
     faixa_min: object
     faixa_max: object
     resultado: object
+    # * [EXPLICAÇÃO] → Frete real da API (22/09) — só o ML usa, os outros 5
+    #                  marketplaces nunca setam (ficam None), mesmo padrão
+    #                  já usado em PassoPrecoExato.rebate.
+    frete_real: object = None
+    dimensoes_ml: object = None
+    peso_billable: object = None
 
 
 @dataclass

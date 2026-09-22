@@ -388,9 +388,30 @@ class DetalheFormulaExibida:
         #                  faixa_min/max aqui é limite de PREÇO (o ML
         #                  busca faixa por peso×preço), e existe rebate,
         #                  os 2 pontos que genuinamente divergem do Magalu.
+        # * [EXPLICAÇÃO] → frete_real/dimensoes_ml/peso_billable (22/09) — lidos
+        #                  direto da Variação (só existe quando o produto já tem
+        #                  MLB publicado; fallback do produto fica sempre None,
+        #                  igual origem_dimensao). dimensoes_ml usa as mesmas
+        #                  dimensões DECLARADAS no anúncio que alimentam o cálculo
+        #                  do frete real (não é a embalagem ERP, essa é a de baixo,
+        #                  no bloco Tabela). peso_billable só vem depois que
+        #                  buscar_frete_real_ml salvar frete_real_detalhamento —
+        #                  fica None pra quem foi buscado antes desse campo existir.
+        variacao = linha.variacao
+        dimensoes_ml = None
+        if variacao and variacao.altura_declarada_cm and variacao.largura_declarada_cm and variacao.comprimento_declarado_cm:
+            dimensoes_ml = (
+                f'{variacao.altura_declarada_cm:.0f} × {variacao.largura_declarada_cm:.0f} × '
+                f'{variacao.comprimento_declarado_cm:.0f} cm'
+            )
+        frete_real_detalhe = (variacao.frete_real_detalhamento or {}) if variacao else {}
+
         passo_7 = PassoFaixaFrete(
             peso=dec(e.get('peso')), faixa_min=dec(i.get('faixa_frete_preco_min')),
             faixa_max=dec(i.get('faixa_frete_preco_max')), resultado=dec(s.get('frete_usado')),
+            frete_real=dec(variacao.frete_real) if variacao else None,
+            dimensoes_ml=dimensoes_ml,
+            peso_billable=dec(frete_real_detalhe.get('billable_weight')),
         )
         passo_8 = PassoPrecoExato(
             frete=dec(s.get('frete_usado')), fixo=dec(i.get('fixo')), rebate=dec(i.get('rebate_valor')),
