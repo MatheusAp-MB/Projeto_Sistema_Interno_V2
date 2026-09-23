@@ -201,15 +201,17 @@ def calcular_peso_cubado_kg(altura_cm, largura_cm, comprimento_cm):
 
 
 def encontrar_faixa_peso(peso_faturavel_kg):
+    """Faixa fechada no limite SUPERIOR, aberta no inferior (peso_max é inclusive, peso_min
+    não é) — confirmado via API real na bateria de 23/09/2026: peso faturável de 500g cai em
+    "De 0,3 a 0,5 kg" (não em "De 0,5 a 1 kg"), mesmo padrão confirmado em 6/6 candidatos
+    divergentes da bateria (500g, 1000g, 2000g, 6000g, 15000g — todos caindo 1 faixa abaixo
+    do que a regra antiga, peso_min <= x < peso_max, atribuía). Ver Checkpoint Frente A,
+    Seção 12."""
     for linha in TABELA_FRETE:
-        peso_min = Decimal(str(linha['peso_min']))
         if linha['peso_max'] is None:
-            if peso_faturavel_kg >= peso_min:
-                return linha
-        else:
-            peso_max = Decimal(str(linha['peso_max']))
-            if peso_min <= peso_faturavel_kg < peso_max:
-                return linha
+            return linha  # última faixa ("Mais de 150 kg") — bate por exclusão, sem teto superior
+        if peso_faturavel_kg <= Decimal(str(linha['peso_max'])):
+            return linha
     return None
 
 
@@ -644,7 +646,9 @@ if divergencias:
     for r in divergencias:
         c = r.candidato
         peso_nosso_quantizado = c.peso_faturavel_kg.quantize(Decimal('0.001'))
-        if r.peso_faturavel_api_kg is not None and r.peso_faturavel_api_kg != peso_nosso_quantizado:
+        if r.peso_faturavel_api_kg is None:
+            explicacao = 'API não retornou billable_weight nessa chamada — sem dado pra comparar o peso'
+        elif r.peso_faturavel_api_kg != peso_nosso_quantizado:
             explicacao = (f'peso faturável divergiu — nosso cálculo: {peso_nosso_quantizado}kg, '
                            f'API calculou: {r.peso_faturavel_api_kg}kg')
         else:
