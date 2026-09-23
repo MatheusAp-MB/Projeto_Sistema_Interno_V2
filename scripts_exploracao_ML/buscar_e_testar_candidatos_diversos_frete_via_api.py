@@ -740,12 +740,23 @@ total_com_resultado = sum(1 for r in resultados if r.sem_fg_bate is not None)
 total_bateu = sum(1 for r in resultados if r.sem_fg_bate is True)
 divergencias = [r for r in resultados if r.sem_fg_bate is False]
 
+total_producao_com_resultado = sum(1 for r in resultados if r.sem_fg_producao_bate is not None)
+total_producao_bateu = sum(1 for r in resultados if r.sem_fg_producao_bate is True)
+divergencias_producao = [r for r in resultados if r.sem_fg_producao_bate is False]
+ambiguos = [r for r in resultados if r.producao_ambigua]
+
 console.print(f'\n[bold]Cobertura:[/bold] {len(faixas_peso_testadas)}/{len(TABELA_FRETE)} faixas de peso testadas, '
               f'{len(faixas_preco_testadas)}/{len(FAIXAS_PRECO)} faixas de preço testadas.')
-console.print(f'[bold]Sem frete grátis (contra a tabela real):[/bold] {total_bateu}/{total_com_resultado} bateram.')
+console.print(f'[bold]Esperado (tabela) x Obtido (API):[/bold] {total_bateu}/{total_com_resultado} bateram.')
+console.print(f'[bold]Esperado (tabela) x Calculado (produção, sem API):[/bold] '
+              f'{total_producao_bateu}/{total_producao_com_resultado} bateram.')
+if ambiguos:
+    console.print(f'[bold yellow]{len(ambiguos)} candidato(s) com peso EXATO numa fronteira compartilhada — '
+                   f'produção bateu com mais de 1 faixa de FreteML ao mesmo tempo (fronteira fechada nos 2 '
+                   f'lados, ver Checkpoint Frente A, Seção 14/Pendências).[/bold yellow]')
 
 if divergencias:
-    console.print(f'\n[bold red]{len(divergencias)} divergência(s) encontrada(s) — possíveis pontos de quebra:[/bold red]')
+    console.print(f'\n[bold red]{len(divergencias)} divergência(s) Esperado x API — possíveis pontos de quebra:[/bold red]')
     for r in divergencias:
         c = r.candidato
         peso_nosso_quantizado = c.peso_faturavel_kg.quantize(Decimal('0.001'))
@@ -759,10 +770,24 @@ if divergencias:
         console.print(f'  [red]MLB {c.mlb} — {c.faixa_peso["nome"]} x {c.faixa_preco["chave"]}: '
                        f'obtido R$ {r.sem_fg_obtido}, esperado R$ {r.sem_fg_esperado} — {explicacao}[/red]')
 else:
-    console.print('\n[green]Nenhuma divergência — todos os candidatos testados bateram com a tabela real.[/green]')
+    console.print('\n[green]Nenhuma divergência Esperado x API — todos os candidatos testados bateram com a tabela real.[/green]')
+
+if divergencias_producao:
+    console.print(f'\n[bold red]{len(divergencias_producao)} divergência(s) Esperado x Calculado (produção) — '
+                   f'a PRODUÇÃO calcularia frete errado pra esses candidatos, sem precisar de API:[/bold red]')
+    for r in divergencias_producao:
+        c = r.candidato
+        marca_ambiguo = ' [bold yellow](AMBÍGUO — mais de 1 faixa bateu)[/bold yellow]' if r.producao_ambigua else ''
+        console.print(f'  [red]MLB {c.mlb} — {c.faixa_peso["nome"]} x {c.faixa_preco["chave"]}: '
+                       f'produção calcularia R$ {r.sem_fg_calculado_producao}, esperado R$ {r.sem_fg_esperado}'
+                       f'{marca_ambiguo}[/red]')
+else:
+    console.print('\n[green]Nenhuma divergência Esperado x Calculado (produção) — filtrar_faixas_frete() bateu '
+                   'com a regra real em todos os candidatos testados.[/green]')
 
 console.print('\n[dim]"Com FG" é só informativo — ainda não temos a tabela completa de frete grátis pra comparar '
-              '(só a célula peso 0,5-1kg x preço 0-18,99 já foi confirmada, R$ 14,45).[/dim]')
+              '(só a célula peso 0,5-1kg x preço 0-18,99 já foi confirmada, R$ 14,45). Ver Checkpoint Frente A, '
+              'Seção 14, pra trazer os 2 regimes pro banco.[/dim]')
 
 # ---- Salva JSON com o detalhe completo ----
 
