@@ -148,36 +148,36 @@ CAMINHO_SAIDA = Path(_PASTA_ATUAL) / f"bateria_candidatos_diversos_frete_{CONTA}
 # em investigar_frete_validacao_tabela_completa.py (copiada aqui porque os scripts dessa
 # pasta são independentes entre si, nenhum importa do outro).
 TABELA_FRETE = [
-    {"nome": "Até 0,3 kg",        "peso_min": 0,   "peso_max": 0.3, "precos": [5.65, 6.85, 8.15, 12.95, 14.95, 16.95, 19.05, 21.65]},
-    {"nome": "De 0,3 a 0,5 kg",   "peso_min": 0.3, "peso_max": 0.5, "precos": [5.95, 6.95, 8.25, 13.85, 16.15, 18.15, 20.45, 23.25]},
-    {"nome": "De 0,5 a 1 kg",     "peso_min": 0.5, "peso_max": 1,   "precos": [6.05, 7.15, 8.45, 14.45, 16.85, 19.05, 21.35, 24.45]},
-    {"nome": "De 1 a 1,5 kg",     "peso_min": 1,   "peso_max": 1.5, "precos": [6.15, 7.35, 8.65, 14.75, 17.15, 19.45, 21.75, 25.45]},
-    {"nome": "De 1,5 a 2 kg",     "peso_min": 1.5, "peso_max": 2,   "precos": [6.25, 7.45, 8.75, 15.05, 17.65, 19.85, 22.25, 25.55]},
-    {"nome": "De 2 a 3 kg",       "peso_min": 2,   "peso_max": 3,   "precos": [6.35, 8.65, 9.15, 16.45, 19.15, 21.65, 24.35, 27.05]},
-    {"nome": "De 3 a 4 kg",       "peso_min": 3,   "peso_max": 4,   "precos": [6.45, 8.75, 9.75, 17.85, 20.75, 23.35, 26.35, 29.25]},
-    {"nome": "De 4 a 5 kg",       "peso_min": 4,   "peso_max": 5,   "precos": [6.55, 8.85, 10.25, 19.75, 22.85, 26.05, 29.25, 32.45]},
-    {"nome": "De 5 a 6 kg",       "peso_min": 5,   "peso_max": 6,   "precos": [6.65, 8.95, 10.35, 25.95, 29.15, 33.35, 36.45, 40.85]},
-    {"nome": "De 6 a 7 kg",       "peso_min": 6,   "peso_max": 7,   "precos": [6.75, 9.05, 10.45, 27.55, 31.65, 36.75, 40.85, 45.25]},
-    {"nome": "De 7 a 8 kg",       "peso_min": 7,   "peso_max": 8,   "precos": [6.85, 9.25, 10.55, 29.45, 34.35, 39.25, 44.15, 49.35]},
-    {"nome": "De 8 a 9 kg",       "peso_min": 8,   "peso_max": 9,   "precos": [6.95, 9.35, 10.65, 30.25, 35.25, 40.35, 45.35, 50.75]},
-    {"nome": "De 9 a 10 kg",      "peso_min": 9,   "peso_max": 10,  "precos": [7.05, 9.45, 10.85, 38.25, 45.05, 51.95, 58.75, 65.85]},
-    {"nome": "De 10 a 11 kg",     "peso_min": 10,  "peso_max": 11,  "precos": [7.05, 9.65, 11.05, 41.65, 48.55, 55.45, 62.35, 69.35]},
-    {"nome": "De 11 a 13 kg",     "peso_min": 11,  "peso_max": 13,  "precos": [7.15, 10.05, 11.45, 42.55, 49.75, 56.85, 63.85, 70.95]},
-    {"nome": "De 13 a 15 kg",     "peso_min": 13,  "peso_max": 15,  "precos": [7.25, 10.25, 11.65, 45.55, 52.95, 60.55, 68.15, 75.65]},
-    {"nome": "De 15 a 17 kg",     "peso_min": 15,  "peso_max": 17,  "precos": [7.35, 10.45, 11.85, 48.95, 56.55, 64.05, 71.35, 79.35]},
-    {"nome": "De 17 a 20 kg",     "peso_min": 17,  "peso_max": 20,  "precos": [7.45, 10.65, 12.05, 55.15, 64.35, 73.55, 82.75, 91.95]},
-    {"nome": "De 20 a 25 kg",     "peso_min": 20,  "peso_max": 25,  "precos": [7.65, 11.05, 12.25, 64.55, 75.75, 85.45, 96.25, 106.85]},
-    {"nome": "De 25 a 30 kg",     "peso_min": 25,  "peso_max": 30,  "precos": [7.75, 11.25, 12.45, 66.45, 76.05, 86.25, 97.15, 107.85]},
-    {"nome": "De 30 a 40 kg",     "peso_min": 30,  "peso_max": 40,  "precos": [7.85, 11.45, 12.65, 68.35, 79.65, 89.75, 100.05, 107.95]},
-    {"nome": "De 40 a 50 kg",     "peso_min": 40,  "peso_max": 50,  "precos": [7.95, 11.65, 12.85, 70.95, 81.85, 92.85, 103.45, 111.65]},
-    {"nome": "De 50 a 60 kg",     "peso_min": 50,  "peso_max": 60,  "precos": [8.05, 11.85, 13.05, 75.55, 87.25, 99.05, 110.25, 119.05]},
-    {"nome": "De 60 a 70 kg",     "peso_min": 60,  "peso_max": 70,  "precos": [8.15, 12.05, 13.25, 80.95, 93.75, 105.95, 118.05, 127.45]},
-    {"nome": "De 70 a 80 kg",     "peso_min": 70,  "peso_max": 80,  "precos": [8.25, 12.25, 13.45, 84.65, 97.95, 110.75, 123.35, 133.15]},
-    {"nome": "De 80 a 90 kg",     "peso_min": 80,  "peso_max": 90,  "precos": [8.35, 12.45, 13.65, 94.05, 108.35, 122.95, 136.95, 147.85]},
-    {"nome": "De 90 a 100 kg",    "peso_min": 90,  "peso_max": 100, "precos": [8.45, 12.65, 13.85, 107.45, 124.85, 140.45, 156.45, 168.85]},
-    {"nome": "De 100 a 125 kg",   "peso_min": 100, "peso_max": 125, "precos": [8.55, 12.85, 14.05, 120.15, 138.95, 156.95, 174.85, 188.85]},
-    {"nome": "De 125 a 150 kg",   "peso_min": 125, "peso_max": 150, "precos": [8.65, 12.85, 14.25, 127.45, 147.05, 166.55, 185.55, 200.35]},
-    {"nome": "Mais de 150 kg",    "peso_min": 150, "peso_max": None, "precos": [8.75, 12.85, 14.45, 167.05, 193.35, 218.45, 243.45, 262.85]},
+    {"nome": "Até 0,3 kg",        "peso_min": 0,   "peso_max": 0.3, "precos": [5.65, 6.85, 8.15, 12.95, 14.95, 16.95, 19.05, 21.65], "valor_com_fg": 12.95},
+    {"nome": "De 0,3 a 0,5 kg",   "peso_min": 0.3, "peso_max": 0.5, "precos": [5.95, 6.95, 8.25, 13.85, 16.15, 18.15, 20.45, 23.25], "valor_com_fg": 13.85},
+    {"nome": "De 0,5 a 1 kg",     "peso_min": 0.5, "peso_max": 1,   "precos": [6.05, 7.15, 8.45, 14.45, 16.85, 19.05, 21.35, 24.45], "valor_com_fg": 14.45},
+    {"nome": "De 1 a 1,5 kg",     "peso_min": 1,   "peso_max": 1.5, "precos": [6.15, 7.35, 8.65, 14.75, 17.15, 19.45, 21.75, 25.45], "valor_com_fg": 14.75},
+    {"nome": "De 1,5 a 2 kg",     "peso_min": 1.5, "peso_max": 2,   "precos": [6.25, 7.45, 8.75, 15.05, 17.65, 19.85, 22.25, 25.55], "valor_com_fg": 15.05},
+    {"nome": "De 2 a 3 kg",       "peso_min": 2,   "peso_max": 3,   "precos": [6.35, 8.65, 9.15, 16.45, 19.15, 21.65, 24.35, 27.05], "valor_com_fg": 16.45},
+    {"nome": "De 3 a 4 kg",       "peso_min": 3,   "peso_max": 4,   "precos": [6.45, 8.75, 9.75, 17.85, 20.75, 23.35, 26.35, 29.25], "valor_com_fg": 17.85},
+    {"nome": "De 4 a 5 kg",       "peso_min": 4,   "peso_max": 5,   "precos": [6.55, 8.85, 10.25, 19.75, 22.85, 26.05, 29.25, 32.45], "valor_com_fg": 19.75},
+    {"nome": "De 5 a 6 kg",       "peso_min": 5,   "peso_max": 6,   "precos": [6.65, 8.95, 10.35, 25.95, 29.15, 33.35, 36.45, 40.85], "valor_com_fg": 25.95},
+    {"nome": "De 6 a 7 kg",       "peso_min": 6,   "peso_max": 7,   "precos": [6.75, 9.05, 10.45, 27.55, 31.65, 36.75, 40.85, 45.25], "valor_com_fg": 27.55},
+    {"nome": "De 7 a 8 kg",       "peso_min": 7,   "peso_max": 8,   "precos": [6.85, 9.25, 10.55, 29.45, 34.35, 39.25, 44.15, 49.35], "valor_com_fg": 29.45},
+    {"nome": "De 8 a 9 kg",       "peso_min": 8,   "peso_max": 9,   "precos": [6.95, 9.35, 10.65, 30.25, 35.25, 40.35, 45.35, 50.75], "valor_com_fg": 30.25},
+    {"nome": "De 9 a 10 kg",      "peso_min": 9,   "peso_max": 10,  "precos": [7.05, 9.45, 10.85, 38.25, 45.05, 51.95, 58.75, 65.85], "valor_com_fg": 38.25},
+    {"nome": "De 10 a 11 kg",     "peso_min": 10,  "peso_max": 11,  "precos": [7.05, 9.65, 11.05, 41.65, 48.55, 55.45, 62.35, 69.35], "valor_com_fg": 41.65},
+    {"nome": "De 11 a 13 kg",     "peso_min": 11,  "peso_max": 13,  "precos": [7.15, 10.05, 11.45, 42.55, 49.75, 56.85, 63.85, 70.95], "valor_com_fg": 42.55},
+    {"nome": "De 13 a 15 kg",     "peso_min": 13,  "peso_max": 15,  "precos": [7.25, 10.25, 11.65, 45.55, 52.95, 60.55, 68.15, 75.65], "valor_com_fg": 45.55},
+    {"nome": "De 15 a 17 kg",     "peso_min": 15,  "peso_max": 17,  "precos": [7.35, 10.45, 11.85, 48.95, 56.55, 64.05, 71.35, 79.35], "valor_com_fg": 48.95},
+    {"nome": "De 17 a 20 kg",     "peso_min": 17,  "peso_max": 20,  "precos": [7.45, 10.65, 12.05, 55.15, 64.35, 73.55, 82.75, 91.95], "valor_com_fg": 55.15},
+    {"nome": "De 20 a 25 kg",     "peso_min": 20,  "peso_max": 25,  "precos": [7.65, 11.05, 12.25, 64.55, 75.75, 85.45, 96.25, 106.85], "valor_com_fg": 64.55},
+    {"nome": "De 25 a 30 kg",     "peso_min": 25,  "peso_max": 30,  "precos": [7.75, 11.25, 12.45, 66.45, 76.05, 86.25, 97.15, 107.85], "valor_com_fg": 66.45},
+    {"nome": "De 30 a 40 kg",     "peso_min": 30,  "peso_max": 40,  "precos": [7.85, 11.45, 12.65, 68.35, 79.65, 89.75, 100.05, 107.95], "valor_com_fg": 68.35},
+    {"nome": "De 40 a 50 kg",     "peso_min": 40,  "peso_max": 50,  "precos": [7.95, 11.65, 12.85, 70.95, 81.85, 92.85, 103.45, 111.65], "valor_com_fg": 70.95},
+    {"nome": "De 50 a 60 kg",     "peso_min": 50,  "peso_max": 60,  "precos": [8.05, 11.85, 13.05, 75.55, 87.25, 99.05, 110.25, 119.05], "valor_com_fg": 75.55},
+    {"nome": "De 60 a 70 kg",     "peso_min": 60,  "peso_max": 70,  "precos": [8.15, 12.05, 13.25, 80.95, 93.75, 105.95, 118.05, 127.45], "valor_com_fg": 80.95},
+    {"nome": "De 70 a 80 kg",     "peso_min": 70,  "peso_max": 80,  "precos": [8.25, 12.25, 13.45, 84.65, 97.95, 110.75, 123.35, 133.15], "valor_com_fg": 84.65},
+    {"nome": "De 80 a 90 kg",     "peso_min": 80,  "peso_max": 90,  "precos": [8.35, 12.45, 13.65, 94.05, 108.35, 122.95, 136.95, 147.85], "valor_com_fg": 94.05},
+    {"nome": "De 90 a 100 kg",    "peso_min": 90,  "peso_max": 100, "precos": [8.45, 12.65, 13.85, 107.45, 124.85, 140.45, 156.45, 168.85], "valor_com_fg": 107.45},
+    {"nome": "De 100 a 125 kg",   "peso_min": 100, "peso_max": 125, "precos": [8.55, 12.85, 14.05, 120.15, 138.95, 156.95, 174.85, 188.85], "valor_com_fg": 120.15},
+    {"nome": "De 125 a 150 kg",   "peso_min": 125, "peso_max": 150, "precos": [8.65, 12.85, 14.25, 127.45, 147.05, 166.55, 185.55, 200.35], "valor_com_fg": 127.45},
+    {"nome": "Mais de 150 kg",    "peso_min": 150, "peso_max": None, "precos": [8.75, 12.85, 14.45, 167.05, 193.35, 218.45, 243.45, 262.85], "valor_com_fg": 167.05},
 ]
 
 # Faixas de preço na MESMA ordem das colunas de TABELA_FRETE["precos"] — limites explícitos
@@ -270,6 +270,24 @@ def calcular_gabarito_tabela_1(faixa_peso, faixa_preco, item_price):
         valor_com_teto = min(valor_nominal, item_price / 2)
         return valor_com_teto, (valor_com_teto != valor_nominal)
     return valor_nominal, False
+
+
+def calcular_gabarito_tabela_2(faixa_peso, item_price):
+    """Valor esperado pra Tabela 2 (com frete grátis rápido) — extraída por completo do doc
+    oficial do ML e consolidada em Tabela_Custos_Envios_Mercado_Livre.xlsx (Checkpoint Frente
+    A, Seção 14). Só existe como valor separado até R$78,99 (1 valor único pra toda essa
+    faixa de preço, independente de qual das 3 colunas — confirmado célula a célula na
+    extração); a partir de R$79 não existe 2ª tabela — o frete grátis rápido já vem embutido
+    na própria Tabela 1 (nota oficial do doc, Seção 8), então espelha o mesmo valor de
+    calcular_gabarito_tabela_1() pra essa faixa de peso/preço.
+
+    Diferente da Tabela 1, o teto de metade do preço NÃO se aplica aqui — confirmado por
+    teste controlado via API na Seção 11 (R$16,86 e R$18,21 bateram R$14,45 exato, sem
+    nenhum teto, apesar de ambos < R$19)."""
+    if item_price < Decimal('79'):
+        return Decimal(str(faixa_peso['valor_com_fg']))
+    faixa_preco = encontrar_faixa_preco(item_price)
+    return Decimal(str(faixa_peso['precos'][faixa_preco['indice_coluna']]))
 
 
 def montar_motivos(peso_fisico_kg, peso_cubado_kg, peso_faturavel_kg, faixa_peso, item_price, faixa_preco):
@@ -390,6 +408,7 @@ class ResultadoTesteCandidato:
     sem_fg_calculado_producao: Decimal | None
     sem_fg_producao_qtd_candidatos: int
     com_fg_obtido: Decimal | None
+    com_fg_esperado: Decimal | None
     com_fg_billable_weight_g: int | None
     com_fg_discount: dict | None
     erro: str | None
@@ -417,6 +436,16 @@ class ResultadoTesteCandidato:
         com a fronteira fechada-dos-2-lados de produção, num peso exatamente em cima de uma
         fronteira compartilhada."""
         return self.sem_fg_producao_qtd_candidatos > 1
+
+    @property
+    def com_fg_bate(self) -> bool | None:
+        """'Esperado (Tabela 2)' x 'Obtido (API, free_shipping=true)' — se a Tabela 2
+        extraída (Checkpoint Frente A, Seção 14/15) bate com o que a API realmente cobra.
+        Uma divergência aqui, com com_fg_discount mostrando rate=0.5, é candidata forte a ser
+        o desconto de 50% por reputação da Seção 12, ainda não totalmente mapeado."""
+        if self.com_fg_obtido is None or self.com_fg_esperado is None:
+            return None
+        return self.com_fg_obtido == self.com_fg_esperado
 
     @property
     def peso_faturavel_api_kg(self) -> Decimal | None:
@@ -593,7 +622,7 @@ for indice, candidato in enumerate(selecionados, start=1):
                 candidato=candidato, sem_fg_obtido=None, sem_fg_esperado=None,
                 sem_fg_teto_aplicado=False, sem_fg_billable_weight_g=None, sem_fg_discount=None,
                 sem_fg_calculado_producao=None, sem_fg_producao_qtd_candidatos=0,
-                com_fg_obtido=None, com_fg_billable_weight_g=None, com_fg_discount=None,
+                com_fg_obtido=None, com_fg_esperado=None, com_fg_billable_weight_g=None, com_fg_discount=None,
                 erro=str(erro),
             ))
             continue
@@ -608,6 +637,7 @@ for indice, candidato in enumerate(selecionados, start=1):
     sem_fg_calculado_producao, sem_fg_producao_qtd_candidatos = calcular_frete_producao_local(
         candidato.peso_faturavel_kg, candidato.item_price,
     )
+    com_fg_esperado = calcular_gabarito_tabela_2(candidato.faixa_peso, candidato.item_price)
 
     sem_fg_obtido = None
     sem_fg_billable_weight_g = None
@@ -642,7 +672,7 @@ for indice, candidato in enumerate(selecionados, start=1):
         sem_fg_billable_weight_g=sem_fg_billable_weight_g, sem_fg_discount=sem_fg_discount,
         sem_fg_calculado_producao=sem_fg_calculado_producao,
         sem_fg_producao_qtd_candidatos=sem_fg_producao_qtd_candidatos,
-        com_fg_obtido=com_fg_obtido,
+        com_fg_obtido=com_fg_obtido, com_fg_esperado=com_fg_esperado,
         com_fg_billable_weight_g=com_fg_billable_weight_g, com_fg_discount=com_fg_discount,
         erro=erro_candidato,
     )
@@ -669,7 +699,7 @@ for indice, candidato in enumerate(selecionados, start=1):
 
 # ---- Tabela final + resumo ----
 console.print()
-tabela_resultado = Table(title='Resultado da bateria — Esperado (tabela) x Calculado (produção, sem API) x Obtido (API)')
+tabela_resultado = Table(title='Resultado da bateria — Sem FG: Esperado x Produção x API | Com FG: Esperado x API')
 tabela_resultado.add_column('Motivo(s)')
 tabela_resultado.add_column('MLB')
 tabela_resultado.add_column('Tipo')
@@ -683,7 +713,9 @@ tabela_resultado.add_column('Calculado (produção)', justify='right')
 tabela_resultado.add_column('Prod. bate?', justify='center')
 tabela_resultado.add_column('Obtido (API)', justify='right')
 tabela_resultado.add_column('API bate?', justify='center')
-tabela_resultado.add_column('Com FG obtido (informativo)', justify='right')
+tabela_resultado.add_column('Esperado (Com FG)', justify='right')
+tabela_resultado.add_column('Obtido (Com FG)', justify='right')
+tabela_resultado.add_column('Com FG bate?', justify='center')
 
 for r in resultados:
     c = r.candidato
@@ -705,6 +737,13 @@ for r in resultados:
     if r.producao_ambigua:
         marca_producao += ' [bold yellow]⚠[/bold yellow]'
 
+    if r.com_fg_bate is True:
+        marca_com_fg = '[bold green]✓[/bold green]'
+    elif r.com_fg_bate is False:
+        marca_com_fg = '[bold red]✗[/bold red]'
+    else:
+        marca_com_fg = '[dim]—[/dim]'
+
     sem_fg_esperado_str = f'R$ {r.sem_fg_esperado}' if r.sem_fg_esperado is not None else '—'
     if r.sem_fg_teto_aplicado:
         sem_fg_esperado_str += ' (teto)'
@@ -712,6 +751,8 @@ for r in resultados:
     calculado_producao_str = f'R$ {r.sem_fg_calculado_producao}' if r.sem_fg_calculado_producao is not None else '—'
     if r.producao_ambigua:
         calculado_producao_str = f'[bold yellow]{calculado_producao_str} ({r.sem_fg_producao_qtd_candidatos}x)[/bold yellow]'
+
+    com_fg_esperado_str = f'R$ {r.com_fg_esperado}' if r.com_fg_esperado is not None else '—'
 
     peso_nosso_quantizado = c.peso_faturavel_kg.quantize(Decimal('0.001'))
     peso_api_str = f'{r.peso_faturavel_api_kg}' if r.peso_faturavel_api_kg is not None else '—'
@@ -729,7 +770,9 @@ for r in resultados:
         marca_producao,
         f'R$ {r.sem_fg_obtido}' if r.sem_fg_obtido is not None else '—',
         marca_api,
+        com_fg_esperado_str,
         f'R$ {r.com_fg_obtido}' if r.com_fg_obtido is not None else '—',
+        marca_com_fg,
         style=estilo,
     )
 console.print(tabela_resultado)
@@ -785,9 +828,27 @@ else:
     console.print('\n[green]Nenhuma divergência Esperado x Calculado (produção) — filtrar_faixas_frete() bateu '
                    'com a regra real em todos os candidatos testados.[/green]')
 
-console.print('\n[dim]"Com FG" é só informativo — ainda não temos a tabela completa de frete grátis pra comparar '
-              '(só a célula peso 0,5-1kg x preço 0-18,99 já foi confirmada, R$ 14,45). Ver Checkpoint Frente A, '
-              'Seção 14, pra trazer os 2 regimes pro banco.[/dim]')
+total_com_fg_com_resultado = sum(1 for r in resultados if r.com_fg_bate is not None)
+total_com_fg_bateu = sum(1 for r in resultados if r.com_fg_bate is True)
+divergencias_com_fg = [r for r in resultados if r.com_fg_bate is False]
+
+console.print(f'\n[bold]Esperado (Tabela 2) x Obtido (API, com FG):[/bold] '
+              f'{total_com_fg_bateu}/{total_com_fg_com_resultado} bateram.')
+
+if divergencias_com_fg:
+    console.print(f'\n[bold red]{len(divergencias_com_fg)} divergência(s) Esperado x Obtido (Com FG) — '
+                   f'possíveis pontos de quebra no regime de frete grátis:[/bold red]')
+    for r in divergencias_com_fg:
+        c = r.candidato
+        discount_str = f' — discount: {r.com_fg_discount}' if r.com_fg_discount else ' — sem discount na resposta'
+        console.print(f'  [red]MLB {c.mlb} — {c.faixa_peso["nome"]} x {c.faixa_preco["chave"]}: '
+                       f'obtido R$ {r.com_fg_obtido}, esperado R$ {r.com_fg_esperado}{discount_str}[/red]')
+else:
+    console.print('\n[green]Nenhuma divergência Esperado x Obtido (Com FG) — Tabela 2 extraída bate com a API '
+                   'em todos os candidatos testados.[/green]')
+
+console.print('\n[dim]Ver Checkpoint Frente A, Seções 14/15, pro contexto completo das Tabelas 1 e 2 e pra '
+              'decisão de arquitetura ainda pendente (qual regime a fórmula deve assumir pra produtos <R$79).[/dim]')
 
 # ---- Salva JSON com o detalhe completo ----
 
@@ -831,6 +892,8 @@ saida = {
             "sem_fg_producao_bate": r.sem_fg_producao_bate,
             "producao_ambigua": r.producao_ambigua,
             "com_fg_obtido": r.com_fg_obtido,
+            "com_fg_esperado": r.com_fg_esperado,
+            "com_fg_bate": r.com_fg_bate,
             "com_fg_billable_weight_g": r.com_fg_billable_weight_g,
             "com_fg_discount": r.com_fg_discount,
             "erro": r.erro,
