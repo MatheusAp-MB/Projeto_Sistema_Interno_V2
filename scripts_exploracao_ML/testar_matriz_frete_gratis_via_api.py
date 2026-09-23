@@ -240,11 +240,6 @@ for tipo_anuncio, tipo_label in TIPOS_ANUNCIO:
     mlb = variacao.anuncio.mlb
     item_price = variacao.preco_atual
 
-    if not (FAIXA_PRECO_VALIDA_DO_GABARITO[0] <= item_price <= FAIXA_PRECO_VALIDA_DO_GABARITO[1]):
-        console.print(f'[bold yellow]{tipo_label} (MLB {mlb}): preço atual R$ {item_price} está fora da '
-                       f'faixa R$0-18,99 — o gabarito (R$ 6,05 / R$ 14,45) não vale pra esse preço, '
-                       f'resultado só informativo, sem comparação.[/bold yellow]')
-
     try:
         resposta_item = chamar_api("GET", f"/items/{mlb}", pasta_logs=PASTA_LOGS, conta=CONTA,
                                     nome_log="testar_matriz_frete_gratis_via_api")
@@ -282,18 +277,31 @@ tabela_resultado.add_column('Esperado (gabarito)', justify='right')
 tabela_resultado.add_column('Bate?', justify='center')
 
 for r in resultados:
-    marca = '[bold green]✓[/bold green]' if r.bate else '[bold red]✗[/bold red]'
-    estilo = 'bold green' if r.bate else 'bold red'
+    if r.bate is None:
+        marca, estilo = '[dim]—[/dim]', 'dim'
+        esperado_str = '[dim]sem gabarito[/dim]'
+    elif r.bate:
+        marca, estilo = '[bold green]✓[/bold green]', 'bold green'
+        esperado_str = f'R$ {r.list_cost_esperado}'
+    else:
+        marca, estilo = '[bold red]✗[/bold red]', 'bold red'
+        esperado_str = f'R$ {r.list_cost_esperado}'
     tabela_resultado.add_row(
         r.tipo_label,
         'Sim' if r.frete_gratis else 'Não',
         f'R$ {r.item_price}',
         f'R$ {r.list_cost_obtido}',
-        f'R$ {r.list_cost_esperado}',
+        esperado_str,
         marca,
         style=estilo,
     )
 console.print(tabela_resultado)
 
-total_bateu = sum(1 for r in resultados if r.bate)
-console.print(f'\n[dim]{total_bateu}/{len(resultados)} combinações bateram com o gabarito.[/dim]')
+resultados_com_gabarito = [r for r in resultados if r.bate is not None]
+total_bateu = sum(1 for r in resultados_com_gabarito if r.bate)
+total_sem_gabarito = len(resultados) - len(resultados_com_gabarito)
+console.print(f'\n[dim]{total_bateu}/{len(resultados_com_gabarito)} combinações com gabarito informado '
+              f'bateram.[/dim]')
+if total_sem_gabarito:
+    console.print(f'[dim]{total_sem_gabarito} combinações exibidas sem gabarito (nenhum valor esperado '
+                  f'informado pra elas).[/dim]')
