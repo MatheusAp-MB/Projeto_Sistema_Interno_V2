@@ -86,7 +86,7 @@ django.setup()
 
 from core.empresa import definir_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from produtos.models import Produto
-from mercado_livre.models import VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre
+from mercado_livre.models import VariacaoAnuncioMercadoLivre, TipoDeAnuncioMercadoLivre, FreteML
 
 from rich.console import Console
 from rich.panel import Panel
@@ -125,6 +125,13 @@ EMPRESA_POR_PREFIXO = {'MB': EMPRESA_MAGAZINE, 'SV': EMPRESA_SAMVALE}
 definir_empresa_ativa(EMPRESA_POR_PREFIXO[CONTA])
 # * [EXPLICAÇÃO] → Mesmo motivo dos outros scripts: sem isso o Django cai no banco default,
 #                  e pra --empresa SV isso leria dado do MB silenciosamente.
+
+# * [EXPLICAÇÃO] → Carrega a FreteML REAL de produção 1x só, na mesma ordem que produção usa
+#                  (FreteML.Meta.ordering = ['peso_min', 'preco_min']) — é o dado que
+#                  calcular_frete_producao_local() abaixo consulta pra simular exatamente o
+#                  que filtrar_faixas_frete() (precificacao/funcoes_auxiliares/mercado_livre/
+#                  formula_precificacao.py) faria hoje, sem bater na API. Só leitura.
+FRETE_ML_TODAS = list(FreteML.objects.all())
 
 LIMITE_CANDIDATOS = args.limite
 MARGEM_BORDA_PESO_KG = args.margem_borda_peso_kg
@@ -225,6 +232,36 @@ def encontrar_faixa_preco(item_price):
     return None
 
 
+def calcular_frete_producao_local(peso_faturavel_kg, item_price):
+    """Reproduz EXATAMENTE a lógica de produção pra achar o frete local (SEM bater na API) —
+    mesma condição de filtrar_faixas_frete() (precificacao/funcoes_auxiliares/mercado_livre/
+    formula_precificacao.py, linha ~309): fronteira FECHADA NOS 2 LADOS
+    (peso_min <= peso <= peso_max), consultando FRETE_ML_TODAS na mesma ordem que
+    FreteML.Meta.ordering usa (peso_min, preco_min) — e pegando o 1º candidato que bate,
+    igual resolver_preco_por_margem() (goal_seek.py) faria ao testar essa faixa de preço.
+
+    Isso é DIFERENTE de propósito da fronteira de encontrar_faixa_peso() acima (fechada só
+    em cima, confirmada empiricamente na Seção 13 do Checkpoint Frente A) — aqui o objetivo
+    é ver o que a PRODUÇÃO faria hoje, não o que é certo. Quando o peso faturável cai
+    exatamente numa fronteira compartilhada (ex: 500g, 1.000g, 2.000g), essa condição
+    fechada dos 2 lados bate em MAIS DE 1 faixa de peso ao mesmo tempo — devolve o valor do
+    1º candidato (o que produção usaria) e a CONTAGEM de quantos bateram, pra expor a
+    ambiguidade quando acontecer (contagem > 1 é o sinal do bug de fronteira suspeitado na
+    Seção 14/Pendências do Checkpoint Frente A).
+
+    Retorna (valor_ou_None, quantidade_de_candidatos_que_bateram)."""
+    candidatos = [
+        f for f in FRETE_ML_TODAS
+        if f.peso_min <= peso_faturavel_kg
+        and (f.peso_max is None or f.peso_max >= peso_faturavel_kg)
+        and f.preco_min <= item_price
+        and (f.preco_max is None or f.preco_max >= item_price)
+    ]
+    if not candidatos:
+        return None, 0
+    return candidatos[0].valor, len(candidatos)
+
+
 def calcular_gabarito_tabela_1(faixa_peso, faixa_preco, item_price):
     """Valor esperado pra Tabela 1 (sem frete grátis), com o teto de metade do preço (regra
     oficial do doc, item_price < R$19) — devolve (valor_esperado, teto_foi_aplicado)."""
@@ -237,6 +274,15 @@ def calcular_gabarito_tabela_1(faixa_peso, faixa_preco, item_price):
 
 def montar_motivos(peso_fisico_kg, peso_cubado_kg, peso_faturavel_kg, faixa_peso, item_price, faixa_preco):
     motivos = []
+
+    if peso_faturavel_kg == Decimal(str(faixa_peso['peso_min'])) or (
+        faixa_peso['peso_max'] is not None and peso_faturavel_kg == Decimal(str(faixa_peso['peso_max']))
+    ):
+        # * [EXPLICAÇÃO] → peso EXATAMENTE em cima de uma fronteira compartilhada entre 2
+        #                  faixas — é o caso que expõe a ambiguidade de
+        #                  calcular_frete_producao_local() acima. Motivo mais forte que só
+        #                  "perto da borda".
+        motivos.append('peso_exato_na_fronteira')
 
     if (peso_faturavel_kg - Decimal(str(faixa_peso['peso_min']))) <= MARGEM_BORDA_PESO_KG:
         motivos.append('borda_peso_inferior')
@@ -341,6 +387,8 @@ class ResultadoTesteCandidato:
     sem_fg_teto_aplicado: bool
     sem_fg_billable_weight_g: int | None
     sem_fg_discount: dict | None
+    sem_fg_calculado_producao: Decimal | None
+    sem_fg_producao_qtd_candidatos: int
     com_fg_obtido: Decimal | None
     com_fg_billable_weight_g: int | None
     com_fg_discount: dict | None
@@ -348,9 +396,27 @@ class ResultadoTesteCandidato:
 
     @property
     def sem_fg_bate(self) -> bool | None:
+        """'Esperado (tabela)' x 'Obtido (API)' — se a API bate com a regra real."""
         if self.sem_fg_obtido is None or self.sem_fg_esperado is None:
             return None
         return self.sem_fg_obtido == self.sem_fg_esperado
+
+    @property
+    def sem_fg_producao_bate(self) -> bool | None:
+        """'Esperado (tabela)' x 'Calculado (produção, sem API)' — se o CÓDIGO DE PRODUÇÃO
+        (filtrar_faixas_frete(), sem bater na API) acha o mesmo valor que a regra real da
+        tabela. False aqui, com sem_fg_producao_qtd_candidatos > 1, é a confirmação empírica
+        do bug de fronteira suspeitado na Seção 14/Pendências do Checkpoint Frente A."""
+        if self.sem_fg_calculado_producao is None or self.sem_fg_esperado is None:
+            return None
+        return self.sem_fg_calculado_producao == self.sem_fg_esperado
+
+    @property
+    def producao_ambigua(self) -> bool:
+        """True quando mais de 1 linha de FreteML bateu pro mesmo peso/preço — só acontece
+        com a fronteira fechada-dos-2-lados de produção, num peso exatamente em cima de uma
+        fronteira compartilhada."""
+        return self.sem_fg_producao_qtd_candidatos > 1
 
     @property
     def peso_faturavel_api_kg(self) -> Decimal | None:
@@ -525,7 +591,10 @@ for indice, candidato in enumerate(selecionados, start=1):
             console.print(f'{prefixo}: [bold red]erro buscando category_id: {erro}[/bold red]')
             resultados.append(ResultadoTesteCandidato(
                 candidato=candidato, sem_fg_obtido=None, sem_fg_esperado=None,
-                sem_fg_teto_aplicado=False, com_fg_obtido=None, erro=str(erro),
+                sem_fg_teto_aplicado=False, sem_fg_billable_weight_g=None, sem_fg_discount=None,
+                sem_fg_calculado_producao=None, sem_fg_producao_qtd_candidatos=0,
+                com_fg_obtido=None, com_fg_billable_weight_g=None, com_fg_discount=None,
+                erro=str(erro),
             ))
             continue
 
@@ -536,6 +605,9 @@ for indice, candidato in enumerate(selecionados, start=1):
     )
 
     sem_fg_esperado, teto_aplicado = calcular_gabarito_tabela_1(candidato.faixa_peso, candidato.faixa_preco, candidato.item_price)
+    sem_fg_calculado_producao, sem_fg_producao_qtd_candidatos = calcular_frete_producao_local(
+        candidato.peso_faturavel_kg, candidato.item_price,
+    )
 
     sem_fg_obtido = None
     sem_fg_billable_weight_g = None
@@ -568,6 +640,8 @@ for indice, candidato in enumerate(selecionados, start=1):
         candidato=candidato, sem_fg_obtido=sem_fg_obtido, sem_fg_esperado=sem_fg_esperado,
         sem_fg_teto_aplicado=teto_aplicado,
         sem_fg_billable_weight_g=sem_fg_billable_weight_g, sem_fg_discount=sem_fg_discount,
+        sem_fg_calculado_producao=sem_fg_calculado_producao,
+        sem_fg_producao_qtd_candidatos=sem_fg_producao_qtd_candidatos,
         com_fg_obtido=com_fg_obtido,
         com_fg_billable_weight_g=com_fg_billable_weight_g, com_fg_discount=com_fg_discount,
         erro=erro_candidato,
@@ -581,9 +655,21 @@ for indice, candidato in enumerate(selecionados, start=1):
     else:
         console.print(f'{prefixo}: [yellow]erro ou sem resultado — {erro_candidato}[/yellow]')
 
+    if resultado.producao_ambigua:
+        console.print(
+            f'    [bold yellow]⚠ AMBÍGUO na produção: {resultado.sem_fg_producao_qtd_candidatos} '
+            f'faixas de FreteML bateram pra esse peso/preço (fronteira fechada nos 2 lados) — '
+            f'produção usaria R$ {resultado.sem_fg_calculado_producao}[/bold yellow]'
+        )
+    if resultado.sem_fg_producao_bate is False:
+        console.print(
+            f'    [bold red]⚠ PRODUÇÃO DIVERGE do esperado: calculado (produção) '
+            f'= R$ {resultado.sem_fg_calculado_producao}, esperado (tabela) = R$ {sem_fg_esperado}[/bold red]'
+        )
+
 # ---- Tabela final + resumo ----
 console.print()
-tabela_resultado = Table(title='Resultado da bateria — list_cost via API x tabela real de frete')
+tabela_resultado = Table(title='Resultado da bateria — Esperado (tabela) x Calculado (produção, sem API) x Obtido (API)')
 tabela_resultado.add_column('Motivo(s)')
 tabela_resultado.add_column('MLB')
 tabela_resultado.add_column('Tipo')
@@ -592,25 +678,40 @@ tabela_resultado.add_column('Peso fat. nosso (kg)', justify='right')
 tabela_resultado.add_column('Peso fat. API (kg)', justify='right')
 tabela_resultado.add_column('Faixa de preço')
 tabela_resultado.add_column('Preço', justify='right')
-tabela_resultado.add_column('Sem FG obtido', justify='right')
-tabela_resultado.add_column('Sem FG esperado', justify='right')
-tabela_resultado.add_column('Bate?', justify='center')
+tabela_resultado.add_column('Esperado (tabela)', justify='right')
+tabela_resultado.add_column('Calculado (produção)', justify='right')
+tabela_resultado.add_column('Prod. bate?', justify='center')
+tabela_resultado.add_column('Obtido (API)', justify='right')
+tabela_resultado.add_column('API bate?', justify='center')
 tabela_resultado.add_column('Com FG obtido (informativo)', justify='right')
 
 for r in resultados:
     c = r.candidato
     if r.erro:
-        marca, estilo = '[bold red]erro[/bold red]', 'red'
+        marca_api, estilo = '[bold red]erro[/bold red]', 'red'
     elif r.sem_fg_bate is True:
-        marca, estilo = '[bold green]✓[/bold green]', 'bold green'
+        marca_api, estilo = '[bold green]✓[/bold green]', 'bold green'
     elif r.sem_fg_bate is False:
-        marca, estilo = '[bold red]✗[/bold red]', 'bold red'
+        marca_api, estilo = '[bold red]✗[/bold red]', 'bold red'
     else:
-        marca, estilo = '[dim]—[/dim]', 'dim'
+        marca_api, estilo = '[dim]—[/dim]', 'dim'
+
+    if r.sem_fg_producao_bate is True:
+        marca_producao = '[bold green]✓[/bold green]'
+    elif r.sem_fg_producao_bate is False:
+        marca_producao = '[bold red]✗[/bold red]'
+    else:
+        marca_producao = '[dim]—[/dim]'
+    if r.producao_ambigua:
+        marca_producao += ' [bold yellow]⚠[/bold yellow]'
 
     sem_fg_esperado_str = f'R$ {r.sem_fg_esperado}' if r.sem_fg_esperado is not None else '—'
     if r.sem_fg_teto_aplicado:
         sem_fg_esperado_str += ' (teto)'
+
+    calculado_producao_str = f'R$ {r.sem_fg_calculado_producao}' if r.sem_fg_calculado_producao is not None else '—'
+    if r.producao_ambigua:
+        calculado_producao_str = f'[bold yellow]{calculado_producao_str} ({r.sem_fg_producao_qtd_candidatos}x)[/bold yellow]'
 
     peso_nosso_quantizado = c.peso_faturavel_kg.quantize(Decimal('0.001'))
     peso_api_str = f'{r.peso_faturavel_api_kg}' if r.peso_faturavel_api_kg is not None else '—'
@@ -623,9 +724,11 @@ for r in resultados:
         peso_api_str,
         c.faixa_preco['chave'],
         f'R$ {c.item_price}',
-        f'R$ {r.sem_fg_obtido}' if r.sem_fg_obtido is not None else '—',
         sem_fg_esperado_str,
-        marca,
+        calculado_producao_str,
+        marca_producao,
+        f'R$ {r.sem_fg_obtido}' if r.sem_fg_obtido is not None else '—',
+        marca_api,
         f'R$ {r.com_fg_obtido}' if r.com_fg_obtido is not None else '—',
         style=estilo,
     )
@@ -698,6 +801,10 @@ saida = {
             "sem_fg_bate": r.sem_fg_bate,
             "sem_fg_billable_weight_g": r.sem_fg_billable_weight_g,
             "sem_fg_discount": r.sem_fg_discount,
+            "sem_fg_calculado_producao": r.sem_fg_calculado_producao,
+            "sem_fg_producao_qtd_candidatos": r.sem_fg_producao_qtd_candidatos,
+            "sem_fg_producao_bate": r.sem_fg_producao_bate,
+            "producao_ambigua": r.producao_ambigua,
             "com_fg_obtido": r.com_fg_obtido,
             "com_fg_billable_weight_g": r.com_fg_billable_weight_g,
             "com_fg_discount": r.com_fg_discount,
