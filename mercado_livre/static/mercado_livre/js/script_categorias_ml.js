@@ -56,3 +56,15 @@ function recolherTudoCategorias() {
         if (chevron) chevron.classList.remove('aberto');
     });
 }
+
+// * [EXPLICAÇÃO] → "pageshow" com persisted=true dispara quando o
+//                  navegador restaura a página pelo botão Voltar sem
+//                  recarregar do servidor (bfcache) — é por isso que
+//                  um card expandido "sobrevivia" ao sair e voltar.
+//                  Recolhe tudo de novo nesse caso, pra a tela sempre
+//                  começar retraída.
+window.addEventListener('pageshow', function (evento) {
+    if (evento.persisted) {
+        recolherTudoCategorias();
+    }
+});

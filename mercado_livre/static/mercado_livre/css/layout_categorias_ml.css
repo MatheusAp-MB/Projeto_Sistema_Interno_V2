@@ -1,14 +1,14 @@
 /* mercado_livre/static/mercado_livre/css/layout_categorias_ml.css
  *
- * * [RESUMO] → Reescrita completa. A versão anterior usava --navy-deep,
- *              uma variável que só existe no :root de layout_hub_anuncios.css
- *              — essa tela nunca carrega aquele arquivo, então a maioria
- *              dos cards ficava sem cor de fundo (texto branco sobre
- *              fundo branco). Aqui só se usa: (a) tokens de
- *              layout_global.css, que é carregado em toda página; (b)
- *              tokens próprios, prefixados --cat-, definidos abaixo, que
- *              só essa tela usa — sem depender de CSS de nenhuma outra
- *              tela.
+ * * [RESUMO] → 2ª reescrita. A 1ª usava grid de várias colunas com um
+ *              painel "grid-column: 1/-1" encaixado no meio — isso
+ *              quebra a fileira onde quer que o card expandido esteja,
+ *              e tudo que vem depois pula de posição (parecia que
+ *              tinha saído do grupo). Trocado por lista de 1 coluna
+ *              só: cada categoria é uma linha inteira, expandir só
+ *              empurra o que vem DEPOIS pra baixo — nunca reorganiza o
+ *              que já estava acima. Também dá muito mais largura por
+ *              linha, o que resolve os cards de detalhe espremidos.
  */
 :root {
     --cat-fundo-elevado: #f4f6fa;
@@ -45,36 +45,45 @@
 .secao-titulo h2 { font-size: 18px; margin: 0; }
 .contagem { color: var(--cor-texto-muted); font-size: 13px; }
 
+/* Lista de 1 coluna — cada categoria é uma linha inteira, sempre na
+   mesma ordem. Sem grid, sem "fileira" pra quebrar. */
 .grade-categorias {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .cartao-cat {
-    text-align: left; background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px;
-    padding: 13px 15px; cursor: pointer; box-shadow: var(--cat-sombra); display: flex; flex-direction: column;
-    gap: 5px; width: 100%; font-family: inherit; transition: box-shadow .15s ease, border-color .15s ease;
+    display: flex; align-items: center; gap: 10px;
+    text-align: left; background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 8px;
+    padding: 10px 14px; cursor: pointer; width: 100%; font-family: inherit;
+    transition: box-shadow .15s ease, border-color .15s ease, background .15s ease;
 }
-.cartao-cat:hover { box-shadow: var(--cat-sombra-hover); border-color: var(--cor-primaria-clara); }
+.cartao-cat:hover { border-color: var(--cor-primaria-clara); box-shadow: var(--cat-sombra); }
 .cartao-cat.expandido {
-    border-color: var(--cor-primaria-clara);
-    background: color-mix(in srgb, var(--cor-primaria-clara) 8%, var(--cor-fundo-card));
+    border-color: var(--cor-primaria);
+    background: color-mix(in srgb, var(--cor-primaria-clara) 12%, var(--cor-fundo-card));
     box-shadow: var(--cat-sombra-hover);
 }
-.linha-cabecalho-cartao { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.cartao-cat .nome { font-weight: 600; font-size: 15px; }
-.cartao-cat .meta { font-size: 12.5px; color: var(--cor-texto-muted); }
-.chevron { color: var(--cor-texto-muted); font-size: 17px; line-height: 1; transition: transform .15s ease, color .15s ease; flex: none; }
-.chevron.aberto { transform: rotate(90deg); color: var(--cor-primaria-clara); }
+.cartao-cat .nome {
+    font-weight: 600; font-size: 14.5px; flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cartao-cat .meta {
+    font-size: 12px; color: var(--cor-texto-muted); flex: none; white-space: nowrap;
+    background: var(--cat-fundo-elevado); border-radius: 999px; padding: 3px 10px;
+}
+/* Folha (tem detalhe pra ver) x galho (tem subcategoria) — cor
+   diferente pra dar pra saber sem precisar ler o texto da pastilha. */
+.cartao-cat .meta.meta-folha {
+    color: var(--cor-positivo); font-weight: 600;
+    background: var(--cat-positivo-fundo);
+}
+.chevron { color: var(--cor-texto-muted); font-size: 16px; line-height: 1; transition: transform .15s ease, color .15s ease; flex: none; }
+.chevron.aberto { transform: rotate(90deg); color: var(--cor-primaria); }
 
-/* * [EXPLICAÇÃO] → Cada grupo de filhos é uma FAIXA recuada (barra
-   colorida à esquerda + fundo com leve tingimento), não uma caixa
-   fechada tipo card-dentro-de-card — fica mais claro que é "conteúdo
-   de dentro" do card acima, mesmo com vários grupos abertos na tela
-   ao mesmo tempo. data-nivel-filhos controla a cor/tingimento: quanto
-   mais fundo na árvore, mais forte fica — dá pra "sentir" a
-   profundidade só de bater o olho, sem precisar ler nada. */
 .grupo-filhos {
-    grid-column: 1 / -1; margin: 4px 0 6px; padding: 12px 14px 14px 16px;
+    margin: 4px 0 8px; padding: 12px 14px 12px 16px;
     border-left: 4px solid var(--cor-primaria-clara);
     border-radius: 0 8px 8px 0;
     background: var(--cat-fundo-elevado);
@@ -83,30 +92,35 @@
 .carregando-filhos { margin: 0; color: var(--cor-texto-muted); font-size: 13px; }
 
 .grupo-filhos-rotulo {
-    font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em;
-    color: var(--cor-texto-muted); margin-bottom: 8px;
+    display: inline-block;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700;
+    color: var(--cor-primaria-escura);
+    background: color-mix(in srgb, var(--cor-primaria-clara) 22%, var(--cor-fundo-card));
+    border-radius: 999px; padding: 3px 10px;
+    margin-bottom: 10px;
 }
-.grupo-filhos-rotulo strong { color: var(--cor-primaria-escura); font-weight: 700; }
 
+/* Quanto mais fundo, mais forte o tingimento — dá pra "sentir" a
+   profundidade batendo o olho. */
 .grupo-filhos[data-nivel-filhos="2"] {
     border-left-color: var(--cor-primaria-clara);
-    background: color-mix(in srgb, var(--cor-primaria-clara) 7%, var(--cor-fundo-pagina));
+    background: color-mix(in srgb, var(--cor-primaria-clara) 10%, var(--cor-fundo-pagina));
 }
 .grupo-filhos[data-nivel-filhos="3"] {
     border-left-color: var(--cor-primaria);
-    background: color-mix(in srgb, var(--cor-primaria-clara) 13%, var(--cor-fundo-pagina));
+    background: color-mix(in srgb, var(--cor-primaria-clara) 18%, var(--cor-fundo-pagina));
 }
 .grupo-filhos[data-nivel-filhos="4"],
 .grupo-filhos[data-nivel-filhos="5"],
 .grupo-filhos[data-nivel-filhos="6"] {
     border-left-color: var(--cor-primaria-escura);
-    background: color-mix(in srgb, var(--cor-primaria-clara) 20%, var(--cor-fundo-pagina));
+    background: color-mix(in srgb, var(--cor-primaria-clara) 26%, var(--cor-fundo-pagina));
 }
 
 .resultados-busca { display: flex; flex-direction: column; gap: 6px; }
 .item-busca {
     display: flex; align-items: center; gap: 12px; background: var(--cor-fundo-card);
-    border: 1px solid var(--cor-borda); border-radius: 10px; padding: 11px 14px; cursor: pointer;
+    border: 1px solid var(--cor-borda); border-radius: 8px; padding: 11px 14px; cursor: pointer;
 }
 .item-busca:hover { border-color: var(--cor-primaria-clara); background: var(--cat-fundo-elevado); }
 .item-busca .nome { font-weight: 600; font-size: 14.5px; display: block; }
@@ -127,14 +141,18 @@
 
 .id-categoria { font-size: 12px; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; margin-bottom: 10px; }
 
-.grade-detalhe { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.grade-detalhe { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
 .cartao { background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; padding: 14px 16px; }
 .cartao h3 { font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--cor-texto-muted); margin: 0 0 10px; }
-.linha-campo { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--cor-borda); font-size: 13.5px; }
+
+/* Rótulo em cima, valor embaixo — nunca mais divide espaço com o
+   rótulo na mesma linha, então um valor comprido (tipo um domínio de
+   catálogo) nunca fica espremido, seja qual for a largura do card. */
+.linha-campo { display: flex; flex-direction: column; gap: 2px; padding: 7px 0; border-bottom: 1px solid var(--cor-borda); font-size: 13.5px; }
 .linha-campo.sem-borda { border-bottom: none; padding-bottom: 0; }
 .linha-campo:last-child { border-bottom: none; }
-.linha-campo .rotulo { color: var(--cor-texto-muted); }
-.linha-campo .valor { font-weight: 600; text-align: right; }
+.linha-campo .rotulo { color: var(--cor-texto-muted); font-size: 12px; }
+.linha-campo .valor { font-weight: 600; overflow-wrap: anywhere; }
 
 .badges-linha { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--cor-borda); color: var(--cor-texto-muted); }
@@ -142,7 +160,7 @@
 .badge.nao { color: var(--cor-negativo); border-color: transparent; background: var(--cat-negativo-fundo); }
 
 .cartao-comissao {
-    grid-column: 1 / -1; border-style: dashed; opacity: .92;
+    border-style: dashed; opacity: .92;
     display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
 }
 .cartao-comissao .texto h3 { margin-bottom: 4px; }
@@ -153,6 +171,6 @@
 }
 
 @media (max-width: 480px) {
-    .grupo-filhos { padding-left: 12px; }
     .categorias-busca-wrap { max-width: none; }
+    .cartao-cat .nome { font-size: 14px; }
 }

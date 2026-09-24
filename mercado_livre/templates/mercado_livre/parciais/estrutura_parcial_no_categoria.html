@@ -4,13 +4,11 @@
         hx-swap="innerHTML"
         hx-trigger="click once"
         onclick="alternarCategoria(this)">
-    <span class="linha-cabecalho-cartao">
-        <span class="nome">{{ categoria.nome }}</span>
-        <span class="chevron">›</span>
-    </span>
-    <span class="meta">
+    <span class="nome">{{ categoria.nome }}</span>
+    <span class="meta{% if categoria.e_folha %} meta-folha{% endif %}">
         {% if categoria.e_folha %}ver regras e limites{% else %}{{ categoria.total_filhos }} subcategoria{{ categoria.total_filhos|pluralize }}{% endif %}
     </span>
+    <span class="chevron">›</span>
 </button>
 <div class="grupo-filhos" id="fc-{{ categoria.category_id }}" data-nivel-filhos="{{ categoria.nivel|add:1 }}" hidden>
     <p class="carregando-filhos">Carregando...</p>
