@@ -1,18 +1,17 @@
-<details class="categoria-no{% if no.e_folha %} categoria-no-folha{% endif %}">
-    <summary class="categoria-no-cabecalho">
-        <span class="categoria-no-nome">{{ no.nome }}</span>
-        <span class="categoria-no-id">{{ no.category_id }}</span>
-        {% if no.e_folha %}
-            <span class="categoria-badge-folha">folha</span>
-        {% else %}
-            <span class="categoria-badge-contagem">{{ no.filhos_carregados|length }} subcategoria{{ no.filhos_carregados|length|pluralize }}</span>
-        {% endif %}
-    </summary>
-    {% if no.filhos_carregados %}
-        <div class="categoria-no-filhos">
-            {% for filho in no.filhos_carregados %}
-                {% include 'mercado_livre/parciais/estrutura_parcial_no_categoria.html' with no=filho %}
-            {% endfor %}
-        </div>
-    {% endif %}
-</details>
+<button type="button" class="cartao-cat" data-card-id="{{ categoria.category_id }}"
+        hx-get="{% url 'mercado_livre_categorias_filhos' categoria.category_id %}"
+        hx-target="#fc-{{ categoria.category_id }}"
+        hx-swap="innerHTML"
+        hx-trigger="click once"
+        onclick="alternarCategoria(this)">
+    <span class="linha-cabecalho-cartao">
+        <span class="nome">{{ categoria.nome }}</span>
+        <span class="chevron">›</span>
+    </span>
+    <span class="meta">
+        {% if categoria.e_folha %}ver regras e limites{% else %}{{ categoria.total_filhos }} subcategoria{{ categoria.total_filhos|pluralize }}{% endif %}
+    </span>
+</button>
+<div class="grupo-filhos" id="fc-{{ categoria.category_id }}" data-nivel-filhos="{{ categoria.nivel|add:1 }}" hidden>
+    <p class="carregando-filhos">Carregando...</p>
+</div>

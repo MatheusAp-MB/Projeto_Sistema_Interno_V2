@@ -1,0 +1,55 @@
+<div class="id-categoria">{{ categoria.category_id }}</div>
+<div class="grade-detalhe">
+    <div class="cartao">
+        <h3>Regras de publicação</h3>
+        <div class="linha-campo">
+            <span class="rotulo">Aceita novo anúncio</span>
+            <span class="valor">
+                {% if categoria.aceita_novo_anuncio %}<span class="badge sim">Sim</span>{% else %}<span class="badge nao">Não</span>{% endif %}
+            </span>
+        </div>
+        <div class="linha-campo">
+            <span class="rotulo">Status</span>
+            <span class="valor">{{ categoria.status_categoria|default:"—" }}</span>
+        </div>
+        <div class="linha-campo">
+            <span class="rotulo">Tipo de atributos</span>
+            <span class="valor">
+                {% if categoria.tipo_atributos == 'variations' %}Variações{% elif categoria.tipo_atributos == 'attributes' %}Atributos{% elif categoria.tipo_atributos == 'none' %}Nenhum{% else %}{{ categoria.tipo_atributos|default:"—" }}{% endif %}
+            </span>
+        </div>
+        {% if categoria.condicoes_aceitas %}
+        <div class="linha-campo sem-borda"><span class="rotulo">Condições aceitas</span></div>
+        <div class="badges-linha">
+            {% for condicao in categoria.condicoes_aceitas %}
+                <span class="badge">{% if condicao == 'new' %}Novo{% elif condicao == 'used' %}Usado{% elif condicao == 'not_specified' %}Não especificado{% else %}{{ condicao }}{% endif %}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="cartao">
+        <h3>Faixa de preço</h3>
+        <div class="linha-campo"><span class="rotulo">Mínimo</span><span class="valor">{% if categoria.preco_minimo %}R$ {{ categoria.preco_minimo|floatformat:2 }}{% else %}sem limite definido{% endif %}</span></div>
+        <div class="linha-campo"><span class="rotulo">Máximo</span><span class="valor">{% if categoria.preco_maximo %}R$ {{ categoria.preco_maximo|floatformat:2 }}{% else %}sem limite definido{% endif %}</span></div>
+        <div class="linha-campo"><span class="rotulo">Domínio de catálogo</span><span class="valor">{{ categoria.catalog_domain|default:"—" }}</span></div>
+    </div>
+
+    <div class="cartao">
+        <h3>Limites de conteúdo</h3>
+        <div class="linha-campo"><span class="rotulo">Título</span><span class="valor">{% if categoria.limite_titulo %}{{ categoria.limite_titulo }} caracteres{% else %}—{% endif %}</span></div>
+        <div class="linha-campo"><span class="rotulo">Subtítulo</span><span class="valor">{% if categoria.limite_subtitulo %}{{ categoria.limite_subtitulo }} caracteres{% else %}—{% endif %}</span></div>
+        <div class="linha-campo"><span class="rotulo">Descrição</span><span class="valor">{% if categoria.limite_descricao %}{{ categoria.limite_descricao }} caracteres{% else %}—{% endif %}</span></div>
+        <div class="linha-campo"><span class="rotulo">Fotos por item</span><span class="valor">{{ categoria.limite_fotos|default:"—" }}</span></div>
+        <div class="linha-campo"><span class="rotulo">Fotos por variação</span><span class="valor">{{ categoria.limite_fotos_variacao|default:"—" }}</span></div>
+        <div class="linha-campo"><span class="rotulo">Variações máximas</span><span class="valor">{{ categoria.limite_variacoes|default:"—" }}</span></div>
+    </div>
+
+    <div class="cartao cartao-comissao">
+        <div class="texto">
+            <h3>Comissão aplicada</h3>
+            <p>Ainda não coletado. Depende da integração com o cache de comissão real por categoria (próximo bloco do checkpoint).</p>
+        </div>
+        <span class="badge-futuro">Em breve</span>
+    </div>
+</div>

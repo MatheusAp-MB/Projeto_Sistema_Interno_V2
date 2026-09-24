@@ -1,0 +1,5 @@
+<div class="secao-titulo">
+    <h2>Categorias raiz</h2>
+    <span class="contagem">{{ categorias|length }} categorias</span>
+</div>
+{% include 'mercado_livre/parciais/estrutura_parcial_grade_categorias.html' with categorias=categorias %}

@@ -101,29 +101,106 @@ def view_hub_anuncios(request):
 
 
 def view_categorias_ml(request):
-    from collections import defaultdict
+    from django.db.models import Count
     from mercado_livre.models import CategoriaMercadoLivre
 
-    todas = list(CategoriaMercadoLivre.objects.all())
-
-    filhos_por_pai = defaultdict(list)
-    raizes = []
-    for categoria in todas:
-        if categoria.categoria_pai_id:
-            filhos_por_pai[categoria.categoria_pai_id].append(categoria)
-        else:
-            raizes.append(categoria)
-
-    for categoria in todas:
-        categoria.filhos_carregados = sorted(
-            filhos_por_pai.get(categoria.category_id, []), key=lambda c: c.nome
-        )
-
-    raizes.sort(key=lambda c: c.nome)
+    raizes = list(
+        CategoriaMercadoLivre.objects.filter(categoria_pai__isnull=True)
+        .annotate(total_filhos=Count('filhos'))
+        .order_by('nome')
+    )
+    total_categorias = CategoriaMercadoLivre.objects.count()
 
     return render(request, 'mercado_livre/estrutura_categorias_ml.html', {
         'raizes': raizes,
-        'total_categorias': len(todas),
+        'total_categorias': total_categorias,
+    })
+
+
+def view_categorias_filhos(request, category_id):
+    from django.http import Http404
+    from django.db.models import Count
+    from mercado_livre.models import CategoriaMercadoLivre
+
+    try:
+        categoria = CategoriaMercadoLivre.objects.get(pk=category_id)
+    except CategoriaMercadoLivre.DoesNotExist:
+        raise Http404
+
+    # * [EXPLICAÇÃO] → Endpoint HTMX chamado quando o card é clicado
+    #                  (hx-trigger="click once" — só busca 1 vez, o
+    #                  JS cuida de abrir/fechar depois sem novo request).
+    #                  Categoria folha não tem filho: devolve o painel
+    #                  de detalhe em vez de uma grade vazia.
+    if categoria.e_folha:
+        return render(request, 'mercado_livre/parciais/estrutura_parcial_detalhe_categoria.html', {
+            'categoria': categoria,
+        })
+
+    filhos = categoria.filhos.annotate(total_filhos=Count('filhos')).order_by('nome')
+    return render(request, 'mercado_livre/parciais/estrutura_parcial_grade_categorias.html', {
+        'categorias': filhos,
+        'categoria_pai_nome': categoria.nome,
+    })
+
+
+def view_categorias_buscar(request):
+    from django.db.models import Count
+    from mercado_livre.models import CategoriaMercadoLivre
+
+    termo = request.GET.get('q', '').strip()
+
+    # * [EXPLICAÇÃO] → Sem termo (campo vazio, inclusive depois de
+    #                  apagar tudo que foi digitado), devolve a mesma
+    #                  grade de raízes da carga inicial — o HTMX troca
+    #                  #categorias-conteudo de volta pro estado normal.
+    if not termo:
+        raizes = list(
+            CategoriaMercadoLivre.objects.filter(categoria_pai__isnull=True)
+            .annotate(total_filhos=Count('filhos'))
+            .order_by('nome')
+        )
+        return render(request, 'mercado_livre/parciais/estrutura_parcial_conteudo_raizes.html', {
+            'categorias': raizes,
+        })
+
+    resultados = list(
+        CategoriaMercadoLivre.objects.filter(nome__icontains=termo).order_by('nome')[:20]
+    )
+    return render(request, 'mercado_livre/parciais/estrutura_parcial_resultados_busca.html', {
+        'termo': termo,
+        'resultados': resultados,
+    })
+
+
+def view_categorias_resultado(request, category_id):
+    from django.http import Http404
+    from django.db.models import Count
+    from mercado_livre.models import CategoriaMercadoLivre
+
+    try:
+        categoria = CategoriaMercadoLivre.objects.get(pk=category_id)
+    except CategoriaMercadoLivre.DoesNotExist:
+        raise Http404
+
+    # * [EXPLICAÇÃO] → Sobe a árvore pelo categoria_pai até a raiz —
+    #                  no máximo uns 5-6 hops (profundidade real da
+    #                  árvore do ML), sem problema rodar isso só quando
+    #                  o usuário abre 1 categoria específica.
+    trilha = []
+    no = categoria
+    while no:
+        trilha.insert(0, no)
+        no = no.categoria_pai
+
+    filhos = None
+    if not categoria.e_folha:
+        filhos = categoria.filhos.annotate(total_filhos=Count('filhos')).order_by('nome')
+
+    return render(request, 'mercado_livre/parciais/estrutura_parcial_resultado_categoria.html', {
+        'categoria': categoria,
+        'trilha': trilha,
+        'filhos': filhos,
     })
 
 

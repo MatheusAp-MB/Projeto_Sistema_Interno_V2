@@ -1,0 +1,23 @@
+<div class="secao-titulo">
+    <h2>{{ categoria.nome }}</h2>
+</div>
+<nav class="trilha-resultado">
+    <a href="{% url 'mercado_livre_categorias' %}">Categorias</a>
+    {% for ancestro in trilha %}
+        <span class="sep">›</span>
+        {% if forloop.last %}
+            <span class="atual">{{ ancestro.nome }}</span>
+        {% else %}
+            <span class="link-trilha"
+                  hx-get="{% url 'mercado_livre_categorias_resultado' ancestro.category_id %}"
+                  hx-target="#categorias-conteudo"
+                  hx-swap="innerHTML">{{ ancestro.nome }}</span>
+        {% endif %}
+    {% endfor %}
+</nav>
+
+{% if categoria.e_folha %}
+    {% include 'mercado_livre/parciais/estrutura_parcial_detalhe_categoria.html' with categoria=categoria %}
+{% else %}
+    {% include 'mercado_livre/parciais/estrutura_parcial_grade_categorias.html' with categorias=filhos %}
+{% endif %}

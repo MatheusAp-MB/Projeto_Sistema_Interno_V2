@@ -1,0 +1,22 @@
+<div class="secao-titulo">
+    <h2>Resultados para "{{ termo }}"</h2>
+    <span class="contagem">{{ resultados|length }} encontrada{{ resultados|length|pluralize }}</span>
+</div>
+{% if resultados %}
+<div class="resultados-busca">
+    {% for r in resultados %}
+        <div class="item-busca"
+             hx-get="{% url 'mercado_livre_categorias_resultado' r.category_id %}"
+             hx-target="#categorias-conteudo"
+             hx-swap="innerHTML">
+            <span>
+                <span class="nome">{{ r.nome }}</span>
+                <span class="trilha">{{ r.caminho_completo }}</span>
+            </span>
+            <span class="seta">→</span>
+        </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="sem-resultado">Nenhuma categoria encontrada com esse termo.</div>
+{% endif %}

@@ -7,10 +7,30 @@
           href="{% static 'mercado_livre/css/layout_categorias_ml.css' %}">
 {% endblock %}
 {% block conteudo %}
-    <p class="categorias-contador">{{ total_categorias }} categorias carregadas — {{ raizes|length }} categorias raiz.</p>
-    <div class="categorias-arvore">
-        {% for raiz in raizes %}
-            {% include 'mercado_livre/parciais/estrutura_parcial_no_categoria.html' with no=raiz %}
-        {% endfor %}
+    <div class="categorias-topo">
+        <p class="categorias-subtitulo">Expanda uma categoria para ver as subcategorias ou os detalhes, sem sair da página — ou busque pelo nome.</p>
+        <div class="categorias-linha-acoes">
+            <div class="categorias-stats">
+                <span class="categorias-pill">{{ raizes|length }} categorias raiz</span>
+                <span class="categorias-pill">{{ total_categorias }} categorias sincronizadas</span>
+            </div>
+            <button type="button" class="btn-recolher" onclick="recolherTudoCategorias()">Recolher tudo</button>
+        </div>
+        <div class="categorias-busca-wrap">
+            <input type="text" id="categorias-busca" name="q"
+                   placeholder="Buscar categoria (ex.: colchão, celular...)"
+                   autocomplete="off"
+                   hx-get="{% url 'mercado_livre_categorias_buscar' %}"
+                   hx-trigger="input changed delay:300ms, search"
+                   hx-target="#categorias-conteudo"
+                   hx-swap="innerHTML">
+        </div>
     </div>
+
+    <div id="categorias-conteudo">
+        {% include 'mercado_livre/parciais/estrutura_parcial_conteudo_raizes.html' with categorias=raizes %}
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'mercado_livre/js/script_categorias_ml.js' %}"></script>
 {% endblock %}

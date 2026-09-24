@@ -1,0 +1,8 @@
+{% if categoria_pai_nome %}
+<div class="grupo-filhos-rotulo">Subcategorias de <strong>{{ categoria_pai_nome }}</strong></div>
+{% endif %}
+<div class="grade-categorias">
+    {% for categoria in categorias %}
+        {% include 'mercado_livre/parciais/estrutura_parcial_no_categoria.html' with categoria=categoria %}
+    {% endfor %}
+</div>
