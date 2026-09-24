@@ -41,7 +41,7 @@ CAMPOS_ATUALIZAVEIS = [
     "condicoes_aceitas", "preco_minimo", "preco_maximo", "vertical",
     "limite_titulo", "limite_subtitulo", "limite_descricao",
     "limite_fotos", "limite_fotos_variacao", "limite_variacoes",
-    "catalog_domain",
+    "catalog_domain", "atualizado_em",
 ]
 
 

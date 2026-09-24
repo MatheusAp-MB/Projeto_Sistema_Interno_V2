@@ -11,3 +11,4 @@ from .configuracao_mercado_livre import (
 )
 from .promocao_mercado_livre import PromocaoMercadoLivre
 from .recomendacao_precificacao import RecomendacaoPrecificacao
+from .categoria import CategoriaMercadoLivre, EstadoDumpCategoriasMercadoLivre
