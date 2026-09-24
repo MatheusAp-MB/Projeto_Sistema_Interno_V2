@@ -1,0 +1,69 @@
+.categorias-contador {
+    font-size: 0.85rem;
+    color: #556;
+    margin-bottom: 14px;
+}
+
+.categorias-arvore {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.categoria-no {
+    border: 1px solid #dde3ec;
+    border-radius: 6px;
+    background: #fff;
+    margin-bottom: 4px;
+}
+
+.categoria-no-cabecalho {
+    background: var(--navy-deep);
+    color: #fff;
+    padding: 6px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+    font-size: 0.82rem;
+    border-radius: 6px;
+}
+
+.categoria-no-cabecalho::-webkit-details-marker { display: none; }
+
+.categoria-no-folha > .categoria-no-cabecalho {
+    background: #fdfbf5;
+    color: #333;
+    border: 1px solid #d8dde8;
+}
+
+.categoria-no-nome {
+    font-weight: 600;
+    flex: 1;
+}
+
+.categoria-no-id {
+    font-family: monospace;
+    opacity: 0.75;
+    font-size: 0.78rem;
+}
+
+.categoria-badge-folha,
+.categoria-badge-contagem {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.categoria-no-folha .categoria-badge-folha {
+    background: #e8e2d0;
+    color: #6d4c1f;
+}
+
+.categoria-no-filhos {
+    padding: 6px 0 6px 22px;
+    border-left: 2px solid #eef1f6;
+    margin-left: 10px;
+}

@@ -100,6 +100,33 @@ def view_hub_anuncios(request):
     })
 
 
+def view_categorias_ml(request):
+    from collections import defaultdict
+    from mercado_livre.models import CategoriaMercadoLivre
+
+    todas = list(CategoriaMercadoLivre.objects.all())
+
+    filhos_por_pai = defaultdict(list)
+    raizes = []
+    for categoria in todas:
+        if categoria.categoria_pai_id:
+            filhos_por_pai[categoria.categoria_pai_id].append(categoria)
+        else:
+            raizes.append(categoria)
+
+    for categoria in todas:
+        categoria.filhos_carregados = sorted(
+            filhos_por_pai.get(categoria.category_id, []), key=lambda c: c.nome
+        )
+
+    raizes.sort(key=lambda c: c.nome)
+
+    return render(request, 'mercado_livre/estrutura_categorias_ml.html', {
+        'raizes': raizes,
+        'total_categorias': len(todas),
+    })
+
+
 def view_hub_fotos(request):
     from produtos.models import Produto
     from mercado_livre.models import CompeticaoCatalogo

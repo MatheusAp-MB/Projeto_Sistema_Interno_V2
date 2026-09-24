@@ -1,0 +1,16 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Categorias — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Categorias — Mercado Livre{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'mercado_livre/css/layout_categorias_ml.css' %}">
+{% endblock %}
+{% block conteudo %}
+    <p class="categorias-contador">{{ total_categorias }} categorias carregadas — {{ raizes|length }} categorias raiz.</p>
+    <div class="categorias-arvore">
+        {% for raiz in raizes %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_no_categoria.html' with no=raiz %}
+        {% endfor %}
+    </div>
+{% endblock %}

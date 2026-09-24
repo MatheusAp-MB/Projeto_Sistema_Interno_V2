@@ -122,7 +122,6 @@ def sincronizar_categorias_ml(empresa: str, forcar: bool = False) -> dict:
         objetos,
         update_conflicts=True,
         update_fields=CAMPOS_ATUALIZAVEIS,
-        unique_fields=["category_id"],
         batch_size=TAMANHO_LOTE,
     )
     console.print(f"[green]1ª passada ok[/green] — {total} categorias gravadas/atualizadas (sem hierarquia ainda).")

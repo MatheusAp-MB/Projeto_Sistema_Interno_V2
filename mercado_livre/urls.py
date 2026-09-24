@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('anuncios/', views.view_hub_anuncios, name='mercado_livre_anuncios'),
+    path('categorias/', views.view_categorias_ml, name='mercado_livre_categorias'),
     path('fotos/', views.view_hub_fotos, name='mercado_livre_hub_fotos'),
     path('qualidade/<str:mlb>/', views.view_qualidade_anuncio, name='mercado_livre_qualidade'),
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),

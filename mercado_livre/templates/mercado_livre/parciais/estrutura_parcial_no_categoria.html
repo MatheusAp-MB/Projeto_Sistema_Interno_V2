@@ -1,0 +1,18 @@
+<details class="categoria-no{% if no.e_folha %} categoria-no-folha{% endif %}">
+    <summary class="categoria-no-cabecalho">
+        <span class="categoria-no-nome">{{ no.nome }}</span>
+        <span class="categoria-no-id">{{ no.category_id }}</span>
+        {% if no.e_folha %}
+            <span class="categoria-badge-folha">folha</span>
+        {% else %}
+            <span class="categoria-badge-contagem">{{ no.filhos_carregados|length }} subcategoria{{ no.filhos_carregados|length|pluralize }}</span>
+        {% endif %}
+    </summary>
+    {% if no.filhos_carregados %}
+        <div class="categoria-no-filhos">
+            {% for filho in no.filhos_carregados %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_no_categoria.html' with no=filho %}
+            {% endfor %}
+        </div>
+    {% endif %}
+</details>
