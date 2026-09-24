@@ -455,6 +455,24 @@
     margin-top: 8px;
 }
 
+.aviso-nao-folha {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--cat-fundo-pagina-suave);
+    color: var(--cor-texto-muted);
+    border-radius: 12px;
+    padding: 12px;
+    margin-top: 12px;
+    font-size: .8rem;
+    line-height: 1.45;
+}
+
+.aviso-nao-folha i {
+    color: var(--cor-primaria);
+    margin-top: 2px;
+}
+
 .detalhes-vazio {
     text-align: center;
     color: var(--cor-texto-muted);
