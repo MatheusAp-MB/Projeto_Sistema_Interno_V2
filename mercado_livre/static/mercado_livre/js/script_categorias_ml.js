@@ -1,70 +1,22 @@
 // mercado_livre/static/mercado_livre/js/script_categorias_ml.js
 //
-// * [RESUMO] → Tela de Categorias ML. Buscar e carregar filhos/detalhe
-//              já é feito pelo HTMX (hx-get direto nos elementos, ver
-//              os parciais). Este arquivo cuida do que é puramente
-//              visual e não pede nada ao servidor:
-//              - abrir/fechar um card já carregado (conteúdo fica em
-//                cache no DOM — só é buscado 1 vez, hx-trigger="click
-//                once");
-//              - acordeão exclusivo: abrir um card fecha o irmão que
-//                estava aberto no MESMO grupo (mesma grade), em
-//                qualquer nível — evita vários ramos abertos ao mesmo
-//                tempo brigando por espaço na tela;
-//              - "Recolher tudo".
+// * [RESUMO] → Script da Árvore de Categorias (versão "níveis
+// empilhados"). Bem mais simples que a versão anterior: como agora
+// cada seleção recalcula e re-renderiza a trilha INTEIRA no servidor
+// (view view_categorias_selecionar), não existe mais estado de
+// "aberto/fechado" controlado no JS — o HTML sempre reflete
+// exatamente a seleção atual. A única coisa que sobra pro JS é
+// limpar a caixa de busca e fechar o dropdown de resultados depois
+// de escolher um item nela (o próprio HTMX já cuida de trocar
+// #categorias-trilha-niveis e, via swap out-of-band, #categorias-
+// breadcrumb e #categorias-detalhes).
 
-function alternarCategoria(botao) {
-    var alvo = document.getElementById('fc-' + botao.dataset.cardId);
-    if (!alvo) return;
+document.body.addEventListener('click', function (evento) {
+    var itemBusca = evento.target.closest('.item-resultado-busca');
+    if (!itemBusca) return;
 
-    var vaiAbrir = alvo.hidden;
-
-    // Acordeão exclusivo: antes de abrir, fecha qualquer irmão do
-    // MESMO grupo que já esteja aberto (":scope >" pega só os cards
-    // direto dentro dessa grade — não mexe em ramos de outras
-    // categorias, mesmo que estejam abertos em outro lugar da tela).
-    if (vaiAbrir) {
-        var grade = botao.closest('.grade-categorias');
-        if (grade) {
-            grade.querySelectorAll(':scope > .cartao-cat.expandido').forEach(function (irmao) {
-                if (irmao !== botao) fecharCategoria(irmao);
-            });
-        }
-    }
-
-    alvo.hidden = !vaiAbrir;
-    botao.classList.toggle('expandido', vaiAbrir);
-    var chevron = botao.querySelector('.chevron');
-    if (chevron) chevron.classList.toggle('aberto', vaiAbrir);
-}
-
-function fecharCategoria(botao) {
-    var alvo = document.getElementById('fc-' + botao.dataset.cardId);
-    if (alvo) alvo.hidden = true;
-    botao.classList.remove('expandido');
-    var chevron = botao.querySelector('.chevron');
-    if (chevron) chevron.classList.remove('aberto');
-}
-
-function recolherTudoCategorias() {
-    document.querySelectorAll('#categorias-conteudo .grupo-filhos:not([hidden])').forEach(function (div) {
-        div.hidden = true;
-    });
-    document.querySelectorAll('#categorias-conteudo .cartao-cat.expandido').forEach(function (botao) {
-        botao.classList.remove('expandido');
-        var chevron = botao.querySelector('.chevron');
-        if (chevron) chevron.classList.remove('aberto');
-    });
-}
-
-// * [EXPLICAÇÃO] → "pageshow" com persisted=true dispara quando o
-//                  navegador restaura a página pelo botão Voltar sem
-//                  recarregar do servidor (bfcache) — é por isso que
-//                  um card expandido "sobrevivia" ao sair e voltar.
-//                  Recolhe tudo de novo nesse caso, pra a tela sempre
-//                  começar retraída.
-window.addEventListener('pageshow', function (evento) {
-    if (evento.persisted) {
-        recolherTudoCategorias();
-    }
+    var campoBusca = document.getElementById('categorias-busca');
+    var resultados = document.getElementById('categorias-resultados-busca');
+    if (campoBusca) campoBusca.value = '';
+    if (resultados) resultados.innerHTML = '';
 });

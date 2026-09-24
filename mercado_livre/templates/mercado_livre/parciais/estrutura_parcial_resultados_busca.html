@@ -1,22 +1,15 @@
-<div class="secao-titulo">
-    <h2>Resultados para "{{ termo }}"</h2>
-    <span class="contagem">{{ resultados|length }} encontrada{{ resultados|length|pluralize }}</span>
-</div>
 {% if resultados %}
-<div class="resultados-busca">
-    {% for r in resultados %}
-        <div class="item-busca"
-             hx-get="{% url 'mercado_livre_categorias_resultado' r.category_id %}"
-             hx-target="#categorias-conteudo"
-             hx-swap="innerHTML">
-            <span>
-                <span class="nome">{{ r.nome }}</span>
-                <span class="trilha">{{ r.caminho_completo }}</span>
-            </span>
-            <span class="seta">→</span>
-        </div>
+<div class="lista-resultados-busca">
+    {% for categoria in resultados %}
+    <button type="button" class="item-resultado-busca"
+            hx-get="{% url 'mercado_livre_categorias_selecionar' categoria.category_id %}"
+            hx-target="#categorias-trilha-niveis"
+            hx-swap="innerHTML">
+        <span class="nome-resultado-busca">{{ categoria.nome }}</span>
+        <span class="caminho-resultado-busca">{{ categoria.caminho_completo }}</span>
+    </button>
     {% endfor %}
 </div>
-{% else %}
-<div class="sem-resultado">Nenhuma categoria encontrada com esse termo.</div>
+{% elif termo %}
+<div class="lista-resultados-busca lista-resultados-busca-vazia">Nenhuma categoria encontrada pra "{{ termo }}".</div>
 {% endif %}

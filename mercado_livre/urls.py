@@ -4,9 +4,8 @@ from . import views
 urlpatterns = [
     path('anuncios/', views.view_hub_anuncios, name='mercado_livre_anuncios'),
     path('categorias/', views.view_categorias_ml, name='mercado_livre_categorias'),
-    path('categorias/filhos/<str:category_id>/', views.view_categorias_filhos, name='mercado_livre_categorias_filhos'),
+    path('categorias/selecionar/<str:category_id>/', views.view_categorias_selecionar, name='mercado_livre_categorias_selecionar'),
     path('categorias/buscar/', views.view_categorias_buscar, name='mercado_livre_categorias_buscar'),
-    path('categorias/resultado/<str:category_id>/', views.view_categorias_resultado, name='mercado_livre_categorias_resultado'),
     path('fotos/', views.view_hub_fotos, name='mercado_livre_hub_fotos'),
     path('qualidade/<str:mlb>/', views.view_qualidade_anuncio, name='mercado_livre_qualidade'),
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),

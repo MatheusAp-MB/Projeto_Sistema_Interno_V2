@@ -1,0 +1,21 @@
+{% for nivel in niveis %}
+<div class="nivel-bloco" data-nivel="{{ nivel.numero }}">
+    <div class="nivel-cabecalho">
+        <span class="nivel-selo">NÍVEL {{ nivel.numero }}</span>
+        <span class="nivel-titulo">{{ nivel.titulo_pai }}</span>
+        <span class="nivel-dica">{{ nivel.dica }}</span>
+    </div>
+    <div class="nivel-grade">
+        {% for categoria in nivel.categorias %}
+        <button type="button"
+                class="cartao-cat{% if categoria.category_id == nivel.categoria_selecionada_id %} selecionado{% endif %}{% if categoria.e_folha %} folha{% endif %}"
+                hx-get="{% url 'mercado_livre_categorias_selecionar' categoria.category_id %}"
+                hx-target="#categorias-trilha-niveis"
+                hx-swap="innerHTML">
+            <span class="nome-cat">{{ categoria.nome }}</span>
+            <span class="chevron-cat">›</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}

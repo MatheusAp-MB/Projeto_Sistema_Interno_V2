@@ -8,27 +8,33 @@
 {% endblock %}
 {% block conteudo %}
     <div class="categorias-topo">
-        <p class="categorias-subtitulo">Expanda uma categoria para ver as subcategorias ou os detalhes, sem sair da página — ou busque pelo nome.</p>
-        <div class="categorias-linha-acoes">
-            <div class="categorias-stats">
-                <span class="categorias-pill">{{ raizes|length }} categorias raiz</span>
-                <span class="categorias-pill">{{ total_categorias }} categorias sincronizadas</span>
-            </div>
-            <button type="button" class="btn-recolher" onclick="recolherTudoCategorias()">Recolher tudo</button>
-        </div>
+        <p class="categorias-subtitulo">Visualize vários níveis sem perder o contexto — {{ total_categorias }} categorias sincronizadas.</p>
+
         <div class="categorias-busca-wrap">
+            <i class="fas fa-search"></i>
             <input type="text" id="categorias-busca" name="q"
-                   placeholder="Buscar categoria (ex.: colchão, celular...)"
+                   placeholder="Buscar por nome ou ID da categoria"
                    autocomplete="off"
                    hx-get="{% url 'mercado_livre_categorias_buscar' %}"
                    hx-trigger="input changed delay:300ms, search"
-                   hx-target="#categorias-conteudo"
+                   hx-target="#categorias-resultados-busca"
                    hx-swap="innerHTML">
+            <div id="categorias-resultados-busca"></div>
+        </div>
+
+        <div id="categorias-breadcrumb">
+            {% include 'mercado_livre/parciais/estrutura_parcial_breadcrumb.html' %}
         </div>
     </div>
 
-    <div id="categorias-conteudo">
-        {% include 'mercado_livre/parciais/estrutura_parcial_conteudo_raizes.html' with categorias=raizes %}
+    <div class="categorias-corpo">
+        <div id="categorias-trilha-niveis">
+            {% include 'mercado_livre/parciais/estrutura_parcial_niveis.html' %}
+        </div>
+
+        <aside id="categorias-detalhes">
+            {% include 'mercado_livre/parciais/estrutura_parcial_detalhe_categoria.html' %}
+        </aside>
     </div>
 {% endblock %}
 {% block scripts %}

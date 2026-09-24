@@ -1,0 +1,26 @@
+{% if trilha %}
+    <a href="{% url 'mercado_livre_categorias' %}" class="migalha">
+        <i class="fas fa-home"></i> Início
+    </a>
+    <span class="migalha-separador">›</span>
+    {% for no in trilha %}
+        {% if not forloop.last %}
+            <button type="button" class="migalha"
+                    hx-get="{% url 'mercado_livre_categorias_selecionar' no.category_id %}"
+                    hx-target="#categorias-trilha-niveis"
+                    hx-swap="innerHTML">
+                {{ no.nome }}
+            </button>
+            <span class="migalha-separador">›</span>
+        {% else %}
+            <span class="migalha migalha-ativa">{{ no.nome }}</span>
+        {% endif %}
+    {% endfor %}
+    <span class="selo-nivel">
+        Nível {{ categoria_atual.nivel }}{% if categoria_atual.e_folha %} · Folha final{% endif %}
+    </span>
+{% else %}
+    <a href="{% url 'mercado_livre_categorias' %}" class="migalha migalha-ativa">
+        <i class="fas fa-home"></i> Início
+    </a>
+{% endif %}
