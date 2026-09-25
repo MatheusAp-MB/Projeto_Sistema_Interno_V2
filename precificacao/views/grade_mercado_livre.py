@@ -367,6 +367,15 @@ class DetalheFormulaExibida:
     #                  (calcular_margem, implementação independente). Só pra exibir a
     #                  prova, nunca substitui nem grava o valor oficial da grade.
     contraprova_1: object
+    # * [EXPLICAÇÃO] → Comissão Real (por MLB, seção 8 do checkpoint) e Comissão Média
+    #                  do Produto (seção 9) — 25/09. Mesmo padrão do frete_real: só
+    #                  comparação/referência no modal, nunca entra no cálculo (Passo 5
+    #                  continua usando a Comissão Aproximada/config). None quando a
+    #                  comissão real ainda não foi buscada pra esse MLB.
+    comissao_real_percentual: object = None
+    comissao_real_atualizado_em: object = None
+    comissao_media_produto_percentual: object = None
+    comissao_media_produto_amostra: object = None
 
     # Função Objetivo: Lê o detalhamento já persistido e monta a exibição completa.
     # Explicação em detalhe: NUNCA recalcula nada ao vivo — só lê o que já foi persistido.
@@ -433,6 +442,22 @@ class DetalheFormulaExibida:
             denominador=dec(i.get('denominador')), resultado=dec(i.get('preco_exato_antes_arredondar')),
         )
 
+        # * [EXPLICAÇÃO] → Comissão Real por MLB — mesma fonte que alimenta o
+        #                  frete_real acima (Variação). Comissão Média do Produto
+        #                  vem de Produto.obter_dados_comissao() (já existia, nunca
+        #                  tinha sido chamado em lugar nenhum) — escolhe Clássico ou
+        #                  Premium de acordo com o tipo_label desta linha auditada.
+        comissao_real_percentual = dec(variacao.comissao_real_percentual) if variacao else None
+        comissao_real_atualizado_em = variacao.comissao_real_atualizado_em if variacao else None
+
+        dados_comissao_produto = linha.produto.obter_dados_comissao()
+        if tipo_label == 'Clássico':
+            comissao_media_produto_percentual = dados_comissao_produto.comissao_media_classico
+            comissao_media_produto_amostra = dados_comissao_produto.comissao_media_classico_amostra
+        else:
+            comissao_media_produto_percentual = dados_comissao_produto.comissao_media_premium
+            comissao_media_produto_amostra = dados_comissao_produto.comissao_media_premium_amostra
+
         custo = dec(e.get('custo'))
         custo_com_boni = dec(e.get('custo_com_boni'))
         margem_alvo = dec(e.get('margem_alvo_percentual'))
@@ -475,6 +500,10 @@ class DetalheFormulaExibida:
             ),
             visao_2=visao_2,
             contraprova_1=contraprova_1,
+            comissao_real_percentual=comissao_real_percentual,
+            comissao_real_atualizado_em=comissao_real_atualizado_em,
+            comissao_media_produto_percentual=comissao_media_produto_percentual,
+            comissao_media_produto_amostra=comissao_media_produto_amostra,
         )
 
 

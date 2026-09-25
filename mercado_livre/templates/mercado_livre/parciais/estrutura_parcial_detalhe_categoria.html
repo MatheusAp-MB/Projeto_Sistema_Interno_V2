@@ -66,14 +66,36 @@
 </div>
 
 <div class="ficha-cat">
-    <h4>COMISSÃO APLICADA</h4>
-    <div class="aviso-comissao">
-        <i class="fas fa-clock"></i>
-        <div>
-            Ainda não coletada. Depende da integração com o cache de comissão real por categoria.
-            <div class="aviso-comissao-selo"><span class="selo-chip selo-amarelo">Em breve</span></div>
+    <h4>COMISSÃO MÉDIA (API DO MERCADO LIVRE)</h4>
+    {% if categoria_atual.comissao_media_classico is not None or categoria_atual.comissao_media_premium is not None %}
+        <div class="linha-ficha"><span class="rotulo-ficha">Clássico</span><span class="valor-ficha">
+            {% if categoria_atual.comissao_media_classico is not None %}
+                {{ categoria_atual.comissao_media_classico|floatformat:2 }}%
+                <span class="rotulo-ficha">({{ categoria_atual.comissao_media_classico_amostra }} anúncio{{ categoria_atual.comissao_media_classico_amostra|pluralize }})</span>
+            {% else %}
+                sem dado ainda
+            {% endif %}
+        </span></div>
+        <div class="linha-ficha"><span class="rotulo-ficha">Premium</span><span class="valor-ficha">
+            {% if categoria_atual.comissao_media_premium is not None %}
+                {{ categoria_atual.comissao_media_premium|floatformat:2 }}%
+                <span class="rotulo-ficha">({{ categoria_atual.comissao_media_premium_amostra }} anúncio{{ categoria_atual.comissao_media_premium_amostra|pluralize }})</span>
+            {% else %}
+                sem dado ainda
+            {% endif %}
+        </span></div>
+        {% if categoria_atual.comissao_media_atualizado_em %}
+        <div class="linha-ficha"><span class="rotulo-ficha">Atualizado em</span><span class="valor-ficha">{{ categoria_atual.comissao_media_atualizado_em|date:"d/m/Y H:i" }}</span></div>
+        {% endif %}
+    {% else %}
+        <div class="aviso-comissao">
+            <i class="fas fa-clock"></i>
+            <div>
+                Nenhum anúncio desta categoria teve a comissão real buscada ainda via API do Mercado Livre.
+                <div class="aviso-comissao-selo"><span class="selo-chip selo-amarelo">Sem dado ainda</span></div>
+            </div>
         </div>
-    </div>
+    {% endif %}
 </div>
 {% else %}
 <div class="ficha-cat">

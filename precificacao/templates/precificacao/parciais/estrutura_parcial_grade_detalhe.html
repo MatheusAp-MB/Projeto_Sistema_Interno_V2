@@ -262,6 +262,28 @@
                     </div>
                     <div class="audit-passo-abstrata">Comissão + ICMS saída + PIS saída + COFINS saída (% sobre o preço final)</div>
                     <div class="audit-passo-conta">Taxa total = <b>{{ det.passo_5.resultado|floatformat:2 }}%</b> = <b>R$ {{ det.passo_5.resultado_valor|floatformat:2 }}</b></div>
+
+                    {% if det.comissao_real_percentual is not None %}
+                    <div class="frete-secao frete-secao--real">
+                        <div class="frete-secao-titulo"><span class="audit-tag audit-tag--api" style="margin-left:0">API real</span> Comissão Real — só comparação, não entra na conta</div>
+                        <div class="audit-inputs-box">
+                            <div class="audit-input-linha"><span class="k">Origem <span class="audit-tag audit-tag--api">API</span></span><span class="v">{% if mlb %}Anúncio publicado MLB {{ mlb }}{% else %}—{% endif %}</span></div>
+                            {% if det.comissao_real_atualizado_em %}
+                            <div class="audit-input-linha"><span class="k">Buscado em <span class="audit-tag audit-tag--api">API</span></span><span class="v">{{ det.comissao_real_atualizado_em|date:"d/m/Y H:i" }}</span></div>
+                            {% endif %}
+                            {% if det.comissao_media_produto_percentual is not None %}
+                            <div class="audit-input-linha"><span class="k">Comissão Média deste produto ({{ det.tipo_label }}) <span class="audit-tag audit-tag--api">Média</span><span class="audit-mini-form">todos os MLBs deste produto, {{ det.comissao_media_produto_amostra }} anúncio{{ det.comissao_media_produto_amostra|pluralize }}</span></span><span class="v">{{ det.comissao_media_produto_percentual|floatformat:2 }}%</span></div>
+                            {% endif %}
+                        </div>
+                        <div class="audit-passo-abstrata">Comissão real deste MLB específico, buscada na API do Mercado Livre — comparação com a Comissão Aproximada (config) usada no cálculo acima, nunca a substitui.</div>
+                        <div class="audit-passo-conta">Resposta da API = <b>{{ det.comissao_real_percentual|floatformat:2 }}%</b></div>
+                    </div>
+                    {% if det.passo_5.itens.0.percentual is not None %}
+                    <div class="audit-frete-diferenca">
+                        {% if det.comissao_real_percentual >= det.passo_5.itens.0.percentual %}API real acima da Comissão Aproximada{% else %}API real abaixo da Comissão Aproximada{% endif %}
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
             </div>
 
