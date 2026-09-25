@@ -61,6 +61,25 @@ class GradePrecificacaoML(models.Model):
         choices=[('api_real', 'API Real'), ('tabela_calculada', 'Tabela Calculada')],
     )
 
+    # * [EXPLICAÇÃO] → Mesmo par frete_calculado/origem_frete, agora
+    #                  pra comissão. comissao_calculada é o valor que a
+    #                  fórmula de fato usou naquela linha — Comissão
+    #                  Real (VariacaoAnuncioMercadoLivre.comissao_real_
+    #                  percentual/valor) quando disponível, Comissão
+    #                  Aproximada (ConfiguracaoTipoAnuncioMercadoLivre.
+    #                  comissao) como fallback — origem_comissao sempre
+    #                  registra qual dos dois foi usado, nunca fica
+    #                  implícito. Ainda não é consumido pela fórmula de
+    #                  fato — só passa a existir aqui; a decisão de
+    #                  usar Comissão Real no cálculo do preço é
+    #                  separada e segue em aberto (mesma natureza da
+    #                  Frente A do frete).
+    comissao_calculada = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    origem_comissao = models.CharField(
+        max_length=20, null=True, blank=True,
+        choices=[('api_real', 'API Real'), ('config_aproximada', 'Config Aproximada')],
+    )
+
     origem_dimensao = models.CharField(
         max_length=15, null=True, blank=True,
         choices=[('variacao_ml', 'Variação ML'), ('produto_erp', 'Produto ERP')],

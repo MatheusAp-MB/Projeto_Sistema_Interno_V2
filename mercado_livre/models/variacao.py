@@ -46,6 +46,26 @@ class VariacaoAnuncioMercadoLivre(models.Model):
         to_field='sku'
     )
 
+    # * [EXPLICAÇÃO] → Categoria do Mercado Livre deste MLB específico —
+    #                  mora aqui (na Variação) e não no Anúncio pai
+    #                  porque a relação é 1:1 por MLB, não por produto
+    #                  (o mesmo produto do ERP pode ter vários MLBs,
+    #                  cada um em categoria diferente). O category_id
+    #                  já vem na resposta da API que buscar_detalhes.py
+    #                  já busca hoje — só não era persistido até agora,
+    #                  então preencher isso não exige nenhuma chamada
+    #                  nova de API. SET_NULL porque perder a categoria
+    #                  de referência não pode derrubar a variação. Ver
+    #                  Checkpoint - Idealização de Cache de Comissão e
+    #                  Frete + Tabela de Categorias, seção 12-B.
+    categoria = models.ForeignKey(
+        'mercado_livre.CategoriaMercadoLivre',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='variacoes_anuncio'
+    )
+
     estoque    = models.IntegerField(default=0)
     qtd_vendas = models.IntegerField(default=0)
     atributos  = models.CharField(max_length=255, blank=True, null=True)
@@ -106,6 +126,26 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     #                  (ou pra quem já tinha frete_real de antes desse campo existir —
     #                  precisa rodar buscar_frete_real_ml de novo pra preencher).
     frete_real_detalhamento = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
+
+    # * [EXPLICAÇÃO] → Comissão Real vinda da API do Mercado Livre —
+    #                  mesma família do frete_real, mesmo motivo de
+    #                  morar na Variação (garantida 1:1+ por MLB).
+    #                  Diferente do frete, comissão depende do preço
+    #                  vigente no momento da consulta — por isso
+    #                  comissao_real_preco_usado fica registrado
+    #                  junto, pra saber a que preço aquele
+    #                  percentual/valor correspondiam. None = ainda
+    #                  não buscamos. Não confundir com Comissão
+    #                  Aproximada, que continua sendo o valor manual
+    #                  configurado em
+    #                  ConfiguracaoTipoAnuncioMercadoLivre.comissao —
+    #                  esse aqui não muda. Ver Checkpoint -
+    #                  Idealização de Cache de Comissão e Frete +
+    #                  Tabela de Categorias, seções 3 e 12-B.
+    comissao_real_percentual = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+    comissao_real_valor = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    comissao_real_preco_usado = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    comissao_real_atualizado_em = models.DateTimeField(blank=True, null=True)
 
     # * [EXPLICAÇÃO] → Dimensões/peso DECLARADOS pelo vendedor no
     #                  Mercado Livre (atributos SELLER_PACKAGE_* da
