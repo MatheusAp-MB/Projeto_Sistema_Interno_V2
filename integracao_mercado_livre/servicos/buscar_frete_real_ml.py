@@ -28,7 +28,6 @@ from pathlib import Path
 from django.utils import timezone
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, PREFIXO_ENV_POR_EMPRESA
@@ -167,42 +166,26 @@ def buscar_frete_real_ml(empresa: str) -> dict:
             f"({processadas}/{total} no total  •  {com_sucesso} com sucesso  •  {decorrido:.0f}s decorridos)"
         )
 
-        with Progress(
-            SpinnerColumn(finished_text="[green]✓[/green]"),
-            TextColumn("[cyan]{task.description:<24}"),
-            BarColumn(),
-            TextColumn("{task.fields[resultado]}"),
-            TimeElapsedColumn(),
-        ) as progress:
+        for variacao in grupo:
+            mlb = variacao.anuncio.mlb
 
-            tarefas = [
-                (variacao, progress.add_task(variacao.anuncio.mlb, total=1, resultado="⏳ na fila", start=False))
-                for variacao in grupo
-            ]
+            try:
+                resultado = buscar_frete_real_variacao(variacao, conta, user_id, pasta_logs)
+            except (ErroAPI, ErroAutenticacaoAPI) as e:
+                resultado = {"mlb": mlb, "sucesso": False, "motivo": str(e)}
 
-            for variacao, task_id in tarefas:
-                progress.start_task(task_id)
-                progress.update(task_id, resultado="")
+            resultados.append(resultado)
 
-                try:
-                    resultado = buscar_frete_real_variacao(variacao, conta, user_id, pasta_logs)
-                except (ErroAPI, ErroAutenticacaoAPI) as e:
-                    resultado = {"mlb": variacao.anuncio.mlb, "sucesso": False, "motivo": str(e)}
+            if resultado["sucesso"]:
+                com_sucesso += 1
+                console.print(
+                    f"  ✓ {mlb:<20} R$ {resultado['valor']:.2f} ({resultado.get('discount_type') or '?'})"
+                )
+            else:
+                com_erro += 1
+                console.print(f"  [red]✗ {mlb:<20} {resultado['motivo']}[/red]")
 
-                resultados.append(resultado)
-
-                if resultado["sucesso"]:
-                    com_sucesso += 1
-                    progress.update(
-                        task_id,
-                        resultado=f"R$ {resultado['valor']:.2f} ({resultado.get('discount_type') or '?'})",
-                    )
-                else:
-                    com_erro += 1
-                    progress.update(task_id, resultado=f"[red]✗ {resultado['motivo']}[/red]")
-
-                progress.update(task_id, completed=1)
-                processadas += 1
+            processadas += 1
 
     duracao_total = time.perf_counter() - inicio_execucao
 
