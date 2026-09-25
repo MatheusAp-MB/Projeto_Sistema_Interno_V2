@@ -78,6 +78,17 @@ class DadosControleProduto:
     armazenagem_planilha: Decimal
 
 
+# Função Objetivo: Agrupa a Comissão Média (Clássico/Premium) deste produto —
+# cross-categoria, sempre snapshot, só informativo (nunca entra em cálculo).
+@dataclass
+class DadosComissaoProduto:
+    comissao_media_classico: Decimal
+    comissao_media_classico_amostra: int
+    comissao_media_premium: Decimal
+    comissao_media_premium_amostra: int
+    comissao_media_atualizado_em: datetime
+
+
 # Função Objetivo: Representa 1 código do Produto numa plataforma específica.
 @dataclass
 class CodigoAssociado:
@@ -215,6 +226,27 @@ class Produto(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
+    # * [EXPLICAÇÃO] → Comissão Média deste produto (Clássico/Premium) —
+    #                  SEMPRE snapshot (recalculada do zero, nunca
+    #                  incremental), a partir de comissao_real_percentual de
+    #                  TODAS as variações deste produto em QUALQUER
+    #                  categoria (cross-categoria). Só informativo — nunca
+    #                  entra no cálculo de precificação (que usa a comissão
+    #                  real por MLB, direto na Variação). *_amostra guarda
+    #                  quantas variações entraram na média (None enquanto não
+    #                  houver nenhuma). Recalculada por
+    #                  mercado_livre.funcoes_auxiliares.recalcular_comissao_media
+    #                  — nunca via Django signal (decisão explícita). Campo de
+    #                  timestamp PRÓPRIO (não reaproveita atualizado_em acima,
+    #                  que é da sincronização com o ERP — coisas diferentes).
+    #                  Ver Checkpoint - Investigação da Comissão Real de Venda
+    #                  via API do Mercado Livre, seção 9.
+    comissao_media_classico = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    comissao_media_classico_amostra = models.PositiveIntegerField(null=True, blank=True)
+    comissao_media_premium = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    comissao_media_premium_amostra = models.PositiveIntegerField(null=True, blank=True)
+    comissao_media_atualizado_em = models.DateTimeField(null=True, blank=True)
+
     # Função Objetivo: Devolve as dimensões de envio deste produto, já ordenadas.
     # Explicação em detalhe: usa sempre os campos "_apos_embalado" (embalagem real
     # enviada, nunca o produto sem embalar) — mesma regra já aplicada em frete e
@@ -289,6 +321,16 @@ class Produto(models.Model):
             ultima_compra=self.ultima_compra, cadastrado_erp_em=self.cadastrado_erp_em,
             criado_em=self.criado_em, atualizado_em=self.atualizado_em,
             armazenagem_planilha=self.armazenagem_planilha,
+        )
+
+    # Função Objetivo: Devolve a Comissão Média (Clássico/Premium) deste produto.
+    def obter_dados_comissao(self):
+        return DadosComissaoProduto(
+            comissao_media_classico=self.comissao_media_classico,
+            comissao_media_classico_amostra=self.comissao_media_classico_amostra,
+            comissao_media_premium=self.comissao_media_premium,
+            comissao_media_premium_amostra=self.comissao_media_premium_amostra,
+            comissao_media_atualizado_em=self.comissao_media_atualizado_em,
         )
 
     # Função Objetivo: Devolve todos os códigos associados deste produto, por marketplace.

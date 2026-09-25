@@ -83,6 +83,26 @@ class CategoriaMercadoLivre(models.Model):
     #                  dump) — não significa que já decidimos usar.
     catalog_domain = models.CharField(max_length=100, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Comissão Média da categoria (Clássico/Premium) — SEMPRE
+    #                  snapshot (recalculada do zero, nunca incremental), a
+    #                  partir de comissao_real_percentual de TODAS as variações
+    #                  vinculadas a esta categoria (cross-produto). Só
+    #                  informativo — nunca entra no cálculo de precificação
+    #                  (que usa a comissão real por MLB, direto na Variação).
+    #                  *_amostra guarda quantas variações entraram na média
+    #                  (None enquanto não houver nenhuma). Recalculada por
+    #                  mercado_livre.funcoes_auxiliares.recalcular_comissao_media
+    #                  — nunca via Django signal (decisão explícita). Campo de
+    #                  timestamp PRÓPRIO (não reaproveita atualizado_em acima,
+    #                  que é da sincronização do dump de categorias — coisas
+    #                  diferentes). Ver Checkpoint - Investigação da Comissão
+    #                  Real de Venda via API do Mercado Livre, seção 9.
+    comissao_media_classico = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    comissao_media_classico_amostra = models.PositiveIntegerField(null=True, blank=True)
+    comissao_media_premium = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    comissao_media_premium_amostra = models.PositiveIntegerField(null=True, blank=True)
+    comissao_media_atualizado_em = models.DateTimeField(null=True, blank=True)
+
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:

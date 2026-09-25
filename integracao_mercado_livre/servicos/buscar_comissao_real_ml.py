@@ -43,6 +43,13 @@
 # — isso é responsabilidade do cálculo de precificação em si, que
 # ainda vai precisar ser atualizado como próxima etapa pra ler essa
 # Comissão Real (decisão de uso na fórmula segue em aberto).
+#
+# 25/09: ao fim da execução, recalcula automaticamente a Comissão
+# Média (Produto e Categoria, ver recalcular_comissao_media.py) só
+# pros produto_ids/categoria_ids TOCADOS nesse run (nunca "tudo") —
+# snapshot completo pra cada um, sem Django signal, decisão explícita
+# (risco de loop/bug em cascata). Só entra no conjunto "tocado" quem
+# teve sucesso — erro não muda nada, então não precisa recalcular.
 
 import time
 from decimal import Decimal, InvalidOperation
@@ -50,10 +57,10 @@ from pathlib import Path
 
 from django.utils import timezone
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, PREFIXO_ENV_POR_EMPRESA
+from mercado_livre.funcoes_auxiliares.recalcular_comissao_media import recalcular_comissao_media
 
 console = Console()
 
@@ -182,9 +189,10 @@ def _montar_queryset(produto_sku: str | None, mlb: str | None):
 def buscar_comissao_real_ml(empresa: str, produto_sku: str | None = None, mlb: str | None = None) -> dict:
     """
     Ponto único de entrada. Busca a Comissão Real (API do ML) — universal,
-    por produto ou por MLB (produto_sku/mlb mutuamente exclusivos) — e
-    grava direto em VariacaoAnuncioMercadoLivre. Precisa rodar com a
-    empresa já ativa (definir_empresa_ativa) — quem chama isso é o
+    por produto ou por MLB (produto_sku/mlb mutuamente exclusivos) — grava
+    direto em VariacaoAnuncioMercadoLivre e recalcula a Comissão Média
+    (Produto/Categoria) só pra quem foi tocado nesse run. Precisa rodar com
+    a empresa já ativa (definir_empresa_ativa) — quem chama isso é o
     management command, igual ao padrão de buscar_frete_real_ml.
     """
     conta = PREFIXO_ENV_POR_EMPRESA[empresa]
@@ -198,12 +206,15 @@ def buscar_comissao_real_ml(empresa: str, produto_sku: str | None = None, mlb: s
 
     if total == 0:
         console.print("[yellow]Nenhuma variação encontrada pra esse escopo — nada a fazer.[/yellow]")
-        return {"empresa": empresa, "total": 0, "com_sucesso": 0, "com_erro": 0, "resultados": []}
+        return {"empresa": empresa, "total": 0, "com_sucesso": 0, "com_erro": 0, "resultados": [],
+                "produtos_recalculados": 0, "categorias_recalculadas": 0}
 
     resultados = []
     com_sucesso = 0
     com_erro = 0
     cache_item_info = {}
+    produtos_tocados = set()
+    categorias_tocadas = set()
     inicio_execucao = time.perf_counter()
 
     grupos = [variacoes[i:i + TAMANHO_GRUPO_EXIBICAO] for i in range(0, total, TAMANHO_GRUPO_EXIBICAO)]
@@ -216,39 +227,28 @@ def buscar_comissao_real_ml(empresa: str, produto_sku: str | None = None, mlb: s
             f"({processadas}/{total} no total  •  {com_sucesso} com sucesso  •  {decorrido:.0f}s decorridos)"
         )
 
-        with Progress(
-            SpinnerColumn(finished_text="[green]✓[/green]"),
-            TextColumn("[cyan]{task.description:<24}"),
-            BarColumn(),
-            TextColumn("{task.fields[resultado]}"),
-            TimeElapsedColumn(),
-        ) as progress:
+        for variacao in grupo:
+            mlb_atual = variacao.anuncio.mlb
 
-            tarefas = [
-                (variacao, progress.add_task(variacao.anuncio.mlb, total=1, resultado="⏳ na fila", start=False))
-                for variacao in grupo
-            ]
+            try:
+                resultado = buscar_comissao_real_variacao(variacao, conta, pasta_logs, cache_item_info)
+            except (ErroAPI, ErroAutenticacaoAPI) as e:
+                resultado = {"mlb": mlb_atual, "sucesso": False, "motivo": str(e)}
 
-            for variacao, task_id in tarefas:
-                progress.start_task(task_id)
-                progress.update(task_id, resultado="")
+            resultados.append(resultado)
 
-                try:
-                    resultado = buscar_comissao_real_variacao(variacao, conta, pasta_logs, cache_item_info)
-                except (ErroAPI, ErroAutenticacaoAPI) as e:
-                    resultado = {"mlb": variacao.anuncio.mlb, "sucesso": False, "motivo": str(e)}
+            if resultado["sucesso"]:
+                com_sucesso += 1
+                console.print(f"  ✓ {mlb_atual:<20} {resultado['percentual']}% (R$ {resultado['valor']:.2f})")
+                if variacao.produto_id:
+                    produtos_tocados.add(variacao.produto_id)
+                if variacao.categoria_id:
+                    categorias_tocadas.add(variacao.categoria_id)
+            else:
+                com_erro += 1
+                console.print(f"  [red]✗ {mlb_atual:<20} {resultado['motivo']}[/red]")
 
-                resultados.append(resultado)
-
-                if resultado["sucesso"]:
-                    com_sucesso += 1
-                    progress.update(task_id, resultado=f"{resultado['percentual']}% (R$ {resultado['valor']:.2f})")
-                else:
-                    com_erro += 1
-                    progress.update(task_id, resultado=f"[red]✗ {resultado['motivo']}[/red]")
-
-                progress.update(task_id, completed=1)
-                processadas += 1
+            processadas += 1
 
     duracao_total = time.perf_counter() - inicio_execucao
 
@@ -265,6 +265,14 @@ def buscar_comissao_real_ml(empresa: str, produto_sku: str | None = None, mlb: s
             if not r["sucesso"]:
                 console.print(f"  {r['mlb']}: {r['motivo']}")
 
+    recalculo = recalcular_comissao_media(
+        produto_ids=produtos_tocados, categoria_ids=categorias_tocadas,
+    )
+    console.print(
+        f"\n[bold]Comissão Média recalculada:[/bold] "
+        f"{recalculo['produtos_atualizados']} produto(s) · {recalculo['categorias_atualizadas']} categoria(s)"
+    )
+
     return {
         "empresa": empresa,
         "total": total,
@@ -272,4 +280,6 @@ def buscar_comissao_real_ml(empresa: str, produto_sku: str | None = None, mlb: s
         "com_erro": com_erro,
         "duracao_total_segundos": round(duracao_total, 2),
         "resultados": resultados,
+        "produtos_recalculados": recalculo['produtos_atualizados'],
+        "categorias_recalculadas": recalculo['categorias_atualizadas'],
     }
