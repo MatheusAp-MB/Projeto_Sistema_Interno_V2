@@ -8,6 +8,7 @@ from mercado_livre.models import (
     TipoDeAnuncioMercadoLivre,
     AnuncioMercadoLivre,
     VariacaoAnuncioMercadoLivre,
+    CategoriaMercadoLivre,
 )
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from mercado_livre.funcoes_auxiliares.classificacao_catalogo import classificar_catalogo
@@ -62,6 +63,15 @@ def importar_anuncios_ml(stdout, style, caminho_json):
     }
 
     anuncios_existentes = {a.mlb: a for a in AnuncioMercadoLivre.objects.all()}
+
+    # * [EXPLICAÇÃO] → category_id já vem em cada registro do JSON
+    #                  (buscar_detalhes.py já busca — sem chamada nova de
+    #                  API), só nunca foi persistido em
+    #                  VariacaoAnuncioMercadoLivre.categoria até agora
+    #                  (25/09). category_id ausente do dump de categorias
+    #                  (raro) cai em None — SET_NULL no model já cobre esse
+    #                  caso, sem quebrar a variação.
+    categorias_por_id = {c.category_id: c for c in CategoriaMercadoLivre.objects.all()}
 
     # ================================================
     # 2. AGRUPA OS REGISTROS DO JSON POR MLB
@@ -178,6 +188,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
     variacoes_para_criar = []
     variacoes_para_atualizar = []
     sem_produto = 0
+    sem_categoria = 0
 
     for indice, (mlb, linhas) in enumerate(por_mlb.items(), start=1):
         if indice % 500 == 0 or indice == total_mlbs:
@@ -186,6 +197,14 @@ def importar_anuncios_ml(stdout, style, caminho_json):
         anuncio = anuncios_por_mlb.get(mlb)
         if not anuncio:
             continue
+
+        # * [EXPLICAÇÃO] → category_id é dado de agrupador (1 por MLB, igual
+        #                  title/permalink na seção 4) — pega da primeira
+        #                  linha, não recalcula por variação.
+        category_id = linhas[0].get('category_id')
+        categoria = categorias_por_id.get(category_id)
+        if category_id and not categoria:
+            sem_categoria += 1
 
         for linha in linhas:
             # * [EXPLICAÇÃO] → Quando não há variação real, o próprio JSON
@@ -204,6 +223,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
                 sku_ml=sku_ml,
                 mlbu=linha.get('user_product_id'),
                 produto=produto,
+                categoria=categoria,
                 estoque=linha.get('available_quantity') or 0,
                 qtd_vendas=linha.get('sold_quantity') or 0,
                 atributos=linha.get('variacao_atributos'),
@@ -233,7 +253,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
         VariacaoAnuncioMercadoLivre.objects.bulk_create(variacoes_para_criar, batch_size=BATCH_SIZE_PADRAO)
 
     if variacoes_para_atualizar:
-        campos_variacao = ['sku_ml', 'mlbu', 'produto', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url', 'preco_atual', 'preco_original']
+        campos_variacao = ['sku_ml', 'mlbu', 'produto', 'categoria', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url', 'preco_atual', 'preco_original']
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
             variacoes_para_atualizar, campos_variacao, batch_size=BATCH_SIZE_PADRAO
         )
@@ -246,5 +266,6 @@ def importar_anuncios_ml(stdout, style, caminho_json):
         f'    Anúncios atualizados:      {len(anuncios_para_atualizar)}\n'
         f'    Variações criadas:         {len(variacoes_para_criar)}\n'
         f'    Variações atualizadas:     {len(variacoes_para_atualizar)}\n'
-        f'    Sem produto correspondente: {sem_produto}'
+        f'    Sem produto correspondente: {sem_produto}\n'
+        f'    Sem categoria correspondente: {sem_categoria}'
     ))
