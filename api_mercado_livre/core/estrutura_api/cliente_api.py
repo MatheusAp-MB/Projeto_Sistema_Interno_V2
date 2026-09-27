@@ -7,7 +7,6 @@ Todo app deve chamar a API através de chamar_api(), nunca via requests direto.
 
 import re
 import time
-import random
 import json
 import logging
 from pathlib import Path
@@ -156,6 +155,23 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
 
     raise ErroAPI(
         f"Número máximo de tentativas ({max_tentativas}) esgotado em {_mascarar_endpoint(endpoint)}")
+
+
+class ClienteApiMercadoLivre:
+    """Transporte com a conta presa na construção — quem usa não passa
+    conta em toda chamada. Não duplica a lógica de chamar_api() (retry,
+    backoff, 206, exceções): só fixa 'conta' e delega pra ela, que
+    continua sendo o único lugar que sabe fazer a chamada de verdade."""
+
+    def __init__(self, conta: str):
+        self._conta = conta
+
+    def chamar(self, metodo: str, endpoint: str, pasta_logs, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None):
+        return chamar_api(
+            metodo, endpoint, pasta_logs, self._conta,
+            params=params, json_body=json_body, max_tentativas=max_tentativas,
+            nome_log=nome_log, headers_extra=headers_extra,
+        )
 
 
 # ─── CACHE LOCAL ──────────────────────────────────────────
