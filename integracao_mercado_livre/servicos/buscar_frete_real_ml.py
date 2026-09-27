@@ -19,18 +19,23 @@
 # — isso é responsabilidade do cálculo de precificação em si
 # (calcular_grade_precificacao_ml.py), que ainda vai precisar ser
 # atualizado como próxima etapa pra ler esse frete_real.
+#
+# Peça 3 da reforma estrutural (27/09/2026): a chamada à API e a leitura
+# da resposta (endpoint, coverage.all_country.*) saíram daqui e foram pra
+# api_mercado_livre.frete_real_ml.FreteRealML (Contexto), por trás de
+# ApiMercadoLivre (Facade) — "a conexão nasce ali e só existe ali". Este
+# arquivo continua 100% dono do laço, do console, e da persistência —
+# nada disso mudou de comportamento, só de onde a chamada HTTP é feita.
 
-import os
 import time
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.utils import timezone
-from dotenv import load_dotenv
 from rich.console import Console
 
-from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
-from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, PREFIXO_ENV_POR_EMPRESA
+from api_mercado_livre import ApiMercadoLivre
+from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
 console = Console()
 
@@ -54,61 +59,11 @@ def _caminho_pasta_logs(empresa: str) -> Path:
     return RAIZ_APP / 'logs' / _pasta_empresa(empresa)
 
 
-def _obter_user_id(conta: str) -> str:
-    load_dotenv()
-    user_id = os.getenv(f"{conta}_USER_ID")
-    if not user_id:
-        raise RuntimeError(
-            f'{conta}_USER_ID não encontrado no .env da raiz do repo — '
-            f'adicione a linha {conta}_USER_ID=seu_user_id_aqui.'
-        )
-    return user_id
-
-
-# Função Objetivo: Extrai (valor, detalhamento) da resposta de shipping_options/free.
-# Explicação em detalhe: coverage.all_country.list_cost é o campo validado na investigação —
-# bate exatamente com o Resumo de Custos real do anúncio. detalhamento (22/09) junta o resto
-# do que a API devolve nesse mesmo nível — billable_weight e o bloco discount inteiro
-# (type/rate/promoted_amount) — pra gravar como apoio/auditoria, sem virar campo oficial.
-# ATENÇÃO: billable_weight/rate/promoted_amount ainda não foram conferidos byte-a-byte
-# contra uma resposta real (só list_cost e discount.type foram validados na investigação
-# original) — a suposição aqui é que ficam no mesmo nível dentro de coverage.all_country.
-# Vale conferir contra 1 log real (integracao_mercado_livre/logs/.../buscar_frete_real_ml*)
-# antes de rodar em massa de novo.
-def _extrair_frete_real(resposta_json: dict):
-    coverage = resposta_json.get('coverage', {}) or {}
-    all_country = coverage.get('all_country', {}) or {}
-    list_cost = all_country.get('list_cost')
-    billable_weight = all_country.get('billable_weight')
-    discount = all_country.get('discount', {}) or {}
-
-    detalhamento = {
-        "billable_weight": billable_weight,
-        "discount_type": discount.get('type'),
-        "discount_rate": discount.get('rate'),
-        "discount_promoted_amount": discount.get('promoted_amount'),
-    }
-
-    if list_cost is None:
-        return None, detalhamento
-
-    try:
-        return Decimal(str(list_cost)), detalhamento
-    except InvalidOperation:
-        return None, detalhamento
-
-
 # Função Objetivo: Busca e grava o frete real de 1 variação (1 chamada à API).
-def buscar_frete_real_variacao(variacao, conta: str, user_id: str, pasta_logs: Path) -> dict:
+def buscar_frete_real_variacao(variacao, api_ml: ApiMercadoLivre) -> dict:
     mlb = variacao.anuncio.mlb
 
-    resposta = chamar_api(
-        "GET", f"/users/{user_id}/shipping_options/free",
-        pasta_logs=pasta_logs, conta=conta,
-        params={"item_id": mlb, "verbose": "true"},
-        nome_log="buscar_frete_real_ml",
-    )
-    valor, detalhamento = _extrair_frete_real(resposta.json())
+    valor, detalhamento = api_ml.buscar_frete(mlb)
 
     if valor is None:
         return {"mlb": mlb, "sucesso": False, "motivo": "resposta sem coverage.all_country.list_cost"}
@@ -132,9 +87,8 @@ def buscar_frete_real_ml(empresa: str) -> dict:
     from precificacao.models import GradePrecificacaoML
     from mercado_livre.models import VariacaoAnuncioMercadoLivre
 
-    conta = PREFIXO_ENV_POR_EMPRESA[empresa]
-    user_id = _obter_user_id(conta)
     pasta_logs = _caminho_pasta_logs(empresa)
+    api_ml = ApiMercadoLivre(pasta_logs=pasta_logs, empresa=empresa)
 
     variacao_ids = (
         GradePrecificacaoML.objects
@@ -170,7 +124,7 @@ def buscar_frete_real_ml(empresa: str) -> dict:
             mlb = variacao.anuncio.mlb
 
             try:
-                resultado = buscar_frete_real_variacao(variacao, conta, user_id, pasta_logs)
+                resultado = buscar_frete_real_variacao(variacao, api_ml)
             except (ErroAPI, ErroAutenticacaoAPI) as e:
                 resultado = {"mlb": mlb, "sucesso": False, "motivo": str(e)}
 
