@@ -17,13 +17,12 @@ import requests
 
 from api_mercado_livre.core.auth.gerenciador_token import obter_token_valido
 from api_mercado_livre.core.estrutura_api.excecoes import ErroAPI, ErroAutenticacaoAPI
+from api_mercado_livre.core.estrutura_api.protecao import calcular_espera_backoff
 
 BASE_URL = "https://api.mercadolibre.com"
 
 TIMEOUT_CONEXAO_SEGUNDOS = 10
 TIMEOUT_LEITURA_SEGUNDOS = 30
-TETO_ESPERA_SEGUNDOS = 30
-MARGEM_RETRY_AFTER_SEGUNDOS = 2
 ESPERA_RETRY_206_SEGUNDOS = 2
 
 DADOS_SENSIVEIS = {"access_token", "refresh_token",
@@ -69,19 +68,6 @@ def _log_seguro(logger, mensagem: str, dados: dict = None):
         logger.info(f"{mensagem} | {dados_limpos}")
     else:
         logger.info(mensagem)
-
-
-def _calcular_espera_backoff(tentativa: int, resposta) -> float:
-    """Usa Retry-After se a API informar; senão backoff exponencial + jitter, com teto de 30s."""
-    retry_after = resposta.headers.get("Retry-After")
-    if retry_after:
-        try:
-            return float(retry_after) + MARGEM_RETRY_AFTER_SEGUNDOS
-        except ValueError:
-            pass
-
-    espera_calculada = (2 ** tentativa) + random.uniform(0, 1)
-    return min(espera_calculada, TETO_ESPERA_SEGUNDOS)
 
 
 def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None):
@@ -157,7 +143,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             )
 
         if resposta.status_code == 429:
-            espera = _calcular_espera_backoff(tentativa, resposta)
+            espera = calcular_espera_backoff(tentativa, resposta)
             logger.warning(
                 f"429 em {_mascarar_endpoint(endpoint)}. Aguardando {espera:.1f}s (tentativa {tentativa + 1}/{max_tentativas})")
             time.sleep(espera)
