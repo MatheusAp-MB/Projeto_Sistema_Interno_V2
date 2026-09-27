@@ -147,16 +147,17 @@ def test_constantes_de_empresa_tem_os_valores_esperados(tabela_resultados):
         empresa.EMPRESAS_VALIDAS == [empresa.EMPRESA_MAGAZINE, empresa.EMPRESA_SAMVALE]
         and empresa.EMPRESA_PADRAO == empresa.EMPRESA_MAGAZINE
         and empresa.ALIAS_BANCO_POR_EMPRESA == {empresa.EMPRESA_MAGAZINE: 'magazine', empresa.EMPRESA_SAMVALE: 'samvale'}
+        and empresa.EMPRESA_POR_ALIAS_BANCO == {'magazine': empresa.EMPRESA_MAGAZINE, 'samvale': empresa.EMPRESA_SAMVALE}
         and empresa.NOME_EXIBICAO_POR_EMPRESA[empresa.EMPRESA_MAGAZINE] == 'MAGAZINE BRASILEIRO'
         and empresa.NOME_EXIBICAO_POR_EMPRESA[empresa.EMPRESA_SAMVALE] == 'SAMVALE'
         and empresa.PREFIXO_ENV_POR_EMPRESA == {empresa.EMPRESA_MAGAZINE: 'MB', empresa.EMPRESA_SAMVALE: 'SV'}
     )
     registrar_resultado(
         tabela_resultados, teste='Constantes/dicts de core.empresa não sofreram regressão silenciosa',
-        entrada='EMPRESAS_VALIDAS, EMPRESA_PADRAO, ALIAS_BANCO_POR_EMPRESA, NOME_EXIBICAO_POR_EMPRESA, PREFIXO_ENV_POR_EMPRESA',
+        entrada='EMPRESAS_VALIDAS, EMPRESA_PADRAO, ALIAS_BANCO_POR_EMPRESA, EMPRESA_POR_ALIAS_BANCO, NOME_EXIBICAO_POR_EMPRESA, PREFIXO_ENV_POR_EMPRESA',
         esperado='Magazine + Samvale, nos 2 sentidos, com os aliases/prefixos reais de produção',
-        motivo='Typo num desses dicts não gera erro visível — só rotearia pro banco/prefixo errado em silêncio',
-        obtido=f'EMPRESAS_VALIDAS={empresa.EMPRESAS_VALIDAS!r}, ALIAS_BANCO_POR_EMPRESA={empresa.ALIAS_BANCO_POR_EMPRESA!r}',
+        motivo='Typo num desses dicts não gera erro visível — só rotearia pro banco/prefixo errado em silêncio (EMPRESA_POR_ALIAS_BANCO é o dict novo que o --empresa minúsculo de todo comando depende agora)',
+        obtido=f'EMPRESAS_VALIDAS={empresa.EMPRESAS_VALIDAS!r}, ALIAS_BANCO_POR_EMPRESA={empresa.ALIAS_BANCO_POR_EMPRESA!r}, EMPRESA_POR_ALIAS_BANCO={empresa.EMPRESA_POR_ALIAS_BANCO!r}',
         passou=passou,
     )
     assert passou
