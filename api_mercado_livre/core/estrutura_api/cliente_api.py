@@ -16,6 +16,7 @@ from rich.logging import RichHandler
 import requests
 
 from api_mercado_livre.core.auth.gerenciador_token import obter_token_valido
+from api_mercado_livre.core.estrutura_api.excecoes import ErroAPI, ErroAutenticacaoAPI
 
 BASE_URL = "https://api.mercadolibre.com"
 
@@ -32,16 +33,6 @@ DADOS_SENSIVEIS = {"access_token", "refresh_token",
 def _mascarar_endpoint(endpoint: str) -> str:
     """Mascara qualquer ID numérico de usuário dentro da URL, antes de logar."""
     return re.sub(r"(/users/)\d+", r"\1***", endpoint)
-
-
-class ErroAPI(Exception):
-    """Erro genérico após esgotar tentativas ou erro não recuperável."""
-    pass
-
-
-class ErroAutenticacaoAPI(Exception):
-    """401 mesmo com token considerado válido. Caso grave e distinto — não tenta de novo sozinho."""
-    pass
 
 
 def _configurar_logger(pasta_logs: Path, nome_log: str = "api"):
