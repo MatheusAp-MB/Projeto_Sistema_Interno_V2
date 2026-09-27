@@ -7,19 +7,25 @@
 # integracao_mercado_livre/Arquivos_API/<Empresa>/.
 #
 # Migrado de APP_performance/buscar_mlbs.py (pasta separada, fora do repo).
+#
+# Peça 4 da reforma estrutural (27/09/2026): a chamada à API e a
+# varredura por scroll_id saíram daqui e foram pra
+# api_mercado_livre.mlbs_ml.MlbsML (Contexto), por trás de
+# ApiMercadoLivre (Facade). Este arquivo continua 100% dono do laço
+# sobre as 168 combinações e do console — nada disso mudou de
+# comportamento, só de onde a chamada HTTP acontece.
 
 import json
-import os
 import time
 from pathlib import Path
 from itertools import product
 
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
-from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
-from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, PREFIXO_ENV_POR_EMPRESA
+from api_mercado_livre import ApiMercadoLivre
+from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
 console = Console()
 
@@ -69,61 +75,6 @@ def _caminho_pasta_logs(empresa: str) -> Path:
     return RAIZ_APP / 'logs' / _pasta_empresa(empresa)
 
 
-def _obter_user_id(conta: str) -> str:
-    # load_dotenv() redundante quando chamado via manage.py (settings.py já
-    # carrega o .env no boot) — mantido mesmo assim, defensivo, caso esta
-    # função seja importada/testada fora do ciclo normal do Django.
-    load_dotenv()
-    user_id = os.getenv(f"{conta}_USER_ID")
-    if not user_id:
-        raise RuntimeError(
-            f'{conta}_USER_ID não encontrado no .env da raiz do repo — '
-            f'adicione a linha {conta}_USER_ID=seu_user_id_aqui.'
-        )
-    return user_id
-
-
-def buscar_mlbs_varrida(varrida: dict, conta: str, user_id: str, pasta_logs: Path) -> list[dict]:
-    mlbs_encontrados = []
-    scroll_id = None
-
-    while True:
-        params = {
-            "search_type": "scan",
-            "status": varrida["status"],
-            "logistic_type": varrida["logistic_type"],
-            "listing_type_id": varrida["listing_type_id"],
-            "catalog_listing": varrida["catalog_listing"],
-        }
-        if scroll_id:
-            params["scroll_id"] = scroll_id
-
-        resposta = chamar_api(
-            "GET", f"/users/{user_id}/items/search",
-            pasta_logs=pasta_logs, conta=conta, params=params, nome_log="buscar_mlbs",
-        )
-        dados = resposta.json()
-        resultados = dados.get("results", [])
-
-        if not resultados:
-            break
-
-        for mlb in resultados:
-            mlbs_encontrados.append({
-                "mlb": mlb,
-                "status": varrida["status"],
-                "logistica": varrida["logistic_type"],
-                "tipo": varrida["listing_type_id"],
-                "catalogo": varrida["catalog_listing"],
-            })
-
-        scroll_id = dados.get("scroll_id")
-        if not scroll_id:
-            break
-
-    return mlbs_encontrados
-
-
 def buscar_mlbs(empresa: str) -> dict:
     """
     Ponto único de entrada. Busca todos os MLBs da empresa informada
@@ -134,9 +85,8 @@ def buscar_mlbs(empresa: str) -> dict:
     fecha e fica no histórico do terminal antes do próximo abrir. O ritmo
     real das chamadas não muda: continua 1 de cada vez, em sequência.
     """
-    conta = PREFIXO_ENV_POR_EMPRESA[empresa]
-    user_id = _obter_user_id(conta)
     pasta_logs = _caminho_pasta_logs(empresa)
+    api_ml = ApiMercadoLivre(pasta_logs=pasta_logs, empresa=empresa)
 
     todos_mlbs = []
     varridas_com_resultado = 0
@@ -174,7 +124,7 @@ def buscar_mlbs(empresa: str) -> dict:
 
                 inicio_varrida = time.perf_counter()
                 try:
-                    mlbs_varrida = buscar_mlbs_varrida(varrida, conta, user_id, pasta_logs)
+                    mlbs_varrida = api_ml.varrer_mlbs(varrida)
                     erro = None
                 except (ErroAPI, ErroAutenticacaoAPI) as e:
                     mlbs_varrida = []

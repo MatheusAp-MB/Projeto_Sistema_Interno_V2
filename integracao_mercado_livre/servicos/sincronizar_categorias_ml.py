@@ -20,14 +20,20 @@
 #                (a FK apontaria pra uma linha que ainda não existe).
 #   2ª passada — com todas as linhas já existindo, seta categoria_pai de
 #                cada uma em lote (bulk_update).
+#
+# Peça 4 da reforma estrutural (27/09/2026): a chamada à API e os 2
+# headers de versão saíram daqui e foram pra
+# api_mercado_livre.categorias_ml.CategoriasML (Contexto), por trás de
+# ApiMercadoLivre (Facade). A comparação de MD5 e a gravação em banco
+# (schema nosso, não da API) continuam 100% aqui. Nada disso mudou de
+# comportamento, só de onde a chamada HTTP acontece.
 
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from rich.console import Console
 
-from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api
-from core.empresa import PREFIXO_ENV_POR_EMPRESA
+from api_mercado_livre import ApiMercadoLivre
 from mercado_livre.models import CategoriaMercadoLivre, EstadoDumpCategoriasMercadoLivre
 
 console = Console()
@@ -94,25 +100,21 @@ def sincronizar_categorias_ml(empresa: str, forcar: bool = False) -> dict:
     Precisa rodar com a empresa já ativa (definir_empresa_ativa) — quem
     chama isso é o management command, igual ao padrão de buscar_frete_real_ml.
     """
-    conta = PREFIXO_ENV_POR_EMPRESA[empresa]
     pasta_logs = RAIZ_APP / "logs" / empresa.title()
+    api_ml = ApiMercadoLivre(pasta_logs=pasta_logs, empresa=empresa)
 
     console.print("Baixando dump de categorias (GET /sites/MLB/categories/all)...")
-    resposta = chamar_api(
-        "GET", "/sites/MLB/categories/all",
-        pasta_logs=pasta_logs, conta=conta,
-        nome_log="sincronizar_categorias_ml",
-    )
+    dump = api_ml.baixar_dump_categorias()
 
-    md5_novo = resposta.headers.get("X-Content-MD5")
-    gerado_em_novo = resposta.headers.get("X-Content-Created")
+    md5_novo = dump["md5"]
+    gerado_em_novo = dump["gerado_em"]
 
     estado_atual = EstadoDumpCategoriasMercadoLivre.objects.order_by("-baixado_em").first()
     if not forcar and estado_atual and estado_atual.md5 == md5_novo:
         console.print(f"[yellow]MD5 igual ao último dump processado ({estado_atual.baixado_em}) — nada a fazer.[/yellow]")
         return {"atualizado": False, "motivo": "md5_inalterado", "md5": md5_novo}
 
-    dados = resposta.json()
+    dados = dump["dados"]
     total = len(dados)
     console.print(f"Dump baixado: {total} categorias. Gravando...")
 

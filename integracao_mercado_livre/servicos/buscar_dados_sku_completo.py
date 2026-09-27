@@ -23,6 +23,14 @@
 #
 # Cache em memória por execução (por mlbu / por mlb) — nunca repete
 # chamada pro mesmo par, ainda que o MLB apareça no fecho de mais de 1 SKU.
+#
+# Peça 4 da reforma estrutural (27/09/2026): as 2 chamadas à API saíram
+# daqui e foram pra api_mercado_livre.dados_sku_completo_ml.
+# DadosSkuCompletoML (Contexto), por trás de ApiMercadoLivre (Facade).
+# O cache por execução (cache_perf/cache_ptw) continua 100% aqui — é
+# controle de "evitar chamada repetida nesse run", não conhecimento de
+# API. Nada disso mudou de comportamento, só de onde a chamada HTTP
+# acontece.
 
 import json
 import time
@@ -31,8 +39,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
-from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
-from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, PREFIXO_ENV_POR_EMPRESA
+from api_mercado_livre import ApiMercadoLivre
+from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from mercado_livre.funcoes_auxiliares.classificacao_catalogo import (
     classificar_catalogo, encontrar_fecho_transitivo,
 )
@@ -93,45 +102,30 @@ def _pacote_nao_chamado() -> dict:
     return {"chamado": False, "http": None, "erro": None, "dados": None}
 
 
-def _chamar_performance(mlbu, conta, pasta_logs, cache) -> dict:
+def _chamar_performance(mlbu, api_ml, cache) -> dict:
     if mlbu in cache:
         return cache[mlbu]
-    try:
-        r = chamar_api(
-            "GET", f"/user-product/{mlbu}/performance",
-            pasta_logs=pasta_logs, conta=conta, nome_log="buscar_dados_sku_completo",
-        )
-        pacote = {"chamado": True, "http": r.status_code, "erro": None, "dados": r.json()}
-    except (ErroAPI, ErroAutenticacaoAPI) as e:
-        pacote = {"chamado": True, "http": None, "erro": str(e), "dados": None}
+    pacote = api_ml.buscar_performance(mlbu)
     cache[mlbu] = pacote
     return pacote
 
 
-def _chamar_price_to_win(mlb, conta, pasta_logs, cache) -> dict:
+def _chamar_price_to_win(mlb, api_ml, cache) -> dict:
     if mlb in cache:
         return cache[mlb]
-    try:
-        r = chamar_api(
-            "GET", f"/items/{mlb}/price_to_win",
-            pasta_logs=pasta_logs, conta=conta, params={"version": "v2"},
-            nome_log="buscar_dados_sku_completo",
-        )
-        pacote = {"chamado": True, "http": r.status_code, "erro": None, "dados": r.json()}
-    except (ErroAPI, ErroAutenticacaoAPI) as e:
-        pacote = {"chamado": True, "http": None, "erro": str(e), "dados": None}
+    pacote = api_ml.buscar_price_to_win(mlb)
     cache[mlb] = pacote
     return pacote
 
 
-def _montar_mlb(registro, conta, pasta_logs, cache_perf, cache_ptw) -> dict:
+def _montar_mlb(registro, api_ml, cache_perf, cache_ptw) -> dict:
     mlb = registro["mlb"]
     mlbu = registro.get("user_product_id")
     classificacao = classificar_catalogo(registro)
 
-    performance = _chamar_performance(mlbu, conta, pasta_logs, cache_perf) if mlbu else _pacote_nao_chamado()
+    performance = _chamar_performance(mlbu, api_ml, cache_perf) if mlbu else _pacote_nao_chamado()
     price_to_win = (
-        _chamar_price_to_win(mlb, conta, pasta_logs, cache_ptw)
+        _chamar_price_to_win(mlb, api_ml, cache_ptw)
         if classificacao == 'catalogo' else _pacote_nao_chamado()
     )
 
@@ -153,12 +147,12 @@ def _montar_mlb(registro, conta, pasta_logs, cache_perf, cache_ptw) -> dict:
     }
 
 
-def _montar_sku(sku, registros_idx, todos_registros, conta, pasta_logs, cache_perf, cache_ptw) -> dict:
+def _montar_sku(sku, registros_idx, todos_registros, api_ml, cache_perf, cache_ptw) -> dict:
     fecho = encontrar_fecho_transitivo(sku, todos_registros)
     if not fecho:
         return {"sku": sku, "total_mlbs": 0, "mlbs": []}
     mlbs_saida = [
-        _montar_mlb(registros_idx[mlb], conta, pasta_logs, cache_perf, cache_ptw)
+        _montar_mlb(registros_idx[mlb], api_ml, cache_perf, cache_ptw)
         for mlb in sorted(fecho)
     ]
     return {"sku": sku, "total_mlbs": len(mlbs_saida), "mlbs": mlbs_saida}
@@ -172,8 +166,8 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> dict:
     skus=[...] -> modo teste: só os SKUs informados, sem checkpoint, faz
                   merge com o dados_completos_por_sku.json existente.
     """
-    conta = PREFIXO_ENV_POR_EMPRESA[empresa]
     pasta_logs = _caminho_pasta_logs(empresa)
+    api_ml = ApiMercadoLivre(pasta_logs=pasta_logs, empresa=empresa)
 
     todos_registros = _carregar_registros(empresa)
     registros_idx = {r["mlb"]: r for r in todos_registros}
@@ -251,7 +245,7 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> dict:
                 bloco = None
 
                 try:
-                    bloco = _montar_sku(sku, registros_idx, todos_registros, conta, pasta_logs, cache_perf, cache_ptw)
+                    bloco = _montar_sku(sku, registros_idx, todos_registros, api_ml, cache_perf, cache_ptw)
                 except (ErroAPI, ErroAutenticacaoAPI) as e:
                     erro = e
 

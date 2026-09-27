@@ -18,6 +18,14 @@
 #
 # Migrado de APP_performance/buscar_detalhes.py (pasta separada, fora do
 # repo). CSV removido de propósito — só JSON.
+#
+# Peça 4 da reforma estrutural (27/09/2026): a chamada à API e a
+# extração de campos (extrair_sku, extrair_atributo, extrair_campos_pai,
+# processar_item, etc.) saíram daqui e foram pra
+# api_mercado_livre.detalhes_ml.DetalhesML (Contexto), por trás de
+# ApiMercadoLivre (Facade). Este arquivo continua 100% dono do controle
+# de lotes/progresso/retomada — nada disso mudou de comportamento, só de
+# onde a chamada HTTP e a extração acontecem.
 
 import json
 import time
@@ -26,8 +34,9 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
-from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
-from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, PREFIXO_ENV_POR_EMPRESA
+from api_mercado_livre import ApiMercadoLivre
+from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
 console = Console()
 
@@ -64,174 +73,6 @@ def _caminho_pasta_logs(empresa: str) -> Path:
     return RAIZ_APP / 'logs' / _pasta_empresa(empresa)
 
 
-# ─── EXTRAÇÃO DE CAMPOS (idêntico ao script original — lógica não mudou) ───
-
-def extrair_sku(body: dict) -> str | None:
-    for attr in body.get("attributes", []):
-        if attr.get("id") == "SELLER_SKU":
-            return attr.get("value_name")
-    return body.get("seller_custom_field")
-
-
-def extrair_atributo(body: dict, attr_id: str) -> str | None:
-    for attr in body.get("attributes", []):
-        if attr.get("id") == attr_id:
-            return attr.get("value_name")
-    return None
-
-
-def extrair_sku_variacao(var: dict) -> str | None:
-    for attr in var.get("attributes", []):
-        if attr.get("id") == "SELLER_SKU":
-            return attr.get("value_name")
-    return var.get("seller_custom_field")
-
-
-def extrair_dimensoes(shipping: dict) -> dict:
-    dims = shipping.get("dimensions") or {}
-    if not isinstance(dims, dict):
-        return {"shipping_dim_width": None, "shipping_dim_height": None,
-                "shipping_dim_length": None, "shipping_dim_weight": None}
-    return {
-        "shipping_dim_width":  dims.get("width"),
-        "shipping_dim_height": dims.get("height"),
-        "shipping_dim_length": dims.get("length"),
-        "shipping_dim_weight": dims.get("weight"),
-    }
-
-
-def extrair_campos_pai(body: dict, meta: dict) -> dict:
-    shipping = body.get("shipping", {})
-    shipping_tags = shipping.get("tags", [])
-
-    def extrair_imagem_principal(body: dict) -> str | None:
-        pictures = body.get("pictures", [])
-        if not pictures:
-            return None
-        url = pictures[0].get("secure_url") or pictures[0].get("url")
-        if not url:
-            return None
-        try:
-            base, ext = url.rsplit(".", 1)
-            base_sem_sufixo = base.rsplit("-", 1)[0]
-            return f"{base_sem_sufixo}-F.{ext}"
-        except Exception:
-            return url
-
-    return {
-        "mlb":                  body.get("id"),
-        "title":                body.get("title"),
-        "thumbnail":            body.get("thumbnail"),
-        "imagem_principal":     extrair_imagem_principal(body),
-        "pictures":             body.get("pictures", []),
-        "status":               body.get("status"),
-        "sub_status":           json.dumps(body.get("sub_status", []), ensure_ascii=False),
-        "condition":            body.get("condition"),
-
-        "price":                body.get("price"),
-        "base_price":           body.get("base_price"),
-        "original_price":       body.get("original_price"),
-
-        "available_quantity":   body.get("available_quantity"),
-        "sold_quantity":        body.get("sold_quantity"),
-        "initial_quantity":     body.get("initial_quantity"),
-
-        "listing_type_id":      body.get("listing_type_id"),
-        "catalog_listing":      body.get("catalog_listing"),
-        "catalog_product_id":   body.get("catalog_product_id"),
-
-        "logistic_type":        shipping.get("logistic_type"),
-        "free_shipping":        shipping.get("free_shipping"),
-        "flex":                 "self_service_in" in shipping_tags,
-        "shipping_tags":        json.dumps(shipping_tags, ensure_ascii=False),
-        **extrair_dimensoes(shipping),
-
-        "sku":                  extrair_sku(body),
-        "inventory_id":         body.get("inventory_id"),
-        "user_product_id":      body.get("user_product_id"),
-
-        "attr_seller_package_height": extrair_atributo(body, "SELLER_PACKAGE_HEIGHT"),
-        "attr_seller_package_width":  extrair_atributo(body, "SELLER_PACKAGE_WIDTH"),
-        "attr_seller_package_length": extrair_atributo(body, "SELLER_PACKAGE_LENGTH"),
-        "attr_seller_package_weight": extrair_atributo(body, "SELLER_PACKAGE_WEIGHT"),
-        "attr_dimensions":            extrair_atributo(body, "DIMENSIONS"),
-        "attr_weight":                extrair_atributo(body, "WEIGHT"),
-
-        "family_name":          body.get("family_name"),
-        "family_id":            body.get("family_id"),
-
-        "item_relations":       json.dumps(body.get("item_relations", []), ensure_ascii=False),
-        "parent_item_id":       body.get("parent_item_id"),
-        "differential_pricing": body.get("differential_pricing"),
-        "deal_ids":             json.dumps(body.get("deal_ids", []), ensure_ascii=False),
-
-        "category_id":          body.get("category_id"),
-        "domain_id":            body.get("domain_id"),
-
-        "tags":                 json.dumps(body.get("tags", []), ensure_ascii=False),
-
-        "warranty":             body.get("warranty"),
-
-        "date_created":         body.get("date_created"),
-        "last_updated":         body.get("last_updated"),
-        "start_time":           body.get("start_time"),
-        "stop_time":            body.get("stop_time"),
-        "end_time":             body.get("end_time"),
-        "expiration_time":      body.get("expiration_time"),
-
-        "permalink":            body.get("permalink"),
-
-        "tem_variacoes":        len(body.get("variations", [])) > 0,
-        "variacao_id":          None,
-        "variacao_atributos":   None,
-        "variacao_num_fotos":   None,
-
-        "ga_status":            meta.get("status"),
-        "ga_logistica":         meta.get("logistica"),
-        "ga_tipo":              meta.get("tipo"),
-        "ga_catalogo":          meta.get("catalogo"),
-    }
-
-
-def processar_item(body: dict, meta: dict) -> list[dict]:
-    variacoes = body.get("variations", [])
-
-    if not variacoes:
-        return [extrair_campos_pai(body, meta)]
-
-    registros = []
-    campos_pai = extrair_campos_pai(body, meta)
-
-    for var in variacoes:
-        reg = campos_pai.copy()
-
-        reg["available_quantity"] = var.get("available_quantity")
-        reg["sold_quantity"]      = var.get("sold_quantity")
-        reg["inventory_id"]       = var.get("inventory_id")
-        reg["user_product_id"]    = var.get("user_product_id")
-        reg["catalog_product_id"] = var.get("catalog_product_id") or campos_pai["catalog_product_id"]
-        reg["item_relations"]     = json.dumps(var.get("item_relations", []), ensure_ascii=False)
-
-        sku_var = extrair_sku_variacao(var)
-        if sku_var:
-            reg["sku"] = sku_var
-
-        if var.get("price") is not None:
-            reg["price"] = var.get("price")
-
-        reg["variacao_id"] = var.get("id")
-        reg["variacao_num_fotos"] = len(var.get("picture_ids", []))
-
-        combinacoes = var.get("attribute_combinations", [])
-        reg["variacao_atributos"] = " / ".join(
-            c.get("value_name", "") for c in combinacoes if c.get("value_name")
-        ) or None
-
-        registros.append(reg)
-
-    return registros
-
-
 # ─── MAIN ────────────────────────────────────────────────────────────────
 
 def buscar_detalhes(empresa: str) -> dict:
@@ -241,8 +82,8 @@ def buscar_detalhes(empresa: str) -> dict:
     lista_mlbs.json gerado pelo ponto 02 (buscar_mlbs). Salva
     detalhes_mlbs.json isolado por empresa, e devolve um resumo da execução.
     """
-    conta = PREFIXO_ENV_POR_EMPRESA[empresa]
     pasta_logs = _caminho_pasta_logs(empresa)
+    api_ml = ApiMercadoLivre(pasta_logs=pasta_logs, empresa=empresa)
 
     caminho_lista = _caminho_lista_mlbs(empresa)
     if not caminho_lista.exists():
@@ -332,26 +173,11 @@ def buscar_detalhes(empresa: str) -> dict:
                 erro = None
 
                 try:
-                    resposta = chamar_api(
-                        "GET", "/items",
-                        pasta_logs=pasta_logs, conta=conta, params={"ids": ids_str},
-                        nome_log="buscar_detalhes",
-                    )
-                    resultados = resposta.json()
-
-                    for item in resultados:
-                        code = item.get("code", 0)
-                        body = item.get("body", {})
-                        mlb  = body.get("id") or ""
-
-                        if code != 200:
-                            erros_itens.append({"mlb": mlb, "code": code})
-                            qtd_erros_item += 1
-                            continue
-
-                        meta = meta_map.get(mlb, {})
-                        registros_lote.extend(processar_item(body, meta))
-                        processados_ids.add(mlb)
+                    registros_lote, erros_lote_itens = api_ml.buscar_detalhes_lote(ids_str, meta_map)
+                    qtd_erros_item = len(erros_lote_itens)
+                    erros_itens.extend(erros_lote_itens)
+                    for reg in registros_lote:
+                        processados_ids.add(reg["mlb"])
 
                 except (ErroAPI, ErroAutenticacaoAPI) as e:
                     erro = e
