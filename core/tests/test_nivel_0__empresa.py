@@ -118,17 +118,21 @@ def test_obter_alias_banco_ativo_com_samvale_ativa(tabela_resultados):
     assert passou
 
 
-def test_obter_alias_banco_ativo_sem_empresa_ativa_devolve_none(tabela_resultados):
+def test_obter_alias_banco_ativo_sem_empresa_ativa_levanta_erro(tabela_resultados):
     # Exercise: nenhum definir_empresa_ativa() antes (fixture garante isso).
-    resultado = empresa.obter_alias_banco_ativo()
+    try:
+        empresa.obter_alias_banco_ativo()
+        levantou = False
+    except empresa.EmpresaNaoDefinidaError:
+        levantou = True
 
     # Assert:
-    passou = resultado is None
+    passou = levantou
     registrar_resultado(
         tabela_resultados, teste='obter_alias_banco_ativo() sem nenhuma empresa ativa',
-        entrada='thread-local limpo', esperado='None',
-        motivo='Linha que faltava cobrir em 25/08 — deixa o Router NÃO opinar, respeitando --database= nativo do Django',
-        obtido=f'resultado={resultado!r}',
+        entrada='thread-local limpo', esperado='EmpresaNaoDefinidaError',
+        motivo='Decisão de 27/09: nunca mais cair em silêncio pro banco default (Magazine) — precisa falhar alto e claro',
+        obtido=f'levantou EmpresaNaoDefinidaError={levantou!r}',
         passou=passou,
     )
     assert passou

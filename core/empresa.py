@@ -15,6 +15,16 @@ ALIAS_BANCO_POR_EMPRESA = {
     EMPRESA_SAMVALE: 'samvale',
 }
 
+# Direção inversa do dict acima — única fonte de verdade pro valor que o
+# usuário digita em --empresa (sempre minúsculo: 'magazine'/'samvale') e
+# pra tradução de volta pra constante interna (EMPRESA_MAGAZINE/EMPRESA_SAMVALE).
+# Antes desse padrão (27/09/2026), cada comando de management duplicava seu
+# próprio dict local com o mesmo mapeamento — 4 cópias (_base_empresa.py +
+# 3 comandos do ML), risco de divergir se uma empresa nova entrar.
+EMPRESA_POR_ALIAS_BANCO = {
+    alias: empresa for empresa, alias in ALIAS_BANCO_POR_EMPRESA.items()
+}
+
 NOME_EXIBICAO_POR_EMPRESA = {
     EMPRESA_MAGAZINE: 'MAGAZINE BRASILEIRO',
     EMPRESA_SAMVALE: 'SAMVALE',
@@ -32,10 +42,26 @@ def obter_empresa_ativa():
     return getattr(_armazenamento_local, 'empresa', None)
 
 
+class EmpresaNaoDefinidaError(RuntimeError):
+    """
+    Nenhuma empresa ativa nesta thread (definir_empresa_ativa() nunca foi
+    chamado). Decisão explícita (Matheus, 27/09/2026): nunca cair em
+    silêncio pro banco default (Magazine) — todo comando/script/shell que
+    toca dado de empresa precisa setar a empresa ativa primeiro, ou falha
+    na hora, alto e claro.
+    """
+    pass
+
+
 def obter_alias_banco_ativo():
     empresa = obter_empresa_ativa()
     if empresa is None:
-        return None
+        raise EmpresaNaoDefinidaError(
+            'Nenhuma empresa ativa — chame definir_empresa_ativa(EMPRESA_MAGAZINE '
+            'ou EMPRESA_SAMVALE) antes de ler/escrever qualquer dado de empresa. '
+            'Comandos de management usam --empresa explícito (obrigatório); scripts '
+            'avulsos chamam definir_empresa_ativa() logo no início.'
+        )
     return ALIAS_BANCO_POR_EMPRESA[empresa]
 
 
