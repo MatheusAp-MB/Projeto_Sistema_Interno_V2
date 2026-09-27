@@ -31,11 +31,11 @@ window.addEventListener('resize', ajustar_altura_grade);
 // DESTAQUE DA CÉLULA
 // ================================================
 
-function destacar_celula(peso_min, preco_min) {
+function destacar_celula(peso_min, preco_min, regime) {
     limpar_destaque();
 
     var celula = document.querySelector(
-        `td[data-peso-min="${peso_min}"][data-preco-min="${preco_min}"]`
+        `td[data-peso-min="${peso_min}"][data-preco-min="${preco_min}"][data-regime="${regime}"]`
     );
     if (!celula) return;
 

@@ -4,9 +4,13 @@
 # Explicação em detalhe: roda dentro do popular_banco, com proteção pra não quebrar a
 # importação inteira caso o arquivo não exista nesse ambiente (mesma proteção já usada em
 # Qualidade/Competição) — é dado de referência raro de mudar. A unidade de dado aqui é a
-# CÉLULA da matriz (1 faixa de peso × 1 faixa de preço), não a linha inteira — 29 linhas ×
-# 8 colunas = 232 combinações. Reescrito em POO (17/07) — converteu de update_or_create
-# (1-2 queries por célula) pro mesmo padrão de bulk do resto do projeto.
+# CÉLULA da matriz (1 faixa de peso × 1 faixa de preço × 1 regime), não a linha inteira.
+#
+# * [LAYOUT DA PLANILHA] → mudou em 23/09/2026: colunas A=rótulo, B=peso_min, C=peso_max,
+#   D=Regime ("Sem"/"Com Frete Grátis Rápido"), E=free_shipping, F..M=8 faixas de preço.
+#   A planilha traz 2 linhas por faixa de peso (1 por Regime) — são 2 tabelas reais de
+#   frete diferentes. Desde 27/09/2026 o FreteML tem campo `regime` — as 2 linhas são
+#   importadas, cada uma na sua célula (peso_min, preco_min, regime).
 
 import re
 from pathlib import Path
@@ -17,16 +21,31 @@ from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 
 CAMINHO_TABELA_FRETE = Path('Arquivos usados para Popular Banco/Tabelas de Frete/Tabela_Frete_Mercado_Livre.xlsx')
 
+# * [EXPLICAÇÃO] → Posição (índice, começando em 0) de cada coluna fixa da planilha.
+COLUNA_PESO_MIN = 1
+COLUNA_PESO_MAX = 2
+COLUNA_REGIME = 3
+COLUNA_INICIO_PRECOS = 5  # colunas F (índice 5) até M (índice 12) — 8 faixas de preço
 
-# Função Objetivo: Representa 1 célula da matriz — 1 faixa de peso × 1 faixa de preço.
+# * [EXPLICAÇÃO] → Traduz o texto da coluna Regime pro valor interno do model — a ÚNICA
+#   fonte de verdade é o próprio FreteML.Regime (nunca reescrito aqui à parte, pra nunca
+#   dessincronizar dos 2 valores válidos).
+REGIME_POR_TEXTO_PLANILHA = {label: valor for valor, label in FreteML.Regime.choices}
+
+
+# Função Objetivo: Representa 1 célula da matriz — 1 faixa de peso × 1 faixa de preço,
+# já com o regime da linha de onde veio.
 class LinhaFreteML:
 
-    # Função Objetivo: Recebe a linha bruta, o índice da coluna, e a faixa de preço já parseada.
-    def __init__(self, row, col_idx, preco_min, preco_max):
+    # Função Objetivo: Recebe a linha bruta, o índice da faixa de preço (0 a 7), a
+    # faixa de preço já parseada, e o regime (já traduzido) dessa linha.
+    def __init__(self, row, col_idx, preco_min, preco_max, regime):
         self.row = row
         self.col_idx = col_idx
+        self.coluna_valor = COLUNA_INICIO_PRECOS + col_idx
         self.preco_min = preco_min
         self.preco_max = preco_max
+        self.regime = regime
 
         self.peso_min = None
         self.peso_max = None
@@ -34,23 +53,30 @@ class LinhaFreteML:
 
     # Função Objetivo: Diz se essa célula tem valor de frete preenchido.
     def tem_valor(self):
-        return self.row[self.col_idx + 1] is not None
+        return self.row[self.coluna_valor] is not None
 
-    # Função Objetivo: Extrai a faixa de peso da linha (colunas 9 e 10).
+    # Função Objetivo: Extrai a faixa de peso da linha (colunas B e C).
     def extrair_faixa_peso(self):
-        self.peso_min = Decimal(str(self.row[9]))
-        peso_max_raw = self.row[10]
+        self.peso_min = Decimal(str(self.row[COLUNA_PESO_MIN]))
+        peso_max_raw = self.row[COLUNA_PESO_MAX]
 
-        if peso_max_raw is not None and float(peso_max_raw) >= 999999999:
+        # * [EXPLICAÇÃO] → A última faixa ("Mais de 150 kg") não tem limite superior.
+        #   A planilha atual marca isso com o texto "sem limite" na célula. Versões
+        #   antigas usavam um número-sentinela gigante (>= 999999999) — mantemos os
+        #   2 jeitos de reconhecer "sem limite", pra não quebrar de novo se o
+        #   formato mudar outra vez.
+        if peso_max_raw is None:
             self.peso_max = None
-        elif peso_max_raw is not None:
-            self.peso_max = Decimal(str(peso_max_raw))
+        elif isinstance(peso_max_raw, str):
+            self.peso_max = None
+        elif float(peso_max_raw) >= 999999999:
+            self.peso_max = None
         else:
-            self.peso_max = None
+            self.peso_max = Decimal(str(peso_max_raw))
 
     # Função Objetivo: Extrai o valor do frete dessa célula.
     def extrair_valor(self):
-        bruto = self.row[self.col_idx + 1]
+        bruto = self.row[self.coluna_valor]
         self.valor = Decimal(str(round(float(bruto), 2)))
 
     # Função Objetivo: Roda os passos acima, na ordem certa.
@@ -74,6 +100,7 @@ class ImportadorFreteML:
 
         self.para_criar = []
         self.para_atualizar = []
+        self.regimes_nao_reconhecidos = []
         self.erros = []
 
     # Função Objetivo: Abre a planilha e lê todas as linhas.
@@ -95,14 +122,19 @@ class ImportadorFreteML:
         preco_max = to_decimal(numeros[1]) if len(numeros) > 1 else None
         return preco_min, preco_max
 
-    # Função Objetivo: Parseia as 8 faixas de preço do cabeçalho, 1 vez só.
+    # Função Objetivo: Parseia as 8 faixas de preço do cabeçalho (colunas F..M), 1 vez só.
     def parsear_cabecalho(self):
         header = self.rows[0]
-        self.faixas_preco = [self._parsear_faixa_preco(str(header[col_idx])) for col_idx in range(1, 9)]
+        self.faixas_preco = [
+            self._parsear_faixa_preco(str(header[col_idx]))
+            for col_idx in range(COLUNA_INICIO_PRECOS, COLUNA_INICIO_PRECOS + 8)
+        ]
 
     # Função Objetivo: Carrega em memória os registros já existentes no banco.
     def carregar_existentes(self):
-        self.existentes = {(f.peso_min, f.preco_min): f for f in FreteML.objects.all()}
+        self.existentes = {
+            (f.peso_min, f.preco_min, f.regime): f for f in FreteML.objects.all()
+        }
 
     # Função Objetivo: Processa cada célula da matriz, com barra de progresso.
     def processar_linhas(self):
@@ -113,12 +145,23 @@ class ImportadorFreteML:
             if indice % 10 == 0 or indice == total:
                 self.stdout.write(f'    ... {indice}/{total} linhas processadas')
 
-            if not any(v is not None for v in row[:9]):
+            # * [EXPLICAÇÃO] → peso_min vazio identifica linha em branco ou nota de
+            #   rodapé (fonte, observação) — não é dado de matriz, pula.
+            if row[COLUNA_PESO_MIN] is None:
+                continue
+
+            texto_regime = row[COLUNA_REGIME]
+            regime = REGIME_POR_TEXTO_PLANILHA.get(texto_regime)
+            if regime is None:
+                # * [EXPLICAÇÃO] → Regime não reconhecido (texto da coluna D não bate
+                #   com nenhuma das 2 opções do model) — não inventa um valor, avisa
+                #   e pula, pra não gravar dado errado silenciosamente.
+                self.regimes_nao_reconhecidos.append(f'  [REGIME?] Linha {row[0]}: "{texto_regime}"')
                 continue
 
             try:
                 for col_idx, (preco_min, preco_max) in enumerate(self.faixas_preco):
-                    linha = LinhaFreteML(row, col_idx, preco_min, preco_max)
+                    linha = LinhaFreteML(row, col_idx, preco_min, preco_max, regime)
                     if not linha.tem_valor():
                         continue
                     linha.processar()
@@ -126,20 +169,30 @@ class ImportadorFreteML:
             except Exception as e:
                 self.erros.append(f'  [ERRO] Linha {row[0]}: {e}')
 
-    # Função Objetivo: Cria ou atualiza 1 registro, chave (peso_min, preco_min).
+    # Função Objetivo: Cria ou atualiza 1 registro, chave (peso_min, preco_min, regime).
+    # Explicação em detalhe: um objeto "existente" pode ser (a) um registro de verdade
+    # já salvo no banco (tem pk) — aí atualiza e manda pro lote de UPDATE — ou (b) um
+    # objeto criado NESTA MESMA rodada, ainda sem pk (a chave repetiu na planilha) — aí
+    # só atualiza os campos em memória, sem duplicar no lote de CREATE nem mandar pro
+    # de UPDATE (bulk_update exige pk, senão quebra — foi esse o erro que apareceu antes).
     def _registrar_linha(self, linha):
-        chave = (linha.peso_min, linha.preco_min)
+        chave = (linha.peso_min, linha.preco_min, linha.regime)
         existente = self.existentes.get(chave)
-        if existente:
+
+        if existente is not None and existente.pk is not None:
             existente.peso_max = linha.peso_max
             existente.preco_max = linha.preco_max
             existente.valor = linha.valor
             self.para_atualizar.append(existente)
+        elif existente is not None:
+            existente.peso_max = linha.peso_max
+            existente.preco_max = linha.preco_max
+            existente.valor = linha.valor
         else:
             novo = FreteML(
                 peso_min=linha.peso_min, peso_max=linha.peso_max,
                 preco_min=linha.preco_min, preco_max=linha.preco_max,
-                valor=linha.valor,
+                regime=linha.regime, valor=linha.valor,
             )
             self.para_criar.append(novo)
             self.existentes[chave] = novo
@@ -168,6 +221,7 @@ class ImportadorFreteML:
             f'[FRETE ML] Concluído!\n'
             f'    Criados:     {len(self.para_criar)}\n'
             f'    Atualizados: {len(self.para_atualizar)}\n'
+            f'    Regime não reconhecido: {len(self.regimes_nao_reconhecidos)}\n'
             f'    Erros:       {len(self.erros)}'
         )
 
@@ -183,6 +237,8 @@ def importar_tabela_frete_ml(stdout, style, caminho=CAMINHO_TABELA_FRETE):
     importador = ImportadorFreteML(caminho, stdout)
     importador.rodar_importacao_completa()
 
+    for aviso in importador.regimes_nao_reconhecidos:
+        stdout.write(style.WARNING(aviso))
     for erro in importador.erros:
         stdout.write(style.ERROR(erro))
 

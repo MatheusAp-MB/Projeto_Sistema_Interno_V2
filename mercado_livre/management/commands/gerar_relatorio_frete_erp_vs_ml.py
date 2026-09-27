@@ -99,7 +99,9 @@ class Command(BaseCommand):
             a.mlb: a for a in AnuncioMercadoLivre.objects.select_related('tipo_de_anuncio')
             .prefetch_related('variacoes__produto').all()
         }
-        frete_todas = list(FreteML.objects.all())
+        # * [EXPLICAÇÃO] → Trava no regime padrão (Sem Frete Grátis Rápido) — mesma
+        #                  decisão do resto do sistema (ver mercado_livre/models/frete_ml.py).
+        frete_todas = list(FreteML.objects.filter(regime=FreteML.Regime.SEM_FRETE_GRATIS_RAPIDO))
 
         # * [EXPLICAÇÃO] → 3 baldes por status + 1 balde separado pra
         #                  "não foi possível comparar" (qualquer

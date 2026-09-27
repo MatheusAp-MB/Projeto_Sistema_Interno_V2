@@ -228,10 +228,10 @@ def calcular_fixo(produto, config_geral=None, faixas_armazenagem=None, dimensoes
     return fixo
 
 
-def buscar_frete(produto, preco, faixas_candidatas=None, dimensoes_efetivas=None):
-    """Se faixas_candidatas for passado (já filtradas por peso, em
-    memória — sem query nova), busca o frete em Python. Sem isso,
-    cai no comportamento original (1 query por chamada) — mantém
+def buscar_frete(produto, preco, faixas_candidatas=None, dimensoes_efetivas=None, regime=None):
+    """Se faixas_candidatas for passado (já filtradas por peso E por
+    regime, em memória — sem query nova), busca o frete em Python. Sem
+    isso, cai no comportamento original (1 query por chamada) — mantém
     compatibilidade com quem já chama sem esse parâmetro.
 
     Frete usa EMBALAGEM (peso físico E peso cúbico, ambos da caixa
@@ -245,14 +245,25 @@ def buscar_frete(produto, preco, faixas_candidatas=None, dimensoes_efetivas=None
     recalcular o peso a partir dos campos do Produto direto. Só se
     aplica no caminho de query nova (abaixo) — quando faixas_candidatas
     já vem pronto, o peso já foi usado por quem filtrou antes de
-    chamar esta função, fora daqui."""
+    chamar esta função, fora daqui.
+
+    regime (27/09): qual das 2 tabelas reais de frete usar — ver
+    mercado_livre.models.FreteML.Regime. Só se aplica no caminho de
+    query nova (abaixo) — quando faixas_candidatas já vem pronto, quem
+    montou essa lista já filtrou pelo regime certo. Sem esse parâmetro,
+    usa SEM_FRETE_GRATIS_RAPIDO (comportamento de sempre, de antes de
+    existir uma 2ª tabela) — nenhum lugar do sistema ainda sabe, por
+    anúncio, qual regime se aplica."""
+    from mercado_livre.models import FreteML
+
     if faixas_candidatas is not None:
         for faixa in faixas_candidatas:
             if faixa.preco_min <= preco and (faixa.preco_max is None or faixa.preco_max >= preco):
                 return faixa.valor
         return None
 
-    from mercado_livre.models import FreteML
+    if regime is None:
+        regime = FreteML.Regime.SEM_FRETE_GRATIS_RAPIDO
 
     if dimensoes_efetivas is not None:
         peso = dimensoes_efetivas.peso
@@ -264,6 +275,7 @@ def buscar_frete(produto, preco, faixas_candidatas=None, dimensoes_efetivas=None
     frete = FreteML.objects.filter(
         peso_min__lte=peso,
         preco_min__lte=preco,
+        regime=regime,
     ).filter(
         Q(peso_max__gte=peso) | Q(peso_max__isnull=True)
     ).filter(
@@ -272,7 +284,7 @@ def buscar_frete(produto, preco, faixas_candidatas=None, dimensoes_efetivas=None
 
     return frete.valor if frete else None
 
-def calcular_margem(produto, preco, tipo_anuncio_obj=None, rebate_percentual=None, preco_original=None, config_tipo=None, fixo=None, faixas_frete=None, variacao=None):
+def calcular_margem(produto, preco, tipo_anuncio_obj=None, rebate_percentual=None, preco_original=None, config_tipo=None, fixo=None, faixas_frete=None, variacao=None, regime=None):
     """Dado um preço de venda, calcula a margem resultante.
     tipo_anuncio_obj é o TipoDeAnuncioMercadoLivre REAL do anúncio (não
     mais uma string 'classico'/'premium') — decide a comissão certa pela
@@ -329,7 +341,7 @@ def calcular_margem(produto, preco, tipo_anuncio_obj=None, rebate_percentual=Non
         fixo = calcular_fixo(produto, dimensoes_efetivas=dimensoes_efetivas)
     if fixo is None:
         return None
-    frete = buscar_frete(produto, preco, faixas_candidatas=faixas_frete, dimensoes_efetivas=dimensoes_efetivas)
+    frete = buscar_frete(produto, preco, faixas_candidatas=faixas_frete, dimensoes_efetivas=dimensoes_efetivas, regime=regime)
     if frete is None:
         return None
 

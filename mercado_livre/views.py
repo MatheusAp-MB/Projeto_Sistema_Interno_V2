@@ -659,38 +659,53 @@ def view_tabela_frete_ml(request):
         'preco_min', 'preco_max'
     ).distinct().order_by('preco_min')
 
-    # * [EXPLICAÇÃO] → Busca as faixas de peso únicas pra montar as
-    #                  linhas da tabela.
+    # * [EXPLICAÇÃO] → Busca as faixas de peso únicas pra montar os
+    #                  PARES de linhas da tabela (1 par por faixa de
+    #                  peso — 1 linha "Sem", 1 linha "Com Frete Grátis
+    #                  Rápido", igual ao formato da planilha).
     faixas_peso = FreteML.objects.values(
         'peso_min', 'peso_max'
     ).distinct().order_by('peso_min')
 
-    # * [EXPLICAÇÃO] → Monta um dicionário de lookup (peso_min, preco_min)
-    #                  → valor pra montar a matriz sem múltiplas queries.
+    # * [EXPLICAÇÃO] → Monta um dicionário de lookup
+    #                  (peso_min, preco_min, regime) → valor pra montar
+    #                  a matriz sem múltiplas queries.
     lookup = {
-        (float(f.peso_min), float(f.preco_min)): f.valor
+        (float(f.peso_min), float(f.preco_min), f.regime): f.valor
         for f in FreteML.objects.all()
     }
 
+    # * [EXPLICAÇÃO] → Ordem fixa (não depende da ordem do banco) — "Sem"
+    #                  sempre antes de "Com", igual à planilha.
+    ORDEM_REGIMES = [FreteML.Regime.SEM_FRETE_GRATIS_RAPIDO, FreteML.Regime.COM_FRETE_GRATIS_RAPIDO]
+
     linhas = []
     for peso in faixas_peso:
-        linha = {
-            'peso_min': peso['peso_min'],
-            'peso_max': peso['peso_max'],
-            'valores': [
-                {
-                    'preco_min': preco['preco_min'],
-                    'preco_max': preco['preco_max'],
-                    'valor': lookup.get((float(peso['peso_min']), float(preco['preco_min'])))
-                }
-                for preco in faixas_preco
-            ]
-        }
-        linhas.append(linha)
+        for indice_regime, regime in enumerate(ORDEM_REGIMES):
+            linhas.append({
+                'peso_min': peso['peso_min'],
+                'peso_max': peso['peso_max'],
+                'regime': regime,
+                'regime_label': FreteML.Regime(regime).label,
+                # * [EXPLICAÇÃO] → Só a 1ª linha de cada par mostra as
+                #                  colunas De/Até (kg) — a 2ª usa
+                #                  rowspan no template, igual à
+                #                  planilha original.
+                'primeira_do_par': indice_regime == 0,
+                'valores': [
+                    {
+                        'preco_min': preco['preco_min'],
+                        'preco_max': preco['preco_max'],
+                        'valor': lookup.get((float(peso['peso_min']), float(preco['preco_min']), regime)),
+                    }
+                    for preco in faixas_preco
+                ],
+            })
 
     return render(request, 'mercado_livre/estrutura_tabela_frete_ml.html', {
         'faixas_preco': faixas_preco,
         'linhas': linhas,
+        'regimes_para_calculadora': FreteML.Regime.choices,
     })
 
 
@@ -702,10 +717,16 @@ def view_calcular_frete_ml(request):
     try:
         peso = Decimal(request.POST.get('peso', '0'))
         preco = Decimal(request.POST.get('preco', '0'))
+        # * [EXPLICAÇÃO] → Sem o campo no POST (não deveria acontecer,
+        #                  o <select> do formulário sempre manda 1
+        #                  valor), cai no regime padrão — nunca quebra
+        #                  a calculadora por falta desse dado.
+        regime = request.POST.get('regime') or FreteML.Regime.SEM_FRETE_GRATIS_RAPIDO
 
         frete = FreteML.objects.filter(
             peso_min__lte=peso,
-            preco_min__lte=preco
+            preco_min__lte=preco,
+            regime=regime,
         ).filter(
             Q(peso_max__gte=peso) | Q(peso_max__isnull=True)
         ).filter(
@@ -717,6 +738,7 @@ def view_calcular_frete_ml(request):
                 'valor': frete.valor,
                 'peso_min': frete.peso_min,
                 'preco_min': frete.preco_min,
+                'regime': frete.regime,
             })
 
         return render(request, 'mercado_livre/parciais/estrutura_parcial_resultado_frete_ml.html', {

@@ -1,7 +1,8 @@
 <!--
 * [RESUMO] → Tela da tabela de frete do Mercado Livre.
-* Exibe a calculadora de frete e a matriz de peso × preço com dados do banco.
-* Portado do projeto antigo (Projeto-Precificacao-MB), já validado.
+* Exibe a calculadora de frete e a matriz de peso × preço × regime com dados do banco.
+* Formato "1 tabela única, 2 linhas por faixa de peso" — igual à planilha oficial
+* (Sem/Com Frete Grátis Rápido), desde 27/09/2026.
 -->
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
@@ -20,17 +21,26 @@
         <h6 class="mb-3">Calcular Frete</h6>
         <div class="row g-3 align-items-end">
 
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>Peso do produto (kg)</label>
                 <input type="number" name="peso" id="input-peso" step="0.001" min="0" placeholder="Ex: 0.340">
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label>Preço do produto (R$)</label>
                 <input type="number" name="preco" id="input-preco" step="0.01" min="0" placeholder="Ex: 192.90">
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label>Regime</label>
+                <select name="regime" id="input-regime">
+                    {% for valor, rotulo in regimes_para_calculadora %}
+                        <option value="{{ valor }}">{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-md-3">
                <button class="btn-calcular"
                     hx-post="{% url 'mercado_livre_calcular_frete' %}"
                     hx-target="#resultado-calculadora"
@@ -45,7 +55,7 @@
     <!-- Resultado -->
     <div id="resultado-calculadora" class="resultado-container">
         <div class="resultado-frete">
-            <span class="descricao">Informe o peso e o preço para calcular o frete.</span>
+            <span class="descricao">Informe o peso, o preço e o regime para calcular o frete.</span>
         </div>
     </div>
 
@@ -56,6 +66,7 @@
                 <tr>
                     <th class="col-peso">De (kg)</th>
                     <th class="col-peso">Até (kg)</th>
+                    <th class="col-regime">Regime</th>
                     {% for faixa in faixas_preco %}
                         <th>
                             R$ {{ faixa.preco_min|floatformat:2 }}
@@ -70,21 +81,25 @@
             </thead>
             <tbody>
                 {% for linha in linhas %}
-                <tr>
-                    <td class="col-peso">{{ linha.peso_min|floatformat:3 }}</td>
-                    <td class="col-peso">
-                        {% if linha.peso_max %}
-                            {{ linha.peso_max|floatformat:3 }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
+                <tr class="{% if not linha.primeira_do_par %}linha-com-frete-gratis-rapido{% endif %}">
+                    {% if linha.primeira_do_par %}
+                        <td class="col-peso" rowspan="2">{{ linha.peso_min|floatformat:3 }}</td>
+                        <td class="col-peso" rowspan="2">
+                            {% if linha.peso_max %}
+                                {{ linha.peso_max|floatformat:3 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                    {% endif %}
+                    <td class="col-regime">{{ linha.regime_label }}</td>
                     {% for item in linha.valores %}
                         <td
                             data-peso-min="{{ linha.peso_min }}"
                             data-peso-max="{{ linha.peso_max|default:'' }}"
                             data-preco-min="{{ item.preco_min }}"
                             data-preco-max="{{ item.preco_max|default:'' }}"
+                            data-regime="{{ linha.regime }}"
                             data-valor="{{ item.valor }}">
                             {% if item.valor %}
                                 R$ {{ item.valor|floatformat:2 }}
@@ -103,4 +118,4 @@
 
 {% block scripts %}
     <script src="{% static 'mercado_livre/js/script_tabela_frete_ml.js' %}"></script>
-{% endblock %}
+{% endblock %}  

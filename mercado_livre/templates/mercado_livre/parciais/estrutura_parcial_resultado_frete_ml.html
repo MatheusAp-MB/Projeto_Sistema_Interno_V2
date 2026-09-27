@@ -1,7 +1,8 @@
 <!--
 * [RESUMO] → Resultado da calculadora de frete ML.
 * Retornado pelo HTMX após o cálculo — injetado em #resultado-calculadora.
-* Chama destacar_celula() para iluminar a célula correspondente na matriz.
+* Chama destacar_celula() para iluminar a célula correspondente na matriz
+* (agora também precisa do regime, pra achar a célula certa entre as 2 linhas).
 -->
 {% if erro %}
     <div class="resultado-frete">
@@ -13,7 +14,7 @@
         <span class="valor">R$ {{ valor|floatformat:2 }}</span>
         <span class="descricao">Frete para os parâmetros informados.</span>
     </div>
-    <script>destacar_celula('{{ peso_min }}', '{{ preco_min }}');</script>
+    <script>destacar_celula('{{ peso_min }}', '{{ preco_min }}', '{{ regime }}');</script>
 
 {% else %}
     <div class="resultado-frete">

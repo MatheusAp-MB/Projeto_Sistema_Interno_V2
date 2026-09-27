@@ -175,13 +175,20 @@ class FormulaPrecificacao:
     # Função Objetivo: Recebe tudo que precisa pra resolver essa margem.
     def __init__(self, produto, dimensoes_efetivas, config_tipo, config_geral,
                  margem_alvo_percentual, frete_todas, faixas_armazenagem=None,
-                 rebate_percentual=None, preco_original=None):
+                 rebate_percentual=None, preco_original=None, regime=None):
+        from mercado_livre.models import FreteML
+
         self.produto = produto
         self.dimensoes_efetivas = dimensoes_efetivas
         self.config_tipo = config_tipo
         self.config_geral = config_geral
         self.margem_alvo_percentual = Decimal(str(margem_alvo_percentual))
         self.frete_todas = frete_todas
+        # * [EXPLICAÇÃO] → Qual das 2 tabelas reais de frete usar — ver
+        #                  nota em calculo_margem.buscar_frete. Sem esse
+        #                  parâmetro, usa SEM_FRETE_GRATIS_RAPIDO
+        #                  (comportamento de sempre).
+        self.regime = regime if regime is not None else FreteML.Regime.SEM_FRETE_GRATIS_RAPIDO
         self.faixas_armazenagem = faixas_armazenagem
         self.rebate_percentual = Decimal(str(rebate_percentual)) if rebate_percentual is not None else Decimal('0')
         self.preco_original = Decimal(str(preco_original)) if preco_original is not None else None
@@ -302,11 +309,15 @@ class FormulaPrecificacao:
         else:
             self._rebate_valor = Decimal('0')
 
-    # Função Objetivo: Filtra as faixas de frete candidatas pelo peso do DimensoesEfetivas.
+    # Função Objetivo: Filtra as faixas de frete candidatas pelo peso do DimensoesEfetivas
+    # e pelo regime desta instância (Sem/Com Frete Grátis Rápido).
     def filtrar_faixas_frete(self):
         peso = self.dimensoes_efetivas.peso
         self._faixas_candidatas = sorted(
-            (f for f in self.frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
+            (
+                f for f in self.frete_todas
+                if f.regime == self.regime and f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)
+            ),
             key=lambda f: f.preco_min,
         )
 

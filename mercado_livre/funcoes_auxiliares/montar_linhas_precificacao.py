@@ -21,7 +21,7 @@ from decimal import Decimal
 from mercado_livre.funcoes_auxiliares.calculo_margem import calcular_margem, calcular_fixo, buscar_configuracao_tipo_anuncio
 
 
-def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faixas_armazenagem=None, configs_por_tipo=None):
+def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faixas_armazenagem=None, configs_por_tipo=None, regime=None):
     """Retorna (linhas, eh_catalogo, margem_minima, margem_atual,
     config_tipo, margem_original) pra uma variação. linhas é a lista
     pronta pra passar em recomendar_precificacao() OU pra exibir na
@@ -88,15 +88,24 @@ def montar_linhas_candidatas(variacao, frete_todas=None, config_geral=None, faix
 
     faixas_produto = None
     if frete_todas is not None:
+        from mercado_livre.models import FreteML
+        regime_usado = regime if regime is not None else FreteML.Regime.SEM_FRETE_GRATIS_RAPIDO
+
         # * [EXPLICAÇÃO] → Peso da EMBALAGEM (confirmado com o usuário
         #                  — mesma regra usada em buscar_frete e
         #                  preparar_fixo_e_faixas) — nunca do produto
-        #                  sem embalar.
+        #                  sem embalar. Regime (27/09): igual à nota em
+        #                  buscar_frete — sem esse parâmetro, usa
+        #                  SEM_FRETE_GRATIS_RAPIDO (comportamento de
+        #                  sempre).
         peso_cubado = produto.peso_cubado or Decimal('0')
         peso_embalagem = produto.peso_produto_apos_embalado or Decimal('0')
         peso = max(peso_embalagem, peso_cubado)
         faixas_produto = sorted(
-            (f for f in frete_todas if f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)),
+            (
+                f for f in frete_todas
+                if f.regime == regime_usado and f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)
+            ),
             key=lambda f: f.preco_min,
         )
 

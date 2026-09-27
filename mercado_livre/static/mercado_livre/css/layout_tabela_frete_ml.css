@@ -157,3 +157,31 @@
 
 .destaque-linha  { background-color: rgba(46, 123, 181, 0.12) !important; }
 .destaque-coluna { background-color: rgba(46, 123, 181, 0.12) !important; }
+
+/* ================================================
+   REGIME (2 linhas por faixa de peso)
+   ================================================ */
+
+.grade-tabela th.col-regime,
+.grade-tabela td.col-regime {
+    text-align: left;
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}
+
+/* * [EXPLICAÇÃO] → 2ª linha de cada par (Com Frete Grátis Rápido) recebe
+   um tom sutilmente diferente, pra visualmente separar os 2 regimes de
+   cada faixa de peso — sem depender só da coluna de texto. */
+.grade-tabela tr.linha-com-frete-gratis-rapido td {
+    background-color: #f7fafd;
+}
+
+#input-regime {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 1rem;
+    width: 100%;
+}
