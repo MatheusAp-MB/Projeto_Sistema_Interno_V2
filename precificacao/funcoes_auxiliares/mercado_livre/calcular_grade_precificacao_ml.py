@@ -89,7 +89,8 @@ def _formulas_sem_dimensao(config):
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
 # AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
-                               config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout):
+                               config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout,
+                               obter_dados_fiscais_produto):
     if assinatura in cache_formulas:
         cache = cache_formulas[assinatura]
         return {
@@ -110,13 +111,19 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
     motivos = {}
     novos = 0
     sem_calculo = 0
+    # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026, checkpoint seção 20/21) — computa
+    #                  (ou reaproveita, se outro MLB/tipo desse produto já pediu) créditos
+    #                  fiscais + custo final 1 única vez aqui, ANTES do loop de margem —
+    #                  não dependem de margem nem de MLB. Só é chamado quando a assinatura
+    #                  é nova de verdade (nunca quando reaproveitou do cache acima).
+    dados_fiscais_produto = obter_dados_fiscais_produto()
     for margem_chave, margem_valor in _margens_do_tipo(config):
         try:
             formula = FormulaPrecificacao(
                 produto=produto, dimensoes_efetivas=dim, config_tipo=config,
                 config_geral=config_geral, margem_alvo_percentual=margem_valor,
                 frete_todas=frete_todas, faixas_armazenagem=faixas_armazenagem,
-                variacao=variacao, api_ml=api_ml,
+                variacao=variacao, api_ml=api_ml, dados_fiscais_produto=dados_fiscais_produto,
             ).calcular()
             novos += 1
             if not formula.resolvida:
@@ -242,6 +249,20 @@ def calcular_grade_precificacao_ml(stdout, style):
             decorrido = time.perf_counter() - inicio_calculo
             stdout.write(f'    ... {indice_produto}/{total_produtos} produtos processados ({decorrido:.1f}s)')
 
+        # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026, checkpoint seção 20/21) —
+        #                  créditos fiscais + custo final só dependem do produto, nunca do
+        #                  MLB nem da margem (validado com produto real, 44 MLBs, 0
+        #                  divergência). Memo de 1 posição, calculado só na 1ª vez que
+        #                  algum tipo/MLB desse produto realmente precisar (produto sem
+        #                  nenhuma dimensão resolvível em nenhum MLB nunca paga essa
+        #                  consulta) — reaproveitado por todas as combinações seguintes.
+        _cache_fiscal_produto = {}
+
+        def obter_dados_fiscais_produto():
+            if 'valor' not in _cache_fiscal_produto:
+                _cache_fiscal_produto['valor'] = FormulaPrecificacao.resolver_dados_fiscais_produto(produto)
+            return _cache_fiscal_produto['valor']
+
         variacoes_do_produto = variacoes_por_produto.get(produto.id, [])
         grupos = {TipoAnuncio.CLASSICO: [], TipoAnuncio.PREMIUM: []}
         for v in variacoes_do_produto:
@@ -270,6 +291,7 @@ def calcular_grade_precificacao_ml(stdout, style):
                 resultado_fallback = _calcular_ou_reaproveitar(
                     _assinatura(dim_fallback, None), dim_fallback, produto, config, frete_todas,
                     faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros, api_ml, stdout,
+                    obter_dados_fiscais_produto,
                 )
                 qtd_calculos += resultado_fallback['novos']
                 qtd_reaproveitados += resultado_fallback['reaproveitados']
@@ -293,6 +315,7 @@ def calcular_grade_precificacao_ml(stdout, style):
                 resultado = _calcular_ou_reaproveitar(
                     _assinatura(dim, variacao), dim, produto, config, frete_todas,
                     faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout,
+                    obter_dados_fiscais_produto,
                 )
                 qtd_calculos += resultado['novos']
                 qtd_reaproveitados += resultado['reaproveitados']

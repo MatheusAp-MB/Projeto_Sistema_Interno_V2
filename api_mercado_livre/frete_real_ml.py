@@ -17,6 +17,15 @@ from decimal import Decimal, InvalidOperation
 class FreteRealML:
     def __init__(self, cliente):
         self._cliente = cliente
+        # * [EXPLICAÇÃO] → Cache de simulação (Frente A, otimização 28/09/2026, checkpoint
+        #                  seção 20/21) — simular() é função pura dos 8 parâmetros que manda
+        #                  pra API (nada de produto/custo entra aqui). Vivo durante toda a
+        #                  vida desta instância (1 por execução do popular_banco, via
+        #                  ApiMercadoLivre/_contexto_frete_real) — validado com log real
+        #                  (60,2% de chamadas evitáveis) e teste ao vivo (5/5 determinístico).
+        #                  Nunca cacheia erro/exceção (ErroAPI/ErroAutenticacaoAPI propagam
+        #                  antes de chegar no ponto que grava no cache).
+        self._cache_simulacao = {}
 
     # Função Objetivo: Extrai (valor, detalhamento) da resposta de shipping_options/free.
     # Explicação em detalhe: coverage.all_country.list_cost é o campo validado na investigação —
@@ -77,19 +86,32 @@ class FreteRealML:
     # usada em produção por decisão explícita).
     def simular(self, dimensions_str, item_price, category_id, listing_type_id,
                 user_id, pasta_logs, free_shipping=False):
+        params = {
+            "dimensions": dimensions_str,
+            "item_price": str(item_price),
+            "verbose": "true",
+            "condition": "new",
+            "category_id": category_id,
+            "listing_type_id": listing_type_id,
+            "mode": "me2",
+            "free_shipping": "true" if free_shipping else "false",
+        }
+        # * [EXPLICAÇÃO] → chave = os 8 parâmetros exatos que vão pra API, na mesma ordem
+        #                  usada na validação (checkpoint Frente A, seção 20) — garante que
+        #                  nenhum parâmetro fica de fora por suposição de que é "constante".
+        chave_cache = tuple(params[campo] for campo in (
+            "dimensions", "item_price", "verbose", "condition",
+            "category_id", "listing_type_id", "mode", "free_shipping",
+        ))
+        if chave_cache in self._cache_simulacao:
+            return self._cache_simulacao[chave_cache]
+
         resposta = self._cliente.chamar(
             "GET", f"/users/{user_id}/shipping_options/free",
             pasta_logs=pasta_logs,
-            params={
-                "dimensions": dimensions_str,
-                "item_price": str(item_price),
-                "verbose": "true",
-                "condition": "new",
-                "category_id": category_id,
-                "listing_type_id": listing_type_id,
-                "mode": "me2",
-                "free_shipping": "true" if free_shipping else "false",
-            },
+            params=params,
             nome_log="simular_frete_ml",
         )
-        return self._extrair(resposta.json())
+        resultado = self._extrair(resposta.json())
+        self._cache_simulacao[chave_cache] = resultado
+        return resultado

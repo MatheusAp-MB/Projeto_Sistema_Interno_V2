@@ -169,6 +169,25 @@ class DadosSaida:
     margem_exata_valor: Decimal
 
 
+# Função Objetivo: Pacote dos dados fiscais/custo que só dependem do PRODUTO (créditos de
+# entrada + custo final) — nunca do MLB, nunca da margem.
+# Explicação em detalhe: Otimização Frente A (28/09/2026, checkpoint seção 20/21) — validado
+# com script isolado, produto real de 44 MLBs: créditos fiscais e custo final são IDÊNTICOS
+# entre qualquer MLB/margem/tipo do mesmo produto. Calculado 1x por produto (ver
+# FormulaPrecificacao.resolver_dados_fiscais_produto) e reaproveitado por qualquer instância
+# de FormulaPrecificacao desse produto, em vez de recalculado 4x à toa (1x por margem) —
+# inclusive evita repetir a consulta ao banco (produto.impostos_entrada).
+@dataclass
+class DadosFiscaisProduto:
+    impostos_entrada: object
+    creditos: object
+    custo_com_boni: Decimal
+    frete_cif_fob_percentual: Decimal
+    frete_cif_fob_valor: Decimal
+    ipi_valor: Decimal
+    custo_final: Decimal
+
+
 # Função Objetivo: Representa 1 margem candidata, já resolvida — mesma classe,
 # instanciada 4x (Mínima/Padrão/Máxima/Competição) com margem_alvo_percentual diferente.
 class FormulaPrecificacao:
@@ -177,7 +196,7 @@ class FormulaPrecificacao:
     def __init__(self, produto, dimensoes_efetivas, config_tipo, config_geral,
                  margem_alvo_percentual, frete_todas, faixas_armazenagem=None,
                  rebate_percentual=None, preco_original=None, regime=None,
-                 variacao=None, api_ml=None):
+                 variacao=None, api_ml=None, dados_fiscais_produto=None):
         from mercado_livre.models import FreteML
 
         self.produto = produto
@@ -213,9 +232,21 @@ class FormulaPrecificacao:
         self._creditos = None
         self._impostos_entrada = None
         self._armazenagem_valor_diario = None
+        # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026) — quando fornecido (ver
+        #                  DadosFiscaisProduto/resolver_dados_fiscais_produto), pula a
+        #                  consulta ao banco e o cálculo de custo final em
+        #                  obter_creditos_fiscais()/calcular_custo_final(), reaproveitando
+        #                  o que já foi calculado 1x pra esse produto. None (padrão) =
+        #                  comportamento de sempre, sem nenhuma mudança.
+        self._dados_fiscais_produto = dados_fiscais_produto
 
     # Função Objetivo: Busca os créditos fiscais de entrada, já resolvidos e por unidade.
     def obter_creditos_fiscais(self):
+        if self._dados_fiscais_produto is not None:
+            self._impostos_entrada = self._dados_fiscais_produto.impostos_entrada
+            self._creditos = self._dados_fiscais_produto.creditos
+            return
+
         try:
             impostos_entrada = self.produto.impostos_entrada
         except ObjectDoesNotExist:
@@ -242,6 +273,15 @@ class FormulaPrecificacao:
 
     # Função Objetivo: Calcula o custo final (IPI + frete CIF/FOB, sobre o custo).
     def calcular_custo_final(self):
+        if self._dados_fiscais_produto is not None:
+            d = self._dados_fiscais_produto
+            self._custo_com_boni = d.custo_com_boni
+            self._frete_cif_fob_percentual = d.frete_cif_fob_percentual
+            self._frete_cif_fob_valor = d.frete_cif_fob_valor
+            self._ipi_valor = d.ipi_valor
+            self._custo_final = d.custo_final
+            return
+
         produto = self.produto
         frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
 
@@ -259,6 +299,32 @@ class FormulaPrecificacao:
         self._frete_cif_fob_valor = frete_cif_fob_valor
         self._ipi_valor = ipi_valor
         self._custo_final = produto.custo + ipi_valor + frete_cif_fob_valor
+
+    # Função Objetivo: Calcula 1x os dados fiscais/custo que só dependem do PRODUTO —
+    # créditos de entrada + custo final — reaproveitáveis por QUALQUER MLB/margem/tipo
+    # desse produto (ver DadosFiscaisProduto). Devolve None nos mesmos casos em que
+    # obter_creditos_fiscais() zeraria os créditos (produto sem nota fiscal sincronizada,
+    # ou créditos incompletos) — quem chama trata None como "sem precomputado", e cada
+    # FormulaPrecificacao cai no caminho de sempre (consulta o banco ela mesma).
+    @classmethod
+    def resolver_dados_fiscais_produto(cls, produto):
+        instancia = cls(
+            produto=produto, dimensoes_efetivas=None, config_tipo=None, config_geral=None,
+            margem_alvo_percentual=Decimal('0'), frete_todas=None,
+        )
+        instancia.obter_creditos_fiscais()
+        if instancia._creditos is None:
+            return None
+        instancia.calcular_custo_final()
+        return DadosFiscaisProduto(
+            impostos_entrada=instancia._impostos_entrada,
+            creditos=instancia._creditos,
+            custo_com_boni=instancia._custo_com_boni,
+            frete_cif_fob_percentual=instancia._frete_cif_fob_percentual,
+            frete_cif_fob_valor=instancia._frete_cif_fob_valor,
+            ipi_valor=instancia._ipi_valor,
+            custo_final=instancia._custo_final,
+        )
 
     # Função Objetivo: Calcula a coleta a partir do metro cúbico do DimensoesEfetivas.
     def calcular_coleta(self):
