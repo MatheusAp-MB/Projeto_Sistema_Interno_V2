@@ -27,6 +27,7 @@
 import time
 from pathlib import Path
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
@@ -40,6 +41,15 @@ NOME_PASTA_LOGS_POR_EMPRESA = {
     EMPRESA_MAGAZINE: 'Magazine',
     EMPRESA_SAMVALE: 'Samvale',
 }
+
+# * [EXPLICAÇÃO] → Paralelismo por produto (Frente A, 29/09/2026, checkpoint seção 23) —
+#                  teto medido em scripts_exploracao_ML/teste_paralelismo_chamadas_api_frete.py:
+#                  throughput da API do ML satura em ~20 threads simultâneas (~20 req/s); 30/50
+#                  threads não trouxeram ganho adicional (qtd=300: 15.1s/15.2s/15.4s pra
+#                  20/30/50). Validado também no nível de arquitetura completa (não só chamada
+#                  crua) em teste_paralelismo_por_produto.py: resultado IDÊNTICO ao sequencial
+#                  (0 divergências em 328 combinações), 5.6x de speedup real.
+MAX_WORKERS_PARALELISMO_PRODUTO = 20
 
 
 # Função Objetivo: Constrói 1 ApiMercadoLivre pra empresa ativa, reaproveitada em toda a
@@ -161,6 +171,88 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
     }
 
 
+# Função Objetivo: Roda TODAS as combinações (fallback + variações, CLASSICO + PREMIUM) de 1
+# produto, do início ao fim, em isolamento total.
+# Explicação em detalhe: extraído do corpo do loop principal (Frente A, 29/09/2026, paralelismo
+# por produto) — mesma lógica célula por célula, só que devolve os resultados em vez de escrever
+# direto em existentes/para_criar/para_atualizar/contadores globais (essas estruturas são
+# compartilhadas entre threads — só a thread principal, via as_completed, pode tocar nelas).
+# Diferentes produtos NUNCA compartilham chave em 'existentes' (chave inclui produto.id), então
+# rodar vários produtos em paralelo aqui é seguro por construção. Validado byte a byte contra o
+# sequencial em scripts_exploracao_ML/teste_paralelismo_por_produto.py (0 divergências em 328
+# combinações, --qtd-produtos 15).
+def _processar_produto(produto, variacoes_do_produto, configs, frete_todas, faixas_armazenagem,
+                        config_geral, api_ml, TipoAnuncio):
+    linhas_para_registrar = []
+    erros_locais = []
+    contadores = {
+        'novos': 0, 'reaproveitados': 0, 'sem_calculo': 0, 'sem_dimensao': 0,
+        'origem_api': 0, 'origem_tabela': 0,
+    }
+
+    _cache_fiscal_produto = {}
+
+    def obter_dados_fiscais_produto():
+        if 'valor' not in _cache_fiscal_produto:
+            _cache_fiscal_produto['valor'] = FormulaPrecificacao.resolver_dados_fiscais_produto(produto)
+        return _cache_fiscal_produto['valor']
+
+    grupos = {TipoAnuncio.CLASSICO: [], TipoAnuncio.PREMIUM: []}
+    for v in variacoes_do_produto:
+        tipo_v = v.anuncio.tipo_de_anuncio.tipo_anuncio
+        if tipo_v in grupos:
+            grupos[tipo_v].append(v)
+
+    for tipo in (TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM):
+        config = configs.get(tipo)
+        if not config:
+            continue
+        tipo_grade = 'classico' if tipo == TipoAnuncio.CLASSICO else 'premium'
+
+        cache_formulas = {}
+
+        dim_fallback = resolver_dimensoes_efetivas(produto, variacao=None)
+        if dim_fallback is None:
+            formulas_fallback, motivos_fallback = _formulas_sem_dimensao(config)
+            contadores['sem_dimensao'] += len(formulas_fallback)
+            linhas_para_registrar.append((None, tipo_grade, formulas_fallback, motivos_fallback))
+        else:
+            resultado_fallback = _calcular_ou_reaproveitar(
+                _assinatura(dim_fallback, None), dim_fallback, produto, config, frete_todas,
+                faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros_locais, api_ml, None,
+                obter_dados_fiscais_produto,
+            )
+            contadores['novos'] += resultado_fallback['novos']
+            contadores['reaproveitados'] += resultado_fallback['reaproveitados']
+            contadores['sem_calculo'] += resultado_fallback['sem_calculo']
+            contadores['origem_api'] += resultado_fallback['origem_api']
+            contadores['origem_tabela'] += resultado_fallback['origem_tabela']
+            linhas_para_registrar.append(
+                (None, tipo_grade, resultado_fallback['formulas'], resultado_fallback['motivos'])
+            )
+
+        for variacao in grupos[tipo]:
+            dim = resolver_dimensoes_efetivas(produto, variacao=variacao)
+            if dim is None:
+                formulas_variacao, motivos_variacao = _formulas_sem_dimensao(config)
+                contadores['sem_dimensao'] += len(formulas_variacao)
+                linhas_para_registrar.append((variacao, tipo_grade, formulas_variacao, motivos_variacao))
+                continue
+            resultado = _calcular_ou_reaproveitar(
+                _assinatura(dim, variacao), dim, produto, config, frete_todas,
+                faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros_locais, api_ml, None,
+                obter_dados_fiscais_produto,
+            )
+            contadores['novos'] += resultado['novos']
+            contadores['reaproveitados'] += resultado['reaproveitados']
+            contadores['sem_calculo'] += resultado['sem_calculo']
+            contadores['origem_api'] += resultado['origem_api']
+            contadores['origem_tabela'] += resultado['origem_tabela']
+            linhas_para_registrar.append((variacao, tipo_grade, resultado['formulas'], resultado['motivos']))
+
+    return linhas_para_registrar, contadores, erros_locais, len(variacoes_do_produto)
+
+
 # Função Objetivo: Cria ou atualiza as 4 linhas (1 por margem) de 1 (produto, variação, tipo).
 # Explicação em detalhe: SEMPRE grava — não pula mais quando formula é None. resolvida=False
 # limpa os campos de preço (nunca deixa preço de uma resolução ANTERIOR sobrevivendo junto com
@@ -262,135 +354,86 @@ def calcular_grade_precificacao_ml(stdout, style):
     qtd_origem_tabela = 0
     total_produtos = len(produtos)
 
-    for indice_produto, produto in enumerate(produtos, start=1):
-        # * [EXPLICAÇÃO] → Print por produto (29/09/2026, melhoria de clareza) — substitui o
-        #                  antigo par de prints confuso ("... N/total produtos processados" a
-        #                  cada 20 produtos + "🌐 tentando via API" a cada assinatura nova,
-        #                  número imprevisível de vezes por produto) por 1 linha POR PRODUTO,
-        #                  no estilo do buscar_mlbs: EAN -> quantidade de MLBs -> status -> %
-        #                  de reaproveitamento. Os 4 contadores abaixo são SÓ deste produto —
-        #                  os globais (qtd_calculos/qtd_reaproveitados/sem_calculo/
-        #                  sem_dimensao) continuam existindo à parte, pro resumo final.
-        novos_produto = 0
-        reaproveitados_produto = 0
-        sem_calculo_produto = 0
-        sem_dimensao_produto = 0
-        erros_antes_do_produto = len(erros)
+    # * [EXPLICAÇÃO] → Paralelismo por produto (29/09/2026) — 1 worker por produto roda
+    #                  _processar_produto inteiro isoladamente (puro cálculo, sem tocar em
+    #                  nada compartilhado). SÓ a thread principal, aqui embaixo via
+    #                  as_completed, escreve em existentes/para_criar/para_atualizar e nos
+    #                  contadores globais — elimina o risco de concorrência quase por
+    #                  completo, já que produtos diferentes nunca colidem em 'existentes'
+    #                  (chave inclui produto.id). ATENÇÃO: a ordem de conclusão NÃO é a
+    #                  ordem da lista 'produtos' (produtos "rápidos" podem terminar antes de
+    #                  produtos "lentos" submetidos antes deles) — [indice_produto/total] no
+    #                  print é ordem de CONCLUSÃO, não a posição original na lista.
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS_PARALELISMO_PRODUTO) as executor:
+        futuros = {
+            executor.submit(
+                _processar_produto, produto, variacoes_por_produto.get(produto.id, []),
+                configs, frete_todas, faixas_armazenagem, config_geral, api_ml, TipoAnuncio,
+            ): produto
+            for produto in produtos
+        }
 
-        # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026, checkpoint seção 20/21) —
-        #                  créditos fiscais + custo final só dependem do produto, nunca do
-        #                  MLB nem da margem (validado com produto real, 44 MLBs, 0
-        #                  divergência). Memo de 1 posição, calculado só na 1ª vez que
-        #                  algum tipo/MLB desse produto realmente precisar (produto sem
-        #                  nenhuma dimensão resolvível em nenhum MLB nunca paga essa
-        #                  consulta) — reaproveitado por todas as combinações seguintes.
-        _cache_fiscal_produto = {}
+        for indice_produto, futuro in enumerate(as_completed(futuros), start=1):
+            produto = futuros[futuro]
+            variacoes_do_produto = variacoes_por_produto.get(produto.id, [])
 
-        def obter_dados_fiscais_produto():
-            if 'valor' not in _cache_fiscal_produto:
-                _cache_fiscal_produto['valor'] = FormulaPrecificacao.resolver_dados_fiscais_produto(produto)
-            return _cache_fiscal_produto['valor']
-
-        variacoes_do_produto = variacoes_por_produto.get(produto.id, [])
-        grupos = {TipoAnuncio.CLASSICO: [], TipoAnuncio.PREMIUM: []}
-        for v in variacoes_do_produto:
-            tipo_v = v.anuncio.tipo_de_anuncio.tipo_anuncio
-            if tipo_v in grupos:
-                grupos[tipo_v].append(v)
-
-        for tipo in (TipoAnuncio.CLASSICO, TipoAnuncio.PREMIUM):
-            config = configs.get(tipo)
-            if not config:
+            # * [EXPLICAÇÃO] → Mudança de comportamento (29/09/2026) — antes, uma exceção não
+            #                  tratada em qualquer produto derrubava o comando popular_banco
+            #                  inteiro. Agora ela é capturada aqui, registrada em 'erros' e o
+            #                  processamento CONTINUA pros demais produtos. Decisão pendente
+            #                  de confirmação com Matheus — se preferir o comportamento
+            #                  antigo (crash), é só trocar este 'continue' por 'raise'.
+            try:
+                linhas_para_registrar, contadores, erros_locais, _ = futuro.result()
+            except Exception as e:
+                erros.append(f'{produto} | ERRO INESPERADO NO PROCESSAMENTO: {e}')
+                stdout.write(style.ERROR(
+                    f'    [{indice_produto}/{total_produtos}] EAN {produto.ean} -> ERRO INESPERADO: {e}'
+                ))
                 continue
-            tipo_grade = 'classico' if tipo == TipoAnuncio.CLASSICO else 'premium'
 
-            cache_formulas = {}
-
-            # * Fallback do produto (variacao=None) — sempre calculado, mesmo sem MLB publicado.
-            dim_fallback = resolver_dimensoes_efetivas(produto, variacao=None)
-            if dim_fallback is None:
-                formulas_fallback, motivos_fallback = _formulas_sem_dimensao(config)
-                sem_dimensao += len(formulas_fallback)
-                sem_dimensao_produto += len(formulas_fallback)
+            for variacao, tipo_grade, formulas, motivos in linhas_para_registrar:
                 _registrar_linhas(
-                    produto, None, tipo_grade, formulas_fallback, motivos_fallback,
-                    existentes, para_criar, para_atualizar,
-                )
-            else:
-                resultado_fallback = _calcular_ou_reaproveitar(
-                    _assinatura(dim_fallback, None), dim_fallback, produto, config, frete_todas,
-                    faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros, api_ml, stdout,
-                    obter_dados_fiscais_produto,
-                )
-                qtd_calculos += resultado_fallback['novos']
-                qtd_reaproveitados += resultado_fallback['reaproveitados']
-                sem_calculo += resultado_fallback['sem_calculo']
-                qtd_origem_api += resultado_fallback['origem_api']
-                qtd_origem_tabela += resultado_fallback['origem_tabela']
-                novos_produto += resultado_fallback['novos']
-                reaproveitados_produto += resultado_fallback['reaproveitados']
-                sem_calculo_produto += resultado_fallback['sem_calculo']
-                _registrar_linhas(
-                    produto, None, tipo_grade, resultado_fallback['formulas'], resultado_fallback['motivos'],
+                    produto, variacao, tipo_grade, formulas, motivos,
                     existentes, para_criar, para_atualizar,
                 )
 
-            # * Variações reais do tipo.
-            for variacao in grupos[tipo]:
-                dim = resolver_dimensoes_efetivas(produto, variacao=variacao)
-                if dim is None:
-                    formulas_variacao, motivos_variacao = _formulas_sem_dimensao(config)
-                    sem_dimensao += len(formulas_variacao)
-                    sem_dimensao_produto += len(formulas_variacao)
-                    _registrar_linhas(
-                        produto, variacao, tipo_grade, formulas_variacao, motivos_variacao,
-                        existentes, para_criar, para_atualizar,
-                    )
-                    continue
-                resultado = _calcular_ou_reaproveitar(
-                    _assinatura(dim, variacao), dim, produto, config, frete_todas,
-                    faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout,
-                    obter_dados_fiscais_produto,
-                )
-                qtd_calculos += resultado['novos']
-                qtd_reaproveitados += resultado['reaproveitados']
-                sem_calculo += resultado['sem_calculo']
-                qtd_origem_api += resultado['origem_api']
-                qtd_origem_tabela += resultado['origem_tabela']
-                novos_produto += resultado['novos']
-                reaproveitados_produto += resultado['reaproveitados']
-                sem_calculo_produto += resultado['sem_calculo']
-                _registrar_linhas(
-                    produto, variacao, tipo_grade, resultado['formulas'], resultado['motivos'],
-                    existentes, para_criar, para_atualizar,
-                )
+            qtd_calculos += contadores['novos']
+            qtd_reaproveitados += contadores['reaproveitados']
+            sem_calculo += contadores['sem_calculo']
+            sem_dimensao += contadores['sem_dimensao']
+            qtd_origem_api += contadores['origem_api']
+            qtd_origem_tabela += contadores['origem_tabela']
+            erros.extend(erros_locais)
 
-        # * [EXPLICAÇÃO] → 1 linha de status por produto, sempre no fim do processamento dele
-        #                  (depois dos 2 tipos, CLASSICO e PREMIUM). % de reaproveitamento =
-        #                  reaproveitados_produto ÷ (novos_produto + reaproveitados_produto) —
-        #                  só sobe do 0% quando o mesmo produto tem MLBs com a mesma
-        #                  assinatura de dimensão (cache_formulas é por produto×tipo, nunca
-        #                  entre produtos diferentes).
-        erros_produto = len(erros) - erros_antes_do_produto
-        partes_status = []
-        if erros_produto:
-            partes_status.append(f'{erros_produto} erro(s)')
-        if sem_calculo_produto:
-            partes_status.append(f'{sem_calculo_produto} sem cálculo')
-        if sem_dimensao_produto:
-            partes_status.append(f'{sem_dimensao_produto} sem dimensão')
-        status_produto = ' | '.join(partes_status) if partes_status else 'OK'
+            # * [EXPLICAÇÃO] → contadores['sem_dimensao'] // 4 (29/09/2026, correção de
+            #                  clareza) — sem_dimensao acumula em blocos de EXATAMENTE 4 (1
+            #                  por margem) por tentativa de fallback/variação que falha em
+            #                  resolver dimensão. Um produto com 0 MLB publicado e sem
+            #                  dimensão no ERP gera 2×4=8 (fallback CLASSICO + PREMIUM), sem
+            #                  relação nenhuma com a quantidade real de MLBs — daí a
+            #                  confusão do print antigo. Divide só na EXIBIÇÃO; o acumulador
+            #                  global 'sem_dimensao' continua intacto (bate com a contagem
+            #                  de linhas no banco).
+            partes_status = []
+            if erros_locais:
+                partes_status.append(f'{len(erros_locais)} erro(s)')
+            if contadores['sem_calculo']:
+                partes_status.append(f'{contadores["sem_calculo"]} sem cálculo')
+            if contadores['sem_dimensao']:
+                partes_status.append(f'{contadores["sem_dimensao"] // 4} sem dimensão')
+            status_produto = ' | '.join(partes_status) if partes_status else 'OK'
 
-        total_calculado_produto = novos_produto + reaproveitados_produto
-        percentual_reaproveitamento = (
-            (reaproveitados_produto / total_calculado_produto) * 100 if total_calculado_produto else 0
-        )
+            total_calculado_produto = contadores['novos'] + contadores['reaproveitados']
+            percentual_reaproveitamento = (
+                (contadores['reaproveitados'] / total_calculado_produto) * 100 if total_calculado_produto else 0
+            )
 
-        stdout.write(
-            f'    [{indice_produto}/{total_produtos}] EAN {produto.ean} -> '
-            f'{len(variacoes_do_produto)} MLB(s) -> {status_produto} | '
-            f'{percentual_reaproveitamento:.0f}% de reaproveitamento'
-        )
+            stdout.write(
+                f'    [{indice_produto}/{total_produtos}] EAN {produto.ean} -> '
+                f'{len(variacoes_do_produto)} MLB(s) -> {status_produto} | '
+                f'{percentual_reaproveitamento:.0f}% de reaproveitamento'
+            )
 
     tempo_calculo_total = time.perf_counter() - inicio_calculo
     stdout.write(f'  ⏱ Loop de cálculo, total: {tempo_calculo_total:.1f}s')
