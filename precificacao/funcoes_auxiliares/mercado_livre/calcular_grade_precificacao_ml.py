@@ -25,10 +25,29 @@
 #   FormulaPrecificacao.
 
 import time
+from pathlib import Path
 from collections import defaultdict
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, obter_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
 from precificacao.funcoes_auxiliares.mercado_livre.formula_precificacao import FormulaPrecificacao
+from api_mercado_livre import ApiMercadoLivre
+
+# * [EXPLICAÇÃO] → Frente A (28/09/2026) — mesma convenção de pasta de logs que
+#                  integracao_mercado_livre/servicos/buscar_frete_real_ml.py já usa, pra
+#                  manter os logs de chamada à API do ML no mesmo lugar.
+NOME_PASTA_LOGS_POR_EMPRESA = {
+    EMPRESA_MAGAZINE: 'Magazine',
+    EMPRESA_SAMVALE: 'Samvale',
+}
+
+
+# Função Objetivo: Constrói 1 ApiMercadoLivre pra empresa ativa, reaproveitada em toda a
+# execução — usada pela Frente A (goal-seek via simulação de API, ver FormulaPrecificacao).
+def _construir_api_ml():
+    empresa = obter_empresa_ativa()
+    pasta_logs = Path('integracao_mercado_livre') / 'logs' / NOME_PASTA_LOGS_POR_EMPRESA[empresa]
+    return ApiMercadoLivre(pasta_logs=pasta_logs, empresa=empresa)
 
 
 # Função Objetivo: Devolve as 4 margens configuradas pro tipo de anúncio (nome, valor).
@@ -41,9 +60,15 @@ def _margens_do_tipo(config):
     ]
 
 
-# Função Objetivo: Monta a chave de cache — mesma dimensão efetiva reaproveita o mesmo cálculo.
-def _assinatura(dim):
-    return (dim.altura, dim.largura, dim.comprimento, dim.peso, dim.origem)
+# Função Objetivo: Monta a chave de cache — mesma dimensão efetiva reaproveita o mesmo
+# cálculo. Inclui categoria (Frente A, 28/09/2026) — 2 MLBs com a mesma dimensão mas
+# categoria diferente NÃO podem compartilhar resultado, porque a simulação via API
+# depende da categoria também, não só do peso (checkpoint da Frente A, seção 19 — "cada
+# MLB é 100% autocontido"). variacao=None (linha fallback) sempre entra com
+# categoria_id=None, sem mudança de comportamento pra ela.
+def _assinatura(dim, variacao):
+    categoria_id = variacao.categoria_id if variacao is not None else None
+    return (dim.altura, dim.largura, dim.comprimento, dim.peso, dim.origem, categoria_id)
 
 
 # Função Objetivo: Monta formulas/motivos "tudo não resolvida" pras 4 margens do tipo, sem
@@ -64,7 +89,7 @@ def _formulas_sem_dimensao(config):
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
 # AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
-                               config_geral, cache_formulas, variacao, tipo, erros):
+                               config_geral, cache_formulas, variacao, tipo, erros, api_ml):
     if assinatura in cache_formulas:
         cache = cache_formulas[assinatura]
         return {
@@ -82,6 +107,7 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
                 produto=produto, dimensoes_efetivas=dim, config_tipo=config,
                 config_geral=config_geral, margem_alvo_percentual=margem_valor,
                 frete_todas=frete_todas, faixas_armazenagem=faixas_armazenagem,
+                variacao=variacao, api_ml=api_ml,
             ).calcular()
             novos += 1
             if not formula.resolvida:
@@ -116,7 +142,7 @@ def _registrar_linhas(produto, variacao, tipo_grade, formulas, motivos, existent
                 resolvida=False,
                 motivo_nao_resolvida=(motivos.get(margem_chave) or 'Não resolvida')[:255],
                 preco=None, margem_percentual_obtida=None, frete_usado=None,
-                origem_dimensao=None, detalhamento=None,
+                origem_dimensao=None, origem_frete=None, detalhamento=None,
             )
         else:
             dados = dict(
@@ -126,6 +152,7 @@ def _registrar_linhas(produto, variacao, tipo_grade, formulas, motivos, existent
                 margem_percentual_obtida=formula.saida.margem_percentual_obtida,
                 frete_usado=formula.saida.frete_usado,
                 origem_dimensao=formula.entrada.origem_dimensao,
+                origem_frete=formula.origem_frete,
                 detalhamento=formula.para_dict_auditoria(),
             )
 
@@ -169,12 +196,15 @@ def calcular_grade_precificacao_ml(stdout, style):
     frete_todas = list(FreteML.objects.all())
     config_geral = ConfiguracaoOperacional.obter()
     faixas_armazenagem = list(FaixaArmazenagem.objects.filter(ativo=True).order_by('ordem'))
+    # * [EXPLICAÇÃO] → Frente A (28/09/2026) — 1 ApiMercadoLivre só, reaproveitada pra
+    #                  toda a rodada (mesmo padrão de frete_todas/config_geral acima).
+    api_ml = _construir_api_ml()
 
     variacoes_por_produto = defaultdict(list)
     total_variacoes = 0
     for v in VariacaoAnuncioMercadoLivre.objects.filter(
         produto__isnull=False, anuncio__tipo_de_anuncio__isnull=False
-    ).select_related('anuncio__tipo_de_anuncio', 'produto'):
+    ).select_related('anuncio__tipo_de_anuncio', 'produto', 'categoria'):
         variacoes_por_produto[v.produto.id].append(v)
         total_variacoes += 1
     stdout.write(f'    {total_variacoes} variação(ões)/MLB(s) publicado(s) encontrado(s)')
@@ -229,8 +259,8 @@ def calcular_grade_precificacao_ml(stdout, style):
                 )
             else:
                 resultado_fallback = _calcular_ou_reaproveitar(
-                    _assinatura(dim_fallback), dim_fallback, produto, config, frete_todas,
-                    faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros
+                    _assinatura(dim_fallback, None), dim_fallback, produto, config, frete_todas,
+                    faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros, api_ml,
                 )
                 qtd_calculos += resultado_fallback['novos']
                 qtd_reaproveitados += resultado_fallback['reaproveitados']
@@ -252,8 +282,8 @@ def calcular_grade_precificacao_ml(stdout, style):
                     )
                     continue
                 resultado = _calcular_ou_reaproveitar(
-                    _assinatura(dim), dim, produto, config, frete_todas,
-                    faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros
+                    _assinatura(dim, variacao), dim, produto, config, frete_todas,
+                    faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros, api_ml,
                 )
                 qtd_calculos += resultado['novos']
                 qtd_reaproveitados += resultado['reaproveitados']
@@ -271,8 +301,8 @@ def calcular_grade_precificacao_ml(stdout, style):
     inicio_salvar = time.perf_counter()
 
     campos_atualizaveis = [
-        'preco', 'margem_percentual_obtida', 'frete_usado', 'origem_dimensao', 'detalhamento',
-        'resolvida', 'motivo_nao_resolvida',
+        'preco', 'margem_percentual_obtida', 'frete_usado', 'origem_dimensao', 'origem_frete',
+        'detalhamento', 'resolvida', 'motivo_nao_resolvida',
     ]
 
     if para_criar:
