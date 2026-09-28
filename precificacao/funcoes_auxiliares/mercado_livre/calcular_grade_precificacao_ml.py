@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, obter_empresa_ativa
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, obter_empresa_ativa, definir_empresa_ativa
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from mercado_livre.funcoes_auxiliares.dimensoes_efetivas import resolver_dimensoes_efetivas
 from precificacao.funcoes_auxiliares.mercado_livre.formula_precificacao import FormulaPrecificacao
@@ -181,8 +181,20 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
 # rodar vários produtos em paralelo aqui é seguro por construção. Validado byte a byte contra o
 # sequencial em scripts_exploracao_ML/teste_paralelismo_por_produto.py (0 divergências em 328
 # combinações, --qtd-produtos 15).
-def _processar_produto(produto, variacoes_do_produto, configs, frete_todas, faixas_armazenagem,
-                        config_geral, api_ml, TipoAnuncio):
+def _processar_produto(empresa_ativa, produto, variacoes_do_produto, configs, frete_todas,
+                        faixas_armazenagem, config_geral, api_ml, TipoAnuncio):
+    # * [EXPLICAÇÃO] → CORREÇÃO (29/09/2026, bug real de produção) — core.empresa guarda a
+    #                  empresa ativa em threading.local(): cada thread NOVA do
+    #                  ThreadPoolExecutor nasce com esse estado vazio, mesmo a thread
+    #                  principal já tendo chamado definir_empresa_ativa() antes. Sem esta
+    #                  linha, todo acesso a dado de empresa dentro do worker (router de
+    #                  banco) explode com EmpresaNaoDefinidaError. empresa_ativa é lido 1x
+    #                  na thread principal (ver chamador) e repassado — barato, chamado 1x
+    #                  por produto, não por MLB/margem. Não pego em teste_paralelismo_por_
+    #                  produto.py porque o script de teste já definia a empresa globalmente
+    #                  antes de criar as threads, de um jeito que mascarava o problema.
+    definir_empresa_ativa(empresa_ativa)
+
     linhas_para_registrar = []
     erros_locais = []
     contadores = {
@@ -364,10 +376,15 @@ def calcular_grade_precificacao_ml(stdout, style):
     #                  ordem da lista 'produtos' (produtos "rápidos" podem terminar antes de
     #                  produtos "lentos" submetidos antes deles) — [indice_produto/total] no
     #                  print é ordem de CONCLUSÃO, não a posição original na lista.
+    # * [EXPLICAÇÃO] → Lido AQUI, na thread principal (onde já está setado pelo comando de
+    #                  management via --empresa), e repassado pra cada worker — ver
+    #                  comentário dentro de _processar_produto pro porquê.
+    empresa_ativa = obter_empresa_ativa()
+
     with ThreadPoolExecutor(max_workers=MAX_WORKERS_PARALELISMO_PRODUTO) as executor:
         futuros = {
             executor.submit(
-                _processar_produto, produto, variacoes_por_produto.get(produto.id, []),
+                _processar_produto, empresa_ativa, produto, variacoes_por_produto.get(produto.id, []),
                 configs, frete_todas, faixas_armazenagem, config_geral, api_ml, TipoAnuncio,
             ): produto
             for produto in produtos
