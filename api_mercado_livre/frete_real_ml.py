@@ -11,6 +11,8 @@
 # (27/09/2026) — extraído de integracao_mercado_livre/servicos/
 # buscar_frete_real_ml.py, mesma lógica, byte a byte.
 
+import threading
+import threading
 from decimal import Decimal, InvalidOperation
 
 
@@ -26,6 +28,26 @@ class FreteRealML:
         #                  Nunca cacheia erro/exceção (ErroAPI/ErroAutenticacaoAPI propagam
         #                  antes de chegar no ponto que grava no cache).
         self._cache_simulacao = {}
+        # * [EXPLICAÇÃO] → Lock (29/09/2026, paralelismo por produto — checkpoint seção 23)
+        #                  — protege o check-então-grava do cache acima. Sem ele, 2 threads
+        #                  processando produtos diferentes podem, por coincidência, pedir a
+        #                  MESMA combinação ao mesmo tempo e nenhuma ver a outra no cache —
+        #                  resultado nunca fica errado (a 2ª chamada só desperdiça 1 request),
+        #                  mas o lock evita até esse desperdício. A chamada de rede em si
+        #                  fica FORA do lock (senão voltaríamos a serializar tudo). Validado
+        #                  em scripts_exploracao_ML/teste_paralelismo_por_produto.py
+        #                  (--lock-cache-frete).
+        self._lock_cache = threading.Lock()
+        # * [EXPLICAÇÃO] → Lock (29/09/2026, paralelismo por produto — checkpoint seção 23)
+        #                  — protege o check-então-grava do cache acima. Sem ele, 2 threads
+        #                  processando produtos diferentes podem, por coincidência, pedir a
+        #                  MESMA combinação ao mesmo tempo e nenhuma ver a outra no cache —
+        #                  resultado nunca fica errado (a 2ª chamada só desperdiça 1 request),
+        #                  mas o lock evita até esse desperdício. A chamada de rede em si
+        #                  fica FORA do lock (senão voltaríamos a serializar tudo). Validado
+        #                  em scripts_exploracao_ML/teste_paralelismo_por_produto.py
+        #                  (--lock-cache-frete).
+        self._lock_cache = threading.Lock()
 
     # Função Objetivo: Extrai (valor, detalhamento) da resposta de shipping_options/free.
     # Explicação em detalhe: coverage.all_country.list_cost é o campo validado na investigação —
@@ -103,8 +125,9 @@ class FreteRealML:
             "dimensions", "item_price", "verbose", "condition",
             "category_id", "listing_type_id", "mode", "free_shipping",
         ))
-        if chave_cache in self._cache_simulacao:
-            return self._cache_simulacao[chave_cache]
+        with self._lock_cache:
+            if chave_cache in self._cache_simulacao:
+                return self._cache_simulacao[chave_cache]
 
         resposta = self._cliente.chamar(
             "GET", f"/users/{user_id}/shipping_options/free",
@@ -113,5 +136,6 @@ class FreteRealML:
             nome_log="simular_frete_ml",
         )
         resultado = self._extrair(resposta.json())
-        self._cache_simulacao[chave_cache] = resultado
+        with self._lock_cache:
+            self._cache_simulacao[chave_cache] = resultado
         return resultado
