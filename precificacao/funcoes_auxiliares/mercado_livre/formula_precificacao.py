@@ -167,6 +167,15 @@ class DadosSaida:
     #                  pra ",90" mexeu na margem real.
     margem_exata_percentual: Decimal
     margem_exata_valor: Decimal
+    # * [EXPLICAÇÃO] → Pendência #1 (28/09/2026) — detalhamento CRU da
+    #                  chamada de API que confirmou o frete usado no
+    #                  cálculo (dict com billable_weight/discount_type/
+    #                  discount_rate/discount_promoted_amount, do jeito
+    #                  que a API devolveu). Só existe no caminho
+    #                  'api_real' (origem_frete) — None na tabela, e
+    #                  None também em linhas calculadas antes dessa
+    #                  mudança.
+    frete_detalhamento_api: dict | None = None
 
 
 # Função Objetivo: Pacote dos dados fiscais/custo que só dependem do PRODUTO (créditos de
@@ -508,12 +517,12 @@ class FormulaPrecificacao:
 
         def consultar_frete(item_price):
             try:
-                valor, _detalhamento = api_ml.simular_frete(
+                valor, detalhamento = api_ml.simular_frete(
                     dimensions_str, item_price, category_id, listing_type_id, free_shipping=False,
                 )
             except (ErroAPI, ErroAutenticacaoAPI):
                 return None
-            return valor
+            return valor, detalhamento
 
         return resolver_preco_com_frete_dinamico(
             fixo=self._fixo,
@@ -563,6 +572,11 @@ class FormulaPrecificacao:
         self._margem_valor = detalhamento['margem_valor']
         self._margem_percentual_obtida = resultado['margem_percentual_obtida']
         self._preco_exato_antes_arredondar = detalhamento['preco_exato_antes_arredondar']
+        # * [EXPLICAÇÃO] → Pendência #1 (28/09/2026) — só existe quando
+        #                  origem_frete='api_real' (resolver_preco_por_margem,
+        #                  caminho tabela, nunca coloca essa chave no dict).
+        #                  .get() devolve None no caminho tabela, sem exceção.
+        self._frete_detalhamento_api = detalhamento.get('frete_detalhamento_api')
 
         # * [EXPLICAÇÃO] → Mesma fórmula de margem, só que aplicada no
         #                  preço EXATO (antes do RoundUp90) — nunca
@@ -711,6 +725,7 @@ class FormulaPrecificacao:
             margem_percentual_obtida=self._margem_percentual_obtida,
             margem_exata_percentual=self._margem_exata_percentual,
             margem_exata_valor=self._margem_exata_valor,
+            frete_detalhamento_api=self._frete_detalhamento_api,
         )
 
     # Função Objetivo: Devolve a fórmula em forma abstrata, sem números.

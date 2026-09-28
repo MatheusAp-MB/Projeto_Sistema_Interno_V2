@@ -327,7 +327,14 @@
                         <div class="audit-inputs-box">
                             <div class="audit-input-linha"><span class="k">Origem <span class="audit-tag audit-tag--api">API</span></span><span class="v">{% if mlb %}Simulação — MLB {{ mlb }}{% else %}—{% endif %}</span></div>
                             <div class="audit-input-linha"><span class="k">Dimensões enviadas <span class="audit-tag audit-tag--produto">Embalagem ERP</span></span><span class="v">{{ det.dimensao.altura|floatformat:0 }} × {{ det.dimensao.largura|floatformat:0 }} × {{ det.dimensao.comprimento|floatformat:0 }} cm</span></div>
-                            <div class="audit-input-linha"><span class="k">Peso enviado na simulação <span class="audit-tag audit-tag--calc">Calculado</span><span class="audit-mini-form">mesmo peso usado na tabela — a API não devolve o billable_weight desta chamada</span></span><span class="v">{{ det.passo_7.peso|floatformat:3 }} kg</span></div>
+                            {% if det.passo_7.frete_detalhamento_api.billable_weight %}
+                            <div class="audit-input-linha"><span class="k">Peso cobrado pela API <span class="audit-tag audit-tag--api">API</span><span class="audit-mini-form">billable_weight devolvido nesta simulação</span></span><span class="v">{{ det.passo_7.frete_detalhamento_api.billable_weight|floatformat:0 }} g</span></div>
+                            {% else %}
+                            <div class="audit-input-linha"><span class="k">Peso enviado na simulação <span class="audit-tag audit-tag--calc">Calculado</span><span class="audit-mini-form">mesmo peso usado na tabela — esta linha foi calculada antes da Pendência #1</span></span><span class="v">{{ det.passo_7.peso|floatformat:3 }} kg</span></div>
+                            {% endif %}
+                            {% if det.passo_7.frete_detalhamento_api.discount_type %}
+                            <div class="audit-input-linha"><span class="k">Desconto de frete aplicado <span class="audit-tag audit-tag--api">API</span></span><span class="v">{{ det.passo_7.frete_detalhamento_api.discount_type }}{% if det.passo_7.frete_detalhamento_api.discount_rate %} — {{ det.passo_7.frete_detalhamento_api.discount_rate }}%{% endif %}</span></div>
+                            {% endif %}
                         </div>
                         <div class="audit-passo-abstrata">Não é uma fórmula nossa — é o valor que a própria API do Mercado Livre devolveu pra essa simulação (dimensão + preço candidato + categoria + tipo de anúncio deste MLB), dentro do goal-seek desta margem.</div>
                         <div class="audit-passo-conta">Resposta da API (<span class="audit-mini-form">list_cost</span>) = <b>R$ {{ det.passo_7.resultado|floatformat:2 }}</b></div>

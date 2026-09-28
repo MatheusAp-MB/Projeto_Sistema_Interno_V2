@@ -160,13 +160,20 @@ def resolver_preco_com_frete_dinamico(fixo, taxa_percentual, margem_alvo_fracao,
     .preco_max), usada só pelos LIMITES de preço pra saber onde testar — o .valor de cada
     faixa é ignorado aqui, o frete de verdade vem sempre de consultar_frete().
 
-    consultar_frete: callable(item_price) -> Decimal | None. None sinaliza falha (API fora,
-    erro, timeout, ou sem dado suficiente) — nesse caso a função inteira devolve None, pra
-    quem chamou cair no fallback (nunca mistura frete de fontes diferentes numa mesma
-    resolução).
+    consultar_frete: callable(item_price) -> tuple[Decimal, dict] | None. Devolve
+    (valor_do_frete, detalhamento_cru_da_api) — o detalhamento é o mesmo dict que
+    FreteRealML._extrair() monta (billable_weight/discount_type/discount_rate/
+    discount_promoted_amount), repassado sem interpretação nenhuma, só pra fins de
+    auditoria (Pendência #1, 28/09/2026) — nunca usado em nenhuma decisão de cálculo
+    aqui dentro. None sinaliza falha (API fora, erro, timeout, ou sem dado suficiente)
+    — nesse caso a função inteira devolve None, pra quem chamou cair no fallback (nunca
+    mistura frete de fontes diferentes numa mesma resolução).
 
     Retorna o mesmo formato de resolver_preco_por_margem (dict com preco_calculado,
-    frete_usado, margem_percentual_obtida, faixa_frete, detalhamento) ou None."""
+    frete_usado, margem_percentual_obtida, faixa_frete, detalhamento) — 'detalhamento'
+    ganha a chave extra 'frete_detalhamento_api', com o detalhamento CONFIRMADO (da
+    chamada que bateu com a estimativa, nunca de uma tentativa intermediária descartada)
+    — ou None."""
     denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
     if denominador <= 0:
         return None
@@ -182,9 +189,10 @@ def resolver_preco_com_frete_dinamico(fixo, taxa_percentual, margem_alvo_fracao,
     ]
 
     for faixa in faixas_validas:
-        frete = consultar_frete(faixa.preco_min)
-        if frete is None:
+        resultado_estimativa = consultar_frete(faixa.preco_min)
+        if resultado_estimativa is None:
             return None
+        frete, _ = resultado_estimativa
 
         for _ in range(max_correcoes_por_faixa):
             # * [EXPLICAÇÃO] → mesma guarda de FIXO Negativo das outras funções deste
@@ -196,9 +204,10 @@ def resolver_preco_com_frete_dinamico(fixo, taxa_percentual, margem_alvo_fracao,
             preco_exato = (frete + fixo - rebate_valor) / denominador
             preco_90 = arredondar_para_90(preco_exato)
 
-            frete_confirmado = consultar_frete(preco_90)
-            if frete_confirmado is None:
+            resultado_confirmacao = consultar_frete(preco_90)
+            if resultado_confirmacao is None:
                 return None
+            frete_confirmado, detalhamento_confirmado = resultado_confirmacao
 
             if frete_confirmado == frete:
                 margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete + rebate_valor
@@ -228,6 +237,13 @@ def resolver_preco_com_frete_dinamico(fixo, taxa_percentual, margem_alvo_fracao,
                         'preco_calculado': preco_90,
                         'margem_valor': margem_valor,
                         'margem_percentual_obtida': margem_percentual_obtida,
+                        # * [EXPLICAÇÃO] → Pendência #1 (28/09/2026) — detalhamento CRU
+                        #                  da chamada que CONFIRMOU o frete (nunca de
+                        #                  uma tentativa intermediária descartada).
+                        #                  billable_weight/discount_type/discount_rate/
+                        #                  discount_promoted_amount, do jeito que a API
+                        #                  devolveu — repassado sem interpretação.
+                        'frete_detalhamento_api': detalhamento_confirmado,
                     },
                 }
 

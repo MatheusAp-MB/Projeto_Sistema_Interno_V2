@@ -437,6 +437,7 @@ class DetalheFormulaExibida:
             dimensoes_ml=dimensoes_ml,
             peso_billable=peso_billable_kg,
             origem_frete=linha.origem_frete,
+            frete_detalhamento_api=s.get('frete_detalhamento_api'),
         )
         passo_8 = PassoPrecoExato(
             frete=dec(s.get('frete_usado')), fixo=dec(i.get('fixo')), rebate=dec(i.get('rebate_valor')),
