@@ -413,3 +413,5 @@ def resolver_preco_por_faixa_comissao(fixo, margem_alvo_fracao, custo_produto, f
             }
 
     return None
+
+
