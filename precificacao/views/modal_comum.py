@@ -136,6 +136,14 @@ class PassoFaixaFrete:
     frete_real: object = None
     dimensoes_ml: object = None
     peso_billable: object = None
+    # * [EXPLICAÇÃO] → Correção do Passo 7 (29/09/2026) — qual caminho decidiu
+    #                  'resultado' de verdade: 'api_real' (Frente A, simulação)
+    #                  ou 'tabela_calculada'. Só o ML usa (lido de
+    #                  GradePrecificacaoML.origem_frete, campo que não existe
+    #                  nos outros marketplaces — mesmo padrão de frete_real
+    #                  acima). None trata como tabela (linhas antigas de antes
+    #                  da Frente A, ou marketplace sem esse campo).
+    origem_frete: object = None
 
 
 @dataclass

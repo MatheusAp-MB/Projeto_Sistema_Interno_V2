@@ -1022,6 +1022,18 @@
 }
 .audit-investigar-box b { display: block; color: var(--audit-red); margin-bottom: 4px; font-size: 13.5px; }
 
+/* Passo 7 (Frete) — modificador "Tabela" (correção 29/09/2026): mesmo cartão do
+   caminho "API real" (.frete-secao), só que com a cor neutra da própria origem,
+   pra não parecer que todo Passo 7 é sempre resolvido pela API. */
+.frete-secao--tabela { border-left-color: var(--audit-slate-ink); background: rgba(85,86,102,.05); }
+
+/* Nota simples quando não existe seção de Referência (linha Grade Base do
+   produto, sem MLB — nunca tem frete_real da Frente B pra comparar). */
+.nota-produto {
+    font-size: 11.5px; color: var(--audit-ink-mid); background: var(--audit-slate-bg);
+    border-radius: 8px; padding: 9px 12px; line-height: 1.5;
+}
+
 /* Tags de proveniência */
 .audit-tag {
     display: inline-block;

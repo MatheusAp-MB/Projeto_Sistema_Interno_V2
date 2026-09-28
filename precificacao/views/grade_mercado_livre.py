@@ -436,6 +436,7 @@ class DetalheFormulaExibida:
             frete_real=dec(variacao.frete_real) if variacao else None,
             dimensoes_ml=dimensoes_ml,
             peso_billable=peso_billable_kg,
+            origem_frete=linha.origem_frete,
         )
         passo_8 = PassoPrecoExato(
             frete=dec(s.get('frete_usado')), fixo=dec(i.get('fixo')), rebate=dec(i.get('rebate_valor')),
