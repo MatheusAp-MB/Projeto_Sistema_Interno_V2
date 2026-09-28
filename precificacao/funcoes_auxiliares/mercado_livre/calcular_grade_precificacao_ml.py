@@ -89,13 +89,22 @@ def _formulas_sem_dimensao(config):
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
 # AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
-                               config_geral, cache_formulas, variacao, tipo, erros, api_ml):
+                               config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout):
     if assinatura in cache_formulas:
         cache = cache_formulas[assinatura]
         return {
             'formulas': cache['formulas'], 'motivos': cache['motivos'],
             'novos': 0, 'reaproveitados': 4, 'sem_calculo': 0,
         }
+
+    # * [EXPLICAÇÃO] → Frente A (feedback visual, 28/09/2026) — assinatura nova (não veio do
+    #                  cache) e tem variação real: vai tentar a API pra cada uma das 4
+    #                  margens a seguir. Só avisa 1 vez aqui (não a cada margem) pra não
+    #                  poluir o console — o log em disco (simular_frete_ml.log) já tem o
+    #                  detalhe de cada chamada, isso aqui é só "sei que está rodando".
+    if variacao is not None and api_ml is not None:
+        mlb = getattr(variacao.anuncio, 'mlb', variacao.anuncio_id)
+        stdout.write(f'      🌐 tentando via API — MLB {mlb} (categoria {variacao.categoria_id}, {tipo})')
 
     formulas = {}
     motivos = {}
@@ -229,7 +238,7 @@ def calcular_grade_precificacao_ml(stdout, style):
     total_produtos = len(produtos)
 
     for indice_produto, produto in enumerate(produtos, start=1):
-        if indice_produto % 200 == 0 or indice_produto == total_produtos:
+        if indice_produto % 20 == 0 or indice_produto == total_produtos:
             decorrido = time.perf_counter() - inicio_calculo
             stdout.write(f'    ... {indice_produto}/{total_produtos} produtos processados ({decorrido:.1f}s)')
 
@@ -260,7 +269,7 @@ def calcular_grade_precificacao_ml(stdout, style):
             else:
                 resultado_fallback = _calcular_ou_reaproveitar(
                     _assinatura(dim_fallback, None), dim_fallback, produto, config, frete_todas,
-                    faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros, api_ml,
+                    faixas_armazenagem, config_geral, cache_formulas, None, tipo, erros, api_ml, stdout,
                 )
                 qtd_calculos += resultado_fallback['novos']
                 qtd_reaproveitados += resultado_fallback['reaproveitados']
@@ -283,7 +292,7 @@ def calcular_grade_precificacao_ml(stdout, style):
                     continue
                 resultado = _calcular_ou_reaproveitar(
                     _assinatura(dim, variacao), dim, produto, config, frete_todas,
-                    faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros, api_ml,
+                    faixas_armazenagem, config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout,
                 )
                 qtd_calculos += resultado['novos']
                 qtd_reaproveitados += resultado['reaproveitados']
