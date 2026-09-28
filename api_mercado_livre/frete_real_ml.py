@@ -58,3 +58,38 @@ class FreteRealML:
             nome_log="buscar_frete_real_ml",
         )
         return self._extrair(resposta.json())
+
+    # Função Objetivo: Simula o frete pra uma condição hipotética (peso/dimensão + preço
+    # candidato), sem depender de um anúncio publicado — diferente de buscar() acima, que lê
+    # o frete de um MLB JÁ PUBLICADO no preço que está lá hoje (pergunta de relatório). Esta
+    # é a pergunta de simulação que a Frente A precisa (Desenho da Frente A, seção 3/7 do
+    # vault): "nessas condições, qual seria o frete" — usada dentro do goal-seek de
+    # precificação, nunca lê item_id. Receita idêntica à validada em
+    # scripts_exploracao_ML/buscar_e_testar_candidatos_diversos_frete_via_api.py
+    # (buscar_simulacao_frete_via_api), só migrada pra camada de produção.
+    #
+    # dimensions_str: no formato "AxLxC,peso_fisico_em_gramas" (ex: "56x41x23,8802") — quem
+    # chama monta essa string (não é responsabilidade desta classe saber formatar Decimal).
+    # category_id/listing_type_id: sempre do MLB específico sendo calculado — nunca
+    # emprestado de outro MLB do mesmo produto (Checkpoint - Desenho da Frente A, seção 19).
+    # free_shipping: sempre False no uso real hoje (decisão de Matheus, 28/09/2026) — mantido
+    # como parâmetro, não fixo, porque a receita original também testa True (Tabela 2, não
+    # usada em produção por decisão explícita).
+    def simular(self, dimensions_str, item_price, category_id, listing_type_id,
+                user_id, pasta_logs, free_shipping=False):
+        resposta = self._cliente.chamar(
+            "GET", f"/users/{user_id}/shipping_options/free",
+            pasta_logs=pasta_logs,
+            params={
+                "dimensions": dimensions_str,
+                "item_price": str(item_price),
+                "verbose": "true",
+                "condition": "new",
+                "category_id": category_id,
+                "listing_type_id": listing_type_id,
+                "mode": "me2",
+                "free_shipping": "true" if free_shipping else "false",
+            },
+            nome_log="simular_frete_ml",
+        )
+        return self._extrair(resposta.json())

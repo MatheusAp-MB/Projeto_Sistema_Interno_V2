@@ -28,7 +28,8 @@
 from dataclasses import dataclass, asdict
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
-from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem
+from precificacao.funcoes_auxiliares.goal_seek import resolver_preco_por_margem, resolver_preco_com_frete_dinamico
+from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI
 from produtos.funcoes_auxiliares.dimensoes_fisicas import (
     metro_cubico_de_dimensoes, selecionar_faixa_por_dimensao,
 )
@@ -175,7 +176,8 @@ class FormulaPrecificacao:
     # Função Objetivo: Recebe tudo que precisa pra resolver essa margem.
     def __init__(self, produto, dimensoes_efetivas, config_tipo, config_geral,
                  margem_alvo_percentual, frete_todas, faixas_armazenagem=None,
-                 rebate_percentual=None, preco_original=None, regime=None):
+                 rebate_percentual=None, preco_original=None, regime=None,
+                 variacao=None, api_ml=None):
         from mercado_livre.models import FreteML
 
         self.produto = produto
@@ -192,6 +194,17 @@ class FormulaPrecificacao:
         self.faixas_armazenagem = faixas_armazenagem
         self.rebate_percentual = Decimal(str(rebate_percentual)) if rebate_percentual is not None else Decimal('0')
         self.preco_original = Decimal(str(preco_original)) if preco_original is not None else None
+
+        # * [EXPLICAÇÃO] → Frente A (28/09/2026) — variacao/api_ml são o que permite
+        #                  tentar o goal-seek via simulação de API antes da tabela. Os 2
+        #                  são opcionais e None por padrão: quem chama sem eles (Hub de
+        #                  Promoções, qualquer uso fora da Grade) continua 100% no
+        #                  caminho da tabela, sem nenhuma mudança de comportamento.
+        #                  variacao=None (linha fallback do produto) NUNCA tenta API —
+        #                  decisão fechada no checkpoint, seção 19.
+        self.variacao = variacao
+        self.api_ml = api_ml
+        self.origem_frete = None
 
         self.entrada = None
         self.intermediarios = None
@@ -321,20 +334,85 @@ class FormulaPrecificacao:
             key=lambda f: f.preco_min,
         )
 
-    # Função Objetivo: Resolve o preço, reaproveitando resolver_preco_por_margem do goal_seek.
+    # Função Objetivo: Monta a string de dimensão no formato que a API espera ("AxLxCcm,pesoEmGramas").
+    # Explicação em detalhe: mesma receita validada em scripts_exploracao_ML/
+    # buscar_e_testar_candidatos_diversos_frete_via_api.py (_formatar_dimensao) — usa
+    # peso_fisico (não o faturável), a própria API calcula o peso cúbico a partir da
+    # dimensão crua.
+    @staticmethod
+    def _formatar_numero_dimensao(valor):
+        inteiro = valor.to_integral_value()
+        if valor == inteiro:
+            return str(int(inteiro))
+        return str(valor.normalize())
+
+    def _montar_dimensions_str(self):
+        dim = self.dimensoes_efetivas
+        f = self._formatar_numero_dimensao
+        peso_gramas = int((dim.peso_fisico * 1000).to_integral_value())
+        return f'{f(dim.altura)}x{f(dim.largura)}x{f(dim.comprimento)},{peso_gramas}'
+
+    # Função Objetivo: Tenta o goal-seek via simulação de API — só quando a linha tem MLB
+    # publicado com categoria conhecida (autocontido daquele MLB, ver checkpoint seção 19).
+    # Explicação em detalhe: devolve None (nunca lança) em qualquer falha — sem MLB, sem
+    # categoria, ou erro/timeout da API — pra resolver_preco() sempre poder cair no
+    # fallback da tabela sem se importar com o motivo.
+    def _tentar_resolver_preco_via_api(self, custo_produto):
+        if self.variacao is None or self.api_ml is None:
+            return None
+
+        categoria = getattr(self.variacao, 'categoria', None)
+        if categoria is None:
+            return None
+
+        dimensions_str = self._montar_dimensions_str()
+        category_id = categoria.category_id
+        listing_type_id = self.config_tipo.tipo_anuncio
+        api_ml = self.api_ml
+
+        def consultar_frete(item_price):
+            try:
+                valor, _detalhamento = api_ml.simular_frete(
+                    dimensions_str, item_price, category_id, listing_type_id, free_shipping=False,
+                )
+            except (ErroAPI, ErroAutenticacaoAPI):
+                return None
+            return valor
+
+        return resolver_preco_com_frete_dinamico(
+            fixo=self._fixo,
+            taxa_percentual=self._taxa_percentual,
+            margem_alvo_fracao=self.margem_alvo_percentual / 100,
+            custo_produto=custo_produto,
+            faixas_preco_candidatas=self._faixas_candidatas,
+            consultar_frete=consultar_frete,
+            rebate_valor=self._rebate_valor,
+        )
+
+    # Função Objetivo: Resolve o preço — tenta a API primeiro (Frente A), tabela como fallback.
     def resolver_preco(self):
         # Decisão do Matheus (14/09/2026): custo_com_boni nunca é preenchido na
         # prática — parou de ser lido em qualquer parte da fórmula.
         custo_produto = self.produto.custo
 
-        resultado = resolver_preco_por_margem(
-            fixo=self._fixo,
-            taxa_percentual=self._taxa_percentual,
-            margem_alvo_fracao=self.margem_alvo_percentual / 100,
-            custo_produto=custo_produto,
-            faixas_frete_candidatas=self._faixas_candidatas,
-            rebate_valor=self._rebate_valor,
-        )
+        # * [EXPLICAÇÃO] → Frente A (28/09/2026, checkpoint seção 19): só 1 frete por
+        #                  linha, nunca 2 campos. Tenta o goal-seek completo via API; se
+        #                  falhar em qualquer chamada (ou a linha não for elegível), cai
+        #                  pro goal-seek completo via tabela — o mesmo de sempre, sem
+        #                  nenhuma mudança. origem_frete registra qual dos 2 resolveu.
+        resultado = self._tentar_resolver_preco_via_api(custo_produto)
+        if resultado is not None:
+            self.origem_frete = 'api_real'
+        else:
+            resultado = resolver_preco_por_margem(
+                fixo=self._fixo,
+                taxa_percentual=self._taxa_percentual,
+                margem_alvo_fracao=self.margem_alvo_percentual / 100,
+                custo_produto=custo_produto,
+                faixas_frete_candidatas=self._faixas_candidatas,
+                rebate_valor=self._rebate_valor,
+            )
+            self.origem_frete = 'tabela_calculada'
 
         if resultado is None:
             self.resolvida = False

@@ -72,6 +72,15 @@ class ApiMercadoLivre:
     def buscar_frete(self, mlb):
         return self._contexto_frete_real.buscar(mlb, self._user_id, self._pasta_logs)
 
+    # Função Objetivo: Passthrough pra simulação de frete (Frente A) — sem item_id, pra
+    # testar uma condição hipotética (peso/dimensão + preço candidato) dentro do goal-seek
+    # de precificação. Ver FreteRealML.simular() pro formato de dimensions_str.
+    def simular_frete(self, dimensions_str, item_price, category_id, listing_type_id, free_shipping=False):
+        return self._contexto_frete_real.simular(
+            dimensions_str, item_price, category_id, listing_type_id,
+            self._user_id, self._pasta_logs, free_shipping=free_shipping,
+        )
+
     @property
     def _contexto_mlbs(self):
         if self._mlbs is None:

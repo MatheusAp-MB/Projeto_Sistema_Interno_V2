@@ -142,6 +142,102 @@ def resolver_preco_por_margem(fixo, taxa_percentual, margem_alvo_fracao, custo_p
     return None
 
 
+def resolver_preco_com_frete_dinamico(fixo, taxa_percentual, margem_alvo_fracao, custo_produto,
+                                       faixas_preco_candidatas, consultar_frete,
+                                       rebate_valor=Decimal('0'), max_correcoes_por_faixa=3):
+    """Resolve a circularidade preço↔frete quando o frete não vem de uma tabela fixa, mas de
+    uma função externa que devolve o frete PRA UM PREÇO ESPECÍFICO (ex: simulação via API do
+    Mercado Livre — ver FreteRealML.simular()). Mesmo espírito de resolver_preco_por_margem
+    (busca finita, com faixas candidatas), mas em vez de ler faixa.valor da tabela, CONSULTA
+    o frete a cada tentativa, com confirmação: chama consultar_frete() no piso da faixa
+    candidata (estimativa), resolve o preço, confirma consultando de novo no preço resolvido
+    — se bater, fechou; se não bater, corrige com o valor confirmado e tenta de novo (a mesma
+    faixa), até max_correcoes_por_faixa vezes, antes de desistir dessa faixa e ir pra próxima.
+    Mecanismo validado com produto real antes de virar código de produção (Checkpoint -
+    Desenho da Frente A, seção 7 do vault).
+
+    faixas_preco_candidatas: mesmo formato de resolver_preco_por_margem (.preco_min/
+    .preco_max), usada só pelos LIMITES de preço pra saber onde testar — o .valor de cada
+    faixa é ignorado aqui, o frete de verdade vem sempre de consultar_frete().
+
+    consultar_frete: callable(item_price) -> Decimal | None. None sinaliza falha (API fora,
+    erro, timeout, ou sem dado suficiente) — nesse caso a função inteira devolve None, pra
+    quem chamou cair no fallback (nunca mistura frete de fontes diferentes numa mesma
+    resolução).
+
+    Retorna o mesmo formato de resolver_preco_por_margem (dict com preco_calculado,
+    frete_usado, margem_percentual_obtida, faixa_frete, detalhamento) ou None."""
+    denominador = Decimal('1') - taxa_percentual - margem_alvo_fracao
+    if denominador <= 0:
+        return None
+
+    fixo = Decimal(str(fixo))
+    custo_produto = Decimal(str(custo_produto))
+    rebate_valor = Decimal(str(rebate_valor))
+    margem_alvo_percentual = margem_alvo_fracao * 100
+
+    faixas_validas = [
+        f for f in faixas_preco_candidatas
+        if f.preco_max is None or f.preco_max >= custo_produto
+    ]
+
+    for faixa in faixas_validas:
+        frete = consultar_frete(faixa.preco_min)
+        if frete is None:
+            return None
+
+        for _ in range(max_correcoes_por_faixa):
+            # * [EXPLICAÇÃO] → mesma guarda de FIXO Negativo das outras funções deste
+            #                  módulo — pula a faixa em vez de deixar o RoundUp90 diminuir
+            #                  a margem em vez de aumentar.
+            if (frete + fixo - rebate_valor) < 0:
+                break
+
+            preco_exato = (frete + fixo - rebate_valor) / denominador
+            preco_90 = arredondar_para_90(preco_exato)
+
+            frete_confirmado = consultar_frete(preco_90)
+            if frete_confirmado is None:
+                return None
+
+            if frete_confirmado == frete:
+                margem_valor = preco_90 * (1 - taxa_percentual) - fixo - frete + rebate_valor
+                margem_percentual_obtida = (margem_valor / preco_90) * 100
+
+                assert margem_percentual_obtida >= margem_alvo_percentual, (
+                    f'Margem obtida ({margem_percentual_obtida}%) ficou ABAIXO da margem-alvo '
+                    f'({margem_alvo_percentual}%) com frete dinâmico — verificar a fórmula.'
+                )
+
+                return {
+                    'preco_calculado': preco_90,
+                    'frete_usado': frete,
+                    'margem_percentual_obtida': margem_percentual_obtida,
+                    'faixa_frete': faixa,
+                    'detalhamento': {
+                        'custo_produto': custo_produto,
+                        'fixo': fixo,
+                        'rebate_valor': rebate_valor,
+                        'taxa_percentual': taxa_percentual * 100,
+                        'margem_alvo_percentual': margem_alvo_percentual,
+                        'faixa_preco_min': faixa.preco_min,
+                        'faixa_preco_max': faixa.preco_max,
+                        'frete_usado': frete,
+                        'denominador': denominador,
+                        'preco_exato_antes_arredondar': preco_exato,
+                        'preco_calculado': preco_90,
+                        'margem_valor': margem_valor,
+                        'margem_percentual_obtida': margem_percentual_obtida,
+                    },
+                }
+
+            frete = frete_confirmado
+
+        # esgotou as correções nesta faixa sem convergir — tenta a próxima
+
+    return None
+
+
 def resolver_preco_com_frete_fixo(fixo, taxa_percentual, margem_alvo_fracao, frete,
                                    taxa_unidade=Decimal('0'), rebate_valor=Decimal('0')):
     """Mesma fórmula de resolver_preco_por_margem, mas SEM busca de
