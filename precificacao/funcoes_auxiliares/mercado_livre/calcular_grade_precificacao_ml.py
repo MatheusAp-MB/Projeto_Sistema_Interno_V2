@@ -117,6 +117,14 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
     #                  não dependem de margem nem de MLB. Só é chamado quando a assinatura
     #                  é nova de verdade (nunca quando reaproveitou do cache acima).
     dados_fiscais_produto = obter_dados_fiscais_produto()
+    # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026, checkpoint seção 22) — mesma ideia
+    #                  acima, pra coleta/armazenagem/faixas de frete candidatas: não
+    #                  dependem de margem, só da dimensão (mesma assinatura já usada como
+    #                  chave do cache_formulas) — calculado 1x aqui, não 1x por margem.
+    dados_dimensao_frete = FormulaPrecificacao.resolver_dados_dimensao_frete(
+        produto=produto, dimensoes_efetivas=dim, config_geral=config_geral,
+        frete_todas=frete_todas, faixas_armazenagem=faixas_armazenagem,
+    )
     for margem_chave, margem_valor in _margens_do_tipo(config):
         try:
             formula = FormulaPrecificacao(
@@ -124,6 +132,7 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
                 config_geral=config_geral, margem_alvo_percentual=margem_valor,
                 frete_todas=frete_todas, faixas_armazenagem=faixas_armazenagem,
                 variacao=variacao, api_ml=api_ml, dados_fiscais_produto=dados_fiscais_produto,
+                dados_dimensao_frete=dados_dimensao_frete,
             ).calcular()
             novos += 1
             if not formula.resolvida:

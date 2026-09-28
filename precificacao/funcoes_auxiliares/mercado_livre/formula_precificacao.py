@@ -188,6 +188,29 @@ class DadosFiscaisProduto:
     custo_final: Decimal
 
 
+# Função Objetivo: Pacote dos dados que só dependem da DIMENSÃO efetiva (mais o produto, só
+# pra saber se ele tem armazenagem de planilha própria) — nunca da margem.
+# Explicação em detalhe: Otimização Frente A (28/09/2026, checkpoint seção 20/21/22) — coleta,
+# armazenagem (quando resolvida por faixa) e faixas de frete candidatas não mudam entre as 4
+# margens de uma mesma assinatura (dimensão+categoria+tipo já usada como chave de
+# cache_formulas em calcular_grade_precificacao_ml.py). Calculado 1x por assinatura (ver
+# FormulaPrecificacao.resolver_dados_dimensao_frete) e reaproveitado pelas 4 instâncias de
+# FormulaPrecificacao que resolvem essa assinatura, em vez de recalculado 4x à toa.
+# ATENÇÃO: usa a mesma tupla de dimensão (mesma ordem altura/largura/comprimento) já usada
+# como assinatura — nunca funde combinações com eixos em ordem diferente (ex: 13x25x30 com
+# 25x30x13), porque selecionar_faixa_por_dimensao() compara cada eixo contra um teto
+# diferente (max_altura/max_largura/max_profundidade) — ordem trocada pode cair em faixa de
+# armazenagem errada. Ver checkpoint, seção 22.
+@dataclass
+class DadosDimensaoFrete:
+    metro_cubico: Decimal
+    coleta: Decimal
+    armazenagem_origem: str
+    armazenagem: Decimal
+    armazenagem_valor_diario: Decimal | None
+    faixas_candidatas: list
+
+
 # Função Objetivo: Representa 1 margem candidata, já resolvida — mesma classe,
 # instanciada 4x (Mínima/Padrão/Máxima/Competição) com margem_alvo_percentual diferente.
 class FormulaPrecificacao:
@@ -196,7 +219,8 @@ class FormulaPrecificacao:
     def __init__(self, produto, dimensoes_efetivas, config_tipo, config_geral,
                  margem_alvo_percentual, frete_todas, faixas_armazenagem=None,
                  rebate_percentual=None, preco_original=None, regime=None,
-                 variacao=None, api_ml=None, dados_fiscais_produto=None):
+                 variacao=None, api_ml=None, dados_fiscais_produto=None,
+                 dados_dimensao_frete=None):
         from mercado_livre.models import FreteML
 
         self.produto = produto
@@ -239,6 +263,11 @@ class FormulaPrecificacao:
         #                  o que já foi calculado 1x pra esse produto. None (padrão) =
         #                  comportamento de sempre, sem nenhuma mudança.
         self._dados_fiscais_produto = dados_fiscais_produto
+        # * [EXPLICAÇÃO] → Mesma lógica acima, pro pacote de dimensão (ver
+        #                  DadosDimensaoFrete/resolver_dados_dimensao_frete) — pula
+        #                  calcular_coleta()/calcular_armazenagem()/filtrar_faixas_frete()
+        #                  quando já foi resolvido 1x pra essa assinatura.
+        self._dados_dimensao_frete = dados_dimensao_frete
 
     # Função Objetivo: Busca os créditos fiscais de entrada, já resolvidos e por unidade.
     def obter_creditos_fiscais(self):
@@ -328,12 +357,24 @@ class FormulaPrecificacao:
 
     # Função Objetivo: Calcula a coleta a partir do metro cúbico do DimensoesEfetivas.
     def calcular_coleta(self):
+        if self._dados_dimensao_frete is not None:
+            self._metro_cubico = self._dados_dimensao_frete.metro_cubico
+            self._coleta = self._dados_dimensao_frete.coleta
+            return
+
         dim = self.dimensoes_efetivas
         self._metro_cubico = metro_cubico_de_dimensoes(dim.altura, dim.largura, dim.comprimento)
         self._coleta = self._metro_cubico * self.config_geral.fator_coleta
 
     # Função Objetivo: Calcula a armazenagem — planilha se existir, senão faixa por dimensão.
     def calcular_armazenagem(self):
+        if self._dados_dimensao_frete is not None:
+            d = self._dados_dimensao_frete
+            self._armazenagem_origem = d.armazenagem_origem
+            self._armazenagem = d.armazenagem
+            self._armazenagem_valor_diario = d.armazenagem_valor_diario
+            return
+
         produto = self.produto
         dim = self.dimensoes_efetivas
 
@@ -391,6 +432,10 @@ class FormulaPrecificacao:
     # Função Objetivo: Filtra as faixas de frete candidatas pelo peso do DimensoesEfetivas
     # e pelo regime desta instância (Sem/Com Frete Grátis Rápido).
     def filtrar_faixas_frete(self):
+        if self._dados_dimensao_frete is not None:
+            self._faixas_candidatas = self._dados_dimensao_frete.faixas_candidatas
+            return
+
         peso = self.dimensoes_efetivas.peso
         self._faixas_candidatas = sorted(
             (
@@ -398,6 +443,31 @@ class FormulaPrecificacao:
                 if f.regime == self.regime and f.peso_min <= peso and (f.peso_max is None or f.peso_max >= peso)
             ),
             key=lambda f: f.preco_min,
+        )
+
+    # Função Objetivo: Calcula 1x os dados que só dependem da DIMENSÃO efetiva (coleta,
+    # armazenagem, faixas de frete candidatas) — reaproveitáveis pelas 4 margens de uma
+    # mesma assinatura (dimensão+categoria+tipo). Nunca funde assinaturas diferentes — quem
+    # chama já garante que dimensoes_efetivas é exatamente a mesma tupla usada como chave
+    # de cache em calcular_grade_precificacao_ml.py.
+    @classmethod
+    def resolver_dados_dimensao_frete(cls, produto, dimensoes_efetivas, config_geral,
+                                       frete_todas, faixas_armazenagem=None, regime=None):
+        instancia = cls(
+            produto=produto, dimensoes_efetivas=dimensoes_efetivas, config_tipo=None,
+            config_geral=config_geral, margem_alvo_percentual=Decimal('0'),
+            frete_todas=frete_todas, faixas_armazenagem=faixas_armazenagem, regime=regime,
+        )
+        instancia.calcular_coleta()
+        instancia.calcular_armazenagem()
+        instancia.filtrar_faixas_frete()
+        return DadosDimensaoFrete(
+            metro_cubico=instancia._metro_cubico,
+            coleta=instancia._coleta,
+            armazenagem_origem=instancia._armazenagem_origem,
+            armazenagem=instancia._armazenagem,
+            armazenagem_valor_diario=instancia._armazenagem_valor_diario,
+            faixas_candidatas=instancia._faixas_candidatas,
         )
 
     # Função Objetivo: Monta a string de dimensão no formato que a API espera ("AxLxCcm,pesoEmGramas").
