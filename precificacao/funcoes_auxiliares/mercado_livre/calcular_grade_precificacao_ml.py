@@ -88,6 +88,12 @@ def _formulas_sem_dimensao(config):
 # Explicação em detalhe: motivos[margem_chave] só existe (não-None) quando formulas[margem_chave]
 # é None — guarda o TEXTO do porquê não resolveu (meta inatingível vs. a mensagem exata do
 # AssertionError), pra _registrar_linhas gravar em GradePrecificacaoML.motivo_nao_resolvida.
+# origem_api/origem_tabela (29/09/2026, melhoria de clareza no console) — conta, entre as
+# margens CALCULADAS AGORA (nunca entre as reaproveitadas do cache_formulas, que não geram
+# nenhuma tentativa nova), quantas resolveram via API real vs. via tabela. Substitui o print
+# antigo "🌐 tentando via API", que disparava 1x por assinatura nova — um número imprevisível
+# de vezes por produto — e confundia mais do que ajudava. calcular_grade_precificacao_ml usa
+# esses 2 números só no resumo final (o print por produto virou 1 linha por EAN).
 def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, faixas_armazenagem,
                                config_geral, cache_formulas, variacao, tipo, erros, api_ml, stdout,
                                obter_dados_fiscais_produto):
@@ -96,21 +102,15 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
         return {
             'formulas': cache['formulas'], 'motivos': cache['motivos'],
             'novos': 0, 'reaproveitados': 4, 'sem_calculo': 0,
+            'origem_api': 0, 'origem_tabela': 0,
         }
-
-    # * [EXPLICAÇÃO] → Frente A (feedback visual, 28/09/2026) — assinatura nova (não veio do
-    #                  cache) e tem variação real: vai tentar a API pra cada uma das 4
-    #                  margens a seguir. Só avisa 1 vez aqui (não a cada margem) pra não
-    #                  poluir o console — o log em disco (simular_frete_ml.log) já tem o
-    #                  detalhe de cada chamada, isso aqui é só "sei que está rodando".
-    if variacao is not None and api_ml is not None:
-        mlb = getattr(variacao.anuncio, 'mlb', variacao.anuncio_id)
-        stdout.write(f'      🌐 tentando via API — MLB {mlb} (categoria {variacao.categoria_id}, {tipo})')
 
     formulas = {}
     motivos = {}
     novos = 0
     sem_calculo = 0
+    origem_api = 0
+    origem_tabela = 0
     # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026, checkpoint seção 20/21) — computa
     #                  (ou reaproveita, se outro MLB/tipo desse produto já pediu) créditos
     #                  fiscais + custo final 1 única vez aqui, ANTES do loop de margem —
@@ -144,6 +144,10 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
             else:
                 formulas[margem_chave] = formula
                 motivos[margem_chave] = None
+                if formula.origem_frete == 'api_real':
+                    origem_api += 1
+                elif formula.origem_frete == 'tabela_calculada':
+                    origem_tabela += 1
         except AssertionError as e:
             alvo = f'MLB {variacao.anuncio.mlb}' if variacao else 'fallback'
             erros.append(f'{produto} | {alvo} | {tipo} | {margem_chave} | {e}')
@@ -151,7 +155,10 @@ def _calcular_ou_reaproveitar(assinatura, dim, produto, config, frete_todas, fai
             motivos[margem_chave] = str(e)
 
     cache_formulas[assinatura] = {'formulas': formulas, 'motivos': motivos}
-    return {'formulas': formulas, 'motivos': motivos, 'novos': novos, 'reaproveitados': 0, 'sem_calculo': sem_calculo}
+    return {
+        'formulas': formulas, 'motivos': motivos, 'novos': novos, 'reaproveitados': 0,
+        'sem_calculo': sem_calculo, 'origem_api': origem_api, 'origem_tabela': origem_tabela,
+    }
 
 
 # Função Objetivo: Cria ou atualiza as 4 linhas (1 por margem) de 1 (produto, variação, tipo).
@@ -251,12 +258,24 @@ def calcular_grade_precificacao_ml(stdout, style):
     inicio_calculo = time.perf_counter()
     qtd_calculos = 0
     qtd_reaproveitados = 0
+    qtd_origem_api = 0
+    qtd_origem_tabela = 0
     total_produtos = len(produtos)
 
     for indice_produto, produto in enumerate(produtos, start=1):
-        if indice_produto % 20 == 0 or indice_produto == total_produtos:
-            decorrido = time.perf_counter() - inicio_calculo
-            stdout.write(f'    ... {indice_produto}/{total_produtos} produtos processados ({decorrido:.1f}s)')
+        # * [EXPLICAÇÃO] → Print por produto (29/09/2026, melhoria de clareza) — substitui o
+        #                  antigo par de prints confuso ("... N/total produtos processados" a
+        #                  cada 20 produtos + "🌐 tentando via API" a cada assinatura nova,
+        #                  número imprevisível de vezes por produto) por 1 linha POR PRODUTO,
+        #                  no estilo do buscar_mlbs: EAN -> quantidade de MLBs -> status -> %
+        #                  de reaproveitamento. Os 4 contadores abaixo são SÓ deste produto —
+        #                  os globais (qtd_calculos/qtd_reaproveitados/sem_calculo/
+        #                  sem_dimensao) continuam existindo à parte, pro resumo final.
+        novos_produto = 0
+        reaproveitados_produto = 0
+        sem_calculo_produto = 0
+        sem_dimensao_produto = 0
+        erros_antes_do_produto = len(erros)
 
         # * [EXPLICAÇÃO] → Otimização Frente A (28/09/2026, checkpoint seção 20/21) —
         #                  créditos fiscais + custo final só dependem do produto, nunca do
@@ -292,6 +311,7 @@ def calcular_grade_precificacao_ml(stdout, style):
             if dim_fallback is None:
                 formulas_fallback, motivos_fallback = _formulas_sem_dimensao(config)
                 sem_dimensao += len(formulas_fallback)
+                sem_dimensao_produto += len(formulas_fallback)
                 _registrar_linhas(
                     produto, None, tipo_grade, formulas_fallback, motivos_fallback,
                     existentes, para_criar, para_atualizar,
@@ -305,6 +325,11 @@ def calcular_grade_precificacao_ml(stdout, style):
                 qtd_calculos += resultado_fallback['novos']
                 qtd_reaproveitados += resultado_fallback['reaproveitados']
                 sem_calculo += resultado_fallback['sem_calculo']
+                qtd_origem_api += resultado_fallback['origem_api']
+                qtd_origem_tabela += resultado_fallback['origem_tabela']
+                novos_produto += resultado_fallback['novos']
+                reaproveitados_produto += resultado_fallback['reaproveitados']
+                sem_calculo_produto += resultado_fallback['sem_calculo']
                 _registrar_linhas(
                     produto, None, tipo_grade, resultado_fallback['formulas'], resultado_fallback['motivos'],
                     existentes, para_criar, para_atualizar,
@@ -316,6 +341,7 @@ def calcular_grade_precificacao_ml(stdout, style):
                 if dim is None:
                     formulas_variacao, motivos_variacao = _formulas_sem_dimensao(config)
                     sem_dimensao += len(formulas_variacao)
+                    sem_dimensao_produto += len(formulas_variacao)
                     _registrar_linhas(
                         produto, variacao, tipo_grade, formulas_variacao, motivos_variacao,
                         existentes, para_criar, para_atualizar,
@@ -329,14 +355,46 @@ def calcular_grade_precificacao_ml(stdout, style):
                 qtd_calculos += resultado['novos']
                 qtd_reaproveitados += resultado['reaproveitados']
                 sem_calculo += resultado['sem_calculo']
+                qtd_origem_api += resultado['origem_api']
+                qtd_origem_tabela += resultado['origem_tabela']
+                novos_produto += resultado['novos']
+                reaproveitados_produto += resultado['reaproveitados']
+                sem_calculo_produto += resultado['sem_calculo']
                 _registrar_linhas(
                     produto, variacao, tipo_grade, resultado['formulas'], resultado['motivos'],
                     existentes, para_criar, para_atualizar,
                 )
 
+        # * [EXPLICAÇÃO] → 1 linha de status por produto, sempre no fim do processamento dele
+        #                  (depois dos 2 tipos, CLASSICO e PREMIUM). % de reaproveitamento =
+        #                  reaproveitados_produto ÷ (novos_produto + reaproveitados_produto) —
+        #                  só sobe do 0% quando o mesmo produto tem MLBs com a mesma
+        #                  assinatura de dimensão (cache_formulas é por produto×tipo, nunca
+        #                  entre produtos diferentes).
+        erros_produto = len(erros) - erros_antes_do_produto
+        partes_status = []
+        if erros_produto:
+            partes_status.append(f'{erros_produto} erro(s)')
+        if sem_calculo_produto:
+            partes_status.append(f'{sem_calculo_produto} sem cálculo')
+        if sem_dimensao_produto:
+            partes_status.append(f'{sem_dimensao_produto} sem dimensão')
+        status_produto = ' | '.join(partes_status) if partes_status else 'OK'
+
+        total_calculado_produto = novos_produto + reaproveitados_produto
+        percentual_reaproveitamento = (
+            (reaproveitados_produto / total_calculado_produto) * 100 if total_calculado_produto else 0
+        )
+
+        stdout.write(
+            f'    [{indice_produto}/{total_produtos}] EAN {produto.ean} -> '
+            f'{len(variacoes_do_produto)} MLB(s) -> {status_produto} | '
+            f'{percentual_reaproveitamento:.0f}% de reaproveitamento'
+        )
+
     tempo_calculo_total = time.perf_counter() - inicio_calculo
     stdout.write(f'  ⏱ Loop de cálculo, total: {tempo_calculo_total:.1f}s')
-    stdout.write(f'      ↳ Cálculos novos: {qtd_calculos}')
+    stdout.write(f'      ↳ Cálculos novos: {qtd_calculos} (via API: {qtd_origem_api}, via tabela: {qtd_origem_tabela})')
     stdout.write(f'      ↳ Reaproveitados (mesma assinatura): {qtd_reaproveitados}')
 
     inicio_salvar = time.perf_counter()
