@@ -3,6 +3,22 @@ core/estrutura_api/cliente_api.py
 
 Camada única de comunicação com a API do Mercado Livre.
 Todo app deve chamar a API através de chamar_api(), nunca via requests direto.
+
+Reuso de conexão (29/09/2026): as duas chamadas HTTP daqui embaixo usam uma
+requests.Session() persistente, com pool de conexão (HTTPAdapter), em vez da
+função solta requests.request() (que abria 1 conexão TCP+TLS nova a cada
+chamada, sem keep-alive). Validado isoladamente antes de aplicar aqui — ver
+Checkpoint - Investigação da Comissão Real de Venda via API do Mercado Livre,
+seção 15: com pool, o mesmo throughput por thread chegou a 8,1x maior (19,1 →
+154,7 req/s em 50 threads, sem saturar) e o CPU sustentado caiu de ~98-100%
+pra pico de 62% — o teto de paralelismo encontrado em várias frentes (frete,
+comissão) era autoimposto por essa falta de reuso, não limite da API do ML.
+Mudança transversal: TODO domínio que passa por chamar_api() (frete, mlbs,
+detalhes, sku completo, comissão real, categorias) se beneficia, sem precisar
+de nenhuma mudança do lado de quem chama. requests.Session é seguro pra uso
+concorrente entre threads (o pool de conexão do urllib3 por trás dela já
+cuida do próprio lock) — por isso 1 Session módulo-level, reaproveitada por
+todo mundo, é suficiente (não precisa de 1 por thread nem de trava manual).
 """
 
 import re
@@ -13,6 +29,7 @@ from pathlib import Path
 from rich.logging import RichHandler
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from api_mercado_livre.core.auth.gerenciador_token import obter_token_valido
 from api_mercado_livre.core.estrutura_api.excecoes import ErroAPI, ErroAutenticacaoAPI
@@ -24,8 +41,21 @@ TIMEOUT_CONEXAO_SEGUNDOS = 10
 TIMEOUT_LEITURA_SEGUNDOS = 30
 ESPERA_RETRY_206_SEGUNDOS = 2
 
+# * [EXPLICAÇÃO] → tamanho validado em scripts_exploracao_ML/teste_paralelismo_listing_prices.py
+#                  --pool: 50 threads simultâneas, throughput ainda subindo (não saturou nesse
+#                  nível) — 50 é o maior valor testado com dado real, não um teto conhecido. Se
+#                  algum domínio futuro precisar de mais threads simultâneas que isso, vale
+#                  revalidar/aumentar com o mesmo rigor (nunca só chutar um número maior).
+TAMANHO_POOL_CONEXOES = 50
+
 DADOS_SENSIVEIS = {"access_token", "refresh_token",
                    "client_secret", "password", "authorization"}
+
+# Sessão persistente, módulo-level — criada 1 vez, reaproveitada por toda chamada de
+# chamar_api() daqui em diante (retry continua 100% em chamar_api(), por isso max_retries
+# fica no default 0 aqui — não duplicar retry em 2 camadas).
+_sessao = requests.Session()
+_sessao.mount("https://", HTTPAdapter(pool_connections=10, pool_maxsize=TAMANHO_POOL_CONEXOES))
 
 
 def _mascarar_endpoint(endpoint: str) -> str:
@@ -97,7 +127,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
                     "params": params, "headers_extra": headers_extra, "tentativa": tentativa + 1})
 
         try:
-            resposta = requests.request(
+            resposta = _sessao.request(
                 metodo, url, headers=headers, params=params, json=json_body,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
             )
@@ -121,7 +151,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             headers = {"Authorization": f"Bearer {token}"}
             if headers_extra:
                 headers.update(headers_extra)
-            resposta_retry = requests.request(
+            resposta_retry = _sessao.request(
                 metodo, url, headers=headers, params=params, json=json_body,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
             )
