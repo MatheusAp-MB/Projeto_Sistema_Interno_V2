@@ -37,6 +37,10 @@ parser.add_argument(
     "--niveis", type=int, nargs="+", default=[5, 10, 20, 30, 50],
     help="Quantidades de threads simultâneas a testar (default 5 10 20 30 50).",
 )
+parser.add_argument(
+    "--pool", action="store_true",
+    help="Ativa o patch de Session com pool de conexão (ativar_pool_conexao.py) antes de rodar os níveis.",
+)
 args = parser.parse_args()
 
 CONTA = CONTA_POR_EMPRESA[args.empresa]
@@ -96,10 +100,12 @@ def rodar_lote(qtd_chamadas, max_workers):
 
 print(f"Testando {args.qtd} chamadas por nível, níveis de threads: {args.niveis}\n")
 
+if "--pool" in sys.argv:
+    ativar_pool_conexao.instalar(pool_size=max(args.niveis))
+    print()
+
 resultados = []
 for nivel in args.niveis:
-    if "--pool" in sys.argv:
-        ativar_pool_conexao.instalar(pool_size=50)
     duracao, erros, qtd_429 = rodar_lote(args.qtd, nivel)
     throughput = args.qtd / duracao if duracao else 0
     print(
