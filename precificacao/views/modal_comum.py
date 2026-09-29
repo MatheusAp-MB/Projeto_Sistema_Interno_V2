@@ -144,6 +144,14 @@ class PassoFaixaFrete:
     #                  acima). None trata como tabela (linhas antigas de antes
     #                  da Frente A, ou marketplace sem esse campo).
     origem_frete: object = None
+    # * [EXPLICAÇÃO] → Pendência #1 (28/09/2026) — detalhamento cru da chamada
+    #                  de API que CONFIRMOU o frete usado no cálculo (Frente
+    #                  A): dict com billable_weight/discount_type/
+    #                  discount_rate/discount_promoted_amount, do jeito que a
+    #                  API devolveu. Só existe no caminho 'api_real'
+    #                  (origem_frete) — None na tabela, e None também em
+    #                  linhas calculadas antes dessa mudança.
+    frete_detalhamento_api: object = None
 
 
 @dataclass
