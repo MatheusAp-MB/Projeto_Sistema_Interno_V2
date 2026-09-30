@@ -93,6 +93,38 @@
 #      por SKU (contador de MLBs pendentes, checkpoint, "5 SKUs mais
 #      lentos") continua exatamente igual — só a exibição ficou mais
 #      simples.
+#
+# Refinamento da Etapa 4 (30/09/2026, 3ª rodada) — a exibição por grupo
+# (item 3 acima) escondia demais: dava pra ver que o grupo avançava, mas
+# não O QUE estava avançando — em especial os ~53% de 404 esperado em
+# /performance ficavam invisíveis (só no .log). Pedido de Matheus: ver em
+# tempo real cada MLB do grupo, com o resultado (ok/erro) já embutido na
+# própria linha — sem painel separado, sem esconder nada.
+#
+#   O Progress volta a ter 1 task POR UNIDADE DE TRABALHO — só que agora
+#   a unidade é o MLB (não o SKU), porque o disparo em si já é achatado
+#   por MLB desde a 1ª rodada. É o MESMO padrão já usado em
+#   buscar_mlbs.py, buscar_detalhes.py e na versão original deste
+#   arquivo (tasks pré-criadas, campo "resultado" customizado por task,
+#   spinner que resolve pra ✓/✗) — nenhuma mecânica nova, só aplicado na
+#   granularidade que o desenho por MLB já permite.
+#
+#   Como cada linha de MLB já mostra o erro embutido, o log cru que
+#   chamar_api() manda pro console pro mesmo evento (logger.error/
+#   .warning, nível WARNING+, indo pro RichHandler configurado em
+#   cliente_api.py) virou redundante — e pior, se disparasse durante a
+#   região viva do Progress, quebraria a tela de novo (mesma causa raiz
+#   da 2ª rodada, item 2). Por isso, só durante a Fase 3, o handler de
+#   CONSOLE desse logger específico (nome_log="buscar_dados_sku_completo")
+#   é removido — guardado numa variável — e devolvido no final, num
+#   try/finally. O handler de ARQUIVO (nível INFO, recebe tudo) não é
+#   tocado — o .log continua com o histórico completo, igual sempre foi.
+#   _configurar_logger() é chamado explicitamente aqui, antes do loop de
+#   grupos, porque é idempotente (só configura os handlers na 1ª vez) e
+#   garante que o logger já existe ANTES de qualquer chamada de API
+#   acontecer lá dentro de uma thread do pool — senão a 1ª chamada real
+#   configuraria o logger sozinha (com o RichHandler de volta), driblando
+#   esse silenciamento.
 
 import json
 import threading
@@ -102,10 +134,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 
 from api_mercado_livre import ApiMercadoLivre
-from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI
+from api_mercado_livre.core.estrutura_api.cliente_api import ErroAPI, ErroAutenticacaoAPI, _configurar_logger
 from api_mercado_livre.dados_sku_completo_ml import PacoteApi
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, definir_empresa_ativa, obter_empresa_ativa
 from mercado_livre.funcoes_auxiliares.classificacao_catalogo import (
@@ -252,6 +285,7 @@ def _montar_mlb(registro, api_ml, cache_perf, cache_ptw, lock_perf, lock_ptw) ->
 @dataclass
 class ResultadoMlb:
     sku: str
+    mlb: str
     mlb_pronto: dict | None = None
     duracao_segundos: float = 0.0
     erro: str | None = None
@@ -262,9 +296,9 @@ def _processar_mlb(empresa_ativa, sku, mlb, registros_idx, api_ml, cache_perf, c
     inicio = time.perf_counter()
     try:
         mlb_pronto = _montar_mlb(registros_idx[mlb], api_ml, cache_perf, cache_ptw, lock_perf, lock_ptw)
-        return ResultadoMlb(sku=sku, mlb_pronto=mlb_pronto, duracao_segundos=time.perf_counter() - inicio)
+        return ResultadoMlb(sku=sku, mlb=mlb, mlb_pronto=mlb_pronto, duracao_segundos=time.perf_counter() - inicio)
     except (ErroAPI, ErroAutenticacaoAPI) as e:
-        return ResultadoMlb(sku=sku, mlb_pronto=None, duracao_segundos=time.perf_counter() - inicio, erro=str(e))
+        return ResultadoMlb(sku=sku, mlb=mlb, mlb_pronto=None, duracao_segundos=time.perf_counter() - inicio, erro=str(e))
 
 
 @dataclass
@@ -303,7 +337,8 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
                   merge com o dados_completos_por_sku.json existente.
 
     3 fases (ver comentário no topo do arquivo): descoberta -> empacotamento
-    -> execução (paralelo, achatado por MLB, 1 Progress por grupo).
+    -> execução (paralelo, achatado por MLB, 1 Progress por grupo, 1 task
+    por MLB dentro dele).
     """
     empresa_ativa = obter_empresa_ativa()
     pasta_logs = _caminho_pasta_logs(empresa)
@@ -383,119 +418,153 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
     if grupos:
         console.print(f"[bold]Fase 3/3[/bold] — execução paralela ({MAX_WORKERS_DADOS_SKU_COMPLETO} workers)\n")
 
-    for indice_grupo, grupo in enumerate(grupos, start=1):
-        inicio_grupo = time.perf_counter()
-        soma_mlbs_grupo = sum(len(fechos[s]) for s in grupo)
-        decorrido = time.perf_counter() - inicio_execucao
-        sku_inicial = skus_feitos + 1
-        sku_final = skus_feitos + len(grupo)
+        # Ver nota "3ª rodada" no topo do arquivo — silencia o handler de
+        # CONSOLE do logger desta Fase 3 (o de ARQUIVO continua intacto),
+        # porque cada MLB já mostra ok/erro na própria linha logo abaixo.
+        logger_sku_completo = _configurar_logger(pasta_logs, nome_log="buscar_dados_sku_completo")
+        handlers_console_originais = [
+            h for h in logger_sku_completo.handlers if isinstance(h, RichHandler)
+        ]
+        for h in handlers_console_originais:
+            logger_sku_completo.removeHandler(h)
 
-        # console.print aqui, ANTES de abrir o Progress deste grupo — nunca
-        # durante uma região viva aberta (ver nota no topo do arquivo).
-        console.print(
-            f"[bold]GRUPO {indice_grupo}/{len(grupos)}[/bold]  "
-            f"(SKUs {sku_inicial}-{sku_final} de {len(pendentes)}, {len(grupo)} SKUs, {soma_mlbs_grupo} MLBs)  "
-            f"•  {len(blocos)} SKUs prontos até agora  •  {decorrido:.0f}s decorridos"
-        )
+        try:
+            for indice_grupo, grupo in enumerate(grupos, start=1):
+                inicio_grupo = time.perf_counter()
+                soma_mlbs_grupo = sum(len(fechos[s]) for s in grupo)
+                decorrido = time.perf_counter() - inicio_execucao
+                sku_inicial = skus_feitos + 1
+                sku_final = skus_feitos + len(grupo)
 
-        mlbs_pendentes_por_sku = {sku: len(fechos[sku]) for sku in grupo}
-        mlbs_prontos_por_sku = {sku: [] for sku in grupo}
-        inicio_sku_por_sku = {sku: time.perf_counter() for sku in grupo}
-        erros_skus_processados = set()
-        erros_no_grupo = 0
-
-        def _fechar_sku_sucesso(sku: str):
-            nonlocal skus_feitos
-            duracao_sku = time.perf_counter() - inicio_sku_por_sku[sku]
-            mlbs_saida = sorted(mlbs_prontos_por_sku[sku], key=lambda r: r["mlb"])
-            bloco = {"sku": sku, "total_mlbs": len(mlbs_saida), "mlbs": mlbs_saida}
-
-            detalhe_skus.append(ResultadoSku(sku=sku, bloco=bloco, duracao_segundos=round(duracao_sku, 2)))
-            blocos[sku] = bloco
-            skus_feitos += 1
-
-        def _fechar_sku_com_erro(sku: str, mensagem_erro: str):
-            nonlocal skus_feitos, erros_no_grupo
-            duracao_sku = time.perf_counter() - inicio_sku_por_sku[sku]
-
-            erros_skus.append({"sku": sku, "erro": mensagem_erro})
-            detalhe_skus.append(ResultadoSku(sku=sku, duracao_segundos=round(duracao_sku, 2), erro=mensagem_erro))
-            skus_feitos += 1
-            erros_no_grupo += 1
-            # Erro nunca vai pro checkpoint — SKU continua "pendente" numa
-            # próxima retomada, mesmo critério de antes.
-
-        # SKUs com fecho vazio (raro) fecham de cara, sem MLB nenhum.
-        for sku in grupo:
-            if mlbs_pendentes_por_sku[sku] == 0:
-                _fechar_sku_sucesso(sku)
-
-        itens_trabalho = [(sku, mlb) for sku in grupo for mlb in fechos[sku]]
-
-        # Progress criado AQUI, 1x por grupo — igual buscar_mlbs.py e
-        # buscar_detalhes.py (já validados) e o código original deste
-        # arquivo. 1 única linha, granularidade por grupo (pedido de
-        # Matheus 30/09/2026) — não lista SKU/MLB individual.
-        if itens_trabalho:
-            with Progress(
-                SpinnerColumn(finished_text="[green]✓[/green]"),
-                TextColumn("[cyan]{task.description:<40}"),
-                BarColumn(),
-                TextColumn("{task.completed}/{task.total} MLBs"),
-                TimeElapsedColumn(),
-            ) as progress:
-                task_id = progress.add_task(
-                    f"Grupo {indice_grupo}/{len(grupos)} ({len(grupo)} SKUs)",
-                    total=len(itens_trabalho),
+                # console.print aqui, ANTES de abrir o Progress deste grupo —
+                # nunca durante uma região viva aberta (ver nota no topo do
+                # arquivo).
+                console.print(
+                    f"[bold]GRUPO {indice_grupo}/{len(grupos)}[/bold]  "
+                    f"(SKUs {sku_inicial}-{sku_final} de {len(pendentes)}, {len(grupo)} SKUs, {soma_mlbs_grupo} MLBs)  "
+                    f"•  {len(blocos)} SKUs prontos até agora  •  {decorrido:.0f}s decorridos"
                 )
 
-                with ThreadPoolExecutor(max_workers=MAX_WORKERS_DADOS_SKU_COMPLETO) as executor:
-                    futuros = [
-                        executor.submit(
-                            _processar_mlb, empresa_ativa, sku, mlb, registros_idx,
-                            api_ml, cache_perf, cache_ptw, lock_perf, lock_ptw,
-                        )
-                        for sku, mlb in itens_trabalho
-                    ]
-                    # Toda mutação de progress/blocos/contadores só acontece
-                    # aqui, na thread principal, via as_completed.
-                    for futuro in as_completed(futuros):
-                        resultado = futuro.result()
-                        sku = resultado.sku
-                        mlbs_feitos += 1
-                        progress.update(task_id, advance=1)
+                mlbs_pendentes_por_sku = {sku: len(fechos[sku]) for sku in grupo}
+                mlbs_prontos_por_sku = {sku: [] for sku in grupo}
+                inicio_sku_por_sku = {sku: time.perf_counter() for sku in grupo}
+                erros_skus_processados = set()
+                erros_no_grupo = 0
 
-                        if sku in erros_skus_processados:
-                            continue  # SKU já fechado com erro — resultado tardio, descarta
+                def _fechar_sku_sucesso(sku: str):
+                    nonlocal skus_feitos
+                    duracao_sku = time.perf_counter() - inicio_sku_por_sku[sku]
+                    mlbs_saida = sorted(mlbs_prontos_por_sku[sku], key=lambda r: r["mlb"])
+                    bloco = {"sku": sku, "total_mlbs": len(mlbs_saida), "mlbs": mlbs_saida}
 
-                        if resultado.erro:
-                            erros_skus_processados.add(sku)
-                            _fechar_sku_com_erro(sku, resultado.erro)
-                            continue
+                    detalhe_skus.append(ResultadoSku(sku=sku, bloco=bloco, duracao_segundos=round(duracao_sku, 2)))
+                    blocos[sku] = bloco
+                    skus_feitos += 1
 
-                        mlbs_prontos_por_sku[sku].append(resultado.mlb_pronto)
-                        mlbs_pendentes_por_sku[sku] -= 1
-                        if mlbs_pendentes_por_sku[sku] == 0:
-                            _fechar_sku_sucesso(sku)
+                def _fechar_sku_com_erro(sku: str, mensagem_erro: str):
+                    nonlocal skus_feitos, erros_no_grupo
+                    duracao_sku = time.perf_counter() - inicio_sku_por_sku[sku]
 
-        # Checkpoint gravado 1x por grupo, DEPOIS do Progress fechar — todos
-        # os SKUs do grupo já 100% resolvidos (nenhum cortado entre grupos).
-        if caminho_progresso is not None:
-            with open(caminho_progresso, "w", encoding="utf-8") as f:
-                json.dump({
-                    "blocos": list(blocos.values()),
-                    "atualizado_em": time.strftime("%Y-%m-%d %H:%M:%S"),
-                }, f, ensure_ascii=False)
+                    erros_skus.append({"sku": sku, "erro": mensagem_erro})
+                    detalhe_skus.append(ResultadoSku(sku=sku, duracao_segundos=round(duracao_sku, 2), erro=mensagem_erro))
+                    skus_feitos += 1
+                    erros_no_grupo += 1
+                    # Erro nunca vai pro checkpoint — SKU continua "pendente"
+                    # numa próxima retomada, mesmo critério de antes.
 
-        duracao_grupo = time.perf_counter() - inicio_grupo
-        vazao_grupo = soma_mlbs_grupo / duracao_grupo if duracao_grupo > 0 else 0.0
-        linha_grupo = (
-            f"  └─ grupo concluído em {duracao_grupo:.2f}s  •  {vazao_grupo:.1f} MLBs/s  •  "
-            f"{mlbs_feitos} MLBs prontos até agora"
-        )
-        if erros_no_grupo:
-            linha_grupo += f"  •  [red]{erros_no_grupo} SKU(s) c/ erro[/red]"
-        console.print(linha_grupo + "\n")
+                # SKUs com fecho vazio (raro) fecham de cara, sem MLB nenhum.
+                for sku in grupo:
+                    if mlbs_pendentes_por_sku[sku] == 0:
+                        _fechar_sku_sucesso(sku)
+
+                itens_trabalho = [(sku, mlb) for sku in grupo for mlb in fechos[sku]]
+
+                # Progress criado AQUI, 1x por grupo — mesma regra de sempre
+                # (nunca abrange mais de 1 grupo, nunca com console.print()
+                # aberto no meio dele — ver nota no topo). Dentro dele, 1
+                # task POR MLB (3ª rodada) — mesmo padrão já usado no resto
+                # do sistema, só que na granularidade do MLB em vez do SKU.
+                if itens_trabalho:
+                    with Progress(
+                        SpinnerColumn(finished_text="[green]✓[/green]"),
+                        TextColumn("[cyan]{task.description:<45}"),
+                        BarColumn(),
+                        TextColumn("{task.fields[resultado]}"),
+                        TimeElapsedColumn(),
+                    ) as progress:
+
+                        task_ids_por_item = {}
+                        for sku, mlb in itens_trabalho:
+                            task_id = progress.add_task(
+                                f"{sku[:20]} · {mlb}", total=1,
+                                resultado="[dim]processando...[/dim]",
+                            )
+                            task_ids_por_item[(sku, mlb)] = task_id
+
+                        with ThreadPoolExecutor(max_workers=MAX_WORKERS_DADOS_SKU_COMPLETO) as executor:
+                            futuros = [
+                                executor.submit(
+                                    _processar_mlb, empresa_ativa, sku, mlb, registros_idx,
+                                    api_ml, cache_perf, cache_ptw, lock_perf, lock_ptw,
+                                )
+                                for sku, mlb in itens_trabalho
+                            ]
+                            # Toda mutação de progress/blocos/contadores só
+                            # acontece aqui, na thread principal, via
+                            # as_completed.
+                            for futuro in as_completed(futuros):
+                                resultado = futuro.result()
+                                sku = resultado.sku
+                                mlb = resultado.mlb
+                                task_id = task_ids_por_item[(sku, mlb)]
+                                mlbs_feitos += 1
+
+                                if resultado.erro:
+                                    progress.update(
+                                        task_id, completed=1,
+                                        resultado=f"[red]✗ {resultado.erro}[/red]",
+                                    )
+                                else:
+                                    progress.update(
+                                        task_id, completed=1,
+                                        resultado="[green]✓ ok[/green]",
+                                    )
+
+                                if sku in erros_skus_processados:
+                                    continue  # SKU já fechado com erro — resultado tardio, descarta
+
+                                if resultado.erro:
+                                    erros_skus_processados.add(sku)
+                                    _fechar_sku_com_erro(sku, resultado.erro)
+                                    continue
+
+                                mlbs_prontos_por_sku[sku].append(resultado.mlb_pronto)
+                                mlbs_pendentes_por_sku[sku] -= 1
+                                if mlbs_pendentes_por_sku[sku] == 0:
+                                    _fechar_sku_sucesso(sku)
+
+                # Checkpoint gravado 1x por grupo, DEPOIS do Progress fechar
+                # — todos os SKUs do grupo já 100% resolvidos (nenhum
+                # cortado entre grupos).
+                if caminho_progresso is not None:
+                    with open(caminho_progresso, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "blocos": list(blocos.values()),
+                            "atualizado_em": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        }, f, ensure_ascii=False)
+
+                duracao_grupo = time.perf_counter() - inicio_grupo
+                vazao_grupo = soma_mlbs_grupo / duracao_grupo if duracao_grupo > 0 else 0.0
+                linha_grupo = (
+                    f"  └─ grupo concluído em {duracao_grupo:.2f}s  •  {vazao_grupo:.1f} MLBs/s  •  "
+                    f"{mlbs_feitos} MLBs prontos até agora"
+                )
+                if erros_no_grupo:
+                    linha_grupo += f"  •  [red]{erros_no_grupo} SKU(s) c/ erro[/red]"
+                console.print(linha_grupo + "\n")
+        finally:
+            for h in handlers_console_originais:
+                logger_sku_completo.addHandler(h)
 
     duracao_fase3 = time.perf_counter() - inicio_fase3
     duracao_total = time.perf_counter() - inicio_execucao
