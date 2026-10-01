@@ -48,10 +48,10 @@ from rich.progress import (
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 CONTA = "MB"  # "MB" (Magazine) ou "SV" (Samvale)
-LIMITE_SKUS = 30  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
+LIMITE_SKUS = None  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
 STATUS_ACEITOS = {"active", "paused"}  # status que entram na planilha (os demais ficam de fora, igual ao script de contexto)
 TAMANHO_LOTE = 25  # SKUs por lote (coluna Lote), agrupados por categoria
-THREADS = 30  # chamadas simultâneas à API (o pool do projeto aguenta 50; 30 deixa folga e respeita o rate limit do ML)
+THREADS = 40  # chamadas simultâneas à API (o pool do projeto aguenta 50; 30 deixa folga e respeita o rate limit do ML)
 USAR_CACHE = True  # False = baixa tudo de novo da API
 VINCULAR_PELO_EAN = True  # SKU sem Produto, mas no formato F+EAN13.NNN: tenta achar o Produto pelo EAN (marcado como "inferido" na planilha)
 LIMITE_OPCOES_NA_CELULA = 40  # lista com mais opções que isso vai pra aba LISTAS
