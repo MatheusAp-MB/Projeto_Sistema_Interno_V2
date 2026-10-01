@@ -125,6 +125,48 @@
 #   acontecer lá dentro de uma thread do pool — senão a 1ª chamada real
 #   configuraria o logger sozinha (com o RichHandler de volta), driblando
 #   esse silenciamento.
+#
+# Refinamento da Etapa 4 (30/09/2026, 4ª rodada) — Matheus rodou a base
+# Magazine inteira com o código da 3ª rodada validada e teve 0 erros —
+# mesmo com uma taxa de 404 em /performance já medida em ~53% antes.
+# Investigação (sincronizado + git diff origin/dev, sem propor teste
+# nenhum até confirmar a causa, conforme pedido): o código aplicado
+# batia 100% com o diff entregue — não foi bug introduzido na aplicação.
+# A causa real é estrutural, e sempre existiu (inclusive antes da
+# Etapa 4, em todas as rodadas):
+#
+#   DadosSkuCompletoML.buscar_performance/buscar_price_to_win (Contexto,
+#   ver comentário "Peça 4" acima) já capturam ErroAPI/ErroAutenticacaoAPI
+#   POR DENTRO de si mesmas e devolvem o erro embutido em PacoteApi.erro,
+#   em vez de deixar a exceção propagar — de propósito, é o "Padrão de
+#   Robustez para Clientes de API Externa" (ver vault): 1 sub-chamada
+#   falha (ex: 404 em /performance) não pode abortar o MLB/SKU inteiro.
+#
+#   Consequência: ResultadoMlb.erro — o sinal que a linha vermelha da 3ª
+#   rodada usa — fica None nesse caso, quase sempre. O 404 nunca
+#   desapareceu de verdade (sempre foi gravado certinho dentro do JSON
+#   final, em mlb_pronto["performance"]["erro"]) — só ficou invisível NA
+#   TELA a partir da 3ª rodada, porque o log bruto que antes vazava pro
+#   console (chamar_api() -> logger.error, nível WARNING+) foi
+#   silenciado de propósito (ver nota da 3ª rodada) sem que a nova linha
+#   por MLB tivesse como substituí-lo pra esse caso específico.
+#
+# Correção (confirmada por Matheus): _detectar_avisos_mlb() olha direto
+# pra mlb_pronto["performance"]["erro"] / ["price_to_win"]["erro"] depois
+# que o MLB processa com sucesso (resultado.erro is None) e, se achar
+# algo, mostra [yellow]⚠[/yellow] na linha daquele MLB — distinto do
+# [red]✗[/red], que continua reservado só pra falha dura de verdade
+# (exceção não tratada que de fato derruba o MLB, capturada em
+# _processar_mlb). NADA muda no fechamento do SKU: _fechar_sku_sucesso/
+# _fechar_sku_com_erro continuam exatamente iguais — um MLB com aviso
+# ainda fecha o SKU como sucesso normalmente, porque é assim que o
+# Padrão de Robustez já funcionava desde sempre (a ausência de
+# performance/price_to_win nunca invalidou o SKU).
+#
+# Adicionado também (não pedido explicitamente, mas de baixo risco e
+# ajuda a quantificar o volume real de 404 — pendência aberta no
+# checkpoint): contador mlbs_com_aviso (total e por grupo) e campo
+# total_mlbs_com_aviso no relatório final.
 
 import json
 import threading
@@ -280,6 +322,29 @@ def _montar_mlb(registro, api_ml, cache_perf, cache_ptw, lock_perf, lock_ptw) ->
     }
 
 
+def _detectar_avisos_mlb(mlb_pronto: dict) -> list[str]:
+    """
+    Erros "soft" — ver nota "4ª rodada" no topo do arquivo. A Contexto
+    (DadosSkuCompletoML) já captura ErroAPI/ErroAutenticacaoAPI por
+    dentro de buscar_performance/buscar_price_to_win e devolve o erro
+    embutido em PacoteApi.erro, em vez de deixar propagar — de propósito
+    (Padrão de Robustez), pra 1 sub-chamada falha (ex: 404 em
+    /performance) não abortar o MLB/SKU inteiro. Por isso
+    ResultadoMlb.erro fica None nesses casos — o sinal real está aninhado
+    aqui dentro, em mlb_pronto["performance"|"price_to_win"]["erro"].
+    Só chamada quando resultado.erro já é None (MLB processou sem
+    exceção). Retorna 0, 1 ou 2 mensagens.
+    """
+    avisos = []
+    performance = (mlb_pronto or {}).get("performance") or {}
+    if performance.get("erro"):
+        avisos.append(f"performance: {performance['erro']}")
+    price_to_win = (mlb_pronto or {}).get("price_to_win") or {}
+    if price_to_win.get("erro"):
+        avisos.append(f"price_to_win: {price_to_win['erro']}")
+    return avisos
+
+
 # ─── FASE 3 — trabalho no nível de MLB (não mais de SKU) ──────────────
 
 @dataclass
@@ -318,6 +383,7 @@ class RelatorioBuscaDadosSkuCompleto:
     skus_pendentes_no_inicio: int = 0
     skus_com_erro: int = 0
     total_mlbs_processados: int = 0
+    total_mlbs_com_aviso: int = 0
     total_grupos: int = 0
     duracao_fase1_descoberta_segundos: float = 0.0
     duracao_fase2_empacotamento_segundos: float = 0.0
@@ -413,6 +479,7 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
 
     inicio_fase3 = time.perf_counter()
     mlbs_feitos = 0
+    mlbs_com_aviso = 0
     skus_feitos = 0
 
     if grupos:
@@ -450,6 +517,7 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
                 inicio_sku_por_sku = {sku: time.perf_counter() for sku in grupo}
                 erros_skus_processados = set()
                 erros_no_grupo = 0
+                avisos_no_grupo = 0
 
                 def _fechar_sku_sucesso(sku: str):
                     nonlocal skus_feitos
@@ -525,10 +593,25 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
                                         resultado=f"[red]✗ {resultado.erro}[/red]",
                                     )
                                 else:
-                                    progress.update(
-                                        task_id, completed=1,
-                                        resultado="[green]✓ ok[/green]",
-                                    )
+                                    # 4ª rodada — ver nota no topo do arquivo:
+                                    # o 404 "soft" de /performance ou
+                                    # /price_to_win não vira resultado.erro
+                                    # (Padrão de Robustez, capturado dentro
+                                    # da Contexto) — precisa olhar dentro do
+                                    # mlb_pronto pra achar.
+                                    avisos = _detectar_avisos_mlb(resultado.mlb_pronto)
+                                    if avisos:
+                                        mlbs_com_aviso += 1
+                                        avisos_no_grupo += 1
+                                        progress.update(
+                                            task_id, completed=1,
+                                            resultado=f"[yellow]⚠ {' · '.join(avisos)}[/yellow]",
+                                        )
+                                    else:
+                                        progress.update(
+                                            task_id, completed=1,
+                                            resultado="[green]✓ ok[/green]",
+                                        )
 
                                 if sku in erros_skus_processados:
                                     continue  # SKU já fechado com erro — resultado tardio, descarta
@@ -559,6 +642,8 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
                     f"  └─ grupo concluído em {duracao_grupo:.2f}s  •  {vazao_grupo:.1f} MLBs/s  •  "
                     f"{mlbs_feitos} MLBs prontos até agora"
                 )
+                if avisos_no_grupo:
+                    linha_grupo += f"  •  [yellow]{avisos_no_grupo} MLB(s) c/ aviso[/yellow]"
                 if erros_no_grupo:
                     linha_grupo += f"  •  [red]{erros_no_grupo} SKU(s) c/ erro[/red]"
                 console.print(linha_grupo + "\n")
@@ -595,6 +680,8 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
     resumo_linha = f"SKUs processados nesta execução: {skus_feitos}/{len(pendentes)}"
     if erros_skus:
         resumo_linha += f"  •  [red]{len(erros_skus)} SKUs c/ erro[/red]"
+    if mlbs_com_aviso:
+        resumo_linha += f"  •  [yellow]{mlbs_com_aviso} MLB(s) c/ aviso (performance/price_to_win)[/yellow]"
     console.print(resumo_linha)
     console.print(
         f"Tempo total: {duracao_total:.1f}s  "
@@ -621,6 +708,7 @@ def buscar_dados_sku_completo(empresa: str, skus: list | None = None) -> Relator
         skus_pendentes_no_inicio=len(pendentes),
         skus_com_erro=len(erros_skus),
         total_mlbs_processados=mlbs_feitos,
+        total_mlbs_com_aviso=mlbs_com_aviso,
         total_grupos=len(grupos),
         duracao_fase1_descoberta_segundos=round(duracao_fase1, 3),
         duracao_fase2_empacotamento_segundos=round(duracao_fase2, 3),
