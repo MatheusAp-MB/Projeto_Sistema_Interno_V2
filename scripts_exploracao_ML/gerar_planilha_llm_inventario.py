@@ -59,7 +59,8 @@ from rich.progress import (
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 MODO = "gerar"  # "gerar" ou "validar"
 CONTA = "MB"  # "MB" (Magazine) ou "SV" (Samvale)
-LIMITE_SKUS = None  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
+LIMITE_SKUS = SUBCOLUNAS = ("Atual", "PREENCHER", "Conf.")
+SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
 STATUS_ACEITOS = {"active", "paused"}  # status que entram na planilha
 TAMANHO_LOTE = 25  # SKUs por lote (coluna Lote), agrupados por categoria
 THREADS = 40  # chamadas simultâneas à API (o pool do projeto aguenta 50)
@@ -93,6 +94,8 @@ CARACTERES_ILEGAIS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 LIMITE_CELULA_EXCEL = 32000  # o Excel aceita 32.767 caracteres por célula
 CONFIANCAS = ("Alta", "Média", "Baixa", "Sem evidência")
 SUBCOLUNAS = ("Atual", "PREENCHER", "Conf.")
+SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)
+SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -921,8 +924,13 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
                 chave_lista = (attr_id, tipo_lista, tuple(o["id"] for o in meta["opcoes"]))
                 if chave_lista not in registro_listas:
                     registro_listas[chave_lista] = f"L{len(registro_listas) + 1:03d}"
-                    for opcao in meta["opcoes"]:
-                        listas_linhas.append([registro_listas[chave_lista], attr_id, tipo_lista, opcao["id"], opcao["name"]])
+                    # * [EXPLICAÇÃO] → 1 linha = 1 lista (o objeto). As opções são um atributo dela: nomes numa
+                    #                  célula e IDs na célula ao lado, na MESMA ordem, separados por " | ".
+                    listas_linhas.append([
+                        registro_listas[chave_lista], attr_id, tipo_lista,
+                        SEPARADOR_OPCOES.join(str(o["name"]) for o in meta["opcoes"]),
+                        SEPARADOR_OPCOES.join(str(o["id"]) for o in meta["opcoes"]),
+                    ])
                     maior_lista = max(maior_lista, len(meta["opcoes"]))
                 id_lista = registro_listas[chave_lista]
 
@@ -1103,8 +1111,11 @@ COLUNAS_FIXAS = [
 INDICE_FIXA = {chave: i for i, (chave, *_resto) in enumerate(COLUNAS_FIXAS, start=1)}
 LARGURAS_SUBCOLUNAS = (24, 24, 9)
 
+# 1 linha = 1 lista. A coluna "Opções" é o que a LLM lê; a de IDs é apoio (Fase 2), só na planilha mestre.
 LISTAS_COLUNAS = [("Lista", COR_AZUL, 8), ("Campo na API", COR_AZUL, 26), ("Tipo da lista", COR_AZUL, 12),
-                  ("ID da opção", COR_AZUL, 14), ("Nome da opção", COR_AZUL, 34)]
+                  ("Opções (separadas por ' | ')", COR_AZUL, 100),
+                  ("IDs das opções (apoio, mesma ordem)", COR_CINZA, 60)]
+COLUNAS_LISTAS_NO_LOTE = 4  # os arquivos de lote levam só as 4 primeiras (sem os IDs)
 REGRAS_COLUNAS = [
     ("ID (SKU|campo)", COR_CINZA, 40), ("Lote", COR_CINZA, 6), ("SKU", COR_CINZA, 22), ("Campo na API", COR_CINZA, 24),
     ("Campo", COR_CINZA, 22), ("Tipo", COR_CINZA, 18), ("Obrigatório", COR_CINZA, 13), ("Limite de caracteres", COR_CINZA, 11),
@@ -1209,7 +1220,7 @@ def texto_leia_me(contexto, dados):
         ("secao", "ABAS", None),
         ("linha", "INSTRUCOES_LLM", "Regras que a LLM recebe, escritas uma única vez."),
         ("linha", "SKUS", "A planilha: 1 linha por SKU. Colunas fixas (identificação, contexto, listas do SKU, observações) + 3 colunas por campo."),
-        ("linha", "LISTAS", "Todas as listas de opções, UMA vez cada. 'Fechada' = só estas opções; 'Sugestão' = o ML aceita valor próprio."),
+        ("linha", "LISTAS", "1 linha por lista de opções, escrita UMA vez; as opções ficam na mesma célula, separadas por ' | '. 'Fechada' = só estas opções; 'Sugestão' = o ML aceita valor próprio. A coluna de IDs (só na mestre) é apoio da Fase 2."),
         ("linha", "REGRAS", "Apoio (não vai para a LLM): para cada SKU e campo, tipo, obrigatório, limite, unidades, lista e avisos. É a base da conferência automática."),
         ("linha", "MLBS", "Apoio: qual MLB pertence a qual SKU, com categoria, status, ficha técnica e alertas de identidade."),
         ("linha", "RESUMO", "Números desta geração: tamanho, tipos de campo, campos que ficaram de fora, tags e cobertura do ERP."),
@@ -1236,7 +1247,7 @@ INSTRUCOES = [
     ("Vínculo ERP", "'SKU' = vínculo oficial. 'EAN (inferido)' = o Produto foi achado pelo EAN contido no SKU: use, mas desconfie se o Produto (ERP) não bater com os títulos. 'Sem ERP' = não há dados do ERP: use títulos, categoria e Atual, com Conf. no máximo Média."),
     ("Como usar o Atual", "Foi preenchido à mão e muitas vezes está certo: se concorda com o ERP e os títulos, mantenha. Mas pode ter erro de grafia, estilo inconsistente, estar vazio ou fora da lista. Quando divergir do ERP e dos títulos, prevalece a evidência do produto e a divergência é explicada em Observações. Formato: 'valor' = todos os MLBs iguais; 'valor (2) | outro (1)' = valores diferentes entre MLBs (o número é a quantidade de MLBs); 'vazio' = sem valor; 'N/A' = o ML guarda 'não se aplica'."),
     ("PREENCHER", "PREENCHER é sempre o valor FINAL do campo: se o Atual já está correto, copie-o. Vazio significa que não há evidência para um valor."),
-    ("Tipo: Lista fechada", "A linha 2 do campo diz 'LISTA FECHADA' e a coluna 'Listas deste SKU' aponta a lista (ex.: GENDER→L012 (fechada)). Escolha exatamente UMA opção dessa lista na aba LISTAS, com a mesma grafia. Se nenhuma serve, deixe vazio e explique em Observações."),
+    ("Tipo: Lista fechada", "A linha 2 do campo diz 'LISTA FECHADA' e a coluna 'Listas deste SKU' aponta a lista (ex.: GENDER→L012 (fechada)). Na aba LISTAS, a linha dessa lista traz as opções na coluna 'Opções', separadas por ' | '. Escolha exatamente UMA opção, com a mesma grafia. Se nenhuma serve, deixe vazio e explique em Observações."),
     ("Tipo: Texto com sugestões", "Texto livre. A lista (ex.: POWER_SUPPLY_TYPE→L021 (sugestões)) é só sugestão: prefira uma opção dela quando descrever o produto, mas o Mercado Livre aceita valor próprio. Respeite o limite de caracteres."),
     ("Tipo: Texto livre", "Respeite o limite de caracteres da linha 2 (conte espaços e vírgulas). Sem aspas e sem ponto final."),
     ("Tipo: Número / Número + unidade", "Número: só o número. Número + unidade: número, espaço e uma unidade aceita da linha 2, por exemplo '20 L'. As medidas do ERP estão em cm e kg; converta se a unidade do campo for outra."),
@@ -1423,7 +1434,8 @@ def escrever_arquivos_por_lote(pasta, dados):
         wb = Workbook()
         escrever_instrucoes(wb)
         escrever_aba_skus(wb, linhas, ordem, montar_cabecalhos(linhas))
-        escrever_simples(wb, "LISTAS", LISTAS_COLUNAS, [x for x in dados["listas"] if x[0] in listas_usadas], COR_AZUL)
+        escrever_simples(wb, "LISTAS", LISTAS_COLUNAS[:COLUNAS_LISTAS_NO_LOTE],
+                         [x[:COLUNAS_LISTAS_NO_LOTE] for x in dados["listas"] if x[0] in listas_usadas], COR_AZUL)
         wb.save(pasta / f"lote_{lote:03d}.xlsx")
     return len(por_lote)
 
@@ -1451,10 +1463,10 @@ def carregar_regras_e_listas(caminho_mestre):
             "unidades": [u.strip() for u in str(linha[8]).split(";")] if linha[8] else [],
             "multi": linha[9] == "Sim", "lista": linha[10],
         }
-    listas = defaultdict(list)
+    listas = {}
     for linha in wb["LISTAS"].iter_rows(min_row=2, values_only=True):
         if linha[0]:
-            listas[linha[0]].append(str(linha[4]))
+            listas[linha[0]] = [nome.strip() for nome in str(linha[3]).split(SEPARADOR_OPCOES)]
     wb.close()
     return regras, listas
 
