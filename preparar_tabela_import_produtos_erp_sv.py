@@ -1,4 +1,4 @@
-# teste.py — script de uso único.
+# preparar_tabela_import_produtos_erp_sv.py — script de uso único.
 #
 # Corrige os cabeçalhos das 2 planilhas de produto ERP da Samvale (SV) pra
 # baterem exatamente com o que o importador real do projeto
@@ -33,7 +33,8 @@ RENOMEAR = {
     'comprimento': 'Comprimento',
     'peso_bruto': 'Peso Bruto',
     'inativo': 'Inativo',
-    'Produto': 'Detalhes do Produto',  # <- PALPITE — ver aviso no final, confirmar pela amostra
+    'Produto': 'Detalhes do Produto',  # confirmado: coluna H é o nome do produto
+    'Detalhe do produto': 'Detalhe',  # descrição do produto na SV (coluna BY); o importador lê 'Detalhe'
 }
 
 # --- 3. Colunas que precisam de conferência visual (ambíguas ou sensíveis) -
