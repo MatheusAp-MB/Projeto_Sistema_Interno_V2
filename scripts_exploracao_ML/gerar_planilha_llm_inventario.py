@@ -66,7 +66,7 @@ THREADS = 40  # chamadas simultâneas à API (o pool do projeto aguenta 50)
 USAR_CACHE = True  # False = baixa tudo de novo da API
 VINCULAR_PELO_EAN = True  # SKU sem Produto, mas no formato F+EAN13.NNN: tenta achar o Produto pelo EAN ("inferido")
 GERAR_ARQUIVOS_POR_LOTE = True  # além da mestre, 1 arquivo enxuto por lote (só as colunas usadas naquele lote)
-PASTA_SAIDA = None  # None = pasta deste script. Ou um caminho, ex.: r"C:\Users\WIN10\...\PLANILHA_LLM"
+PASTA_SAIDA = None  # None = pasta "Resultados_LLM" ao lado deste script. Ou o caminho completo de outra pasta, ex.: r"C:\Users\WIN10\...\Resultados_LLM"
 
 # Campos que a LLM NÃO deve preencher (Etapa 2). O RESUMO lista o que saiu e o motivo.
 TAGS_QUE_EXCLUEM = ("read_only", "fixed", "inferred")  # tags da API: somente leitura / valor fixo da categoria / valor inferido
@@ -75,15 +75,18 @@ TIPOS_DE_SISTEMA = {"grid_row_id"}  # value_type de guia de tamanhos (SIZE_GRID_
 SEM_SUGESTOES = {"BRAND"}  # campos de texto cujas sugestões da API só atrapalham (a marca vem do ERP)
 
 # Só no MODO = "validar":
-VALIDAR_ARQUIVO = ""  # arquivo preenchido pela LLM (um lote ou a mestre). Caminho completo ou nome na PASTA_SAIDA.
+VALIDAR_ARQUIVO = ""  # arquivo preenchido pela LLM (um lote ou a mestre). Caminho completo ou nome dentro da pasta de resultados.
 VALIDAR_MESTRE = ""  # planilha mestre da mesma geração (tem as abas REGRAS e LISTAS)
 # ========================================
 
 PASTA_SCRIPT = Path(__file__).resolve().parent
-PASTA_LOGS = PASTA_SCRIPT / "logs"
+# * [EXPLICAÇÃO] → TUDO o que este script gera fica numa pasta só: planilha mestre, arquivos de lote, arquivos
+#                  conferidos (_checado), caches da API e logs. Nada é gravado ao lado do script.
+PASTA_RESULTADOS = Path(PASTA_SAIDA) if PASTA_SAIDA else PASTA_SCRIPT / "Resultados_LLM"
+PASTA_LOGS = PASTA_RESULTADOS / "logs"
 NOME_LOG = "gerar_planilha_llm_inventario"
-CAMINHO_CACHE_ITENS = PASTA_SCRIPT / f"cache_planilha_llm_itens_{CONTA}.json"
-CAMINHO_CACHE_CATEGORIAS = PASTA_SCRIPT / "cache_planilha_llm_categorias.json"
+CAMINHO_CACHE_ITENS = PASTA_RESULTADOS / f"cache_planilha_llm_itens_{CONTA}.json"
+CAMINHO_CACHE_CATEGORIAS = PASTA_RESULTADOS / "cache_planilha_llm_categorias.json"
 VERSAO_CACHE_CATEGORIAS = 2  # 2 = guarda tags e allow_custom_value. Entrada de versão menor é baixada de novo.
 
 console = Console()
@@ -128,7 +131,7 @@ def iniciar_django():
 # ──────────────────────────────────────────────────────────────────────
 
 def pasta_saida():
-    return Path(PASTA_SAIDA) if PASTA_SAIDA else PASTA_SCRIPT
+    return PASTA_RESULTADOS
 
 
 def limpar_texto(valor):
@@ -1589,7 +1592,8 @@ def validar_arquivo():
             escrever_celula(aba, i, j, valor)
     aba.freeze_panes = "A2"
 
-    saida = caminho.with_name(caminho.stem + "_checado.xlsx")
+    PASTA_RESULTADOS.mkdir(parents=True, exist_ok=True)
+    saida = PASTA_RESULTADOS / (caminho.stem + "_checado.xlsx")  # o resultado da conferência também fica na pasta de resultados
     wb.save(saida)
     console.print(f"\n[green]Pronto: {saida}[/green]\n")
     for rotulo, quantidade in contagem.most_common():
@@ -1604,6 +1608,8 @@ def validar_arquivo():
 def gerar():
     inicio = time.time()
     iniciar_django()
+    PASTA_RESULTADOS.mkdir(parents=True, exist_ok=True)  # antes de qualquer cache ou log
+    console.print(f"\n[dim]Tudo o que este script gera fica em: {PASTA_RESULTADOS}[/dim]")
 
     console.print(f"\n[bold]1/6 Lendo o banco (conta {CONTA})...[/bold]")
     grupos = carregar_do_banco()
