@@ -1401,7 +1401,7 @@ INSTRUCOES = [
     ("Sem evidência", "Se as fontes não sustentam um valor, deixe PREENCHER vazio e Conf. = Sem evidência. Vazio é melhor do que chute."),
     ("Conf. (confiança)", "Mede a evidência do VALOR, não se o ML o aceita (isso a conferência automática verifica). Alta: ERP e/ou títulos dizem claramente. Média: inferência razoável. Baixa: ambíguo ou fontes em conflito (a revisão humana olha estas primeiro). Sem evidência: nenhum valor sustentado."),
     ("Observações (LLM)", "1 célula por linha, só quando Conf. não for Alta ou houver conflito. Formato: 'CAMPO: motivo curto', separando campos com ' | '. Exemplo: 'MODEL: código só no título | GENDER: ERP e títulos divergem'."),
-    ("Regra: BRAND (Marca)", "Marca real/verdadeira do fabricante, nunca palavras-chave. Copie a Marca (ERP) exatamente, inclusive grafia e caixa. Sem ERP, proponha pelos títulos com Conf. no máximo Média."),
+    ("Regra: BRAND (Marca)", "Marca real/verdadeira do fabricante, nunca palavras-chave. A Marca (ERP) é a fonte da verdade de QUAL é a marca (a comparação ignora maiúsculas e minúsculas e espaços nas pontas). A caixa segue esta ordem: 1) se o Atual já traz a mesma marca, mantenha a grafia do Atual; 2) se os MLBs do SKU divergem só na caixa (ex.: 'QUIMIVIDA (1) | Quimivida (1)'), padronize na forma mais usada e, em empate, na que não está toda em maiúsculas; 3) se não há Atual, escreva a Marca (ERP) com a primeira letra de cada palavra maiúscula (ex.: ORTHO PAUHER vira Ortho Pauher), preservando siglas e grafias estilizadas conhecidas (JBL, DeWalt). Sem ERP, proponha pelos títulos com Conf. no máximo Média e mantenha a caixa do Atual quando houver."),
     ("Regra: MODEL (Modelo)", "Palavras-chave separadas por vírgula, otimizadas para busca (SEO), incluindo o código do modelo (Cód. fabricante ou título) quando existir. Respeite o limite."),
     ("Regra: LINE (Linha)", "A DEFINIR (Matheus): se também segue o estilo de palavras-chave do Modelo."),
     ("Regra: medidas e peso", "Use as 'Medidas sem embalar' do ERP (são do produto, não da caixa). '?' ou vazio significa 'nunca cadastrado': não use."),
@@ -1698,6 +1698,7 @@ def validar_arquivo():
     cabecalhos = {ws.cell(row=3, column=c).value: c for c in range(1, ws.max_column + 1)
                   if ws.cell(row=3, column=c).value not in SUBCOLUNAS}
     col_sku, col_checagem = cabecalhos["SKU"], cabecalhos["Checagem automática"]
+    col_vinculo, col_marca_erp = cabecalhos["Vínculo ERP"], cabecalhos["Marca (ERP)"]
     blocos = [(ws.cell(row=1, column=c).value, c, c + 1, c + 2)
               for c in range(1, ws.max_column + 1) if ws.cell(row=3, column=c).value == "Atual"]
 
@@ -1708,6 +1709,8 @@ def validar_arquivo():
         if not sku:
             continue
         problemas_da_linha, preenchidos = [], 0
+        vinculo_erp = ws.cell(row=r, column=col_vinculo).value
+        marca_erp = str(ws.cell(row=r, column=col_marca_erp).value or "").strip()
         situacao_do_sku = situacao.get(sku)
         if situacao_do_sku is None:
             problemas_gerais.append([sku, "(linha)", "SKU não existe na planilha mestre", sku])
@@ -1727,6 +1730,9 @@ def validar_arquivo():
             else:
                 preenchidos += 1
                 achados += conferir_valor(valor, regra, listas)
+                # * [EXPLICAÇÃO] → Só com vínculo oficial (pelo SKU) a Marca (ERP) é a verdade; a caixa não conta (strip + lower).
+                if attr_id == "BRAND" and vinculo_erp == "SKU" and marca_erp and str(valor).strip().lower() != marca_erp.lower():
+                    achados.append(f"marca diferente da Marca (ERP): '{marca_erp}'")
                 if confianca is None:
                     achados.append("sem confiança")
                 elif confianca not in CONFIANCAS:
