@@ -724,21 +724,24 @@ def texto_atual(valores):
 
 
 def montar_cabecalhos(linhas):
-    """Para cada campo usado nas linhas: rótulo, tipos, limite, unidades... (vira linha 2 do cabeçalho)."""
+    """Para cada campo usado nas linhas: rótulos, tipos, limite, unidades... (vira linha 2 do cabeçalho)."""
     cab = {}
     for linha in linhas:
         for attr_id, campo in linha["campos"].items():
             meta = campo["meta"]
             info = cab.setdefault(attr_id, {
-                "label": meta["label"], "tipos": set(), "niveis": set(), "limite": None,
-                "unidades": None, "multi": False,
+                "rotulos": [], "tipos": set(), "niveis": set(), "limite": None,
+                "unidades": [], "multi": False,
             })
+            if meta["label"] not in info["rotulos"]:
+                info["rotulos"].append(meta["label"])
             info["tipos"].add(meta["tipo"])
             info["niveis"].add(meta["obrigatorio"])
             if meta["limite"]:
                 info["limite"] = meta["limite"] if info["limite"] is None else min(info["limite"], meta["limite"])
-            if meta["unidades"] and info["unidades"] is None:
-                info["unidades"] = meta["unidades"]
+            for unidade in meta["unidades"] or []:
+                if unidade not in info["unidades"]:
+                    info["unidades"].append(unidade)  # união entre os SKUs; a de cada SKU está em 'Campos deste SKU'
             info["multi"] = info["multi"] or meta["multi"]
     return cab
 
@@ -756,15 +759,19 @@ def texto_regra_cabecalho(info):
     elif set(tipos) <= {"Texto livre", "Texto com sugestões"}:
         descricao_tipo = "texto livre; aceita valor próprio (se 'Listas deste SKU' trouxer sugestões, são só sugestões)"
     else:
-        descricao_tipo = (" / ".join(tipos) + " (depende do SKU: se 'Listas deste SKU' trouxer lista para este campo, siga-a)")
+        descricao_tipo = (" / ".join(tipos) + " (depende do SKU: o tipo do SKU está em 'Campos deste SKU'; "
+                          "se 'Listas deste SKU' trouxer lista para este campo, siga-a)")
     niveis = info["niveis"]
     if niveis == {"Sim"}:
         obrigatoriedade = "obrigatório"
     elif niveis == {"Não"}:
         obrigatoriedade = "opcional"
+    elif niveis == {"Condicional"}:
+        obrigatoriedade = "condicional"
     else:
-        obrigatoriedade = "obrigatório em parte dos SKUs"
-    partes = [info["label"], descricao_tipo, obrigatoriedade]
+        obrigatoriedade = "obrigatoriedade varia por categoria (ver 'Campos deste SKU')"
+    rotulo = info["rotulos"][0] if len(info["rotulos"]) == 1 else "rótulo varia por categoria"
+    partes = [rotulo, descricao_tipo, obrigatoriedade]
     if info["limite"]:
         partes.append(f"≤{info['limite']} caracteres")
     if info["unidades"]:
@@ -775,11 +782,122 @@ def texto_regra_cabecalho(info):
     return " · ".join(partes)
 
 
+# * [EXPLICAÇÃO] → O objeto da aba REGRAS é o CAMPO da API (1 linha por campo). O que o ML decide por categoria
+#                  (obrigatoriedade, lista, unidades, limite, tipo) não é do campo: é do campo NA categoria, então vai
+#                  para a linha do SKU, na coluna 'Campos deste SKU'. Escrita e leitura ficam lado a lado de propósito.
+GRUPOS_CAMPOS_DO_SKU = (("Sim", "Obrigatórios"), ("Condicional", "Condicionais"), ("Não", "Opcionais"))
+TIPOS_DE_CAMPO = ("Lista fechada", "Texto com sugestões", "Texto livre", "Número + unidade", "Número")
+REGEX_CAMPO_DO_SKU = re.compile(r"([A-Za-z0-9_]+)(?: \((.*?)\))?(?:, |$)")
+
+
+def montar_regras_por_campo(linhas, ordem, cards, definicoes):
+    """
+    Linhas da aba REGRAS (1 por campo da API) e a 'base' de cada campo (tipos, unidades e limite do campo).
+    O que for diferente da base num SKU aparece entre parênteses em 'Campos deste SKU'.
+    """
+    usos = defaultdict(list)
+    for linha in linhas:
+        for attr_id, campo in linha["campos"].items():
+            usos[attr_id].append(campo)
+
+    base = {"tipos": {}, "unidades": {}, "limite": {}}
+    regras = []
+    for attr_id in ordem:
+        campos = usos[attr_id]
+        metas = [c["meta"] for c in campos]
+        categorias = sorted({cat for m in metas for cat in m["categorias"]})
+        por_categoria = {cat: fundir_metadados(attr_id, [cat], cards, definicoes) for cat in categorias}
+
+        tipos = sorted({m["tipo"] for m in metas})
+        unidades = []
+        for m in metas:
+            for unidade in m["unidades"] or []:
+                if unidade not in unidades:
+                    unidades.append(unidade)
+        limites = sorted({m["limite"] for m in metas if m["limite"]})
+        base["tipos"][attr_id] = set(tipos)
+        base["unidades"][attr_id] = set(unidades)
+        base["limite"][attr_id] = limites[0] if limites else None
+
+        rotulos = sorted({m["label"] for m in por_categoria.values()})
+        niveis = Counter(m["obrigatorio"] for m in por_categoria.values())
+        listas = Counter(c["id_lista"] for c in campos if c["id_lista"])
+        avisos = Counter(texto for c in campos for texto in c["avisos"])
+
+        if len(niveis) == 1:
+            nivel = next(iter(niveis))
+            obrigatorio = f"{nivel} em todas ({len(categorias)})" if len(categorias) > 1 else f"{nivel} (1 categoria)"
+        else:
+            obrigatorio = " · ".join(f"{nivel} em {niveis[nivel]}" for nivel, _ in GRUPOS_CAMPOS_DO_SKU if nivel in niveis)
+
+        observacoes = []
+        if len(rotulos) > 1:
+            observacoes.append("Rótulo varia por categoria: " + "; ".join(rotulos) + ".")
+        if len(tipos) > 1:
+            observacoes.append("O tipo muda conforme o SKU; cada SKU diz o seu em 'Campos deste SKU'.")
+        if len(niveis) > 1:
+            observacoes.append("Obrigatoriedade varia por categoria; o nível de cada SKU está em 'Campos deste SKU'.")
+        if len(listas) > 1:
+            observacoes.append("A lista muda conforme a categoria (" + ", ".join(f"{l}: {n} SKU(s)" for l, n in sorted(listas.items())) + ").")
+        if len({frozenset(m["unidades"] or []) for m in por_categoria.values()} - {frozenset()}) > 1:
+            observacoes.append("As unidades aceitas diferem por categoria; a de cada SKU está em 'Campos deste SKU'.")
+        if len(limites) > 1:
+            observacoes.append("O limite de caracteres difere entre categorias; aqui vai o menor e o de cada SKU está em 'Campos deste SKU'.")
+        for texto, quantidade in avisos.most_common():
+            observacoes.append(f"Aviso ({quantidade} SKU(s)): {texto}")
+
+        regras.append([
+            attr_id, rotulos[0] if len(rotulos) == 1 else "(varia por categoria)", " / ".join(tipos),
+            base["limite"][attr_id], "; ".join(unidades) or None, "Sim" if any(m["multi"] for m in metas) else "Não",
+            obrigatorio, ", ".join(f"{lista} ({n})" for lista, n in sorted(listas.items())) or None,
+            len(campos), len(categorias), "\n".join(observacoes) or None,
+        ])
+    return regras, base
+
+
+def texto_campos_do_sku(campos, base):
+    """
+    Coluna 'Campos deste SKU': os campos que existem para o SKU, por nível de obrigatoriedade. Entre parênteses, só o que
+    difere da base do campo: tipo (se o campo tem mais de um tipo), unidades, e limite (≤N).
+    """
+    por_nivel = {nivel: [] for nivel, _ in GRUPOS_CAMPOS_DO_SKU}
+    for attr_id, campo in campos.items():
+        meta = campo["meta"]
+        extras = []
+        if len(base["tipos"][attr_id]) > 1:
+            extras.append(meta["tipo"])
+        if meta["unidades"] and set(meta["unidades"]) != base["unidades"][attr_id]:
+            extras.extend(str(u) for u in meta["unidades"])
+        if meta["limite"] and meta["limite"] != base["limite"][attr_id]:
+            extras.append(f"≤{meta['limite']}")
+        por_nivel[meta["obrigatorio"]].append(attr_id + (f" ({'; '.join(extras)})" if extras else ""))
+    texto = "\n".join(f"{rotulo}: {', '.join(por_nivel[nivel])}" for nivel, rotulo in GRUPOS_CAMPOS_DO_SKU if por_nivel[nivel])
+    return texto or None
+
+
+def ler_campos_do_sku(texto):
+    """Inverso de texto_campos_do_sku: {attr_id: {"obrigatorio", "tipo", "unidades", "limite"}} (None = vale a base do campo)."""
+    nivel_do_rotulo = {rotulo: nivel for nivel, rotulo in GRUPOS_CAMPOS_DO_SKU}
+    campos = {}
+    for linha in str(texto or "").split("\n"):
+        rotulo, _, resto = linha.partition(": ")
+        if rotulo not in nivel_do_rotulo:
+            continue
+        for attr_id, extras in REGEX_CAMPO_DO_SKU.findall(resto):
+            itens = [x for x in extras.split("; ") if x] if extras else []
+            tipo = next((x for x in itens if x in TIPOS_DE_CAMPO), None)
+            limite = next((int(x[1:]) for x in itens if x.startswith("≤") and x[1:].isdigit()), None)
+            unidades = [x for x in itens if x != tipo and not (x.startswith("≤") and x[1:].isdigit())]
+            campos[attr_id] = {"obrigatorio": nivel_do_rotulo[rotulo], "tipo": tipo,
+                               "unidades": unidades or None, "limite": limite}
+    return campos
+
+
 def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por_mlb):
     cards = {c: dados["card"] for c, dados in categorias.items()}
     definicoes = {c: dados["defs"] for c, dados in categorias.items()}
 
-    linhas, regras_linhas, mlbs_linhas, listas_linhas = [], [], [], []
+    linhas, mlbs_linhas, listas_linhas = [], [], []
     registro_listas = {}
     estat = Counter()
     tipos_de_campo = Counter()
@@ -918,20 +1036,16 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
             if meta["avisos"]:
                 codigos.append("diferença entre categorias")
             if len(distintos) > 1:
-                avisos.append(f"{len(distintos)} valores diferentes entre os MLBs.")
                 codigos.append("valores diferentes entre MLBs")
             if vazios and distintos:
-                avisos.append(f"vazio em {vazios} de {len(valores_pedidos)} MLB(s).")
                 codigos.append("vazio em parte dos MLBs")
             if vazios and not distintos:
-                avisos.append("vazio em todos os MLBs.")
                 codigos.append("vazio em todos os MLBs")
             if meta["opcoes"]:
                 nomes_validos = {str(o["name"]).strip().lower() for o in meta["opcoes"]}
                 fora = sorted(v for v in distintos
                               if v != "N/A" and not eh_marcador_sem_nome(v) and v.strip().lower() not in nomes_validos)
                 if fora and meta["tipo"] == "Lista fechada":
-                    avisos.append("valor atual fora da lista: " + ", ".join(f"'{v}'" for v in fora) + ".")
                     codigos.append("valor atual fora da lista")
                 elif fora:
                     codigos.append("valor atual fora das sugestões (aceito)")
@@ -958,16 +1072,12 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
                     maior_lista = max(maior_lista, len(meta["opcoes"]))
                 id_lista = registro_listas[chave_lista]
 
-            campos_do_sku[attr_id] = {"atual": texto_atual(valores_pedidos), "meta": meta, "id_lista": id_lista}
+            # * [EXPLICAÇÃO] → 'avisos' aqui são só os da categoria (diferença entre categorias, campo travado): vão para
+            #                  'Observações do campo' na aba REGRAS. O que é do SKU (vazio, valores diferentes) já está em Atual.
+            campos_do_sku[attr_id] = {"atual": texto_atual(valores_pedidos), "meta": meta, "id_lista": id_lista, "avisos": avisos}
             tipos_de_campo[meta["tipo"]] += 1
             campos_por_attr[attr_id] += 1
             rotulo_por_attr.setdefault(attr_id, meta["label"])
-
-            regras_linhas.append([
-                f"{chave}|{attr_id}", lote_atual, chave, attr_id, meta["label"], meta["tipo"], meta["obrigatorio"],
-                meta["limite"], "; ".join(str(u) for u in meta["unidades"]) if meta["unidades"] else None,
-                "Sim" if meta["multi"] else "Não", id_lista, ", ".join(meta["categorias"]), "\n".join(avisos) or None,
-            ])
 
         conjuntos_de_campos[frozenset(campos_do_sku)] += 1
         if not campos_do_sku:
@@ -992,11 +1102,15 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
         })
 
     ordem = sorted(campos_por_attr, key=lambda a: (-campos_por_attr[a], a))
+    regras_linhas, base_dos_campos = montar_regras_por_campo(linhas, ordem, cards, definicoes)
+    for linha in linhas:
+        linha["campos_txt"] = texto_campos_do_sku(linha["campos"], base_dos_campos)
     por_sku = [len(l["campos"]) for l in linhas] or [0]
 
     estat["skus_total"] = len(linhas)
     estat["campos_linhas"] = sum(por_sku)
     estat["campos_distintos"] = len(ordem)
+    estat["regras_linhas"] = len(regras_linhas)
     estat["max_campos_por_sku"] = max(por_sku)
     estat["mediana_campos_por_sku"] = statistics.median(por_sku)
     estat["colunas_total"] = len(COLUNAS_FIXAS) + len(SUBCOLUNAS) * len(ordem)
@@ -1048,7 +1162,8 @@ def montar_resumo(dados, contexto):
         ("Campos distintos (colunas de campo)", e["campos_distintos"]),
         ("Colunas totais (fixas + 3 por campo)", e["colunas_total"]),
         ("Campos por SKU (mediana / máximo)", f"{e['mediana_campos_por_sku']:g} / {e['max_campos_por_sku']}"),
-        ("Pares SKU×campo (linhas em REGRAS)", e["campos_linhas"]),
+        ("Pares SKU×campo (campos a preencher nos SKUs)", e["campos_linhas"]),
+        ("Linhas em REGRAS (1 por campo da API)", e["regras_linhas"]),
         ("Listas em LISTAS (nº / maior)", f"{e['listas_distintas']} / {e['maior_lista']} opções"),
         ("Linhas em MLBS", e["mlbs_linhas"]),
         (None, "TIPO DO CAMPO (pares SKU×campo)"),
@@ -1088,7 +1203,7 @@ def montar_resumo(dados, contexto):
         ("Medidas: as 4 preenchidas", pct(c["medidas_4_de_4"], com_erp)),
         ("Medidas: parciais", pct(c["medidas_parciais"], com_erp)),
         ("Medidas: nenhuma", pct(c["medidas_nenhuma"], com_erp)),
-        (None, "AVISOS EM REGRAS (nº de pares SKU×campo)"),
+        (None, "AVISOS (nº de pares SKU×campo)"),
     ]
     for codigo, quantidade in dados["codigos_de_aviso"].most_common():
         linhas.append((codigo, quantidade))
@@ -1131,6 +1246,7 @@ COLUNAS_FIXAS = [
     ("descricao", "Descrição (ERP) — íntegra", "CONTEXTO (só leitura)", COR_AZUL, 75),
     ("titulos", "Títulos dos MLBs", "CONTEXTO (só leitura)", COR_AZUL, 48),
     ("listas_txt", "Listas deste SKU", "CONTEXTO (só leitura)", COR_AZUL, 30),
+    ("campos_txt", "Campos deste SKU", "CONTEXTO (só leitura)", COR_AZUL, 44),
     ("obs", "Observações (LLM)", "LLM PREENCHE", COR_AMBAR, 40),
     ("checagem", "Checagem automática", "CONFERÊNCIA", COR_VERDE, 30),
     ("revisao", "Revisão humana", "CONFERÊNCIA", COR_VERDE, 13),
@@ -1143,11 +1259,12 @@ LISTAS_COLUNAS = [("Lista", COR_AZUL, 8), ("Campo na API", COR_AZUL, 26), ("Tipo
                   ("Opções (separadas por ' | ')", COR_AZUL, 100),
                   ("IDs das opções (apoio, mesma ordem)", COR_CINZA, 60)]
 COLUNAS_LISTAS_NO_LOTE = 4  # os arquivos de lote levam só as 4 primeiras (sem os IDs)
+# 1 linha = 1 campo da API. O que depende da categoria é resumo aqui; o detalhe de cada SKU está em 'Campos deste SKU'.
 REGRAS_COLUNAS = [
-    ("ID (SKU|campo)", COR_CINZA, 40), ("Lote", COR_CINZA, 6), ("SKU", COR_CINZA, 22), ("Campo na API", COR_CINZA, 24),
-    ("Campo", COR_CINZA, 22), ("Tipo", COR_CINZA, 18), ("Obrigatório", COR_CINZA, 13), ("Limite de caracteres", COR_CINZA, 11),
-    ("Unidades", COR_CINZA, 22), ("Vários valores?", COR_CINZA, 10), ("Lista", COR_CINZA, 8),
-    ("Categorias que pedem o campo", COR_CINZA, 22), ("Avisos", COR_CINZA, 60),
+    ("Campo na API", COR_CINZA, 26), ("Campo", COR_CINZA, 24), ("Tipo", COR_CINZA, 18), ("Limite de caracteres", COR_CINZA, 11),
+    ("Unidades", COR_CINZA, 22), ("Vários valores?", COR_CINZA, 10), ("Obrigatório (nº de categorias)", COR_CINZA, 24),
+    ("Listas (nº de SKUs)", COR_CINZA, 18), ("SKUs", COR_CINZA, 7), ("Categorias", COR_CINZA, 10),
+    ("Observações do campo", COR_CINZA, 70),
 ]
 MLBS_COLUNAS = [
     ("MLB", COR_CINZA, 16), ("SKU", COR_CINZA, 22), ("Título do anúncio", COR_CINZA, 58), ("Categoria ML", COR_CINZA, 14),
@@ -1247,9 +1364,9 @@ def texto_leia_me(contexto, dados):
         ("linha", "5. Fase 2 (depois)", "Os valores aprovados serão aplicados nos MLBs do SKU (aba MLBS mostra quais). Nada é escrito no ML até esta etapa ser construída e autorizada."),
         ("secao", "ABAS", None),
         ("linha", "INSTRUCOES_LLM", "Regras que a LLM recebe, escritas uma única vez."),
-        ("linha", "SKUS", "A planilha: 1 linha por SKU. Colunas fixas (identificação, contexto, listas do SKU, observações) + 3 colunas por campo."),
+        ("linha", "SKUS", "A planilha: 1 linha por SKU. Colunas fixas (identificação, contexto, listas e campos do SKU, observações) + 3 colunas por campo."),
         ("linha", "LISTAS", "1 linha por lista de opções, escrita UMA vez; as opções ficam na mesma célula, separadas por ' | '. 'Fechada' = só estas opções; 'Sugestão' = o ML aceita valor próprio. A coluna de IDs (só na mestre) é apoio da Fase 2."),
-        ("linha", "REGRAS", "Apoio (não vai para a LLM): para cada SKU e campo, tipo, obrigatório, limite, unidades, lista e avisos. É a base da conferência automática."),
+        ("linha", "REGRAS", "Apoio (não vai para a LLM): 1 linha por campo da API, com tipo, limite, unidades, vários valores e o resumo do que muda por categoria (obrigatoriedade, listas). O que vale para cada SKU está na coluna 'Campos deste SKU' da aba SKUS; as duas juntas são a base da conferência automática."),
         ("linha", "MLBS", "Apoio: qual MLB pertence a qual SKU, com categoria, status, ficha técnica e alertas. Os MLBs que ficaram fora da planilha (fechados ou inativos no ML) também estão aqui, com o motivo."),
         ("linha", "RESUMO", "Números desta geração: tamanho, tipos de campo, campos que ficaram de fora, tags e cobertura do ERP."),
         ("secao", "CORES DO CABEÇALHO", None),
@@ -1269,7 +1386,7 @@ def texto_leia_me(contexto, dados):
 
 INSTRUCOES = [
     ("Objetivo", "Preencher, para cada produto (linha), as características principais que o Mercado Livre pede nos anúncios dele. 1 linha = 1 SKU = 1 produto: todos os MLBs do SKU são o mesmo produto e recebem os mesmos valores. Pense uma vez por produto, na linha inteira."),
-    ("Como ler a linha", "À esquerda ficam as colunas fixas: SKU, dados do ERP, medidas, categoria, descrição, títulos dos MLBs e Listas deste SKU. Depois vem um bloco de 3 colunas por campo: Atual | PREENCHER | Conf. O nome do campo está na linha 1 do cabeçalho e a regra dele na linha 2. Só preencha blocos com PREENCHER amarelo: bloco sem amarelo ou vazio = o campo não existe para este SKU, ignore."),
+    ("Como ler a linha", "À esquerda ficam as colunas fixas: SKU, dados do ERP, medidas, categoria, descrição, títulos dos MLBs, Listas deste SKU e Campos deste SKU. 'Campos deste SKU' diz quais campos existem para este produto (só estes) e quais são Obrigatórios, Condicionais ou Opcionais; um tipo, uma unidade ou um limite (≤N) entre parênteses vale só para este SKU e substitui o que o cabeçalho do campo diz. Depois vem um bloco de 3 colunas por campo: Atual | PREENCHER | Conf. O nome do campo está na linha 1 do cabeçalho e a regra dele na linha 2. Só preencha blocos com PREENCHER amarelo: bloco sem amarelo ou vazio = o campo não existe para este SKU, ignore."),
     ("Como trabalhar em massa", "Processe um Lote por vez (coluna Lote), sem pular linhas. Escreva SOMENTE em PREENCHER, Conf. e Observações (LLM). Nunca altere as outras células, nem a ordem das linhas e colunas."),
     ("Fontes de evidência (prioridade)", "1) ERP: Produto, Marca, Cód. fabricante, Medidas sem embalar e Descrição (ERP) (a descrição dá o contexto de todo o resto).\n2) Títulos dos MLBs e Categoria ML.\n3) Valores em Atual (o que está hoje nos MLBs).\nUse apenas o que estiver nessas fontes. Nunca invente."),
     ("Vínculo ERP", "'SKU' = vínculo oficial. 'EAN (inferido)' = o Produto foi achado pelo EAN contido no SKU: use, mas desconfie se o Produto (ERP) não bater com os títulos. 'Sem ERP' = não há dados do ERP: use títulos, categoria e Atual, com Conf. no máximo Média."),
@@ -1386,6 +1503,7 @@ def escrever_aba_skus(wb, linhas, ordem, cab):
             (linha["produto"], COLUNAS_FIXAS[INDICE_FIXA["produto"] - 1][4]),
             (linha["categoria_ml"], COLUNAS_FIXAS[INDICE_FIXA["categoria_ml"] - 1][4]),
             (linha["listas_txt"], COLUNAS_FIXAS[INDICE_FIXA["listas_txt"] - 1][4]),
+            (linha["campos_txt"], COLUNAS_FIXAS[INDICE_FIXA["campos_txt"] - 1][4]),
         ])
 
     ultima = max(len(linhas) + 3, 4)
@@ -1480,23 +1598,63 @@ def resolver_caminho(texto):
     return caminho if caminho.is_absolute() else pasta_saida() / caminho
 
 
+def celula_da_linha(linha, indice):
+    return linha[indice] if indice < len(linha) else None
+
+
 def carregar_regras_e_listas(caminho_mestre):
+    """Da mestre: a regra de cada campo (REGRAS), as opções das listas (LISTAS) e a situação de cada campo em cada SKU (SKUS)."""
     wb = load_workbook(caminho_mestre, read_only=True, data_only=True)
-    regras = {}
+    campos = {}
     for linha in wb["REGRAS"].iter_rows(min_row=2, values_only=True):
         if not linha[0]:
             continue
-        regras[(linha[2], linha[3])] = {
-            "label": linha[4], "tipo": linha[5], "obrigatorio": linha[6], "limite": linha[7],
-            "unidades": [u.strip() for u in str(linha[8]).split(";")] if linha[8] else [],
-            "multi": linha[9] == "Sim", "lista": linha[10],
+        campos[linha[0]] = {
+            "label": linha[1], "tipo": linha[2], "limite": linha[3],
+            "unidades": [u.strip() for u in str(linha[4]).split(";")] if linha[4] else [],
+            "multi": linha[5] == "Sim",
         }
     listas = {}
     for linha in wb["LISTAS"].iter_rows(min_row=2, values_only=True):
         if linha[0]:
             listas[linha[0]] = [nome.strip() for nome in str(linha[3]).split(SEPARADOR_OPCOES)]
+
+    situacao = {}  # sku -> {attr_id: {"obrigatorio", "tipo", "unidades", "limite", "lista"}}
+    colunas = {}
+    for numero, linha in enumerate(wb["SKUS"].iter_rows(values_only=True), start=1):
+        if numero == 3:
+            for i, nome in enumerate(linha):
+                if nome not in SUBCOLUNAS:
+                    colunas.setdefault(nome, i)
+            for obrigatoria in ("SKU", "Campos deste SKU", "Listas deste SKU"):
+                if obrigatoria not in colunas:
+                    raise SystemExit(f"A mestre não tem a coluna '{obrigatoria}' (geração antiga?). Gere a planilha de novo.")
+        elif numero > 3:
+            sku = celula_da_linha(linha, colunas["SKU"])
+            if not sku:
+                continue
+            listas_do_sku = dict(re.findall(r"([A-Za-z0-9_]+)→(L\d+)", str(celula_da_linha(linha, colunas["Listas deste SKU"]) or "")))
+            situacao[sku] = {
+                attr_id: {**dados, "lista": listas_do_sku.get(attr_id)}
+                for attr_id, dados in ler_campos_do_sku(celula_da_linha(linha, colunas["Campos deste SKU"])).items()
+            }
     wb.close()
-    return regras, listas
+    return campos, listas, situacao
+
+
+def regra_do_campo_no_sku(campos, situacao_do_sku, attr_id):
+    """Junta a regra do campo (REGRAS) com a situação dele neste SKU (SKUS). None = o campo não existe para o SKU."""
+    no_sku, do_campo = situacao_do_sku.get(attr_id), campos.get(attr_id)
+    if no_sku is None or do_campo is None:
+        return None
+    return {
+        "label": do_campo["label"], "multi": do_campo["multi"],
+        "tipo": no_sku["tipo"] or do_campo["tipo"],
+        "obrigatorio": no_sku["obrigatorio"],
+        "limite": no_sku["limite"] or do_campo["limite"],
+        "unidades": no_sku["unidades"] or do_campo["unidades"],
+        "lista": no_sku["lista"],
+    }
 
 
 def conferir_valor(valor, regra, listas):
@@ -1533,7 +1691,7 @@ def validar_arquivo():
         raise SystemExit("Preencha VALIDAR_ARQUIVO e VALIDAR_MESTRE na configuração do script.")
     caminho = resolver_caminho(VALIDAR_ARQUIVO)
     console.print(f"\n[bold]Conferindo[/bold] {caminho.name} contra a mestre {resolver_caminho(VALIDAR_MESTRE).name}...")
-    regras, listas = carregar_regras_e_listas(resolver_caminho(VALIDAR_MESTRE))
+    campos, listas, situacao = carregar_regras_e_listas(resolver_caminho(VALIDAR_MESTRE))
 
     wb = load_workbook(caminho)
     ws = wb["SKUS"]
@@ -1550,8 +1708,13 @@ def validar_arquivo():
         if not sku:
             continue
         problemas_da_linha, preenchidos = [], 0
-        for attr_id, c_atual, c_preencher, c_conf in blocos:
-            regra = regras.get((sku, attr_id))  # a mestre (aba REGRAS) diz quais campos existem para o SKU
+        situacao_do_sku = situacao.get(sku)
+        if situacao_do_sku is None:
+            problemas_gerais.append([sku, "(linha)", "SKU não existe na planilha mestre", sku])
+            problemas_da_linha.append("SKU não existe na planilha mestre")
+            contagem["SKU não existe na planilha mestre"] += 1
+        for attr_id, c_atual, c_preencher, c_conf in (blocos if situacao_do_sku is not None else []):
+            regra = regra_do_campo_no_sku(campos, situacao_do_sku, attr_id)  # a mestre diz quais campos existem para o SKU
             valor = ws.cell(row=r, column=c_preencher).value
             confianca = ws.cell(row=r, column=c_conf).value
             achados = []
