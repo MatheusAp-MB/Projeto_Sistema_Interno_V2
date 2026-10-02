@@ -59,8 +59,7 @@ from rich.progress import (
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
 MODO = "gerar"  # "gerar" ou "validar"
 CONTA = "MB"  # "MB" (Magazine) ou "SV" (Samvale)
-LIMITE_SKUS = SUBCOLUNAS = ("Atual", "PREENCHER", "Conf.")
-SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
+LIMITE_SKUS = 30  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
 STATUS_ACEITOS = {"active", "paused"}  # status que entram na planilha
 TAMANHO_LOTE = 25  # SKUs por lote (coluna Lote), agrupados por categoria
 THREADS = 40  # chamadas simultâneas à API (o pool do projeto aguenta 50)
@@ -94,7 +93,6 @@ CARACTERES_ILEGAIS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 LIMITE_CELULA_EXCEL = 32000  # o Excel aceita 32.767 caracteres por célula
 CONFIANCAS = ("Alta", "Média", "Baixa", "Sem evidência")
 SUBCOLUNAS = ("Atual", "PREENCHER", "Conf.")
-SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)
 SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)
 
 
