@@ -57,11 +57,10 @@ from rich.progress import (
 )
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-MODO = "gerar"  # "gerar" ou "validar"
 CONTA = "MB"  # "MB" (Magazine) ou "SV" (Samvale)
-LIMITE_SKUS = 30  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
+LIMITE_SKUS = None  # None = inventário inteiro. Número = amostra espalhada por categoria (teste rápido).
 STATUS_ACEITOS = {"active", "paused"}  # status que entram na planilha
-TAMANHO_LOTE = 25  # SKUs por lote (coluna Lote), agrupados por categoria
+TAMANHO_LOTE = 50  # SKUs por lote (coluna Lote), agrupados por categoria
 THREADS = 40  # chamadas simultâneas à API (o pool do projeto aguenta 50)
 USAR_CACHE = True  # False = baixa tudo de novo da API
 VINCULAR_PELO_EAN = True  # SKU sem Produto, mas no formato F+EAN13.NNN: tenta achar o Produto pelo EAN ("inferido")
@@ -75,9 +74,10 @@ TIPOS_DE_SISTEMA = {"grid_row_id"}  # value_type de guia de tamanhos (SIZE_GRID_
 SEM_SUGESTOES = {"BRAND"}  # campos de texto cujas sugestões da API só atrapalham (a marca vem do ERP)
 
 # Só no MODO = "validar":
-VALIDAR_ARQUIVO = ""  # arquivo preenchido pela LLM (um lote ou a mestre). Caminho completo ou nome dentro da pasta de resultados.
-VALIDAR_MESTRE = ""  # planilha mestre da mesma geração (tem as abas REGRAS e LISTAS)
-# ========================================
+VALIDAR_PASTA = ""  # pasta com os arquivos *_preenchido.xlsx (todos de uma vez). Se preenchida, VALIDAR_ARQUIVO é ignorado. Caminho completo ou nome dentro da pasta de resultados.
+MODO = "gerar" #Validar ou gerar
+VALIDAR_ARQUIVO = r"C:\Users\WIN10\Desktop\Codigos\GITHUB\notas-obsidian-sistema-interno-mb-sv\PLANILHA_LLM\Preenchidos\lote_002_preenchido.xlsx"
+VALIDAR_MESTRE = r"C:\Users\WIN10\Desktop\Codigos\GITHUB\notas-obsidian-sistema-interno-mb-sv\PLANILHA_LLM\Resultados_LLM\planilha_llm_MB_amostra30_20261002_1042.xlsx"# ========================================
 
 PASTA_SCRIPT = Path(__file__).resolve().parent
 # * [EXPLICAÇÃO] → TUDO o que este script gera fica numa pasta só: planilha mestre, arquivos de lote, arquivos
@@ -96,6 +96,11 @@ CARACTERES_ILEGAIS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 LIMITE_CELULA_EXCEL = 32000  # o Excel aceita 32.767 caracteres por célula
 CONFIANCAS = ("Alta", "Média", "Baixa", "Sem evidência")
 SUBCOLUNAS = ("Atual", "PREENCHER", "Conf.")
+CONFIANCAS_PARA_REVISAR = ("Baixa", "Sem evidência")  # entram na planilha de revisão humana, além dos campos com problema na conferência
+# * [EXPLICAÇÃO] → Marca (ERP) que NÃO é de fabricante (nome da própria empresa, origem ou termo genérico), em minúsculas e com
+#                  as duas grafias de "genérico". A regra do INSTRUCOES_LLM manda ignorá-las; aqui o validador deixa de acusar
+#                  "marca diferente da Marca (ERP)" nesses casos.
+MARCAS_ERP_QUE_NAO_SAO_FABRICANTE = {"magazine brasileiro", "importados china", "generico", "genérico"}
 SEPARADOR_OPCOES = " | "  # separa as opções dentro da célula da aba LISTAS (nenhum nome de opção do ML tem este texto)
 
 
@@ -1377,8 +1382,8 @@ def texto_leia_me(contexto, dados):
         ("linha", "Cinza", "Apoio."),
         ("secao", "DECISÕES ABERTAS", None),
         ("linha", "Escopo", "Só MLBs ativos ou pausados no ML (status conferido na API). SKU sem nenhum MLB assim não entra na planilha."),
-        ("linha", "Regras por campo", "Linha e demais campos além de Marca e Modelo ainda precisam de regra."),
-        ("linha", "SKUs sem ERP", "Regra de preenchimento para SKUs sem Produto no ERP ainda precisa ser definida."),
+        ("linha", "Regras por campo", "Marca, Modelo, Linha, Formato de venda, Cor principal e medidas já têm regra. Os demais campos seguem só as regras de tipo e de evidência até serem revisados."),
+        ("linha", "Preço por unidade", "UNITS_PER_PACK, NET_WEIGHT e NET_VOLUME (tags unit_yield, pack_multiplier e conditional_required) dependem da documentação oficial do ML sobre preço por unidade. Até lá, UNITS_PER_PACK não recebe valor novo (ver INSTRUCOES_LLM); NET_WEIGHT e NET_VOLUME seguem as regras gerais de tipo e de evidência."),
         ("linha", "N/A", "Antes da Fase 2, testar no ML como o N/A se comporta (só pode ser trocado por um valor; campo obrigatório não aceita N/A)."),
         ("linha", "Tamanho dos lotes", f"Configurado em {TAMANHO_LOTE} SKUs por lote, agrupados por categoria principal."),
     ]
@@ -1401,12 +1406,15 @@ INSTRUCOES = [
     ("Sem evidência", "Se as fontes não sustentam um valor, deixe PREENCHER vazio e Conf. = Sem evidência. Vazio é melhor do que chute."),
     ("Conf. (confiança)", "Mede a evidência do VALOR, não se o ML o aceita (isso a conferência automática verifica). Alta: ERP e/ou títulos dizem claramente. Média: inferência razoável. Baixa: ambíguo ou fontes em conflito (a revisão humana olha estas primeiro). Sem evidência: nenhum valor sustentado."),
     ("Observações (LLM)", "1 célula por linha, só quando Conf. não for Alta ou houver conflito. Formato: 'CAMPO: motivo curto', separando campos com ' | '. Exemplo: 'MODEL: código só no título | GENDER: ERP e títulos divergem'."),
-    ("Regra: BRAND (Marca)", "Marca real/verdadeira do fabricante, nunca palavras-chave. A Marca (ERP) é a fonte da verdade de QUAL é a marca (a comparação ignora maiúsculas e minúsculas e espaços nas pontas). A caixa segue esta ordem: 1) se o Atual já traz a mesma marca, mantenha a grafia do Atual; 2) se os MLBs do SKU divergem só na caixa (ex.: 'QUIMIVIDA (1) | Quimivida (1)'), padronize na forma mais usada e, em empate, na que não está toda em maiúsculas; 3) se não há Atual, escreva a Marca (ERP) com a primeira letra de cada palavra maiúscula (ex.: ORTHO PAUHER vira Ortho Pauher), preservando siglas e grafias estilizadas conhecidas (JBL, DeWalt). Sem ERP, proponha pelos títulos com Conf. no máximo Média e mantenha a caixa do Atual quando houver."),
-    ("Regra: MODEL (Modelo)", "Palavras-chave separadas por vírgula, otimizadas para busca (SEO), incluindo o código do modelo (Cód. fabricante ou título) quando existir. Respeite o limite."),
-    ("Regra: LINE (Linha)", "A DEFINIR (Matheus): se também segue o estilo de palavras-chave do Modelo."),
-    ("Regra: medidas e peso", "Use as 'Medidas sem embalar' do ERP (são do produto, não da caixa). '?' ou vazio significa 'nunca cadastrado': não use."),
-    ("Regra: SKU sem ERP", "A DEFINIR (Matheus): o que fazer quando o SKU não tem Produto no ERP."),
-    ("Regra: demais campos", "A DEFINIR por campo, conforme os lotes forem sendo revisados."),
+    ("Regra: BRAND (Marca)", "Marca real/verdadeira do fabricante, nunca palavras-chave. A Marca (ERP) é a fonte da verdade de QUAL é a marca (a comparação ignora maiúsculas e minúsculas e espaços nas pontas). A caixa segue esta ordem: 1) se o Atual já traz a mesma marca, mantenha a grafia do Atual; 2) se os MLBs do SKU divergem só na caixa (ex.: 'QUIMIVIDA (1) | Quimivida (1)'), padronize na forma mais usada e, em empate, na que não está toda em maiúsculas; 3) se não há Atual, escreva a Marca (ERP) com a primeira letra de cada palavra maiúscula (ex.: ORTHO PAUHER vira Ortho Pauher), preservando siglas e grafias estilizadas conhecidas (JBL, DeWalt). Sem ERP: a marca vem do Atual e dos títulos, mantendo a caixa do Atual; Conf. Média se o Atual é igual em todos os MLBs e nenhum título o contradiz; Conf. Baixa se os MLBs divergem na marca ou um título a contradiz; nunca Alta. Exceção: Marca (ERP) que não é de fabricante (o nome da própria empresa, como 'Magazine Brasileiro', ou uma origem ou termo genérico, como 'Importados China' e 'Genérico') não conta como marca. Descarte-a, registre em Observações (LLM) e trate o SKU como Sem ERP (a marca vem do Atual e dos títulos). Nesse caso: se o Atual é 'Genérica' (ou 'Genérico'), mantenha com Conf. Baixa; se não há marca real nem no Atual nem nos títulos, deixe vazio com Conf. Sem evidência."),
+    ("Regra: MODEL (Modelo)", "Palavras-chave separadas por vírgula, otimizadas para busca (SEO), no máximo 10 termos e dentro do limite de caracteres. Inclua o código do modelo (Cód. fabricante ou título) quando existir. Não inclua a marca (ela já tem campo próprio) nem códigos de peças avulsas ou de componentes, a não ser que o produto seja a própria peça. Sem código de modelo nas fontes, use termos do título e da descrição."),
+    ("Regra: LINE (Linha)", "Preencha só se o ERP, os títulos ou o Atual mostrarem o nome de uma linha de produtos da marca. Nome de categoria ou palavras genéricas não são linha: ignore um Atual assim. Sem nome de linha, deixe vazio e Conf. = Sem evidência. Não use o estilo de palavras-chave do Modelo."),
+    ("Regra: SALE_FORMAT (Formato de venda)", "'Unidade' quando o título ou o ERP descrevem um item só; 'Kit' quando dizem kit, conjunto ou combo; se não der para decidir, vazio e Conf. = Sem evidência."),
+    ("Regra: UNITS_PER_PACK (quantidade por pacote)", "Não crie valor novo: a regra deste campo depende da documentação oficial do ML sobre preço por unidade, ainda em análise. Se o Atual já tem valor, copie-o com Conf. Baixa; se está vazio, deixe vazio e Conf. = Sem evidência, mesmo quando o campo é Condicional."),
+    ("Regra: MAIN_COLOR (Cor principal)", "Escolha entre as cores que existem na lista do SKU; cor que não está na lista não é mapeada por aproximação (ex.: lilás não vira Violeta). Produto de duas cores: use a predominante; se não der para saber qual predomina, use a primeira citada, com Conf. Baixa e a explicação em Observações."),
+    ("Regra: medidas e peso", "Use as 'Medidas sem embalar' do ERP (são do produto, não da caixa). '?' ou vazio significa 'nunca cadastrado': não use. Sem ERP, use só o Atual (se estiver vazio, deixe vazio), com Conf. no máximo Média. Formato: ponto decimal (o ERP usa vírgula: 2,6 kg vira 2.6 kg; a API devolve 52.5 cm) e uma unidade aceita pelo campo; se o Atual já está em unidade aceita (ex.: 1.41 m), não converta."),
+    ("Regra: dado suspeito do ERP", "Se um dado do ERP parecer implausível para o produto (medida absurda, Cód. fabricante que não parece um código de modelo) ou contradisser a descrição, não use esse dado e registre em Observações."),
+    ("Regra: demais campos", "Aplique as regras de tipo e de evidência acima. Na dúvida, vazio e Conf. = Sem evidência."),
 ]
 
 
@@ -1686,12 +1694,17 @@ def conferir_valor(valor, regra, listas):
     return problemas
 
 
-def validar_arquivo():
-    if not VALIDAR_ARQUIVO or not VALIDAR_MESTRE:
-        raise SystemExit("Preencha VALIDAR_ARQUIVO e VALIDAR_MESTRE na configuração do script.")
-    caminho = resolver_caminho(VALIDAR_ARQUIVO)
-    console.print(f"\n[bold]Conferindo[/bold] {caminho.name} contra a mestre {resolver_caminho(VALIDAR_MESTRE).name}...")
-    campos, listas, situacao = carregar_regras_e_listas(resolver_caminho(VALIDAR_MESTRE))
+def validar_arquivo(caminho=None, dados_mestre=None, pasta_dos_checados=None):
+    """Confere 1 arquivo preenchido. Sem argumentos: usa VALIDAR_ARQUIVO e VALIDAR_MESTRE e imprime o detalhe.
+    Com argumentos (modo pasta): não imprime o detalhe e devolve o resultado para o consolidado."""
+    individual = caminho is None
+    if individual:
+        if not VALIDAR_ARQUIVO or not VALIDAR_MESTRE:
+            raise SystemExit("Preencha VALIDAR_ARQUIVO e VALIDAR_MESTRE na configuração do script.")
+        caminho = resolver_caminho(VALIDAR_ARQUIVO)
+        console.print(f"\n[bold]Conferindo[/bold] {caminho.name} contra a mestre {resolver_caminho(VALIDAR_MESTRE).name}...")
+        dados_mestre = carregar_regras_e_listas(resolver_caminho(VALIDAR_MESTRE))
+    campos, listas, situacao = dados_mestre
 
     wb = load_workbook(caminho)
     ws = wb["SKUS"]
@@ -1699,11 +1712,15 @@ def validar_arquivo():
                   if ws.cell(row=3, column=c).value not in SUBCOLUNAS}
     col_sku, col_checagem = cabecalhos["SKU"], cabecalhos["Checagem automática"]
     col_vinculo, col_marca_erp = cabecalhos["Vínculo ERP"], cabecalhos["Marca (ERP)"]
+    col_produto, col_titulos, col_observacao = cabecalhos.get("Produto (ERP)"), cabecalhos.get("Títulos dos MLBs"), cabecalhos.get("Observações (LLM)")
     blocos = [(ws.cell(row=1, column=c).value, c, c + 1, c + 2)
               for c in range(1, ws.max_column + 1) if ws.cell(row=3, column=c).value == "Atual"]
+    lote = re.sub(r"_preenchido$", "", caminho.stem)
 
     problemas_gerais = []
     contagem = Counter()
+    revisao, confiancas_usadas = [], Counter()  # revisao: o que um humano precisa olhar (alimenta o consolidado)
+    campos_existentes = campos_preenchidos = 0
     for r in range(4, ws.max_row + 1):
         sku = ws.cell(row=r, column=col_sku).value
         if not sku:
@@ -1731,12 +1748,28 @@ def validar_arquivo():
                 preenchidos += 1
                 achados += conferir_valor(valor, regra, listas)
                 # * [EXPLICAÇÃO] → Só com vínculo oficial (pelo SKU) a Marca (ERP) é a verdade; a caixa não conta (strip + lower).
-                if attr_id == "BRAND" and vinculo_erp == "SKU" and marca_erp and str(valor).strip().lower() != marca_erp.lower():
+                if (attr_id == "BRAND" and vinculo_erp == "SKU" and marca_erp and marca_erp.lower() not in MARCAS_ERP_QUE_NAO_SAO_FABRICANTE
+                        and str(valor).strip().lower() != marca_erp.lower()):
                     achados.append(f"marca diferente da Marca (ERP): '{marca_erp}'")
                 if confianca is None:
                     achados.append("sem confiança")
                 elif confianca not in CONFIANCAS:
                     achados.append(f"confiança inválida ('{confianca}')")
+            if regra is not None:
+                campos_existentes += 1
+                campos_preenchidos += valor not in (None, "")
+                if confianca in CONFIANCAS:
+                    confiancas_usadas[confianca] += 1
+            if achados or confianca in CONFIANCAS_PARA_REVISAR:
+                prioridade = 1 if achados else (2 if confianca == "Baixa" else 3)  # 1 = conferência, 2 = Baixa, 3 = Sem evidência
+                produto = ws.cell(row=r, column=col_produto).value if col_produto else None
+                if not produto and col_titulos:  # sem ERP: o título ajuda a reconhecer o produto
+                    produto = str(ws.cell(row=r, column=col_titulos).value or "")[:90]
+                revisao.append([
+                    prioridade, lote, sku, produto, attr_id, regra["obrigatorio"] if regra else "-",
+                    ws.cell(row=r, column=c_atual).value, valor, confianca, "; ".join(achados),
+                    ws.cell(row=r, column=col_observacao).value if col_observacao else "",
+                ])
             for achado in achados:
                 problemas_gerais.append([sku, attr_id, achado, valor])
                 problemas_da_linha.append(f"{attr_id}: {achado}")
@@ -1761,13 +1794,121 @@ def validar_arquivo():
             escrever_celula(aba, i, j, valor)
     aba.freeze_panes = "A2"
 
-    PASTA_RESULTADOS.mkdir(parents=True, exist_ok=True)
-    saida = PASTA_RESULTADOS / (caminho.stem + "_checado.xlsx")  # o resultado da conferência também fica na pasta de resultados
+    pasta_do_checado = pasta_dos_checados or PASTA_RESULTADOS  # o resultado da conferência também fica na pasta de resultados
+    pasta_do_checado.mkdir(parents=True, exist_ok=True)
+    saida = pasta_do_checado / (caminho.stem + "_checado.xlsx")
     wb.save(saida)
-    console.print(f"\n[green]Pronto: {saida}[/green]\n")
-    for rotulo, quantidade in contagem.most_common():
-        console.print(f"  {rotulo}: {quantidade}")
-    console.print(f"  total de problemas: {len(problemas_gerais)}")
+    if individual:
+        console.print(f"\n[green]Pronto: {saida}[/green]\n")
+        for rotulo, quantidade in contagem.most_common():
+            console.print(f"  {rotulo}: {quantidade}")
+        console.print(f"  total de problemas: {len(problemas_gerais)}")
+    return {
+        "lote": lote, "arquivo": caminho.name, "saida": saida, "erro": None,
+        "contagem": contagem, "confiancas": confiancas_usadas,
+        "campos_existentes": campos_existentes, "campos_preenchidos": campos_preenchidos,
+        "problemas": len(problemas_gerais), "revisao": revisao,
+    }
+
+
+def validar_pasta():
+    """Confere todos os *_preenchido.xlsx de uma pasta contra a mesma mestre e junta tudo num arquivo de revisão."""
+    if not VALIDAR_PASTA or not VALIDAR_MESTRE:
+        raise SystemExit("Preencha VALIDAR_PASTA e VALIDAR_MESTRE na configuração do script.")
+    pasta = resolver_caminho(VALIDAR_PASTA)
+    arquivos = sorted(p for p in pasta.glob("*_preenchido.xlsx") if not p.name.startswith("~$"))
+    if not arquivos:
+        raise SystemExit(f"Nenhum arquivo *_preenchido.xlsx em {pasta}")
+    console.print(f"\n[bold]Conferindo {len(arquivos)} arquivos de[/bold] {pasta} [bold]contra a mestre[/bold] {resolver_caminho(VALIDAR_MESTRE).name}...")
+    dados_mestre = carregar_regras_e_listas(resolver_caminho(VALIDAR_MESTRE))
+    pasta_dos_checados = PASTA_RESULTADOS / "checados"
+    resultados = []
+    for arquivo in arquivos:
+        try:
+            resultado = validar_arquivo(arquivo, dados_mestre, pasta_dos_checados)
+            c = resultado["contagem"]
+            console.print(f"  {arquivo.name}: {c['linhas ok']} OK, {c['linhas com problema']} com problema, "
+                          f"{c['linhas sem preenchimento']} sem preenchimento, {len(resultado['revisao'])} itens para revisão")
+        except Exception as erro:  # um arquivo quebrado não pode derrubar os outros
+            console.print(f"  [red]{arquivo.name}: não foi possível conferir ({erro})[/red]")
+            resultado = {
+                "lote": re.sub(r"_preenchido$", "", arquivo.stem), "arquivo": arquivo.name, "saida": None, "erro": str(erro),
+                "contagem": Counter(), "confiancas": Counter(), "campos_existentes": 0, "campos_preenchidos": 0,
+                "problemas": 0, "revisao": [],
+            }
+        resultados.append(resultado)
+    consolidar_revisao(resultados)
+
+
+def consolidar_revisao(resultados):
+    """Um arquivo só para o humano: aba REVISAO (tudo que precisa de olho, em ordem de prioridade) e aba RESUMO (1 linha por lote)."""
+    rotulos = {1: "1 - Conferência", 2: "2 - Baixa", 3: "3 - Sem evidência"}
+    cores = {1: "F8D7DA", 2: "FFE8B3", 3: "E5E7EB"}
+    ordem_obrigatorio = {"Sim": 0, "Condicional": 1, "Não": 2}  # dentro da prioridade, o obrigatório vem primeiro
+    itens = sorted((i for r in resultados for i in r["revisao"]), key=lambda i: (i[0], ordem_obrigatorio.get(i[5], 3), i[1], i[2], i[4]))
+
+    wb = Workbook()
+    aba = nova_aba(wb, "REVISAO")
+    aba.sheet_properties.tabColor = COR_AMBAR
+    escrever_cabecalho(aba, [
+        ("Prioridade", COR_AMBAR, 17), ("Lote", COR_AMBAR, 12), ("SKU", COR_AMBAR, 22), ("Produto (ERP) ou título", COR_AMBAR, 38),
+        ("Campo", COR_AMBAR, 24), ("Obrigatório", COR_AMBAR, 13), ("Atual", COR_AMBAR, 28), ("PREENCHER (LLM)", COR_AMBAR, 28), ("Conf.", COR_AMBAR, 14),
+        ("Problema da conferência", COR_AMBAR, 42), ("Observações (LLM)", COR_AMBAR, 50),
+        ("Decisão humana", COR_VERDE, 18), ("Valor final", COR_VERDE, 28),
+    ])
+    for i, (prioridade, *resto) in enumerate(itens, start=2):
+        escrever_celula(aba, i, 1, rotulos[prioridade], cor_fundo=cores[prioridade])
+        for j, valor in enumerate(resto, start=2):
+            escrever_celula(aba, i, j, valor)
+        escrever_celula(aba, i, 12, None)
+        escrever_celula(aba, i, 13, None)
+    aba.freeze_panes = "D2"
+    aba.auto_filter.ref = f"A1:M{max(len(itens) + 1, 2)}"
+    if itens:
+        decisao = DataValidation(type="list", formula1='"Aceitar LLM,Manter Atual,Corrigir"', allow_blank=True)
+        aba.add_data_validation(decisao)
+        decisao.add(f"L2:L{len(itens) + 1}")
+
+    resumo = wb.create_sheet("RESUMO")
+    resumo.sheet_properties.tabColor = COR_VERDE
+    escrever_cabecalho(resumo, [
+        ("Lote", COR_VERDE, 12), ("SKUs", COR_VERDE, 8), ("Campos que existem", COR_VERDE, 12), ("Preenchidos", COR_VERDE, 12),
+        ("% preenchido", COR_VERDE, 12), ("Alta", COR_VERDE, 8), ("Média", COR_VERDE, 8), ("Baixa", COR_VERDE, 8),
+        ("Sem evidência", COR_VERDE, 12), ("SKUs OK", COR_VERDE, 9), ("SKUs com problema", COR_VERDE, 11),
+        ("SKUs sem preenchimento", COR_VERDE, 13), ("Itens para revisão", COR_VERDE, 11), ("Arquivo conferido / erro", COR_VERDE, 60),
+    ])
+    total = Counter()
+    for i, r in enumerate(resultados, start=2):
+        c, conf = r["contagem"], r["confiancas"]
+        skus = c["linhas ok"] + c["linhas com problema"] + c["linhas sem preenchimento"]
+        linha = [r["lote"], skus, r["campos_existentes"], r["campos_preenchidos"],
+                 (r["campos_preenchidos"] / r["campos_existentes"]) if r["campos_existentes"] else None,
+                 conf["Alta"], conf["Média"], conf["Baixa"], conf["Sem evidência"],
+                 c["linhas ok"], c["linhas com problema"], c["linhas sem preenchimento"], len(r["revisao"]),
+                 ("ERRO: " + r["erro"]) if r["erro"] else r["saida"].name]
+        for j, valor in enumerate(linha, start=1):
+            escrever_celula(resumo, i, j, valor, cor_fundo="F8D7DA" if r["erro"] else None, formato="0%" if j == 5 else None)
+        for j in (2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13):
+            total[j] += linha[j - 1] or 0
+    linha_total = len(resultados) + 2
+    escrever_celula(resumo, linha_total, 1, "TOTAL", negrito=True)
+    for j in range(2, 15):
+        valor = total[j] if j in total else None
+        if j == 5:
+            valor = (total[4] / total[3]) if total[3] else None
+        escrever_celula(resumo, linha_total, j, valor, negrito=True, formato="0%" if j == 5 else None)
+    resumo.freeze_panes = "B2"
+
+    PASTA_RESULTADOS.mkdir(parents=True, exist_ok=True)
+    saida = PASTA_RESULTADOS / f"revisao_consolidada_{datetime.now():%Y%m%d_%H%M}.xlsx"
+    wb.save(saida)
+
+    por_prioridade = Counter(i[0] for i in itens)
+    console.print(f"\n[green]Pronto: {saida}[/green]")
+    console.print(f"  {len(resultados)} arquivos conferidos, {sum(1 for r in resultados if r['erro'])} com erro")
+    console.print(f"  itens para revisão: {len(itens)} (conferência {por_prioridade[1]}, Baixa {por_prioridade[2]}, Sem evidência {por_prioridade[3]})")
+    console.print(f"  campos preenchidos: {total[4]} de {total[3]}" + (f" ({total[4] / total[3]:.0%})" if total[3] else ""))
+    console.print(f"  arquivos conferidos de cada lote: {PASTA_RESULTADOS / 'checados'}")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -1842,7 +1983,7 @@ def gerar():
 
 def main():
     if MODO == "validar":
-        validar_arquivo()
+        validar_pasta() if VALIDAR_PASTA else validar_arquivo()
     elif MODO == "gerar":
         gerar()
     else:
