@@ -683,6 +683,23 @@ def montar_alertas(sku, status_banco, dados):
     return alertas
 
 
+def status_aceito(status_ml):
+    """Status do MLB na API. Sem status (None) não derruba o MLB; só sai quem o ML diz que está fora (closed, inactive...)."""
+    return not status_ml or status_ml in STATUS_ACEITOS
+
+
+def linha_mlb_fora_da_planilha(m, chave, dados, fora_por_status, ficha_por_mlb):
+    """Linha da aba MLBS de um MLB que não entrou na planilha: status no ML fora de STATUS_ACEITOS, ou falha de leitura."""
+    if fora_por_status:
+        categoria = dados["category_id"]
+        alerta = f"FORA DA PLANILHA: no ML o status é '{dados['status_ml']}' (banco: '{m['status']}')."
+    else:
+        categoria = "(sem leitura da API)"
+        alerta = "não foi possível ler este MLB (ou a categoria dele) na API."
+    return [m["mlb"], chave, m["titulo"], categoria, m["status_txt"], m["tipo_txt"],
+            ficha_por_mlb.get(m["mlb"], "Sem dado"), alerta, m["permalink"]]
+
+
 def texto_qtd_mlbs(mlbs):
     ativos = sum(1 for m in mlbs if m["status"] == "active")
     pausados = sum(1 for m in mlbs if m["status"] == "paused")
@@ -771,6 +788,7 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
     tags_observadas = Counter()
     skus_por_mlb = defaultdict(set)
     skus_sem_dados = []
+    skus_sem_mlb_valido = []
     cobertura_erp = Counter()
     multi_categoria = 0
     maior_lista = 0
@@ -785,19 +803,26 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
     for chave in chaves:
         grupo = grupos[chave]
         todos_mlbs = [grupo["mlbs"][m] for m in sorted(grupo["mlbs"])]
+        # * [EXPLICAÇÃO] → Vale o status da API (o do banco pode estar desatualizado): MLB fechado ou inativo no ML
+        #                  não entra na planilha (nem nos valores atuais, nem nos títulos). Fica só na aba MLBS, com o motivo.
+        ids_fora_status = {m["mlb"] for m in todos_mlbs
+                           if m["mlb"] in itens and not status_aceito(itens[m["mlb"]].get("status_ml"))}
+        estat["mlbs_fora_status"] += len(ids_fora_status)
         mlbs_ok = [m for m in todos_mlbs
-                   if m["mlb"] in itens and itens[m["mlb"]].get("category_id") in cards]
+                   if m["mlb"] in itens and m["mlb"] not in ids_fora_status
+                   and itens[m["mlb"]].get("category_id") in cards]
         mlbs_ok_ids = {m["mlb"] for m in mlbs_ok}
 
         for m in todos_mlbs:
             skus_por_mlb[m["mlb"]].add(chave)
 
         if not mlbs_ok:
-            skus_sem_dados.append(chave)
+            if len(ids_fora_status) == len(todos_mlbs):
+                skus_sem_mlb_valido.append(chave)  # todos os MLBs do SKU estão fechados/inativos no ML
+            else:
+                skus_sem_dados.append(chave)
             for m in todos_mlbs:
-                mlbs_linhas.append([m["mlb"], chave, m["titulo"], "(sem leitura da API)", m["status_txt"],
-                                    m["tipo_txt"], ficha_por_mlb.get(m["mlb"], "Sem dado"),
-                                    "não foi possível ler este MLB (ou a categoria dele) na API.", m["permalink"]])
+                mlbs_linhas.append(linha_mlb_fora_da_planilha(m, chave, itens.get(m["mlb"]), m["mlb"] in ids_fora_status, ficha_por_mlb))
             continue
 
         if contador_no_lote == 0 or contador_no_lote >= TAMANHO_LOTE:
@@ -851,9 +876,7 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
                                     m["tipo_txt"], ficha_por_mlb.get(m["mlb"], "Sem dado"),
                                     "\n".join(alertas), m["permalink"]])
             else:
-                mlbs_linhas.append([m["mlb"], chave, m["titulo"], "(sem leitura da API)", m["status_txt"],
-                                    m["tipo_txt"], ficha_por_mlb.get(m["mlb"], "Sem dado"),
-                                    "não foi possível ler este MLB (ou a categoria dele) na API.", m["permalink"]])
+                mlbs_linhas.append(linha_mlb_fora_da_planilha(m, chave, itens.get(m["mlb"]), m["mlb"] in ids_fora_status, ficha_por_mlb))
 
         # ---- campos do SKU: união dos campos pedidos pelas categorias dos MLBs
         attrs_do_sku = []
@@ -947,7 +970,7 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
         if not campos_do_sku:
             estat["skus_sem_campos"] += 1
 
-        titulos_mlbs = "\n".join(f"{m['mlb']} · {m['titulo']}" for m in todos_mlbs)
+        titulos_mlbs = "\n".join(f"{m['mlb']} · {m['titulo']}" for m in mlbs_ok)
         listas_txt = " | ".join(
             f"{attr_id}→{c['id_lista']} ({'fechada' if c['meta']['tipo'] == 'Lista fechada' else 'sugestões'})"
             for attr_id, c in campos_do_sku.items() if c["id_lista"]
@@ -962,7 +985,7 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
             "categoria_ml": "\n".join(f"{c} · {caminhos_categoria.get(c, '(nome não encontrado)')}" for c in categorias_do_sku),
             "descricao": texto_ou_none(produto.descricao) if produto is not None else None,
             "titulos": titulos_mlbs, "listas_txt": listas_txt,
-            "campos": campos_do_sku, "qtd_mlbs": texto_qtd_mlbs(todos_mlbs),
+            "campos": campos_do_sku, "qtd_mlbs": texto_qtd_mlbs(mlbs_ok),
         })
 
     ordem = sorted(campos_por_attr, key=lambda a: (-campos_por_attr[a], a))
@@ -980,6 +1003,7 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
     estat["maior_lista"] = maior_lista
     estat["skus_multi_categoria"] = multi_categoria
     estat["skus_sem_dados"] = len(skus_sem_dados)
+    estat["skus_sem_mlb_valido"] = len(skus_sem_mlb_valido)
     estat["lotes"] = lote_atual
     estat["mlbs_em_mais_de_um_sku"] = sum(1 for skus in skus_por_mlb.values() if len(skus) > 1)
     estat["conjuntos_de_campos_distintos"] = len(conjuntos_de_campos)
@@ -990,7 +1014,7 @@ def montar_tudo(grupos, chaves, itens, categorias, caminhos_categoria, ficha_por
         "estat": estat, "tipos_de_campo": tipos_de_campo, "campos_por_attr": campos_por_attr,
         "rotulo_por_attr": rotulo_por_attr, "codigos_de_aviso": codigos_de_aviso,
         "cobertura_erp": cobertura_erp, "excluidos": excluidos, "tags_observadas": tags_observadas,
-        "skus_sem_dados": skus_sem_dados,
+        "skus_sem_dados": skus_sem_dados, "skus_sem_mlb_valido": skus_sem_mlb_valido,
     }
 
 
@@ -1013,6 +1037,8 @@ def montar_resumo(dados, contexto):
         ("MLBs lidos na API / falhas", f"{contexto['mlbs_lidos']} / {contexto['mlbs_falhos']}"),
         ("Categorias distintas lidas / falhas", f"{contexto['categorias_lidas']} / {contexto['categorias_falhas']}"),
         ("SKUs sem leitura da API (ficaram de fora)", e["skus_sem_dados"]),
+        ("MLBs fora da planilha por status no ML (ex.: closed)", e["mlbs_fora_status"]),
+        ("SKUs que saíram por ficarem sem MLB ativo/pausado no ML", e["skus_sem_mlb_valido"]),
         ("Lotes (de até %d SKUs)" % TAMANHO_LOTE, e["lotes"]),
         (None, "TAMANHO DA PLANILHA (layout: 1 linha por SKU)"),
         ("Linhas em SKUS", e["skus_total"]),
@@ -1045,7 +1071,7 @@ def montar_resumo(dados, contexto):
         ("Conjuntos de campos distintos entre os SKUs", e["conjuntos_de_campos_distintos"]),
         ("MLBs que aparecem em mais de 1 SKU", e["mlbs_em_mais_de_um_sku"]),
         ("MLBs com mais de 1 variação no ML", e["mlbs_com_varias_variacoes"]),
-        ("MLBs com alerta de identidade (aba MLBS)", e["mlbs_com_alerta"]),
+        ("MLBs com alerta (status ativo/pausado diferente do banco, SKU ou variações; aba MLBS)", e["mlbs_com_alerta"]),
         (None, "COBERTURA DO ERP (por SKU)"),
         ("Com Produto no ERP", pct(com_erp, total)),
         ("   vínculo oficial (pelo SKU)", c["via_SKU"]),
@@ -1196,7 +1222,8 @@ def texto_leia_me(contexto, dados):
     agora = datetime.now().strftime("%d/%m/%Y %H:%M")
     escopo = (f"{e['skus_total']} SKUs" + (f" (amostra de {LIMITE_SKUS}; o banco tem {contexto['skus_no_banco']})" if LIMITE_SKUS else " (inventário inteiro)")
               + f", {contexto['mlbs_lidos']} MLBs lidos na API ({contexto['mlbs_falhos']} falhas). "
-              f"Status incluídos: {', '.join(sorted(STATUS_ACEITOS))}; fora catálogo e fora anúncio 'fóssil'.")
+              f"Status incluídos: {', '.join(sorted(STATUS_ACEITOS))}, conferido na API (MLB fechado ou inativo no ML fica de fora, "
+              f"{e['mlbs_fora_status']} nesta geração); fora catálogo e fora anúncio 'fóssil'.")
     return [
         ("titulo", f"Planilha de Características Principais — conta {CONTA}", None),
         ("sub", f"Gerada em {agora}. 1 linha = 1 produto (SKU). A LLM lê a linha inteira, pensa uma vez e preenche os campos dela.", None),
@@ -1220,7 +1247,7 @@ def texto_leia_me(contexto, dados):
         ("linha", "SKUS", "A planilha: 1 linha por SKU. Colunas fixas (identificação, contexto, listas do SKU, observações) + 3 colunas por campo."),
         ("linha", "LISTAS", "1 linha por lista de opções, escrita UMA vez; as opções ficam na mesma célula, separadas por ' | '. 'Fechada' = só estas opções; 'Sugestão' = o ML aceita valor próprio. A coluna de IDs (só na mestre) é apoio da Fase 2."),
         ("linha", "REGRAS", "Apoio (não vai para a LLM): para cada SKU e campo, tipo, obrigatório, limite, unidades, lista e avisos. É a base da conferência automática."),
-        ("linha", "MLBS", "Apoio: qual MLB pertence a qual SKU, com categoria, status, ficha técnica e alertas de identidade."),
+        ("linha", "MLBS", "Apoio: qual MLB pertence a qual SKU, com categoria, status, ficha técnica e alertas. Os MLBs que ficaram fora da planilha (fechados ou inativos no ML) também estão aqui, com o motivo."),
         ("linha", "RESUMO", "Números desta geração: tamanho, tipos de campo, campos que ficaram de fora, tags e cobertura do ERP."),
         ("secao", "CORES DO CABEÇALHO", None),
         ("linha", "Azul-marinho", "Chave da linha (não editar)."),
@@ -1229,7 +1256,7 @@ def texto_leia_me(contexto, dados):
         ("linha", "Verde", "Conferência automática e revisão humana."),
         ("linha", "Cinza", "Apoio."),
         ("secao", "DECISÕES ABERTAS", None),
-        ("linha", "Escopo", "Só MLBs ativos ou ativos e pausados (a coluna Qtd. de MLBs na aba MLBS permite filtrar)."),
+        ("linha", "Escopo", "Só MLBs ativos ou pausados no ML (status conferido na API). SKU sem nenhum MLB assim não entra na planilha."),
         ("linha", "Regras por campo", "Linha e demais campos além de Marca e Modelo ainda precisam de regra."),
         ("linha", "SKUs sem ERP", "Regra de preenchimento para SKUs sem Produto no ERP ainda precisa ser definida."),
         ("linha", "N/A", "Antes da Fase 2, testar no ML como o N/A se comporta (só pode ser trocado por um valor; campo obrigatório não aceita N/A)."),
