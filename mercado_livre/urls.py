@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_caracteristicas
 
 urlpatterns = [
     path('anuncios/', views.view_hub_anuncios, name='mercado_livre_anuncios'),
@@ -7,6 +8,17 @@ urlpatterns = [
     path('categorias/selecionar/<str:category_id>/', views.view_categorias_selecionar, name='mercado_livre_categorias_selecionar'),
     path('categorias/buscar/', views.view_categorias_buscar, name='mercado_livre_categorias_buscar'),
     path('fotos/', views.view_hub_fotos, name='mercado_livre_hub_fotos'),
+
+    # * [EXPLICAÇÃO] → Tela "Características dos anúncios". Só lê do banco;
+    #                  a API do ML é chamada apenas pelos 2 botões da tela
+    #                  (varredura completa e "Atualizar" de 1 produto), via
+    #                  as rotas de POST abaixo. O SKU usa <path:> e a rota
+    #                  "atualizar/" vem antes da rota da ficha de propósito.
+    path('caracteristicas/', views_caracteristicas.view_caracteristicas_anuncios, name='mercado_livre_caracteristicas'),
+    path('caracteristicas/varredura/iniciar/', views_caracteristicas.view_caracteristicas_varredura_iniciar, name='mercado_livre_caracteristicas_varredura_iniciar'),
+    path('caracteristicas/varredura/status/', views_caracteristicas.view_caracteristicas_varredura_status, name='mercado_livre_caracteristicas_varredura_status'),
+    path('caracteristicas/produto/<path:sku>/atualizar/', views_caracteristicas.view_caracteristicas_atualizar_produto, name='mercado_livre_caracteristicas_atualizar'),
+    path('caracteristicas/produto/<path:sku>/', views_caracteristicas.view_caracteristicas_ficha, name='mercado_livre_caracteristicas_ficha'),
     path('qualidade/<str:mlb>/', views.view_qualidade_anuncio, name='mercado_livre_qualidade'),
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),
     path('resumo-criterios/', views.view_resumo_criterios, name='mercado_livre_resumo_criterios'),

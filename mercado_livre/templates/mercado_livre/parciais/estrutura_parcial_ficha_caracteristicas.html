@@ -1,0 +1,156 @@
+{% comment %}
+* [RESUMO] → Ficha de 1 produto (carregada do banco quando a linha é aberta):
+  resumo e avisos, linha que expande com a tabela de anúncios e, abaixo,
+  os cards das características. Nenhuma parte daqui chama a API.
+{% endcomment %}
+<div class="car-ficha">
+    <div class="car-ficha-resumo">
+        <strong class="car-ficha-total"><i class="fas fa-store" aria-hidden="true"></i> {{ ficha.resumo.n_anuncios }} anúncio{{ ficha.resumo.n_anuncios|pluralize }}</strong>
+        <span class="car-ficha-lidos">{{ ficha.resumo.n_lidos }} lido{{ ficha.resumo.n_lidos|pluralize }}</span>
+        {% for categoria in ficha.resumo.categorias %}
+            <span class="car-etiqueta" title="{{ categoria.caminho }}">{{ categoria.nome }} · {{ categoria.n }}</span>
+        {% endfor %}
+        <span class="car-ficha-leitura"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Última leitura do ML: {{ ficha.resumo.ultima_leitura_txt|default:"—" }}</span>
+    </div>
+
+    {% if ficha.avisos %}
+        <ul class="car-avisos">
+            {% for aviso in ficha.avisos %}
+                <li><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ aviso }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% with tabela=ficha.tabela %}
+    <div class="car-tabela-bloco">
+        <button type="button"
+                class="car-tabela-toggle"
+                data-acao="alternar-tabela"
+                aria-expanded="false"
+                aria-controls="car-tabela-{{ ficha.produto.sku|slugify }}">
+            <i class="fas fa-chevron-down car-chevron" aria-hidden="true"></i>
+            <span class="car-tabela-titulo"><i class="fas fa-table-list" aria-hidden="true"></i> Anúncios do produto</span>
+            <span class="car-tabela-pilulas">
+                <span class="car-pilula car-pilula--info">{{ tabela.n_total }} anúncio{{ tabela.n_total|pluralize }}</span>
+                {% if tabela.n_nao_lidos %}<span class="car-pilula car-pilula--neutra">{{ tabela.n_nao_lidos }} não lido{{ tabela.n_nao_lidos|pluralize }}</span>{% endif %}
+                {% if tabela.n_com_branco %}<span class="car-pilula car-pilula--alerta">{{ tabela.n_com_branco }} com campo em branco</span>{% endif %}
+            </span>
+            <span class="car-tabela-dica">Clique para ver o que cada anúncio tem hoje</span>
+        </button>
+
+        <div class="car-tabela-painel" id="car-tabela-{{ ficha.produto.sku|slugify }}" hidden>
+            <div class="car-tabela-barra">
+                <div class="car-chips-leitura" role="group" aria-label="Filtrar anúncios">
+                    <button type="button" class="car-chip-filtro car-chip-filtro--ativo" data-acao="filtrar-tabela" data-filtro="todos" aria-pressed="true">
+                        <span>Todos</span><span class="car-chip-filtro-n">{{ tabela.n_total }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-tabela" data-filtro="branco" aria-pressed="false">
+                        <span>Com campo em branco</span><span class="car-chip-filtro-n">{{ tabela.n_com_branco }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-tabela" data-filtro="nao-lido" aria-pressed="false">
+                        <span>Não lidos</span><span class="car-chip-filtro-n">{{ tabela.n_nao_lidos }}</span>
+                    </button>
+                </div>
+                <div class="car-legenda">
+                    <span><span class="car-legenda-amostra car-legenda-amostra--branco"></span>em branco</span>
+                    <span><span class="car-legenda-amostra car-legenda-amostra--nao-pede"></span>categoria não pede</span>
+                    <span><span class="car-legenda-amostra car-legenda-amostra--na"></span>N/A (não se aplica)</span>
+                </div>
+            </div>
+
+            <div class="car-tabela-rolagem" tabindex="0" aria-label="Tabela de anúncios do produto">
+                <table class="car-tabela">
+                    <thead>
+                        <tr>
+                            <th class="car-col-mlb">MLB</th>
+                            <th class="car-col-titulo">Título</th>
+                            <th class="car-col-categoria">Categoria</th>
+                            <th class="car-col-status">Situação no ML</th>
+                            {% for coluna in tabela.colunas %}
+                                <th class="car-col-campo car-col-campo--{{ coluna.largura }}">
+                                    <span class="car-th-nome">{{ coluna.label }}</span>
+                                    <code>{{ coluna.api }}</code>
+                                </th>
+                            {% endfor %}
+                            <th class="car-col-lido">Lido em</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for linha in tabela.linhas %}
+                            <tr data-lido="{{ linha.lido|yesno:'1,0' }}" data-branco="{{ linha.tem_branco|yesno:'1,0' }}">
+                                <td class="car-col-mlb">
+                                    {% if linha.permalink %}
+                                        <a href="{{ linha.permalink }}" target="_blank" rel="noopener">{{ linha.mlb }}</a>
+                                    {% else %}
+                                        {{ linha.mlb }}
+                                    {% endif %}
+                                </td>
+                                <td class="car-col-titulo">{{ linha.titulo|default:"—" }}</td>
+                                <td class="car-col-categoria">
+                                    {{ linha.categoria_nome }}
+                                    {% if linha.categoria_id %}<code>{{ linha.categoria_id }}</code>{% endif %}
+                                </td>
+                                <td class="car-col-status">
+                                    {{ linha.status_txt }}
+                                    {% if linha.status_fora %}<span class="car-status-fora">mudou no ML</span>{% endif %}
+                                </td>
+                                {% for celula in linha.celulas %}
+                                    <td class="car-cel car-cel--{{ celula.estado }}">{{ celula.texto }}</td>
+                                {% endfor %}
+                                <td class="car-col-lido">{{ linha.lido_em_txt|default:"—" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p class="car-tabela-vazia" hidden>Nenhum anúncio neste filtro.</p>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+
+    {% if ficha.cards %}
+        <section class="car-secao-cards" aria-label="Características">
+            <div class="car-secao-cab">
+                <h3 class="car-secao-titulo">
+                    Características
+                    <span class="car-secao-n">{{ ficha.contagem_cards.todas }}</span>
+                </h3>
+                <div class="car-chips-leitura" role="group" aria-label="Filtrar características">
+                    <button type="button" class="car-chip-filtro car-chip-filtro--ativo" data-acao="filtrar-cards" data-filtro="todas" aria-pressed="true">
+                        <span>Todas</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.todas }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="atencao" aria-pressed="false">
+                        <span class="car-ponto car-ponto--alerta" aria-hidden="true"></span>
+                        <span>Pedem atenção</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.atencao }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="obrigatorias" aria-pressed="false">
+                        <span class="car-ponto car-ponto--marinho" aria-hidden="true"></span>
+                        <span>Obrigatórias</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.obrigatorias }}</span>
+                    </button>
+                </div>
+            </div>
+            <div class="car-cards">
+                {% for card in ficha.cards %}
+                    {% include 'mercado_livre/parciais/estrutura_parcial_card_caracteristica.html' with card=card %}
+                {% endfor %}
+            </div>
+            <p class="car-vazio car-cards-vazio" hidden>Nenhuma característica neste filtro.</p>
+        </section>
+    {% else %}
+        <p class="car-vazio">
+            Ainda não há características para mostrar: nenhum anúncio deste produto foi lido do Mercado Livre.
+            Clique em <strong>Atualizar</strong> na linha do produto.
+        </p>
+    {% endif %}
+
+    {% if ficha.ocultos %}
+        <details class="car-ocultos">
+            <summary>{{ ficha.ocultos|length }} campo{{ ficha.ocultos|length|pluralize }} que o Mercado Livre pede mas não aparece{{ ficha.ocultos|length|pluralize:",m" }} aqui</summary>
+            <ul>
+                {% for oculto in ficha.ocultos %}
+                    <li>{{ oculto.label }} <code>{{ oculto.id }}</code> — {{ oculto.motivo }}</li>
+                {% endfor %}
+            </ul>
+        </details>
+    {% endif %}
+</div>

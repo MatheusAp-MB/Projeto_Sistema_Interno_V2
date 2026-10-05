@@ -1,0 +1,42 @@
+{% comment %}
+* [RESUMO] → 1 linha da lista de produtos da tela de Características dos
+  anúncios. O botão da esquerda só abre/fecha a ficha (que é carregada do
+  banco na primeira abertura). O botão "Atualizar" é o ÚNICO jeito de ler a
+  API para este produto — por isso é um botão separado, nunca dentro do
+  botão de abrir.
+{% endcomment %}
+<article class="car-produto car-produto--{{ produto.estado }}"
+         data-sku="{{ produto.sku }}"
+         data-url-ficha="{% url 'mercado_livre_caracteristicas_ficha' produto.sku %}"
+         data-url-atualizar="{% url 'mercado_livre_caracteristicas_atualizar' produto.sku %}">
+    <div class="car-produto-cab">
+        <button type="button"
+                class="car-produto-toggle"
+                data-acao="alternar-produto"
+                aria-expanded="false"
+                aria-controls="car-corpo-{{ numero }}">
+            <i class="fas fa-chevron-down car-chevron car-produto-seta" aria-hidden="true"></i>
+            <span class="car-leitura">
+                <span class="car-pilula {{ produto.estado_classe }}" data-campo="estado">{{ produto.estado_rotulo }}</span>
+                <span class="car-leitura-lidos">
+                    <progress class="car-mini-barra" data-campo="barra" max="{{ produto.n_anuncios }}" value="{{ produto.n_lidos }}" aria-hidden="true"></progress>
+                    <span class="car-produto-lidos" data-campo="lidos">{{ produto.n_lidos }} de {{ produto.n_anuncios }} lido{{ produto.n_anuncios|pluralize }}</span>
+                </span>
+            </span>
+            <span class="car-sku">{{ produto.sku }}</span>
+            <span class="car-produto-nome">
+                <span class="car-produto-titulo">{{ produto.titulo|default:"(sem título)" }}</span>
+                <span class="car-produto-meta">{{ produto.marca|default:"Sem marca" }} · {{ produto.n_anuncios }} anúncio{{ produto.n_anuncios|pluralize }}</span>
+            </span>
+            <span class="car-produto-ultima" data-campo="ultima">{{ produto.ultima_leitura_txt|default:"—" }}</span>
+        </button>
+        <div class="car-produto-acao">
+            <button type="button" class="car-btn car-btn--secundario car-btn--atualizar" data-acao="atualizar-produto"
+                    title="Consulta o Mercado Livre agora e salva no banco">
+                <i class="fas fa-rotate" aria-hidden="true"></i> <span class="car-btn-texto">Atualizar</span>
+            </button>
+        </div>
+    </div>
+    <p class="car-produto-aviso" data-campo="aviso" role="status" hidden></p>
+    <div class="car-produto-corpo" id="car-corpo-{{ numero }}" data-carregado="0" hidden></div>
+</article>

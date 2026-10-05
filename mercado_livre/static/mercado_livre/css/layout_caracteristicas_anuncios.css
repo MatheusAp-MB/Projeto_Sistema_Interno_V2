@@ -1,0 +1,1623 @@
+/*
+* [RESUMO] → CSS da tela "Características dos anúncios" do Mercado Livre.
+* Todas as classes começam com "car-" (de "características") para não
+* esbarrar no Bootstrap (que já usa .card, .btn etc.). As cores base vêm
+* das variáveis globais de layout_global.css; só o que é exclusivo desta
+* tela fica declarado em .car-pagina logo abaixo.
+*
+* [EXPLICAÇÃO] → A cor aqui SIGNIFICA alguma coisa, sempre a mesma:
+*   verde  = igual em todos / pronto / lido por inteiro
+*   âmbar  = pede atenção (valores diferentes, campo em branco, lido em parte)
+*   azul   = informação, ação e o que vem do ERP
+*   cinza-azulado = ainda sem dado (nunca lido, vazio, N/A, não se aplica)
+*   vermelho = só erro
+* O azul-marinho (cor primária do sistema) estrutura a página: painel de
+* leitura, cabeçalho da lista e cabeçalho da tabela de anúncios.
+*/
+
+.car-pagina {
+    /* Neutros com um pouco do azul do sistema (nada de cinza puro). */
+    --car-texto-forte: #22324a;
+    --car-texto-suave: #586578;
+    --car-texto-fraco: #8491a3;
+    --car-linha: #e1e8f1;
+    --car-linha-forte: #c7d2e0;
+    --car-superficie: #f3f6fa;
+    --car-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* Azul: informação e ação. */
+    --car-azul-50: #eef5fb;
+    --car-azul-100: #d9e8f5;
+    --car-azul-200: #b3d0e8;
+    --car-azul-acao: #1f5f94;
+
+    /* Verde: igual / pronto. */
+    --car-verde-50: #eaf6ee;
+    --car-verde-100: #cdebd9;
+    --car-verde-borda: #a5d5b9;
+    --car-verde-texto: #1d5a38;
+
+    /* Âmbar: pede atenção. */
+    --car-ambar-50: #fff8e5;
+    --car-ambar-100: #fdecb4;
+    --car-ambar-200: #f3cf6e;
+    --car-ambar-texto: #7a4a05;
+
+    /* Cinza-azulado: sem dado. */
+    --car-cinza-50: #f3f5f9;
+    --car-cinza-100: #e4e9f0;
+    --car-cinza-300: #b8c2d0;
+    --car-cinza-600: #46546a;
+
+    --car-erro-fundo: #fde8e8;
+
+    --car-sombra: 0 1px 2px rgba(15, 39, 68, 0.06), 0 1px 3px rgba(15, 39, 68, 0.05);
+    --car-sombra-alta: 0 4px 14px rgba(15, 39, 68, 0.14);
+
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    color: var(--car-texto-forte);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.car-pagina code {
+    font-family: var(--car-mono);
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+    background: none;
+    padding: 0;
+}
+
+/* ================================================
+   BOTÕES E CAMPOS
+   ================================================ */
+.car-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 18px;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.car-btn:hover {
+    text-decoration: none;
+}
+
+.car-btn--primario {
+    background: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+}
+
+.car-btn--primario:hover {
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.car-btn--secundario {
+    background: var(--cor-fundo-card);
+    border-color: var(--car-azul-200);
+    color: var(--car-azul-acao);
+}
+
+.car-btn--secundario:hover {
+    background: var(--car-azul-100);
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria);
+}
+
+/* Botão branco para usar sobre o painel azul-marinho. */
+.car-btn--claro {
+    background: var(--cor-fundo-card);
+    border-color: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.car-btn--claro:hover {
+    background: var(--car-azul-100);
+    border-color: var(--car-azul-100);
+    color: var(--cor-primaria);
+}
+
+.car-btn:disabled,
+.car-btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.car-btn:focus-visible,
+.car-campo:focus-visible,
+.car-produto-toggle:focus-visible,
+.car-tabela-toggle:focus-visible,
+.car-chip-filtro:focus-visible,
+.car-kpi:focus-visible,
+.car-tabela-rolagem:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+/* Enquanto lê um produto: o ícone gira (só no botão que está lendo). */
+.car-btn--lendo i {
+    animation: car-girar 1s linear infinite;
+}
+
+@keyframes car-girar {
+    to { transform: rotate(360deg); }
+}
+
+.car-campo {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 8px;
+    background: var(--cor-fundo-card);
+    font: inherit;
+    color: var(--car-texto-forte);
+}
+
+/* Campo que ainda não aceita digitação: tracejado e sem preenchimento. */
+.car-campo--bloqueado {
+    background: var(--cor-fundo-card);
+    border: 1px dashed var(--car-linha-forte);
+    color: var(--car-texto-fraco);
+    cursor: not-allowed;
+}
+
+/* ================================================
+   PÍLULAS
+   ================================================ */
+.car-pilula {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.car-pilula--ok     { background: var(--car-verde-100); color: var(--car-verde-texto); }
+.car-pilula--alerta { background: var(--car-ambar-100); color: var(--car-ambar-texto); }
+.car-pilula--info   { background: var(--car-azul-100);  color: var(--cor-primaria); }
+.car-pilula--neutra { background: var(--car-cinza-100); color: var(--car-cinza-600); }
+
+/* ================================================
+   PAINEL DA LEITURA (botão "Fazer varredura completa")
+   ================================================ */
+.car-painel {
+    display: flex;
+    align-items: center;
+    gap: 16px 22px;
+    padding: 20px 24px;
+    background: var(--cor-primaria);
+    border-radius: 10px;
+    color: var(--cor-texto-claro);
+    box-shadow: var(--car-sombra);
+}
+
+.car-painel-icone {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 1.4rem;
+}
+
+.car-painel-texto {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.car-painel-titulo {
+    margin: 0;
+    font-size: 1.125rem;
+    color: var(--cor-texto-claro);
+}
+
+.car-painel-aviso {
+    margin: 0;
+    max-width: 80ch;
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.car-painel-aviso strong {
+    color: var(--cor-texto-claro);
+}
+
+.car-painel-ultima {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.8125rem;
+    color: var(--cor-texto-claro);
+}
+
+.car-painel-ultima i {
+    margin-top: 3px;
+    opacity: 0.8;
+}
+
+.car-painel-acao {
+    flex: none;
+}
+
+.car-falhas summary {
+    cursor: pointer;
+    color: #fcd77a;
+    font-weight: 700;
+}
+
+.car-falhas ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+    max-height: 180px;
+    overflow: auto;
+    font-size: 0.8125rem;
+}
+
+.car-falhas code {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+/* ================================================
+   PROGRESSO E RESULTADO DA VARREDURA
+   ================================================ */
+.car-progresso {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 20px;
+    background: var(--car-azul-50);
+    border: 1px solid var(--car-azul-200);
+    border-radius: 10px;
+}
+
+.car-progresso[hidden],
+.car-resultado[hidden] {
+    display: none;
+}
+
+.car-progresso-linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.car-progresso-numeros {
+    font-variant-numeric: tabular-nums;
+}
+
+.car-barra {
+    width: 100%;
+    height: 10px;
+    accent-color: var(--cor-primaria-clara);
+}
+
+.car-progresso-dica {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-resultado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 1px solid var(--car-azul-200);
+    border-radius: 10px;
+    background: var(--car-azul-50);
+    color: var(--cor-primaria);
+}
+
+.car-resultado--ok     { border-color: var(--car-verde-borda); background: var(--car-verde-50); color: var(--car-verde-texto); }
+.car-resultado--alerta { border-color: var(--car-ambar-200);   background: var(--car-ambar-50); color: var(--car-ambar-texto); }
+.car-resultado--erro   { border-color: #f1b0b7;                background: var(--car-erro-fundo); color: #a71d2a; }
+
+.car-resultado-texto {
+    flex: 1 1 0;
+    min-width: 0;
+    font-weight: 600;
+}
+
+.car-modal-corpo ul {
+    margin-bottom: 12px;
+}
+
+.car-modal-nota {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+}
+
+/* ================================================
+   BLOCOS DE RESUMO (também são o filtro de leitura da lista)
+   ================================================ */
+.car-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.car-kpi {
+    --kpi-cor: var(--cor-primaria);
+    --kpi-fundo-icone: var(--car-azul-100);
+    --kpi-fundo-ativo: var(--car-azul-50);
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-linha);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+    color: var(--car-texto-forte);
+    text-decoration: none;
+    transition: box-shadow 0.15s, transform 0.15s, background 0.15s;
+}
+
+.car-kpi:hover {
+    color: var(--car-texto-forte);
+    text-decoration: none;
+    box-shadow: var(--car-sombra-alta);
+    transform: translateY(-1px);
+}
+
+.car-kpi--nunca    { --kpi-cor: var(--car-cinza-600); --kpi-fundo-icone: var(--car-cinza-100); --kpi-fundo-ativo: var(--car-cinza-50); }
+.car-kpi--parcial  { --kpi-cor: #9a5b00;              --kpi-fundo-icone: var(--car-ambar-100); --kpi-fundo-ativo: var(--car-ambar-50); }
+.car-kpi--completa { --kpi-cor: var(--cor-positivo);  --kpi-fundo-icone: var(--car-verde-100); --kpi-fundo-ativo: var(--car-verde-50); }
+
+.car-kpi--ativo {
+    background: var(--kpi-fundo-ativo);
+    border-color: var(--kpi-cor);
+    box-shadow: 0 0 0 1px var(--kpi-cor), var(--car-sombra);
+}
+
+.car-kpi-icone {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--kpi-fundo-icone);
+    color: var(--kpi-cor);
+    font-size: 1.2rem;
+}
+
+.car-kpi-texto {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.car-kpi-numero {
+    font-family: "Nunito", sans-serif;
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--kpi-cor);
+    font-variant-numeric: tabular-nums;
+}
+
+.car-kpi-rotulo {
+    font-weight: 700;
+    color: var(--car-texto-forte);
+}
+
+.car-kpi-desc {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+/* ================================================
+   FILTROS
+   ================================================ */
+.car-filtros {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-linha);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+}
+
+.car-filtros-linha {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Linha de apoio logo acima da lista: quantos produtos e "Limpar filtros". */
+.car-lista-info {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 18px;
+    margin: -6px 2px -6px;
+}
+
+.car-busca {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.car-busca i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--car-texto-suave);
+    pointer-events: none;
+}
+
+.car-busca .car-campo {
+    padding-left: 36px;
+}
+
+.car-campo--marca  { flex: 0 0 200px; width: 200px; }
+.car-campo--pagina { flex: 0 0 150px; width: 150px; }
+
+/* Botões de filtro (tabela de anúncios e características). */
+.car-chips-leitura {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.car-chip-filtro {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 999px;
+    background: var(--cor-fundo-card);
+    color: var(--car-texto-forte);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.car-chip-filtro:hover {
+    border-color: var(--cor-primaria-clara);
+    background: var(--car-azul-50);
+    text-decoration: none;
+    color: var(--car-texto-forte);
+}
+
+.car-chip-filtro--ativo,
+.car-chip-filtro--ativo:hover {
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.car-chip-filtro-n {
+    min-width: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--car-cinza-100);
+    color: var(--car-cinza-600);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.car-chip-filtro--ativo .car-chip-filtro-n {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--cor-texto-claro);
+}
+
+.car-ponto {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.car-ponto--alerta  { background: var(--cor-alerta); }
+.car-ponto--marinho { background: var(--cor-primaria); }
+
+.car-chip-filtro--ativo .car-ponto--marinho { background: var(--cor-texto-claro); }
+
+.car-link-limpar {
+    font-weight: 700;
+    color: var(--car-azul-acao);
+}
+
+.car-contador {
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+    white-space: nowrap;
+}
+
+.car-contador strong {
+    color: var(--cor-primaria);
+}
+
+/* ================================================
+   LISTA DE PRODUTOS
+   ================================================ */
+.car-lista {
+    --car-colunas: 18px 150px 168px minmax(0, 1fr) 120px;
+    --car-largura-acao: 136px;
+
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-linha);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+    overflow: hidden;
+}
+
+/* Cabeçalho em azul-marinho, como o cabeçalho da tabela de frete. */
+.car-lista-cab {
+    display: flex;
+    align-items: center;
+    padding: 11px 20px;
+    background: var(--cor-primaria);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.car-lista-cab-grade,
+.car-produto-toggle {
+    display: grid;
+    grid-template-columns: var(--car-colunas);
+    align-items: center;
+    gap: 14px;
+}
+
+.car-lista-cab-grade {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.car-lista-cab-espaco {
+    flex: 0 0 var(--car-largura-acao);
+}
+
+/* A faixa da esquerda mostra, de longe, em que pé está cada produto. */
+.car-produto {
+    --car-estado-cor: var(--car-cinza-300);
+
+    border-left: 5px solid var(--car-estado-cor);
+    border-bottom: 1px solid var(--car-linha);
+}
+
+.car-produto--parcial  { --car-estado-cor: var(--cor-alerta); }
+.car-produto--completa { --car-estado-cor: var(--cor-positivo); }
+
+.car-produto:last-child {
+    border-bottom: 0;
+}
+
+.car-produto-cab {
+    display: flex;
+    align-items: center;
+    padding-right: 20px;
+}
+
+.car-produto--aberto .car-produto-cab {
+    background: var(--car-azul-50);
+}
+
+.car-produto-toggle {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 14px 0 14px 15px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.car-produto-toggle:hover {
+    background: var(--car-azul-50);
+}
+
+.car-produto-acao {
+    flex: 0 0 var(--car-largura-acao);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.car-btn--atualizar {
+    min-height: 36px;
+    padding: 0 14px;
+}
+
+.car-chevron {
+    color: var(--car-azul-acao);
+    transition: transform 0.15s;
+}
+
+[aria-expanded="true"] > .car-chevron {
+    transform: rotate(180deg);
+}
+
+.car-leitura {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+}
+
+.car-leitura-lidos {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.car-produto-lidos {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.car-mini-barra {
+    flex: 1 1 auto;
+    min-width: 36px;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--car-cinza-100);
+    color: var(--car-estado-cor);
+}
+
+.car-mini-barra::-webkit-progress-bar {
+    background: var(--car-cinza-100);
+    border-radius: 999px;
+}
+
+.car-mini-barra::-webkit-progress-value {
+    background: var(--car-estado-cor);
+    border-radius: 999px;
+}
+
+.car-mini-barra::-moz-progress-bar {
+    background: var(--car-estado-cor);
+    border-radius: 999px;
+}
+
+.car-sku {
+    justify-self: start;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--car-cinza-50);
+    border: 1px solid var(--car-linha);
+    font-family: var(--car-mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    white-space: nowrap;
+}
+
+.car-produto-nome {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.car-produto-titulo {
+    font-weight: 700;
+    color: var(--cor-primaria);
+    overflow-wrap: anywhere;
+}
+
+.car-produto-meta {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.car-produto-ultima {
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+}
+
+.car-produto-aviso {
+    margin: 0;
+    padding: 9px 20px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    background: var(--car-azul-50);
+    color: var(--cor-primaria);
+    white-space: pre-line;
+}
+
+.car-produto-aviso[hidden],
+.car-produto-corpo[hidden],
+.car-tabela-painel[hidden],
+.car-tabela-vazia[hidden],
+.car-cards-vazio[hidden],
+.car-card[hidden] {
+    display: none;
+}
+
+.car-produto-aviso--erro   { background: var(--car-erro-fundo); color: #a71d2a; }
+.car-produto-aviso--alerta { background: var(--car-ambar-100); color: var(--car-ambar-texto); }
+.car-produto-aviso--ok     { background: var(--car-verde-100); color: var(--car-verde-texto); }
+
+/* Produto aberto: o fundo azul-claro destaca os cards brancos. */
+.car-produto-corpo {
+    padding: 20px 24px 24px;
+    background: var(--car-azul-50);
+    border-top: 1px solid var(--car-azul-100);
+}
+
+.car-vazio {
+    margin: 0;
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--car-texto-suave);
+}
+
+.car-paginacao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.car-paginacao-atual {
+    color: var(--car-texto-suave);
+}
+
+/* ================================================
+   FICHA DO PRODUTO
+   ================================================ */
+.car-ficha {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.car-ficha-resumo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 12px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-azul-100);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+}
+
+.car-ficha-total {
+    font-family: "Nunito", sans-serif;
+    font-size: 1rem;
+    color: var(--cor-primaria);
+}
+
+.car-ficha-total i {
+    margin-right: 4px;
+    color: var(--cor-primaria-clara);
+}
+
+.car-ficha-lidos {
+    color: var(--car-texto-suave);
+}
+
+.car-ficha-leitura {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-ficha-leitura i {
+    margin-right: 4px;
+}
+
+.car-etiqueta {
+    padding: 2px 10px;
+    border: 1px solid var(--car-azul-200);
+    border-radius: 999px;
+    background: var(--car-azul-50);
+    color: var(--cor-primaria);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.car-avisos {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.car-avisos li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--car-ambar-200);
+    border-radius: 10px;
+    background: var(--car-ambar-50);
+    color: var(--car-ambar-texto);
+    font-weight: 600;
+}
+
+.car-avisos i {
+    margin-top: 3px;
+    color: #c77d00;
+}
+
+.car-ocultos {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-ocultos summary {
+    cursor: pointer;
+}
+
+.car-ocultos ul {
+    margin: 6px 0 0;
+    padding-left: 20px;
+    column-count: 2;
+}
+
+/* ---------- Linha que expande: anúncios do produto ---------- */
+.car-tabela-bloco {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-azul-200);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+    overflow: hidden;
+}
+
+.car-tabela-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 16px;
+    border: 0;
+    background: var(--cor-fundo-card);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.car-tabela-toggle:hover {
+    background: var(--car-azul-50);
+}
+
+.car-tabela-titulo {
+    flex: none;
+    font-family: "Nunito", sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--cor-primaria);
+}
+
+.car-tabela-titulo i {
+    margin-right: 4px;
+    color: var(--cor-primaria-clara);
+}
+
+.car-tabela-pilulas {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.car-tabela-dica {
+    flex: none;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-tabela-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 20px;
+    padding: 10px 16px;
+    background: var(--car-azul-50);
+    border-top: 1px solid var(--car-azul-100);
+    border-bottom: 1px solid var(--car-azul-100);
+}
+
+.car-tabela-barra .car-chip-filtro {
+    min-height: 30px;
+    padding: 0 12px;
+}
+
+.car-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-legenda > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.car-legenda-amostra {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--car-linha-forte);
+}
+
+.car-legenda-amostra--branco   { background: var(--car-ambar-100); border-color: var(--car-ambar-200); }
+.car-legenda-amostra--nao-pede { background: repeating-linear-gradient(45deg, #f1f4f8, #f1f4f8 3px, #dfe5ed 3px, #dfe5ed 6px); }
+.car-legenda-amostra--na       { background: #fff; border-style: dashed; }
+
+/* Tabela: altura limitada, rolagem nos dois sentidos, texto sempre inteiro. */
+.car-tabela-rolagem {
+    max-height: 440px;
+    overflow: auto;
+    background: var(--cor-fundo-card);
+}
+
+.car-tabela {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8125rem;
+}
+
+/* Cabeçalho em azul-marinho (igual ao da matriz de frete). */
+.car-tabela th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 10px 12px;
+    background: var(--cor-primaria);
+    border-left: 1px solid rgba(255, 255, 255, 0.14);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-claro);
+    text-align: left;
+    vertical-align: bottom;
+}
+
+.car-tabela th code {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.car-tabela td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--car-linha);
+    border-left: 1px solid #f0f3f8;
+    vertical-align: middle;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    background: var(--cor-fundo-card);
+}
+
+/* Passar o mouse numa linha clareia todas as células sem trocar a cor delas. */
+.car-tabela tbody tr:hover td {
+    box-shadow: inset 0 0 0 999px rgba(46, 123, 181, 0.07);
+}
+
+.car-tabela tr[hidden] {
+    display: none;
+}
+
+.car-tabela .car-th-nome {
+    display: block;
+    color: var(--cor-texto-claro);
+}
+
+/* Colunas fixas à esquerda: MLB e Título. */
+.car-tabela .car-col-mlb,
+.car-tabela .car-col-titulo {
+    position: sticky;
+    z-index: 3;
+}
+
+.car-tabela th.car-col-mlb,
+.car-tabela th.car-col-titulo {
+    z-index: 6;
+}
+
+.car-col-mlb {
+    left: 0;
+    width: 130px;
+    min-width: 130px;
+    font-family: var(--car-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-left: 0 !important;
+}
+
+.car-col-titulo {
+    left: 130px;
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    border-right: 1px solid var(--car-linha-forte);
+}
+
+.car-col-categoria { min-width: 200px; }
+.car-col-status    { min-width: 130px; white-space: nowrap; }
+.car-col-lido      { min-width: 110px; white-space: nowrap; }
+.car-col-campo--media { min-width: 170px; max-width: 220px; }
+.car-col-campo--larga { min-width: 240px; max-width: 300px; }
+
+.car-status-fora {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--car-ambar-texto);
+}
+
+/* Em branco = precisa de atenção: âmbar. */
+.car-tabela td.car-cel--branco {
+    background: var(--car-ambar-100);
+    color: var(--car-ambar-texto);
+    font-style: italic;
+    font-weight: 600;
+}
+
+.car-tabela td.car-cel--nao_pede {
+    background: repeating-linear-gradient(45deg, #f1f4f8, #f1f4f8 3px, #dfe5ed 3px, #dfe5ed 6px);
+    color: #7c8797;
+    font-size: 0.75rem;
+}
+
+.car-tabela td.car-cel--na {
+    color: var(--car-texto-suave);
+    font-style: italic;
+}
+
+.car-tabela td.car-cel--nao_lido {
+    background: var(--car-cinza-50);
+    color: var(--car-texto-fraco);
+    font-style: italic;
+}
+
+.car-tabela-vazia {
+    margin: 0;
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--car-texto-suave);
+    position: sticky;
+    left: 0;
+}
+
+/* ================================================
+   SEÇÃO DE CARDS
+   ================================================ */
+.car-secao-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.car-secao-cab {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+}
+
+.car-secao-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 1.0625rem;
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+.car-secao-n {
+    min-width: 26px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-family: "Open Sans", sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* ================================================
+   CARDS
+   ================================================ */
+/* * [EXPLICAÇÃO] → Cards sempre do MESMO tamanho (como no mockup aprovado):
+   3 por linha em tela larga, 2 em tela média, 1 no celular. Nenhum card
+   ocupa a linha inteira, nem os de texto. */
+.car-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+@media (min-width: 760px) {
+    .car-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1280px) {
+    .car-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* A cor do cabeçalho e da borda conta a situação do campo. */
+.car-card {
+    --cab-fundo: var(--car-cinza-50);
+    --cab-linha: var(--car-cinza-100);
+    --card-borda: var(--car-linha-forte);
+
+    display: flex;
+    flex-direction: column;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--card-borda);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+    overflow: hidden;
+}
+
+.car-card--uniforme {
+    --cab-fundo: var(--car-verde-50);
+    --cab-linha: var(--car-verde-100);
+    --card-borda: var(--car-verde-borda);
+}
+
+.car-card--diverge,
+.car-card--parcial {
+    --cab-fundo: var(--car-ambar-50);
+    --cab-linha: var(--car-ambar-100);
+    --card-borda: var(--car-ambar-200);
+}
+
+.car-card--erp {
+    --cab-fundo: var(--car-azul-50);
+    --cab-linha: var(--car-azul-100);
+    --card-borda: var(--car-azul-200);
+}
+
+.car-card-cab {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 16px 12px;
+    background: var(--cab-fundo);
+    border-bottom: 1px solid var(--cab-linha);
+}
+
+.car-card-ident {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.car-card-titulo {
+    margin: 0;
+    font-family: "Nunito", sans-serif;
+    font-size: 1.0625rem;
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--cor-primaria);
+    overflow-wrap: anywhere;
+}
+
+.car-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.car-card-api {
+    font-family: var(--car-mono);
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+/* Etiqueta de obrigatoriedade: "Obrigatório" é a mais forte. */
+.car-nivel {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    padding: 1px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.car-nivel--obrigatorio {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.car-nivel--condicional {
+    background: var(--car-azul-100);
+    border-color: var(--car-azul-200);
+    color: var(--cor-primaria);
+}
+
+.car-nivel--recomendado {
+    background: var(--cor-fundo-card);
+    border-color: var(--car-linha-forte);
+    color: var(--car-texto-suave);
+}
+
+.car-card-secao {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Valor a enviar: faixa azul-clara e discreta (ainda é só o formato do campo). */
+.car-card-secao--envio {
+    background: var(--car-superficie);
+    border-bottom: 1px solid var(--car-linha);
+}
+
+.car-card-secao--ml {
+    flex: 1 1 auto;
+}
+
+.car-rotulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--cor-primaria);
+}
+
+.car-rotulo i {
+    color: var(--cor-primaria-clara);
+}
+
+.car-ajuda {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-ajuda i {
+    color: var(--car-texto-fraco);
+}
+
+.car-travado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 12px;
+    background: var(--car-cinza-100);
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 8px;
+    color: var(--car-cinza-600);
+}
+
+.car-travado input {
+    flex: 1;
+    min-width: 0;
+    min-height: 38px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    color: var(--car-texto-forte);
+}
+
+.car-card .car-campo { min-height: 40px; }
+
+.car-numero-unidade {
+    display: flex;
+    gap: 8px;
+}
+
+.car-numero-unidade select {
+    flex: 0 0 90px;
+    width: 90px;
+}
+
+.car-simnao {
+    display: flex;
+    gap: 8px;
+}
+
+.car-btn-simnao {
+    flex: 1;
+    min-height: 40px;
+    border: 1px dashed var(--car-linha-forte);
+    border-radius: 8px;
+    background: var(--cor-fundo-card);
+    color: var(--car-texto-fraco);
+    font-weight: 600;
+    cursor: not-allowed;
+}
+
+.car-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Chip de valor: azul-claro por padrão; verde/âmbar/cinza quando o valor tem significado. */
+.car-chip {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    max-width: 100%;
+    padding: 5px 10px;
+    border: 1px solid var(--car-azul-200);
+    border-radius: 8px;
+    background: var(--car-azul-50);
+    color: var(--cor-primaria);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+.car-chip-rotulo {
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.car-chip-n {
+    font-weight: 400;
+}
+
+.car-chip--ok     { background: var(--car-verde-50);  border-color: var(--car-verde-borda); color: var(--car-verde-texto); }
+.car-chip--alerta { background: var(--car-ambar-50);  border-color: var(--car-ambar-200);   color: var(--car-ambar-texto); }
+.car-chip--neutro { background: var(--car-cinza-50);  border-color: var(--car-linha-forte); color: var(--car-cinza-600); }
+.car-chip--vazio  { background: var(--cor-fundo-card); border: 1px dashed #aab6c6; color: var(--car-texto-suave); font-style: italic; }
+
+.car-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+}
+
+.car-nota--ok,
+.car-nota--alerta {
+    font-weight: 700;
+}
+
+.car-nota--ok     { color: var(--car-verde-texto); }
+.car-nota--alerta { color: var(--car-ambar-texto); }
+
+/* Ícone na frente do aviso (Font Awesome pelo CSS, sem mexer no HTML). */
+.car-nota--ok::before,
+.car-nota--alerta::before {
+    flex: none;
+    margin-top: 2px;
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
+    font-weight: 900;
+    font-size: 0.8125rem;
+}
+
+.car-nota--ok::before     { content: "\f058"; color: var(--cor-positivo); }
+.car-nota--alerta::before { content: "\f071"; color: #d98a00; }
+
+.car-opcoes {
+    font-size: 0.75rem;
+    color: var(--car-texto-forte);
+}
+
+.car-opcoes summary {
+    cursor: pointer;
+    color: var(--car-azul-acao);
+    font-weight: 700;
+}
+
+.car-opcoes ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    max-height: 160px;
+    overflow: auto;
+}
+
+.car-opcoes-mais {
+    margin: 4px 0 0;
+    color: var(--car-texto-suave);
+}
+
+.car-card-rodape {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 12px 16px 14px;
+    border-top: 1px solid var(--car-linha);
+    background: var(--car-superficie);
+}
+
+.car-card-bloco {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.car-card-rodape .car-rotulo {
+    color: var(--car-texto-suave);
+}
+
+.car-card-forte {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--car-texto-forte);
+    overflow-wrap: anywhere;
+}
+
+.car-card-suave {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+/* ================================================
+   TELAS ESTREITAS
+   ================================================ */
+@media (max-width: 1100px) {
+    .car-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .car-painel,
+    .car-filtros-linha {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .car-painel-icone {
+        display: none;
+    }
+
+    .car-campo--marca,
+    .car-campo--pagina {
+        flex: none;
+        width: 100%;
+    }
+
+    .car-lista-cab {
+        display: none;
+    }
+
+    .car-produto-cab {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0 16px 12px 0;
+    }
+
+    /* No celular cada linha vira uma pilha: leitura, SKU, nome e data. */
+    .car-produto-toggle {
+        grid-template-columns: 18px minmax(0, 1fr);
+        row-gap: 8px;
+    }
+
+    .car-produto-toggle > :not(.car-produto-seta) {
+        grid-column: 2;
+    }
+
+    .car-produto-toggle .car-produto-seta {
+        grid-row: 1;
+    }
+
+    .car-leitura-lidos {
+        max-width: 240px;
+    }
+
+    .car-produto-acao {
+        flex: none;
+        justify-content: flex-start;
+        padding-left: 38px;
+    }
+
+    .car-tabela-toggle {
+        flex-wrap: wrap;
+    }
+
+    .car-tabela-pilulas,
+    .car-tabela-dica {
+        flex: 1 1 100%;
+    }
+
+    .car-ficha-leitura {
+        margin-left: 0;
+    }
+
+    .car-ocultos ul {
+        column-count: 1;
+    }
+}
+
+@media (max-width: 520px) {
+    .car-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .car-produto-corpo {
+        padding: 14px 12px 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .car-kpi,
+    .car-chevron {
+        transition: none;
+    }
+
+    .car-kpi:hover {
+        transform: none;
+    }
+
+    .car-btn--lendo i {
+        animation: none;
+    }
+}

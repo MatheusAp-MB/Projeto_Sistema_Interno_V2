@@ -1,0 +1,104 @@
+{% comment %}
+* [RESUMO] → 1 card de característica. TODOS os cards têm as mesmas 4 partes:
+  1) Característica; 2) Valor a enviar; 3) Hoje no Mercado Livre; 4) Regra e
+  Vale para. Nesta etapa o "Valor a enviar" só mostra o formato do campo
+  (desabilitado): o preenchimento e o envio ao ML são etapas seguintes.
+  A cor do cabeçalho mostra a situação do campo (verde = igual em todos,
+  âmbar = pede atenção, azul = vem do ERP, cinza = vazio ou N/A).
+{% endcomment %}
+<article class="car-card car-card--{{ card.estado }}"
+         id="{{ card.id_html }}"
+         data-atencao="{{ card.pede_atencao|yesno:'1,0' }}"
+         data-obrigatorio="{{ card.obrigatorio|yesno:'1,0' }}">
+
+    <header class="car-card-cab">
+        <div class="car-card-ident">
+            <label class="car-card-titulo" for="{{ card.id_html }}-valor">{{ card.label }}</label>
+            <span class="car-card-meta">
+                <span class="car-nivel {{ card.req_classe }}">{{ card.req_rotulo }}</span>
+                <span class="car-card-api">ID na API: <code>{{ card.atributo_id }}</code></span>
+            </span>
+        </div>
+        <span class="car-pilula {{ card.pilula_classe }}">{{ card.pilula_txt }}</span>
+    </header>
+
+    <div class="car-card-secao car-card-secao--envio">
+        <span class="car-rotulo"><i class="fas fa-paper-plane" aria-hidden="true"></i> Valor a enviar</span>
+        {% if card.eh_marca %}
+            <div class="car-travado">
+                <i class="fas fa-lock" aria-hidden="true"></i>
+                <input type="text" id="{{ card.id_html }}-valor" value="{{ card.valor_erp }}" readonly aria-readonly="true">
+            </div>
+            <span class="car-ajuda">Vem do cadastro do produto (ERP); não é digitada aqui.</span>
+        {% else %}
+            {% if card.booleano %}
+                <div class="car-simnao" role="group" aria-label="{{ card.label }}">
+                    <button type="button" class="car-btn-simnao" id="{{ card.id_html }}-valor" disabled>Sim</button>
+                    <button type="button" class="car-btn-simnao" disabled>Não</button>
+                </div>
+            {% elif card.tipo == 'lista' %}
+                <select class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" disabled>
+                    <option>Selecione…</option>
+                </select>
+            {% elif card.tipo == 'numero_unidade' %}
+                <div class="car-numero-unidade">
+                    <input type="number" class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" placeholder="Digite aqui" disabled>
+                    <select class="car-campo car-campo--bloqueado" aria-label="Unidade de medida" disabled>
+                        {% for unidade in card.unidades %}<option>{{ unidade }}</option>{% empty %}<option>—</option>{% endfor %}
+                    </select>
+                </div>
+            {% elif card.tipo == 'numero' %}
+                <input type="number" class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" placeholder="Digite aqui" disabled>
+            {% else %}
+                <input type="text" class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" placeholder="Digite aqui" disabled>
+            {% endif %}
+            <span class="car-ajuda"><i class="fas fa-lock" aria-hidden="true"></i> Preenchimento liberado na próxima etapa.</span>
+        {% endif %}
+    </div>
+
+    <div class="car-card-secao car-card-secao--ml">
+        <span class="car-rotulo"><i class="fas fa-store" aria-hidden="true"></i> Hoje no Mercado Livre</span>
+        {% if card.chips %}
+            <div class="car-chips">
+                {% for chip in card.chips %}
+                    <span class="{{ chip.classe }}">
+                        <span class="car-chip-rotulo">{{ chip.rotulo }}</span>
+                        <span class="car-chip-n">· {{ chip.n_txt }}{% if chip.nota %} · {{ chip.nota }}{% endif %}</span>
+                    </span>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <span class="car-nota {{ card.ml_nota_classe }}">{{ card.ml_nota }}</span>
+
+        {% if card.opcoes_exibidas and not card.booleano and not card.eh_marca %}
+            <details class="car-opcoes">
+                <summary>
+                    {% if card.tipo == 'lista' %}
+                        {% if card.opcoes_total == 1 %}Ver a única opção aceita{% else %}Ver as {{ card.opcoes_total }} opções aceitas{% endif %}
+                    {% else %}
+                        {% if card.opcoes_total == 1 %}Ver a única sugestão do ML{% else %}Ver as {{ card.opcoes_total }} sugestões do ML{% endif %}
+                    {% endif %}
+                </summary>
+                <ul>
+                    {% for opcao in card.opcoes_exibidas %}<li>{{ opcao }}</li>{% endfor %}
+                </ul>
+                {% if card.opcoes_restantes %}
+                    <p class="car-opcoes-mais">… e mais {{ card.opcoes_restantes }}.</p>
+                {% endif %}
+            </details>
+        {% endif %}
+    </div>
+
+    <footer class="car-card-rodape">
+        <div class="car-card-bloco">
+            <span class="car-rotulo">Regra</span>
+            <span class="car-card-forte">{{ card.regra1 }}</span>
+            <span class="car-card-suave">{{ card.regra2 }}</span>
+        </div>
+        <div class="car-card-bloco">
+            <span class="car-rotulo">Vale para</span>
+            <span class="car-card-forte">{{ card.vale1 }}</span>
+            <span class="car-card-suave">{{ card.vale2 }}</span>
+        </div>
+    </footer>
+</article>

@@ -30,6 +30,31 @@ class AnuncioMercadoLivre(models.Model):
     #                  checkpoint no vault).
     fotos = models.JSONField(blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Espelho cru do array "attributes" da API, nível de
+    #                  anúncio — mesma natureza do campo fotos acima: dado
+    #                  de consumo, sobrescrito por inteiro a cada leitura,
+    #                  nunca escrito por interação do usuário. É o "Hoje no
+    #                  Mercado Livre" da tela de Características dos
+    #                  anúncios. atributos_ml_lido_em guarda QUANDO essa
+    #                  leitura aconteceu (alimenta "Última leitura do ML" e
+    #                  a auditoria pós-envio).
+    atributos_ml = models.JSONField(blank=True, null=True)
+    atributos_ml_lido_em = models.DateTimeField(blank=True, null=True)
+
+    # * [EXPLICAÇÃO] → Categoria e status que o ML informou NA HORA dessa
+    #                  mesma leitura (crus, como a API devolveu). A categoria
+    #                  aqui é a que define quais características o card
+    #                  pede para este MLB — pode divergir da categoria
+    #                  gravada na Variação se o ML mudou o anúncio de
+    #                  categoria depois da última importação. O status
+    #                  (active, paused, closed...) permite avisar na tela
+    #                  quando o banco achava o anúncio ativo e o ML já o
+    #                  encerrou. Texto simples (sem FK) para a leitura
+    #                  nunca falhar por a categoria ainda não existir na
+    #                  tabela de categorias.
+    atributos_ml_categoria_id = models.CharField(max_length=30, blank=True, null=True)
+    atributos_ml_status = models.CharField(max_length=20, blank=True, null=True)
+
     permalink  = models.URLField(max_length=500, blank=True, null=True)
     data_criacao_ml       = models.DateTimeField(blank=True, null=True)
     ultima_atualizacao_ml = models.DateTimeField(blank=True, null=True)

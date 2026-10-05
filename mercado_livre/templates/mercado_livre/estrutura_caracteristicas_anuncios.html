@@ -1,0 +1,209 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Características dos anúncios — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Características dos anúncios — Mercado Livre{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'mercado_livre/css/layout_caracteristicas_anuncios.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Características dos anúncios" do Mercado Livre.
+      Tudo que aparece aqui vem do BANCO. A API do ML só é chamada pelos
+      2 botões desta tela ("Fazer varredura completa" e o "Atualizar" de
+      cada produto) — abrir, filtrar, paginar ou expandir um produto nunca
+      chama a API.
+    {% endcomment %}
+    <div class="car-pagina"
+         data-url-varredura-iniciar="{% url 'mercado_livre_caracteristicas_varredura_iniciar' %}"
+         data-url-varredura-status="{% url 'mercado_livre_caracteristicas_varredura_status' %}">
+
+        <form id="car-csrf" hidden>{% csrf_token %}</form>
+
+        <section class="car-painel" aria-label="Leitura do Mercado Livre">
+            <div class="car-painel-icone" aria-hidden="true"><i class="fas fa-database"></i></div>
+            <div class="car-painel-texto">
+                <h2 class="car-painel-titulo">Leitura do Mercado Livre</h2>
+                <p class="car-painel-aviso">
+                    Esta tela mostra só o que já está salvo no banco. O Mercado Livre é consultado
+                    apenas quando você clica em <strong>Fazer varredura completa</strong> ou em
+                    <strong>Atualizar</strong> (na linha de um produto).
+                </p>
+                {% if ultima_varredura %}
+                    <p class="car-painel-ultima">
+                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                        <span>Última varredura completa: <strong>{{ ultima_varredura.iniciada_txt }}</strong>
+                        — {{ ultima_varredura.anuncios_lidos }} de {{ ultima_varredura.total_anuncios }}
+                        anúncio{{ ultima_varredura.total_anuncios|pluralize }} e {{ ultima_varredura.categorias_lidas }}
+                        categoria{{ ultima_varredura.categorias_lidas|pluralize }} lidos
+                        ({{ ultima_varredura.get_situacao_display|lower }}{% if ultima_varredura.usuario %}, por {{ ultima_varredura.usuario }}{% endif %}).</span>
+                    </p>
+                    {% if ultima_varredura.falhas_lista %}
+                        <details class="car-falhas">
+                            <summary>{{ ultima_varredura.falhas_lista|length }} falha{{ ultima_varredura.falhas_lista|length|pluralize }} nessa varredura</summary>
+                            <ul>
+                                {% for falha in ultima_varredura.falhas_lista %}
+                                    <li><code>{{ falha.id|default:falha.tipo }}</code> — {{ falha.erro }}</li>
+                                {% endfor %}
+                            </ul>
+                        </details>
+                    {% endif %}
+                {% else %}
+                    <p class="car-painel-ultima">
+                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                        <span>Nenhuma varredura completa foi feita ainda.</span>
+                    </p>
+                {% endif %}
+            </div>
+            <div class="car-painel-acao">
+                <button type="button"
+                        class="car-btn car-btn--claro"
+                        id="car-btn-varredura"
+                        data-bs-toggle="modal"
+                        data-bs-target="#car-modal-varredura">
+                    <i class="fas fa-satellite-dish" aria-hidden="true"></i> Fazer varredura completa
+                </button>
+            </div>
+        </section>
+
+        <section class="car-progresso" id="car-progresso" hidden aria-live="polite">
+            <div class="car-progresso-linha">
+                <span class="car-progresso-rotulo" id="car-progresso-rotulo">Preparando a leitura</span>
+                <span class="car-progresso-numeros" id="car-progresso-numeros"></span>
+            </div>
+            <progress class="car-barra" id="car-barra" max="100"></progress>
+            <p class="car-progresso-dica">
+                Você pode continuar nesta tela, mas o botão <strong>Atualizar</strong> dos produtos
+                fica bloqueado até a varredura terminar.
+            </p>
+        </section>
+
+        <section class="car-resultado" id="car-resultado" hidden role="status">
+            <i class="fas fa-circle-info car-resultado-icone" aria-hidden="true"></i>
+            <span class="car-resultado-texto" id="car-resultado-texto"></span>
+            <button type="button" class="car-btn car-btn--secundario" id="car-resultado-recarregar" hidden>
+                Atualizar a lista
+            </button>
+        </section>
+
+        <nav class="car-kpis" aria-label="Resumo da leitura (clique para filtrar a lista)">
+            {% for filtro in filtros_leitura %}
+                <a href="{{ filtro.url }}"
+                   class="car-kpi car-kpi--{{ filtro.chave }}{% if filtro.ativo %} car-kpi--ativo{% endif %}"
+                   {% if filtro.ativo %}aria-current="true"{% endif %}>
+                    <span class="car-kpi-icone" aria-hidden="true"><i class="fas {{ filtro.icone }}"></i></span>
+                    <span class="car-kpi-texto">
+                        <span class="car-kpi-numero">{{ filtro.n }}</span>
+                        <span class="car-kpi-rotulo">{{ filtro.rotulo }}</span>
+                        <span class="car-kpi-desc">{{ filtro.descricao }}</span>
+                    </span>
+                </a>
+            {% endfor %}
+        </nav>
+
+        <form method="get" class="car-filtros" aria-label="Filtros">
+            <div class="car-filtros-linha">
+                <div class="car-busca">
+                    <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="text"
+                           id="car-busca"
+                           name="busca"
+                           value="{{ busca }}"
+                           placeholder="Buscar por SKU, título, marca ou MLB"
+                           aria-label="Buscar por SKU, título, marca ou MLB"
+                           class="car-campo">
+                </div>
+                <select name="marca" id="car-marca" class="car-campo car-campo--marca" aria-label="Marca">
+                    <option value="">Todas as marcas</option>
+                    {% for nome_marca in marcas %}
+                        <option value="{{ nome_marca }}" {% if nome_marca == marca %}selected{% endif %}>{{ nome_marca }}</option>
+                    {% endfor %}
+                </select>
+                <select name="por_pagina" id="car-por-pagina" class="car-campo car-campo--pagina" aria-label="Produtos por página">
+                    {% for opcao in opcoes_por_pagina %}
+                        <option value="{{ opcao }}" {% if opcao == por_pagina %}selected{% endif %}>{{ opcao }} por página</option>
+                    {% endfor %}
+                </select>
+                {% if leitura %}<input type="hidden" name="leitura" value="{{ leitura }}">{% endif %}
+                <button type="submit" class="car-btn car-btn--primario">Buscar</button>
+            </div>
+        </form>
+
+        <div class="car-lista-info">
+            <span class="car-contador">
+                <strong>{{ pagina.paginator.count }}</strong> produto{{ pagina.paginator.count|pluralize }} — página {{ pagina.number }} de {{ pagina.paginator.num_pages }}
+            </span>
+            {% if busca or marca or leitura %}
+                <a href="?por_pagina={{ por_pagina }}" class="car-link-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar filtros</a>
+            {% endif %}
+        </div>
+
+        <section class="car-lista" aria-label="Produtos">
+            <div class="car-lista-cab" aria-hidden="true">
+                <div class="car-lista-cab-grade">
+                    <span></span>
+                    <span>Leitura</span>
+                    <span>SKU</span>
+                    <span>Produto</span>
+                    <span>Última leitura</span>
+                </div>
+                <span class="car-lista-cab-espaco"></span>
+            </div>
+
+            {% for produto in pagina.object_list %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_linha_produto_caracteristicas.html' with produto=produto numero=forloop.counter %}
+            {% empty %}
+                <p class="car-vazio">
+                    {% if busca or marca or leitura %}
+                        Nenhum produto com esses filtros.
+                    {% else %}
+                        Nenhum produto com anúncios elegíveis. Só entram produtos do ERP com anúncio ativo ou
+                        pausado no Mercado Livre (anúncios de catálogo não entram).
+                    {% endif %}
+                </p>
+            {% endfor %}
+        </section>
+
+        <nav class="car-paginacao" aria-label="Páginas">
+            {% if pagina.has_previous %}
+                <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.previous_page_number }}" class="car-btn car-btn--secundario">« Anterior</a>
+            {% endif %}
+            <span class="car-paginacao-atual">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+            {% if pagina.has_next %}
+                <a href="?{{ querystring_sem_pagina }}&pagina={{ pagina.next_page_number }}" class="car-btn car-btn--secundario">Próxima »</a>
+            {% endif %}
+        </nav>
+
+        <div class="modal fade" id="car-modal-varredura" tabindex="-1" aria-labelledby="car-modal-varredura-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="car-modal-varredura-titulo">Fazer varredura completa?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body car-modal-corpo">
+                        <p>
+                            Vou consultar o Mercado Livre agora e guardar tudo no banco. Pela contagem de hoje:
+                        </p>
+                        <ul>
+                            <li><strong>{{ estimativa.n_anuncios }}</strong> anúncio{{ estimativa.n_anuncios|pluralize }} (1 chamada por anúncio);</li>
+                            <li><strong>{{ estimativa.n_categorias }}</strong> categoria{{ estimativa.n_categorias|pluralize }} (2 chamadas por categoria);</li>
+                            <li>cerca de <strong>{{ estimativa.n_chamadas }}</strong> chamadas à API no total.</li>
+                        </ul>
+                        <p class="car-modal-nota">
+                            Pode levar alguns minutos. Os dados lidos substituem os que estão salvos.
+                            Se o Mercado Livre trocou algum anúncio de categoria, o número real pode ser um pouco diferente.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="car-btn car-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="car-btn car-btn--primario" id="car-modal-confirmar">Fazer varredura</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'mercado_livre/js/script_caracteristicas_anuncios.js' %}"></script>
+{% endblock %}

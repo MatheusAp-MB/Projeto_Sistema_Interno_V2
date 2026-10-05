@@ -8,8 +8,8 @@
 # ClienteApiMercadoLivre (transporte, conta presa) e o user_id 1 única
 # vez, e expõe cada domínio como método direto — quem usa nunca importa
 # chamar_api nem sabe que existe um Contexto por trás. 6 domínios
-# migrados: frete, mlbs, detalhes, sku completo, comissão real e
-# categorias.
+# migrados: frete, mlbs, detalhes, sku completo, comissão real,
+# categorias e atributos (características).
 
 import os
 
@@ -22,6 +22,7 @@ from .detalhes_ml import DetalhesML
 from .dados_sku_completo_ml import DadosSkuCompletoML
 from .comissao_real_ml import ComissaoRealML
 from .categorias_ml import CategoriasML
+from .atributos_ml import AtributosML
 from core.empresa import obter_empresa_ativa, PREFIXO_ENV_POR_EMPRESA
 
 
@@ -51,6 +52,7 @@ class ApiMercadoLivre:
         self._dados_sku_completo = None
         self._comissao_real = None
         self._categorias = None
+        self._atributos = None
 
     @staticmethod
     def _carregar_user_id(conta):
@@ -133,3 +135,20 @@ class ApiMercadoLivre:
 
     def baixar_dump_categorias(self):
         return self._contexto_categorias.baixar_dump(self._pasta_logs)
+
+    @property
+    def _contexto_atributos(self):
+        if self._atributos is None:
+            self._atributos = AtributosML(self._cliente)
+        return self._atributos
+
+    # Função Objetivo: O que a categoria pede no card "Características
+    # principais" (2 chamadas). Só deve ser chamado por botão da tela de
+    # Características dos anúncios — nunca automaticamente.
+    def buscar_card_categoria(self, category_id):
+        return self._contexto_atributos.buscar_card_categoria(category_id, self._pasta_logs)
+
+    # Função Objetivo: Valores que o anúncio tem hoje no ML (1 chamada por
+    # MLB). Mesma regra: só por botão da tela, nunca automático.
+    def buscar_atributos_item(self, mlb):
+        return self._contexto_atributos.buscar_atributos_item(mlb, self._pasta_logs)

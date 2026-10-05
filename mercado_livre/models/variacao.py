@@ -69,6 +69,7 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     estoque    = models.IntegerField(default=0)
     qtd_vendas = models.IntegerField(default=0)
     atributos  = models.CharField(max_length=255, blank=True, null=True)
+
     num_fotos  = models.IntegerField(default=0)
 
     thumbnail_url = models.URLField(max_length=500, blank=True, null=True)

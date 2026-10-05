@@ -12,3 +12,6 @@ from .configuracao_mercado_livre import (
 from .promocao_mercado_livre import PromocaoMercadoLivre
 from .recomendacao_precificacao import RecomendacaoPrecificacao
 from .categoria import CategoriaMercadoLivre, EstadoDumpCategoriasMercadoLivre
+from .atributo_categoria import AtributoCategoriaMercadoLivre
+from .caracteristica_produto import CaracteristicaProdutoMercadoLivre
+from .varredura_caracteristicas import VarreduraCaracteristicasMercadoLivre
