@@ -1,0 +1,20 @@
+{% comment %}
+* [RESUMO] → Barra de envio de 1 produto. Aparece em cima e embaixo dos cards
+  (mesmo conteúdo; o JS atualiza as duas). Nada aqui chama o Mercado Livre:
+  "Revisar e enviar" só abre a prévia, e o envio de verdade só acontece no
+  "Confirmar envio" da janela. "Descartar" só limpa o que foi digitado.
+{% endcomment %}
+<div class="car-envio-barra" data-campo="barra-envio">
+    <p class="car-envio-contagem" data-campo="contagem-alterados" role="status" aria-live="polite">
+        Nenhum campo alterado. Campo vazio = não mexe no Mercado Livre.
+    </p>
+    <div class="car-envio-botoes">
+        <button type="button" class="car-btn car-btn--secundario" data-acao="descartar-alteracoes" disabled>
+            <i class="fas fa-eraser" aria-hidden="true"></i> Descartar alterações
+        </button>
+        <button type="button" class="car-btn car-btn--primario" data-acao="revisar-envio" disabled
+                title="Mostra o que cada anúncio vai receber. Ainda não envia nada.">
+            <i class="fas fa-paper-plane" aria-hidden="true"></i> Revisar e enviar
+        </button>
+    </div>
+</div>

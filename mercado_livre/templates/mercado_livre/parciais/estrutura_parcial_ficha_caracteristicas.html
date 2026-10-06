@@ -1,7 +1,8 @@
 {% comment %}
 * [RESUMO] → Ficha de 1 produto (carregada do banco quando a linha é aberta):
   resumo e avisos, linha que expande com a tabela de anúncios e, abaixo,
-  os cards das características. Nenhuma parte daqui chama a API.
+  os cards das características, com a barra "Revisar e enviar" em cima e
+  embaixo deles. Nenhuma parte daqui chama a API.
 {% endcomment %}
 <div class="car-ficha">
     <div class="car-ficha-resumo">
@@ -129,12 +130,14 @@
                     </button>
                 </div>
             </div>
+            {% include 'mercado_livre/parciais/estrutura_parcial_barra_envio_caracteristicas.html' %}
             <div class="car-cards">
                 {% for card in ficha.cards %}
                     {% include 'mercado_livre/parciais/estrutura_parcial_card_caracteristica.html' with card=card %}
                 {% endfor %}
             </div>
             <p class="car-vazio car-cards-vazio" hidden>Nenhuma característica neste filtro.</p>
+            {% include 'mercado_livre/parciais/estrutura_parcial_barra_envio_caracteristicas.html' %}
         </section>
     {% else %}
         <p class="car-vazio">

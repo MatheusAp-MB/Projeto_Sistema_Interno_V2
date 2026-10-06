@@ -1,14 +1,18 @@
 {% comment %}
 * [RESUMO] → 1 linha da lista de produtos da tela de Características dos
   anúncios. O botão da esquerda só abre/fecha a ficha (que é carregada do
-  banco na primeira abertura). O botão "Atualizar" é o ÚNICO jeito de ler a
+  banco na primeira abertura). O botão "Atualizar" é o único que só LÊ a
   API para este produto — por isso é um botão separado, nunca dentro do
-  botão de abrir.
+  botão de abrir. O envio de características (revisar e confirmar) acontece
+  dentro da ficha do produto; as rotas ficam aqui, nos data-url, junto das
+  outras.
 {% endcomment %}
 <article class="car-produto car-produto--{{ produto.estado }}"
          data-sku="{{ produto.sku }}"
          data-url-ficha="{% url 'mercado_livre_caracteristicas_ficha' produto.sku %}"
-         data-url-atualizar="{% url 'mercado_livre_caracteristicas_atualizar' produto.sku %}">
+         data-url-atualizar="{% url 'mercado_livre_caracteristicas_atualizar' produto.sku %}"
+         data-url-revisar="{% url 'mercado_livre_caracteristicas_revisar_envio' produto.sku %}"
+         data-url-enviar="{% url 'mercado_livre_caracteristicas_enviar' produto.sku %}">
     <div class="car-produto-cab">
         <button type="button"
                 class="car-produto-toggle"
@@ -27,6 +31,7 @@
             <span class="car-produto-nome">
                 <span class="car-produto-titulo">{{ produto.titulo|default:"(sem título)" }}</span>
                 <span class="car-produto-meta">{{ produto.marca|default:"Sem marca" }} · {{ produto.n_anuncios }} anúncio{{ produto.n_anuncios|pluralize }}</span>
+                <span class="car-produto-alterados" data-campo="alterados-linha" hidden></span>
             </span>
             <span class="car-produto-ultima" data-campo="ultima">{{ produto.ultima_leitura_txt|default:"—" }}</span>
         </button>

@@ -152,3 +152,10 @@ class ApiMercadoLivre:
     # MLB). Mesma regra: só por botão da tela, nunca automático.
     def buscar_atributos_item(self, mlb):
         return self._contexto_atributos.buscar_atributos_item(mlb, self._pasta_logs)
+
+    # Função Objetivo: ENVIA atributos novos para 1 anúncio (PUT /items/{mlb},
+    # 1 tentativa, sem retentativa). É o único método deste ponto de entrada
+    # que ESCREVE nas características — só o botão "Confirmar envio" da tela
+    # de Características dos anúncios chama, nunca automaticamente.
+    def enviar_atributos_item(self, mlb, atributos):
+        return self._contexto_atributos.enviar_atributos_item(mlb, atributos, self._pasta_logs)

@@ -137,6 +137,16 @@
     cursor: not-allowed;
 }
 
+/* O atributo hidden perde para display:inline-flex; este rola por cima. */
+.car-btn[hidden],
+.car-pilula[hidden],
+.car-limpar[hidden],
+.car-erro-campo[hidden],
+.car-produto-alterados[hidden],
+.car-modal-envio-estado[hidden] {
+    display: none;
+}
+
 .car-btn:focus-visible,
 .car-campo:focus-visible,
 .car-produto-toggle:focus-visible,
@@ -168,14 +178,6 @@
     color: var(--car-texto-forte);
 }
 
-/* Campo que ainda não aceita digitação: tracejado e sem preenchimento. */
-.car-campo--bloqueado {
-    background: var(--cor-fundo-card);
-    border: 1px dashed var(--car-linha-forte);
-    color: var(--car-texto-fraco);
-    cursor: not-allowed;
-}
-
 /* ================================================
    PÍLULAS
    ================================================ */
@@ -194,6 +196,14 @@
 .car-pilula--alerta { background: var(--car-ambar-100); color: var(--car-ambar-texto); }
 .car-pilula--info   { background: var(--car-azul-100);  color: var(--cor-primaria); }
 .car-pilula--neutra { background: var(--car-cinza-100); color: var(--car-cinza-600); }
+.car-pilula--erro   { background: #f6cfd3; color: #8f1d28; }
+
+/* Digitado e ainda não enviado: contorno tracejado azul (só existe na página). */
+.car-pilula--alterado {
+    background: var(--cor-fundo-card);
+    border: 1px dashed var(--car-azul-acao);
+    color: var(--car-azul-acao);
+}
 
 /* ================================================
    PAINEL DA LEITURA (botão "Fazer varredura completa")
@@ -756,6 +766,19 @@
     overflow-wrap: anywhere;
 }
 
+/* Lembrete na linha do produto quando há valor digitado e não enviado. */
+.car-produto-alterados {
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border: 1px dashed var(--car-azul-acao);
+    border-radius: 999px;
+    background: var(--cor-fundo-card);
+    color: var(--car-azul-acao);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
 .car-produto-ultima {
     font-variant-numeric: tabular-nums;
     font-size: 0.8125rem;
@@ -1250,6 +1273,41 @@
     gap: 5px;
 }
 
+/* Pílulas de estado empilhadas à direita do título. */
+.car-cab-estado {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+/* Digitou algo neste card: a borda azul conta que há valor esperando envio. */
+.car-card--alterado {
+    --card-borda: var(--car-azul-acao);
+    box-shadow: 0 0 0 1px var(--car-azul-acao), var(--car-sombra);
+}
+
+.car-card--alterado .car-card-secao--envio {
+    background: var(--car-azul-50);
+    border-bottom-color: var(--car-azul-200);
+}
+
+/* O servidor recusou o valor: borda vermelha e a mensagem logo abaixo do campo. */
+.car-card--com-erro {
+    --card-borda: #d6636f;
+    box-shadow: 0 0 0 1px #d6636f, var(--car-sombra);
+}
+
+.car-card--com-erro .car-card-secao--envio {
+    background: var(--car-erro-fundo);
+    border-bottom-color: #f1b0b7;
+}
+
+.car-card--com-erro .car-entrada {
+    border-color: #d6636f;
+}
+
 .car-card-titulo {
     margin: 0;
     font-family: "Nunito", sans-serif;
@@ -1335,6 +1393,48 @@
     color: var(--cor-primaria-clara);
 }
 
+/* Rótulo com botão do lado direito ("Valor a enviar" + Desfazer). */
+.car-rotulo--com-acao {
+    justify-content: space-between;
+}
+
+.car-rotulo-texto {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.car-limpar {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 28px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--car-azul-acao);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+
+.car-limpar i {
+    color: inherit;
+}
+
+.car-limpar:hover {
+    background: var(--car-azul-100);
+    color: var(--cor-primaria);
+}
+
+.car-limpar:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 1px;
+}
+
 .car-ajuda {
     display: flex;
     align-items: center;
@@ -1387,15 +1487,63 @@
     gap: 8px;
 }
 
+/* Sim / Não: um clica para escolher, clica de novo para desmarcar ("não mexer"). */
 .car-btn-simnao {
     flex: 1;
     min-height: 40px;
-    border: 1px dashed var(--car-linha-forte);
+    border: 1px solid var(--car-linha-forte);
     border-radius: 8px;
     background: var(--cor-fundo-card);
+    color: var(--car-texto-forte);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.car-btn-simnao:hover {
+    background: var(--car-azul-50);
+    border-color: var(--cor-primaria-clara);
+}
+
+.car-btn-simnao[aria-pressed="true"] {
+    background: var(--car-azul-acao);
+    border-color: var(--car-azul-acao);
+    color: var(--cor-texto-claro);
+}
+
+.car-btn-simnao:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+.car-caracteres {
+    align-self: flex-end;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
     color: var(--car-texto-fraco);
-    font-weight: 600;
-    cursor: not-allowed;
+}
+
+.car-caracteres--excedido {
+    color: #a71d2a;
+    font-weight: 700;
+}
+
+.car-erro-campo {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #a71d2a;
+}
+
+.car-erro-campo::before {
+    flex: none;
+    margin-top: 2px;
+    content: "\f057";
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
+    font-weight: 900;
+    font-size: 0.8125rem;
 }
 
 .car-chips {
@@ -1520,6 +1668,322 @@
 }
 
 /* ================================================
+   BARRA DE ENVIO (em cima e embaixo dos cards do produto)
+   ================================================ */
+.car-envio-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    padding: 12px 16px;
+    border: 1px solid var(--car-azul-100);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    box-shadow: var(--car-sombra);
+}
+
+.car-envio-contagem {
+    flex: 1 1 260px;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+}
+
+.car-envio-contagem--ativa {
+    font-weight: 700;
+    color: var(--car-azul-acao);
+}
+
+.car-envio-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* ================================================
+   JANELA "REVISAR O ENVIO" E RESULTADO
+   ================================================ */
+.car-modal-envio-estado {
+    flex: 1 1 100%;
+    margin: 0 0 4px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--car-texto-suave);
+}
+
+.car-modal-envio-estado--erro {
+    color: #a71d2a;
+}
+
+.car-previa {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.car-previa-produto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin: 0;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.car-previa-produto i {
+    color: var(--cor-primaria-clara);
+}
+
+.car-previa-bloco {
+    --pb-fundo: var(--car-azul-50);
+    --pb-borda: var(--car-azul-200);
+    --pb-texto: var(--cor-primaria);
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px;
+    border: 1px solid var(--pb-borda);
+    border-radius: 10px;
+    background: var(--pb-fundo);
+    color: var(--pb-texto);
+}
+
+.car-previa-bloco--ok {
+    --pb-fundo: var(--car-verde-50);
+    --pb-borda: var(--car-verde-borda);
+    --pb-texto: var(--car-verde-texto);
+}
+
+.car-previa-bloco--alerta {
+    --pb-fundo: var(--car-ambar-50);
+    --pb-borda: var(--car-ambar-200);
+    --pb-texto: var(--car-ambar-texto);
+}
+
+.car-previa-bloco--erro {
+    --pb-fundo: var(--car-erro-fundo);
+    --pb-borda: #f1b0b7;
+    --pb-texto: #a71d2a;
+}
+
+.car-previa-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 800;
+}
+
+.car-previa-lista {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.car-previa-lista li {
+    margin-bottom: 4px;
+    overflow-wrap: anywhere;
+}
+
+.car-previa-resumo {
+    margin: 0;
+    font-size: 0.9375rem;
+}
+
+.car-previa-nota {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+}
+
+.car-previa-bloco .car-previa-nota {
+    color: inherit;
+}
+
+.car-previa-anuncios {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Um quadro por anúncio: a cor do cabeçalho conta o que acontece com ele. */
+.car-previa-anuncio {
+    --ac-fundo: var(--car-azul-50);
+    --ac-linha: var(--car-azul-100);
+    --ac-borda: var(--car-azul-200);
+
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--ac-borda);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    overflow: hidden;
+}
+
+.car-previa-anuncio--igual,
+.car-previa-anuncio--aceito {
+    --ac-fundo: var(--car-verde-50);
+    --ac-linha: var(--car-verde-100);
+    --ac-borda: var(--car-verde-borda);
+}
+
+.car-previa-anuncio--pulado,
+.car-previa-anuncio--incerto {
+    --ac-fundo: var(--car-ambar-50);
+    --ac-linha: var(--car-ambar-100);
+    --ac-borda: var(--car-ambar-200);
+}
+
+.car-previa-anuncio--recusado {
+    --ac-fundo: var(--car-erro-fundo);
+    --ac-linha: #f6cfd3;
+    --ac-borda: #f1b0b7;
+}
+
+.car-previa-anuncio--nao_pede,
+.car-previa-anuncio--nao_enviado {
+    --ac-fundo: var(--car-cinza-50);
+    --ac-linha: var(--car-cinza-100);
+    --ac-borda: var(--car-linha-forte);
+}
+
+.car-previa-anuncio-cab {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--ac-fundo);
+    border-bottom: 1px solid var(--ac-linha);
+}
+
+.car-previa-anuncio-ident {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.car-previa-mlb {
+    font-family: var(--car-mono);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--car-azul-acao);
+}
+
+.car-previa-titulo-anuncio {
+    font-weight: 700;
+    color: var(--cor-primaria);
+    overflow-wrap: anywhere;
+}
+
+.car-previa-categoria {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.car-previa-motivo {
+    margin: 0;
+    padding: 8px 14px;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+    border-bottom: 1px solid var(--car-linha);
+    overflow-wrap: anywhere;
+}
+
+.car-previa-anuncio > .car-previa-bloco {
+    margin: 10px 14px 0;
+}
+
+.car-previa-rolagem {
+    overflow-x: auto;
+}
+
+.car-previa-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.car-previa-tabela th {
+    padding: 8px 14px;
+    background: var(--car-superficie);
+    border-bottom: 1px solid var(--car-linha);
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--car-texto-suave);
+    white-space: nowrap;
+}
+
+.car-previa-tabela td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--car-linha);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.car-previa-tabela tr:last-child td {
+    border-bottom: 0;
+}
+
+.car-previa-seta {
+    width: 28px;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+    color: var(--car-texto-fraco);
+}
+
+.car-previa-campo {
+    font-weight: 700;
+    color: var(--cor-primaria);
+    min-width: 150px;
+}
+
+.car-previa-hoje {
+    color: var(--car-texto-suave);
+}
+
+.car-previa-hoje--branco,
+.car-previa-hoje--na {
+    font-style: italic;
+    color: var(--car-texto-fraco);
+}
+
+.car-previa-novo {
+    font-weight: 700;
+    color: var(--car-azul-acao);
+}
+
+.car-previa-item--igual .car-previa-novo,
+.car-previa-item--confirmado .car-previa-novo {
+    color: var(--car-verde-texto);
+}
+
+.car-previa-item--diferente .car-previa-novo {
+    color: var(--car-ambar-texto);
+}
+
+.car-previa-igual {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--car-verde-texto);
+}
+
+.car-previa-sem-envio {
+    font-style: italic;
+    color: var(--car-texto-fraco);
+}
+
+/* ================================================
    TELAS ESTREITAS
    ================================================ */
 @media (max-width: 1100px) {
@@ -1597,9 +2061,66 @@
     }
 }
 
+/* No celular a tabela da prévia vira uma pilha por campo: cada valor com o
+   seu rótulo em cima (senão a coluna "Vai receber" ficaria fora da tela). */
+@media (max-width: 640px) {
+    .car-previa-tabela,
+    .car-previa-tabela tbody,
+    .car-previa-tabela tr,
+    .car-previa-tabela td {
+        display: block;
+        width: 100%;
+    }
+
+    .car-previa-tabela thead,
+    .car-previa-tabela .car-previa-seta {
+        display: none;
+    }
+
+    .car-previa-tabela tr {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--car-linha);
+    }
+
+    .car-previa-tabela tr:last-child {
+        border-bottom: 0;
+    }
+
+    .car-previa-tabela td,
+    .car-previa-tabela tr:last-child td {
+        padding: 2px 0;
+        border: 0;
+    }
+
+    .car-previa-tabela td[data-rotulo]::before {
+        content: attr(data-rotulo);
+        display: block;
+        margin-top: 4px;
+        font-size: 0.6875rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--car-texto-suave);
+    }
+
+    .car-previa-campo {
+        min-width: 0;
+    }
+}
+
 @media (max-width: 520px) {
     .car-kpis {
         grid-template-columns: 1fr;
+    }
+
+    .car-envio-botoes,
+    .car-envio-botoes .car-btn {
+        width: 100%;
+    }
+
+    .car-previa-tabela th,
+    .car-previa-tabela td {
+        padding: 8px 10px;
     }
 
     .car-produto-corpo {
@@ -1619,5 +2140,9 @@
 
     .car-btn--lendo i {
         animation: none;
+    }
+
+    .car-btn-simnao {
+        transition: none;
     }
 }

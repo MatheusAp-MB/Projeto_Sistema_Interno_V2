@@ -1,0 +1,48 @@
+{
+  "modo": "simular",
+  "mlb": "MLB2696429175",
+  "conta": "MB",
+  "atributo_id": "LINE",
+  "valor_id": null,
+  "valor_nome": "Pulverizadores",
+  "carimbo": "20261005_104551",
+  "item_antes": {
+    "id": "MLB2696429175",
+    "title": "Pulverizador Borrifador Pressão Manual 1,2l Jardim Guarany   Branco",
+    "status": "active",
+    "sub_status": [],
+    "category_id": "MLB209017",
+    "seller_id": 82537282,
+    "sold_quantity": 109,
+    "catalog_listing": false,
+    "catalog_product_id": null,
+    "user_product_id": "MLBU1107732939",
+    "family_name": "Pulverizador Borrifador Pressão Manual 1,2l Jardim Guarany  ",
+    "family_id": 3854707710020998,
+    "total_variacoes": 0,
+    "total_atributos": 34,
+    "last_updated": "2026-09-30T11:02:34.130Z",
+    "tags": [
+      "user_product_listing",
+      "standard_price_by_quantity",
+      "extended_warranty_eligible",
+      "good_quality_thumbnail",
+      "immediate_payment",
+      "cart_eligible"
+    ]
+  },
+  "arquivo_antes": "C:\\Users\\WIN10\\Desktop\\Codigos\\GITHUB\\Projeto_Sistema_Interno_V2\\scripts_exploracao_ML\\saidas_teste_envio\\MLB2696429175_20261005_104551_antes.json",
+  "avisos": [
+    "Hierarquia PARENT_PK: ajuda a identificar o produto/família (User Product). Evite no primeiro teste.",
+    "Item no modelo User Products (family_name/user_product_id/family_id preenchidos): a doc diz que o PUT em /items que muda atributos é REPLICADO de forma assíncrona para todos os itens do mesmo User Product. Outros MLBs do mesmo produto podem mudar também."
+  ],
+  "erros_de_conferencia": [],
+  "corpo_a_enviar": {
+    "attributes": [
+      {
+        "id": "LINE",
+        "value_name": "Pulverizadores"
+      }
+    ]
+  }
+}

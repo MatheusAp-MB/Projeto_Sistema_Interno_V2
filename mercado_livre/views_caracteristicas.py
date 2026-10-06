@@ -3,18 +3,25 @@
 # Views da tela "Características dos anúncios" (Mercado Livre).
 #
 # REGRA DESTA TELA (Matheus): NUNCA chamar a API do ML sozinha. Abrir a tela,
-# filtrar, expandir um produto, paginar — tudo lê SÓ do banco. A API só é
-# chamada por 2 botões, sob clique explícito:
+# filtrar, expandir um produto, paginar, digitar um valor, revisar um envio —
+# tudo lê SÓ do banco. A API só é chamada por 3 botões, sob clique explícito:
 #   - "Fazer varredura completa" → view_caracteristicas_varredura_iniciar
 #   - "Atualizar" (de 1 produto)  → view_caracteristicas_atualizar_produto
-# Os dois guardam o que leram no banco; a tela volta a ler só do banco.
+#   - "Confirmar envio"           → view_caracteristicas_enviar_produto
+# Os três guardam o que leram no banco; a tela volta a ler só do banco.
+#
+# NÃO existe rascunho (decisão do Matheus): o que o usuário digita em "Valor a
+# enviar" vive só na página até ele enviar; nada digitado é gravado no banco.
+# O banco só tem o que o ML devolveu.
 
+import json
 import threading
 import time
 
 from django.core.paginator import Paginator
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
+from django.template.loader import render_to_string
 from django.views.decorators.http import require_GET, require_POST
 
 from core.empresa import definir_empresa_ativa, obter_empresa_ativa
@@ -36,6 +43,12 @@ SEGUNDOS_SEM_PROGRESSO_PARA_CONSIDERAR_PARADA = 300
 #                  Cada anúncio lido dispara o callback; gravar em todos seria
 #                  barulho à toa (o navegador só pergunta a cada ~2 s).
 INTERVALO_GRAVACAO_PROGRESSO = 1.0
+
+# * [EXPLICAÇÃO] → O que a tela manda no "Revisar e enviar": só os campos que o
+#                  usuário preencheu, cada um com estas 4 partes (as que não
+#                  se aplicam ao tipo do campo vão vazias).
+CHAVES_VALOR_DIGITADO = ('valor_id', 'texto', 'numero', 'unidade')
+MAX_CAMPOS_POR_ENVIO = 300
 
 OPCOES_POR_PAGINA = (10, 25, 50, 100)
 POR_PAGINA_PADRAO = 25
@@ -236,6 +249,145 @@ def view_caracteristicas_atualizar_produto(request, sku):
         'ok': True,
         'mensagem': mensagem,
         'falhas': relatorio.falhas[:10],
+        'resumo': resumir_produto(sku),
+    })
+
+
+# Função Objetivo: Lê do corpo da requisição os campos que o usuário
+# preencheu — {"valores": {"MODEL": {"texto": "X"}, "BATTERY_TYPE": {"valor_id": "12"}}}
+# — e devolve (digitados, None), ou (None, mensagem) se o formato não bate.
+def _ler_valores_digitados(request):
+    mensagem = 'Não entendi o que a tela enviou. Recarregue a página e tente de novo.'
+    try:
+        corpo = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return None, mensagem
+
+    valores = corpo.get('valores') if isinstance(corpo, dict) else None
+    if not isinstance(valores, dict) or len(valores) > MAX_CAMPOS_POR_ENVIO:
+        return None, mensagem
+
+    digitados = {}
+    for atributo_id, bruto in valores.items():
+        if not isinstance(bruto, dict):
+            return None, mensagem
+        digitado = {}
+        for chave in CHAVES_VALOR_DIGITADO:
+            valor = bruto.get(chave)
+            if valor is not None and not isinstance(valor, (str, int, float)):
+                return None, mensagem
+            digitado[chave] = valor
+        digitados[atributo_id] = digitado
+    return digitados, None
+
+
+# Função Objetivo: Botão "Revisar e enviar" — confere o que o usuário digitou
+# e mostra, para cada anúncio, o que ele tem hoje e o que vai receber. NÃO
+# chama a API e NÃO grava nada: é só a prévia. LÊ SÓ DO BANCO.
+@require_POST
+def view_caracteristicas_revisar_envio(request, sku):
+    from mercado_livre.funcoes_auxiliares.envio_caracteristicas_ml import preparar_envio
+
+    digitados, erro = _ler_valores_digitados(request)
+    if erro:
+        return JsonResponse({'ok': False, 'mensagem': erro}, status=400)
+
+    plano = preparar_envio(sku, digitados)
+    if plano is None:
+        return JsonResponse({'ok': False, 'mensagem': 'Produto não encontrado.'}, status=404)
+
+    html = render_to_string(
+        'mercado_livre/parciais/estrutura_parcial_previa_envio_caracteristicas.html',
+        {'plano': plano}, request=request,
+    )
+    return JsonResponse({
+        'ok': True,
+        'pode_enviar': plano['pode_enviar'],
+        'n_chamadas': plano['n_chamadas'],
+        'erros_por_campo': plano['erros_por_campo'],
+        'html': html,
+    })
+
+
+# Função Objetivo: Botão "Confirmar envio" (na janela da prévia) — a ÚNICA
+# view que escreve no Mercado Livre. Refaz a conferência no servidor (não
+# confia na prévia que o navegador viu), manda os valores aos anúncios que
+# precisam, lê de volta só esses anúncios e grava no banco. Síncrono e
+# trancado por produto: recusa se uma varredura completa está rodando ou se
+# este produto já está sendo atualizado/enviado (duplo clique).
+@require_POST
+def view_caracteristicas_enviar_produto(request, sku):
+    import traceback
+
+    from django.core.cache import cache
+
+    from integracao_mercado_livre.servicos.sincronizar_caracteristicas_ml import enviar_produto
+    from mercado_livre.funcoes_auxiliares.caracteristicas_ml import resumir_produto
+    from mercado_livre.funcoes_auxiliares.envio_caracteristicas_ml import preparar_envio
+
+    digitados, erro = _ler_valores_digitados(request)
+    if erro:
+        return JsonResponse({'ok': False, 'mensagem': erro}, status=400)
+
+    empresa = obter_empresa_ativa()
+
+    if _varredura_em_andamento(empresa) is not None:
+        return JsonResponse(
+            {'ok': False, 'mensagem': 'Há uma varredura completa em andamento. Espere terminar para enviar.'},
+            status=409,
+        )
+
+    chave_trava = CHAVE_CACHE_TRAVA_PRODUTO.format(empresa=empresa, sku=sku)
+    if not cache.add(chave_trava, True, timeout=TIMEOUT_CACHE_SEGUNDOS):
+        return JsonResponse({'ok': False, 'mensagem': 'Este produto já está sendo atualizado ou enviado.'}, status=409)
+
+    try:
+        plano = preparar_envio(sku, digitados)
+        if plano is None:
+            return JsonResponse({'ok': False, 'mensagem': 'Produto não encontrado.'}, status=404)
+        if not plano['pode_enviar']:
+            return JsonResponse({
+                'ok': False,
+                'mensagem': 'Há campos com erro. Corrija antes de enviar.' if plano['erros'] else plano['motivo_sem_envio'],
+                'erros_por_campo': plano['erros_por_campo'],
+            }, status=422)
+
+        relatorio = enviar_produto(empresa, plano)
+    except Exception:
+        traceback.print_exc()
+        return JsonResponse({
+            'ok': False,
+            'mensagem': 'Falha inesperada ao enviar ao Mercado Livre. O detalhe está no terminal do servidor. '
+                        'Clique em "Atualizar" no produto para conferir o que o Mercado Livre tem agora.',
+        }, status=500)
+    finally:
+        cache.delete(chave_trava)
+
+    a_enviar = plano['n_mlbs_enviar']
+    aceitos = sum(1 for registro in relatorio.mlbs if registro['situacao'] == 'aceito')
+    pendentes = relatorio.atributos_pendentes(plano)
+    todos_ok = aceitos == a_enviar and not pendentes
+
+    if relatorio.acesso_recusado:
+        mensagem = 'O Mercado Livre recusou o acesso (token inválido ou vencido). Veja abaixo o que chegou a ser enviado.'
+    else:
+        mensagem = (
+            f'{aceitos} de {a_enviar} {_plural(a_enviar, "anúncio recebeu", "anúncios receberam")} os valores.'
+        )
+    if pendentes:
+        mensagem += ' Os campos que não ficaram aplicados continuam preenchidos na tela para você tentar de novo.'
+
+    html = render_to_string(
+        'mercado_livre/parciais/estrutura_parcial_resultado_envio_caracteristicas.html',
+        {'plano': plano, 'relatorio': relatorio, 'aceitos': aceitos, 'a_enviar': a_enviar, 'todos_ok': todos_ok},
+        request=request,
+    )
+    return JsonResponse({
+        'ok': True,
+        'todos_ok': todos_ok,
+        'mensagem': mensagem,
+        'pendentes': pendentes,
+        'html': html,
         'resumo': resumir_produto(sku),
     })
 

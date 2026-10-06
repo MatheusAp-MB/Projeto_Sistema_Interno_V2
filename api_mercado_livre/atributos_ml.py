@@ -10,6 +10,9 @@
 #   2) Os valores que o ANÚNCIO tem hoje: GET /items/{mlb} com
 #      include_internal_attributes=true (o multiget /items?ids= NÃO foi
 #      testado com esse parâmetro — por isso a leitura é 1 chamada por MLB).
+#   3) O ENVIO dos valores novos: PUT /items/{mlb} só com os atributos que o
+#      usuário mandou mudar. É o ÚNICO método desta classe que ESCREVE no ML —
+#      e só roda depois do "Confirmar envio" da tela.
 # Compõe um ClienteApiMercadoLivre (nunca herda dele) e devolve o dado como
 # a API mandou — quem chama decide como e quando gravar; esta classe não
 # sabe de banco nem de disco. IMPORTANTE: nada aqui roda sozinho — só quem
@@ -19,7 +22,24 @@
 # gerar_planilha_llm_inventario.py (buscar_categoria / buscar_item), já
 # validada com dado real.
 
+import json
+import logging
+import re
+from pathlib import Path
+
+from api_mercado_livre.core.estrutura_api.excecoes import ErroAPI, ErroAutenticacaoAPI
+
 NOME_LOG = "sincronizar_caracteristicas_ml"
+
+# * [EXPLICAÇÃO] → Os envios têm log próprio, separado das leituras. O
+#                  transporte (chamar_api) registra cada chamada mas NÃO o
+#                  corpo enviado; por isso o "..._corpos.log" guarda, por
+#                  envio, o que foi mandado e o que o ML respondeu.
+NOME_LOG_ENVIO = "enviar_caracteristicas_ml"
+NOME_LOG_CORPOS_ENVIO = "enviar_caracteristicas_ml_corpos"
+
+# Formato do erro que o transporte levanta: "Erro 400 em /items/MLB123: {corpo}".
+_PADRAO_ERRO_HTTP = re.compile(r"^Erro (\d{3}) em [^:]*: (.*)$", re.DOTALL)
 
 
 class AtributosML:
@@ -103,3 +123,155 @@ class AtributosML:
             "status": corpo.get("status"),
             "attributes": corpo.get("attributes") or [],
         }
+
+    # Função Objetivo: ESCREVE no ML — PUT /items/{mlb} só com os atributos
+    # que o usuário mandou mudar. O PUT é PARCIAL (confirmado com dado real em
+    # 05/10/2026: o que não vai no corpo fica como está). 1 única tentativa,
+    # sem retentativa: escrita não se repete sozinha. Nunca levanta erro de
+    # resposta do ML — devolve um dicionário que conta o que aconteceu:
+    #   ok           True se o ML respondeu 200;
+    #   status_http  código HTTP (None quando não houve resposta);
+    #   avisos       textos do campo "warnings" do ML (ele pode aceitar com aviso);
+    #   mensagem     texto pronto para mostrar ao usuário;
+    #   incerto      True quando NÃO dá para saber se o ML aplicou (tempo
+    #                esgotado, erro 5xx, queda de conexão) — só a leitura de
+    #                volta responde isso.
+    # Só o 401 (token recusado) sobe como ErroAutenticacaoAPI: sem token
+    # válido, todos os próximos envios falhariam do mesmo jeito.
+    # IMPORTANTE: só o botão "Confirmar envio" da tela de Características dos
+    # anúncios chama este método (regra do Matheus: nada automático).
+    def enviar_atributos_item(self, mlb: str, atributos: list[dict], pasta_logs) -> dict:
+        corpo = {"attributes": atributos}
+        try:
+            resposta = self._cliente.chamar(
+                "PUT", f"/items/{mlb}",
+                pasta_logs=pasta_logs, nome_log=NOME_LOG_ENVIO,
+                json_body=corpo, max_tentativas=1,
+            )
+        except ErroAutenticacaoAPI as erro:
+            self._registrar_envio(pasta_logs, mlb, corpo, {"ok": False, "status_http": 401, "detalhe_cru": str(erro)[:500]})
+            raise
+        except ErroAPI as erro:
+            resultado = self._interpretar_erro(str(erro))
+        else:
+            resultado = self._interpretar_resposta(resposta)
+        self._registrar_envio(pasta_logs, mlb, corpo, resultado)
+        return resultado
+
+    # Função Objetivo: Transforma os "warnings" do ML (lista de dicts ou de
+    # textos) numa lista de textos.
+    @staticmethod
+    def _textos_dos_avisos(avisos) -> list[str]:
+        textos = []
+        for aviso in avisos or []:
+            if isinstance(aviso, dict):
+                texto = aviso.get("message") or aviso.get("code") or json.dumps(aviso, ensure_ascii=False)
+            else:
+                texto = str(aviso)
+            if texto and texto not in textos:
+                textos.append(texto)
+        return textos
+
+    @staticmethod
+    def _interpretar_resposta(resposta) -> dict:
+        try:
+            corpo = resposta.json()
+        except ValueError:
+            corpo = {}
+        avisos = AtributosML._textos_dos_avisos(corpo.get("warnings") if isinstance(corpo, dict) else None)
+        if resposta.status_code != 200:
+            return {
+                "ok": False, "status_http": resposta.status_code, "avisos": avisos, "incerto": True,
+                "mensagem": f"O ML respondeu {resposta.status_code} em vez de 200; não dá para ter certeza de que aplicou.",
+            }
+        return {
+            "ok": True, "status_http": 200, "avisos": avisos, "incerto": False,
+            "mensagem": "Aceito pelo Mercado Livre.",
+        }
+
+    # Função Objetivo: Pega o texto de erro que o ML mandou (JSON com
+    # "message" e "cause") e junta as mensagens numa frase só.
+    @staticmethod
+    def _detalhe_do_erro(corpo: str) -> str:
+        try:
+            dados = json.loads(corpo)
+        except ValueError:
+            return corpo[:300]
+        if not isinstance(dados, dict):
+            return corpo[:300]
+        textos = []
+        mensagem = dados.get("message")
+        if isinstance(mensagem, str) and mensagem:
+            textos.append(mensagem)
+        causas = dados.get("cause")
+        for causa in causas if isinstance(causas, list) else [causas]:
+            if isinstance(causa, dict):
+                texto = causa.get("message") or causa.get("description") or causa.get("code")
+            else:
+                texto = causa
+            if isinstance(texto, str) and texto and texto not in textos:
+                textos.append(texto)
+        if not textos:
+            erro = dados.get("error")
+            textos.append(erro if isinstance(erro, str) and erro else corpo[:300])
+        return "; ".join(textos)[:500]
+
+    # Função Objetivo: Traduz o erro que o transporte levantou para o
+    # dicionário de resultado. Só o que PODE ter alterado o anúncio (tempo
+    # esgotado, 5xx, queda de conexão) fica como "incerto".
+    @staticmethod
+    def _interpretar_erro(texto: str) -> dict:
+        achou = _PADRAO_ERRO_HTTP.match(texto)
+        if not achou:
+            if texto.startswith("Timeout esgotado"):
+                return {
+                    "ok": False, "status_http": None, "avisos": [], "incerto": True, "detalhe_cru": texto[:500],
+                    "mensagem": "O ML não respondeu a tempo. Não sei se aplicou o envio; a leitura de volta confere.",
+                }
+            if "Número máximo de tentativas" in texto:
+                return {
+                    "ok": False, "status_http": 429, "avisos": [], "incerto": False, "detalhe_cru": texto[:500],
+                    "mensagem": "O ML pediu para esperar (limite de chamadas). Este anúncio não foi alterado; tente de novo em instantes.",
+                }
+            return {
+                "ok": False, "status_http": None, "avisos": [], "incerto": True, "detalhe_cru": texto[:500],
+                "mensagem": "Falha ao falar com o ML. Não sei se aplicou o envio; a leitura de volta confere.",
+            }
+
+        status = int(achou.group(1))
+        detalhe = AtributosML._detalhe_do_erro(achou.group(2).strip())
+        sufixo = f": {detalhe}" if detalhe else "."
+        incerto = False
+        if status >= 500:
+            incerto = True
+            mensagem = f"O ML teve um erro interno (HTTP {status}). Não sei se aplicou o envio; a leitura de volta confere."
+        elif status == 409:
+            mensagem = "O anúncio estava sendo alterado no ML. Espere alguns segundos e envie de novo" + sufixo
+        elif status == 403:
+            mensagem = "O ML não permitiu alterar este anúncio" + sufixo
+        elif status == 404:
+            mensagem = "O ML não encontrou este anúncio" + sufixo
+        else:
+            mensagem = "O ML recusou o envio" + sufixo
+        return {
+            "ok": False, "status_http": status, "avisos": [], "incerto": incerto,
+            "detalhe_cru": achou.group(2).strip()[:500], "mensagem": mensagem,
+        }
+
+    # Função Objetivo: 1 linha de log por envio: o que foi mandado e o que o
+    # ML respondeu. Falha de gravação do log nunca derruba o envio.
+    @staticmethod
+    def _registrar_envio(pasta_logs, mlb: str, corpo: dict, resultado: dict) -> None:
+        try:
+            pasta = Path(pasta_logs)
+            logger = logging.getLogger(f"envios_caracteristicas.{pasta}")
+            if not logger.handlers:
+                pasta.mkdir(parents=True, exist_ok=True)
+                manipulador = logging.FileHandler(pasta / f"{NOME_LOG_CORPOS_ENVIO}.log", encoding="utf-8")
+                manipulador.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+                logger.addHandler(manipulador)
+                logger.setLevel(logging.INFO)
+                logger.propagate = False
+            logger.info(json.dumps({"mlb": mlb, "enviado": corpo, "resultado": resultado}, ensure_ascii=False))
+        except OSError:
+            pass

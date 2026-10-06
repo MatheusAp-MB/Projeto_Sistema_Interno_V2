@@ -1,0 +1,108 @@
+{% comment %}
+* [RESUMO] → Resultado do envio de 1 produto (conteúdo da janela depois do
+  "Confirmar envio"): anúncio por anúncio, o que o Mercado Livre respondeu e,
+  campo a campo, se a leitura de volta confirmou o valor enviado. O banco já
+  foi atualizado com o que o Mercado Livre devolveu nessa leitura.
+{% endcomment %}
+<div class="car-previa car-previa--resultado">
+    <p class="car-previa-produto">
+        <i class="fas fa-box" aria-hidden="true"></i>
+        <span class="car-sku">{{ plano.produto.sku }}</span>
+        <span>{{ plano.produto.titulo|default:"(sem título)" }}</span>
+    </p>
+
+    <div class="car-previa-bloco {% if todos_ok %}car-previa-bloco--ok{% else %}car-previa-bloco--alerta{% endif %}" role="status">
+        <h4 class="car-previa-titulo">
+            {% if todos_ok %}<i class="fas fa-circle-check" aria-hidden="true"></i> Tudo certo{% else %}<i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Atenção: nem tudo ficou aplicado{% endif %}
+        </h4>
+        <p class="car-previa-resumo">
+            <strong>{{ aceitos }} de {{ a_enviar }}</strong> anúncio{{ a_enviar|pluralize }} com envio aceito pelo Mercado Livre.
+            {% if not todos_ok %}Os campos que não ficaram aplicados continuam preenchidos nos cards para você tentar de novo.{% endif %}
+        </p>
+        {% if relatorio.acesso_recusado %}
+            <p class="car-previa-nota">O Mercado Livre recusou o acesso (token inválido ou vencido). Os anúncios depois disso não foram enviados.</p>
+        {% endif %}
+    </div>
+
+    <div class="car-previa-anuncios">
+        {% for registro in relatorio.mlbs %}
+            <section class="car-previa-anuncio car-previa-anuncio--{{ registro.situacao }}">
+                <header class="car-previa-anuncio-cab">
+                    <div class="car-previa-anuncio-ident">
+                        {% if registro.permalink %}
+                            <a class="car-previa-mlb" href="{{ registro.permalink }}" target="_blank" rel="noopener">{{ registro.mlb }}</a>
+                        {% else %}
+                            <span class="car-previa-mlb">{{ registro.mlb }}</span>
+                        {% endif %}
+                        <span class="car-previa-titulo-anuncio">{{ registro.titulo|default:"—" }}</span>
+                    </div>
+                    {% if registro.situacao == 'aceito' %}
+                        <span class="car-pilula car-pilula--ok">Aceito pelo ML</span>
+                    {% elif registro.situacao == 'recusado' %}
+                        <span class="car-pilula car-pilula--erro">Recusado</span>
+                    {% elif registro.situacao == 'incerto' %}
+                        <span class="car-pilula car-pilula--alerta">Sem confirmação</span>
+                    {% else %}
+                        <span class="car-pilula car-pilula--neutra">Não enviado</span>
+                    {% endif %}
+                </header>
+
+                {% if registro.mensagem %}<p class="car-previa-motivo">{{ registro.mensagem }}</p>{% endif %}
+
+                {% if registro.avisos %}
+                    <div class="car-previa-bloco car-previa-bloco--alerta">
+                        <h4 class="car-previa-titulo">Avisos do Mercado Livre</h4>
+                        <ul class="car-previa-lista">
+                            {% for aviso in registro.avisos %}<li>{{ aviso }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if registro.campos %}
+                    <div class="car-previa-rolagem">
+                        <table class="car-previa-tabela">
+                            <thead>
+                                <tr>
+                                    <th>Campo</th>
+                                    <th>Enviado</th>
+                                    <th>O Mercado Livre guardou</th>
+                                    <th>Conferência</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for campo in registro.campos %}
+                                    <tr class="car-previa-item car-previa-item--{% if campo.confirmado %}confirmado{% else %}diferente{% endif %}">
+                                        <td class="car-previa-campo">{{ campo.label }} <code>{{ campo.atributo_id }}</code></td>
+                                        <td class="car-previa-novo" data-rotulo="Enviado">{{ campo.novo_txt }}</td>
+                                        <td class="car-previa-hoje" data-rotulo="O Mercado Livre guardou">{{ campo.hoje_txt }}</td>
+                                        <td data-rotulo="Conferência">
+                                            {% if campo.confirmado %}
+                                                <span class="car-pilula car-pilula--ok">Confirmado</span>
+                                            {% else %}
+                                                <span class="car-pilula car-pilula--alerta">Valor diferente</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </section>
+        {% endfor %}
+    </div>
+
+    {% if relatorio.falhas_leitura %}
+        <div class="car-previa-bloco car-previa-bloco--alerta">
+            <h4 class="car-previa-titulo">Falhas ao ler de volta</h4>
+            <ul class="car-previa-lista">
+                {% for falha in relatorio.falhas_leitura %}<li><code>{{ falha.id|default:falha.tipo }}</code> — {{ falha.erro }}</li>{% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <p class="car-previa-nota">
+        O Mercado Livre pode ajustar outros dados do anúncio logo depois de um envio (por exemplo, o grupo a que ele pertence).
+        Para ver o estado mais recente, clique em "Atualizar" na linha do produto.
+    </p>
+</div>

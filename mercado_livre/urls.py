@@ -10,14 +10,19 @@ urlpatterns = [
     path('fotos/', views.view_hub_fotos, name='mercado_livre_hub_fotos'),
 
     # * [EXPLICAÇÃO] → Tela "Características dos anúncios". Só lê do banco;
-    #                  a API do ML é chamada apenas pelos 2 botões da tela
-    #                  (varredura completa e "Atualizar" de 1 produto), via
-    #                  as rotas de POST abaixo. O SKU usa <path:> e a rota
-    #                  "atualizar/" vem antes da rota da ficha de propósito.
+    #                  a API do ML é chamada apenas pelos 3 botões da tela
+    #                  (varredura completa, "Atualizar" e "Confirmar envio"
+    #                  de 1 produto), via as rotas de POST abaixo. A rota
+    #                  "revisar-envio/" só confere e mostra a prévia: não
+    #                  chama a API. O SKU usa <path:> e as rotas com sufixo
+    #                  (atualizar/, revisar-envio/, enviar/) vêm antes da
+    #                  rota da ficha de propósito.
     path('caracteristicas/', views_caracteristicas.view_caracteristicas_anuncios, name='mercado_livre_caracteristicas'),
     path('caracteristicas/varredura/iniciar/', views_caracteristicas.view_caracteristicas_varredura_iniciar, name='mercado_livre_caracteristicas_varredura_iniciar'),
     path('caracteristicas/varredura/status/', views_caracteristicas.view_caracteristicas_varredura_status, name='mercado_livre_caracteristicas_varredura_status'),
     path('caracteristicas/produto/<path:sku>/atualizar/', views_caracteristicas.view_caracteristicas_atualizar_produto, name='mercado_livre_caracteristicas_atualizar'),
+    path('caracteristicas/produto/<path:sku>/revisar-envio/', views_caracteristicas.view_caracteristicas_revisar_envio, name='mercado_livre_caracteristicas_revisar_envio'),
+    path('caracteristicas/produto/<path:sku>/enviar/', views_caracteristicas.view_caracteristicas_enviar_produto, name='mercado_livre_caracteristicas_enviar'),
     path('caracteristicas/produto/<path:sku>/', views_caracteristicas.view_caracteristicas_ficha, name='mercado_livre_caracteristicas_ficha'),
     path('qualidade/<str:mlb>/', views.view_qualidade_anuncio, name='mercado_livre_qualidade'),
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),

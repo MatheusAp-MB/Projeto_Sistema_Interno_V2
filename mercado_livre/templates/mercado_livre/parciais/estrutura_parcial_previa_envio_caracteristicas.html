@@ -1,0 +1,105 @@
+{% comment %}
+* [RESUMO] → Prévia do envio de 1 produto (conteúdo da janela "Revisar o
+  envio"). Feita só com dados do banco: mostra, anúncio por anúncio, o que
+  ele tem hoje e o que vai receber. Se algum valor digitado é inválido, só a
+  lista de erros aparece e o envio fica travado.
+{% endcomment %}
+<div class="car-previa">
+    <p class="car-previa-produto">
+        <i class="fas fa-box" aria-hidden="true"></i>
+        <span class="car-sku">{{ plano.produto.sku }}</span>
+        <span>{{ plano.produto.titulo|default:"(sem título)" }}</span>
+    </p>
+
+    {% if plano.erros %}
+        <div class="car-previa-bloco car-previa-bloco--erro" role="alert">
+            <h4 class="car-previa-titulo"><i class="fas fa-circle-xmark" aria-hidden="true"></i> Corrija estes campos antes de enviar</h4>
+            <ul class="car-previa-lista">
+                {% for erro in plano.erros %}
+                    <li><strong>{{ erro.label }}</strong> <code>{{ erro.atributo_id }}</code> — {{ erro.mensagem }}</li>
+                {% endfor %}
+            </ul>
+            <p class="car-previa-nota">Os campos com erro estão marcados nos cards. Corrija ou apague o valor e clique em "Revisar e enviar" de novo.</p>
+        </div>
+    {% else %}
+        {% if plano.pode_enviar %}
+            <div class="car-previa-bloco car-previa-bloco--info">
+                <p class="car-previa-resumo">
+                    Vou enviar <strong>{{ plano.n_campos_enviar }} campo{{ plano.n_campos_enviar|pluralize }}</strong>
+                    a <strong>{{ plano.n_mlbs_enviar }} anúncio{{ plano.n_mlbs_enviar|pluralize }}</strong> do Mercado Livre.
+                    Custo: <strong>{{ plano.n_chamadas }} chamada{{ plano.n_chamadas|pluralize }}</strong> à API
+                    (1 de envio e 1 de leitura de volta por anúncio).
+                </p>
+                <p class="car-previa-nota">
+                    Confira abaixo. Só vai o que está marcado como "Vai receber"; o que já está igual no Mercado Livre não é enviado de novo.
+                </p>
+            </div>
+        {% else %}
+            <div class="car-previa-bloco car-previa-bloco--alerta" role="alert">
+                <h4 class="car-previa-titulo"><i class="fas fa-circle-info" aria-hidden="true"></i> Não há nada a enviar</h4>
+                <p class="car-previa-nota">{{ plano.motivo_sem_envio }}</p>
+            </div>
+        {% endif %}
+
+        <div class="car-previa-anuncios">
+            {% for alvo in plano.mlbs %}
+                <section class="car-previa-anuncio car-previa-anuncio--{{ alvo.situacao }}">
+                    <header class="car-previa-anuncio-cab">
+                        <div class="car-previa-anuncio-ident">
+                            {% if alvo.permalink %}
+                                <a class="car-previa-mlb" href="{{ alvo.permalink }}" target="_blank" rel="noopener">{{ alvo.mlb }}</a>
+                            {% else %}
+                                <span class="car-previa-mlb">{{ alvo.mlb }}</span>
+                            {% endif %}
+                            <span class="car-previa-titulo-anuncio">{{ alvo.titulo|default:"—" }}</span>
+                            <span class="car-previa-categoria">{{ alvo.categoria_nome }}{% if alvo.categoria_id %} <code>{{ alvo.categoria_id }}</code>{% endif %}</span>
+                        </div>
+                        {% if alvo.situacao == 'enviar' %}
+                            <span class="car-pilula car-pilula--info">Vai receber</span>
+                        {% elif alvo.situacao == 'igual' %}
+                            <span class="car-pilula car-pilula--ok">Já está igual</span>
+                        {% elif alvo.situacao == 'nao_pede' %}
+                            <span class="car-pilula car-pilula--neutra">Categoria não pede</span>
+                        {% else %}
+                            <span class="car-pilula car-pilula--alerta">Fica de fora</span>
+                        {% endif %}
+                    </header>
+
+                    {% if alvo.motivo %}<p class="car-previa-motivo">{{ alvo.motivo }}</p>{% endif %}
+
+                    {% if alvo.itens %}
+                        <div class="car-previa-rolagem">
+                            <table class="car-previa-tabela">
+                                <thead>
+                                    <tr>
+                                        <th>Campo</th>
+                                        <th>Hoje no Mercado Livre</th>
+                                        <th class="car-previa-seta" aria-hidden="true"></th>
+                                        <th>Vai receber</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in alvo.itens %}
+                                        <tr class="car-previa-item car-previa-item--{{ item.situacao }}">
+                                            <td class="car-previa-campo">{{ item.label }} <code>{{ item.atributo_id }}</code></td>
+                                            {% if item.situacao == 'nao_pede' %}
+                                                <td colspan="3" class="car-previa-sem-envio">A categoria deste anúncio não pede este campo.</td>
+                                            {% else %}
+                                                <td class="car-previa-hoje car-previa-hoje--{{ item.hoje_estado }}" data-rotulo="Hoje no Mercado Livre">{{ item.hoje_txt }}</td>
+                                                <td class="car-previa-seta" aria-hidden="true"><i class="fas fa-arrow-right"></i></td>
+                                                <td class="car-previa-novo" data-rotulo="Vai receber">
+                                                    {{ item.novo_txt }}
+                                                    {% if item.situacao == 'igual' %}<span class="car-previa-igual">já igual — não será enviado</span>{% endif %}
+                                                </td>
+                                            {% endif %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </section>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>

@@ -46,6 +46,11 @@ NIVEL_OBRIGATORIEDADE = {'Não': 0, 'Condicional': 1, 'Sim': 2}
 
 LIMITE_OPCOES_EXIBIDAS = 200
 
+# * [EXPLICAÇÃO] → Nomes que, quando são as DUAS únicas opções de uma lista,
+#                  fazem o card mostrar os botões "Sim" / "Não" no lugar de
+#                  um select (o envio continua sendo pelo id da opção).
+NOMES_SIM_NAO = {'sim', 'não', 'nao'}
+
 # * [EXPLICAÇÃO] → O ML devolve value_id "-1" (e value_name vazio) quando o
 #                  campo está marcado como "N/A" (não se aplica).
 VALOR_ID_NA = '-1'
@@ -456,12 +461,12 @@ def _rotulo_status(codigo, tipo_anuncio=None):
 
 # ─── FICHA DO PRODUTO (cards + tabela de anúncios) ──────────────────────
 
-# Função Objetivo: Monta tudo que a ficha de 1 produto mostra, só com dados
-# do banco. Devolve None se o SKU não existe. Estrutura:
-#   produto, resumo (contagens, categorias, última leitura), avisos,
-#   cards (1 por característica), tabela (colunas e linhas, 1 por anúncio),
-#   ocultos (campos que ficam fora do card e por quê).
-def montar_ficha_produto(sku):
+# Função Objetivo: Junta, só com dados do banco, tudo que a ficha E o envio de
+# 1 produto precisam saber: os anúncios elegíveis, o que cada um tem hoje (o
+# array cru lido do ML), a categoria de cada um e os campos que cada categoria
+# pede. Devolve None se o SKU não existe. A ficha (cards e tabela) e o envio
+# (validação e prévia) partem deste mesmo retrato, para nunca discordarem.
+def carregar_contexto_produto(sku):
     from mercado_livre.models import AtributoCategoriaMercadoLivre, CategoriaMercadoLivre, VariacaoAnuncioMercadoLivre
     from produtos.models import Produto
 
@@ -530,6 +535,51 @@ def montar_ficha_produto(sku):
         a.id: {item.get('id'): item for item in (a.atributos_ml or []) if isinstance(item, dict)}
         for a in lidos
     }
+
+    return {
+        'produto': produto,
+        'anuncios': anuncios,
+        'total': total,
+        'lidos': lidos,
+        'categoria_do_banco': categoria_do_banco,
+        'categoria_do_anuncio': categoria_do_anuncio,
+        'categorias': categorias,
+        'nome_categoria': nome_categoria,
+        'contagem_categorias': contagem_categorias,
+        'ordem_categorias': ordem_categorias,
+        'atributos_por_categoria': atributos_por_categoria,
+        'campos': campos,
+        'ordem_campos': ordem_campos,
+        'ocultos': ocultos,
+        'cru_por_anuncio': cru_por_anuncio,
+    }
+
+
+# Função Objetivo: Monta tudo que a ficha de 1 produto mostra, só com dados
+# do banco. Devolve None se o SKU não existe. Estrutura:
+#   produto, resumo (contagens, categorias, última leitura), avisos,
+#   cards (1 por característica), tabela (colunas e linhas, 1 por anúncio),
+#   ocultos (campos que ficam fora do card e por quê).
+def montar_ficha_produto(sku):
+    contexto = carregar_contexto_produto(sku)
+    if contexto is None:
+        return None
+
+    produto = contexto['produto']
+    anuncios = contexto['anuncios']
+    total = contexto['total']
+    lidos = contexto['lidos']
+    categoria_do_banco = contexto['categoria_do_banco']
+    categoria_do_anuncio = contexto['categoria_do_anuncio']
+    categorias = contexto['categorias']
+    nome_categoria = contexto['nome_categoria']
+    contagem_categorias = contexto['contagem_categorias']
+    ordem_categorias = contexto['ordem_categorias']
+    atributos_por_categoria = contexto['atributos_por_categoria']
+    campos = contexto['campos']
+    ordem_campos = contexto['ordem_campos']
+    ocultos = contexto['ocultos']
+    cru_por_anuncio = contexto['cru_por_anuncio']
 
     cards = []
     for atributo_id in ordem_campos:
@@ -743,6 +793,18 @@ def _montar_card(produto, sku, atributo_id, por_categoria, lidos, total,
         vale2 += f' {n_nao_lidos} {_plural(n_nao_lidos, "anúncio ainda não lido", "anúncios ainda não lidos")}.'
 
     opcoes_nomes = [o.get('name') or '' for o in fusao['opcoes']]
+
+    # Para a digitação do "Valor a enviar": lista fechada = TODAS as opções
+    # (id + nome) no select; os botões Sim/Não valem para o booleano do ML e
+    # para qualquer lista que seja só Sim e Não.
+    opcoes_pares = (
+        [{'id': str(o.get('id')), 'name': o.get('name') or ''} for o in fusao['opcoes'] if o.get('id') is not None]
+        if tipo == 'lista' else []
+    )
+    simnao = (
+        len(opcoes_pares) == 2
+        and {p['name'].strip().lower() for p in opcoes_pares} <= NOMES_SIM_NAO
+    )
     return {
         'id_html': f'car-campo-{slugify(sku)}-{slugify(atributo_id)}',
         'atributo_id': atributo_id,
@@ -758,6 +820,10 @@ def _montar_card(produto, sku, atributo_id, por_categoria, lidos, total,
         'valor_erp': valor_erp,
         'tipo': tipo,
         'booleano': fusao['booleano'],
+        'simnao': simnao,
+        'limite': fusao['limite'],
+        'opcoes_pares': opcoes_pares,
+        'multi': fusao['multi'],
         'unidades': unidades,
         'opcoes_total': len(opcoes_nomes),
         'opcoes_exibidas': opcoes_nomes[:LIMITE_OPCOES_EXIBIDAS],

@@ -10,9 +10,11 @@
     {% comment %}
     * [RESUMO] → Tela "Características dos anúncios" do Mercado Livre.
       Tudo que aparece aqui vem do BANCO. A API do ML só é chamada pelos
-      2 botões desta tela ("Fazer varredura completa" e o "Atualizar" de
-      cada produto) — abrir, filtrar, paginar ou expandir um produto nunca
-      chama a API.
+      3 botões desta tela ("Fazer varredura completa", o "Atualizar" de cada
+      produto e o "Confirmar envio" da janela de envio) — abrir, filtrar,
+      paginar, expandir um produto, digitar ou "Revisar e enviar" nunca chama
+      a API. Não existe rascunho: o que se digita em "Valor a enviar" vive só
+      nesta página até ser enviado.
     {% endcomment %}
     <div class="car-pagina"
          data-url-varredura-iniciar="{% url 'mercado_livre_caracteristicas_varredura_iniciar' %}"
@@ -26,8 +28,9 @@
                 <h2 class="car-painel-titulo">Leitura do Mercado Livre</h2>
                 <p class="car-painel-aviso">
                     Esta tela mostra só o que já está salvo no banco. O Mercado Livre é consultado
-                    apenas quando você clica em <strong>Fazer varredura completa</strong> ou em
-                    <strong>Atualizar</strong> (na linha de um produto).
+                    apenas quando você clica em <strong>Fazer varredura completa</strong>, em
+                    <strong>Atualizar</strong> (na linha de um produto) ou em
+                    <strong>Confirmar envio</strong> (na janela de envio de características).
                 </p>
                 {% if ultima_varredura %}
                     <p class="car-painel-ultima">
@@ -198,6 +201,32 @@
                     <div class="modal-footer">
                         <button type="button" class="car-btn car-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" class="car-btn car-btn--primario" id="car-modal-confirmar">Fazer varredura</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% comment %}
+        * [RESUMO] → Janela do envio de características: primeiro mostra a prévia
+          ("Revisar o envio", montada só com dados do banco) e, se o usuário
+          confirmar, o resultado do envio. Não fecha clicando fora nem com Esc,
+          para ninguém perder o resultado sem querer.
+        {% endcomment %}
+        <div class="modal fade" id="car-modal-envio" tabindex="-1" aria-labelledby="car-modal-envio-titulo" aria-hidden="true"
+             data-bs-backdrop="static" data-bs-keyboard="false">
+            <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="car-modal-envio-titulo">Revisar o envio</h5>
+                        <button type="button" class="btn-close" id="car-modal-envio-x" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body car-modal-corpo" id="car-modal-envio-corpo"></div>
+                    <div class="modal-footer">
+                        <p class="car-modal-envio-estado" id="car-modal-envio-estado" role="status" aria-live="polite" hidden></p>
+                        <button type="button" class="car-btn car-btn--secundario" id="car-modal-envio-cancelar" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="car-btn car-btn--primario" id="car-modal-envio-confirmar" hidden>
+                            <i class="fas fa-paper-plane" aria-hidden="true"></i> Confirmar envio
+                        </button>
                     </div>
                 </div>
             </div>

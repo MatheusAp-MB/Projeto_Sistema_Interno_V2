@@ -1,58 +1,91 @@
 {% comment %}
 * [RESUMO] → 1 card de característica. TODOS os cards têm as mesmas 4 partes:
   1) Característica; 2) Valor a enviar; 3) Hoje no Mercado Livre; 4) Regra e
-  Vale para. Nesta etapa o "Valor a enviar" só mostra o formato do campo
-  (desabilitado): o preenchimento e o envio ao ML são etapas seguintes.
+  Vale para. O "Valor a enviar" é onde o usuário digita; o que ele digita vive
+  SÓ nesta página (não existe rascunho: sem enviar, o digitado se perde) e
+  campo vazio significa "não mexer no Mercado Livre". A Marca é travada (vem do
+  ERP) e o campo que aceita vários valores ainda não é editável aqui.
   A cor do cabeçalho mostra a situação do campo (verde = igual em todos,
   âmbar = pede atenção, azul = vem do ERP, cinza = vazio ou N/A).
 {% endcomment %}
 <article class="car-card car-card--{{ card.estado }}"
          id="{{ card.id_html }}"
+         data-atributo="{{ card.atributo_id }}"
+         data-tipo="{{ card.tipo }}"
+         data-editavel="{% if card.eh_marca or card.multi %}0{% else %}1{% endif %}"
+         data-alterado="0"
          data-atencao="{{ card.pede_atencao|yesno:'1,0' }}"
          data-obrigatorio="{{ card.obrigatorio|yesno:'1,0' }}">
 
     <header class="car-card-cab">
         <div class="car-card-ident">
-            <label class="car-card-titulo" for="{{ card.id_html }}-valor">{{ card.label }}</label>
+            <label class="car-card-titulo" id="{{ card.id_html }}-rotulo" for="{{ card.id_html }}-valor">{{ card.label }}</label>
             <span class="car-card-meta">
                 <span class="car-nivel {{ card.req_classe }}">{{ card.req_rotulo }}</span>
                 <span class="car-card-api">ID na API: <code>{{ card.atributo_id }}</code></span>
             </span>
         </div>
-        <span class="car-pilula {{ card.pilula_classe }}">{{ card.pilula_txt }}</span>
+        <span class="car-cab-estado">
+            <span class="car-pilula {{ card.pilula_classe }}">{{ card.pilula_txt }}</span>
+            <span class="car-pilula car-pilula--alterado" data-campo="marca-alterado" hidden>Alterado, não enviado</span>
+        </span>
     </header>
 
     <div class="car-card-secao car-card-secao--envio">
-        <span class="car-rotulo"><i class="fas fa-paper-plane" aria-hidden="true"></i> Valor a enviar</span>
+        <span class="car-rotulo car-rotulo--com-acao">
+            <span class="car-rotulo-texto"><i class="fas fa-paper-plane" aria-hidden="true"></i> Valor a enviar</span>
+            {% if not card.eh_marca and not card.multi %}
+                <button type="button" class="car-limpar" data-acao="limpar-campo" hidden>
+                    <i class="fas fa-rotate-left" aria-hidden="true"></i> Desfazer
+                </button>
+            {% endif %}
+        </span>
+
         {% if card.eh_marca %}
             <div class="car-travado">
                 <i class="fas fa-lock" aria-hidden="true"></i>
                 <input type="text" id="{{ card.id_html }}-valor" value="{{ card.valor_erp }}" readonly aria-readonly="true">
             </div>
             <span class="car-ajuda">Vem do cadastro do produto (ERP); não é digitada aqui.</span>
+        {% elif card.multi %}
+            <div class="car-travado">
+                <i class="fas fa-lock" aria-hidden="true"></i>
+                <input type="text" id="{{ card.id_html }}-valor" value="" placeholder="Aceita vários valores" readonly aria-readonly="true">
+            </div>
+            <span class="car-ajuda">Este campo aceita mais de um valor; o envio dele ainda não existe aqui.</span>
         {% else %}
-            {% if card.booleano %}
-                <div class="car-simnao" role="group" aria-label="{{ card.label }}">
-                    <button type="button" class="car-btn-simnao" id="{{ card.id_html }}-valor" disabled>Sim</button>
-                    <button type="button" class="car-btn-simnao" disabled>Não</button>
+            {% if card.simnao %}
+                <div class="car-simnao" role="group" aria-labelledby="{{ card.id_html }}-rotulo" id="{{ card.id_html }}-valor">
+                    {% for opcao in card.opcoes_pares %}
+                        <button type="button" class="car-btn-simnao" data-acao="escolher-simnao" data-valor-id="{{ opcao.id }}" aria-pressed="false">{{ opcao.name }}</button>
+                    {% endfor %}
                 </div>
             {% elif card.tipo == 'lista' %}
-                <select class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" disabled>
-                    <option>Selecione…</option>
+                <select class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="valor_id">
+                    <option value="">Não mexer neste campo</option>
+                    {% for opcao in card.opcoes_pares %}<option value="{{ opcao.id }}">{{ opcao.name }}</option>{% endfor %}
                 </select>
             {% elif card.tipo == 'numero_unidade' %}
                 <div class="car-numero-unidade">
-                    <input type="number" class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" placeholder="Digite aqui" disabled>
-                    <select class="car-campo car-campo--bloqueado" aria-label="Unidade de medida" disabled>
-                        {% for unidade in card.unidades %}<option>{{ unidade }}</option>{% empty %}<option>—</option>{% endfor %}
+                    <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero" placeholder="Digite o número">
+                    <select class="car-campo car-entrada" data-entrada="unidade" aria-label="Unidade de medida">
+                        {% for unidade in card.unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% empty %}<option value="">—</option>{% endfor %}
                     </select>
                 </div>
             {% elif card.tipo == 'numero' %}
-                <input type="number" class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" placeholder="Digite aqui" disabled>
+                <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero" placeholder="Digite o número">
             {% else %}
-                <input type="text" class="car-campo car-campo--bloqueado" id="{{ card.id_html }}-valor" placeholder="Digite aqui" disabled>
+                <input type="text" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="texto" placeholder="Digite aqui"
+                       {% if card.tipo == 'texto_sugestoes' and card.opcoes_exibidas %}list="{{ card.id_html }}-sugestoes"{% endif %}>
+                {% if card.tipo == 'texto_sugestoes' and card.opcoes_exibidas %}
+                    <datalist id="{{ card.id_html }}-sugestoes">
+                        {% for sugestao in card.opcoes_exibidas %}<option value="{{ sugestao }}"></option>{% endfor %}
+                    </datalist>
+                {% endif %}
+                <span class="car-caracteres" data-campo="caracteres" data-limite="{{ card.limite|default:255 }}" aria-live="polite">0 / {{ card.limite|default:255 }}</span>
             {% endif %}
-            <span class="car-ajuda"><i class="fas fa-lock" aria-hidden="true"></i> Preenchimento liberado na próxima etapa.</span>
+            <span class="car-erro-campo" data-campo="erro" role="alert" hidden></span>
+            <span class="car-ajuda">Deixe em branco para não mexer neste campo.</span>
         {% endif %}
     </div>
 

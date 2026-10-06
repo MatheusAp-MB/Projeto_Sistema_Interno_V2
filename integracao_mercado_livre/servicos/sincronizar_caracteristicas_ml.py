@@ -2,10 +2,12 @@
 #
 # Lê do Mercado Livre as CARACTERÍSTICAS dos anúncios e grava no banco da
 # empresa, para a tela "Características dos anúncios" só precisar LER do
-# banco. Duas entradas públicas — e SÓ ELAS chamam a API:
+# banco. Três entradas públicas — e SÓ ELAS chamam a API:
 #
 #   varredura_completa(empresa)       -> botão "Fazer varredura completa"
 #   atualizar_produto(empresa, sku)   -> botão "Atualizar" de 1 produto
+#   enviar_produto(empresa, plano)    -> botão "Confirmar envio" de 1 produto
+#                                        (a ÚNICA que ESCREVE no ML)
 #
 # REGRA DO MATHEUS: NUNCA requisição automática à API. Nada aqui é chamado
 # por tela aberta, rotina agendada, importação ou comando de rotina — só por
@@ -31,6 +33,15 @@
 # Estimativa da varredura completa: ~2 chamadas por categoria + 1 por MLB
 # elegível. O limite do ML é 18.000 chamadas/hora por app.
 #
+# O que o envio faz (enviar_produto): o PLANO (quem recebe o quê) já vem
+# pronto de mercado_livre.funcoes_auxiliares.envio_caracteristicas_ml. Para
+# cada anúncio que precisa receber valores: 1 PUT /items/{mlb} só com os
+# atributos que mudam — um anúncio de cada vez, SEM retentativa (escrita não
+# se repete sozinha). Depois relê do ML, com a mesma leitura do "Atualizar",
+# só os anúncios que receberam (ou cujo envio ficou incerto), grava no banco e
+# confere campo a campo se o ML guardou o que foi enviado. Custo: 1 chamada de
+# envio + 1 de leitura por anúncio que recebe. Nada de categoria é relido.
+#
 # Threads: as chamadas à API rodam em threads de trabalho; TODA gravação no
 # banco acontece na thread que chamou o serviço (as threads de trabalho
 # nunca tocam no banco). Como a empresa ativa é thread-local
@@ -40,6 +51,7 @@
 # (mesmo padrão do Portal do Drive).
 
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -51,6 +63,7 @@ from api_mercado_livre import ApiMercadoLivre
 from api_mercado_livre.core.estrutura_api.cliente_api import ErroAutenticacaoAPI
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, definir_empresa_ativa
 from mercado_livre.funcoes_auxiliares.caracteristicas_ml import consultar_anuncios_elegiveis
+from mercado_livre.funcoes_auxiliares.envio_caracteristicas_ml import conferir_depois_do_envio
 from mercado_livre.models import (
     AnuncioMercadoLivre,
     AtributoCategoriaMercadoLivre,
@@ -105,6 +118,42 @@ class RelatorioLeituraCaracteristicas:
     categorias_lidas: int = 0
     falhas: list[dict] = field(default_factory=list)  # [{"tipo": "anuncio"|"categoria", "id", "erro"}]
     duracao_segundos: float = 0.0
+
+
+@dataclass
+class RelatorioEnvioCaracteristicas:
+    """Resultado de 1 envio — objeto de processo (nunca salvo direto no
+    banco). "mlbs" tem 1 dicionário por anúncio do plano, na ordem do plano:
+    mlb, anuncio_id, titulo, permalink, situacao ("aceito" | "recusado" |
+    "incerto" | "nao_enviado"), mensagem, avisos (os "warnings" do ML),
+    status_http e campos (a conferência campo a campo, só dos anúncios que
+    foram lidos de volta)."""
+    empresa: str
+    mlbs: list[dict] = field(default_factory=list)
+    acesso_recusado: bool = False
+    falhas_leitura: list[dict] = field(default_factory=list)
+    duracao_segundos: float = 0.0
+
+    # Função Objetivo: Quais campos NÃO ficaram aplicados em todos os anúncios
+    # que deviam recebê-los (recusado, sem resposta e não confirmado, não
+    # enviado por token recusado, aceito mas sem leitura de volta para
+    # conferir, ou o ML guardou outro valor). A tela só mantém digitado o que
+    # está pendente — o resto já está no banco, lido de volta do ML.
+    def atributos_pendentes(self, plano: dict) -> list[str]:
+        pendentes = []
+        corpos = {alvo['mlb']: alvo['atributos_corpo'] for alvo in plano['mlbs'] if alvo['situacao'] == 'enviar'}
+        for registro in self.mlbs:
+            if registro['mlb'] not in corpos:
+                continue
+            ids = [corpo['id'] for corpo in corpos[registro['mlb']]]
+            if registro['situacao'] != 'aceito' or not registro['campos']:
+                candidatos = ids
+            else:
+                candidatos = [campo['atributo_id'] for campo in registro['campos'] if not campo['confirmado']]
+            for atributo_id in candidatos:
+                if atributo_id not in pendentes:
+                    pendentes.append(atributo_id)
+        return pendentes
 
 
 def _sem_progresso(fase, atual, total):
@@ -372,6 +421,109 @@ def atualizar_produto(empresa: str, sku: str, ao_progredir=None) -> RelatorioLei
 
     relatorio.duracao_segundos = round(time.perf_counter() - inicio, 2)
     return relatorio
+
+
+# Função Objetivo: "Confirmar envio" de 1 produto — manda os valores novos
+# aos anúncios do plano que precisam deles e lê de volta o que o ML guardou.
+# "plano" é o devolvido por preparar_envio (já validado, sem erros). Nunca
+# levanta erro de 1 anúncio: o que aconteceu com cada um fica no relatório.
+# Só o relatório diz se deu certo — a tela mostra anúncio por anúncio.
+def enviar_produto(empresa: str, plano: dict) -> RelatorioEnvioCaracteristicas:
+    definir_empresa_ativa(empresa)
+    inicio = time.perf_counter()
+
+    api_ml = ApiMercadoLivre(pasta_logs=_pasta_logs(empresa), empresa=empresa)
+    relatorio = RelatorioEnvioCaracteristicas(empresa=empresa)
+
+    for alvo in plano['mlbs']:
+        registro = {
+            'mlb': alvo['mlb'], 'anuncio_id': alvo['anuncio_id'], 'titulo': alvo['titulo'],
+            'permalink': alvo['permalink'], 'situacao': 'nao_enviado', 'mensagem': '',
+            'avisos': [], 'status_http': None, 'campos': [],
+        }
+        relatorio.mlbs.append(registro)
+
+        if alvo['situacao'] != 'enviar':
+            registro['mensagem'] = alvo['motivo'] or 'Não precisava receber envio.'
+            continue
+        if relatorio.acesso_recusado:
+            registro['mensagem'] = 'Não enviado: o Mercado Livre recusou o acesso num envio anterior.'
+            continue
+
+        try:
+            resultado = api_ml.enviar_atributos_item(alvo['mlb'], alvo['atributos_corpo'])
+        except ErroAutenticacaoAPI:
+            traceback.print_exc()
+            relatorio.acesso_recusado = True
+            registro['mensagem'] = 'O Mercado Livre recusou o acesso (token inválido ou vencido). Este anúncio não foi alterado.'
+            continue
+        except Exception as erro:
+            # * [EXPLICAÇÃO] → Mantido de propósito: 1 anúncio com problema
+            #                  inesperado não derruba o envio dos outros, mas
+            #                  o detalhe precisa aparecer no terminal.
+            traceback.print_exc()
+            resultado = {
+                'ok': False, 'incerto': True, 'status_http': None, 'avisos': [],
+                'mensagem': f'Falha inesperada ao enviar ({type(erro).__name__}). Não sei se o Mercado Livre aplicou; a leitura de volta confere.',
+            }
+
+        registro['situacao'] = 'aceito' if resultado['ok'] else ('incerto' if resultado['incerto'] else 'recusado')
+        registro['mensagem'] = resultado['mensagem']
+        registro['avisos'] = resultado['avisos']
+        registro['status_http'] = resultado['status_http']
+
+    a_reler = [r for r in relatorio.mlbs if r['situacao'] in ('aceito', 'incerto')]
+    if a_reler:
+        _reler_e_conferir(empresa, api_ml, plano, a_reler, relatorio)
+
+    relatorio.duracao_segundos = round(time.perf_counter() - inicio, 2)
+    return relatorio
+
+
+# Função Objetivo: Lê de volta, só dos anúncios que receberam (ou cujo envio
+# ficou incerto), o que o ML guardou; grava no banco (mesma gravação do
+# "Atualizar") e preenche, em cada registro, a conferência campo a campo.
+# "Foi relido" = o anúncio ganhou uma data de leitura nova — assim vale
+# também quando a leitura foi interrompida no meio (token recusado).
+def _reler_e_conferir(empresa, api_ml, plano, registros, relatorio) -> None:
+    ids = [registro['anuncio_id'] for registro in registros]
+    anuncios = list(AnuncioMercadoLivre.objects.filter(id__in=ids).only('id', 'mlb'))
+    leitura = RelatorioLeituraCaracteristicas(empresa=empresa, total_anuncios=len(anuncios))
+
+    momento = timezone.now()
+    try:
+        _ler_e_gravar_anuncios(empresa, api_ml, anuncios, leitura, _sem_progresso)
+    except ErroAutenticacaoAPI:
+        traceback.print_exc()
+        relatorio.acesso_recusado = True
+    relatorio.falhas_leitura = leitura.falhas
+
+    atualizados = {
+        anuncio.id: anuncio
+        for anuncio in AnuncioMercadoLivre.objects.filter(id__in=ids).only('id', 'atributos_ml', 'atributos_ml_lido_em')
+    }
+    corpos = {alvo['mlb']: alvo['atributos_corpo'] for alvo in plano['mlbs']}
+
+    for registro in registros:
+        anuncio = atualizados.get(registro['anuncio_id'])
+        foi_relido = (
+            anuncio is not None
+            and anuncio.atributos_ml_lido_em is not None
+            and anuncio.atributos_ml_lido_em >= momento
+        )
+        if not foi_relido:
+            registro['mensagem'] += ' Não consegui ler de volta para confirmar; clique em "Atualizar" no produto.'
+            continue
+
+        registro['campos'] = conferir_depois_do_envio(plano['valores'], corpos[registro['mlb']], anuncio.atributos_ml)
+        todos_confirmados = all(campo['confirmado'] for campo in registro['campos'])
+        if registro['situacao'] == 'incerto' and todos_confirmados:
+            registro['situacao'] = 'aceito'
+            registro['mensagem'] = 'O Mercado Livre demorou a responder, mas a leitura de volta confirma que aplicou.'
+        elif registro['situacao'] == 'incerto':
+            registro['mensagem'] += ' A leitura de volta não confirmou todos os campos.'
+        elif not todos_confirmados:
+            registro['mensagem'] = 'Aceito pelo Mercado Livre, mas a leitura de volta mostra valor diferente em algum campo.'
 
 
 def _fechar_registro(registro, relatorio, situacao) -> None:
