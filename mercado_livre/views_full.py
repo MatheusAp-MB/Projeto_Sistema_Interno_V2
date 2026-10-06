@@ -126,15 +126,19 @@ def view_full_consultar(request):
     finally:
         cache.delete(chave_trava)
 
+    n_falhas = len(relatorio.falhas)
     mensagem = f'{relatorio.chamadas} {_plural(relatorio.chamadas, "chamada feita", "chamadas feitas")} ao Mercado Livre'
-    if relatorio.falhas:
-        n_falhas = len(relatorio.falhas)
+    if n_falhas:
         mensagem += f'; {n_falhas} {_plural(n_falhas, "falhou", "falharam")} (o motivo aparece em "De onde vêm os dados")'
     mensagem += '.'
 
+    # * [EXPLICAÇÃO] → "falhas" é o número de chamadas que o ML recusou/errou NESTA consulta (a consulta foi gravada
+    #                  mesmo assim). A tela "Planejamento de envios" usa esse número para dizer, na sincronização
+    #                  de vários Códigos ML, quais precisam de atenção — sem ter que ler o texto da mensagem.
     return JsonResponse({
         'ok': True,
         'mensagem': mensagem,
+        'falhas': n_falhas,
         'url': reverse('mercado_livre_full') + '?' + urlencode({'codigo': relatorio.codigo}),
     })
 

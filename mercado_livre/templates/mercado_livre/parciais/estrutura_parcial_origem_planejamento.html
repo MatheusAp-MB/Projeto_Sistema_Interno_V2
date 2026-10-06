@@ -1,0 +1,13 @@
+{% comment %}
+* [RESUMO] → A "origem" de um dado, em 2 linhas: (1) a fonte (REPOS, ESTOQUE, ARQUIVO, BANCO ou TELA) com NOVO ou
+  JÁ USADO e, à direita, o selo de conferência; (2) o campo exato dentro da fonte. O campo vem em pedaços para
+  quebrar linha só depois de "." e "_" (o <wbr> é um ponto de quebra opcional e não entra no texto copiado).
+  Recebe: meta.
+{% endcomment %}
+<div class="plan-origem">
+    <p class="plan-origem-topo">
+        <span class="plan-fonte plan-fonte--{{ meta.projeto }}" title="{{ meta.endpoint }}{% if meta.etiqueta %} — {{ meta.etiqueta }}{% endif %}">{{ meta.fonte }}{% if meta.projeto == 'novo' or meta.projeto == 'ja_usado' %} · {{ meta.projeto_rotulo }}{% endif %}</span>
+        <span class="plan-selo" title="{{ meta.selo.dica }}">{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=meta.selo.badge %}</span>
+    </p>
+    <code class="plan-origem-caminho" title="{{ meta.caminho }}">{% for pedaco in meta.caminho_pedacos %}{{ pedaco }}{% if not forloop.last %}<wbr>{% endif %}{% endfor %}</code>
+</div>

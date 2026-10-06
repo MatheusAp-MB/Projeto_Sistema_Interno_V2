@@ -60,3 +60,28 @@ def opcoes_com_badge(mapa):
         {'valor': valor, **dados}
         for valor, dados in mapa.items()
     ]
+
+
+# * [EXPLICAÇÃO] → Tela "Full — Planejamento de envios" (06/10/2026). Os selos abaixo vivem aqui, e as cores em
+#                  layout_badges.css, pelo mesmo motivo de todos os outros: uma cor muda num lugar só.
+# Situação de conferência de um dado do Full — o registro que a equipe preenche na ficha de debug
+# (CampoFullMercadoLivre.Situacao). As chaves são as MESMAS do model; só o texto muda: na tela final
+# "A validar" aparece como "Não conferido", que é como o chefe lê.
+BADGES_CONFERENCIA_FULL = {
+    'valido':    {'label': 'Conferido',     'classe': 'badge-conferencia-valido',    'icone': 'fa-circle-check'},
+    'hipotese':  {'label': 'Hipótese',      'classe': 'badge-conferencia-hipotese',  'icone': 'fa-lightbulb'},
+    'a_validar': {'label': 'Não conferido', 'classe': 'badge-conferencia-a-validar', 'icone': 'fa-circle-question'},
+    'invalido':  {'label': 'Inválido',      'classe': 'badge-conferencia-invalido',  'icone': 'fa-circle-xmark'},
+}
+
+# Urgência de envio (REPOS stock.shipping_urgency). As chaves são os valores exatos que a API manda.
+BADGES_URGENCIA_FULL = {
+    'URGENT':       {'label': 'Urgente',        'classe': 'badge-envio-urgente',        'icone': 'fa-fire'},
+    'THIS_WEEK':    {'label': 'Esta semana',    'classe': 'badge-envio-esta-semana',    'icone': 'fa-calendar-day'},
+    'NEXT_WEEK':    {'label': 'Próxima semana', 'classe': 'badge-envio-proxima-semana', 'icone': 'fa-calendar-week'},
+    'IN_TWO_WEEKS': {'label': 'Em 2 semanas',   'classe': 'badge-envio-em-2-semanas',   'icone': 'fa-calendar'},
+    'NO_URGENCY':   {'label': 'Sem urgência',   'classe': 'badge-envio-sem-urgencia',   'icone': 'fa-circle-check'},
+    'EXCEDENT':     {'label': 'Excedente',      'classe': 'badge-envio-excedente',      'icone': 'fa-boxes-stacked'},
+}
+
+BADGE_ESTRELA_FULL = {'label': 'Estrela', 'classe': 'badge-estrela', 'icone': 'fa-star'}

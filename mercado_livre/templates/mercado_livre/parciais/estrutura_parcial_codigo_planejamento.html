@@ -1,0 +1,135 @@
+{% comment %}
+* [RESUMO] → O cartão de 1 Código ML do Full. Ordem de leitura de quem planeja envios:
+  O QUE FAZER (urgência, sugestão, recomendação) → ESTOQUE → VENDAS → DETALHES DA REPOSIÇÃO →
+  o que ainda não tem fonte → ANÚNCIOS que usam este código. Sem consulta salva, só os anúncios
+  e o botão para consultar o Mercado Livre (a única coisa nesta tela que chama a API).
+  O topo do cartão é clicável: recolhe/expande o corpo (o botão da seta faz o mesmo pelo teclado).
+  Recebe: cartao (um item de produto.codigos), url_debug.
+{% endcomment %}
+<section class="plan-codigo" id="{{ cartao.ancora }}" data-codigo="{{ cartao.codigo }}">
+    <header class="plan-codigo-topo" title="Clique para recolher ou expandir este Código ML">
+        <button type="button" class="plan-codigo-alternar" aria-expanded="true" aria-controls="{{ cartao.ancora }}-corpo"
+                aria-label="Recolher ou expandir o Código ML {{ cartao.codigo }}">
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+        </button>
+        <div class="plan-codigo-id">
+            <span class="plan-codigo-rotulo">Código ML do Full</span>
+            <span class="card-copiavel">
+                <strong class="plan-codigo-codigo">{{ cartao.codigo }}</strong>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ cartao.codigo }}"></i>
+            </span>
+            {% if cartao.estrela %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.badge_estrela %}{% endif %}
+            {% if cartao.urgencia_badge %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.urgencia_badge %}{% endif %}
+        </div>
+        <div class="plan-codigo-acoes">
+            {% if cartao.consultado %}
+                <span class="plan-codigo-quando">
+                    <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                    Números do Full consultados em <strong>{{ cartao.consulta_quando }}</strong>{% if cartao.consulta_usuario %}, por {{ cartao.consulta_usuario }}{% endif %}
+                </span>
+                <button type="button" class="plan-btn-contorno" data-acao="consultar" data-codigo="{{ cartao.codigo }}">
+                    <i class="fas fa-satellite-dish" aria-hidden="true"></i> Consultar de novo
+                </button>
+            {% else %}
+                <span class="plan-codigo-quando plan-codigo-quando--pendente">Ainda não consultado no Mercado Livre</span>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="plan-codigo-corpo" id="{{ cartao.ancora }}-corpo">
+        <p class="plan-codigo-resultado" data-resultado hidden role="status" aria-live="polite"></p>
+
+        {% if cartao.aviso_varios_produtos %}
+            <p class="plan-aviso plan-aviso--atencao"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>{{ cartao.aviso_varios_produtos }}</span></p>
+        {% endif %}
+        {% for aviso in cartao.avisos %}
+            <p class="plan-aviso plan-aviso--atencao"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>{{ aviso }}</span></p>
+        {% endfor %}
+
+        {% if cartao.consultado %}
+            <section class="plan-bloco plan-bloco--resumo" aria-label="O que fazer">
+                <h3 class="plan-bloco-titulo">O que fazer</h3>
+                <div class="plan-tiles plan-tiles--resumo">
+                    {% for tile in cartao.resumo %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                </div>
+            </section>
+
+            <section class="plan-bloco" aria-label="Estoque no Full">
+                <h3 class="plan-bloco-titulo">Estoque no Full</h3>
+                <div class="plan-tiles plan-tiles--estoque">
+                    {% for tile in cartao.estoque %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                </div>
+            </section>
+
+            <section class="plan-bloco" aria-label="Vendas no Full">
+                <h3 class="plan-bloco-titulo">Vendas no Full</h3>
+                <div class="plan-vendas">
+                    <div class="plan-tiles plan-tiles--coluna">
+                        {% for tile in cartao.vendas %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                    </div>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_grafico_planejamento.html' with grafico=cartao.grafico meta=cartao.grafico_meta estado=cartao.grafico_estado %}
+                </div>
+            </section>
+
+            <section class="plan-bloco" aria-label="Detalhes da reposição">
+                <h3 class="plan-bloco-titulo">Detalhes da reposição</h3>
+                <div class="plan-tiles">
+                    {% for tile in cartao.reposicao %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                </div>
+            </section>
+
+            <details class="plan-sem-fonte">
+                <summary class="plan-sem-fonte-titulo">
+                    Ainda sem fonte — aparece na tela do Mercado Livre, mas nenhuma API usada aqui entrega ({{ cartao.sem_fonte|length }})
+                </summary>
+                <div class="plan-tiles plan-tiles--sem-fonte">
+                    {% for tile in cartao.sem_fonte %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                </div>
+            </details>
+        {% else %}
+            <div class="plan-vazio-consulta">
+                <i class="fas fa-satellite-dish plan-vazio-consulta-icone" aria-hidden="true"></i>
+                <div class="plan-vazio-consulta-texto">
+                    <h3 class="plan-vazio-consulta-titulo">Ainda não consultado no Mercado Livre</h3>
+                    <p>
+                        Para ver urgência, sugestão de envio, estoque e vendas deste Código ML, consulte o Mercado Livre.
+                        São cerca de 2 chamadas de leitura (estoque e reposição); o resultado fica salvo no banco.
+                    </p>
+                    <button type="button" class="btn-acao" data-acao="consultar" data-codigo="{{ cartao.codigo }}">
+                        <i class="fas fa-satellite-dish" aria-hidden="true"></i> Consultar no Mercado Livre
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+
+        <details class="plan-anuncios" open>
+            <summary class="plan-anuncios-titulo">
+                Anúncios que usam este Código ML ({{ cartao.n_anuncios }})
+            </summary>
+            {% if cartao.n_outro_sku %}
+                <p class="plan-anuncios-nota">
+                    Anúncios com SKU diferente do produto em análise: {{ cartao.n_outro_sku }}. O Código ML é compartilhado com eles.
+                </p>
+            {% endif %}
+            {% if cartao.n_fora_do_banco %}
+                <p class="plan-anuncios-nota">
+                    Anúncios do arquivo que ainda não estão no banco do sistema: {{ cartao.n_fora_do_banco }}.
+                </p>
+            {% endif %}
+            <ul class="plan-anuncios-lista">
+                {% for anuncio in cartao.anuncios %}
+                    {% include 'mercado_livre/parciais/estrutura_parcial_anuncio_planejamento.html' with anuncio=anuncio %}
+                {% empty %}
+                    <li class="plan-anuncios-vazio">Nenhum anúncio deste Código ML no arquivo.</li>
+                {% endfor %}
+            </ul>
+        </details>
+
+        <footer class="plan-codigo-rodape">
+            <a href="{{ url_debug }}?codigo={{ cartao.codigo|urlencode }}" class="plan-link-debug">
+                <i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> Ver todos os campos deste código na ficha de debug
+            </a>
+            {% if cartao.user_product_id %}<span class="plan-codigo-upid">Produto do vendedor: <code>{{ cartao.user_product_id }}</code></span>{% endif %}
+        </footer>
+    </div>
+</section>

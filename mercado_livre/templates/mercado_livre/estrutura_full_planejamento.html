@@ -1,0 +1,188 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Planejamento de envios — Full — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Full — Planejamento de envios{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'mercado_livre/css/layout_full_planejamento.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela FINAL "Full — Planejamento de envios". Parte do produto (SKU, EAN, Código ML ou MLB)
+      e mostra, para cada Código ML do Full dele: o que fazer, o estoque, as vendas e os anúncios. Cada número
+      traz a fonte, o caminho do campo e o selo de conferência (o mesmo registro da ficha de debug).
+      Abrir a tela e buscar só LEEM o banco e o arquivo detalhes_mlbs.json. O Mercado Livre só é consultado
+      pelo botão "Consultar no Mercado Livre" de cada Código ML.
+    {% endcomment %}
+    <div class="plan-pagina"
+         data-url-consultar="{% url 'mercado_livre_full_consultar' %}">
+
+        <form id="plan-csrf" hidden>{% csrf_token %}</form>
+
+        <form method="get" action="{{ url_planejamento }}" class="plan-busca" role="search">
+            <div class="plan-busca-campo">
+                <i class="fas fa-magnifying-glass plan-busca-icone" aria-hidden="true"></i>
+                <input type="search"
+                       id="plan-q"
+                       name="q"
+                       value="{{ texto }}"
+                       class="plan-busca-input"
+                       placeholder="Buscar por SKU, EAN, Código ML ou MLB..."
+                       aria-label="Buscar por SKU, EAN, Código ML ou MLB"
+                       autocomplete="off"
+                       spellcheck="false">
+            </div>
+            <button type="submit" class="btn-acao">Buscar</button>
+            <a href="{{ url_debug }}" class="plan-link-debug">
+                <i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> Ficha de debug
+            </a>
+        </form>
+
+        {% if not pagina.arquivo.existe %}
+            <p class="plan-aviso plan-aviso--atencao">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span>{{ pagina.arquivo.erro }} Sem esse arquivo não consigo ligar o SKU aos Códigos ML.</span>
+            </p>
+        {% endif %}
+
+        {% if pagina.estado == 'vazio' %}
+            <section class="plan-painel" aria-label="Como usar">
+                <div class="plan-painel-icone" aria-hidden="true"><i class="fas fa-boxes-packing"></i></div>
+                <div class="plan-painel-texto">
+                    <h2 class="plan-painel-titulo">Qual produto você quer planejar?</h2>
+                    <p>
+                        Digite o <strong>SKU</strong>, o <strong>EAN</strong>, o <strong>Código ML</strong> do Full
+                        (ex.: <code>OPXW24140</code>) ou o número do anúncio (<strong>MLB</strong>). A tela mostra o
+                        produto e, embaixo dele, todos os Códigos ML do Full que ele tem — um mesmo SKU pode ter mais de um.
+                    </p>
+                    <p class="plan-painel-aviso">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        Abrir e buscar só lê o que já está salvo. O Mercado Livre só é consultado quando você clica em
+                        <strong>Consultar no Mercado Livre</strong> (cerca de 2 chamadas de leitura por Código ML).
+                    </p>
+                    {% if recentes %}
+                        <h3 class="plan-painel-subtitulo">Códigos ML consultados recentemente</h3>
+                        <ul class="plan-recentes">
+                            {% for recente in recentes %}
+                                <li>
+                                    <a href="{{ recente.url }}" class="plan-recente">
+                                        <strong>{{ recente.codigo }}</strong>
+                                        <span>{{ recente.quando }}</span>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </section>
+
+        {% elif pagina.estado == 'nao_achou' %}
+            <section class="plan-painel plan-painel--aviso" aria-label="Nada encontrado">
+                <div class="plan-painel-icone" aria-hidden="true"><i class="fas fa-magnifying-glass"></i></div>
+                <div class="plan-painel-texto">
+                    <h2 class="plan-painel-titulo">Não achei nada para "{{ pagina.texto }}"</h2>
+                    {% for item in pagina.sem_sku %}
+                        <p>O produto <strong>{{ item.titulo }}</strong> (EAN {{ item.ean }}) está no cadastro, mas não tem SKU — por isso não dá para ligá-lo aos anúncios.</p>
+                    {% endfor %}
+                    <p>
+                        Confira se o texto está igual ao do cadastro. Você pode buscar pelo SKU, pelo EAN, pelo Código ML do Full,
+                        pelo MLB (ex.: <code>MLB5838465508</code> ou <code>#5838465508</code>) ou por pedaços do título, da marca
+                        ou do código do fabricante.
+                    </p>
+                    {% if pagina.arquivo.existe %}
+                        <p class="plan-painel-aviso">
+                            Os anúncios vêm do arquivo detalhes_mlbs.json, gerado em {{ pagina.arquivo.gerado_em|default:"data não registrada" }}
+                            ({{ pagina.arquivo.n_registros }} registros). Um anúncio criado depois disso ainda não aparece.
+                        </p>
+                    {% endif %}
+                </div>
+            </section>
+
+        {% elif pagina.estado == 'escolher' %}
+            <section class="plan-escolher" aria-label="Produtos parecidos">
+                <h2 class="plan-escolher-titulo">
+                    {% if pagina.mais_sugestoes %}Mais de {{ pagina.sugestoes|length }} produtos{% else %}{{ pagina.sugestoes|length }} produto{{ pagina.sugestoes|length|pluralize }}{% endif %}
+                    parecido{{ pagina.sugestoes|length|pluralize }} com "{{ pagina.texto }}" — escolha um
+                </h2>
+                {% if pagina.mais_sugestoes %}
+                    <p class="plan-escolher-aviso">Mostrando só os primeiros. Digite mais palavras para afunilar.</p>
+                {% endif %}
+                <ul class="plan-escolher-lista">
+                    {% for item in pagina.sugestoes %}
+                        <li>
+                            {% if item.sku %}
+                                <a href="{{ url_planejamento }}?q={{ item.sku|urlencode }}" class="plan-escolher-item">
+                            {% else %}
+                                <span class="plan-escolher-item plan-escolher-item--sem-sku">
+                            {% endif %}
+                                {% if item.imagem_url %}
+                                    <img src="{{ item.imagem_url }}" class="plan-escolher-imagem" alt="">
+                                {% else %}
+                                    <span class="plan-escolher-imagem plan-escolher-imagem--vazia"><i class="fas fa-image" aria-hidden="true"></i></span>
+                                {% endif %}
+                                <span class="plan-escolher-dados">
+                                    <span class="plan-escolher-nome">{{ item.titulo }}</span>
+                                    <span class="plan-escolher-ids">
+                                        {% if item.marca %}<span>{{ item.marca }}</span>{% endif %}
+                                        <span>SKU {{ item.sku|default:"— (sem SKU)" }}</span>
+                                        <span>EAN {{ item.ean }}</span>
+                                        <span>Estoque {{ item.estoque }}</span>
+                                    </span>
+                                </span>
+                            {% if item.sku %}</a>{% else %}</span>{% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+
+        {% else %}
+            {% if pagina.total_achados > pagina.produtos|length %}
+                <p class="plan-aviso">
+                    <i class="fas fa-circle-info" aria-hidden="true"></i>
+                    <span>A busca bateu com {{ pagina.total_achados }} produtos; mostrando os {{ pagina.produtos|length }} primeiros. Digite o SKU para ver um só.</span>
+                </p>
+            {% endif %}
+            {% for produto in pagina.produtos %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_produto_planejamento.html' with produto=produto url_debug=url_debug %}
+            {% endfor %}
+        {% endif %}
+
+        <details class="plan-legenda">
+            <summary class="plan-legenda-titulo">
+                <i class="fas fa-circle-question" aria-hidden="true"></i> Como ler esta tela
+            </summary>
+            <div class="plan-legenda-corpo">
+                <div class="plan-legenda-bloco">
+                    <h3 class="plan-legenda-subtitulo">Selos de conferência</h3>
+                    <p class="plan-legenda-texto">Cada número tem um selo. Ele vem do registro que a equipe preenche na ficha de debug.</p>
+                    <ul class="plan-legenda-lista">
+                        {% for selo in legenda.selos %}
+                            <li>{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=selo.badge %} <span>{{ selo.texto }}</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="plan-legenda-bloco">
+                    <h3 class="plan-legenda-subtitulo">De onde vem cada número</h3>
+                    <p class="plan-legenda-texto">O nome ao lado de cada número diz a fonte; o texto pequeno ao lado é o campo exato dela.</p>
+                    <ul class="plan-legenda-lista">
+                        {% for fonte in legenda.fontes %}
+                            <li>
+                                <span class="plan-fonte plan-fonte--{{ fonte.projeto }}">{{ fonte.chave }}</span>
+                                <span><strong>{{ fonte.nome }}.</strong> <code>{{ fonte.endpoint }}</code> {{ fonte.projeto_texto }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% if pagina.arquivo.existe %}
+                    <p class="plan-legenda-texto">
+                        Anúncios lidos do detalhes_mlbs.json, gerado em {{ pagina.arquivo.gerado_em|default:"data não registrada" }}
+                        ({{ pagina.arquivo.n_registros }} registros). O arquivo não acompanha o Mercado Livre sozinho.
+                    </p>
+                {% endif %}
+            </div>
+        </details>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'mercado_livre/js/script_full_planejamento.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% comment %}
+* [RESUMO] → Vendas por semana (REPOS sales.sales_history), desenhadas em SVG pelo servidor: sem JavaScript.
+  Cada barra = unidades vendidas na semana (da mais antiga para a mais nova). Barra laranja = semana com dias sem
+  estoque (o número vermelho embaixo são os dias); bolinha roxa = semana com campanha.
+  Recebe: grafico (ou None), meta (origem do campo), estado.
+{% endcomment %}
+<figure class="plan-grafico">
+    {% if grafico %}
+        <figcaption class="plan-grafico-titulo">
+            Unidades vendidas por semana — {{ grafico.n_semanas }} semana{{ grafico.n_semanas|pluralize }}, {{ grafico.total }} un. no total
+        </figcaption>
+        <div class="plan-grafico-quadro">
+            <svg class="plan-grafico-svg"
+                 viewBox="0 0 {{ grafico.largura|stringformat:'d' }} {{ grafico.altura|stringformat:'d' }}"
+                 width="{{ grafico.largura|stringformat:'d' }}"
+                 height="{{ grafico.altura|stringformat:'d' }}"
+                 role="img"
+                 aria-label="Unidades vendidas por semana no Full: {% for b in grafico.barras %}{{ b.data }}: {{ b.unidades }}{% if not forloop.last %}; {% endif %}{% endfor %}">
+                {% for guia in grafico.guias %}
+                    <line class="plan-g-guia" x1="{{ grafico.x_inicio }}" x2="{{ grafico.x_fim }}" y1="{{ guia.y }}" y2="{{ guia.y }}"></line>
+                    <text class="plan-g-eixo" x="{{ guia.x_texto }}" y="{{ guia.y }}" text-anchor="end" dominant-baseline="middle">{{ guia.texto }}</text>
+                {% endfor %}
+                {% for b in grafico.barras %}
+                    <g>
+                        <title>{{ b.dica }}</title>
+                        <rect class="plan-g-barra{% if b.dias %} plan-g-barra--sem-estoque{% endif %}" x="{{ b.x }}" y="{{ b.y }}" width="{{ b.largura }}" height="{{ b.altura }}" rx="3"></rect>
+                        <text class="plan-g-valor" x="{{ b.centro }}" y="{{ b.y_valor }}" text-anchor="middle">{{ b.unidades }}</text>
+                        {% if b.campanha %}<circle class="plan-g-campanha" cx="{{ b.centro }}" cy="{{ b.y_campanha }}" r="3.5"></circle>{% endif %}
+                        <text class="plan-g-data" x="{{ b.centro }}" y="{{ b.y_data }}" text-anchor="middle">{{ b.data }}</text>
+                        {% if b.dias %}<text class="plan-g-dias" x="{{ b.centro }}" y="{{ b.y_dias }}" text-anchor="middle">{{ b.dias }} d</text>{% endif %}
+                    </g>
+                {% endfor %}
+            </svg>
+        </div>
+        <ul class="plan-grafico-legenda">
+            <li><span class="plan-grafico-amostra plan-grafico-amostra--barra"></span> semana normal (a data é o 1º dia da semana)</li>
+            {% if grafico.com_dias_sem_estoque %}<li><span class="plan-grafico-amostra plan-grafico-amostra--sem-estoque"></span> semana com dias sem estoque (número vermelho = dias)</li>{% endif %}
+            {% if grafico.com_campanha %}<li><span class="plan-grafico-amostra plan-grafico-amostra--campanha"></span> semana com campanha</li>{% endif %}
+        </ul>
+    {% else %}
+        <figcaption class="plan-grafico-titulo">Unidades vendidas por semana</figcaption>
+        <p class="plan-grafico-vazio">
+            {% if estado == 'ok' %}A resposta do Mercado Livre não trouxe semanas.{% else %}Sem histórico semanal: a resposta do Mercado Livre não trouxe este campo.{% endif %}
+        </p>
+    {% endif %}
+    {% include 'mercado_livre/parciais/estrutura_parcial_origem_planejamento.html' with meta=meta %}
+</figure>

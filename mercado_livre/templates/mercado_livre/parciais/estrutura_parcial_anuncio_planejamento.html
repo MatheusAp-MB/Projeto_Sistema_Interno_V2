@@ -1,0 +1,59 @@
+{% comment %}
+* [RESUMO] → 1 anúncio (MLB, ou 1 variação dele) dentro de um Código ML. Mesmo visual dos selos do Hub de
+  Anúncios (status, tipo, logística, Flex). Dados do arquivo detalhes_mlbs.json; os avisos pequenos
+  dizem quando o banco do sistema ainda não tem o anúncio ou quando o SKU é de outro produto.
+  Recebe: anuncio (montado por _linha_de_anuncio em full_planejamento_ml.py).
+{% endcomment %}
+<li class="plan-anuncio{% if anuncio.status == 'closed' %} plan-anuncio--encerrado{% endif %}">
+    {% if anuncio.imagem %}
+        <img src="{{ anuncio.imagem }}" class="plan-anuncio-imagem" alt="Foto do anúncio {{ anuncio.mlb }}">
+    {% else %}
+        <div class="plan-anuncio-imagem plan-anuncio-imagem--vazia" role="img" aria-label="Anúncio sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>
+    {% endif %}
+    <div class="plan-anuncio-corpo">
+        <div class="plan-anuncio-badges">
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_status %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_tipo %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_logistica %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_flex %}
+            {% if anuncio.badge_catalogo %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_catalogo %}{% endif %}
+        </div>
+        <p class="plan-anuncio-titulo">
+            <span class="card-copiavel">
+                <span>{{ anuncio.titulo }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.titulo }}"></i>
+            </span>
+        </p>
+        <p class="plan-anuncio-ids">
+            <span class="card-copiavel">
+                <span class="plan-anuncio-mlb">{{ anuncio.mlb }}</span>
+                <i class="fas fa-copy icone-copiar" data-copiar="{{ anuncio.mlb }}"></i>
+            </span>
+            {% if anuncio.variacao_id %}
+                <span class="plan-anuncio-variacao">variação {{ anuncio.variacao_id }}{% if anuncio.variacao_atributos %} · {{ anuncio.variacao_atributos }}{% endif %}</span>
+            {% endif %}
+            <span class="plan-anuncio-sku">SKU {{ anuncio.sku|default:"—" }}</span>
+            {% if anuncio.de_outro_sku %}<span class="plan-marca plan-marca--atencao" title="O SKU deste anúncio não é o do produto em análise.">SKU diferente</span>{% endif %}
+            {% if anuncio.banco_lido and not anuncio.anuncio_no_banco %}<span class="plan-marca plan-marca--atencao" title="Este MLB está no arquivo detalhes_mlbs.json, mas ainda não foi importado para o banco do sistema.">fora do banco</span>
+            {% elif anuncio.variacao_no_banco is False %}<span class="plan-marca plan-marca--atencao" title="O anúncio está no banco, mas esta variação não.">variação fora do banco</span>{% endif %}
+        </p>
+    </div>
+    <div class="plan-anuncio-metricas">
+        <div class="plan-metrica">
+            <span class="plan-metrica-rotulo">Estoque</span>
+            <span class="plan-metrica-valor">{{ anuncio.estoque }}</span>
+        </div>
+        <div class="plan-metrica">
+            <span class="plan-metrica-rotulo">Vendidos</span>
+            <span class="plan-metrica-valor">{{ anuncio.vendidos }}</span>
+        </div>
+        <div class="plan-metrica plan-metrica--preco">
+            <span class="plan-metrica-rotulo">Preço</span>
+            <span class="plan-metrica-valor">{{ anuncio.preco }}</span>
+            {% if anuncio.preco_original %}<span class="plan-metrica-de">{{ anuncio.preco_original }}</span>{% endif %}
+        </div>
+    </div>
+    {% if anuncio.permalink %}
+        <a href="{{ anuncio.permalink }}" target="_blank" rel="noopener" class="plan-ver-no-ml">Ver no ML</a>
+    {% endif %}
+</li>

@@ -223,3 +223,35 @@
 
 .badge-empresa-magazine { background: #1F4E78; color: #fff; }
 .badge-empresa-samvale  { background: #7C3AED; color: #fff; }
+
+
+/* ================================================
+   FULL — PLANEJAMENTO DE ENVIOS (06/10/2026)
+   Selos de conferência de cada dado, urgência de envio e produto Estrela.
+   Cadastro das chaves: mercado_livre/funcoes_auxiliares/badges.py
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Conferência de um dado (4 situações, 4 significados fixos). Verde e vermelho reaproveitam o
+ *                  sentido de badge-full/badge-fiscal-validado ("positivo, conferido") e badge-conta-propria/
+ *                  badge-fiscal-rejeitado ("não bate"). "Não conferido" é cinza TRACEJADO de propósito: o tracejado
+ *                  diz "provisório", e é o estado em que quase todo dado nasce — não pode chamar mais atenção que
+ *                  um dado conferido. */
+.badge-conferencia-valido    { background: #dcfce7; color: #15803d; }
+.badge-conferencia-hipotese  { background: #fef3c7; color: #92400e; }
+.badge-conferencia-a-validar { background: #f8fafc; color: #64748b; box-shadow: inset 0 0 0 1px #cbd5e1; }
+.badge-conferencia-invalido  { background: #fee2e2; color: #b91c1c; }
+
+/* * [EXPLICAÇÃO] → Urgência de envio, da mais crítica para a mais folgada. As duas mais urgentes são SÓLIDAS (texto
+ *                  branco) para saltarem aos olhos numa lista de Códigos ML; as outras seguem a escala pastel do resto
+ *                  do sistema: âmbar (próxima semana), azul (em 2 semanas), verde (sem urgência) e roxo (excedente —
+ *                  não é "bom" nem "ruim", é sobra, e por isso foge do verde). */
+.badge-envio-urgente        { background: #b91c1c; color: #fff; }
+.badge-envio-esta-semana    { background: #ea580c; color: #fff; }
+.badge-envio-proxima-semana { background: #fef3c7; color: #92400e; }
+.badge-envio-em-2-semanas   { background: #dbeafe; color: #1d4ed8; }
+.badge-envio-sem-urgencia   { background: #dcfce7; color: #15803d; }
+.badge-envio-excedente      { background: #ede9fe; color: #6d28d9; }
+
+/* * [EXPLICAÇÃO] → Produto Estrela do Full (tag star_product). Dourado, distinto do amarelo de badge-flex-ativo
+ *                  (#fde68a/#78350f), que aparece na mesma linha de anúncio. */
+.badge-estrela { background: #fff1c2; color: #8a5a00; box-shadow: inset 0 0 0 1px #f2c94c; }

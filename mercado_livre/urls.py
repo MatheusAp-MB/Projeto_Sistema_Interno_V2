@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import views_caracteristicas
 from . import views_full
+from . import views_full_planejamento
 
 urlpatterns = [
     path('anuncios/', views.view_hub_anuncios, name='mercado_livre_anuncios'),
@@ -33,6 +34,11 @@ urlpatterns = [
     path('full/', views_full.view_full_ficha, name='mercado_livre_full'),
     path('full/consultar/', views_full.view_full_consultar, name='mercado_livre_full_consultar'),
     path('full/campo/salvar/', views_full.view_full_salvar_campo, name='mercado_livre_full_salvar_campo'),
+
+    # * [EXPLICAÇÃO] → Tela FINAL "Full — Planejamento de envios" (a versão organizada, para apresentar).
+    #                  Só lê o banco e o detalhes_mlbs.json; o botão "Consultar no Mercado Livre" dela usa a
+    #                  mesma view da ficha de debug (full/consultar/).
+    path('full/planejamento/', views_full_planejamento.view_full_planejamento, name='mercado_livre_full_planejamento'),
 
     path('qualidade/<str:mlb>/', views.view_qualidade_anuncio, name='mercado_livre_qualidade'),
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),

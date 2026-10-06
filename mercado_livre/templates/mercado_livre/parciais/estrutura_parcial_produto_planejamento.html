@@ -1,0 +1,139 @@
+{% comment %}
+* [RESUMO] → O produto em análise (topo) e, dentro dele, os seus Códigos ML do Full. O topo mostra SÓ o que
+  identifica o produto: imagem, título, marca, SKU, EAN, código do fabricante e estoque no ERP.
+  No canto direito do topo fica o botão "Sincronizar": consulta no Mercado Livre TODOS os Códigos ML do produto, um por
+  vez (o mesmo "Consultar" de cada cartão, repetido). Só roda quando a pessoa clica; o andamento aparece na caixa
+  .plan-sync logo abaixo do topo.
+  Recebe: produto (um item de pagina.produtos), url_debug.
+{% endcomment %}
+<article class="plan-produto" id="{{ produto.ancora }}">
+    <header class="plan-produto-topo">
+        {% if produto.cadastro %}
+            {% if produto.cadastro.imagem_url %}
+                <img src="{{ produto.cadastro.imagem_url }}"
+                     class="plan-produto-imagem"
+                     alt="Imagem do produto {{ produto.cadastro.titulo }}">
+            {% else %}
+                <div class="plan-produto-imagem plan-produto-imagem--vazia" role="img" aria-label="Produto sem imagem no ERP">
+                    <i class="fas fa-image" aria-hidden="true"></i>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="plan-produto-imagem plan-produto-imagem--alerta" role="img" aria-label="Produto sem cadastro no sistema">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+            </div>
+        {% endif %}
+        <div class="plan-produto-identidade">
+            <p class="plan-produto-rotulo">
+                Produto em análise
+                {% if not produto.cadastro %}<span class="plan-produto-sem-cadastro">SEM CADASTRO NO SISTEMA</span>{% endif %}
+            </p>
+            <h2 class="plan-produto-titulo">
+                {% if produto.cadastro %}{{ produto.cadastro.titulo }}{% else %}{{ produto.titulo_do_anuncio|default:produto.sku }}{% endif %}
+            </h2>
+            {% if not produto.cadastro %}
+                <p class="plan-produto-nota">Não encontrei este SKU no cadastro de produtos do sistema; o título acima é o do anúncio.</p>
+            {% endif %}
+            <dl class="plan-fatos">
+                <div class="plan-fato">
+                    <dt>Marca</dt>
+                    <dd>{{ produto.cadastro.marca|default:"—" }}</dd>
+                </div>
+                <div class="plan-fato">
+                    <dt>SKU</dt>
+                    <dd class="plan-fato-codigo">
+                        <span class="card-copiavel">{{ produto.sku }} <i class="fas fa-copy icone-copiar icone-copiar-claro" data-copiar="{{ produto.sku }}"></i></span>
+                    </dd>
+                </div>
+                <div class="plan-fato">
+                    <dt>EAN</dt>
+                    <dd class="plan-fato-codigo">
+                        {% if produto.cadastro.ean %}<span class="card-copiavel">{{ produto.cadastro.ean }} <i class="fas fa-copy icone-copiar icone-copiar-claro" data-copiar="{{ produto.cadastro.ean }}"></i></span>{% else %}—{% endif %}
+                    </dd>
+                </div>
+                <div class="plan-fato">
+                    <dt>Cód. fabricante</dt>
+                    <dd class="plan-fato-codigo">{{ produto.cadastro.cod_fabricante|default:"—" }}</dd>
+                </div>
+                <div class="plan-fato plan-fato--estoque">
+                    <dt>Estoque (ERP)</dt>
+                    <dd>{% if produto.cadastro %}{{ produto.cadastro.estoque }} <span class="plan-fato-unidade">un.</span>{% else %}—{% endif %}</dd>
+                </div>
+            </dl>
+        </div>
+        {% if produto.codigos %}
+            <div class="plan-produto-acoes">
+                <button type="button" class="plan-btn-sync" data-acao="sincronizar" data-produto="{{ produto.ancora }}"
+                        aria-describedby="{{ produto.ancora }}-sync-nota">
+                    <i class="fas fa-rotate" aria-hidden="true"></i>
+                    <span>{% if produto.codigos|length > 1 %}Sincronizar todos os Códigos ML{% else %}Sincronizar o Código ML{% endif %}</span>
+                </button>
+                <p class="plan-produto-acoes-nota" id="{{ produto.ancora }}-sync-nota">
+                    {% if produto.codigos|length > 1 %}Consulta os {{ produto.codigos|length }} Códigos ML no Mercado Livre, um por vez{% else %}Consulta o Código ML no Mercado Livre{% endif %}
+                    (cerca de {{ produto.n_chamadas_sync }} chamada{{ produto.n_chamadas_sync|pluralize }} de leitura).
+                </p>
+            </div>
+        {% endif %}
+    </header>
+
+    <div class="plan-produto-corpo">
+        {% if produto.codigos %}
+            <div class="plan-sync" data-sync hidden role="status" aria-live="polite">
+                <p class="plan-sync-resumo" data-sync-resumo></p>
+                <ul class="plan-sync-lista" data-sync-lista></ul>
+                <button type="button" class="plan-btn-contorno" data-acao="recarregar" hidden>
+                    <i class="fas fa-rotate-right" aria-hidden="true"></i> Atualizar a tela com o que foi consultado
+                </button>
+            </div>
+        {% endif %}
+
+        <div class="plan-produto-faixa">
+            <p class="plan-produto-achado">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                Achado pelo {{ produto.motivo }}.
+            </p>
+            {% if produto.codigos|length > 1 %}
+                <nav class="plan-codigos-nav" aria-label="Códigos ML deste produto">
+                    <span class="plan-codigos-nav-titulo">{{ produto.codigos|length }} Códigos ML do Full neste produto:</span>
+                    {% for cartao in produto.codigos %}
+                        <a href="#{{ cartao.ancora }}" class="plan-codigos-nav-item">
+                            <strong>{{ cartao.codigo }}</strong>
+                            {% if cartao.urgencia_badge %}
+                                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.urgencia_badge %}
+                            {% elif not cartao.consultado %}
+                                <span class="plan-codigos-nav-pendente">ainda não consultado</span>
+                            {% endif %}
+                        </a>
+                    {% endfor %}
+                </nav>
+            {% endif %}
+        </div>
+
+        {% for cartao in produto.codigos %}
+            {% include 'mercado_livre/parciais/estrutura_parcial_codigo_planejamento.html' with cartao=cartao url_debug=url_debug %}
+        {% empty %}
+            <p class="plan-aviso">
+                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                <span>
+                    {% if not produto.arquivo_existe %}Sem o arquivo detalhes_mlbs.json não dá para achar os Códigos ML deste SKU.
+                    {% elif produto.n_anuncios_no_arquivo %}Este SKU tem {{ produto.n_anuncios_no_arquivo }} anúncio{{ produto.n_anuncios_no_arquivo|pluralize }} no arquivo, mas nenhum com Código ML do Full.
+                    {% else %}Nenhum anúncio com este SKU no arquivo detalhes_mlbs.json — o produto ainda não tem Código ML do Full.{% endif %}
+                </span>
+            </p>
+        {% endfor %}
+
+        {% if produto.fora_do_full %}
+            <details class="plan-anuncios plan-anuncios--fora" {% if not produto.codigos %}open{% endif %}>
+                <summary class="plan-anuncios-titulo">
+                    Anúncios deste SKU sem Código ML ({{ produto.fora_do_full|length }})
+                </summary>
+                <p class="plan-anuncios-nota">Sem Código ML, o Full não tem estoque nem reposição para estes anúncios: eles não entram no planejamento de envios.</p>
+                <ul class="plan-anuncios-lista">
+                    {% for anuncio in produto.fora_do_full %}
+                        {% include 'mercado_livre/parciais/estrutura_parcial_anuncio_planejamento.html' with anuncio=anuncio %}
+                    {% endfor %}
+                </ul>
+            </details>
+        {% endif %}
+    </div>
+</article>

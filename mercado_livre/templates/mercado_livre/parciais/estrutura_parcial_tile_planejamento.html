@@ -1,0 +1,36 @@
+{% comment %}
+* [RESUMO] → 1 número da tela: rótulo, valor, nota e, logo abaixo do valor, a origem (fonte + campo + selo).
+  Se o número tem "sub" (um detalhe do mesmo número, como o Motivo do Indisponível), cada detalhe vem depois, com a
+  origem dele. Recebe: tile (montado por _tile em full_planejamento_ml.py).
+{% endcomment %}
+<div class="plan-tile plan-tile--{{ tile.estado }} plan-tile--{{ tile.tipo }}"{% if tile.bruto %} title="Como veio da API: {{ tile.bruto }}"{% endif %}>
+    <p class="plan-tile-rotulo"{% if tile.nome_no_catalogo != tile.rotulo %} title="{{ tile.nome_no_catalogo }}"{% endif %}>{{ tile.rotulo }}</p>
+    {% if tile.estado == 'ok' %}
+        {% if tile.pilula %}
+            <p class="plan-tile-valor plan-tile-valor--pilula">{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=tile.pilula %}</p>
+        {% else %}
+            <p class="plan-tile-valor">{{ tile.valor }}</p>
+        {% endif %}
+        {% if tile.nota %}<p class="plan-tile-nota">{{ tile.nota }}</p>{% endif %}
+    {% elif tile.estado == 'so_tela' %}
+        <p class="plan-tile-so-tela">{{ tile.valor }}</p>
+    {% else %}
+        <p class="plan-tile-valor plan-tile-valor--ausente">—</p>
+        <p class="plan-tile-nota">{{ tile.explicacao }}</p>
+    {% endif %}
+    {% include 'mercado_livre/parciais/estrutura_parcial_origem_planejamento.html' with meta=tile.meta %}
+    {% for sub in tile.sub %}
+        <div class="plan-tile-sub">
+            <p class="plan-tile-sub-linha">
+                <span class="plan-tile-sub-rotulo">{{ sub.rotulo }}</span>
+                {% if sub.estado == 'ok' %}
+                    <span class="plan-tile-sub-valor"{% if sub.bruto %} title="Como veio da API: {{ sub.bruto }}"{% endif %}>{{ sub.valor }}</span>
+                    {% if sub.nota %}<span class="plan-tile-sub-nota">{{ sub.nota }}</span>{% endif %}
+                {% else %}
+                    <span class="plan-tile-sub-valor plan-tile-sub-valor--ausente">— {{ sub.explicacao }}</span>
+                {% endif %}
+            </p>
+            {% include 'mercado_livre/parciais/estrutura_parcial_origem_planejamento.html' with meta=sub.meta %}
+        </div>
+    {% endfor %}
+</div>
