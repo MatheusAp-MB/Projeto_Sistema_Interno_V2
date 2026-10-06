@@ -1,0 +1,1212 @@
+/*
+* [RESUMO] → CSS da tela "Full — ficha do código" do Mercado Livre.
+* Todas as classes começam com "ful-" (de "full") para não esbarrar no Bootstrap
+* nem nas outras telas. As cores base vêm das variáveis globais de
+* layout_global.css; só o que é exclusivo desta tela fica em .ful-pagina.
+*
+* [EXPLICAÇÃO] → Mesma linguagem de cor da tela Características (car-):
+*   verde  = conferido / pronto            âmbar = pede atenção
+*   azul   = informação e ação             cinza-azulado = sem dado
+*   vermelho = só erro e "Inválido"
+* As 5 FONTES dos dados usam cores próprias de identificação (não são estado):
+*   REPOS = violeta · ESTOQUE = verde-água · ARQUIVO = ardósia · BANCO = vinho · TELA = tracejado.
+* O endpoint NOVO é azul (informação) e o JÁ USADO é verde (já provado no projeto).
+* A ficha tem 3 NÍVEIS (Produto, Código ML do Full, Anúncios): cada um tem um cabeçalho
+* com número, e cada produto/anúncio é um bloco recolhível (.ful-agrupador).
+* Layout provisório: a tela vai mudando conforme o sistema cresce.
+*/
+
+.ful-pagina {
+    --ful-texto-forte: #22324a;
+    --ful-texto-suave: #586578;
+    --ful-texto-fraco: #8491a3;
+    --ful-linha: #e1e8f1;
+    --ful-linha-forte: #c7d2e0;
+    --ful-superficie: #f3f6fa;
+    --ful-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --ful-azul-50: #eef5fb;
+    --ful-azul-100: #d9e8f5;
+    --ful-azul-200: #b3d0e8;
+    --ful-azul-acao: #1f5f94;
+
+    --ful-verde-50: #eaf6ee;
+    --ful-verde-100: #cdebd9;
+    --ful-verde-borda: #a5d5b9;
+    --ful-verde-texto: #1d5a38;
+
+    --ful-ambar-50: #fff8e5;
+    --ful-ambar-100: #fdecb4;
+    --ful-ambar-200: #f3cf6e;
+    --ful-ambar-texto: #7a4a05;
+
+    --ful-cinza-50: #f3f5f9;
+    --ful-cinza-100: #e4e9f0;
+    --ful-cinza-300: #b8c2d0;
+    --ful-cinza-600: #46546a;
+
+    --ful-vermelho-50: #fdecee;
+    --ful-vermelho-100: #f6cfd3;
+    --ful-vermelho-borda: #e7a2aa;
+    --ful-vermelho-texto: #8f1d28;
+
+    /* As 5 fontes */
+    --ful-banco-fundo: #f8e6ee;
+    --ful-banco-texto: #8a2b57;
+    --ful-repos-fundo: #ece9fa;
+    --ful-repos-texto: #4b3ca6;
+    --ful-estoque-fundo: #dcf2f1;
+    --ful-estoque-texto: #0d6468;
+    --ful-arquivo-fundo: #e3e8ef;
+    --ful-arquivo-texto: #3c4a5e;
+
+    --ful-sombra: 0 1px 2px rgba(15, 39, 68, 0.06), 0 1px 3px rgba(15, 39, 68, 0.05);
+
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    color: var(--ful-texto-forte);
+    font-size: 0.875rem;
+    line-height: 1.45;
+}
+
+.ful-pagina code {
+    font-family: var(--ful-mono);
+    font-size: 0.75rem;
+    color: var(--ful-texto-suave);
+    background: none;
+    padding: 0;
+    overflow-wrap: anywhere;
+}
+
+/* ================================================
+   BOTÕES E CAMPOS
+   ================================================ */
+.ful-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 18px;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+/* Botão branco sobre o painel azul-marinho: abrir o que já está salvo (não chama o ML). */
+.ful-btn--claro {
+    background: var(--cor-fundo-card);
+    border-color: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.ful-btn--claro:hover {
+    background: var(--ful-azul-100);
+    border-color: var(--ful-azul-100);
+    color: var(--cor-primaria);
+}
+
+/* Botão vazado sobre o painel: o que CHAMA o ML — fica visualmente diferente do outro. */
+.ful-btn--contorno {
+    background: transparent;
+    border: 2px solid var(--cor-texto-claro);
+    color: var(--cor-texto-claro);
+}
+
+.ful-btn--contorno:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--cor-texto-claro);
+}
+
+.ful-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ful-btn--lendo i {
+    animation: ful-girar 1s linear infinite;
+}
+
+@keyframes ful-girar {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ful-btn--lendo i { animation: none; }
+}
+
+.ful-btn:focus-visible,
+.ful-campo:focus-visible,
+.ful-chip:focus-visible,
+.ful-placar-item:focus-visible,
+.ful-tabela-rolagem:focus-visible,
+.ful-bruto-botao:focus-visible,
+.ful-bruto-acao:focus-visible,
+.ful-bruto-resumo:focus-visible,
+.ful-ajuda summary:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+.ful-campo {
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 1px solid var(--ful-linha-forte);
+    border-radius: 8px;
+    background: var(--cor-fundo-card);
+    font: inherit;
+    color: var(--ful-texto-forte);
+}
+
+.ful-campo::placeholder {
+    color: var(--ful-texto-fraco);
+}
+
+.ful-campo--codigo {
+    flex: 1 1 260px;
+    min-height: 40px;
+    max-width: 360px;
+    font-family: var(--ful-mono);
+    text-transform: uppercase;
+}
+
+.ful-campo--codigo::placeholder {
+    text-transform: none;
+    font-family: inherit;
+}
+
+.ful-campo--obs {
+    resize: vertical;
+    min-height: 36px;
+    overflow: hidden;
+}
+
+/* A situação pinta o próprio campo: dá para varrer a coluna com o olho. */
+.ful-campo--situacao {
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ful-campo--situacao[data-situacao="a_validar"] { background: var(--ful-cinza-50);   border-color: var(--ful-cinza-300);    color: var(--ful-cinza-600); }
+.ful-campo--situacao[data-situacao="hipotese"]  { background: var(--ful-ambar-50);   border-color: var(--ful-ambar-200);    color: var(--ful-ambar-texto); }
+.ful-campo--situacao[data-situacao="valido"]    { background: var(--ful-verde-50);   border-color: var(--ful-verde-borda);  color: var(--ful-verde-texto); }
+.ful-campo--situacao[data-situacao="invalido"]  { background: var(--ful-vermelho-50); border-color: var(--ful-vermelho-borda); color: var(--ful-vermelho-texto); }
+
+/* ================================================
+   PÍLULAS, FONTES E SITUAÇÕES
+   ================================================ */
+.ful-pilula {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ful-pilula--igual    { background: var(--ful-verde-100);   color: var(--ful-verde-texto); }
+.ful-pilula--diferente { background: var(--ful-ambar-100);  color: var(--ful-ambar-texto); }
+.ful-pilula--nao_da   { background: var(--ful-cinza-100);   color: var(--ful-cinza-600); }
+.ful-pilula--tela     { background: var(--cor-fundo-card); border: 1px dashed var(--ful-cinza-300); color: var(--ful-cinza-600); }
+
+.ful-fonte {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+}
+
+.ful-fonte--repos   { background: var(--ful-repos-fundo);   color: var(--ful-repos-texto); }
+.ful-fonte--estoque { background: var(--ful-estoque-fundo); color: var(--ful-estoque-texto); }
+.ful-fonte--arquivo { background: var(--ful-arquivo-fundo); color: var(--ful-arquivo-texto); }
+.ful-fonte--banco   { background: var(--ful-banco-fundo);   color: var(--ful-banco-texto); }
+.ful-fonte--tela    { background: var(--cor-fundo-card); border: 1px dashed var(--ful-cinza-300); color: var(--ful-cinza-600); }
+
+.ful-proj {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 6px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ful-proj--novo     { background: var(--ful-azul-100);  color: var(--cor-primaria); }
+.ful-proj--ja_usado { background: var(--ful-verde-100); color: var(--ful-verde-texto); }
+.ful-proj--banco    { background: var(--ful-banco-fundo); color: var(--ful-banco-texto); }
+.ful-proj--tela     { background: var(--ful-cinza-100); color: var(--ful-cinza-600); }
+
+.ful-situacao {
+    display: inline-block;
+    padding: 1px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.ful-situacao--a_validar { background: var(--ful-cinza-100);    color: var(--ful-cinza-600); }
+.ful-situacao--hipotese  { background: var(--ful-ambar-100);    color: var(--ful-ambar-texto); }
+.ful-situacao--valido    { background: var(--ful-verde-100);    color: var(--ful-verde-texto); }
+.ful-situacao--invalido  { background: var(--ful-vermelho-100); color: var(--ful-vermelho-texto); }
+
+/* ================================================
+   PAINEL (código + botões)
+   ================================================ */
+.ful-painel {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px 22px;
+    padding: 20px 24px;
+    background: var(--cor-primaria);
+    border-radius: 10px;
+    color: var(--cor-texto-claro);
+    box-shadow: var(--ful-sombra);
+}
+
+.ful-painel-icone {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 1.4rem;
+}
+
+.ful-painel-texto {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ful-painel-titulo {
+    margin: 0;
+    font-size: 1.125rem;
+    color: var(--cor-texto-claro);
+}
+
+.ful-painel-aviso {
+    margin: 0;
+    max-width: 82ch;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.ful-painel-aviso strong {
+    color: var(--cor-texto-claro);
+}
+
+.ful-painel-aviso code {
+    color: #cfe3f5;
+}
+
+.ful-painel-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.ful-painel-ultima {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.8125rem;
+}
+
+.ful-painel-ultima i {
+    margin-top: 3px;
+    opacity: 0.8;
+}
+
+/* ================================================
+   RESULTADO DA CONSULTA (mensagens do botão)
+   ================================================ */
+.ful-resultado {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    background: var(--ful-azul-50);
+    border: 1px solid var(--ful-azul-200);
+    color: var(--cor-primaria);
+    font-weight: 600;
+}
+
+.ful-resultado[hidden] {
+    display: none;
+}
+
+.ful-resultado--erro {
+    background: var(--ful-vermelho-50);
+    border-color: var(--ful-vermelho-borda);
+    color: var(--ful-vermelho-texto);
+}
+
+.ful-resultado--ok {
+    background: var(--ful-verde-50);
+    border-color: var(--ful-verde-borda);
+    color: var(--ful-verde-texto);
+}
+
+.ful-resultado-icone {
+    margin-top: 3px;
+}
+
+/* ================================================
+   ATALHOS (códigos já consultados)
+   ================================================ */
+.ful-recentes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ful-recentes-rotulo {
+    font-weight: 700;
+    color: var(--ful-texto-suave);
+}
+
+.ful-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 12px;
+    border: 1px solid var(--ful-azul-200);
+    border-radius: 999px;
+    background: var(--cor-fundo-card);
+    color: var(--ful-azul-acao);
+    font-family: var(--ful-mono);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.ful-chip:hover {
+    background: var(--ful-azul-100);
+    color: var(--cor-primaria);
+    text-decoration: none;
+}
+
+.ful-chip--ativo {
+    background: var(--ful-azul-100);
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria);
+}
+
+.ful-chip-quando {
+    font-family: inherit;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--ful-texto-suave);
+}
+
+/* ================================================
+   ESTADOS VAZIOS
+   ================================================ */
+.ful-vazio {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 22px 24px;
+    background: var(--ful-superficie);
+    border: 1px dashed var(--ful-linha-forte);
+    border-radius: 10px;
+}
+
+.ful-vazio > i {
+    flex: none;
+    font-size: 1.5rem;
+    color: var(--ful-azul-acao);
+    margin-top: 2px;
+}
+
+.ful-vazio h3 {
+    margin: 0 0 4px;
+    font-size: 1rem;
+}
+
+.ful-vazio p {
+    margin: 0;
+    max-width: 78ch;
+    color: var(--ful-texto-suave);
+}
+
+.ful-vazio--alerta {
+    background: var(--ful-ambar-50);
+    border-color: var(--ful-ambar-200);
+}
+
+.ful-vazio--alerta > i {
+    color: var(--ful-ambar-texto);
+}
+
+.ful-vazio-texto {
+    margin: 0;
+    color: var(--ful-texto-suave);
+}
+
+/* ================================================
+   PLACAR (e filtro por situação)
+   ================================================ */
+.ful-placar {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ful-placar-lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ful-placar-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid var(--ful-linha-forte);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    font: inherit;
+    color: var(--ful-texto-forte);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ful-placar-numero {
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.ful-placar-rotulo {
+    font-weight: 700;
+}
+
+.ful-placar-item--a_validar { background: var(--ful-cinza-50);    border-color: var(--ful-cinza-300);    color: var(--ful-cinza-600); }
+.ful-placar-item--hipotese  { background: var(--ful-ambar-50);    border-color: var(--ful-ambar-200);    color: var(--ful-ambar-texto); }
+.ful-placar-item--valido    { background: var(--ful-verde-50);    border-color: var(--ful-verde-borda);  color: var(--ful-verde-texto); }
+.ful-placar-item--invalido  { background: var(--ful-vermelho-50); border-color: var(--ful-vermelho-borda); color: var(--ful-vermelho-texto); }
+
+.ful-placar-item--ativo {
+    box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+
+.ful-ajuda summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--ful-azul-acao);
+}
+
+.ful-ajuda-corpo {
+    margin-top: 8px;
+    padding: 14px 18px;
+    background: var(--ful-superficie);
+    border: 1px solid var(--ful-linha);
+    border-radius: 10px;
+}
+
+.ful-ajuda-corpo p {
+    margin: 0 0 10px;
+    max-width: 90ch;
+}
+
+.ful-ajuda-situacoes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 8px 18px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ful-ajuda-situacoes li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.ful-ajuda-situacoes .ful-situacao {
+    flex: none;
+}
+
+/* ================================================
+   SEÇÕES E CARTÕES DAS FONTES
+   ================================================ */
+.ful-secao-titulo {
+    margin: 0;
+    font-size: 1.0625rem;
+    color: var(--cor-primaria);
+}
+
+.ful-secao-desc {
+    margin: 2px 0 12px;
+    color: var(--ful-texto-suave);
+}
+
+.ful-fontes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+}
+
+@media (min-width: 900px) {
+    .ful-fontes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.ful-fonte-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--ful-linha);
+    border-radius: 10px;
+    box-shadow: var(--ful-sombra);
+}
+
+.ful-fonte-card--tela {
+    border-style: dashed;
+    border-color: var(--ful-cinza-300);
+    box-shadow: none;
+}
+
+.ful-fonte-cabeca {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.ful-fonte-nome {
+    margin: 0;
+    font-size: 0.9375rem;
+}
+
+.ful-fonte-endpoint,
+.ful-fonte-uso,
+.ful-fonte-aviso,
+.ful-fonte-fora {
+    margin: 0;
+}
+
+.ful-fonte-uso,
+.ful-fonte-aviso {
+    color: var(--ful-texto-suave);
+}
+
+.ful-fonte-fora {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--ful-ambar-50);
+    color: var(--ful-ambar-texto);
+}
+
+.ful-chamadas {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ful-chamada {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+.ful-chamada--ok   { background: var(--ful-verde-50); }
+.ful-chamada--erro { background: var(--ful-vermelho-50); }
+
+.ful-chamada-resultado {
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.ful-chamada--ok .ful-chamada-resultado   { color: var(--ful-verde-texto); }
+.ful-chamada--erro .ful-chamada-resultado { color: var(--ful-vermelho-texto); }
+
+/* ================================================
+   FICHA DO PRODUTO E BLOCOS
+   ================================================ */
+.ful-ficha {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.ful-ficha-cabeca {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 40px;
+    padding: 14px 20px;
+    background: var(--ful-azul-50);
+    border: 1px solid var(--ful-azul-200);
+    border-radius: 10px;
+}
+
+.ful-ficha-rotulo {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ful-texto-suave);
+}
+
+.ful-ficha-id {
+    font-family: var(--ful-mono);
+    font-size: 1rem;
+    color: var(--cor-primaria);
+    overflow-wrap: anywhere;
+}
+
+.ful-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ful-bloco[hidden] {
+    display: none;
+}
+
+.ful-bloco-titulo {
+    margin: 0;
+    font-size: 1.0625rem;
+    color: var(--cor-primaria);
+}
+
+.ful-bloco-desc {
+    margin: 0 0 4px;
+    color: var(--ful-texto-suave);
+}
+
+.ful-tabela-rolagem {
+    overflow-x: auto;
+    border: 1px solid var(--ful-linha);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    box-shadow: var(--ful-sombra);
+}
+
+.ful-tabela {
+    width: 100%;
+    min-width: 1080px;
+    border-collapse: collapse;
+}
+
+.ful-tabela--simples {
+    min-width: 560px;
+}
+
+.ful-tabela thead th {
+    padding: 10px 12px;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.ful-tabela tbody th,
+.ful-tabela tbody td {
+    padding: 10px 12px;
+    border-top: 1px solid var(--ful-linha);
+    text-align: left;
+    vertical-align: top;
+    font-weight: 400;
+}
+
+.ful-tabela .ful-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ful-col-nome     { width: 16%; }
+.ful-col-valor    { width: 19%; }
+.ful-col-fonte    { width: 21%; }
+.ful-col-interno  { width: 16%; }
+.ful-col-situacao { width: 11%; }
+.ful-col-obs      { width: 17%; }
+
+.ful-nome-tela {
+    font-weight: 700;
+}
+
+.ful-nome-explicacao {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--ful-texto-suave);
+}
+
+.ful-valor,
+.ful-valor-nota,
+.ful-caminho {
+    display: block;
+}
+
+.ful-valor {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.ful-valor--vazio {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--ful-texto-fraco);
+}
+
+.ful-valor--erro {
+    color: var(--ful-vermelho-texto);
+}
+
+.ful-valor-nota {
+    margin-top: 2px;
+    font-size: 0.75rem;
+    color: var(--ful-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.ful-col-fonte .ful-caminho {
+    margin: 4px 0;
+    font-size: 0.6875rem;
+}
+
+.ful-salvo {
+    display: block;
+    min-height: 1.1em;
+    margin-top: 4px;
+    font-size: 0.6875rem;
+    color: var(--ful-texto-fraco);
+}
+
+.ful-salvo--erro {
+    color: var(--ful-vermelho-texto);
+    font-weight: 700;
+}
+
+/* A situação também vira uma faixa na lateral da linha. */
+.ful-linha[data-situacao="valido"]   > :first-child { box-shadow: inset 4px 0 0 var(--ful-verde-borda); }
+.ful-linha[data-situacao="hipotese"] > :first-child { box-shadow: inset 4px 0 0 var(--ful-ambar-200); }
+.ful-linha[data-situacao="invalido"] > :first-child { box-shadow: inset 4px 0 0 var(--ful-vermelho-borda); }
+
+.ful-linha--so_tela > td,
+.ful-linha--so_tela > th {
+    background: var(--ful-superficie);
+}
+
+.ful-linha--erro > .ful-col-valor {
+    background: var(--ful-vermelho-50);
+}
+
+.ful-linha--nao_achou > .ful-col-valor {
+    background: var(--ful-ambar-50);
+}
+
+.ful-linha[hidden] {
+    display: none;
+}
+
+/* ================================================
+   "COMO VEIO DA API" (o dado cru guardado no banco)
+   ================================================ */
+/* Barra com "abrir todos / fechar todos", antes das fontes. */
+.ful-bruto-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+}
+
+.ful-bruto-barra-texto {
+    color: var(--ful-texto-suave);
+}
+
+/* O mesmo "botão pílula" azul claro para: botão da linha, botões da barra e resumo dos <details>. */
+.ful-bruto-botao,
+.ful-bruto-acao,
+.ful-bruto-resumo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid var(--ful-azul-200);
+    border-radius: 999px;
+    background: var(--ful-azul-50);
+    color: var(--ful-azul-acao);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ful-bruto-botao:hover,
+.ful-bruto-acao:hover,
+.ful-bruto-resumo:hover,
+.ful-bruto-botao[aria-expanded="true"],
+.ful-bruto-detalhes[open] > .ful-bruto-resumo {
+    background: var(--ful-azul-100);
+    border-color: var(--ful-azul-acao);
+}
+
+.ful-bruto-botao {
+    margin-top: 8px;
+}
+
+.ful-bruto-resumo {
+    list-style: none;
+}
+
+.ful-bruto-resumo::-webkit-details-marker {
+    display: none;
+}
+
+.ful-bruto-detalhes {
+    margin-top: 6px;
+}
+
+.ful-bruto-detalhes[open] > .ful-bruto-resumo {
+    margin-bottom: 8px;
+}
+
+/* A 2ª linha da tabela (dado cru da linha de cima): ocupa a largura toda e some junto com ela no filtro. */
+.ful-tabela .ful-linha-bruto > td {
+    padding: 2px 12px 14px;
+    border-top: 0;
+    background: var(--ful-azul-50);
+}
+
+.ful-linha[hidden] + .ful-linha-bruto {
+    display: none;
+}
+
+.ful-bruto-rotulo {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ful-texto-suave);
+}
+
+/* O caminho do campo (maiúsculas/minúsculas importam) não pode virar caixa-alta junto com o título. */
+.ful-bruto-rotulo code {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.ful-bruto-nota {
+    max-width: 90ch;
+    margin: 0 0 8px;
+    font-size: 0.75rem;
+    color: var(--ful-texto-suave);
+}
+
+.ful-bruto-parte {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ful-bruto-parte + .ful-bruto-parte {
+    margin-top: 10px;
+}
+
+.ful-bruto-titulo {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ful-texto-forte);
+}
+
+.ful-bruto-json {
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--ful-linha-forte);
+    border-radius: 8px;
+    font-family: var(--ful-mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ful-texto-forte);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ================================================
+   OS 3 NÍVEIS DA FICHA E OS BLOCOS RECOLHÍVEIS
+   ================================================ */
+.ful-niveis-indice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.ful-niveis-indice .ful-chip {
+    font-family: inherit;
+}
+
+.ful-nivel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scroll-margin-top: 12px;
+}
+
+.ful-nivel-cabeca {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 16px;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    border-radius: 10px;
+}
+
+.ful-nivel-numero {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--cor-texto-claro);
+    color: var(--cor-primaria);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.ful-nivel-titulo {
+    margin: 0;
+    font-size: 1.125rem;
+    color: inherit;
+}
+
+.ful-nivel-desc {
+    margin: 2px 0 0;
+    max-width: 90ch;
+    font-size: 0.8125rem;
+    opacity: 0.92;
+}
+
+.ful-agrupador {
+    border: 1px solid var(--ful-linha-forte);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    box-shadow: var(--ful-sombra);
+    scroll-margin-top: 12px;
+}
+
+.ful-agrupador[hidden] {
+    display: none;
+}
+
+.ful-agrupador-resumo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 12px 16px;
+    background: var(--ful-azul-50);
+    border-radius: 10px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.ful-agrupador-resumo::-webkit-details-marker {
+    display: none;
+}
+
+.ful-agrupador[open] > .ful-agrupador-resumo {
+    border-bottom: 1px solid var(--ful-azul-200);
+    border-radius: 10px 10px 0 0;
+}
+
+.ful-agrupador-resumo:focus-visible {
+    outline: 2px solid var(--ful-azul-acao);
+    outline-offset: 2px;
+}
+
+.ful-agrupador-resumo::before {
+    content: "\25B8";
+    color: var(--ful-azul-acao);
+    font-size: 0.9rem;
+}
+
+.ful-agrupador[open] > .ful-agrupador-resumo::before {
+    content: "\25BE";
+}
+
+.ful-agrupador-tipo {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ful-texto-suave);
+}
+
+.ful-pagina .ful-agrupador-codigo {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.ful-agrupador-titulo {
+    flex: 1 1 18rem;
+    min-width: 0;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.ful-agrupador-conf {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.ful-agrupador-corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 16px;
+}
+
+.ful-estado-anuncio {
+    display: inline-block;
+    padding: 1px 10px;
+    border-radius: 999px;
+    background: var(--ful-cinza-100);
+    color: var(--ful-cinza-600);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.ful-estado-anuncio--active { background: var(--ful-verde-100); color: var(--ful-verde-texto); }
+.ful-estado-anuncio--paused { background: var(--ful-ambar-100); color: var(--ful-ambar-texto); }
+
+.ful-origens {
+    padding: 10px 14px;
+    background: var(--ful-superficie);
+    border: 1px solid var(--ful-linha);
+    border-radius: 8px;
+}
+
+.ful-origens-titulo {
+    font-weight: 700;
+}
+
+.ful-origens ul,
+.ful-origens-lista {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    color: var(--ful-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+/* ================================================
+   CONFERÊNCIAS
+   ================================================ */
+.ful-conferencias {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--ful-linha);
+    border-radius: 10px;
+    background: var(--cor-fundo-card);
+    box-shadow: var(--ful-sombra);
+}
+
+.ful-conferencia {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 10px 16px;
+}
+
+.ful-conferencia + .ful-conferencia {
+    border-top: 1px solid var(--ful-linha);
+}
+
+.ful-conferencia .ful-pilula {
+    flex: none;
+    min-width: 150px;
+    justify-content: center;
+}
+
+.ful-conferencia-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ful-conferencia-detalhe {
+    color: var(--ful-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+/* ================================================
+   TELAS ESTREITAS
+   ================================================ */
+@media (max-width: 760px) {
+    .ful-painel {
+        flex-direction: column;
+        padding: 16px;
+    }
+
+    .ful-painel-form .ful-btn,
+    .ful-campo--codigo {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+
+    .ful-conferencia {
+        flex-direction: column;
+        gap: 6px;
+    }
+}

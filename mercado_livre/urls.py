@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import views_caracteristicas
+from . import views_full
 
 urlpatterns = [
     path('anuncios/', views.view_hub_anuncios, name='mercado_livre_anuncios'),
@@ -24,6 +25,15 @@ urlpatterns = [
     path('caracteristicas/produto/<path:sku>/revisar-envio/', views_caracteristicas.view_caracteristicas_revisar_envio, name='mercado_livre_caracteristicas_revisar_envio'),
     path('caracteristicas/produto/<path:sku>/enviar/', views_caracteristicas.view_caracteristicas_enviar_produto, name='mercado_livre_caracteristicas_enviar'),
     path('caracteristicas/produto/<path:sku>/', views_caracteristicas.view_caracteristicas_ficha, name='mercado_livre_caracteristicas_ficha'),
+
+    # * [EXPLICAÇÃO] → Tela "Full — ficha do código". Só lê do banco; a API do ML é
+    #                  chamada apenas pelo botão "Consultar no Mercado Livre"
+    #                  (full/consultar/). Salvar nome interno, situação e
+    #                  observação (full/campo/salvar/) grava só no banco.
+    path('full/', views_full.view_full_ficha, name='mercado_livre_full'),
+    path('full/consultar/', views_full.view_full_consultar, name='mercado_livre_full_consultar'),
+    path('full/campo/salvar/', views_full.view_full_salvar_campo, name='mercado_livre_full_salvar_campo'),
+
     path('qualidade/<str:mlb>/', views.view_qualidade_anuncio, name='mercado_livre_qualidade'),
     path('competicao/<str:mlb>/', views.view_competicao_catalogo, name='mercado_livre_competicao'),
     path('resumo-criterios/', views.view_resumo_criterios, name='mercado_livre_resumo_criterios'),

@@ -7,9 +7,9 @@
 # obter_empresa_ativa(), mesmo mecanismo do Database Router), monta 1
 # ClienteApiMercadoLivre (transporte, conta presa) e o user_id 1 única
 # vez, e expõe cada domínio como método direto — quem usa nunca importa
-# chamar_api nem sabe que existe um Contexto por trás. 6 domínios
+# chamar_api nem sabe que existe um Contexto por trás. 7 domínios
 # migrados: frete, mlbs, detalhes, sku completo, comissão real,
-# categorias e atributos (características).
+# categorias e atributos (características) e Full (reposição e estoque).
 
 import os
 
@@ -23,6 +23,7 @@ from .dados_sku_completo_ml import DadosSkuCompletoML
 from .comissao_real_ml import ComissaoRealML
 from .categorias_ml import CategoriasML
 from .atributos_ml import AtributosML
+from .full_ml import FullML
 from core.empresa import obter_empresa_ativa, PREFIXO_ENV_POR_EMPRESA
 
 
@@ -53,6 +54,7 @@ class ApiMercadoLivre:
         self._comissao_real = None
         self._categorias = None
         self._atributos = None
+        self._full = None
 
     @staticmethod
     def _carregar_user_id(conta):
@@ -159,3 +161,21 @@ class ApiMercadoLivre:
     # de Características dos anúncios chama, nunca automaticamente.
     def enviar_atributos_item(self, mlb, atributos):
         return self._contexto_atributos.enviar_atributos_item(mlb, atributos, self._pasta_logs)
+
+    @property
+    def _contexto_full(self):
+        if self._full is None:
+            self._full = FullML(self._cliente)
+        return self._full
+
+    # Função Objetivo: Os dados da tela "Planejamento de envios" de 1 produto (vendas,
+    # urgência, mínimo, sugestão, Estrela, estoque antigo) — 1 chamada GET. Só deve ser
+    # chamado pelo botão "Consultar no Mercado Livre" da tela do Full — nunca
+    # automaticamente.
+    def buscar_full_reposicao(self, user_product_id):
+        return self._contexto_full.buscar_reposicao(user_product_id, self._pasta_logs)
+
+    # Função Objetivo: O estoque do Full de 1 inventory_id (apto, não apto e o motivo) —
+    # 1 chamada GET. Mesma regra: só por botão da tela do Full, nunca automático.
+    def buscar_full_estoque(self, inventory_id):
+        return self._contexto_full.buscar_estoque(inventory_id, self._pasta_logs)

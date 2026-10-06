@@ -1,0 +1,14 @@
+{% comment %}
+* [RESUMO] → O conteúdo de um "Como veio da API": a nota (se houver) e o dado CRU
+  guardado no banco, em 1 ou mais partes (ex.: "O campo" e "O bloco onde ele está").
+  Recebe "bruto" = {rotulo, nota, partes: [{titulo, texto}]}. Quem inclui este parcial
+  cuida de abrir/fechar (uma linha extra da tabela ou um <details>). É só texto que já
+  está na página: abrir ou fechar nunca chama o Mercado Livre.
+{% endcomment %}
+{% if bruto.nota %}<p class="ful-bruto-nota">{{ bruto.nota }}</p>{% endif %}
+{% for parte in bruto.partes %}
+    <div class="ful-bruto-parte">
+        {% if parte.titulo %}<span class="ful-bruto-titulo">{{ parte.titulo }}</span>{% endif %}
+        <pre class="ful-bruto-json">{{ parte.texto }}</pre>
+    </div>
+{% endfor %}

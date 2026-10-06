@@ -1,0 +1,86 @@
+{% comment %}
+* [RESUMO] → 1 linha da ficha do Full: o nome da informação, o valor, de onde o valor
+  vem (fonte + campo exato + se é endpoint novo, já usado ou tabela do sistema) e o que a
+  equipe registrou (nome interno, situação, observação). Recebe "linha" (um item de
+  bloco.linhas, em qualquer dos 3 níveis). Tudo aqui vem do BANCO; mudar nome interno,
+  situação ou observação grava no banco e nunca chama o Mercado Livre.
+  Cada linha com fonte de API, arquivo ou banco tem uma 2ª linha da tabela, escondida
+  (class ful-linha-bruto), com o dado CRU ("Como veio da API" / "Como está no arquivo" /
+  "Como está no banco"). O botão na coluna Valor só mostra/esconde essa linha
+  (script_full_ficha.js); o filtro por situação esconde as duas.
+{% endcomment %}
+<tr class="ful-linha ful-linha--{{ linha.estado }}"
+    data-fonte="{{ linha.fonte }}"
+    data-caminho="{{ linha.caminho }}"
+    data-situacao="{{ linha.situacao }}">
+    <th scope="row" class="ful-col-nome">
+        <span class="ful-nome-tela">{{ linha.nome_na_tela }}</span>
+        {% if linha.explicacao %}<span class="ful-nome-explicacao">{{ linha.explicacao }}</span>{% endif %}
+    </th>
+    <td class="ful-col-valor">
+        {% if linha.estado == 'so_tela' %}
+            <span class="ful-pilula ful-pilula--tela"><i class="fas fa-eye" aria-hidden="true"></i> Só na tela</span>
+            <span class="ful-valor-nota">{{ linha.valor_txt }}</span>
+        {% elif linha.estado == 'ok' %}
+            <span class="ful-valor">{{ linha.valor_txt }}</span>
+            {% if linha.valor_nota %}<span class="ful-valor-nota">{{ linha.valor_nota }}</span>{% endif %}
+        {% elif linha.estado == 'vazio' %}
+            <span class="ful-valor ful-valor--vazio">{{ linha.valor_txt }}</span>
+            <span class="ful-valor-nota">{{ linha.valor_nota|default:'A fonte respondeu, mas este campo veio vazio.' }}</span>
+        {% elif linha.estado == 'erro' %}
+            <span class="ful-valor ful-valor--erro">{{ linha.valor_txt }}</span>
+            <span class="ful-valor-nota">{{ linha.valor_nota }}</span>
+        {% else %}
+            <span class="ful-valor ful-valor--vazio">{{ linha.valor_txt }}</span>
+            <span class="ful-valor-nota">{{ linha.valor_nota }}</span>
+        {% endif %}
+        {% if linha.bruto %}
+            <button type="button" class="ful-bruto-botao" aria-expanded="false">
+                <i class="fas fa-code" aria-hidden="true"></i> {{ linha.bruto.rotulo }}
+            </button>
+        {% endif %}
+    </td>
+    <td class="ful-col-fonte">
+        <span class="ful-fonte ful-fonte--{{ linha.fonte|lower }}">{{ linha.fonte }}</span>
+        <code class="ful-caminho">{{ linha.caminho }}</code>
+        {% if linha.projeto_etiqueta %}
+            <span class="ful-proj ful-proj--{{ linha.projeto }}">{{ linha.projeto_etiqueta }}</span>
+        {% endif %}
+    </td>
+    <td class="ful-col-interno">
+        <input type="text"
+               class="ful-campo"
+               data-campo="nome_interno"
+               value="{{ linha.nome_interno }}"
+               maxlength="120"
+               placeholder="Dê um nome"
+               aria-label="Nome interno de {{ linha.nome_na_tela }}">
+    </td>
+    <td class="ful-col-situacao">
+        <select class="ful-campo ful-campo--situacao"
+                data-campo="situacao"
+                data-situacao="{{ linha.situacao }}"
+                aria-label="Situação de {{ linha.nome_na_tela }}">
+            {% for valor, rotulo in situacoes %}
+                <option value="{{ valor }}"{% if valor == linha.situacao %} selected{% endif %}>{{ rotulo }}</option>
+            {% endfor %}
+        </select>
+        <span class="ful-salvo" role="status" aria-live="polite"></span>
+    </td>
+    <td class="ful-col-obs">
+        <textarea class="ful-campo ful-campo--obs"
+                  data-campo="observacao"
+                  rows="1"
+                  maxlength="2000"
+                  placeholder="Observação"
+                  aria-label="Observação sobre {{ linha.nome_na_tela }}">{{ linha.observacao }}</textarea>
+    </td>
+</tr>
+{% if linha.bruto %}
+<tr class="ful-linha-bruto" hidden>
+    <td colspan="6">
+        <span class="ful-bruto-rotulo">{{ linha.bruto.rotulo }} — <code>{{ linha.caminho }}</code></span>
+        {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=linha.bruto %}
+    </td>
+</tr>
+{% endif %}

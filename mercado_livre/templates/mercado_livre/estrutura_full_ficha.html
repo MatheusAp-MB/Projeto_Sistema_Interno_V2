@@ -1,0 +1,428 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Full — ficha do código — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Full — ficha do código — Mercado Livre{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'mercado_livre/css/layout_full_ficha.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Full — ficha do código" (Gestão de estoque Full → Planejamento
+      de envios do Mercado Livre). Organiza, para 1 código por vez, o que o ML
+      devolve e o que só existe na tela, para a equipe dar nome a cada informação
+      e registrar o que já foi conferido. NÃO é a tela final.
+      Tudo que aparece aqui vem do BANCO. A API do ML só é chamada pelo botão
+      "Consultar no Mercado Livre" — abrir a ficha, trocar de código, editar nome
+      interno, situação ou observação nunca chama a API.
+    {% endcomment %}
+    <div class="ful-pagina"
+         data-url-consultar="{% url 'mercado_livre_full_consultar' %}"
+         data-url-salvar-campo="{% url 'mercado_livre_full_salvar_campo' %}">
+
+        <form id="ful-csrf" hidden>{% csrf_token %}</form>
+
+        <section class="ful-painel" aria-label="Escolher o código">
+            <div class="ful-painel-icone" aria-hidden="true"><i class="fas fa-boxes-packing"></i></div>
+            <div class="ful-painel-texto">
+                <h2 class="ful-painel-titulo">Ficha de um código do Full</h2>
+                <p class="ful-painel-aviso">
+                    Esta tela mostra só o que já está salvo no banco. O Mercado Livre é consultado
+                    apenas quando você clica em <strong>Consultar no Mercado Livre</strong> (cerca de
+                    2 chamadas de leitura por código). Digite o <strong>Código ML</strong> da tela do Full
+                    (ex.: <code>OPXW24140</code>) ou, para a linha sem Código ML,
+                    <code>#</code> e o número do anúncio (ex.: <code>#5838589786</code>).
+                </p>
+                <form method="get" action="{% url 'mercado_livre_full' %}" class="ful-painel-form">
+                    <input type="text"
+                           id="ful-codigo"
+                           name="codigo"
+                           value="{{ digitado }}"
+                           class="ful-campo ful-campo--codigo"
+                           placeholder="Código ML (ex.: OPXW24140)"
+                           aria-label="Código ML ou # e número do anúncio"
+                           autocomplete="off"
+                           spellcheck="false">
+                    <button type="submit" class="ful-btn ful-btn--claro">
+                        <i class="fas fa-folder-open" aria-hidden="true"></i> Abrir ficha salva
+                    </button>
+                    <button type="button" class="ful-btn ful-btn--contorno" id="ful-btn-consultar">
+                        <i class="fas fa-satellite-dish" aria-hidden="true"></i> Consultar no Mercado Livre
+                    </button>
+                </form>
+                {% if consulta %}
+                    <p class="ful-painel-ultima">
+                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                        <span>Última consulta de <strong>{{ codigo }}</strong>: <strong>{{ consulta_quando }}</strong>{% if consulta.usuario %}, por {{ consulta.usuario }}{% endif %}.</span>
+                    </p>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="ful-resultado" id="ful-resultado" hidden role="status" aria-live="polite">
+            <i class="fas fa-circle-info ful-resultado-icone" aria-hidden="true"></i>
+            <span class="ful-resultado-texto" id="ful-resultado-texto"></span>
+        </section>
+
+        {% if recentes %}
+            <nav class="ful-recentes" aria-label="Códigos já consultados">
+                <span class="ful-recentes-rotulo">Já consultados:</span>
+                {% for recente in recentes %}
+                    <a href="{% url 'mercado_livre_full' %}?codigo={{ recente.codigo|urlencode }}"
+                       class="ful-chip{% if recente.codigo == codigo %} ful-chip--ativo{% endif %}"
+                       title="Última consulta: {{ recente.quando }}">
+                        {{ recente.codigo }} <span class="ful-chip-quando">{{ recente.quando }}</span>
+                    </a>
+                {% endfor %}
+            </nav>
+        {% endif %}
+
+        {% if codigo_invalido %}
+            <section class="ful-vazio ful-vazio--alerta">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <div>
+                    <h3>Esse código não parece válido</h3>
+                    <p>Use só letras e números do Código ML (ex.: <code>OPXW24140</code>) ou <code>#</code> e o
+                    número do anúncio (ex.: <code>#5838589786</code>).</p>
+                </div>
+            </section>
+        {% elif not codigo %}
+            <section class="ful-vazio">
+                <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+                <div>
+                    <h3>Escolha um código para ver a ficha</h3>
+                    <p>Digite um código acima. Se ele já foi consultado, <strong>Abrir ficha salva</strong> mostra
+                    a consulta mais recente sem falar com o Mercado Livre. Se ainda não, use
+                    <strong>Consultar no Mercado Livre</strong>.</p>
+                </div>
+            </section>
+        {% elif not consulta %}
+            <section class="ful-vazio">
+                <i class="fas fa-inbox" aria-hidden="true"></i>
+                <div>
+                    <h3>Ainda não há consulta salva para {{ codigo }}</h3>
+                    <p>Clique em <strong>Consultar no Mercado Livre</strong> para buscar os dados desse código e guardar
+                    no banco. A ficha aparece em seguida.</p>
+                </div>
+            </section>
+        {% else %}
+
+            <section class="ful-placar" aria-label="Quantos campos já foram conferidos (clique para filtrar as linhas)">
+                <div class="ful-placar-lista">
+                    <button type="button" class="ful-placar-item ful-placar-item--todos ful-placar-item--ativo"
+                            data-filtro="" aria-pressed="true">
+                        <span class="ful-placar-rotulo">Todos</span>
+                    </button>
+                    {% for item in placar %}
+                        <button type="button" class="ful-placar-item ful-placar-item--{{ item.chave }}"
+                                data-filtro="{{ item.chave }}" aria-pressed="false">
+                            <span class="ful-placar-numero" data-placar="{{ item.chave }}">{{ item.n }}</span>
+                            <span class="ful-placar-rotulo">{{ item.rotulo }}</span>
+                        </button>
+                    {% endfor %}
+                </div>
+                <details class="ful-ajuda">
+                    <summary>Como ler esta tela</summary>
+                    <div class="ful-ajuda-corpo">
+                        <p>A ficha tem <strong>3 níveis</strong>, porque cada informação pertence a uma coisa diferente:
+                        o <strong>Nível 1 — Produto</strong> (o cadastro no nosso sistema, achado pelo SKU), o
+                        <strong>Nível 2 — Código ML do Full</strong> (estoque, vendas e reposição do Full) e o
+                        <strong>Nível 3 — Anúncios</strong>, com <strong>um bloco para cada MLB</strong> (e cada variação).
+                        Dado de um anúncio nunca é misturado com o de outro no mesmo campo.</p>
+                        <p>Cada linha é uma informação. Da esquerda para a direita: o <strong>nome</strong>, o <strong>valor</strong>,
+                        <strong>de onde ele vem</strong> (a fonte, o campo exato e se é um endpoint
+                        <span class="ful-proj ful-proj--novo">NOVO</span> ou
+                        <span class="ful-proj ful-proj--ja_usado">JÁ USADO</span> no projeto, ou uma tabela do nosso banco) e o que a equipe registra:
+                        <strong>nome interno</strong>, <strong>situação</strong> e <strong>observação</strong>. Tudo é salvo sozinho
+                        ao sair do campo. O que você registra descreve o <strong>campo</strong> (ex.: ARQUIVO · status), então vale
+                        para todos os anúncios; o <strong>valor</strong> de cada anúncio é só dele.</p>
+                        <p>O botão <strong>Como veio da API</strong> (em cada linha, em cada fonte e nas tabelas) mostra o
+                        trecho <strong>cru</strong> que o Mercado Livre mandou, do jeito que está guardado no banco: o
+                        campo exato e o bloco em volta dele. Para as linhas da fonte ARQUIVO o botão se chama
+                        <strong>Como está no arquivo</strong> (o arquivo não é a resposta crua do ML) e para as da fonte BANCO,
+                        <strong>Como está no banco</strong> (a linha da tabela do sistema).</p>
+                        <ul class="ful-ajuda-situacoes">
+                            <li><span class="ful-situacao ful-situacao--a_validar">A validar</span> ainda ninguém conferiu com a tela do ML.</li>
+                            <li><span class="ful-situacao ful-situacao--hipotese">Hipótese</span> achamos que é isso, falta prova.</li>
+                            <li><span class="ful-situacao ful-situacao--valido">Válido</span> conferido com a tela e bateu.</li>
+                            <li><span class="ful-situacao ful-situacao--invalido">Inválido</span> conferido e não bate (explique na observação).</li>
+                        </ul>
+                    </div>
+                </details>
+            </section>
+
+            <div class="ful-bruto-barra">
+                <span class="ful-bruto-barra-texto">Dado cru de tudo que veio do ML:</span>
+                <button type="button" class="ful-bruto-acao" data-bruto-todos="abrir">
+                    <i class="fas fa-code" aria-hidden="true"></i> Abrir todos os &quot;Como veio da API&quot;
+                </button>
+                <button type="button" class="ful-bruto-acao" data-bruto-todos="fechar">
+                    <i class="fas fa-xmark" aria-hidden="true"></i> Fechar todos
+                </button>
+            </div>
+
+            <section class="ful-secao" aria-labelledby="ful-titulo-fontes">
+                <h2 class="ful-secao-titulo" id="ful-titulo-fontes">De onde vêm os dados</h2>
+                <p class="ful-secao-desc">Estas são as 5 fontes das linhas abaixo, o que foi chamado no Mercado Livre nesta consulta e o que foi lido no nosso banco.</p>
+                <div class="ful-fontes">
+                    {% for fonte in pagina.fontes %}
+                        <article class="ful-fonte-card ful-fonte-card--{{ fonte.chave|lower }}">
+                            <header class="ful-fonte-cabeca">
+                                <span class="ful-fonte ful-fonte--{{ fonte.chave|lower }}">{{ fonte.chave }}</span>
+                                {% if fonte.projeto_etiqueta %}
+                                    <span class="ful-proj ful-proj--{{ fonte.projeto }}">{{ fonte.projeto_etiqueta }}</span>
+                                {% endif %}
+                            </header>
+                            <h3 class="ful-fonte-nome">{{ fonte.nome }}</h3>
+                            <p class="ful-fonte-endpoint"><code>{{ fonte.endpoint_modelo }}</code></p>
+                            {% if fonte.projeto_etiqueta %}<p class="ful-fonte-uso">{{ fonte.projeto_texto }}</p>{% endif %}
+                            {% if fonte.chamadas %}
+                                <ul class="ful-chamadas">
+                                    {% for chamada in fonte.chamadas %}
+                                        <li class="ful-chamada ful-chamada--{% if chamada.ok %}ok{% else %}erro{% endif %}">
+                                            <code>{{ chamada.endereco }}</code>
+                                            <span class="ful-chamada-resultado">{{ chamada.resultado }}</span>
+                                            {% if chamada.bruto %}
+                                                <details class="ful-bruto-detalhes">
+                                                    <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ chamada.bruto.rotulo }}</summary>
+                                                    {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=chamada.bruto %}
+                                                </details>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                            {% if fonte.aviso %}<p class="ful-fonte-aviso">{{ fonte.aviso }}</p>{% endif %}
+                            {% if fonte.bruto %}
+                                <details class="ful-bruto-detalhes">
+                                    <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ fonte.bruto.rotulo }}</summary>
+                                    {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=fonte.bruto %}
+                                </details>
+                            {% endif %}
+                            {% if fonte.fora_da_doc %}
+                                <p class="ful-fonte-fora">
+                                    <strong>Campos que a API mandou e a documentação não cita:</strong>
+                                    {% for campo in fonte.fora_da_doc %}<code>{{ campo }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}
+                                </p>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+
+            {% for ficha in pagina.fichas %}
+                <section class="ful-ficha" aria-label="Ficha do Código ML" id="ful-ficha-{{ ficha.numero }}">
+                    <header class="ful-ficha-cabeca">
+                        <div>
+                            <span class="ful-ficha-rotulo">Produto do vendedor</span>
+                            <strong class="ful-ficha-id">{{ ficha.user_product_id|default:'— (sem user_product_id)' }}</strong>
+                        </div>
+                        <div>
+                            <span class="ful-ficha-rotulo">Código ML (inventory_id)</span>
+                            <strong class="ful-ficha-id">{{ ficha.inventory_id|default:'— (sem inventory_id)' }}</strong>
+                        </div>
+                        <nav class="ful-niveis-indice" aria-label="Ir para um nível desta ficha">
+                            <a href="#ful-nivel-{{ ficha.numero }}-produto" class="ful-chip">1 · Produto</a>
+                            <a href="#ful-nivel-{{ ficha.numero }}-codigo" class="ful-chip">2 · Código ML do Full</a>
+                            <a href="#ful-nivel-{{ ficha.numero }}-anuncio" class="ful-chip">3 · Anúncios ({{ ficha.anuncios|length }})</a>
+                        </nav>
+                    </header>
+
+                    {# ===================== NÍVEL 1 — PRODUTO ===================== #}
+                    <section class="ful-nivel ful-nivel--produto" id="ful-nivel-{{ ficha.numero }}-produto" aria-labelledby="ful-nivel-titulo-{{ ficha.numero }}-produto">
+                        <header class="ful-nivel-cabeca">
+                            <span class="ful-nivel-numero" aria-hidden="true">{{ ficha.niveis.produto.numero }}</span>
+                            <div>
+                                <h2 class="ful-nivel-titulo" id="ful-nivel-titulo-{{ ficha.numero }}-produto">{{ ficha.niveis.produto.titulo }}</h2>
+                                <p class="ful-nivel-desc">{{ ficha.niveis.produto.descricao }}</p>
+                            </div>
+                        </header>
+                        {% for produto in ficha.produtos %}
+                            <details class="ful-agrupador ful-agrupador--produto" open>
+                                <summary class="ful-agrupador-resumo">
+                                    <span class="ful-agrupador-tipo">Produto SKU</span>
+                                    <code class="ful-agrupador-codigo">{{ produto.sku }}</code>
+                                    {% if produto.achou %}
+                                        <span class="ful-agrupador-titulo">{{ produto.titulo }}</span>
+                                    {% elif produto.lido %}
+                                        <span class="ful-pilula ful-pilula--diferente">não encontrado no banco</span>
+                                    {% endif %}
+                                </summary>
+                                <div class="ful-agrupador-corpo">
+                                    <div class="ful-origens">
+                                        <span class="ful-origens-titulo">Por que este produto aparece aqui — o SKU <code>{{ produto.sku }}</code> foi visto em:</span>
+                                        <ul>
+                                            {% for origem in produto.origens %}<li>{{ origem }}</li>{% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% for bloco in produto.blocos %}
+                                        {% include 'mercado_livre/parciais/estrutura_parcial_bloco_full.html' %}
+                                    {% endfor %}
+                                </div>
+                            </details>
+                        {% empty %}
+                            <p class="ful-vazio-texto">Nenhum SKU encontrado: nem a API de reposição, nem o arquivo, nem o banco trazem SKU
+                            para este código, então não há como achar o Produto.</p>
+                        {% endfor %}
+                    </section>
+
+                    {# ===================== NÍVEL 2 — CÓDIGO ML DO FULL ===================== #}
+                    <section class="ful-nivel ful-nivel--codigo" id="ful-nivel-{{ ficha.numero }}-codigo" aria-labelledby="ful-nivel-titulo-{{ ficha.numero }}-codigo">
+                        <header class="ful-nivel-cabeca">
+                            <span class="ful-nivel-numero" aria-hidden="true">{{ ficha.niveis.codigo.numero }}</span>
+                            <div>
+                                <h2 class="ful-nivel-titulo" id="ful-nivel-titulo-{{ ficha.numero }}-codigo">{{ ficha.niveis.codigo.titulo }}</h2>
+                                <p class="ful-nivel-desc">{{ ficha.niveis.codigo.descricao }}</p>
+                            </div>
+                        </header>
+
+                        {% for bloco in ficha.blocos_codigo %}
+                            {% include 'mercado_livre/parciais/estrutura_parcial_bloco_full.html' %}
+                        {% endfor %}
+
+                        <section class="ful-bloco">
+                            <h3 class="ful-bloco-titulo">Vendas por semana</h3>
+                            <p class="ful-bloco-desc">Da semana mais antiga para a mais nova, como a tela mostra (a API manda do mais novo para o mais antigo).</p>
+                            {% if ficha.semanas %}
+                                <div class="ful-tabela-rolagem" tabindex="0">
+                                    <table class="ful-tabela ful-tabela--simples">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">Semana</th>
+                                                <th scope="col" class="ful-num">Unidades vendidas</th>
+                                                <th scope="col" class="ful-num">Dias sem estoque</th>
+                                                <th scope="col">Campanhas</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for semana in ficha.semanas %}
+                                                <tr>
+                                                    <th scope="row">{{ semana.periodo }}</th>
+                                                    <td class="ful-num">{{ semana.unidades }}</td>
+                                                    <td class="ful-num">{{ semana.dias_sem_estoque }}</td>
+                                                    <td>{{ semana.campanhas }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="ful-vazio-texto">A API de reposição não devolveu semanas para este produto.</p>
+                            {% endif %}
+                            {% if ficha.semanas_bruto %}
+                                <details class="ful-bruto-detalhes">
+                                    <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ ficha.semanas_bruto.rotulo }} — <code>sales.sales_history</code></summary>
+                                    {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=ficha.semanas_bruto %}
+                                </details>
+                            {% endif %}
+                        </section>
+
+                        <section class="ful-bloco">
+                            <h3 class="ful-bloco-titulo">Conferências do código</h3>
+                            <p class="ful-bloco-desc">O sistema compara sozinho valores do mesmo código que aparecem em mais de uma fonte.</p>
+                            {% include 'mercado_livre/parciais/estrutura_parcial_conferencias_full.html' with conferencias=ficha.conferencias_codigo %}
+                        </section>
+                    </section>
+
+                    {# ===================== NÍVEL 3 — ANÚNCIOS ===================== #}
+                    <section class="ful-nivel ful-nivel--anuncio" id="ful-nivel-{{ ficha.numero }}-anuncio" aria-labelledby="ful-nivel-titulo-{{ ficha.numero }}-anuncio">
+                        <header class="ful-nivel-cabeca">
+                            <span class="ful-nivel-numero" aria-hidden="true">{{ ficha.niveis.anuncio.numero }}</span>
+                            <div>
+                                <h2 class="ful-nivel-titulo" id="ful-nivel-titulo-{{ ficha.numero }}-anuncio">{{ ficha.niveis.anuncio.titulo }}</h2>
+                                <p class="ful-nivel-desc">{{ ficha.niveis.anuncio.descricao }}</p>
+                            </div>
+                        </header>
+
+                        {% if ficha.anuncios_indice %}
+                            <section class="ful-bloco">
+                                <h3 class="ful-bloco-titulo">Índice dos anúncios deste código</h3>
+                                <p class="ful-bloco-desc">Uma linha por anúncio (fonte ARQUIVO), só para você se achar. O detalhe de cada um está no bloco logo abaixo — clique no MLB para ir até ele.</p>
+                                <div class="ful-tabela-rolagem" tabindex="0">
+                                    <table class="ful-tabela ful-tabela--simples">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col">MLB</th>
+                                                <th scope="col">Variação</th>
+                                                <th scope="col">Status</th>
+                                                <th scope="col">Tipo logístico</th>
+                                                <th scope="col" class="ful-num">Estoque</th>
+                                                <th scope="col">SKU</th>
+                                                <th scope="col">Título</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for anuncio in ficha.anuncios_indice %}
+                                                <tr>
+                                                    <th scope="row"><a href="#{{ anuncio.ancora }}"><code>{{ anuncio.mlb }}</code></a></th>
+                                                    <td>{{ anuncio.variacao_id|default:'—' }}</td>
+                                                    <td>{{ anuncio.status|default:'—' }}{% if anuncio.status_rotulo %} ({{ anuncio.status_rotulo }}){% endif %}</td>
+                                                    <td>{{ anuncio.tipo_logistico|default:'—' }}</td>
+                                                    <td class="ful-num">{{ anuncio.estoque|default_if_none:'—' }}</td>
+                                                    <td>{{ anuncio.sku|default:'—' }}</td>
+                                                    <td>{{ anuncio.titulo|default:'—' }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% if ficha.anuncios_bruto %}
+                                    <details class="ful-bruto-detalhes">
+                                        <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ ficha.anuncios_bruto.rotulo }} — todos os anúncios deste código</summary>
+                                        {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=ficha.anuncios_bruto %}
+                                    </details>
+                                {% endif %}
+                            </section>
+                        {% else %}
+                            <p class="ful-vazio-texto">O detalhes_mlbs.json não tem anúncio para este produto, então não há bloco de anúncio.</p>
+                        {% endif %}
+
+                        {% for anuncio in ficha.anuncios %}
+                            <details class="ful-agrupador ful-agrupador--anuncio" id="{{ anuncio.ancora }}" open>
+                                <summary class="ful-agrupador-resumo">
+                                    <span class="ful-agrupador-tipo">Anúncio</span>
+                                    <code class="ful-agrupador-codigo">{{ anuncio.rotulo }}</code>
+                                    {% if anuncio.status %}<span class="ful-estado-anuncio ful-estado-anuncio--{{ anuncio.status }}">{{ anuncio.status_rotulo|default:anuncio.status }}</span>{% endif %}
+                                    <span class="ful-agrupador-titulo">{{ anuncio.titulo }}</span>
+                                    <span class="ful-agrupador-conf">
+                                        {% if anuncio.resumo_conferencias.diferente %}<span class="ful-pilula ful-pilula--diferente">{{ anuncio.resumo_conferencias.diferente }} diferente{{ anuncio.resumo_conferencias.diferente|pluralize }}</span>{% endif %}
+                                        {% if anuncio.resumo_conferencias.igual %}<span class="ful-pilula ful-pilula--igual">{{ anuncio.resumo_conferencias.igual }} {{ anuncio.resumo_conferencias.igual|pluralize:"igual,iguais" }}</span>{% endif %}
+                                        {% if anuncio.resumo_conferencias.nao_da %}<span class="ful-pilula ful-pilula--nao_da">{{ anuncio.resumo_conferencias.nao_da }} sem comparar</span>{% endif %}
+                                    </span>
+                                </summary>
+                                <div class="ful-agrupador-corpo">
+                                    {% if anuncio.bruto %}
+                                        <details class="ful-bruto-detalhes">
+                                            <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ anuncio.bruto.rotulo }}</summary>
+                                            {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=anuncio.bruto %}
+                                        </details>
+                                    {% endif %}
+                                    {% for bloco in anuncio.blocos %}
+                                        {% include 'mercado_livre/parciais/estrutura_parcial_bloco_full.html' %}
+                                    {% endfor %}
+                                    {% if anuncio.fora_do_catalogo %}
+                                        <section class="ful-bloco">
+                                            <h3 class="ful-bloco-titulo">Outros campos deste registro</h3>
+                                            <p class="ful-bloco-desc">O registro do arquivo tem estes campos e a ficha ainda não tem uma linha para eles. Ficam aqui para nada ficar escondido.</p>
+                                            <ul class="ful-origens-lista">
+                                                {% for extra in anuncio.fora_do_catalogo %}<li><code>{{ extra.campo }}</code> = {{ extra.valor }}</li>{% endfor %}
+                                            </ul>
+                                        </section>
+                                    {% endif %}
+                                    <section class="ful-bloco">
+                                        <h3 class="ful-bloco-titulo">Conferências deste anúncio</h3>
+                                        <p class="ful-bloco-desc">Só valores deste anúncio ({{ anuncio.rotulo }}): arquivo, banco e Código ML.</p>
+                                        {% include 'mercado_livre/parciais/estrutura_parcial_conferencias_full.html' with conferencias=anuncio.conferencias %}
+                                    </section>
+                                </div>
+                            </details>
+                        {% endfor %}
+                    </section>
+                </section>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'mercado_livre/js/script_full_ficha.js' %}"></script>
+{% endblock %}

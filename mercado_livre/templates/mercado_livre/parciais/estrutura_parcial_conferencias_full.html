@@ -1,0 +1,18 @@
+{% comment %}
+* [RESUMO] → A lista de conferências automáticas (IGUAL / DIFERENTE / NÃO DÁ PRA CONFERIR).
+  Recebe "conferencias" = lista de {verificacao, resultado, detalhe}. Cada lista compara só
+  valores do MESMO código ou do MESMO anúncio — nunca junta 2 anúncios.
+{% endcomment %}
+<ul class="ful-conferencias">
+    {% for conferencia in conferencias %}
+        <li class="ful-conferencia ful-conferencia--{{ conferencia.resultado }}">
+            <span class="ful-pilula ful-pilula--{{ conferencia.resultado }}">
+                {% if conferencia.resultado == 'igual' %}IGUAL{% elif conferencia.resultado == 'diferente' %}DIFERENTE{% else %}NÃO DÁ PRA CONFERIR{% endif %}
+            </span>
+            <span class="ful-conferencia-texto">
+                <strong>{{ conferencia.verificacao }}</strong>
+                <span class="ful-conferencia-detalhe">{{ conferencia.detalhe }}</span>
+            </span>
+        </li>
+    {% endfor %}
+</ul>

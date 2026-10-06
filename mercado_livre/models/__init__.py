@@ -15,3 +15,4 @@ from .categoria import CategoriaMercadoLivre, EstadoDumpCategoriasMercadoLivre
 from .atributo_categoria import AtributoCategoriaMercadoLivre
 from .caracteristica_produto import CaracteristicaProdutoMercadoLivre
 from .varredura_caracteristicas import VarreduraCaracteristicasMercadoLivre
+from .full_ml import ConsultaFullMercadoLivre, CampoFullMercadoLivre
