@@ -104,6 +104,10 @@ COLUNAS_FONTE = (
     ('aptas', 'REPOS', 'stock.total_stock', 'Aptas e a caminho'),
 )
 
+# O cabeçalho fixo da lista precisa caber em UMA linha, então "Disponível para venda" vira "Disponível" lá. O nome completo continua
+# no resumo do topo, no seletor "Ordenar por" e nos números de cada linha.
+ROTULOS_CURTOS = {'disponivel': 'Disponível'}
+
 BADGE_A_CAMINHO = BADGES_CONFERENCIA_FULL['hipotese']
 
 
@@ -671,13 +675,20 @@ def montar_estoque(parametros, validacoes, rotulos_situacao):
     for posicao, produto in enumerate(produtos_da_pagina, start=1):
         produto['indice'] = (pagina.number - 1) * por_pagina + posicao
 
-    colunas = {chave: {'rotulo': rotulo, 'meta': _meta_do_campo(fonte, caminho, validacoes, rotulos_situacao)}
+    colunas = {chave: {'rotulo': rotulo, 'rotulo_curto': ROTULOS_CURTOS.get(chave, rotulo), 'meta': _meta_do_campo(fonte, caminho, validacoes, rotulos_situacao)}
                for chave, fonte, caminho, rotulo in COLUNAS_FONTE}
     grupos_ordens = [{'rotulo': grupo['rotulo'], 'ordens': [{'chave': chave, 'rotulo': rotulo, 'ativo': chave == ordem, 'url': _url(estado, ordem=chave)}
                                                             for chave, rotulo, _ in grupo['itens']]}
                      for grupo in _agrupar(ORDENS, lambda item: item[2])]
-    grupos_filtros = [{'rotulo': grupo['rotulo'], 'filtros': [f for f in filtros if f['chave'] in {i[0] for i in grupo['itens']}]}
-                      for grupo in _agrupar(FILTROS, lambda item: item[2])]
+    # * [EXPLICAÇÃO] → Filtro que hoje não acha nada (contagem 0) NÃO aparece: clicar nele só levaria a uma lista vazia, e a tela fica mais curta.
+    #                  Ele volta sozinho quando passar a ter ocorrência (ex.: surgir uma consulta com erro). O filtro que está valendo
+    #                  sempre aparece, e um grupo que ficou sem nenhum filtro some junto com o rótulo dele.
+    grupos_filtros = []
+    for grupo in _agrupar(FILTROS, lambda item: item[2]):
+        chaves = {item[0] for item in grupo['itens']}
+        visiveis = [f for f in filtros if f['chave'] in chaves and (f['contagem'] or f['ativo'])]
+        if visiveis:
+            grupos_filtros.append({'rotulo': grupo['rotulo'], 'filtros': visiveis})
     return {
         'texto': texto, 'filtro': filtro, 'ordem': ordem, 'marca': marca, 'por_pagina': por_pagina,
         'filtro_padrao': FILTRO_PADRAO, 'ordem_padrao': ORDEM_PADRAO, 'por_pagina_padrao': POR_PAGINA_PADRAO,

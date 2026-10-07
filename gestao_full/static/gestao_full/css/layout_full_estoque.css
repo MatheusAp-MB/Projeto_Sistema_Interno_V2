@@ -9,7 +9,7 @@
 .est-pagina {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     color: #243247;
     font-size: 0.9rem;
     container: est / inline-size;   /* as regras "@container est" mais abaixo olham a largura desta caixa */
@@ -51,16 +51,22 @@
    FAIXA DE TOTAIS
    ================================================ */
 
-/* * [EXPLICAÇÃO] → À esquerda, em faixa azul-marinho, o número que o Matheus escolheu como destaque: "Total no Full".
- *                  À direita, os números menores que explicam e delimitam esse total. As linhas finas entre os
- *                  números vêm de "gap: 1px" sobre um fundo da cor da borda, que não dobra linha quando o grupo quebra. */
+/* * [EXPLICAÇÃO] → Uma faixa branca e BAIXA (uns 70px): à esquerda, num fundo azul bem claro, o número que o Matheus escolheu como destaque
+ *                  ("Total no Full"); à direita, os números menores que explicam e delimitam esse total. Se o total é parcial (há Código ML sem
+ *                  número), uma linha fina embaixo avisa — dentro da própria faixa, não numa caixa separada. As linhas finas entre os números vêm
+ *                  de "gap: 1px" sobre um fundo da cor da borda, que não dobra linha quando o grupo quebra. */
 .est-resumo {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
     border-radius: 10px;
     overflow: hidden;
+}
+
+.est-resumo-linha {
+    display: flex;
+    flex-wrap: wrap;
 }
 
 .est-resumo-destaque {
@@ -68,35 +74,45 @@
     min-width: 250px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 2px;
-    padding: 16px 26px;
-    background: var(--cor-primaria);
-    color: var(--cor-texto-claro);
+    padding: 10px 22px;
+    background: #eef4fa;
+    border-right: 1px solid var(--cor-borda);
+    color: var(--cor-primaria);
 }
 
 .est-resumo-rotulo {
-    font-size: 0.74rem;
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    opacity: 0.85;
+    color: var(--cor-texto-muted);
+}
+
+.est-resumo-valor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
 }
 
 .est-resumo-numero {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 700;
     line-height: 1.1;
     font-variant-numeric: tabular-nums;
+    color: var(--cor-primaria);
 }
 
 .est-resumo-sub {
-    font-size: 0.78rem;
-    opacity: 0.8;
+    font-size: 0.76rem;
+    color: var(--cor-texto-muted);
 }
 
-/* Em tela estreita o bloco azul ocupa a linha inteira (senão sobra um vazio branco ao lado dele). */
+/* Em tela estreita o bloco de destaque ocupa a linha inteira (senão sobra um vazio ao lado dele). */
 @media (max-width: 700px) {
-    .est-resumo-destaque { flex: 1 1 100%; }
+    .est-resumo-destaque { flex: 1 1 100%; border-right: 0; border-bottom: 1px solid var(--cor-borda); }
 }
 
 .est-resumo-lado {
@@ -112,13 +128,13 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 4px;
-    padding: 14px 20px;
+    gap: 2px;
+    padding: 10px 20px;
     background: var(--cor-fundo-card);
 }
 
 .est-resumo-item dt {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -127,7 +143,7 @@
 
 .est-resumo-item dd {
     margin: 0;
-    font-size: 1.45rem;
+    font-size: 1.35rem;
     font-weight: 700;
     line-height: 1.15;
     color: var(--cor-primaria);
@@ -140,9 +156,33 @@
     color: var(--cor-texto-muted);
 }
 
+/* O aviso de "total parcial": uma linha só, âmbar bem suave (é o tom de "falta dado", o mesmo do aviso de atenção compartilhado). */
+.est-resumo-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 22px;
+    background: #fffbeb;
+    border-top: 1px solid #fde68a;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: #92400e;
+}
+
+.est-resumo-nota i { margin-top: 2px; }
+
 /* ================================================
-   BARRA DE FERRAMENTAS DA LISTA
+   FILTROS + FERRAMENTAS DA LISTA  (um bloco só)
    ================================================ */
+/* * [EXPLICAÇÃO] → Os filtros (chips) e as ferramentas (contagem, abrir/fechar todos, marca, quantidade, ordem) controlam a MESMA lista, então
+ *                  ficam juntos, com menos espaço entre as duas linhas do que entre as outras camadas da tela. Os chips são compartilhados
+ *                  (layout_tabela_dados.css); chip com contagem 0 nem chega aqui (o Python não manda). */
+.est-controles {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .est-ferramentas {
     display: flex;
     flex-wrap: wrap;
@@ -192,31 +232,36 @@
     display: grid;
     grid-template-columns: var(--est-colunas);
     column-gap: 16px;
-    align-items: end;
+    align-items: center;
     padding: 8px calc(var(--est-lado) + var(--est-miolo)) 8px var(--est-lado);
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
     border-radius: 10px;
     box-shadow: 0 2px 6px rgba(20, 41, 67, 0.07);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--cor-primaria);
 }
 
+/* * [EXPLICAÇÃO] → Título e selo na MESMA linha: o selo de conferência é só um ícone, à ESQUERDA do título (row-reverse), assim a ponta direita do
+ *                  título continua alinhada com os números da coluna. O texto por extenso do selo, a fonte e o campo da API ficam no
+ *                  "title" do ícone (passar o mouse). Com "nowrap" o título nunca quebra; se faltar um pouco de largura ele cresce para a
+ *                  esquerda, no espaço entre as colunas. */
 .est-coluna--num {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-    text-align: right;
+    flex-direction: row-reverse;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    white-space: nowrap;
 }
 
 .est-coluna-rotulo { display: block; }
-.est-coluna-selo { display: inline-block; font-weight: 400; letter-spacing: 0; }
-/* O selo de conferência é menor aqui: com o tamanho padrão ele passava da largura da coluna e encostava no da coluna ao lado. */
-.est-coluna-selo .badge-tabela { padding: 1px 6px; font-size: 0.6rem; }
+.est-coluna-selo { display: inline-flex; font-weight: 400; letter-spacing: 0; cursor: help; }
+/* O ícone do selo não recebe o mouse: quem recebe é a caixa em volta, que carrega o texto completo (o ícone sozinho só diria "Não conferido"). */
+.est-coluna-selo .badge-tabela { padding: 2px 4px; font-size: 0.7rem; pointer-events: none; }
 .est-colunas .tabela-dados-ordenar:focus-visible { outline-color: var(--cor-primaria-clara); }
 .est-coluna--destaque .tabela-dados-ordenar { padding-bottom: 2px; border-bottom: 2px solid var(--cor-primaria-clara); }
 

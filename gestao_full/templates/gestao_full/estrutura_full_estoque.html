@@ -59,107 +59,110 @@
         {% else %}
 
             <section class="est-resumo" aria-label="Totais da lista">
-                <div class="est-resumo-destaque">
-                    <p class="est-resumo-rotulo">Total no Full</p>
-                    <p class="est-resumo-numero">{{ pagina.resumo.total_txt }}</p>
-                    <p class="est-resumo-sub">
-                        unidades
-                        {% if pagina.filtrada %}· soma da lista filtrada{% else %}· soma de todos os produtos{% endif %}
-                    </p>
+                <div class="est-resumo-linha">
+                    <div class="est-resumo-destaque">
+                        <p class="est-resumo-rotulo">Total no Full</p>
+                        <p class="est-resumo-valor">
+                            <span class="est-resumo-numero">{{ pagina.resumo.total_txt }}</span>
+                            <span class="est-resumo-sub">unidades · {% if pagina.filtrada %}lista filtrada{% else %}todos os produtos{% endif %}</span>
+                        </p>
+                    </div>
+                    <dl class="est-resumo-lado">
+                        <div class="est-resumo-item">
+                            <dt>Disponível para venda</dt>
+                            <dd>{{ pagina.resumo.disponivel_txt }}</dd>
+                        </div>
+                        <div class="est-resumo-item">
+                            <dt>Indisponível</dt>
+                            <dd>{{ pagina.resumo.indisponivel_txt }}</dd>
+                        </div>
+                        <div class="est-resumo-item">
+                            <dt>Produtos</dt>
+                            <dd>{{ pagina.resumo.n_produtos }}</dd>
+                        </div>
+                        <div class="est-resumo-item">
+                            <dt>Códigos ML com número</dt>
+                            <dd>{{ pagina.resumo.n_ok }} <span class="est-resumo-de">de {{ pagina.resumo.n_codigos }}</span></dd>
+                        </div>
+                    </dl>
                 </div>
-                <dl class="est-resumo-lado">
-                    <div class="est-resumo-item">
-                        <dt>Disponível para venda</dt>
-                        <dd>{{ pagina.resumo.disponivel_txt }}</dd>
-                    </div>
-                    <div class="est-resumo-item">
-                        <dt>Indisponível</dt>
-                        <dd>{{ pagina.resumo.indisponivel_txt }}</dd>
-                    </div>
-                    <div class="est-resumo-item">
-                        <dt>Produtos</dt>
-                        <dd>{{ pagina.resumo.n_produtos }}</dd>
-                    </div>
-                    <div class="est-resumo-item">
-                        <dt>Códigos ML com número</dt>
-                        <dd>{{ pagina.resumo.n_ok }} <span class="est-resumo-de">de {{ pagina.resumo.n_codigos }}</span></dd>
-                    </div>
-                </dl>
+                {% if pagina.resumo.n_sem_numero %}
+                    <p class="est-resumo-nota">
+                        <i class="fas fa-circle-info" aria-hidden="true"></i>
+                        <span>
+                            <strong>Total parcial:</strong> só soma o que já foi consultado.
+                            {{ pagina.resumo.n_sem_numero }} Código{{ pagina.resumo.n_sem_numero|pluralize }} ML
+                            {% if pagina.resumo.n_sem_numero == 1 %}ainda não tem{% else %}ainda não têm{% endif %} número (nunca consultado ou o Mercado Livre não respondeu).
+                        </span>
+                    </p>
+                {% endif %}
             </section>
 
-            {% if pagina.resumo.n_sem_numero %}
-                <p class="lista-aviso">
-                    <i class="fas fa-circle-info" aria-hidden="true"></i>
-                    <span>
-                        {{ pagina.resumo.n_sem_numero }} Código{{ pagina.resumo.n_sem_numero|pluralize }} ML desta lista
-                        {% if pagina.resumo.n_sem_numero == 1 %}não tem{% else %}não têm{% endif %} número ainda (nunca consultado ou o Mercado Livre não respondeu).
-                        Por isso o total acima é <strong>parcial</strong>: ele só soma o que já foi consultado.
-                    </span>
-                </p>
-            {% endif %}
-
-            <nav class="lista-filtros" aria-label="Filtros da lista">
-                {% for grupo in pagina.grupos_filtros %}
-                    <div class="lista-chips-grupo">
-                        {% if grupo.rotulo %}<span class="lista-chips-rotulo">{{ grupo.rotulo }}</span>{% endif %}
-                        <ul class="lista-chips">
-                            {% for filtro in grupo.filtros %}
-                                <li>
-                                    <a href="{{ filtro.url }}"
-                                       class="lista-chip{% if filtro.ativo %} lista-chip--ativo{% endif %}{% if not filtro.contagem %} lista-chip--vazio{% endif %}"
-                                       {% if filtro.ativo %}aria-current="true"{% endif %}>
-                                        {{ filtro.rotulo }} <span class="lista-chip-contagem">{{ filtro.contagem }}</span>
-                                    </a>
-                                </li>
-                            {% endfor %}
-                        </ul>
+            <div class="est-controles">
+                <nav class="lista-filtros" aria-label="Filtros da lista">
+                    {% for grupo in pagina.grupos_filtros %}
+                        <div class="lista-chips-grupo">
+                            {% if grupo.rotulo %}<span class="lista-chips-rotulo">{{ grupo.rotulo }}</span>{% endif %}
+                            <ul class="lista-chips">
+                                {% for filtro in grupo.filtros %}
+                                    <li>
+                                        <a href="{{ filtro.url }}"
+                                           class="lista-chip{% if filtro.ativo %} lista-chip--ativo{% endif %}{% if not filtro.contagem %} lista-chip--vazio{% endif %}"
+                                           {% if filtro.ativo %}aria-current="true"{% endif %}>
+                                            {{ filtro.rotulo }} <span class="lista-chip-contagem">{{ filtro.contagem }}</span>
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endfor %}
+                </nav>
+                {% if pagina.paginacao.total %}
+                    <div class="est-ferramentas">
+                        <p class="est-ferramentas-contagem">
+                            Mostrando {{ pagina.paginacao.primeiro }}–{{ pagina.paginacao.ultimo }} de {{ pagina.paginacao.total }} produto{{ pagina.paginacao.total|pluralize }}
+                        </p>
+                        <div class="est-ferramentas-controles">
+                            <button type="button" class="lista-botao" data-acao="abrir-todos">
+                                <i class="fas fa-angles-down" aria-hidden="true"></i> Abrir todos
+                            </button>
+                            <button type="button" class="lista-botao" data-acao="fechar-todos">
+                                <i class="fas fa-angles-up" aria-hidden="true"></i> Fechar todos
+                            </button>
+                            <div class="lista-campo">
+                                <label for="est-marca" class="lista-campo-rotulo">Marca</label>
+                                <select id="est-marca" class="lista-select" data-navegar>
+                                    {% for marca in pagina.marcas %}
+                                        <option value="{{ marca.url }}"{% if marca.ativo %} selected{% endif %}>{{ marca.rotulo }} ({{ marca.contagem }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="lista-campo">
+                                <label for="est-por-pagina" class="lista-campo-rotulo">Mostrar</label>
+                                <select id="est-por-pagina" class="lista-select" data-navegar>
+                                    {% for opcao in pagina.opcoes_por_pagina %}
+                                        <option value="{{ opcao.url }}"{% if opcao.ativo %} selected{% endif %}>{{ opcao.rotulo }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="lista-campo">
+                                <label for="est-ordem" class="lista-campo-rotulo">Ordenar por</label>
+                                <select id="est-ordem" class="lista-select" data-navegar>
+                                    {% for grupo in pagina.grupos_ordens %}
+                                        <optgroup label="{{ grupo.rotulo }}">
+                                            {% for ordem in grupo.ordens %}
+                                                <option value="{{ ordem.url }}"{% if ordem.ativo %} selected{% endif %}>{{ ordem.rotulo }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                {% endfor %}
-            </nav>
+                {% endif %}
+            </div>
 
             {% if pagina.paginacao.total %}
-                <div class="est-ferramentas">
-                    <p class="est-ferramentas-contagem">
-                        Mostrando {{ pagina.paginacao.primeiro }}–{{ pagina.paginacao.ultimo }} de {{ pagina.paginacao.total }} produto{{ pagina.paginacao.total|pluralize }}
-                    </p>
-                    <div class="est-ferramentas-controles">
-                        <button type="button" class="lista-botao" data-acao="abrir-todos">
-                            <i class="fas fa-angles-down" aria-hidden="true"></i> Abrir todos
-                        </button>
-                        <button type="button" class="lista-botao" data-acao="fechar-todos">
-                            <i class="fas fa-angles-up" aria-hidden="true"></i> Fechar todos
-                        </button>
-                        <div class="lista-campo">
-                            <label for="est-marca" class="lista-campo-rotulo">Marca</label>
-                            <select id="est-marca" class="lista-select" data-navegar>
-                                {% for marca in pagina.marcas %}
-                                    <option value="{{ marca.url }}"{% if marca.ativo %} selected{% endif %}>{{ marca.rotulo }} ({{ marca.contagem }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="lista-campo">
-                            <label for="est-por-pagina" class="lista-campo-rotulo">Mostrar</label>
-                            <select id="est-por-pagina" class="lista-select" data-navegar>
-                                {% for opcao in pagina.opcoes_por_pagina %}
-                                    <option value="{{ opcao.url }}"{% if opcao.ativo %} selected{% endif %}>{{ opcao.rotulo }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="lista-campo">
-                            <label for="est-ordem" class="lista-campo-rotulo">Ordenar por</label>
-                            <select id="est-ordem" class="lista-select" data-navegar>
-                                {% for grupo in pagina.grupos_ordens %}
-                                    <optgroup label="{{ grupo.rotulo }}">
-                                        {% for ordem in grupo.ordens %}
-                                            <option value="{{ ordem.url }}"{% if ordem.ativo %} selected{% endif %}>{{ ordem.rotulo }}</option>
-                                        {% endfor %}
-                                    </optgroup>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="est-rolagem">
                     <div class="est-lista" aria-label="Estoque no Full de cada produto, com os Códigos ML que o compõem">
                         <div class="est-colunas">
