@@ -15,13 +15,19 @@ VISUAL_MARKETPLACES = {
     'TD_AGRO':    {'nome': 'Tudo de Agro',  'logo': 'marketplaces/img/logo_tudo_de_agro.png'},
 }
 
+# * [EXPLICAÇÃO] → Marketplaces que NÃO entram nesta grade porque têm área própria no
+#                  sistema (grupo no menu + página inicial dedicada). O Mercado Livre tem a
+#                  página /mercado-livre/; esta grade é só dos "Outros marketplaces".
+SIGLAS_COM_AREA_PROPRIA = {'ML'}
+
 def view_marketplaces(request):
     marketplaces = []
-    urls_marketplaces = {
-        'ML': '/mercado-livre/', 
-    }
+    # * [EXPLICAÇÃO] → {sigla: url} dos marketplaces DESTA grade que já têm página inicial
+    #                  própria. Vazio por enquanto: os outros marketplaces ainda não têm
+    #                  página inicial, então todos aparecem como "Em breve".
+    urls_marketplaces = {}
 
-    for mp in Marketplace.objects.all():
+    for mp in Marketplace.objects.exclude(sigla__in=SIGLAS_COM_AREA_PROPRIA):
         visual = VISUAL_MARKETPLACES.get(mp.sigla, {})
         marketplaces.append({
             'id':   mp.sigla,

@@ -14,7 +14,7 @@
         <!-- Card ativo — marketplace tem tela neste módulo -->
         <div class="col-md-4">
             <a href="{{ urls_marketplaces|get_item:marketplace.id }}" class="text-decoration-none">
-                <div class="card-modulo">
+                <div class="card-modulo card-modulo-logo">
                     <img src="{% static marketplace.logo %}" alt="{{ marketplace.nome }}">
                     <h5>{{ marketplace.nome }}</h5>
                 </div>
@@ -25,7 +25,7 @@
 
         <!-- Card em breve — marketplace ainda não tem tela neste módulo -->
         <div class="col-md-4">
-            <div class="card-modulo card-modulo-vazio">
+            <div class="card-modulo card-modulo-logo card-modulo-vazio">
                 <img src="{% static marketplace.logo %}" alt="{{ marketplace.nome }}">
                 <h5>{{ marketplace.nome }}</h5>
                 <p>Em breve</p>

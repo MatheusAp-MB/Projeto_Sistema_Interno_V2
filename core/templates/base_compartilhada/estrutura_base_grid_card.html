@@ -20,8 +20,10 @@
     <!--
     * [EXPLICAÇÃO] → Container padrão para o grid de cards.
     * Páginas filhas preenchem o block cards com seus próprios cards.
+    * A classe grade-cards liga a densidade automática do CSS compartilhado
+    * (layout_base_grid_card.css): até 9 filhos = cards grandes; 10 ou mais = compactos.
     -->
-    <div class="row g-4">
+    <div class="row g-4 grade-cards">
         {% block cards %}{% endblock %}
     </div>
 {% endblock %}

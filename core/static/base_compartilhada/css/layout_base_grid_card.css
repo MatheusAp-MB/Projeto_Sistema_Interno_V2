@@ -2,17 +2,31 @@
 * [RESUMO] → CSS compartilhado para páginas com grid de cards.
 * Define o estilo dos cards de módulos reutilizável em qualquer página.
 * Importado pelo estrutura_base_grid_card.html
+*
+* [PADRÃO ÚNICO] → Toda página de navegação por cards (Home, Impostos, Precificação,
+* Mercado Livre, Marketplaces) usa ESTE componente. Não criar variante por tela.
+*
+* [DENSIDADE AUTOMÁTICA] → O mesmo cartão tem duas densidades, escolhidas pela QUANTIDADE
+* de filhos do grid (.grade-cards, definido no estrutura_base_grid_card.html):
+*   - até 9 filhos  → cartão GRANDE (ícone em cima, texto centralizado): poucos cartões
+*                     precisam ocupar a tela;
+*   - 10 ou mais    → cartão COMPACTO (ícone à esquerda, texto à direita): muitos cartões
+*                     precisam caber sem rolar. Títulos de área (.secao-cards) contam como filhos.
+* Nenhuma tela escolhe a própria densidade: se uma tela ganhar ou perder cartões,
+* ela muda sozinha. O corte em 10 vem de 3 fileiras de cartões grandes caberem numa tela
+* comum; a 4ª fileira já obrigaria a rolar.
+*
+* [ANATOMIA] → Filhos diretos de .card-modulo, nesta ordem:
+*   <i class="fas fa-..."></i>  (ou <img> com .card-modulo-logo)  →  <h5>título</h5>  →  <p>descrição</p>
+* O tamanho do ícone é do CSS: não usar fa-2x / mb-3 no template.
+* Para agrupar cards em áreas dentro do mesmo grid: .secao-cards + .secao-cards-titulo (bloco no fim).
 */
 
 /* + [STATUS: APROVADO] */
 
 /* ================================================
-   CARDS DE MÓDULOS
+   CARDS DE MÓDULOS — densidade GRANDE (padrão)
    ================================================ */
-
-#Container_Cards{
-    margin-top: 7.5vh;
-}
 .card-modulo {
     /*
     * [EXPLICAÇÃO] → height: 100% garante que todos os cards da mesma
@@ -37,6 +51,11 @@
     box-shadow: 0 8px 20px rgba(26, 58, 92, 0.2);
 }
 
+.card-modulo > i {
+    font-size: 2em;
+    margin-bottom: 1rem;
+}
+
 .card-modulo h5 {
     font-weight: 700;
     margin-bottom: 8px;
@@ -46,6 +65,14 @@
     font-size: 0.875rem;
     opacity: 0.75;
     margin: 0;
+}
+
+/** [EXPLICAÇÃO] → Padroniza o tamanho e espaçamento das logos dos marketplaces nos cards. */
+.card-modulo img {
+    height: 80px;
+    width: auto;
+    object-fit: contain;
+    margin-bottom: 12px;
 }
 
 /* ================================================
@@ -73,10 +100,116 @@
     transform: none;
     box-shadow: none;
 }
-/** [EXPLICAÇÃO] → Padroniza o tamanho e espaçamento das logos dos marketplaces nos cards. */
-.card-modulo img {
-    height: 80px;
-    width: auto;
-    object-fit: contain;
-    margin-bottom: 12px;
+
+/* ================================================
+   CARDS DE MÓDULOS — densidade COMPACTA (10+ filhos no grid)
+   ================================================ */
+/*
+* [EXPLICAÇÃO] → Duas colunas: ícone (ou logo) à esquerda, título e descrição à direita.
+* As linhas 1fr de cima e de baixo centralizam o texto na vertical em relação ao ícone,
+* com ou sem descrição. Seletor: grid que tem um 10º filho = grid com 10 ou mais filhos.
+*/
+.grade-cards:has(> :nth-child(10)) .card-modulo {
+    --card-modulo-slot: 44px;
+
+    display: grid;
+    grid-template-columns: var(--card-modulo-slot) minmax(0, 1fr);
+    grid-template-rows: 1fr auto auto 1fr;
+    column-gap: 14px;
+    padding: 14px 16px;
+    text-align: left;
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo > i,
+.grade-cards:has(> :nth-child(10)) .card-modulo > img {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: center;
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo > i {
+    width: var(--card-modulo-slot);
+    height: var(--card-modulo-slot);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+    font-size: 1.25rem;
+    border-radius: 10px;
+    background-color: color-mix(in srgb, var(--cor-primaria) 8%, transparent);
+    transition: background-color 0.2s ease;
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo:hover > i {
+    background-color: color-mix(in srgb, var(--cor-texto-claro) 18%, transparent);
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo > h5 {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 1rem;
+    margin: 0 0 2px 0;
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo > p {
+    grid-column: 2;
+    grid-row: 3;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+/* Logos (grid de marketplaces): coluna da esquerda mais larga, proporção mantida. */
+.grade-cards:has(> :nth-child(10)) .card-modulo-logo {
+    --card-modulo-slot: 112px;
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo-logo > img {
+    width: var(--card-modulo-slot);
+    height: 44px;
+    margin-bottom: 0;
+}
+
+.grade-cards:has(> :nth-child(10)) .card-modulo-vazio:hover > i {
+    background-color: color-mix(in srgb, var(--cor-primaria) 8%, transparent);
+}
+
+/* ================================================
+   ÁREAS — agrupam cards dentro do mesmo grid
+   ================================================ */
+/*
+* [EXPLICAÇÃO] → Uso: <div class="col-12 secao-cards"><h2 class="secao-cards-titulo">
+* <i class="fas fa-..."></i><span>Nome da área</span></h2></div>, seguido dos cards da área.
+* O espaço extra acima de cada área (menos a primeira) faz o título ficar mais perto dos
+* próprios cards do que do grupo anterior.
+*/
+.secao-cards:not(:first-child) {
+    margin-top: 2.5rem;
+}
+
+.secao-cards-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.secao-cards-titulo i {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    border-radius: 8px;
+    background-color: color-mix(in srgb, var(--cor-primaria) 8%, transparent);
+}
+
+.secao-cards-titulo::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background-color: var(--cor-borda);
 }
