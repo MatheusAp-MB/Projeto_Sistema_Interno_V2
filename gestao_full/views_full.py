@@ -1,4 +1,4 @@
-# mercado_livre/views_full.py
+# gestao_full/views_full.py
 #
 # Views da tela "Full — ficha do código" (Mercado Livre → Gestão de estoque Full →
 # Planejamento de envios). A tela organiza, para 1 código por vez e em 3 níveis
@@ -46,7 +46,7 @@ def _ler_json(request):
 # pedido em ?codigo= (ou o estado vazio, com atalhos para os códigos já consultados).
 def view_full_ficha(request):
     from mercado_livre.funcoes_auxiliares.caracteristicas_ml import formatar_data_hora
-    from mercado_livre.funcoes_auxiliares.full_ml import (
+    from gestao_full.funcoes_auxiliares.full_ml import (
         FONTES_FULL, ROTULO_PROJETO, buscar_ultima_consulta, carregar_validacoes, contar_situacoes,
         interpretar_codigo, ler_banco, listar_recentes, montar_pagina,
     )
@@ -64,7 +64,7 @@ def view_full_ficha(request):
 
     recentes = [{'codigo': c.codigo, 'quando': formatar_data_hora(c.consultado_em)} for c in listar_recentes()]
 
-    return render(request, 'mercado_livre/estrutura_full_ficha.html', {
+    return render(request, 'gestao_full/estrutura_full_ficha.html', {
         'digitado': digitado,
         'codigo': codigo,
         'codigo_invalido': bool(digitado) and codigo is None,
@@ -94,7 +94,7 @@ def view_full_consultar(request):
 
     from api_mercado_livre.core.estrutura_api.excecoes import ErroAutenticacaoAPI
     from integracao_mercado_livre.servicos.consultar_full_ml import ErroConsultaFull, consultar_codigo
-    from mercado_livre.funcoes_auxiliares.full_ml import interpretar_codigo
+    from gestao_full.funcoes_auxiliares.full_ml import interpretar_codigo
 
     corpo = _ler_json(request)
     codigo, _, _ = interpretar_codigo((corpo or {}).get('codigo'))
@@ -139,7 +139,7 @@ def view_full_consultar(request):
         'ok': True,
         'mensagem': mensagem,
         'falhas': n_falhas,
-        'url': reverse('mercado_livre_full') + '?' + urlencode({'codigo': relatorio.codigo}),
+        'url': reverse('gestao_full_debug') + '?' + urlencode({'codigo': relatorio.codigo}),
     })
 
 
@@ -149,7 +149,7 @@ def view_full_consultar(request):
 @require_POST
 def view_full_salvar_campo(request):
     from mercado_livre.funcoes_auxiliares.caracteristicas_ml import formatar_data_hora
-    from mercado_livre.funcoes_auxiliares.full_ml import CHAVES_VALIDAS, chave_campo
+    from gestao_full.funcoes_auxiliares.full_ml import CHAVES_VALIDAS, chave_campo
     from mercado_livre.models import CampoFullMercadoLivre
 
     corpo = _ler_json(request)

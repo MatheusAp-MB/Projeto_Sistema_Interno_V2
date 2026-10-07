@@ -1,4 +1,4 @@
-# mercado_livre/funcoes_auxiliares/full_planejamento_ml.py
+# gestao_full/funcoes_auxiliares/full_planejamento_ml.py
 #
 # Monta a tela FINAL "Full — Planejamento de envios" (a versão organizada, para apresentar).
 # A tela de debug "Full — ficha do código" continua existindo (full_ml.py): ela guarda o detalhe de
@@ -29,7 +29,7 @@ from mercado_livre.funcoes_auxiliares.badges import (
     BADGES_CATALOGO, BADGES_CONFERENCIA_FULL, BADGES_LOGISTICA, BADGES_STATUS, BADGES_TIPO_ANUNCIO,
     BADGES_URGENCIA_FULL, BADGE_ESTRELA_FULL, BADGE_PADRAO, badge_de, badge_flex,
 )
-from mercado_livre.funcoes_auxiliares.full_ml import (
+from gestao_full.funcoes_auxiliares.full_ml import (
     CATALOGO_FULL, CAMPOS_PRODUTO_BANCO, FONTES_FULL, MOTIVO_INDISPONIVEL, RECOMENDACAO, ROTULO_PROJETO,
     SITUACAO_PADRAO, _data_curta, _fmt_preco, _inventario_do_upid, _linha_do_banco, _n_br, _ordenar_semanas,
     _rotulo_do_anuncio, _valor_api, _variacao_do_banco, buscar_ultima_consulta, chave_campo, etiqueta_projeto,

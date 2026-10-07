@@ -166,14 +166,6 @@
                                        class="sidebar-subitem sidebar-subitem-nivel2">
                                         <i class="fas fa-list-check"></i> Características
                                     </a>
-                                    <a href="{% url 'mercado_livre_full_planejamento' %}"
-                                       class="sidebar-subitem sidebar-subitem-nivel2">
-                                        <i class="fas fa-boxes-packing"></i> Planejamento Full
-                                    </a>
-                                    <a href="{% url 'mercado_livre_full' %}"
-                                       class="sidebar-subitem sidebar-subitem-nivel2">
-                                        <i class="fas fa-screwdriver-wrench"></i> Full (debug)
-                                    </a>
                                 </div>
                             </div>
                             <div class="sidebar-dropdown sidebar-dropdown-nivel2">
@@ -319,6 +311,22 @@
                             </a>
                             <a href="{% url 'agenda_videos_portal_drive' %}" class="sidebar-subitem">
                                 <i class="fas fa-cloud-arrow-up"></i> Portal do Drive
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Gestão Full -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-warehouse"></i>
+                            <span>Gestão Full</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="{% url 'gestao_full_planejamento' %}" class="sidebar-subitem">
+                                <i class="fas fa-boxes-packing"></i> Planejamento de envios
+                            </a>
+                            <a href="{% url 'gestao_full_debug' %}" class="sidebar-subitem">
+                                <i class="fas fa-screwdriver-wrench"></i> Ficha do código (debug)
                             </a>
                         </div>
                     </div>

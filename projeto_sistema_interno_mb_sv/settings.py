@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'amazon',
     'precificacao',
     'agenda_videos',
+    'gestao_full',
     'api',
     'integracao_sysemp',
     'impostos',

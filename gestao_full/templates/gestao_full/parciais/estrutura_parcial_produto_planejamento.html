@@ -110,7 +110,7 @@
         </div>
 
         {% for cartao in produto.codigos %}
-            {% include 'mercado_livre/parciais/estrutura_parcial_codigo_planejamento.html' with cartao=cartao url_debug=url_debug %}
+            {% include 'gestao_full/parciais/estrutura_parcial_codigo_planejamento.html' with cartao=cartao url_debug=url_debug %}
         {% empty %}
             <p class="plan-aviso">
                 <i class="fas fa-circle-info" aria-hidden="true"></i>
@@ -130,7 +130,7 @@
                 <p class="plan-anuncios-nota">Sem Código ML, o Full não tem estoque nem reposição para estes anúncios: eles não entram no planejamento de envios.</p>
                 <ul class="plan-anuncios-lista">
                     {% for anuncio in produto.fora_do_full %}
-                        {% include 'mercado_livre/parciais/estrutura_parcial_anuncio_planejamento.html' with anuncio=anuncio %}
+                        {% include 'gestao_full/parciais/estrutura_parcial_anuncio_planejamento.html' with anuncio=anuncio %}
                     {% endfor %}
                 </ul>
             </details>

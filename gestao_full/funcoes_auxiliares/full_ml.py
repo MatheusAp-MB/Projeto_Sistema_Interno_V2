@@ -1,4 +1,4 @@
-# mercado_livre/funcoes_auxiliares/full_ml.py
+# gestao_full/funcoes_auxiliares/full_ml.py
 #
 # Monta a "ficha" de 1 código do Full (Planejamento de envios) a partir da
 # consulta SALVA NO BANCO. LÊ SÓ DO BANCO — nada aqui chama a API do ML (quem

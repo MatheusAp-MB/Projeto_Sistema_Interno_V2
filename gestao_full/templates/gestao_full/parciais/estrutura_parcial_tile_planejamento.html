@@ -18,7 +18,7 @@
         <p class="plan-tile-valor plan-tile-valor--ausente">—</p>
         <p class="plan-tile-nota">{{ tile.explicacao }}</p>
     {% endif %}
-    {% include 'mercado_livre/parciais/estrutura_parcial_origem_planejamento.html' with meta=tile.meta %}
+    {% include 'gestao_full/parciais/estrutura_parcial_origem_planejamento.html' with meta=tile.meta %}
     {% for sub in tile.sub %}
         <div class="plan-tile-sub">
             <p class="plan-tile-sub-linha">
@@ -30,7 +30,7 @@
                     <span class="plan-tile-sub-valor plan-tile-sub-valor--ausente">— {{ sub.explicacao }}</span>
                 {% endif %}
             </p>
-            {% include 'mercado_livre/parciais/estrutura_parcial_origem_planejamento.html' with meta=sub.meta %}
+            {% include 'gestao_full/parciais/estrutura_parcial_origem_planejamento.html' with meta=sub.meta %}
         </div>
     {% endfor %}
 </div>

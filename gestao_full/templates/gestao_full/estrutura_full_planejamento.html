@@ -4,7 +4,7 @@
 {% block toolbar_titulo %}Full — Planejamento de envios{% endblock %}
 {% block head_extra %}
     <link rel="stylesheet"
-          href="{% static 'mercado_livre/css/layout_full_planejamento.css' %}">
+          href="{% static 'gestao_full/css/layout_full_planejamento.css' %}">
 {% endblock %}
 {% block conteudo %}
     {% comment %}
@@ -15,7 +15,7 @@
       pelo botão "Consultar no Mercado Livre" de cada Código ML.
     {% endcomment %}
     <div class="plan-pagina"
-         data-url-consultar="{% url 'mercado_livre_full_consultar' %}">
+         data-url-consultar="{% url 'gestao_full_consultar' %}">
 
         <form id="plan-csrf" hidden>{% csrf_token %}</form>
 
@@ -143,7 +143,7 @@
                 </p>
             {% endif %}
             {% for produto in pagina.produtos %}
-                {% include 'mercado_livre/parciais/estrutura_parcial_produto_planejamento.html' with produto=produto url_debug=url_debug %}
+                {% include 'gestao_full/parciais/estrutura_parcial_produto_planejamento.html' with produto=produto url_debug=url_debug %}
             {% endfor %}
         {% endif %}
 
@@ -184,5 +184,5 @@
     </div>
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'mercado_livre/js/script_full_planejamento.js' %}"></script>
+    <script src="{% static 'gestao_full/js/script_full_planejamento.js' %}"></script>
 {% endblock %}

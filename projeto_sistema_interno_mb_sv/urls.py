@@ -16,5 +16,6 @@ urlpatterns = [
     path('amazon/', include('amazon.urls')),
     path('precificacao/', include('precificacao.urls')),
     path('agenda-videos/', include('agenda_videos.urls')),
+    path('gestao-full/', include('gestao_full.urls')),
     path('api/', include('api.urls')),
 ]

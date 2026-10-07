@@ -1,4 +1,4 @@
-# mercado_livre/views_full_planejamento.py
+# gestao_full/views_full_planejamento.py
 #
 # View da tela FINAL "Full — Planejamento de envios" (Mercado Livre → Gestão de estoque Full →
 # Planejamento de envios): a versão organizada, para apresentar. Parte do PRODUTO (SKU, EAN, Código ML
@@ -21,8 +21,8 @@ from core.empresa import obter_empresa_ativa
 # consultados; com busca, o(s) produto(s) achado(s) e, dentro de cada um, os seus Códigos ML.
 def view_full_planejamento(request):
     from mercado_livre.funcoes_auxiliares.caracteristicas_ml import formatar_data_hora
-    from mercado_livre.funcoes_auxiliares.full_ml import carregar_validacoes, listar_recentes
-    from mercado_livre.funcoes_auxiliares.full_planejamento_ml import montar_legenda, montar_planejamento
+    from gestao_full.funcoes_auxiliares.full_ml import carregar_validacoes, listar_recentes
+    from gestao_full.funcoes_auxiliares.full_planejamento_ml import montar_legenda, montar_planejamento
     from mercado_livre.models import CampoFullMercadoLivre
 
     texto = request.GET.get('q', '').strip()
@@ -32,14 +32,14 @@ def view_full_planejamento(request):
     recentes = []
     if pagina['estado'] == 'vazio':
         recentes = [{'codigo': c.codigo, 'quando': formatar_data_hora(c.consultado_em),
-                     'url': reverse('mercado_livre_full_planejamento') + '?' + urlencode({'q': c.codigo})}
+                     'url': reverse('gestao_full_planejamento') + '?' + urlencode({'q': c.codigo})}
                     for c in listar_recentes()]
 
-    return render(request, 'mercado_livre/estrutura_full_planejamento.html', {
+    return render(request, 'gestao_full/estrutura_full_planejamento.html', {
         'texto': texto,
         'pagina': pagina,
         'recentes': recentes,
         'legenda': montar_legenda(rotulos_situacao),
-        'url_debug': reverse('mercado_livre_full'),
-        'url_planejamento': reverse('mercado_livre_full_planejamento'),
+        'url_debug': reverse('gestao_full_debug'),
+        'url_planejamento': reverse('gestao_full_planejamento'),
     })

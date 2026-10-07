@@ -34,7 +34,7 @@ from dataclasses import asdict, dataclass, field
 from api_mercado_livre import ApiMercadoLivre
 from core.empresa import definir_empresa_ativa
 from integracao_mercado_livre.servicos.buscar_detalhes import _caminho_pasta_logs, _caminho_saida_json
-from mercado_livre.funcoes_auxiliares.full_ml import interpretar_codigo
+from gestao_full.funcoes_auxiliares.full_ml import interpretar_codigo
 
 
 class ErroConsultaFull(Exception):

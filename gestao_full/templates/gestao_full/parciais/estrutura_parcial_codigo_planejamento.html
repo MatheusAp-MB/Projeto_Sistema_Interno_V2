@@ -50,14 +50,14 @@
             <section class="plan-bloco plan-bloco--resumo" aria-label="O que fazer">
                 <h3 class="plan-bloco-titulo">O que fazer</h3>
                 <div class="plan-tiles plan-tiles--resumo">
-                    {% for tile in cartao.resumo %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                    {% for tile in cartao.resumo %}{% include 'gestao_full/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
                 </div>
             </section>
 
             <section class="plan-bloco" aria-label="Estoque no Full">
                 <h3 class="plan-bloco-titulo">Estoque no Full</h3>
                 <div class="plan-tiles plan-tiles--estoque">
-                    {% for tile in cartao.estoque %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                    {% for tile in cartao.estoque %}{% include 'gestao_full/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
                 </div>
             </section>
 
@@ -65,16 +65,16 @@
                 <h3 class="plan-bloco-titulo">Vendas no Full</h3>
                 <div class="plan-vendas">
                     <div class="plan-tiles plan-tiles--coluna">
-                        {% for tile in cartao.vendas %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                        {% for tile in cartao.vendas %}{% include 'gestao_full/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
                     </div>
-                    {% include 'mercado_livre/parciais/estrutura_parcial_grafico_planejamento.html' with grafico=cartao.grafico meta=cartao.grafico_meta estado=cartao.grafico_estado %}
+                    {% include 'gestao_full/parciais/estrutura_parcial_grafico_planejamento.html' with grafico=cartao.grafico meta=cartao.grafico_meta estado=cartao.grafico_estado %}
                 </div>
             </section>
 
             <section class="plan-bloco" aria-label="Detalhes da reposição">
                 <h3 class="plan-bloco-titulo">Detalhes da reposição</h3>
                 <div class="plan-tiles">
-                    {% for tile in cartao.reposicao %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                    {% for tile in cartao.reposicao %}{% include 'gestao_full/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
                 </div>
             </section>
 
@@ -83,7 +83,7 @@
                     Ainda sem fonte — aparece na tela do Mercado Livre, mas nenhuma API usada aqui entrega ({{ cartao.sem_fonte|length }})
                 </summary>
                 <div class="plan-tiles plan-tiles--sem-fonte">
-                    {% for tile in cartao.sem_fonte %}{% include 'mercado_livre/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
+                    {% for tile in cartao.sem_fonte %}{% include 'gestao_full/parciais/estrutura_parcial_tile_planejamento.html' with tile=tile %}{% endfor %}
                 </div>
             </details>
         {% else %}
@@ -118,7 +118,7 @@
             {% endif %}
             <ul class="plan-anuncios-lista">
                 {% for anuncio in cartao.anuncios %}
-                    {% include 'mercado_livre/parciais/estrutura_parcial_anuncio_planejamento.html' with anuncio=anuncio %}
+                    {% include 'gestao_full/parciais/estrutura_parcial_anuncio_planejamento.html' with anuncio=anuncio %}
                 {% empty %}
                     <li class="plan-anuncios-vazio">Nenhum anúncio deste Código ML no arquivo.</li>
                 {% endfor %}

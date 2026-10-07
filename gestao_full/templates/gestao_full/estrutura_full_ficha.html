@@ -4,7 +4,7 @@
 {% block toolbar_titulo %}Full — ficha do código — Mercado Livre{% endblock %}
 {% block head_extra %}
     <link rel="stylesheet"
-          href="{% static 'mercado_livre/css/layout_full_ficha.css' %}">
+          href="{% static 'gestao_full/css/layout_full_ficha.css' %}">
 {% endblock %}
 {% block conteudo %}
     {% comment %}
@@ -17,8 +17,8 @@
       interno, situação ou observação nunca chama a API.
     {% endcomment %}
     <div class="ful-pagina"
-         data-url-consultar="{% url 'mercado_livre_full_consultar' %}"
-         data-url-salvar-campo="{% url 'mercado_livre_full_salvar_campo' %}">
+         data-url-consultar="{% url 'gestao_full_consultar' %}"
+         data-url-salvar-campo="{% url 'gestao_full_salvar_campo' %}">
 
         <form id="ful-csrf" hidden>{% csrf_token %}</form>
 
@@ -33,7 +33,7 @@
                     (ex.: <code>OPXW24140</code>) ou, para a linha sem Código ML,
                     <code>#</code> e o número do anúncio (ex.: <code>#5838589786</code>).
                 </p>
-                <form method="get" action="{% url 'mercado_livre_full' %}" class="ful-painel-form">
+                <form method="get" action="{% url 'gestao_full_debug' %}" class="ful-painel-form">
                     <input type="text"
                            id="ful-codigo"
                            name="codigo"
@@ -68,7 +68,7 @@
             <nav class="ful-recentes" aria-label="Códigos já consultados">
                 <span class="ful-recentes-rotulo">Já consultados:</span>
                 {% for recente in recentes %}
-                    <a href="{% url 'mercado_livre_full' %}?codigo={{ recente.codigo|urlencode }}"
+                    <a href="{% url 'gestao_full_debug' %}?codigo={{ recente.codigo|urlencode }}"
                        class="ful-chip{% if recente.codigo == codigo %} ful-chip--ativo{% endif %}"
                        title="Última consulta: {{ recente.quando }}">
                         {{ recente.codigo }} <span class="ful-chip-quando">{{ recente.quando }}</span>
@@ -185,7 +185,7 @@
                                             {% if chamada.bruto %}
                                                 <details class="ful-bruto-detalhes">
                                                     <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ chamada.bruto.rotulo }}</summary>
-                                                    {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=chamada.bruto %}
+                                                    {% include 'gestao_full/parciais/estrutura_parcial_bruto_full.html' with bruto=chamada.bruto %}
                                                 </details>
                                             {% endif %}
                                         </li>
@@ -196,7 +196,7 @@
                             {% if fonte.bruto %}
                                 <details class="ful-bruto-detalhes">
                                     <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ fonte.bruto.rotulo }}</summary>
-                                    {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=fonte.bruto %}
+                                    {% include 'gestao_full/parciais/estrutura_parcial_bruto_full.html' with bruto=fonte.bruto %}
                                 </details>
                             {% endif %}
                             {% if fonte.fora_da_doc %}
@@ -256,7 +256,7 @@
                                         </ul>
                                     </div>
                                     {% for bloco in produto.blocos %}
-                                        {% include 'mercado_livre/parciais/estrutura_parcial_bloco_full.html' %}
+                                        {% include 'gestao_full/parciais/estrutura_parcial_bloco_full.html' %}
                                     {% endfor %}
                                 </div>
                             </details>
@@ -277,7 +277,7 @@
                         </header>
 
                         {% for bloco in ficha.blocos_codigo %}
-                            {% include 'mercado_livre/parciais/estrutura_parcial_bloco_full.html' %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_bloco_full.html' %}
                         {% endfor %}
 
                         <section class="ful-bloco">
@@ -312,7 +312,7 @@
                             {% if ficha.semanas_bruto %}
                                 <details class="ful-bruto-detalhes">
                                     <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ ficha.semanas_bruto.rotulo }} — <code>sales.sales_history</code></summary>
-                                    {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=ficha.semanas_bruto %}
+                                    {% include 'gestao_full/parciais/estrutura_parcial_bruto_full.html' with bruto=ficha.semanas_bruto %}
                                 </details>
                             {% endif %}
                         </section>
@@ -320,7 +320,7 @@
                         <section class="ful-bloco">
                             <h3 class="ful-bloco-titulo">Conferências do código</h3>
                             <p class="ful-bloco-desc">O sistema compara sozinho valores do mesmo código que aparecem em mais de uma fonte.</p>
-                            {% include 'mercado_livre/parciais/estrutura_parcial_conferencias_full.html' with conferencias=ficha.conferencias_codigo %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_conferencias_full.html' with conferencias=ficha.conferencias_codigo %}
                         </section>
                     </section>
 
@@ -369,7 +369,7 @@
                                 {% if ficha.anuncios_bruto %}
                                     <details class="ful-bruto-detalhes">
                                         <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ ficha.anuncios_bruto.rotulo }} — todos os anúncios deste código</summary>
-                                        {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=ficha.anuncios_bruto %}
+                                        {% include 'gestao_full/parciais/estrutura_parcial_bruto_full.html' with bruto=ficha.anuncios_bruto %}
                                     </details>
                                 {% endif %}
                             </section>
@@ -394,11 +394,11 @@
                                     {% if anuncio.bruto %}
                                         <details class="ful-bruto-detalhes">
                                             <summary class="ful-bruto-resumo"><i class="fas fa-code" aria-hidden="true"></i> {{ anuncio.bruto.rotulo }}</summary>
-                                            {% include 'mercado_livre/parciais/estrutura_parcial_bruto_full.html' with bruto=anuncio.bruto %}
+                                            {% include 'gestao_full/parciais/estrutura_parcial_bruto_full.html' with bruto=anuncio.bruto %}
                                         </details>
                                     {% endif %}
                                     {% for bloco in anuncio.blocos %}
-                                        {% include 'mercado_livre/parciais/estrutura_parcial_bloco_full.html' %}
+                                        {% include 'gestao_full/parciais/estrutura_parcial_bloco_full.html' %}
                                     {% endfor %}
                                     {% if anuncio.fora_do_catalogo %}
                                         <section class="ful-bloco">
@@ -412,7 +412,7 @@
                                     <section class="ful-bloco">
                                         <h3 class="ful-bloco-titulo">Conferências deste anúncio</h3>
                                         <p class="ful-bloco-desc">Só valores deste anúncio ({{ anuncio.rotulo }}): arquivo, banco e Código ML.</p>
-                                        {% include 'mercado_livre/parciais/estrutura_parcial_conferencias_full.html' with conferencias=anuncio.conferencias %}
+                                        {% include 'gestao_full/parciais/estrutura_parcial_conferencias_full.html' with conferencias=anuncio.conferencias %}
                                     </section>
                                 </div>
                             </details>
@@ -424,5 +424,5 @@
     </div>
 {% endblock %}
 {% block scripts %}
-    <script src="{% static 'mercado_livre/js/script_full_ficha.js' %}"></script>
+    <script src="{% static 'gestao_full/js/script_full_ficha.js' %}"></script>
 {% endblock %}

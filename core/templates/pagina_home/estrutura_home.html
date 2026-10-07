@@ -72,8 +72,19 @@
     </a>
 </div>
 
+<!-- Card: Gestão Full — módulo próprio do Full (Planejamento de envios e ficha de debug) -->
+<div class="col-md-4">
+    <a href="{% url 'gestao_full_planejamento' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-warehouse fa-2x mb-3"></i>
+            <h5>Gestão Full</h5>
+            <p>Estoque, reposição e envios do Full do Mercado Livre</p>
+        </div>
+    </a>
+</div>
+
 <!-- Cards em branco — reservados para módulos futuros (resumos/cruzamentos) -->
-{% for i in "12" %}
+{% for i in "1" %}
 <div class="col-md-4">
     <div class="card-modulo card-modulo-vazio">
         <i class="fas fa-plus fa-2x mb-3"></i>
