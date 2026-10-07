@@ -1,0 +1,480 @@
+/* * [RESUMO] → CSS da tela "Full — Estoque no Full" (Mercado Livre). Prefixo est- em tudo, para não esbarrar em nenhuma outra tela.
+ *              AQUI ficam só as peças INDIVIDUAIS desta tela: a faixa de totais (com o "Total no Full" em destaque), a célula do
+ *              produto, as linhas de Código ML e as notas dos números. A tabela, a busca, os chips de filtro, a paginação,
+ *              os avisos e os painéis são COMPARTILHADOS (core/static/base_compartilhada/css/layout_tabela_dados.css), e as
+ *              cores dos selos ficam em layout_badges.css.
+ */
+
+.est-pagina {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: #243247;
+    font-size: 0.9rem;
+}
+
+/* "hidden" precisa ganhar de qualquer display que as linhas desta tela tenham. */
+.est-pagina [hidden] { display: none !important; }
+
+/* * [EXPLICAÇÃO] → O Bootstrap dá margem a <p>, <dl> e <dd> e recuo a <ul>. Aqui o espaçamento é do "gap" de cada caixa, então
+ *                  tudo isso volta a zero (senão cada texto ganharia 1rem a mais embaixo). */
+.est-pagina p,
+.est-pagina dl,
+.est-pagina dd { margin: 0; }
+
+.est-pagina ul {
+    margin: 0;
+    padding: 0;
+}
+
+.est-pagina code {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.85em;
+    color: inherit;
+    background: rgba(26, 58, 92, 0.07);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* ================================================
+   FAIXA DE TOTAIS
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → À esquerda, em faixa azul-marinho, o número que o Matheus escolheu como destaque: "Total no Full".
+ *                  À direita, os números menores que explicam e delimitam esse total. As linhas finas entre os
+ *                  números vêm de "gap: 1px" sobre um fundo da cor da borda, que não dobra linha quando o grupo quebra. */
+.est-resumo {
+    display: flex;
+    flex-wrap: wrap;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.est-resumo-destaque {
+    flex: 0 0 auto;
+    min-width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 16px 26px;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.est-resumo-rotulo {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.est-resumo-numero {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.est-resumo-sub {
+    font-size: 0.78rem;
+    opacity: 0.8;
+}
+
+/* Em tela estreita o bloco azul ocupa a linha inteira (senão sobra um vazio branco ao lado dele). */
+@media (max-width: 700px) {
+    .est-resumo-destaque { flex: 1 1 100%; }
+}
+
+.est-resumo-lado {
+    flex: 1 1 380px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    margin: 0;
+    background: var(--cor-borda);
+}
+
+.est-resumo-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 14px 20px;
+    background: var(--cor-fundo-card);
+}
+
+.est-resumo-item dt {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-muted);
+}
+
+.est-resumo-item dd {
+    margin: 0;
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--cor-primaria);
+    font-variant-numeric: tabular-nums;
+}
+
+.est-resumo-de {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--cor-texto-muted);
+}
+
+/* ================================================
+   BARRA DE FERRAMENTAS DA LISTA
+   ================================================ */
+.est-ferramentas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.est-ferramentas-contagem {
+    font-size: 0.85rem;
+    color: var(--cor-texto-muted);
+}
+
+.est-ferramentas-controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+}
+
+/* ================================================
+   TABELA
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → 7 colunas: seta, produto (a que sobra), 4 números e a consulta. A tabela passa de 1000px de propósito:
+ *                  em tela estreita ela rola DENTRO da caixa, em vez de espremer os números. */
+.est-tabela { min-width: 1110px; }
+.est-tabela .est-col-largura-toggle { width: 48px; }
+.est-tabela .est-col-largura-num { width: 142px; }
+.est-tabela .est-col-largura-motivos { width: 190px; }
+.est-tabela .est-col-largura-consulta { width: 220px; }
+
+.est-tabela thead th.est-th { white-space: normal; }
+.est-tabela thead th.est-th--destaque { background: var(--cor-primaria-escura); }
+
+.est-th-rotulo { display: block; }
+
+.est-th-selo {
+    display: inline-block;
+    margin-top: 6px;
+    font-weight: 400;
+}
+
+.est-col-toggle {
+    width: 48px;
+    text-align: center;
+}
+
+.est-toggle {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+}
+
+.est-toggle:hover { background: rgba(46, 123, 181, 0.12); }
+.est-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.est-toggle i { transition: transform 0.15s ease; }
+.est-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+    .est-toggle i { transition: none; }
+}
+
+/* ================================================
+   LINHA DO PRODUTO
+   ================================================ */
+.est-linha-produto > td {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    background: var(--cor-fundo-card);
+}
+
+.est-produto {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.est-produto-imagem {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    background: #fff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.est-produto-imagem--vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f6f9;
+    color: #aab3c2;
+}
+
+.est-produto-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.est-produto-titulo {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.9rem;
+    line-height: 1.3;
+    color: var(--cor-primaria);
+}
+
+.est-produto-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+    font-size: 0.76rem;
+    color: var(--cor-texto-muted);
+}
+
+.est-produto-alerta {
+    font-weight: 600;
+    color: #92400e;
+}
+
+/* ================================================
+   LINHA DE CÓDIGO ML (as contas que fecham o total do produto)
+   ================================================ */
+.est-linha-codigo > td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+    background: #f4f6f9;
+    font-size: 0.84rem;
+}
+
+.est-codigo {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding-left: 8px;
+}
+
+.est-codigo-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.est-codigo-linha > i { color: var(--cor-primaria-clara); }
+.est-codigo-valor { font-weight: 700; }
+
+.est-codigo-meta {
+    font-size: 0.74rem;
+    color: var(--cor-texto-muted);
+}
+
+/* ================================================
+   NÚMEROS E NOTAS
+   ================================================ */
+.est-num { white-space: nowrap; }
+
+.est-num--destaque {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.est-linha-produto .est-num--destaque { font-size: 1.2rem; }
+
+.est-parcial {
+    display: block;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #1d4ed8;
+}
+
+.est-confere {
+    margin-left: 4px;
+    font-size: 0.68rem;
+    color: #15803d;
+}
+
+.est-diverge {
+    margin-left: 4px;
+    font-size: 0.72rem;
+    color: #b91c1c;
+}
+
+.est-motivos {
+    margin-top: 4px;
+    list-style: none;
+    white-space: nowrap;
+    font-size: 0.74rem;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--cor-texto-muted);
+}
+
+.est-a-caminho {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 2px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.est-nota {
+    display: block;
+    white-space: normal;
+    font-size: 0.74rem;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--cor-texto-muted);
+}
+
+.est-nota--erro { color: #b91c1c; }
+
+/* ================================================
+   CÉLULA DA CONSULTA
+   ================================================ */
+.est-consulta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.est-consulta small {
+    font-size: 0.74rem;
+    color: var(--cor-texto-muted);
+}
+
+.est-link {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+.est-link:hover {
+    color: var(--cor-primaria);
+    text-decoration: underline;
+}
+
+.est-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* ================================================
+   LEGENDA "COMO LER ESTA TELA"
+   ================================================ */
+.est-legenda {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.est-legenda-titulo {
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    cursor: pointer;
+    list-style: none;
+}
+
+.est-legenda-titulo::-webkit-details-marker { display: none; }
+.est-legenda-titulo:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }
+
+.est-legenda-corpo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+    padding: 16px;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.est-legenda-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.est-legenda-subtitulo {
+    margin: 0;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-muted);
+}
+
+.est-legenda-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+}
+
+.est-legenda-lista dt { font-weight: 700; }
+
+.est-legenda-lista dd {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--cor-texto-muted);
+}
+
+.est-legenda-texto {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--cor-texto-muted);
+}
+
+.est-legenda-selos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    list-style: none;
+}
+
+.est-legenda-selos li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--cor-texto-muted);
+}
+
+.est-legenda-selos .badge-tabela { flex-shrink: 0; }

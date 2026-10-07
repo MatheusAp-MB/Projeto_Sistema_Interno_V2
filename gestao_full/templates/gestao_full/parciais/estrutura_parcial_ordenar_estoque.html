@@ -1,0 +1,8 @@
+{% comment %}
+* [RESUMO] → O título clicável de uma coluna da tabela "Estoque no Full": o nome e a seta de ordenação (sobe, desce ou
+  neutra). Clicar ordena por essa coluna; clicar de novo inverte. A seta fica forte só na coluna que está valendo.
+  Recebe: ordenar (pagina.ordenacao.<coluna>), rotulo.
+{% endcomment %}
+<a href="{{ ordenar.url }}" class="tabela-dados-ordenar{% if ordenar.ativa %} tabela-dados-ordenar--ativa{% endif %}" title="{{ ordenar.dica }}">
+    <span>{{ rotulo }}</span><i class="fas {{ ordenar.icone }}" aria-hidden="true"></i>
+</a>

@@ -1,0 +1,60 @@
+{% comment %}
+* [RESUMO] → UMA linha de Código ML dentro de um produto da tela "Estoque no Full". Tem as MESMAS colunas da linha do
+  produto (por isso os números ficam alinhados embaixo dos totais dele). Quando o produto está fechado, a linha fica
+  com o atributo "hidden"; o botão da linha do produto (script_full_estoque.js) tira e põe esse atributo.
+  Recebe: cartao (um item de produto.codigos), aberto (True = já vem aberta).
+{% endcomment %}
+<tr class="est-linha-codigo"{% if not aberto %} hidden{% endif %}>
+    <td class="est-col-toggle"></td>
+    <td>
+        <div class="est-codigo">
+            <span class="est-codigo-linha">
+                <i class="fas fa-box-open" aria-hidden="true"></i>
+                <code class="est-codigo-valor">{{ cartao.codigo }}</code>
+                <span class="est-codigo-meta">{{ cartao.n_anuncios }} anúncio{{ cartao.n_anuncios|pluralize }}</span>
+            </span>
+            {% if cartao.compartilhado_com %}
+                <span class="est-nota"><i class="fas fa-link" aria-hidden="true"></i> Este Código ML também aparece no SKU {{ cartao.compartilhado_com|join:", " }}</span>
+            {% endif %}
+            {% if cartao.estado == 'sem_consulta' %}
+                <span class="est-nota">Ainda não consultado no Mercado Livre.</span>
+            {% elif cartao.estado == 'erro' %}
+                <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.erro }}</span>
+            {% endif %}
+            {% if cartao.aptas_nota %}
+                <span class="est-nota"><strong>Aptas e a caminho:</strong> {{ cartao.aptas_nota }}</span>
+            {% endif %}
+            {% if cartao.conferencia and not cartao.conferencia.bate %}
+                <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.conferencia.texto }}</span>
+            {% endif %}
+        </div>
+    </td>
+    <td class="tabela-dados-num est-num est-num--destaque">
+        {{ cartao.total_txt }}
+        {% if cartao.conferencia.bate %}
+            <i class="fas fa-check est-confere" title="{{ cartao.conferencia.texto }}" aria-label="{{ cartao.conferencia.texto }}"></i>
+        {% endif %}
+    </td>
+    <td class="tabela-dados-num est-num">{{ cartao.disponivel_txt }}</td>
+    <td class="tabela-dados-num est-num">
+        {{ cartao.indisponivel_txt }}
+        {% if cartao.pct_indisponivel_txt %}<span class="est-nota">{{ cartao.pct_indisponivel_txt }} do total</span>{% endif %}
+        {% if cartao.motivos %}
+            <ul class="est-motivos">{% for motivo in cartao.motivos %}<li>{{ motivo.texto }}</li>{% endfor %}</ul>
+        {% endif %}
+    </td>
+    <td class="tabela-dados-num est-num">
+        {{ cartao.aptas_txt }}
+        {% if cartao.a_caminho_txt %}
+            <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
+                {{ cartao.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+            </span>
+        {% endif %}
+    </td>
+    <td>
+        <div class="est-consulta">
+            {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.badge %}
+            {% if cartao.idade %}<small title="Consultado em {{ cartao.consultado_completo }}">{{ cartao.idade }}</small>{% endif %}
+        </div>
+    </td>
+</tr>

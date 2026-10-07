@@ -116,9 +116,14 @@ URGENCIA = {'URGENT': 'urgente', 'THIS_WEEK': 'esta semana', 'NEXT_WEEK': 'próx
             'IN_TWO_WEEKS': 'em 2 semanas', 'NO_URGENCY': 'sem urgência', 'EXCEDENT': 'excedente'}
 RECOMENDACAO = {'REPLENISH': 'repor', 'NO_REPLENISHMENT': 'não repor',
                 'NO_REPLENISHMENT_BY_RESTRICTION': 'não repor, por restrição'}
+# * [EXPLICAÇÃO] → O Mercado Livre escreve alguns motivos em snake_case (internal_process) e outros em camelCase
+#                  (noFiscalCoverage). Por garantia, os dois motivos que têm as duas grafias possíveis estão aqui
+#                  nas duas (07/10/2026): se a API mandar internalProcess ou notSupported, a tela traduz em vez de
+#                  mostrar o texto cru.
 MOTIVO_INDISPONIVEL = {'damaged': 'danificada', 'lost': 'perdida', 'withdrawal': 'em retirada',
-                       'internal_process': 'em processo interno', 'transfer': 'em transferência',
-                       'noFiscalCoverage': 'sem cobertura fiscal', 'not_supported': 'não suportada'}
+                       'internal_process': 'em processo interno', 'internalProcess': 'em processo interno',
+                       'transfer': 'em transferência', 'noFiscalCoverage': 'sem cobertura fiscal',
+                       'not_supported': 'não suportada', 'notSupported': 'não suportada'}
 
 
 # * [EXPLICAÇÃO] → Status, tipo de anúncio, tipo logístico e classificação de catálogo já têm os

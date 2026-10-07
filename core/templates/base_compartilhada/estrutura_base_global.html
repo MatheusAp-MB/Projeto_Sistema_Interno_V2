@@ -55,6 +55,9 @@
               href="{% static 'base_compartilhada/css/layout_tipos_anuncio.css' %}">
         <link rel="stylesheet"
               href="{% static 'base_compartilhada/css/layout_badges.css' %}">
+        <!-- Telas de lista — tabela de dados, busca, chips de filtro e paginação compartilhados -->
+        <link rel="stylesheet"
+              href="{% static 'base_compartilhada/css/layout_tabela_dados.css' %}">
         <!-- Modal — estilos compartilhados -->
         <link rel="stylesheet"
               href="{% static 'base_compartilhada/css/layout_modal.css' %}">
@@ -215,6 +218,10 @@
                                     <i class="fas fa-chevron-down sidebar-chevron"></i>
                                 </a>
                                 <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'gestao_full_estoque' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-boxes-stacked"></i> Estoque no Full
+                                    </a>
                                     <a href="{% url 'gestao_full_planejamento' %}"
                                        class="sidebar-subitem sidebar-subitem-nivel2">
                                         <i class="fas fa-boxes-packing"></i> Planejamento de envios

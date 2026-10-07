@@ -85,3 +85,14 @@ BADGES_URGENCIA_FULL = {
 }
 
 BADGE_ESTRELA_FULL = {'label': 'Estrela', 'classe': 'badge-estrela', 'icone': 'fa-star'}
+
+# * [EXPLICAÇÃO] → Tela "Full — Estoque no Full" (07/10/2026). Situação da CONSULTA de um produto (ou de um Código ML):
+#                  não é "o estoque está bom/ruim", é "o número que você está vendo é confiável hoje?". As chaves são as
+#                  mesmas que gestao_full/funcoes_auxiliares/full_estoque_ml.py devolve em produto['status'].
+BADGES_ESTOQUE_FULL = {
+    'atualizado':   {'label': 'Atualizado',       'classe': 'badge-estoque-atualizado',   'icone': 'fa-circle-check'},
+    'desatualizado': {'label': 'Desatualizado',   'classe': 'badge-estoque-desatualizado', 'icone': 'fa-clock'},
+    'parcial':      {'label': 'Parcial',          'classe': 'badge-estoque-parcial',      'icone': 'fa-circle-half-stroke'},
+    'sem_consulta': {'label': 'Sem consulta',     'classe': 'badge-estoque-sem-consulta', 'icone': 'fa-hourglass-empty'},
+    'erro':         {'label': 'Erro na consulta', 'classe': 'badge-estoque-erro',         'icone': 'fa-triangle-exclamation'},
+}

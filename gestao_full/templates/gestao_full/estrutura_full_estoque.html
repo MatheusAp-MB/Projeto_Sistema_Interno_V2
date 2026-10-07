@@ -1,0 +1,225 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Estoque no Full — Full — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Full — Estoque no Full{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'gestao_full/css/layout_full_estoque.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Full — Estoque no Full": para cada PRODUTO, quanto estoque ele tem hoje no Full (soma dos Códigos
+      ML dele). O número em destaque é o "Total no Full"; abrindo a linha do produto aparece cada Código ML, com a conta
+      que fecha o total. A tela NUNCA chama o Mercado Livre: lê só os Códigos ML do banco e a consulta mais recente de cada
+      um (feita pelo botão "Consultar no Mercado Livre" do Planejamento de envios).
+    {% endcomment %}
+    <div class="est-pagina">
+
+        <form method="get" action="{{ url_estoque }}" class="lista-busca" role="search">
+            <div class="lista-busca-campo">
+                <i class="fas fa-magnifying-glass lista-busca-icone" aria-hidden="true"></i>
+                <input type="search"
+                       id="est-q"
+                       name="q"
+                       value="{{ pagina.texto }}"
+                       class="lista-busca-input"
+                       placeholder="Buscar por título, SKU, EAN, marca ou Código ML..."
+                       aria-label="Buscar por título, SKU, EAN, marca ou Código ML"
+                       autocomplete="off"
+                       spellcheck="false">
+            </div>
+            {% if pagina.filtro != pagina.filtro_padrao %}<input type="hidden" name="filtro" value="{{ pagina.filtro }}">{% endif %}
+            {% if pagina.marca %}<input type="hidden" name="marca" value="{{ pagina.marca }}">{% endif %}
+            {% if pagina.ordem != pagina.ordem_padrao %}<input type="hidden" name="ordem" value="{{ pagina.ordem }}">{% endif %}
+            {% if pagina.por_pagina != pagina.por_pagina_padrao %}<input type="hidden" name="por_pagina" value="{{ pagina.por_pagina }}">{% endif %}
+            <button type="submit" class="btn-acao">Buscar</button>
+            {% if pagina.tem_ajustes %}
+                <a href="{{ pagina.url_limpar }}" class="lista-link"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar</a>
+            {% endif %}
+            <a href="{{ url_planejamento }}" class="lista-link"><i class="fas fa-boxes-packing" aria-hidden="true"></i> Planejamento de envios</a>
+        </form>
+
+        {% if pagina.sem_codigos_no_banco %}
+            <section class="lista-painel" aria-label="Sem dados">
+                <div class="lista-painel-icone" aria-hidden="true"><i class="fas fa-database"></i></div>
+                <div class="lista-painel-texto">
+                    <h2 class="lista-painel-titulo">O banco ainda não tem os Códigos ML do Full</h2>
+                    <p>
+                        Esta tela liga cada produto aos seus Códigos ML pelo campo <code>inventory_id</code> dos anúncios, que o
+                        sistema guarda no banco quando a importação de anúncios do Mercado Livre roda. Nenhum anúncio com esse campo
+                        foi encontrado nesta empresa.
+                    </p>
+                    <p class="lista-painel-aviso">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        Rode de novo a importação de anúncios (<code>importar_anuncios_ml</code>) desta empresa e recarregue a tela.
+                    </p>
+                </div>
+            </section>
+        {% else %}
+
+            <section class="est-resumo" aria-label="Totais da lista">
+                <div class="est-resumo-destaque">
+                    <p class="est-resumo-rotulo">Total no Full</p>
+                    <p class="est-resumo-numero">{{ pagina.resumo.total_txt }}</p>
+                    <p class="est-resumo-sub">
+                        unidades
+                        {% if pagina.filtrada %}· soma da lista filtrada{% else %}· soma de todos os produtos{% endif %}
+                    </p>
+                </div>
+                <dl class="est-resumo-lado">
+                    <div class="est-resumo-item">
+                        <dt>Disponível para venda</dt>
+                        <dd>{{ pagina.resumo.disponivel_txt }}</dd>
+                    </div>
+                    <div class="est-resumo-item">
+                        <dt>Indisponível</dt>
+                        <dd>{{ pagina.resumo.indisponivel_txt }}</dd>
+                    </div>
+                    <div class="est-resumo-item">
+                        <dt>Produtos</dt>
+                        <dd>{{ pagina.resumo.n_produtos }}</dd>
+                    </div>
+                    <div class="est-resumo-item">
+                        <dt>Códigos ML com número</dt>
+                        <dd>{{ pagina.resumo.n_ok }} <span class="est-resumo-de">de {{ pagina.resumo.n_codigos }}</span></dd>
+                    </div>
+                </dl>
+            </section>
+
+            {% if pagina.resumo.n_sem_numero %}
+                <p class="lista-aviso">
+                    <i class="fas fa-circle-info" aria-hidden="true"></i>
+                    <span>
+                        {{ pagina.resumo.n_sem_numero }} Código{{ pagina.resumo.n_sem_numero|pluralize }} ML desta lista
+                        {% if pagina.resumo.n_sem_numero == 1 %}não tem{% else %}não têm{% endif %} número ainda (nunca consultado ou o Mercado Livre não respondeu).
+                        Por isso o total acima é <strong>parcial</strong>: ele só soma o que já foi consultado.
+                    </span>
+                </p>
+            {% endif %}
+
+            <nav class="lista-filtros" aria-label="Filtros da lista">
+                {% for grupo in pagina.grupos_filtros %}
+                    <div class="lista-chips-grupo">
+                        {% if grupo.rotulo %}<span class="lista-chips-rotulo">{{ grupo.rotulo }}</span>{% endif %}
+                        <ul class="lista-chips">
+                            {% for filtro in grupo.filtros %}
+                                <li>
+                                    <a href="{{ filtro.url }}"
+                                       class="lista-chip{% if filtro.ativo %} lista-chip--ativo{% endif %}{% if not filtro.contagem %} lista-chip--vazio{% endif %}"
+                                       {% if filtro.ativo %}aria-current="true"{% endif %}>
+                                        {{ filtro.rotulo }} <span class="lista-chip-contagem">{{ filtro.contagem }}</span>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endfor %}
+            </nav>
+
+            {% if pagina.paginacao.total %}
+                <div class="est-ferramentas">
+                    <p class="est-ferramentas-contagem">
+                        Mostrando {{ pagina.paginacao.primeiro }}–{{ pagina.paginacao.ultimo }} de {{ pagina.paginacao.total }} produto{{ pagina.paginacao.total|pluralize }}
+                    </p>
+                    <div class="est-ferramentas-controles">
+                        <button type="button" class="lista-botao" data-acao="abrir-todos">
+                            <i class="fas fa-angles-down" aria-hidden="true"></i> Abrir todos
+                        </button>
+                        <button type="button" class="lista-botao" data-acao="fechar-todos">
+                            <i class="fas fa-angles-up" aria-hidden="true"></i> Fechar todos
+                        </button>
+                        <div class="lista-campo">
+                            <label for="est-marca" class="lista-campo-rotulo">Marca</label>
+                            <select id="est-marca" class="lista-select" data-navegar>
+                                {% for marca in pagina.marcas %}
+                                    <option value="{{ marca.url }}"{% if marca.ativo %} selected{% endif %}>{{ marca.rotulo }} ({{ marca.contagem }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="lista-campo">
+                            <label for="est-por-pagina" class="lista-campo-rotulo">Mostrar</label>
+                            <select id="est-por-pagina" class="lista-select" data-navegar>
+                                {% for opcao in pagina.opcoes_por_pagina %}
+                                    <option value="{{ opcao.url }}"{% if opcao.ativo %} selected{% endif %}>{{ opcao.rotulo }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="lista-campo">
+                            <label for="est-ordem" class="lista-campo-rotulo">Ordenar por</label>
+                            <select id="est-ordem" class="lista-select" data-navegar>
+                                {% for grupo in pagina.grupos_ordens %}
+                                    <optgroup label="{{ grupo.rotulo }}">
+                                        {% for ordem in grupo.ordens %}
+                                            <option value="{{ ordem.url }}"{% if ordem.ativo %} selected{% endif %}>{{ ordem.rotulo }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tabela-dados-rolagem">
+                    <table class="tabela-dados est-tabela">
+                        <caption class="visually-hidden">Estoque no Full de cada produto, com os Códigos ML que o compõem</caption>
+                        <colgroup>
+                            <col class="est-col-largura-toggle">
+                            <col>
+                            <col class="est-col-largura-num">
+                            <col class="est-col-largura-num">
+                            <col class="est-col-largura-motivos">
+                            <col class="est-col-largura-num">
+                            <col class="est-col-largura-consulta">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th scope="col"><span class="visually-hidden">Abrir</span></th>
+                                <th scope="col" aria-sort="{{ pagina.ordenacao.produto.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.produto rotulo='Produto' %}</th>
+                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.total ordenar=pagina.ordenacao.total destaque=True %}
+                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.disponivel ordenar=pagina.ordenacao.disponivel %}
+                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.indisponivel ordenar=pagina.ordenacao.indisponivel %}
+                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.aptas ordenar=pagina.ordenacao.aptas %}
+                                <th scope="col" aria-sort="{{ pagina.ordenacao.consulta.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.consulta rotulo='Consulta' %}</th>
+                            </tr>
+                        </thead>
+                        {% for produto in pagina.produtos %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_produto_estoque.html' with produto=produto aberto=pagina.abrir_sozinho badge_a_caminho=pagina.badge_a_caminho %}
+                        {% endfor %}
+                    </table>
+                </div>
+
+                {% if pagina.paginacao.total_paginas > 1 %}
+                    <nav class="lista-paginacao" aria-label="Páginas">
+                        <span>Página {{ pagina.paginacao.numero }} de {{ pagina.paginacao.total_paginas }}</span>
+                        <div class="lista-paginacao-botoes">
+                            {% if pagina.paginacao.url_anterior %}
+                                <a href="{{ pagina.paginacao.url_anterior }}" class="lista-paginacao-botao" rel="prev"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</a>
+                            {% else %}
+                                <span class="lista-paginacao-botao" aria-disabled="true"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</span>
+                            {% endif %}
+                            {% if pagina.paginacao.url_proxima %}
+                                <a href="{{ pagina.paginacao.url_proxima }}" class="lista-paginacao-botao" rel="next">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                            {% else %}
+                                <span class="lista-paginacao-botao" aria-disabled="true">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
+                            {% endif %}
+                        </div>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <section class="lista-painel lista-painel--aviso" aria-label="Nada encontrado">
+                    <div class="lista-painel-icone" aria-hidden="true"><i class="fas fa-magnifying-glass"></i></div>
+                    <div class="lista-painel-texto">
+                        <h2 class="lista-painel-titulo">Nenhum produto com esses filtros</h2>
+                        <p>Tente buscar por outro pedaço do título, pelo SKU, pelo EAN ou pelo Código ML — ou escolha outro filtro.</p>
+                        <p><a href="{{ pagina.url_limpar }}" class="lista-link"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e filtros</a></p>
+                    </div>
+                </section>
+            {% endif %}
+
+            {% include 'gestao_full/parciais/estrutura_parcial_legenda_estoque.html' %}
+        {% endif %}
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'gestao_full/js/script_full_estoque.js' %}"></script>
+{% endblock %}

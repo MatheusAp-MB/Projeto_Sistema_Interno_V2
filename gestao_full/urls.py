@@ -3,12 +3,17 @@
 from django.urls import path
 from . import views_full
 from . import views_full_planejamento
+from . import views_full_estoque
 
 urlpatterns = [
     # * [EXPLICAÇÃO] → Tela FINAL "Full — Planejamento de envios" (a versão organizada, para apresentar). É a tela
     #                  principal do módulo (/gestao-full/). Só lê o banco e o detalhes_mlbs.json; o botão
     #                  "Consultar no Mercado Livre" dela usa a mesma view da ficha de debug (consultar/).
     path('', views_full_planejamento.view_full_planejamento, name='gestao_full_planejamento'),
+
+    # * [EXPLICAÇÃO] → Tela "Full — Estoque no Full" (07/10/2026): quanto cada produto tem no Full hoje, somando os Códigos ML
+    #                  dele. Só lê o banco (Códigos ML + consultas já salvas); nunca chama a API do ML.
+    path('estoque/', views_full_estoque.view_full_estoque, name='gestao_full_estoque'),
 
     # * [EXPLICAÇÃO] → Tela "Full — ficha do código" (debug). Só lê do banco; a API do ML é chamada apenas
     #                  pelo botão "Consultar no Mercado Livre" (consultar/). Salvar nome interno, situação e

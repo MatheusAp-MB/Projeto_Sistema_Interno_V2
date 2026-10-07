@@ -255,3 +255,13 @@
 /* * [EXPLICAÇÃO] → Produto Estrela do Full (tag star_product). Dourado, distinto do amarelo de badge-flex-ativo
  *                  (#fde68a/#78350f), que aparece na mesma linha de anúncio. */
 .badge-estrela { background: #fff1c2; color: #8a5a00; box-shadow: inset 0 0 0 1px #f2c94c; }
+
+/* * [EXPLICAÇÃO] → Situação da consulta de estoque do Full (tela "Estoque no Full"). Responde "o número que estou vendo
+ *                  é confiável?", não "o estoque é bom?": verde = consultado há pouco; âmbar = consulta velha;
+ *                  azul = só parte dos Códigos ML do produto tem número (a soma é parcial); vermelho = o ML não
+ *                  devolveu; cinza TRACEJADO = ninguém consultou (mesma linguagem de "Não conferido": provisório). */
+.badge-estoque-atualizado    { background: #dcfce7; color: #15803d; }
+.badge-estoque-desatualizado { background: #fef3c7; color: #92400e; }
+.badge-estoque-parcial       { background: #dbeafe; color: #1d4ed8; }
+.badge-estoque-sem-consulta  { background: #f8fafc; color: #64748b; box-shadow: inset 0 0 0 1px #cbd5e1; }
+.badge-estoque-erro          { background: #fee2e2; color: #b91c1c; }

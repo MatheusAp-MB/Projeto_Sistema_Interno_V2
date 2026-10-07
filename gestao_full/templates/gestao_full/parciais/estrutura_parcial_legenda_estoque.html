@@ -1,0 +1,59 @@
+{% comment %}
+* [RESUMO] → "Como ler esta tela": o texto que explica cada número, a diferença entre Código ML e anúncio e os selos de
+  situação da consulta. Fica fechado por padrão para não disputar espaço com a tabela.
+{% endcomment %}
+<details class="est-legenda">
+    <summary class="est-legenda-titulo">
+        <i class="fas fa-circle-question" aria-hidden="true"></i> Como ler esta tela
+    </summary>
+    <div class="est-legenda-corpo">
+        <div class="est-legenda-bloco">
+            <h3 class="est-legenda-subtitulo">Os números</h3>
+            <dl class="est-legenda-lista">
+                <div><dt>Total no Full</dt><dd>Tudo que está fisicamente no estoque do Full. É igual a disponível mais indisponível.</dd></div>
+                <div><dt>Disponível para venda</dt><dd>A parte do total que o Mercado Livre pode vender agora.</dd></div>
+                <div><dt>Indisponível</dt><dd>A parte do total que está no Full mas não pode ser vendida (em transferência, perdida, danificada...). O motivo aparece embaixo do número.</dd></div>
+                <div>
+                    <dt>Aptas e a caminho</dt>
+                    <dd>
+                        Outro número, vindo de outra consulta (a de reposição). O trecho <strong>"a caminho"</strong> é só uma
+                        <strong>hipótese</strong>: a diferença entre este número e o total no Full. Ela ainda não foi conferida com a tela do Mercado Livre.
+                    </dd>
+                </div>
+            </dl>
+        </div>
+        <div class="est-legenda-bloco">
+            <h3 class="est-legenda-subtitulo">Código ML e anúncio</h3>
+            <p class="est-legenda-texto">
+                O estoque do Full pertence ao <strong>Código ML</strong> (ex.: QAVX18725), não ao anúncio. Dois anúncios do mesmo
+                Código ML mostram o mesmo estoque, então esta tela soma por Código ML — somar por anúncio contaria em dobro.
+                Abra a seta de um produto para ver cada Código ML e a conta que fecha o total dele.
+            </p>
+        </div>
+        <div class="est-legenda-bloco">
+            <h3 class="est-legenda-subtitulo">Ordenar, filtrar e escolher</h3>
+            <p class="est-legenda-texto">
+                <strong>Ordenar:</strong> clique no título de uma coluna (a seta mostra o sentido) e clique de novo para inverter.
+                O seletor <strong>Ordenar por</strong> tem mais opções: % indisponível, SKU, marca, número de Códigos ML, consulta mais recente...
+                Quem não tem número para a ordem escolhida (por exemplo, nunca consultado) fica no fim da lista.
+            </p>
+            <p class="est-legenda-texto">
+                As ordens de <strong>Aptas e a caminho</strong> leem a reposição de toda a lista, e não só da página, por isso podem demorar um pouco mais.
+            </p>
+            <p class="est-legenda-texto">
+                <strong>Filtrar:</strong> escolha um botão (um por vez), uma marca e a busca de texto — tudo combina. O número ao lado de cada botão
+                já respeita a busca e a marca escolhidas. <strong>Mostrar</strong> define quantos produtos aparecem por página.
+            </p>
+        </div>
+        <div class="est-legenda-bloco">
+            <h3 class="est-legenda-subtitulo">Situação da consulta</h3>
+            <p class="est-legenda-texto">Esta tela não consulta o Mercado Livre: ela mostra a última consulta salva de cada Código ML. Por isso cada produto traz um selo de quão atual é o número.</p>
+            <ul class="est-legenda-selos">
+                {% for situacao in pagina.situacoes %}
+                    <li>{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=situacao.badge %} <span>{{ situacao.texto }}</span></li>
+                {% endfor %}
+            </ul>
+            <p class="est-legenda-texto">Para atualizar, use <strong>Atualizar no Planejamento</strong> na linha do produto e clique em "Consultar no Mercado Livre".</p>
+        </div>
+    </div>
+</details>
