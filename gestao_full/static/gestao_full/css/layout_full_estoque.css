@@ -299,6 +299,62 @@
 }
 
 /* ================================================
+   ANÚNCIOS DO CÓDIGO ML
+   A linha dos anúncios abre embaixo da linha do Código (botão "N anúncios"); o CARTÃO de cada anúncio é o compartilhado
+   (core/static/base_compartilhada/css/layout_cartao_anuncio.css). Aqui só o botão e o espaçamento da linha.
+   ================================================ */
+.est-anuncios-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(46, 123, 181, 0.1);
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+}
+
+.est-anuncios-toggle:hover { background: rgba(46, 123, 181, 0.18); }
+.est-anuncios-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.est-anuncios-toggle i { font-size: 0.6rem; transition: transform 0.15s ease; }
+.est-anuncios-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+
+/* * [EXPLICAÇÃO] → Linha do Código e linha dos anúncios formam um bloco só: sem a linha fina entre as duas. Quando os anúncios estão
+ *                  escondidos e são a última linha da tabela, a linha de baixo do Código também some (como era antes dos anúncios). */
+.est-linha-codigo:has(+ .est-linha-anuncios:not([hidden])) > td { border-bottom: 0; }
+.tabela-dados tbody.est-grupo:last-of-type tr:nth-last-child(2):has(+ .est-linha-anuncios[hidden]) > td { border-bottom: 0; }
+
+.est-anuncios {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* 20px à esquerda = o recuo da linha do Código (12px da célula + 8px), para os cartões alinharem com o ícone do Código. */
+    padding: 2px 12px 14px 20px;
+}
+
+.est-anuncios-titulo {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+/* Campo invisível usado só pelo plano B de copiar (execCommand), em contexto sem navigator.clipboard. */
+.est-copia-oculta {
+    position: fixed;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .est-anuncios-toggle i { transition: none; }
+}
+
+/* ================================================
    NÚMEROS E NOTAS
    ================================================ */
 .est-num { white-space: nowrap; }

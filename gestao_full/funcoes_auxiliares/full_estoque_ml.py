@@ -25,9 +25,12 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlencode
 
-from gestao_full.funcoes_auxiliares.full_ml import MOTIVO_INDISPONIVEL, _n_br, pegar
-from gestao_full.funcoes_auxiliares.full_planejamento_ml import _meta_do_campo
-from mercado_livre.funcoes_auxiliares.badges import BADGES_CONFERENCIA_FULL, BADGES_ESTOQUE_FULL
+from gestao_full.funcoes_auxiliares.full_ml import MOTIVO_INDISPONIVEL, _fmt_preco, _n_br, pegar
+from gestao_full.funcoes_auxiliares.full_planejamento_ml import RANK_STATUS, _meta_do_campo
+from mercado_livre.funcoes_auxiliares.badges import (
+    BADGES_CATALOGO, BADGES_CONFERENCIA_FULL, BADGES_ESTOQUE_FULL, BADGES_LOGISTICA, BADGES_STATUS, BADGES_TIPO_ANUNCIO,
+    badge_de, badge_flex,
+)
 
 # * [EXPLICAÇÃO] → Depois de quantas horas uma consulta salva é considerada "desatualizada". O estoque do Full muda
 #                  o dia todo; 24 h é um ponto de partida — ajuste aqui se a equipe quiser outro prazo.
@@ -333,6 +336,74 @@ def _preencher_aptas(produtos, ultimas):
 
 
 # ---------------------------------------------------------------------------
+# OS ANÚNCIOS DE CADA CÓDIGO ML
+# ---------------------------------------------------------------------------
+# * [EXPLICAÇÃO] → O número de estoque é do CÓDIGO ML, mas quem usa a tela precisa saber QUAIS anúncios usam aquele Código.
+#                  Esta parte só LÊ o banco (nunca chama o Mercado Livre) e só dos Códigos dos produtos que aparecem na página.
+#                  Os selos (status, tipo, logística, Flex, catálogo) vêm do tipo do anúncio e são os mesmos do Hub e do Planejamento.
+#                  Estoque, vendidos e preço do cartão são os da ÚLTIMA IMPORTAÇÃO dos anúncios — NÃO são o estoque do Full.
+#                  Aparecem os anúncios do SKU do produto (os mesmos que a linha do Código conta em "N anúncios").
+
+# Função Objetivo: 1 cartão de anúncio (1 MLB, ou 1 variação dele) com o que o desenho do Planejamento mostra.
+def _cartao_do_anuncio(variacao):
+    anuncio = variacao.anuncio
+    tipo = anuncio.tipo_de_anuncio
+    status = tipo.status if tipo else ''
+    mlb = anuncio.mlb or ''
+    variacao_id = str(variacao.variacao_id or '')
+    return {
+        'mlb': mlb,
+        # Anúncio sem variações guarda o próprio MLB como variacao_id: "variação" só aparece quando ela existe de verdade.
+        'variacao_id': '' if variacao_id == mlb else variacao_id,
+        'variacao_atributos': variacao.atributos or '',
+        'titulo': anuncio.titulo_anuncio or mlb,
+        'permalink': anuncio.permalink or '',
+        'imagem': variacao.imagem_principal_url or variacao.thumbnail_url or '',
+        'sku': str(variacao.sku_ml or variacao.produto_id or '').strip(),
+        'status': status,
+        'badge_status': badge_de(BADGES_STATUS, status) if tipo else None,
+        'badge_tipo': badge_de(BADGES_TIPO_ANUNCIO, tipo.tipo_anuncio) if tipo else None,
+        'badge_logistica': badge_de(BADGES_LOGISTICA, tipo.tipo_logistico) if tipo else None,
+        'badge_flex': badge_flex(bool(tipo.flex)) if tipo else None,
+        'badge_catalogo': badge_de(BADGES_CATALOGO, tipo.classificacao_catalogo) if tipo else None,
+        'estoque': _n_br(variacao.estoque) if variacao.estoque is not None else '—',
+        'vendidos': _n_br(variacao.qtd_vendas) if variacao.qtd_vendas is not None else '—',
+        'preco': _fmt_preco(variacao.preco_atual, None)[0] if variacao.preco_atual is not None else '—',
+        'preco_original': _fmt_preco(variacao.preco_original, None)[0] if variacao.preco_original else '',
+        'rank': RANK_STATUS.get(status, 5),
+    }
+
+
+# Função Objetivo: Põe em cada Código ML dos produtos da página a lista "anuncios" (ativos primeiro, encerrados por último).
+# Uma única consulta ao banco para a página inteira.
+def _preencher_anuncios(produtos):
+    from mercado_livre.models import VariacaoAnuncioMercadoLivre
+
+    # Os Códigos do ML são em maiúsculas; a versão maiúscula entra junto só por garantia (o MySQL já ignora a caixa).
+    codigos = {texto for p in produtos for c in p['codigos'] for texto in (c['codigo'], c['codigo'].upper())}
+    if not codigos:
+        return
+    variacoes = (VariacaoAnuncioMercadoLivre.objects
+                 .filter(inventory_id__in=codigos)
+                 .select_related('anuncio', 'anuncio__tipo_de_anuncio')
+                 .only('inventory_id', 'variacao_id', 'sku_ml', 'produto', 'atributos', 'estoque', 'qtd_vendas',
+                       'preco_atual', 'preco_original', 'thumbnail_url', 'imagem_principal_url',
+                       'anuncio__mlb', 'anuncio__titulo_anuncio', 'anuncio__permalink',
+                       'anuncio__tipo_de_anuncio__status', 'anuncio__tipo_de_anuncio__tipo_anuncio',
+                       'anuncio__tipo_de_anuncio__tipo_logistico', 'anuncio__tipo_de_anuncio__classificacao_catalogo',
+                       'anuncio__tipo_de_anuncio__flex'))
+    por_codigo_e_sku = {}
+    for variacao in variacoes:
+        sku = str(variacao.produto_id or variacao.sku_ml or '').strip()   # a mesma regra de _ler_codigos_por_sku
+        chave = (str(variacao.inventory_id).strip().upper(), sku)
+        por_codigo_e_sku.setdefault(chave, []).append(_cartao_do_anuncio(variacao))
+    for produto in produtos:
+        for cartao in produto['codigos']:
+            anuncios = por_codigo_e_sku.get((cartao['codigo'].upper(), produto['sku']), [])
+            cartao['anuncios'] = sorted(anuncios, key=lambda a: (a['rank'], a['mlb'], a['variacao_id']))
+
+
+# ---------------------------------------------------------------------------
 # O PRODUTO
 # ---------------------------------------------------------------------------
 def _montar_produto(sku, codigos_do_sku, cadastro, ultimas, produtos_do_codigo, agora):
@@ -596,6 +667,7 @@ def montar_estoque(parametros, validacoes, rotulos_situacao):
     produtos_da_pagina = list(pagina.object_list)
     if not precisa_reposicao:
         _preencher_aptas(produtos_da_pagina, ultimas)
+    _preencher_anuncios(produtos_da_pagina)
     for posicao, produto in enumerate(produtos_da_pagina, start=1):
         produto['indice'] = (pagina.number - 1) * por_pagina + posicao
 

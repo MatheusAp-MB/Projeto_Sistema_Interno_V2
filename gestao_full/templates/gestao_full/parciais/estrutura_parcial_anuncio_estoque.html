@@ -1,0 +1,64 @@
+{% comment %}
+* [RESUMO] → 1 anúncio (MLB, ou 1 variação dele) dentro de um Código ML da tela "Estoque no Full". É o mesmo desenho do cartão da tela de
+  Planejamento (estilo compartilhado em core/static/base_compartilhada/css/layout_cartao_anuncio.css), só que lido do BANCO.
+  Os números do cartão (Estoque, Vendidos, Preço) são os da última importação deste anúncio — NÃO são o estoque do Full.
+  Recebe: anuncio (montado por _cartao_do_anuncio em full_estoque_ml.py).
+{% endcomment %}
+<li class="cartao-anuncio{% if anuncio.status == 'closed' %} cartao-anuncio--encerrado{% endif %}">
+    {% if anuncio.imagem %}
+        <img src="{{ anuncio.imagem }}" class="cartao-anuncio-imagem" alt="Foto do anúncio {{ anuncio.mlb }}" loading="lazy">
+    {% else %}
+        <div class="cartao-anuncio-imagem cartao-anuncio-imagem--vazia" role="img" aria-label="Anúncio sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>
+    {% endif %}
+    <div class="cartao-anuncio-corpo">
+        {% if anuncio.badge_status %}
+            <div class="cartao-anuncio-badges">
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_status %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_tipo %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_logistica %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_flex %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=anuncio.badge_catalogo %}
+            </div>
+        {% endif %}
+        <p class="cartao-anuncio-titulo">
+            <span class="cartao-anuncio-copiavel">
+                <span>{{ anuncio.titulo }}</span>
+                <button type="button" class="cartao-anuncio-copiar" data-copiar="{{ anuncio.titulo }}"
+                        aria-label="Copiar o título do anúncio {{ anuncio.mlb }}" title="Copiar o título">
+                    <i class="fas fa-copy" aria-hidden="true"></i>
+                </button>
+            </span>
+        </p>
+        <p class="cartao-anuncio-ids">
+            <span class="cartao-anuncio-copiavel">
+                <span class="cartao-anuncio-mlb">{{ anuncio.mlb }}</span>
+                <button type="button" class="cartao-anuncio-copiar" data-copiar="{{ anuncio.mlb }}"
+                        aria-label="Copiar o código {{ anuncio.mlb }}" title="Copiar o código MLB">
+                    <i class="fas fa-copy" aria-hidden="true"></i>
+                </button>
+            </span>
+            {% if anuncio.variacao_id %}
+                <span class="cartao-anuncio-variacao">variação {{ anuncio.variacao_id }}{% if anuncio.variacao_atributos %} · {{ anuncio.variacao_atributos }}{% endif %}</span>
+            {% endif %}
+            <span class="cartao-anuncio-sku">SKU {{ anuncio.sku|default:"—" }}</span>
+        </p>
+    </div>
+    <div class="cartao-anuncio-metricas" title="Números da última importação deste anúncio. Não são o estoque do Full.">
+        <div class="cartao-anuncio-metrica">
+            <span class="cartao-anuncio-metrica-rotulo">Estoque</span>
+            <span class="cartao-anuncio-metrica-valor">{{ anuncio.estoque }}</span>
+        </div>
+        <div class="cartao-anuncio-metrica">
+            <span class="cartao-anuncio-metrica-rotulo">Vendidos</span>
+            <span class="cartao-anuncio-metrica-valor">{{ anuncio.vendidos }}</span>
+        </div>
+        <div class="cartao-anuncio-metrica cartao-anuncio-metrica--preco">
+            <span class="cartao-anuncio-metrica-rotulo">Preço</span>
+            <span class="cartao-anuncio-metrica-valor">{{ anuncio.preco }}</span>
+            {% if anuncio.preco_original %}<span class="cartao-anuncio-metrica-de">{{ anuncio.preco_original }}</span>{% endif %}
+        </div>
+    </div>
+    {% if anuncio.permalink %}
+        <a href="{{ anuncio.permalink }}" target="_blank" rel="noopener" class="cartao-anuncio-ver-no-ml">Ver no ML</a>
+    {% endif %}
+</li>

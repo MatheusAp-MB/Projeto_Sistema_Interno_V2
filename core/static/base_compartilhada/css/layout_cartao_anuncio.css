@@ -1,0 +1,192 @@
+/* * [RESUMO] → Cartão de ANÚNCIO COMPARTILHADO (criado em 07/10/2026 para a tela "Estoque no Full"): 1 anúncio (MLB, ou 1 variação
+ *              dele) numa linha só, com foto, selos, título, MLB, SKU, estoque, vendidos, preço e o botão "Ver no ML". É o MESMO
+ *              desenho que a tela "Planejamento de envios" já usava (classes plan-anuncio*); aqui ele passa a morar num lugar só.
+ *              O Planejamento ainda usa as classes dele — quando for ajustado, troca para estas e a cópia dele some.
+ *              As cores usam as variáveis de layout_global.css; as cores dos selos ficam em layout_badges.css.
+ *              Marcação esperada: <ul class="lista-anuncios"><li class="cartao-anuncio"> ... </li></ul>
+ */
+
+.lista-anuncios {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cartao-anuncio {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid #e3e7ee;
+    border-radius: 8px;
+    color: #243247;
+    text-align: left;
+    transition: box-shadow 0.15s ease;
+}
+
+/* * [EXPLICAÇÃO] → O Bootstrap dá margem a <p>; aqui o espaçamento é do "gap" de cada caixa. */
+.cartao-anuncio p { margin: 0; }
+
+.cartao-anuncio:hover { box-shadow: 0 2px 8px rgba(20, 41, 67, 0.08); }
+.cartao-anuncio--encerrado { background: #fafbfc; }
+.cartao-anuncio--encerrado .cartao-anuncio-titulo { color: var(--cor-texto-muted); }
+
+.cartao-anuncio-imagem {
+    width: 64px;
+    height: 64px;
+    overflow: hidden;
+    font-size: 0.6rem;
+    line-height: 1.2;
+    color: var(--cor-texto-muted);
+    object-fit: contain;
+    border-radius: 6px;
+    background: #f4f6f9;
+}
+
+.cartao-anuncio-imagem--vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aab3c2;
+}
+
+.cartao-anuncio-corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.cartao-anuncio-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.cartao-anuncio-titulo {
+    font-size: 0.95rem;
+    line-height: 1.35;
+    color: #334155;
+    overflow-wrap: anywhere;
+}
+
+.cartao-anuncio-ids {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 12px;
+    font-size: 0.74rem;
+    color: var(--cor-texto-muted);
+}
+
+.cartao-anuncio-mlb {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.cartao-anuncio-sku { font-family: 'SF Mono', Consolas, monospace; }
+.cartao-anuncio-variacao { color: #5b6b82; font-weight: 600; }
+
+/* ================================================
+   COPIAR (título e MLB)
+   ================================================ */
+.cartao-anuncio-copiavel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.cartao-anuncio-titulo .cartao-anuncio-copiavel { display: inline; }
+.cartao-anuncio-titulo .cartao-anuncio-copiar { margin-left: 6px; }
+
+.cartao-anuncio-copiar {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 0.7rem;
+    line-height: 1;
+    color: #aab3c2;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease;
+}
+
+.cartao-anuncio-copiar:hover { color: var(--cor-primaria); }
+.cartao-anuncio-copiar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 3px; }
+.cartao-anuncio-copiar.copiado { color: #15803d; }
+
+/* ================================================
+   NÚMEROS E BOTÃO
+   ================================================ */
+.cartao-anuncio-metricas {
+    display: flex;
+    gap: 16px;
+    padding: 0 14px;
+    border-left: 1px solid #eee;
+}
+
+.cartao-anuncio-metrica {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+    text-align: left;
+}
+
+.cartao-anuncio-metrica--preco { min-width: 74px; }
+
+.cartao-anuncio-metrica-rotulo {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #8a95a8;
+}
+
+.cartao-anuncio-metrica-valor {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.cartao-anuncio-metrica-de {
+    font-size: 0.68rem;
+    color: #8a95a8;
+    text-decoration: line-through;
+}
+
+.cartao-anuncio-ver-no-ml {
+    padding: 5px 12px;
+    background: #f4f6f9;
+    border: 1px solid #d8dce4;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.cartao-anuncio-ver-no-ml:hover { background: #e0e4ea; color: var(--cor-primaria); text-decoration: none; }
+.cartao-anuncio-ver-no-ml:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* ================================================
+   TELA ESTREITA
+   ================================================ */
+@media (max-width: 900px) {
+    .cartao-anuncio { grid-template-columns: 56px minmax(0, 1fr); }
+    .cartao-anuncio-imagem { width: 56px; height: 56px; }
+    .cartao-anuncio-metricas { grid-column: 1 / -1; padding: 8px 0 0; border-left: 0; border-top: 1px solid #eee; }
+    .cartao-anuncio-ver-no-ml { grid-column: 1 / -1; justify-self: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cartao-anuncio, .cartao-anuncio-copiar { transition: none; }
+}

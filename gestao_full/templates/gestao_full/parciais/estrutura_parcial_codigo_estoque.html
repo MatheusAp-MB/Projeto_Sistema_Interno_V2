@@ -2,7 +2,10 @@
 * [RESUMO] → UMA linha de Código ML dentro de um produto da tela "Estoque no Full". Tem as MESMAS colunas da linha do
   produto (por isso os números ficam alinhados embaixo dos totais dele). Quando o produto está fechado, a linha fica
   com o atributo "hidden"; o botão da linha do produto (script_full_estoque.js) tira e põe esse atributo.
-  Recebe: cartao (um item de produto.codigos), aberto (True = já vem aberta).
+  Recebe: cartao (um item de produto.codigos), aberto (True = já vem aberta), produto_indice e posicao (só para dar um id único à
+  linha dos anúncios).
+  Abaixo da linha do Código vem uma SEGUNDA linha (escondida) com os anúncios que usam esse Código; o botão "N anúncios" abre e fecha
+  essa linha (script_full_estoque.js).
 {% endcomment %}
 <tr class="est-linha-codigo"{% if not aberto %} hidden{% endif %}>
     <td class="est-col-toggle"></td>
@@ -11,7 +14,13 @@
             <span class="est-codigo-linha">
                 <i class="fas fa-box-open" aria-hidden="true"></i>
                 <code class="est-codigo-valor">{{ cartao.codigo }}</code>
-                <span class="est-codigo-meta">{{ cartao.n_anuncios }} anúncio{{ cartao.n_anuncios|pluralize }}</span>
+                {% if cartao.anuncios %}
+                    <button type="button" class="est-anuncios-toggle" aria-expanded="false" aria-controls="est-a-{{ produto_indice }}-{{ posicao }}">
+                        {{ cartao.n_anuncios }} anúncio{{ cartao.n_anuncios|pluralize }} <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                    </button>
+                {% else %}
+                    <span class="est-codigo-meta">{{ cartao.n_anuncios }} anúncio{{ cartao.n_anuncios|pluralize }}</span>
+                {% endif %}
             </span>
             {% if cartao.compartilhado_com %}
                 <span class="est-nota"><i class="fas fa-link" aria-hidden="true"></i> Este Código ML também aparece no SKU {{ cartao.compartilhado_com|join:", " }}</span>
@@ -58,3 +67,18 @@
         </div>
     </td>
 </tr>
+{% if cartao.anuncios %}
+    <tr class="est-linha-anuncios tabela-dados-detalhe" id="est-a-{{ produto_indice }}-{{ posicao }}" hidden>
+        <td class="est-col-toggle"></td>
+        <td colspan="6">
+            <div class="est-anuncios">
+                <p class="est-anuncios-titulo">Anúncios que usam este Código ML ({{ cartao.anuncios|length }})</p>
+                <ul class="lista-anuncios">
+                    {% for anuncio in cartao.anuncios %}
+                        {% include 'gestao_full/parciais/estrutura_parcial_anuncio_estoque.html' with anuncio=anuncio %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </td>
+    </tr>
+{% endif %}

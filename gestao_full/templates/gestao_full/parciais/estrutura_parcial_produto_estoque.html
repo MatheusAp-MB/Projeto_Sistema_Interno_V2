@@ -78,6 +78,6 @@
         </td>
     </tr>
     {% for cartao in produto.codigos %}
-        {% include 'gestao_full/parciais/estrutura_parcial_codigo_estoque.html' with cartao=cartao aberto=aberto badge_a_caminho=badge_a_caminho %}
+        {% include 'gestao_full/parciais/estrutura_parcial_codigo_estoque.html' with cartao=cartao aberto=aberto badge_a_caminho=badge_a_caminho produto_indice=produto.indice posicao=forloop.counter %}
     {% endfor %}
 </tbody>
