@@ -28,6 +28,19 @@ class VariacaoAnuncioMercadoLivre(models.Model):
     #                  existe quando a API manda user_product_id).
     mlbu = models.CharField(max_length=20, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → inventory_id da API = o "Código ML" do Full (ex.: QAVX18725): a etiqueta
+    #                  do produto dentro do armazém do Full — é nela que o ML guarda o estoque
+    #                  físico. Já vem na resposta que buscar_detalhes.py busca hoje (nenhuma
+    #                  chamada nova de API) e já estava no detalhes_mlbs.json; só não era
+    #                  persistido (07/10/2026). Só existe em quem já esteve no Full: anúncio
+    #                  que nunca esteve fica vazio. Ter o código NÃO diz que o produto está no
+    #                  Full agora — o estoque só vem das consultas manuais
+    #                  (ConsultaFullMercadoLivre). Vários anúncios do mesmo Código ML repetem
+    #                  o mesmo valor aqui (o estoque pertence ao Código ML, não ao anúncio).
+    #                  Guardado exatamente como a API manda. db_index porque as telas do Full
+    #                  vão buscar e agrupar por ele.
+    inventory_id = models.CharField(max_length=20, blank=True, null=True, db_index=True)
+
     # * [EXPLICAÇÃO] → sku_ml migra para aqui por decisão de negócio
     #                  confirmada (cada variação = produto distinto no
     #                  ERP, com EAN próprio). O JSON atual (detalhes_mlbs)

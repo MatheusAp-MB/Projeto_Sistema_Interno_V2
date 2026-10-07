@@ -222,6 +222,10 @@ def importar_anuncios_ml(stdout, style, caminho_json):
             dados_variacao = dict(
                 sku_ml=sku_ml,
                 mlbu=linha.get('user_product_id'),
+                # * [EXPLICAÇÃO] → inventory_id = Código ML do Full. Já vem em cada registro do
+                #                  JSON (buscar_detalhes.py já busca — sem chamada nova de API).
+                #                  Gravado como veio (sem tratar); vazio = nunca esteve no Full.
+                inventory_id=linha.get('inventory_id'),
                 produto=produto,
                 categoria=categoria,
                 estoque=linha.get('available_quantity') or 0,
@@ -253,7 +257,7 @@ def importar_anuncios_ml(stdout, style, caminho_json):
         VariacaoAnuncioMercadoLivre.objects.bulk_create(variacoes_para_criar, batch_size=BATCH_SIZE_PADRAO)
 
     if variacoes_para_atualizar:
-        campos_variacao = ['sku_ml', 'mlbu', 'produto', 'categoria', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url', 'preco_atual', 'preco_original']
+        campos_variacao = ['sku_ml', 'mlbu', 'inventory_id', 'produto', 'categoria', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos', 'thumbnail_url', 'imagem_principal_url', 'preco_atual', 'preco_original']
         VariacaoAnuncioMercadoLivre.objects.bulk_update(
             variacoes_para_atualizar, campos_variacao, batch_size=BATCH_SIZE_PADRAO
         )

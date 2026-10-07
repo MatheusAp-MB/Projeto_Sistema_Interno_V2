@@ -14,8 +14,9 @@
 # O que a consulta faz, nesta ordem:
 #   1) Lê o detalhes_mlbs.json da empresa (sem API) e separa os registros do
 #      código: código "OPXW24140" = registros cujo inventory_id é esse; código
-#      "#5838589786" = registros do anúncio MLB5838589786. O banco não guarda
-#      inventory_id (só o mlbu), por isso a ponte código -> produto é o arquivo.
+#      "#5838589786" = registros do anúncio MLB5838589786. O banco passou a guardar
+#      o inventory_id (07/10/2026), mas esta consulta ainda usa o arquivo como
+#      ponte código -> produto.
 #   2) Faz as chamadas GET, todas de leitura:
 #        - 1 de ESTOQUE por inventory_id do código  (/inventories/{id}/stock/fulfillment)
 #        - 1 de REPOS   por user_product_id do código (/marketplace/fbm/user-products/{id}/replenishment)

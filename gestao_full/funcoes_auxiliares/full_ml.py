@@ -363,7 +363,10 @@ CATALOGO_FULL = (
     _campo('anuncio_full', 'ARQUIVO', 'inventory_id', 'Código ML (inventory_id) deste anúncio'),
     _campo('anuncio_full', 'ARQUIVO', 'user_product_id', 'Produto do vendedor (user_product_id) deste anúncio'),
     _campo('anuncio_full', 'BANCO', 'variacao.mlbu', 'Produto do vendedor (mlbu) desta variação',
-           explicacao='O banco guarda o user_product_id com o nome mlbu. O banco não guarda o inventory_id.'),
+           explicacao='O banco guarda o user_product_id com o nome mlbu.'),
+    _campo('anuncio_full', 'BANCO', 'variacao.inventory_id', 'Código ML (inventory_id) desta variação',
+           explicacao='O banco passou a guardar o inventory_id (gravado pelo importar_anuncios_ml a partir do '
+                      'detalhes_mlbs.json). Fica vazio até a migração rodar e o popular_banco ser executado de novo.'),
     # --- Família, categoria e relações ---
     _campo('anuncio_familia', 'ARQUIVO', 'family_name', 'Nome da família (family_name)'),
     _campo('anuncio_familia', 'ARQUIVO', 'family_id', 'Código da família (family_id)'),
@@ -1042,6 +1045,10 @@ def _conferencias_do_anuncio(r, anuncio_banco, variacao_banco, dados_rep, dados_
                   normalizar=_instante),
         _comparar('user_product_id: ARQUIVO x BANCO variacao.mlbu',
                   'ARQUIVO', r.get('user_product_id'), 'BANCO', (variacao_banco or {}).get('mlbu')),
+        _comparar('inventory_id: ARQUIVO x BANCO variacao.inventory_id',
+                  'ARQUIVO', r.get('inventory_id'), 'BANCO', (variacao_banco or {}).get('inventory_id'),
+                  normalizar=lambda valor: _texto_limpo(valor) or '',
+                  aviso_se_diferente='o BANCO só muda quando o importar_anuncios_ml roda de novo'),
         _comparar('user_product_id: ARQUIVO x REPOS identifiers.user_product_id',
                   'ARQUIVO', r.get('user_product_id'), 'REPOS', pegar(dados_rep, 'identifiers.user_product_id') if dados_rep else None),
         _comparar('inventory_id: ARQUIVO x REPOS identifiers.inventory_id',
@@ -1335,7 +1342,7 @@ CAMPOS_ANUNCIO_BANCO = ('mlb', 'titulo_anuncio', 'catalog_product_id', 'catalog_
                         'atributos_ml_status', 'atributos_ml_categoria_id', 'permalink', 'data_criacao_ml',
                         'ultima_atualizacao_ml', 'eh_fossil_migracao')
 CAMPOS_TIPO_BANCO = ('nome', 'status', 'tipo_anuncio', 'tipo_logistico', 'classificacao_catalogo', 'flex')
-CAMPOS_VARIACAO_BANCO = ('variacao_id', 'mlbu', 'sku_ml', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos',
+CAMPOS_VARIACAO_BANCO = ('variacao_id', 'mlbu', 'inventory_id', 'sku_ml', 'estoque', 'qtd_vendas', 'atributos', 'num_fotos',
                          'preco_atual', 'preco_original')
 
 

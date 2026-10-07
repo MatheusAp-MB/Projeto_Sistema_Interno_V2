@@ -51,8 +51,10 @@ RANK_STATUS = {'active': 0, 'paused': 1, 'under_review': 2, 'not_yet_active': 3,
 # ---------------------------------------------------------------------------
 # O ARQUIVO detalhes_mlbs.json (LEITURA DE ARQUIVO — sem rede, sem API)
 # ---------------------------------------------------------------------------
-# * [EXPLICAÇÃO] → O banco não guarda o inventory_id (Código ML); só o arquivo guarda. Por isso a ponte
-#                  SKU -> Códigos ML é o arquivo. Ele é grande, então é lido UMA vez e guardado na memória
+# * [EXPLICAÇÃO] → Desde 07/10/2026 o banco TAMBÉM guarda o inventory_id (variacao.inventory_id, gravado pelo
+#                  importar_anuncios_ml), mas ESTA tela ainda usa o arquivo como ponte SKU -> Códigos ML: ela
+#                  também lê do arquivo dezenas de campos de cada anúncio, então trocar a ponte é um passo à
+#                  parte. O arquivo é grande, então é lido UMA vez e guardado na memória
 #                  do servidor, e só é lido de novo quando o arquivo muda (data de modificação/tamanho).
 #                  Reaproveita _ler_detalhes da consulta (a mesma leitura que o botão usa).
 _CACHE_ARQUIVO = {}
