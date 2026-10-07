@@ -18,7 +18,7 @@ VISUAL_MARKETPLACES = {
 def view_marketplaces(request):
     marketplaces = []
     urls_marketplaces = {
-        'ML': '/mercado-livre/anuncios/', 
+        'ML': '/mercado-livre/', 
     }
 
     for mp in Marketplace.objects.all():

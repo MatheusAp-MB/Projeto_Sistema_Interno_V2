@@ -93,44 +93,92 @@
                 </a>
                 <!-- Navegação -->
                 <nav class="sidebar-nav">
+                    <!-- ATENÇÃO: os módulos deste menu espelham os cards de pagina_home/estrutura_home.html (mesma ordem, nome e ícone) — mudou um, muda o outro. -->
                     <!-- Produtos -->
                     <a href="{% url 'produtos' %}" class="sidebar-item">
                         <i class="fas fa-box"></i>
                         <span>Produtos</span>
                     </a>
-                    <!-- Impostos de Entrada -->
-                    <a href="{% url 'impostos_resumo_entrada' %}" class="sidebar-item">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                        <span>Impostos de Entrada</span>
-                    </a>
-                    <!-- ICMS por NCM -->
-                    <a href="{% url 'impostos_tabela_icms_ncm' %}" class="sidebar-item">
-                        <i class="fas fa-map-marked-alt"></i>
-                        <span>ICMS por NCM</span>
-                    </a>
-                    <!-- PIS/COFINS por NCM + CST -->
-                    <a href="{% url 'impostos_tabela_pis_cofins_ncm_cst' %}" class="sidebar-item">
-                        <i class="fas fa-percentage"></i>
-                        <span>PIS/COFINS por NCM</span>
-                    </a>
-                    <!-- Auditoria Fiscal (Camada D, 13/09/2026) -->
-                    <a href="{% url 'impostos_auditoria_fiscal' %}" class="sidebar-item">
-                        <i class="fas fa-magnifying-glass-chart"></i>
-                        <span>Auditoria Fiscal</span>
-                    </a>
-                    <!-- Marketplaces -->
+                    <!-- Impostos -->
                     <div class="sidebar-dropdown">
-                        <a href="{% url 'marketplaces' %}"
-                           class="sidebar-item sidebar-dropdown-toggle">
-                            <i class="fas fa-tags"></i>
-                            <span>Marketplaces</span>
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-landmark"></i>
+                            <span>Impostos</span>
                             <i class="fas fa-chevron-down sidebar-chevron"></i>
                         </a>
                         <div class="sidebar-dropdown-menu">
+                            <a href="{% url 'impostos_hub' %}" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
+                            <a href="{% url 'impostos_resumo_entrada' %}" class="sidebar-subitem">
+                                <i class="fas fa-file-invoice-dollar"></i> Impostos de Entrada
+                            </a>
+                            <a href="{% url 'impostos_tabela_icms_ncm' %}" class="sidebar-subitem">
+                                <i class="fas fa-map-marked-alt"></i> ICMS por NCM
+                            </a>
+                            <a href="{% url 'impostos_tabela_pis_cofins_ncm_cst' %}" class="sidebar-subitem">
+                                <i class="fas fa-percentage"></i> PIS/COFINS por NCM
+                            </a>
+                            <a href="{% url 'impostos_auditoria_fiscal' %}" class="sidebar-subitem">
+                                <i class="fas fa-magnifying-glass-chart"></i> Auditoria Fiscal
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Precificação -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-calculator"></i>
+                            <span>Precificação</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="{% url 'precificacao_hub' %}" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
+                            <a href="{% url 'precificacao_resumo_marketplaces' %}" class="sidebar-subitem">
+                                <i class="fas fa-table"></i> Resumo por Marketplace
+                            </a>
+                            <a href="{% url 'precificacao_grade_mercado_livre' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Mercado Livre
+                            </a>
+                            <a href="{% url 'precificacao_grade_magalu' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Magalu
+                            </a>
+                            <a href="{% url 'precificacao_grade_raia' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Raia
+                            </a>
+                            <a href="{% url 'precificacao_grade_shopee' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Shopee
+                            </a>
+                            <a href="{% url 'precificacao_grade_tiktok' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade TikTok Shop
+                            </a>
+                            <a href="{% url 'precificacao_grade_amazon' %}" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Amazon
+                            </a>
+                            <a href="{% url 'precificacao_exportar_precos' %}" class="sidebar-subitem">
+                                <i class="fas fa-file-export"></i> Exportar Precificação
+                            </a>
+                            <a href="{% url 'precificacao_configuracoes_operacionais' %}" class="sidebar-subitem">
+                                <i class="fas fa-truck-loading"></i> Configuração Operacional
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Mercado Livre -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-store"></i>
+                            <span>Mercado Livre</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="{% url 'mercado_livre_hub' %}" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
                             <div class="sidebar-dropdown sidebar-dropdown-nivel2">
                                 <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
-                                    <i class="fas fa-store"></i>
-                                    <span>Mercado Livre</span>
+                                    <i class="fas fa-rectangle-list"></i>
+                                    <span>Anúncios</span>
                                     <i class="fas fa-chevron-down sidebar-chevron"></i>
                                 </a>
                                 <div class="sidebar-dropdown-menu">
@@ -142,22 +190,6 @@
                                        class="sidebar-subitem sidebar-subitem-nivel2">
                                         <i class="fas fa-images"></i> Hub de Fotos
                                     </a>
-                                    <a href="{% url 'mercado_livre_resumo_criterios' %}"
-                                       class="sidebar-subitem sidebar-subitem-nivel2">
-                                        <i class="fas fa-table"></i> Resumo de Critérios
-                                    </a>
-                                    <a href="{% url 'mercado_livre_tabela_frete' %}"
-                                       class="sidebar-subitem sidebar-subitem-nivel2">
-                                        <i class="fas fa-truck"></i> Tabela de Frete
-                                    </a>
-                                    <a href="{% url 'mercado_livre_configuracoes' %}"
-                                       class="sidebar-subitem sidebar-subitem-nivel2">
-                                        <i class="fas fa-sliders-h"></i> Configurações
-                                    </a>
-                                    <a href="{% url 'mercado_livre_hub_promocoes' %}"
-                                       class="sidebar-subitem sidebar-subitem-nivel2">
-                                        <i class="fas fa-percentage"></i> Hub de Promoções
-                                    </a>
                                     <a href="{% url 'mercado_livre_categorias' %}"
                                        class="sidebar-subitem sidebar-subitem-nivel2">
                                         <i class="fas fa-sitemap"></i> Categorias
@@ -166,8 +198,88 @@
                                        class="sidebar-subitem sidebar-subitem-nivel2">
                                         <i class="fas fa-list-check"></i> Características
                                     </a>
+                                    <a href="{% url 'mercado_livre_hub_promocoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-percentage"></i> Hub de Promoções
+                                    </a>
+                                    <a href="{% url 'mercado_livre_resumo_criterios' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-table"></i> Resumo de Critérios
+                                    </a>
                                 </div>
                             </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-warehouse"></i>
+                                    <span>Full</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'gestao_full_planejamento' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-boxes-packing"></i> Planejamento de envios
+                                    </a>
+                                    <a href="{% url 'gestao_full_debug' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-screwdriver-wrench"></i> Ficha do código (debug)
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-video"></i>
+                                    <span>Vídeos</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'agenda_videos_principal' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-calendar-check"></i> Agenda
+                                    </a>
+                                    <a href="{% url 'agenda_videos_historico' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-history"></i> Histórico
+                                    </a>
+                                    <a href="{% url 'agenda_videos_portal_drive' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-cloud-arrow-up"></i> Portal do Drive
+                                    </a>
+                                    <a href="{% url 'agenda_videos_configuracoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-dollar-sign"></i>
+                                    <span>Preço e frete</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="{% url 'mercado_livre_tabela_frete' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="{% url 'mercado_livre_configuracoes' %}"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Outros marketplaces -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-tags"></i>
+                            <span>Outros marketplaces</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="{% url 'marketplaces' %}" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
                             <div class="sidebar-dropdown sidebar-dropdown-nivel2">
                                 <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
                                     <i class="fas fa-store"></i>
@@ -253,81 +365,6 @@
                                     </a>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <!-- Precificação -->
-                    <div class="sidebar-dropdown">
-                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
-                            <i class="fas fa-calculator"></i>
-                            <span>Precificação</span>
-                            <i class="fas fa-chevron-down sidebar-chevron"></i>
-                        </a>
-                        <div class="sidebar-dropdown-menu">
-                            <a href="{% url 'precificacao_resumo_marketplaces' %}" class="sidebar-subitem">
-                                <i class="fas fa-table"></i> Resumo por Marketplace
-                            </a>
-                            <a href="{% url 'precificacao_grade_mercado_livre' %}" class="sidebar-subitem">
-                                <i class="fas fa-store"></i> Grade Mercado Livre
-                            </a>
-                            <a href="{% url 'precificacao_grade_magalu' %}" class="sidebar-subitem">
-                                <i class="fas fa-store"></i> Grade Magalu
-                            </a>
-                            <a href="{% url 'precificacao_grade_raia' %}" class="sidebar-subitem">
-                                <i class="fas fa-store"></i> Grade Raia
-                            </a>
-                            <a href="{% url 'precificacao_grade_shopee' %}" class="sidebar-subitem">
-                                <i class="fas fa-store"></i> Grade Shopee
-                            </a>
-                            <a href="{% url 'precificacao_grade_tiktok' %}" class="sidebar-subitem">
-                                <i class="fas fa-store"></i> Grade TikTok Shop
-                            </a>
-                            <a href="{% url 'precificacao_grade_amazon' %}" class="sidebar-subitem">
-                                <i class="fas fa-store"></i> Grade Amazon
-                            </a>
-                            <a href="{% url 'precificacao_exportar_precos' %}" class="sidebar-subitem">
-                                <i class="fas fa-file-export"></i> Exportar Precificação
-                            </a>
-                            <a href="{% url 'precificacao_configuracoes_operacionais' %}" class="sidebar-subitem">
-                                <i class="fas fa-truck-loading"></i> Configuração Operacional
-                            </a>
-                        </div>
-                    </div>
-                    <!-- Agenda de Vídeos -->
-                    <div class="sidebar-dropdown">
-                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
-                            <i class="fas fa-video"></i>
-                            <span>Agenda de Vídeos</span>
-                            <i class="fas fa-chevron-down sidebar-chevron"></i>
-                        </a>
-                        <div class="sidebar-dropdown-menu">
-                            <a href="{% url 'agenda_videos_principal' %}" class="sidebar-subitem">
-                                <i class="fas fa-calendar-check"></i> Agenda
-                            </a>
-                            <a href="{% url 'agenda_videos_historico' %}" class="sidebar-subitem">
-                                <i class="fas fa-history"></i> Histórico
-                            </a>
-                            <a href="{% url 'agenda_videos_configuracoes' %}" class="sidebar-subitem">
-                                <i class="fas fa-sliders-h"></i> Configurações
-                            </a>
-                            <a href="{% url 'agenda_videos_portal_drive' %}" class="sidebar-subitem">
-                                <i class="fas fa-cloud-arrow-up"></i> Portal do Drive
-                            </a>
-                        </div>
-                    </div>
-                    <!-- Gestão Full -->
-                    <div class="sidebar-dropdown">
-                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
-                            <i class="fas fa-warehouse"></i>
-                            <span>Gestão Full</span>
-                            <i class="fas fa-chevron-down sidebar-chevron"></i>
-                        </a>
-                        <div class="sidebar-dropdown-menu">
-                            <a href="{% url 'gestao_full_planejamento' %}" class="sidebar-subitem">
-                                <i class="fas fa-boxes-packing"></i> Planejamento de envios
-                            </a>
-                            <a href="{% url 'gestao_full_debug' %}" class="sidebar-subitem">
-                                <i class="fas fa-screwdriver-wrench"></i> Ficha do código (debug)
-                            </a>
                         </div>
                     </div>
                     <!-- Configurações -->

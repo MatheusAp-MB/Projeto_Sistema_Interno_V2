@@ -1,0 +1,194 @@
+<!--
+* [RESUMO] → Página inicial do Mercado Livre (2º nível de navegação, mesmo padrão da
+* Precificação): 1 card por tela do canal, agrupados por área — Anúncios, Full, Vídeos
+* e Preço e frete. É a mesma organização do menu lateral.
+-->
+{% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
+{% load static %}
+
+{% block titulo %}Mercado Livre — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Mercado Livre{% endblock %}
+
+{% block head_grid %}
+<link rel="stylesheet" href="{% static 'mercado_livre/css/layout_mercado_livre_hub.css' %}">
+{% endblock %}
+
+{% block cards %}
+
+<!-- Anúncios -->
+<div class="col-12 ml-hub-secao">
+    <h2 class="ml-hub-secao-titulo">
+        <i class="fas fa-rectangle-list"></i>
+        <span>Anúncios</span>
+        <span class="ml-hub-secao-subtitulo">Tudo sobre os anúncios do Mercado Livre</span>
+    </h2>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_anuncios' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-store fa-2x mb-3"></i>
+            <h5>Hub de Anúncios</h5>
+            <p>Todos os anúncios por produto, com status, tipo, qualidade e competição</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_hub_fotos' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-images fa-2x mb-3"></i>
+            <h5>Hub de Fotos</h5>
+            <p>Todas as fotos de cada anúncio, na ordem real</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_categorias' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-sitemap fa-2x mb-3"></i>
+            <h5>Categorias</h5>
+            <p>Árvore de categorias sincronizadas do Mercado Livre</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_caracteristicas' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-list-check fa-2x mb-3"></i>
+            <h5>Características</h5>
+            <p>Preencha as características dos anúncios de um produto e envie ao ML</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_hub_promocoes' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-percentage fa-2x mb-3"></i>
+            <h5>Hub de Promoções</h5>
+            <p>Promoções ativas e candidatas, com a ação recomendada</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_resumo_criterios' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-table fa-2x mb-3"></i>
+            <h5>Resumo de Critérios</h5>
+            <p>Visão tipo Excel dos critérios de qualidade, uma linha por variação</p>
+        </div>
+    </a>
+</div>
+
+<!-- Full -->
+<div class="col-12 ml-hub-secao">
+    <h2 class="ml-hub-secao-titulo">
+        <i class="fas fa-warehouse"></i>
+        <span>Full</span>
+        <span class="ml-hub-secao-subtitulo">Estoque, reposição e envios do Full</span>
+    </h2>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'gestao_full_planejamento' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-boxes-packing fa-2x mb-3"></i>
+            <h5>Planejamento de envios</h5>
+            <p>Estoque, vendas e reposição do Full por produto e Código ML</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'gestao_full_debug' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-screwdriver-wrench fa-2x mb-3"></i>
+            <h5>Ficha do código (debug)</h5>
+            <p>Cada dado do Full e de onde ele vem, para conferir e validar</p>
+        </div>
+    </a>
+</div>
+
+<!-- Vídeos -->
+<div class="col-12 ml-hub-secao">
+    <h2 class="ml-hub-secao-titulo">
+        <i class="fas fa-video"></i>
+        <span>Vídeos</span>
+        <span class="ml-hub-secao-subtitulo">Ciclo de produção e postagem de vídeo</span>
+    </h2>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'agenda_videos_principal' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-calendar-check fa-2x mb-3"></i>
+            <h5>Agenda</h5>
+            <p>Ciclo diário de produção e postagem de vídeo por produto</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'agenda_videos_historico' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-history fa-2x mb-3"></i>
+            <h5>Histórico</h5>
+            <p>Histórico de postagens, agrupado por produto</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'agenda_videos_portal_drive' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-cloud-arrow-up fa-2x mb-3"></i>
+            <h5>Portal do Drive</h5>
+            <p>Veja, envie e exclua os vídeos de cada produto no Drive</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'agenda_videos_configuracoes' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-sliders-h fa-2x mb-3"></i>
+            <h5>Configurações da agenda</h5>
+            <p>Regras de cada fase do ciclo: Simples, Vídeo Mensal e Trimestral</p>
+        </div>
+    </a>
+</div>
+
+<!-- Preço e frete -->
+<div class="col-12 ml-hub-secao">
+    <h2 class="ml-hub-secao-titulo">
+        <i class="fas fa-dollar-sign"></i>
+        <span>Preço e frete</span>
+        <span class="ml-hub-secao-subtitulo">Frete e regras de precificação do canal</span>
+    </h2>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_tabela_frete' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-truck fa-2x mb-3"></i>
+            <h5>Tabela de Frete</h5>
+            <p>Calculadora e matriz de frete por peso, preço e regime</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_configuracoes' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-sliders-h fa-2x mb-3"></i>
+            <h5>Configurações</h5>
+            <p>Comissão, margens e faixas de armazenagem de Clássico e Premium</p>
+        </div>
+    </a>
+</div>
+
+{% endblock %}

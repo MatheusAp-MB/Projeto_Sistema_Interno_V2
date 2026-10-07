@@ -1,6 +1,6 @@
 # impostos/views/__init__.py
 
-# Reexporta as 8 views (2 de entrada, 6 de saída) num namespace só --
+# Reexporta as views (2 de entrada, 6 de saída e a página inicial do módulo) num namespace só --
 # impostos/urls.py continua fazendo `from . import views` e
 # `views.view_xxx`, sem precisar saber que virou um pacote (mesmo padrão
 # de precificacao/views/__init__.py, o único outro pacote de views do
@@ -9,6 +9,7 @@
 # mesma divisão entrada/saida que impostos/models/ e
 # impostos/funcoes_auxiliares/ já têm.
 
+from impostos.views.hub import view_impostos_hub
 from impostos.views.entrada import (
     view_resumo_impostos_entrada,
     view_exportar_resumo_impostos_entrada,

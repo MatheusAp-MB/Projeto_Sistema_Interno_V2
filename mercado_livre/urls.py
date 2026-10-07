@@ -1,8 +1,10 @@
 from django.urls import path
 from . import views
 from . import views_caracteristicas
+from . import views_hub
 
 urlpatterns = [
+    path('', views_hub.view_mercado_livre_hub, name='mercado_livre_hub'),
     path('anuncios/', views.view_hub_anuncios, name='mercado_livre_anuncios'),
     path('categorias/', views.view_categorias_ml, name='mercado_livre_categorias'),
     path('categorias/selecionar/<str:category_id>/', views.view_categorias_selecionar, name='mercado_livre_categorias_selecionar'),

@@ -1,6 +1,8 @@
 <!--
-* [RESUMO] → Template da homepage do sistema.
-* Card "Marketplaces" leva à grid de marketplaces (2º nível de navegação).
+* [RESUMO] → Template da homepage do sistema: 1 card por módulo do menu lateral.
+* ATENÇÃO: a ordem, o nome e o ícone dos cards espelham os grupos de
+* base_compartilhada/estrutura_base_global.html (menu lateral) — mudou um, muda o outro.
+* Impostos, Precificação, Mercado Livre e Outros marketplaces levam à página inicial do módulo (2º nível de navegação).
 * Configuração de usuários fica reservada para o futuro (controle de cargo/admin).
 -->
 {% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
@@ -26,29 +28,49 @@
     </a>
 </div>
 
-<!-- Card: Marketplaces — abre a grid de marketplaces (2º nível) -->
+<!-- Card: Impostos — página inicial do módulo (Entrada, ICMS, PIS/COFINS, Auditoria) -->
 <div class="col-md-4">
-    <a href="{% url 'marketplaces' %}" class="text-decoration-none">
+    <a href="{% url 'impostos_hub' %}" class="text-decoration-none">
         <div class="card-modulo">
-            <i class="fas fa-store fa-2x mb-3"></i>
-            <h5>Marketplaces</h5>
-            <p>Escolha um marketplace para trabalhar</p>
+            <i class="fas fa-landmark fa-2x mb-3"></i>
+            <h5>Impostos</h5>
+            <p>Entrada, ICMS, PIS/COFINS e auditoria fiscal</p>
         </div>
     </a>
 </div>
 
-
-<!-- Card: Precificação — grid de telas (Grade ML, Grade Magalu, Resumo, Config) -->
+<!-- Card: Precificação — grid de telas (Grades por marketplace, Resumo, Exportar, Config) -->
 <div class="col-md-4">
     <a href="{% url 'precificacao_hub' %}" class="text-decoration-none">
         <div class="card-modulo">
-            <i class="fas fa-tags fa-2x mb-3"></i>
+            <i class="fas fa-calculator fa-2x mb-3"></i>
             <h5>Precificação</h5>
             <p>Grade por marketplace, resumo e configurações</p>
         </div>
     </a>
 </div>
 
+<!-- Card: Mercado Livre — página inicial do canal (Anúncios, Full, Vídeos, Preço e frete) -->
+<div class="col-md-4">
+    <a href="{% url 'mercado_livre_hub' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-store fa-2x mb-3"></i>
+            <h5>Mercado Livre</h5>
+            <p>Anúncios, Full, vídeos, preço e frete</p>
+        </div>
+    </a>
+</div>
+
+<!-- Card: Outros marketplaces — abre a grid de marketplaces (2º nível) -->
+<div class="col-md-4">
+    <a href="{% url 'marketplaces' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-tags fa-2x mb-3"></i>
+            <h5>Outros marketplaces</h5>
+            <p>Escolha um marketplace para trabalhar</p>
+        </div>
+    </a>
+</div>
 
 <!-- Card: Configurações — reservado para o futuro (controle de admin) -->
 <div class="col-md-4">
@@ -58,40 +80,5 @@
         <p>Em breve</p>
     </div>
 </div>
-
-
-
-<!-- Card: Agenda de Vídeos -->
-<div class="col-md-4">
-    <a href="{% url 'agenda_videos_principal' %}" class="text-decoration-none">
-        <div class="card-modulo">
-            <i class="fas fa-video fa-2x mb-3"></i>
-            <h5>Agenda de Vídeos</h5>
-            <p>Ciclo diário de produção e postagem de vídeo por produto</p>
-        </div>
-    </a>
-</div>
-
-<!-- Card: Gestão Full — módulo próprio do Full (Planejamento de envios e ficha de debug) -->
-<div class="col-md-4">
-    <a href="{% url 'gestao_full_planejamento' %}" class="text-decoration-none">
-        <div class="card-modulo">
-            <i class="fas fa-warehouse fa-2x mb-3"></i>
-            <h5>Gestão Full</h5>
-            <p>Estoque, reposição e envios do Full do Mercado Livre</p>
-        </div>
-    </a>
-</div>
-
-<!-- Cards em branco — reservados para módulos futuros (resumos/cruzamentos) -->
-{% for i in "1" %}
-<div class="col-md-4">
-    <div class="card-modulo card-modulo-vazio">
-        <i class="fas fa-plus fa-2x mb-3"></i>
-        <h5>Em breve</h5>
-        <p>Novo módulo</p>
-    </div>
-</div>
-{% endfor %}
 
 {% endblock %}

@@ -1,0 +1,53 @@
+<!--
+* [RESUMO] → Página inicial do módulo Impostos (2º nível de navegação, mesmo padrão da
+* Precificação): 1 card por tela — Entrada, ICMS por NCM, PIS/COFINS por NCM e Auditoria Fiscal.
+-->
+{% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
+{% load static %}
+
+{% block titulo %}Impostos — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Impostos{% endblock %}
+
+{% block cards %}
+
+<div class="col-md-4">
+    <a href="{% url 'impostos_resumo_entrada' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-file-invoice-dollar fa-2x mb-3"></i>
+            <h5>Impostos de Entrada</h5>
+            <p>Alíquotas e reduções de cada imposto, uma linha por produto</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'impostos_tabela_icms_ncm' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-map-marked-alt fa-2x mb-3"></i>
+            <h5>ICMS por NCM</h5>
+            <p>ICMS de saída por NCM e UF, com calculadora de consulta</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'impostos_tabela_pis_cofins_ncm_cst' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-percentage fa-2x mb-3"></i>
+            <h5>PIS/COFINS por NCM</h5>
+            <p>PIS/COFINS de saída por NCM e CST, com calculadora de consulta</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'impostos_auditoria_fiscal' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-magnifying-glass-chart fa-2x mb-3"></i>
+            <h5>Auditoria Fiscal</h5>
+            <p>Rejeições da última importação de ICMS e PIS/COFINS, ordenadas por impacto</p>
+        </div>
+    </a>
+</div>
+
+{% endblock %}
