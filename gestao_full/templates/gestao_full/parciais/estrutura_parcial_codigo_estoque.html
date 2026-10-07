@@ -1,18 +1,15 @@
 {% comment %}
-* [RESUMO] → UMA linha de Código ML dentro de um produto da tela "Estoque no Full". Tem as MESMAS colunas da linha do
-  produto (por isso os números ficam alinhados embaixo dos totais dele). Quando o produto está fechado, a linha fica
-  com o atributo "hidden"; o botão da linha do produto (script_full_estoque.js) tira e põe esse atributo.
-  Recebe: cartao (um item de produto.codigos), aberto (True = já vem aberta), produto_indice e posicao (só para dar um id único à
-  linha dos anúncios).
-  Abaixo da linha do Código vem uma SEGUNDA linha (escondida) com os anúncios que usam esse Código; o botão "N anúncios" abre e fecha
-  essa linha (script_full_estoque.js).
+* [RESUMO] → UM Código ML dentro de um produto da tela "Estoque no Full": um CARTÃO com o código em destaque, os mesmos números da
+  linha do produto (alinhados nas mesmas colunas, por isso a soma dos cartões fecha o total do produto), os motivos do indisponível
+  em etiquetas e, abrindo no botão "N anúncios", os anúncios que usam esse Código. Os cartões ficam dentro da lista "est-codigos"
+  do produto; a seta da linha do produto é quem mostra ou esconde a parte de baixo dele (script_full_estoque.js).
+  Recebe: cartao (um item de produto.codigos), produto_indice e posicao (só para dar um id único ao painel dos anúncios).
 {% endcomment %}
-<tr class="est-linha-codigo"{% if not aberto %} hidden{% endif %}>
-    <td class="est-col-toggle"></td>
-    <td>
+<li class="est-codigo-cartao">
+    <div class="est-codigo-topo">
         <div class="est-codigo">
+            <span class="est-codigo-rotulo"><i class="fas fa-box-open" aria-hidden="true"></i> Código ML do Full</span>
             <span class="est-codigo-linha">
-                <i class="fas fa-box-open" aria-hidden="true"></i>
                 <code class="est-codigo-valor">{{ cartao.codigo }}</code>
                 {% if cartao.anuncios %}
                     <button type="button" class="est-anuncios-toggle" aria-expanded="false" aria-controls="est-a-{{ produto_indice }}-{{ posicao }}">
@@ -37,48 +34,53 @@
                 <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.conferencia.texto }}</span>
             {% endif %}
         </div>
-    </td>
-    <td class="tabela-dados-num est-num est-num--destaque">
-        {{ cartao.total_txt }}
-        {% if cartao.conferencia.bate %}
-            <i class="fas fa-check est-confere" title="{{ cartao.conferencia.texto }}" aria-label="{{ cartao.conferencia.texto }}"></i>
-        {% endif %}
-    </td>
-    <td class="tabela-dados-num est-num">{{ cartao.disponivel_txt }}</td>
-    <td class="tabela-dados-num est-num">
-        {{ cartao.indisponivel_txt }}
-        {% if cartao.pct_indisponivel_txt %}<span class="est-nota">{{ cartao.pct_indisponivel_txt }} do total</span>{% endif %}
-        {% if cartao.motivos %}
-            <ul class="est-motivos">{% for motivo in cartao.motivos %}<li>{{ motivo.texto }}</li>{% endfor %}</ul>
-        {% endif %}
-    </td>
-    <td class="tabela-dados-num est-num">
-        {{ cartao.aptas_txt }}
-        {% if cartao.a_caminho_txt %}
-            <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
-                {{ cartao.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+        <div class="est-num est-num--destaque">
+            <span class="est-num-rotulo">Total no Full</span>
+            <span class="est-num-valor">
+                {% if cartao.conferencia.bate %}
+                    <i class="fas fa-check est-confere" title="{{ cartao.conferencia.texto }}" aria-label="{{ cartao.conferencia.texto }}"></i>
+                {% endif %}
+                {{ cartao.total_txt }}
             </span>
-        {% endif %}
-    </td>
-    <td>
+        </div>
+        <div class="est-num">
+            <span class="est-num-rotulo">Disponível</span>
+            <span class="est-num-valor">{{ cartao.disponivel_txt }}</span>
+        </div>
+        <div class="est-num">
+            <span class="est-num-rotulo">Indisponível</span>
+            <span class="est-num-valor">{{ cartao.indisponivel_txt }}</span>
+            {% if cartao.pct_indisponivel_txt %}<span class="est-nota">{{ cartao.pct_indisponivel_txt }} do total</span>{% endif %}
+        </div>
+        <div class="est-num">
+            <span class="est-num-rotulo">Aptas e a caminho</span>
+            <span class="est-num-valor">{{ cartao.aptas_txt }}</span>
+            {% if cartao.a_caminho_txt %}
+                <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
+                    {{ cartao.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+                </span>
+            {% endif %}
+        </div>
         <div class="est-consulta">
+            <span class="est-num-rotulo">Consulta</span>
             {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.badge %}
             {% if cartao.idade %}<small title="Consultado em {{ cartao.consultado_completo }}">{{ cartao.idade }}</small>{% endif %}
         </div>
-    </td>
-</tr>
-{% if cartao.anuncios %}
-    <tr class="est-linha-anuncios tabela-dados-detalhe" id="est-a-{{ produto_indice }}-{{ posicao }}" hidden>
-        <td class="est-col-toggle"></td>
-        <td colspan="6">
-            <div class="est-anuncios">
-                <p class="est-anuncios-titulo">Anúncios que usam este Código ML ({{ cartao.anuncios|length }})</p>
-                <ul class="lista-anuncios">
-                    {% for anuncio in cartao.anuncios %}
-                        {% include 'gestao_full/parciais/estrutura_parcial_anuncio_estoque.html' with anuncio=anuncio %}
-                    {% endfor %}
-                </ul>
-            </div>
-        </td>
-    </tr>
-{% endif %}
+    </div>
+    {% if cartao.motivos %}
+        <div class="est-detalhe">
+            <span class="est-detalhe-rotulo">Motivos do indisponível</span>
+            <ul class="est-chips">{% for motivo in cartao.motivos %}<li class="est-chip">{{ motivo.texto }}</li>{% endfor %}</ul>
+        </div>
+    {% endif %}
+    {% if cartao.anuncios %}
+        <div class="est-anuncios" id="est-a-{{ produto_indice }}-{{ posicao }}" hidden>
+            <p class="est-anuncios-titulo">Anúncios do Código {{ cartao.codigo }} ({{ cartao.anuncios|length }})</p>
+            <ul class="lista-anuncios">
+                {% for anuncio in cartao.anuncios %}
+                    {% include 'gestao_full/parciais/estrutura_parcial_anuncio_estoque.html' with anuncio=anuncio %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+</li>

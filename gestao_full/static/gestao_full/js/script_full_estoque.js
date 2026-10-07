@@ -1,8 +1,8 @@
 // gestao_full/static/gestao_full/js/script_full_estoque.js
 //
 // Tela "Full — Estoque no Full". Faz só quatro coisas, e nenhuma delas chama o servidor sozinha:
-//   1) abrir/fechar as linhas de Código ML de um produto (a seta da primeira coluna) e "Abrir todos / Fechar todos";
-//   2) abrir/fechar a linha dos ANÚNCIOS de um Código ML (o botão "N anúncios");
+//   1) abrir/fechar a parte de baixo de um produto, com os cartões de Código ML (a seta da linha do produto) e "Abrir todos / Fechar todos";
+//   2) abrir/fechar o painel dos ANÚNCIOS de um Código ML (o botão "N anúncios");
 //   3) copiar o título ou o MLB de um anúncio (o ícone ao lado);
 //   4) trocar a ordenação assim que a pessoa escolhe outra no seletor (vai para o endereço que a view já montou).
 // Buscar, filtrar e paginar são links e um formulário normais: funcionam sem este arquivo.
@@ -15,19 +15,22 @@
         return;
     }
 
-    // Função Objetivo: Abre ou fecha as linhas de Código ML de UM produto (o <tbody> dele) e acerta o aria-expanded da seta.
+    // Função Objetivo: Abre ou fecha a parte de baixo de UM produto (motivos do indisponível + cartões de Código ML), acerta o aria-expanded
+    //                  da seta e liga/desliga o destaque azul do produto aberto (classe est-bloco--aberto).
     function definirAberto(grupo, aberto) {
         const botao = grupo.querySelector('.est-toggle');
         if (botao) {
             botao.setAttribute('aria-expanded', aberto ? 'true' : 'false');
         }
-        grupo.querySelectorAll('.est-linha-codigo').forEach(function (linha) {
-            linha.hidden = !aberto;
-        });
+        const corpo = grupo.querySelector('.est-corpo');
+        if (corpo) {
+            corpo.hidden = !aberto;
+        }
+        grupo.classList.toggle('est-bloco--aberto', aberto);
         // Fechou o produto: os anúncios dos Códigos também se escondem. Ao reabrir, eles voltam fechados.
         if (!aberto) {
-            grupo.querySelectorAll('.est-linha-anuncios').forEach(function (linha) {
-                linha.hidden = true;
+            grupo.querySelectorAll('.est-anuncios').forEach(function (painel) {
+                painel.hidden = true;
             });
             grupo.querySelectorAll('.est-anuncios-toggle').forEach(function (botao) {
                 botao.setAttribute('aria-expanded', 'false');
@@ -83,11 +86,11 @@
 
         const anuncios = evento.target.closest('.est-anuncios-toggle');
         if (anuncios && pagina.contains(anuncios)) {
-            const linha = document.getElementById(anuncios.getAttribute('aria-controls'));
-            if (linha) {
+            const painel = document.getElementById(anuncios.getAttribute('aria-controls'));
+            if (painel) {
                 const abrir = anuncios.getAttribute('aria-expanded') !== 'true';
                 anuncios.setAttribute('aria-expanded', abrir ? 'true' : 'false');
-                linha.hidden = !abrir;
+                painel.hidden = !abrir;
             }
             return;
         }

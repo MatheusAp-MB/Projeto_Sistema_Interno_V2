@@ -1,10 +1,10 @@
 {% comment %}
-* [RESUMO] → Uma coluna de número no cabeçalho da tabela "Estoque no Full": o título clicável (ordena a lista) e, embaixo, o
+* [RESUMO] → Uma coluna de número na barra de colunas da tela "Estoque no Full": o título clicável (ordena a lista) e, embaixo, o
   selo de conferência daquele dado (o mesmo registro que a equipe preenche na ficha de debug). Passar o mouse no selo mostra a
   situação, a fonte e o campo exato da API.
   Recebe: coluna (pagina.colunas.<chave>), ordenar (pagina.ordenacao.<chave>), destaque (True na coluna em destaque).
 {% endcomment %}
-<th scope="col" class="tabela-dados-num est-th{% if destaque %} est-th--destaque{% endif %}" aria-sort="{{ ordenar.aria }}">
-    <span class="est-th-rotulo">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=ordenar rotulo=coluna.rotulo %}</span>
-    <span class="est-th-selo" title="{{ coluna.meta.selo.dica }} · Fonte: {{ coluna.meta.fonte }} · campo {{ coluna.meta.caminho }}">{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=coluna.meta.selo.badge %}</span>
-</th>
+<div class="est-coluna est-coluna--num{% if destaque %} est-coluna--destaque{% endif %}">
+    <span class="est-coluna-rotulo">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=ordenar rotulo=coluna.rotulo %}</span>
+    <span class="est-coluna-selo" title="{{ coluna.meta.selo.dica }} · Fonte: {{ coluna.meta.fonte }} · campo {{ coluna.meta.caminho }}">{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=coluna.meta.selo.badge %}</span>
+</div>

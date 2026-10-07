@@ -1,8 +1,9 @@
 /* * [RESUMO] → CSS da tela "Full — Estoque no Full" (Mercado Livre). Prefixo est- em tudo, para não esbarrar em nenhuma outra tela.
- *              AQUI ficam só as peças INDIVIDUAIS desta tela: a faixa de totais (com o "Total no Full" em destaque), a célula do
- *              produto, as linhas de Código ML e as notas dos números. A tabela, a busca, os chips de filtro, a paginação,
- *              os avisos e os painéis são COMPARTILHADOS (core/static/base_compartilhada/css/layout_tabela_dados.css), e as
- *              cores dos selos ficam em layout_badges.css.
+ *              AQUI ficam só as peças INDIVIDUAIS desta tela: a faixa de totais (com o "Total no Full" em destaque), a barra de
+ *              colunas (fixa no alto ao rolar), o bloco de cada produto (linha clara que, aberta, mostra os cartões dos Códigos ML)
+ *              e as notas dos números. A busca, os chips de
+ *              filtro, a paginação, os avisos e os painéis são COMPARTILHADOS (core/static/base_compartilhada/css/layout_tabela_dados.css),
+ *              o cartão de anúncio também (layout_cartao_anuncio.css), e as cores dos selos ficam em layout_badges.css.
  */
 
 .est-pagina {
@@ -11,7 +12,17 @@
     gap: 16px;
     color: #243247;
     font-size: 0.9rem;
+    container: est / inline-size;   /* as regras "@container est" mais abaixo olham a largura desta caixa */
 }
+
+/* * [EXPLICAÇÃO] → Para a barra de colunas FICAR FIXA ao rolar (position: sticky), nenhuma caixa entre ela e a janela pode ter
+ *                  "overflow" que crie rolagem própria. No layout global duas têm: ".main-wrapper" (overflow: hidden) e ".conteudo-principal"
+ *                  (overflow: auto) — por isso até a barra de título do sistema, que foi pensada para ficar fixa, rola junto com a página.
+ *                  "overflow: clip" corta o excesso do mesmo jeito, mas NÃO cria rolagem. Só esta tela (classe "est-tela" no body) muda; a
+ *                  barra de título continua rolando como nas outras telas. */
+.est-tela .main-wrapper,
+.est-tela .conteudo-principal { overflow: clip; }
+.est-tela .toolbar { position: static; }
 
 /* "hidden" precisa ganhar de qualquer display que as linhas desta tela tenham. */
 .est-pagina [hidden] { display: none !important; }
@@ -153,63 +164,133 @@
 }
 
 /* ================================================
-   TABELA
+   LISTA DE BLOCOS  (produto → Código ML → anúncios)
    ================================================ */
 
-/* * [EXPLICAÇÃO] → 7 colunas: seta, produto (a que sobra), 4 números e a consulta. A tabela passa de 1000px de propósito:
- *                  em tela estreita ela rola DENTRO da caixa, em vez de espremer os números. */
-.est-tabela { min-width: 1110px; }
-.est-tabela .est-col-largura-toggle { width: 48px; }
-.est-tabela .est-col-largura-num { width: 142px; }
-.est-tabela .est-col-largura-motivos { width: 190px; }
-.est-tabela .est-col-largura-consulta { width: 220px; }
+/* * [EXPLICAÇÃO] → A lista NÃO é uma tabela: cada produto é um BLOCO, no mesmo espírito do Planejamento de envios e do Hub de Anúncios.
+ *                  FECHADO, o bloco é uma linha clara e baixa (cabem uns 12 produtos por tela, dá para comparar os números); ABERTO, a linha
+ *                  ganha um fundo azulado e, embaixo dela, vêm os motivos do indisponível e um cartão por Código ML.
+ *                  Para os números continuarem alinhados em coluna de um bloco para o outro, a barra de colunas, a linha do produto e o
+ *                  cartão de cada Código usam as MESMAS larguras de coluna (variáveis abaixo) e o MESMO respiro do lado direito
+ *                  (--est-lado + --est-miolo). A lista passa de 1100px de propósito: em tela estreita ela rola DENTRO da caixa, em vez de
+ *                  espremer os números. */
+.est-rolagem { overflow-x: auto; }
 
-.est-tabela thead th.est-th { white-space: normal; }
-.est-tabela thead th.est-th--destaque { background: var(--cor-primaria-escura); }
+.est-lista {
+    --est-col-numeros: 110px 110px 120px 150px 190px;           /* total | disponível | indisponível | aptas e a caminho | consulta */
+    --est-colunas: 44px minmax(0, 1fr) var(--est-col-numeros);   /* seta | produto | números */
+    --est-lado: 20px;     /* respiro entre a borda do bloco e os cartões de Código */
+    --est-miolo: 16px;    /* respiro dentro do cartão de Código */
+    min-width: 1120px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
 
-.est-th-rotulo { display: block; }
+/* ---------- barra de colunas (clicar ordena) ---------- */
+.est-colunas {
+    display: grid;
+    grid-template-columns: var(--est-colunas);
+    column-gap: 16px;
+    align-items: end;
+    padding: 8px calc(var(--est-lado) + var(--est-miolo)) 8px var(--est-lado);
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(20, 41, 67, 0.07);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--cor-primaria);
+}
 
-.est-th-selo {
-    display: inline-block;
-    margin-top: 6px;
-    font-weight: 400;
+.est-coluna--num {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+}
+
+.est-coluna-rotulo { display: block; }
+.est-coluna-selo { display: inline-block; font-weight: 400; letter-spacing: 0; }
+/* O selo de conferência é menor aqui: com o tamanho padrão ele passava da largura da coluna e encostava no da coluna ao lado. */
+.est-coluna-selo .badge-tabela { padding: 1px 6px; font-size: 0.6rem; }
+.est-colunas .tabela-dados-ordenar:focus-visible { outline-color: var(--cor-primaria-clara); }
+.est-coluna--destaque .tabela-dados-ordenar { padding-bottom: 2px; border-bottom: 2px solid var(--cor-primaria-clara); }
+
+/* ---------- um bloco por produto ---------- */
+.est-blocos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.est-bloco {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(20, 41, 67, 0.06);
+    overflow: hidden;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.est-bloco:hover { border-color: #b3c4d8; }
+
+/* * [EXPLICAÇÃO] → Produto ABERTO: borda azul, sombra mais funda e um respiro em volta — é a única coisa colorida da lista, então os olhos
+ *                  vão direto nele. (O azul-escuro cheio, repetido em todo produto, deixava a tela pesada; agora a cor é só para destacar.) */
+.est-bloco--aberto {
+    margin-block: 6px;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 4px 14px rgba(20, 41, 67, 0.14);
+}
+
+/* A linha do produto: foto, título e os totais dele. */
+.est-bloco-cabeca {
+    padding: 10px calc(var(--est-lado) + var(--est-miolo)) 10px var(--est-lado);
+    color: #243247;
+}
+
+.est-bloco--aberto .est-bloco-cabeca {
+    background: #e8f1fa;
+    border-bottom: 1px solid #c9dcee;
+}
+
+.est-bloco-topo {
+    display: grid;
+    grid-template-columns: var(--est-colunas);
+    column-gap: 16px;
+    align-items: center;
 }
 
 .est-col-toggle {
-    width: 48px;
-    text-align: center;
+    display: flex;
+    justify-content: center;
 }
 
 .est-toggle {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--cor-primaria-clara);
+    border: 1px solid #c3d3e5;
+    border-radius: 50%;
+    background: #f1f5fa;
+    color: var(--cor-primaria);
+    font-size: 0.8rem;
     cursor: pointer;
 }
 
-.est-toggle:hover { background: rgba(46, 123, 181, 0.12); }
+.est-toggle:hover { background: #dfeaf6; }
 .est-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
 .est-toggle i { transition: transform 0.15s ease; }
+.est-toggle[aria-expanded="true"] { border-color: var(--cor-primaria-clara); background: var(--cor-primaria-clara); color: var(--cor-texto-claro); }
 .est-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
-
-@media (prefers-reduced-motion: reduce) {
-    .est-toggle i { transition: none; }
-}
-
-/* ================================================
-   LINHA DO PRODUTO
-   ================================================ */
-.est-linha-produto > td {
-    padding-top: 12px;
-    padding-bottom: 12px;
-    background: var(--cor-fundo-card);
-}
 
 .est-produto {
     display: flex;
@@ -224,7 +305,7 @@
     height: 44px;
     object-fit: contain;
     background: #fff;
-    border: 1px solid var(--cor-borda);
+    border: 1px solid #e3e7ee;
     border-radius: 6px;
 }
 
@@ -239,59 +320,107 @@
 .est-produto-texto {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
 }
 
 .est-produto-titulo {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
+    font-weight: 700;
     line-height: 1.3;
-    color: var(--cor-primaria);
+    color: var(--cor-primaria-escura);
+    overflow-wrap: anywhere;
 }
 
 .est-produto-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px 12px;
+    gap: 2px 14px;
     font-size: 0.76rem;
     color: var(--cor-texto-muted);
 }
 
 .est-produto-alerta {
-    font-weight: 600;
-    color: #92400e;
+    font-weight: 700;
+    color: #b45309;
 }
 
-/* ================================================
-   LINHA DE CÓDIGO ML (as contas que fecham o total do produto)
-   ================================================ */
-.est-linha-codigo > td {
-    padding-top: 9px;
-    padding-bottom: 9px;
-    background: #f4f6f9;
-    font-size: 0.84rem;
+/* ---------- a parte de baixo do produto aberto: motivos + cartões de Código ML ---------- */
+.est-corpo { background: #eef1f6; }
+
+/* Motivos do indisponível (soma dos Códigos) e o link do Planejamento: só aparecem com o produto aberto. */
+.est-detalhe-produto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 14px var(--est-lado) 0;
+}
+
+.est-detalhe-produto .est-link { margin-left: auto; }
+
+/* * [EXPLICAÇÃO] → ".est-pagina .est-codigos" (e não só ".est-codigos"): a regra geral ".est-pagina ul" zera o padding de toda lista e ganharia. */
+.est-pagina .est-codigos {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 14px var(--est-lado) 18px;
+    list-style: none;
+}
+
+/* * [EXPLICAÇÃO] → O padding da direita do cartão é o respiro (--est-miolo) MENOS a borda de 1px: assim os números do cartão caem
+ *                  exatamente embaixo dos números da linha do produto. */
+.est-codigo-cartao {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px calc(var(--est-miolo) - 1px) 14px var(--est-miolo);
+    background: var(--cor-fundo-card);
+    border: 1px solid #dde3ec;
+    border-left: 4px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+}
+
+.est-codigo-topo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--est-col-numeros);
+    column-gap: 16px;
+    align-items: center;
 }
 
 .est-codigo {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding-left: 8px;
+    gap: 4px;
+    min-width: 0;
 }
+
+.est-codigo-rotulo {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--cor-texto-muted);
+}
+
+.est-codigo-rotulo i { color: var(--cor-primaria-clara); }
 
 .est-codigo-linha {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px 12px;
 }
 
-.est-codigo-linha > i { color: var(--cor-primaria-clara); }
-.est-codigo-valor { font-weight: 700; }
+.est-pagina .est-codigo-valor {
+    padding: 0;
+    background: transparent;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
 
 .est-codigo-meta {
     font-size: 0.74rem;
@@ -299,73 +428,46 @@
 }
 
 /* ================================================
-   ANÚNCIOS DO CÓDIGO ML
-   A linha dos anúncios abre embaixo da linha do Código (botão "N anúncios"); o CARTÃO de cada anúncio é o compartilhado
-   (core/static/base_compartilhada/css/layout_cartao_anuncio.css). Aqui só o botão e o espaçamento da linha.
+   NÚMEROS, ETIQUETAS E NOTAS
    ================================================ */
-.est-anuncios-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 9px;
-    border: 0;
-    border-radius: 12px;
-    background: rgba(46, 123, 181, 0.1);
-    font-size: 0.74rem;
-    font-weight: 600;
-    color: var(--cor-primaria-clara);
-    cursor: pointer;
-}
 
-.est-anuncios-toggle:hover { background: rgba(46, 123, 181, 0.18); }
-.est-anuncios-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
-.est-anuncios-toggle i { font-size: 0.6rem; transition: transform 0.15s ease; }
-.est-anuncios-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
-
-/* * [EXPLICAÇÃO] → Linha do Código e linha dos anúncios formam um bloco só: sem a linha fina entre as duas. Quando os anúncios estão
- *                  escondidos e são a última linha da tabela, a linha de baixo do Código também some (como era antes dos anúncios). */
-.est-linha-codigo:has(+ .est-linha-anuncios:not([hidden])) > td { border-bottom: 0; }
-.tabela-dados tbody.est-grupo:last-of-type tr:nth-last-child(2):has(+ .est-linha-anuncios[hidden]) > td { border-bottom: 0; }
-
-.est-anuncios {
+/* Cada número é um par "nome pequeno em cima, valor embaixo" (como o ESTOQUE / 97 dos cartões do Hub): dá para ler o cartão sem olhar a barra de colunas. */
+.est-num {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    /* 20px à esquerda = o recuo da linha do Código (12px da célula + 8px), para os cartões alinharem com o ícone do Código. */
-    padding: 2px 12px 14px 20px;
+    align-items: flex-end;
+    gap: 3px;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
-.est-anuncios-titulo {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--cor-primaria);
-}
-
-/* Campo invisível usado só pelo plano B de copiar (execCommand), em contexto sem navigator.clipboard. */
-.est-copia-oculta {
-    position: fixed;
-    top: 0;
-    left: 0;
-    opacity: 0;
-    pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .est-anuncios-toggle i { transition: none; }
-}
-
-/* ================================================
-   NÚMEROS E NOTAS
-   ================================================ */
-.est-num { white-space: nowrap; }
-
-.est-num--destaque {
-    font-size: 1rem;
+.est-num-rotulo {
+    font-size: 0.62rem;
     font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-muted);
+}
+
+.est-num-valor {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.15;
+    color: #1f2d3d;
+}
+
+.est-num--destaque .est-num-valor {
+    font-size: 1.5rem;
     color: var(--cor-primaria);
 }
 
-.est-linha-produto .est-num--destaque { font-size: 1.2rem; }
+/* Na linha do produto os números são mais discretos que no cartão do Código, e o Total no Full é o único que cresce. */
+.est-bloco-cabeca .est-num-valor { font-size: 1.05rem; font-weight: 600; }
+.est-bloco-cabeca .est-num--destaque .est-num-valor { font-size: 1.4rem; font-weight: 700; }
+
+/* * [EXPLICAÇÃO] → Zero (ou "—", sem número) fica cinza claro: assim o olho pula direto para os produtos que TÊM estoque. */
+.est-bloco-cabeca .est-num-valor--zero { color: #a3adbb; font-weight: 500; }
 
 .est-parcial {
     display: block;
@@ -388,22 +490,11 @@
     color: #b91c1c;
 }
 
-.est-motivos {
-    margin-top: 4px;
-    list-style: none;
-    white-space: nowrap;
-    font-size: 0.74rem;
-    font-weight: 400;
-    line-height: 1.35;
-    color: var(--cor-texto-muted);
-}
-
 .est-a-caminho {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 4px;
-    margin-top: 2px;
     font-size: 0.74rem;
     font-weight: 600;
     color: #92400e;
@@ -419,6 +510,124 @@
 }
 
 .est-nota--erro { color: #b91c1c; }
+.est-num .est-nota { white-space: nowrap; }
+
+/* Os motivos do indisponível: etiquetas lado a lado, numa linha própria (antes eram uma pilha dentro da coluna estreita). */
+.est-detalhe {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+}
+
+.est-detalhe-rotulo {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-muted);
+}
+
+.est-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.est-chip {
+    padding: 3px 10px;
+    border: 1px solid #dde3ec;
+    border-radius: 999px;
+    background: #eef1f6;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+/* ================================================
+   ANÚNCIOS DO CÓDIGO ML
+   Abrem DENTRO do cartão do Código (botão "N anúncios"); o cartão de cada anúncio é o compartilhado
+   (core/static/base_compartilhada/css/layout_cartao_anuncio.css). Aqui só o botão e a caixa que os agrupa.
+   ================================================ */
+.est-anuncios-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(46, 123, 181, 0.1);
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+}
+
+.est-anuncios-toggle:hover { background: rgba(46, 123, 181, 0.18); }
+.est-anuncios-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.est-anuncios-toggle i { font-size: 0.6rem; transition: transform 0.15s ease; }
+.est-anuncios-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+
+.est-anuncios {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: #f4f6f9;
+    border: 1px solid #e3e7ee;
+    border-radius: 8px;
+}
+
+.est-anuncios-titulo {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-primaria);
+}
+
+/* Campo invisível usado só pelo plano B de copiar (execCommand), em contexto sem navigator.clipboard. */
+.est-copia-oculta {
+    position: fixed;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .est-toggle i, .est-anuncios-toggle i, .est-bloco { transition: none; }
+}
+
+/* ================================================
+   TELA LARGA  (cabe a lista inteira: 1120px)
+   ================================================ */
+/* * [EXPLICAÇÃO] → Nesta largura não há rolagem para o lado, então a barra de colunas pode FICAR FIXA no alto enquanto a lista rola
+ *                  (por isso o ".est-rolagem" deixa de ser uma caixa de rolagem) e a linha do produto não precisa repetir o nome de cada
+ *                  coluna. O nome continua lido por leitores de tela (esconder "visualmente" não é "display: none"). */
+@container est (min-width: 1120px) {
+    .est-rolagem { overflow: visible; }
+
+    .est-colunas {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+    }
+
+    .est-bloco-cabeca .est-num-rotulo {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
 
 /* ================================================
    CÉLULA DA CONSULTA
@@ -434,6 +643,9 @@
     font-size: 0.74rem;
     color: var(--cor-texto-muted);
 }
+
+/* Consulta em dia: só a idade, em cinza (o selo colorido fica para o que foge do normal). */
+.est-consulta .est-consulta-idade { font-size: 0.8rem; }
 
 .est-link {
     font-size: 0.76rem;

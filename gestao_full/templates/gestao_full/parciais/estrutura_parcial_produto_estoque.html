@@ -1,19 +1,23 @@
 {% comment %}
-* [RESUMO] → UM produto na tela "Estoque no Full": um <tbody> com a linha do produto (os totais dele, somando os Códigos ML)
-  e, logo abaixo, uma linha por Código ML (as contas que fecham o total). A seta da primeira coluna abre e fecha essas
-  linhas (script_full_estoque.js). Os números do produto vêm SÓ de Códigos ML que já foram consultados; se algum não foi,
-  o total aparece marcado como "parcial".
+* [RESUMO] → UM produto na tela "Estoque no Full": um BLOCO. FECHADO, ele é uma linha só e clara (seta, foto, título e os números do
+  produto = a soma dos Códigos ML dele), para dar para rolar a lista e comparar um produto com o outro. ABERTO (a seta), a linha ganha
+  um fundo azulado e, embaixo dela, aparecem os motivos do indisponível, o link do Planejamento e um cartão por Código ML (as contas que
+  fecham o total), com os anúncios de cada Código dentro do cartão (script_full_estoque.js). Os números do produto vêm SÓ de Códigos
+  ML que já foram consultados; se algum não foi, o total aparece marcado como "parcial".
+  As colunas da linha têm as mesmas larguras da barra de colunas (que fica fixa no alto ao rolar) e do cartão de cada Código: por isso
+  os números ficam alinhados. Em tela larga os nomes das colunas só aparecem nessa barra; em tela estreita (a lista rola para o lado
+  e a barra não acompanha) cada número volta a mostrar o próprio nome.
   Recebe: produto (um item de pagina.produtos), aberto (True = Códigos ML já vêm abertos), badge_a_caminho.
 {% endcomment %}
-<tbody class="est-grupo" id="est-p-{{ produto.indice }}">
-    <tr class="tabela-dados-linha est-linha-produto">
-        <td class="est-col-toggle">
-            <button type="button" class="est-toggle" aria-expanded="{% if aberto %}true{% else %}false{% endif %}"
-                    aria-label="Mostrar ou esconder os Códigos ML de {{ produto.titulo }}">
-                <i class="fas fa-chevron-right" aria-hidden="true"></i>
-            </button>
-        </td>
-        <td>
+<li class="est-bloco est-grupo{% if aberto %} est-bloco--aberto{% endif %}" id="est-p-{{ produto.indice }}">
+    <div class="est-bloco-cabeca">
+        <div class="est-bloco-topo">
+            <div class="est-col-toggle">
+                <button type="button" class="est-toggle" aria-expanded="{% if aberto %}true{% else %}false{% endif %}"
+                        aria-label="Mostrar ou esconder os Códigos ML de {{ produto.titulo }}">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+            </div>
             <div class="est-produto">
                 {% if produto.cadastro.imagem_url %}
                     <img src="{{ produto.cadastro.imagem_url }}" class="est-produto-imagem" alt="" loading="lazy">
@@ -21,7 +25,7 @@
                     <span class="est-produto-imagem est-produto-imagem--vazia" aria-hidden="true"><i class="fas fa-image"></i></span>
                 {% endif %}
                 <div class="est-produto-texto">
-                    <strong class="est-produto-titulo" title="{{ produto.titulo }}">{{ produto.titulo }}</strong>
+                    <strong class="est-produto-titulo">{{ produto.titulo }}</strong>
                     <span class="est-produto-meta">
                         <span>SKU {{ produto.sku|default:"—" }}</span>
                         {% if produto.cadastro.marca %}<span>{{ produto.cadastro.marca }}</span>{% endif %}
@@ -30,54 +34,74 @@
                     </span>
                 </div>
             </div>
-        </td>
-        <td class="tabela-dados-num est-num est-num--destaque">
-            {{ produto.total_txt }}
-            {% if produto.n_diverge %}
-                <i class="fas fa-triangle-exclamation est-diverge"
-                   title="Em {{ produto.n_diverge }} Código{{ produto.n_diverge|pluralize }} ML deste produto, o total não bate com disponível + indisponível. Abra a seta para ver qual."
-                   aria-label="Total não bate com disponível mais indisponível em {{ produto.n_diverge }} Código{{ produto.n_diverge|pluralize }} ML"></i>
-            {% endif %}
-            {% if produto.parcial %}
-                <small class="est-parcial" title="Soma parcial: {{ produto.n_ok }} de {{ produto.n_codigos }} Códigos ML deste produto têm número.">parcial</small>
-            {% endif %}
-        </td>
-        <td class="tabela-dados-num est-num">{{ produto.disponivel_txt }}</td>
-        <td class="tabela-dados-num est-num">
-            {{ produto.indisponivel_txt }}
-            {% if produto.pct_indisponivel_txt %}<span class="est-nota">{{ produto.pct_indisponivel_txt }} do total</span>{% endif %}
-            {% if produto.motivos %}
-                <ul class="est-motivos">{% for motivo in produto.motivos %}<li>{{ motivo.texto }}</li>{% endfor %}</ul>
-            {% endif %}
-        </td>
-        <td class="tabela-dados-num est-num">
-            {{ produto.aptas_txt }}
-            {% if produto.a_caminho_txt %}
-                <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
-                    {{ produto.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+            <div class="est-num est-num--destaque">
+                <span class="est-num-rotulo">Total no Full</span>
+                <span class="est-num-valor{% if not produto.total %} est-num-valor--zero{% endif %}">
+                    {% if produto.n_diverge %}
+                        <i class="fas fa-triangle-exclamation est-diverge"
+                           title="Em {{ produto.n_diverge }} Código{{ produto.n_diverge|pluralize }} ML deste produto, o total não bate com disponível + indisponível. Abra a seta para ver qual."
+                           aria-label="Total não bate com disponível mais indisponível em {{ produto.n_diverge }} Código{{ produto.n_diverge|pluralize }} ML"></i>
+                    {% endif %}
+                    {{ produto.total_txt }}
                 </span>
-            {% endif %}
-            {% if produto.aptas_parcial %}<small class="est-parcial" title="Alguns Códigos ML deste produto não têm este número.">parcial</small>{% endif %}
-        </td>
-        <td>
+                {% if produto.parcial %}
+                    <small class="est-parcial" title="Soma parcial: {{ produto.n_ok }} de {{ produto.n_codigos }} Códigos ML deste produto têm número.">parcial</small>
+                {% endif %}
+            </div>
+            <div class="est-num">
+                <span class="est-num-rotulo">Disponível</span>
+                <span class="est-num-valor{% if not produto.disponivel %} est-num-valor--zero{% endif %}">{{ produto.disponivel_txt }}</span>
+            </div>
+            <div class="est-num">
+                <span class="est-num-rotulo">Indisponível</span>
+                <span class="est-num-valor{% if not produto.indisponivel %} est-num-valor--zero{% endif %}">{{ produto.indisponivel_txt }}</span>
+            </div>
+            <div class="est-num">
+                <span class="est-num-rotulo">Aptas e a caminho</span>
+                <span class="est-num-valor{% if not produto.aptas %} est-num-valor--zero{% endif %}">{{ produto.aptas_txt }}</span>
+                {% if produto.a_caminho_txt %}
+                    <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
+                        {{ produto.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+                    </span>
+                {% endif %}
+                {% if produto.aptas_parcial %}<small class="est-parcial" title="Alguns Códigos ML deste produto não têm este número.">parcial</small>{% endif %}
+            </div>
             <div class="est-consulta">
-                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=produto.badge %}
-                {% if produto.status == 'parcial' %}
-                    <small>{{ produto.n_ok }} de {{ produto.n_codigos }} Códigos ML com número</small>
-                {% elif produto.status == 'sem_consulta' %}
-                    <small>Nenhum Código ML consultado</small>
-                {% elif produto.status == 'erro' %}
-                    <small>O Mercado Livre não devolveu o estoque</small>
+                <span class="est-num-rotulo">Consulta</span>
+                {% if produto.status == 'atualizado' %}
+                    {# Tudo em dia: só a idade, sem selo (o selo verde repetido em toda linha só fazia barulho). #}
+                    <small class="est-consulta-idade" title="{% if produto.n_codigos > 1 %}Consulta mais antiga entre os {{ produto.n_codigos }} Códigos ML: {% else %}Consultado em {% endif %}{{ produto.mais_antiga_completa }}">{{ produto.idade_mais_antiga }}</small>
                 {% else %}
-                    <small title="Consulta mais antiga: {{ produto.mais_antiga_completa }}">{% if produto.n_codigos > 1 %}a mais antiga: {% endif %}{{ produto.idade_mais_antiga }}</small>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=produto.badge %}
+                    {% if produto.status == 'parcial' %}
+                        <small>{{ produto.n_ok }} de {{ produto.n_codigos }} Códigos ML com número</small>
+                    {% elif produto.status == 'erro' %}
+                        <small>O Mercado Livre não devolveu o estoque</small>
+                    {% elif produto.status == 'desatualizado' %}
+                        <small title="Consulta mais antiga: {{ produto.mais_antiga_completa }}">{% if produto.n_codigos > 1 %}a mais antiga: {% endif %}{{ produto.idade_mais_antiga }}</small>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="est-corpo"{% if not aberto %} hidden{% endif %}>
+        {% if produto.motivos or produto.url_planejamento %}
+            <div class="est-detalhe-produto">
+                {% if produto.motivos %}
+                    <div class="est-detalhe">
+                        <span class="est-detalhe-rotulo">Motivos do indisponível</span>
+                        <ul class="est-chips">{% for motivo in produto.motivos %}<li class="est-chip">{{ motivo.texto }}</li>{% endfor %}</ul>
+                    </div>
                 {% endif %}
                 {% if produto.url_planejamento %}
                     <a href="{{ produto.url_planejamento }}" class="est-link">Atualizar no Planejamento <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
                 {% endif %}
             </div>
-        </td>
-    </tr>
-    {% for cartao in produto.codigos %}
-        {% include 'gestao_full/parciais/estrutura_parcial_codigo_estoque.html' with cartao=cartao aberto=aberto badge_a_caminho=badge_a_caminho produto_indice=produto.indice posicao=forloop.counter %}
-    {% endfor %}
-</tbody>
+        {% endif %}
+        <ul class="est-codigos">
+            {% for cartao in produto.codigos %}
+                {% include 'gestao_full/parciais/estrutura_parcial_codigo_estoque.html' with cartao=cartao badge_a_caminho=badge_a_caminho produto_indice=produto.indice posicao=forloop.counter %}
+            {% endfor %}
+        </ul>
+    </div>
+</li>

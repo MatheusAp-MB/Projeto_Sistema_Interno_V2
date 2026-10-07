@@ -2,6 +2,7 @@
 {% load static %}
 {% block titulo %}Estoque no Full — Full — Mercado Livre{% endblock %}
 {% block toolbar_titulo %}Full — Estoque no Full{% endblock %}
+{% block body_class %}est-tela{% endblock %}
 {% block head_extra %}
     <link rel="stylesheet"
           href="{% static 'gestao_full/css/layout_full_estoque.css' %}">
@@ -159,33 +160,23 @@
                     </div>
                 </div>
 
-                <div class="tabela-dados-rolagem">
-                    <table class="tabela-dados est-tabela">
-                        <caption class="visually-hidden">Estoque no Full de cada produto, com os Códigos ML que o compõem</caption>
-                        <colgroup>
-                            <col class="est-col-largura-toggle">
-                            <col>
-                            <col class="est-col-largura-num">
-                            <col class="est-col-largura-num">
-                            <col class="est-col-largura-motivos">
-                            <col class="est-col-largura-num">
-                            <col class="est-col-largura-consulta">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th scope="col"><span class="visually-hidden">Abrir</span></th>
-                                <th scope="col" aria-sort="{{ pagina.ordenacao.produto.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.produto rotulo='Produto' %}</th>
-                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.total ordenar=pagina.ordenacao.total destaque=True %}
-                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.disponivel ordenar=pagina.ordenacao.disponivel %}
-                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.indisponivel ordenar=pagina.ordenacao.indisponivel %}
-                                {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.aptas ordenar=pagina.ordenacao.aptas %}
-                                <th scope="col" aria-sort="{{ pagina.ordenacao.consulta.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.consulta rotulo='Consulta' %}</th>
-                            </tr>
-                        </thead>
-                        {% for produto in pagina.produtos %}
-                            {% include 'gestao_full/parciais/estrutura_parcial_produto_estoque.html' with produto=produto aberto=pagina.abrir_sozinho badge_a_caminho=pagina.badge_a_caminho %}
-                        {% endfor %}
-                    </table>
+                <div class="est-rolagem">
+                    <div class="est-lista" aria-label="Estoque no Full de cada produto, com os Códigos ML que o compõem">
+                        <div class="est-colunas">
+                            <span aria-hidden="true"></span>
+                            <div class="est-coluna">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.produto rotulo='Produto' %}</div>
+                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.total ordenar=pagina.ordenacao.total destaque=True %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.disponivel ordenar=pagina.ordenacao.disponivel %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.indisponivel ordenar=pagina.ordenacao.indisponivel %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.aptas ordenar=pagina.ordenacao.aptas %}
+                            <div class="est-coluna">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.consulta rotulo='Consulta' %}</div>
+                        </div>
+                        <ul class="est-blocos">
+                            {% for produto in pagina.produtos %}
+                                {% include 'gestao_full/parciais/estrutura_parcial_produto_estoque.html' with produto=produto aberto=pagina.abrir_sozinho badge_a_caminho=pagina.badge_a_caminho %}
+                            {% endfor %}
+                        </ul>
+                    </div>
                 </div>
 
                 {% if pagina.paginacao.total_paginas > 1 %}
