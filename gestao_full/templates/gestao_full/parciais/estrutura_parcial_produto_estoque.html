@@ -16,7 +16,7 @@
   REDESENHADO no lugar com os números novos (view_full_estoque_atualizar renderiza esta mesma parcial; o JS devolve o bloco ao estado em
   que estava, aberto ou fechado): por isso ele leva o SKU e o índice nos data-attributes, e nada que a pessoa tenha digitado ou escolhido
   pode morar só aqui dentro.
-  Recebe: produto (um item de pagina.produtos), aberto (True = Códigos ML já vêm abertos), badge_a_caminho.
+  Recebe: produto (um item de pagina.produtos), aberto (True = Códigos ML já vêm abertos).
 {% endcomment %}
 <li class="est-bloco est-grupo{% if aberto %} est-bloco--aberto{% endif %}{% if produto.n_erro or produto.n_diverge %} est-bloco--erro{% elif produto.indisponivel %} est-bloco--indisp{% endif %}" id="est-p-{{ produto.indice }}" data-sku="{{ produto.sku }}" data-indice="{{ produto.indice }}">
     <div class="est-bloco-cabeca">
@@ -69,9 +69,7 @@
                 <span class="est-num-rotulo">A caminho</span>
                 <span class="est-num-valor{% if not produto.a_caminho %} est-num-valor--zero{% endif %}">{% if produto.a_caminho %}≈ {% endif %}{{ produto.a_caminho_qtd_txt }}</span>
                 {% if produto.a_caminho %}
-                    <span class="est-a-caminho" title="Hipótese: 'Soma geral' menos 'Total no Full'. Ainda não conferido com a tela do Mercado Livre.">
-                        hipótese {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
-                    </span>
+                    <span class="est-a-caminho" title="Estimativa. O Mercado Livre não informa este número direto: a tela calcula Soma geral − Total no Full ({{ produto.a_caminho_conta_txt }}).{% if produto.aptas_parcial %} Soma só dos Códigos ML que têm esse número.{% endif %} Em produto que vende muito pode variar 1 unidade.">estimativa</span>
                 {% endif %}
             </div>
             <div class="est-num est-num--soma">
@@ -149,7 +147,7 @@
         {% endif %}
         <ul class="est-codigos">
             {% for cartao in produto.codigos %}
-                {% include 'gestao_full/parciais/estrutura_parcial_codigo_estoque.html' with cartao=cartao badge_a_caminho=badge_a_caminho produto_indice=produto.indice posicao=forloop.counter %}
+                {% include 'gestao_full/parciais/estrutura_parcial_codigo_estoque.html' with cartao=cartao produto_indice=produto.indice posicao=forloop.counter %}
             {% endfor %}
         </ul>
     </div>

@@ -269,11 +269,13 @@ html:has(.est-tela) { scroll-padding-top: calc(var(--toolbar-altura, 60px) + 56p
 
 .est-coluna-rotulo { display: block; }
 /* * [EXPLICAÇÃO] → Só o título comprido ("Disponível para venda", classe "est-coluna--quebra" vinda do template) quebra em DUAS linhas, alinhadas à direita
- *                  como os números; os curtos continuam em uma só. O resto da barra segue com "nowrap" (o selo e a seta ficam na mesma linha do título). */
-.est-coluna--quebra .tabela-dados-ordenar span { white-space: normal; text-align: right; line-height: 1.15; }
-.est-coluna-selo { display: inline-flex; font-weight: 400; letter-spacing: 0; cursor: help; }
-/* O ícone do selo não recebe o mouse: quem recebe é a caixa em volta, que carrega o texto completo (o ícone sozinho só diria "Não conferido"). */
-.est-coluna-selo .badge-tabela { padding: 2px 4px; font-size: 0.7rem; pointer-events: none; }
+ *                  como os números; os curtos continuam em uma só. O resto da barra segue com "nowrap" (o selo e a seta ficam na mesma linha do título).
+ *                  "width: min-content" faz a caixa do título ter a largura da palavra mais comprida (o texto vem com "para venda" colado, veja
+ *                  _titulo_da_coluna), então não sobra vazio entre o "?" e as letras. */
+.est-coluna--quebra .tabela-dados-ordenar span { white-space: normal; text-align: right; line-height: 1.15; width: min-content; }
+/* O "?" do título: passar o mouse mostra a explicação do número (o que é, como é calculado, de onde vem). */
+.est-coluna-ajuda { display: inline-flex; font-size: 0.82rem; font-weight: 400; letter-spacing: 0; color: var(--cor-texto-muted); cursor: help; }
+.est-coluna-ajuda:hover { color: var(--cor-primaria); }
 .est-colunas .tabela-dados-ordenar:focus-visible { outline-color: var(--cor-primaria-clara); }
 .est-colunas .tabela-dados-ordenar--ativa { padding-bottom: 2px; border-bottom: 2px solid var(--cor-primaria-clara); }
 
@@ -596,15 +598,17 @@ html:has(.est-tela) { scroll-padding-top: calc(var(--toolbar-altura, 60px) + 56p
     color: #b91c1c;
 }
 
+/* A palavra "estimativa" embaixo do A caminho: discreta, sublinhada pontilhada para mostrar que tem explicação ao passar o mouse. */
 .est-a-caminho {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
+    display: block;
     font-size: 0.74rem;
-    font-weight: 600;
-    color: #92400e;
+    font-weight: 400;
+    color: var(--cor-texto-muted);
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    cursor: help;
 }
+.est-a-caminho--inline { display: inline; margin-left: 4px; }
 
 .est-nota {
     display: block;
@@ -659,7 +663,7 @@ html:has(.est-tela) { scroll-padding-top: calc(var(--toolbar-altura, 60px) + 56p
 /* ================================================
    ONDE ESTÁ O ESTOQUE (os 3 blocos do cartão do Código ML)
    Pronto pra venda no Full | No Flex (depósito do vendedor) | A caminho do Full. Cada bloco diz de onde vem o número: o selo
-   (Hipótese / Não conferido / Conferido) é o mesmo dos outros números da tela.
+   (Não conferido / Conferido; o A caminho leva a palavra "estimativa") é o mesmo dos outros números da tela.
    ================================================ */
 /* * [EXPLICAÇÃO] → Sempre 3 colunas, sem "@media": a lista da tela mantém mais de 1290px de largura (em tela estreita ela rola DENTRO da caixa), então o
  *                  cartão nunca fica mais estreito que isso e os 3 blocos cabem lado a lado. */

@@ -56,7 +56,7 @@ def view_full_estoque(request):
 def view_full_estoque_atualizar(request):
     import traceback
 
-    from gestao_full.funcoes_auxiliares.full_estoque_ml import BADGE_A_CAMINHO, montar_um_produto
+    from gestao_full.funcoes_auxiliares.full_estoque_ml import montar_um_produto
     from gestao_full.funcoes_auxiliares.full_estoque_varredura import CodigoOcupado, consultar_com_trava, varredura_em_andamento
     from gestao_full.funcoes_auxiliares.full_ml import interpretar_codigo
     from api_mercado_livre.core.estrutura_api.excecoes import ErroAutenticacaoAPI
@@ -102,7 +102,7 @@ def view_full_estoque_atualizar(request):
         produto = montar_um_produto(sku, indice)
         if produto is not None:
             resposta['html'] = render_to_string('gestao_full/parciais/estrutura_parcial_produto_estoque.html', {
-                'produto': produto, 'aberto': True, 'badge_a_caminho': BADGE_A_CAMINHO}, request=request)
+                'produto': produto, 'aberto': True}, request=request)
     except Exception:
         traceback.print_exc()
         resposta['mensagem'] += ' Não consegui redesenhar o produto: recarregue a página para ver o número novo.'

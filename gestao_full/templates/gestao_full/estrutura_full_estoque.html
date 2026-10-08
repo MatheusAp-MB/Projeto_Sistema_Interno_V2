@@ -180,7 +180,7 @@
                         </div>
                         <ul class="est-blocos">
                             {% for produto in pagina.produtos %}
-                                {% include 'gestao_full/parciais/estrutura_parcial_produto_estoque.html' with produto=produto aberto=pagina.abrir_sozinho badge_a_caminho=pagina.badge_a_caminho %}
+                                {% include 'gestao_full/parciais/estrutura_parcial_produto_estoque.html' with produto=produto aberto=pagina.abrir_sozinho %}
                             {% endfor %}
                         </ul>
                     </div>

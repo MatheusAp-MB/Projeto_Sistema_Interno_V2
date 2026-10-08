@@ -28,7 +28,7 @@
 #                       Full (exato, vem do ML; o selo diz que ainda não foi conferido com o estoque real);
 #                    3) A CAMINHO DO FULL         = (a) EM TRANSFERÊNCIA: ESTOQUE not_available_detail "transfer" — já está dentro do Total no
 #                       Full, só não pode ser vendida ainda (exato); (b) ENVIADAS E AINDA NÃO RECEBIDAS: "Soma geral" menos "Total no
-#                       Full" (estimativa/hipótese — o ML não manda esse número pronto).
+#                       Full" (estimativa — o ML não manda esse número pronto).
 #                  O depósito é do SKU, não do Código ML nem do produto do vendedor (user_product_id): fisicamente existem X unidades do SKU e o
 #                  ERP manda esse MESMO X para todos os anúncios do SKU, então o ML devolve o mesmo número em cada produto do vendedor (confirmado
 #                  em 08/10/2026: o pulverizador tem 13 produtos do vendedor e todos mostram 27). Por isso a soma conta cada LOJA uma vez só
@@ -92,8 +92,8 @@ ORDENS = (
     ('pct_indisponivel_desc', 'Maior % indisponível do total', 'Estoque'),
     ('soma_desc', 'Soma geral — maior primeiro', GRUPO_REPOSICAO),
     ('soma_asc', 'Soma geral — menor primeiro', GRUPO_REPOSICAO),
-    ('a_caminho_desc', 'A caminho — maior primeiro (hipótese)', GRUPO_REPOSICAO),
-    ('a_caminho_asc', 'A caminho — menor primeiro (hipótese)', GRUPO_REPOSICAO),
+    ('a_caminho_desc', 'A caminho — maior primeiro (estimativa)', GRUPO_REPOSICAO),
+    ('a_caminho_asc', 'A caminho — menor primeiro (estimativa)', GRUPO_REPOSICAO),
     ('titulo', 'Título (A–Z)', 'Produto'),
     ('titulo_desc', 'Título (Z–A)', 'Produto'),
     ('sku', 'SKU (A–Z)', 'Produto'),
@@ -121,8 +121,8 @@ ORDEM_DAS_COLUNAS = {
 }
 
 # Os números que vêm direto do Mercado Livre: (chave, fonte, caminho do campo, rótulo). O selo de conferência de cada um vem do registro
-# que a equipe preenche na ficha de debug (o mesmo das telas de Planejamento). A "Soma geral" é o número que o Mercado Livre chama de "aptas e a
-# caminho" (REPOS stock.total_stock): a tela a mostra inteira e separa a parte "A caminho" na coluna ao lado (veja COLUNA_A_CAMINHO).
+# que a equipe preenche na ficha de debug (o mesmo das telas de Planejamento); a tela do usuário não o mostra (veja AJUDA_DAS_COLUNAS). A "Soma geral" é o
+# número que o Mercado Livre chama de "aptas e a caminho" (REPOS stock.total_stock): a tela a mostra inteira e separa a parte "A caminho" na coluna ao lado.
 COLUNAS_FONTE = (
     ('total', 'ESTOQUE', 'total', 'Total no Full'),
     ('disponivel', 'ESTOQUE', 'available_quantity', 'Disponível para venda'),
@@ -130,18 +130,60 @@ COLUNAS_FONTE = (
     ('soma', 'REPOS', 'stock.total_stock', 'Soma geral'),
 )
 
-BADGE_A_CAMINHO = BADGES_CONFERENCIA_FULL['hipotese']
-
-# * [EXPLICAÇÃO] → "A caminho" NÃO vem do Mercado Livre: é a conta da tela (Soma geral menos Total no Full). Por isso a coluna não tem campo de
-#                  API nem registro de conferência: o selo dela é sempre "Hipótese", até a equipe conferir com os envios abertos do Mercado Livre.
-COLUNA_A_CAMINHO = {
-    'rotulo': 'A caminho',
-    'meta': {
-        'fonte': 'conta da tela', 'caminho': 'Soma geral − Total no Full',
-        'selo': {'badge': BADGE_A_CAMINHO,
-                 'dica': 'Hipótese: o Mercado Livre não informa este número; a tela calcula Soma geral menos Total no Full. Ainda não foi conferido com os envios abertos.'},
+# * [EXPLICAÇÃO] → A dica "?" do título de cada coluna diz 3 coisas, em linguagem de quem usa a tela: o que o número é, como a conta foi feita e de onde
+#                  ele vem. O selo de conferência da equipe e o nome do campo da API NÃO aparecem para o usuário. "A caminho" não vem do Mercado Livre
+#                  (é a conta da tela: Soma geral menos Total no Full), por isso a dica diz com todas as letras que é uma ESTIMATIVA.
+AJUDA_DAS_COLUNAS = {
+    'total': {
+        'o_que_e': 'Tudo o que está fisicamente no estoque do Full neste Código ML.',
+        'como': 'Não é calculado aqui: o Mercado Livre informa este número. Ele sempre fecha com Disponível para venda + Indisponível.',
+        'origem': 'Informado pelo Mercado Livre.',
+    },
+    'disponivel': {
+        'o_que_e': 'A parte do total que o Mercado Livre pode vender agora.',
+        'como': 'Não é calculado aqui: é o número que o Mercado Livre informa.',
+        'origem': 'Informado pelo Mercado Livre.',
+    },
+    'indisponivel': {
+        'o_que_e': 'A parte do total que está no Full mas não pode ser vendida agora (em transferência, perdida, danificada, sem cobertura fiscal...). '
+                   'O motivo aparece embaixo do número.',
+        'como': 'Não é calculado aqui: o Mercado Livre informa este número. Ele equivale a Total no Full − Disponível para venda.',
+        'origem': 'Informado pelo Mercado Livre.',
+    },
+    'a_caminho': {
+        'o_que_e': 'Unidades que você já enviou e que o Full ainda não recebeu. É uma estimativa.',
+        'como': 'O Mercado Livre não informa este número direto. A tela calcula Soma geral − Total no Full. Em produto que vende muito pode variar '
+                '1 unidade, porque os dois números vêm de consultas separadas ao Mercado Livre.',
+        'origem': 'Calculado pela tela, a partir de dois números do Mercado Livre.',
+    },
+    'soma': {
+        'o_que_e': 'Tudo o que é seu no Full ou está a caminho dele. O Mercado Livre chama este número de "aptas e a caminho".',
+        'como': 'Não é calculado aqui: é o número que o Mercado Livre informa na consulta de reposição. Ele equivale a Total no Full + A caminho '
+                '(a conta aparece embaixo do número). Se vier menor que o Total no Full, A caminho e Soma geral ficam com "—" e o cartão do Código explica.',
+        'origem': 'Informado pelo Mercado Livre (consulta de reposição).',
     },
 }
+
+
+# * [EXPLICAÇÃO] → Título comprido do cabeçalho (mais de 16 letras, "Disponível para venda") quebra em DUAS linhas. Para a quebra cair sempre entre
+#                  "Disponível" e "para venda", as duas últimas palavras ficam coladas por um espaço que não quebra. Assim a caixa do título tem a largura
+#                  exata do texto e o "?" fica colado nele (sem esse cuidado sobrava um vazio e o "?" parecia pertencer à coluna do lado).
+LIMITE_TITULO_UMA_LINHA = 16
+
+
+# Função Objetivo: O título de uma coluna para o cabeçalho: o texto, se ele quebra em duas linhas e o texto já preparado para essa quebra.
+def _titulo_da_coluna(rotulo):
+    quebra = len(rotulo) > LIMITE_TITULO_UMA_LINHA
+    palavras = rotulo.split(' ')
+    cabecalho = ' '.join(palavras[:-2] + ['\u00a0'.join(palavras[-2:])]) if quebra and len(palavras) > 2 else rotulo
+    return {'rotulo': rotulo, 'quebra': quebra, 'rotulo_cabecalho': cabecalho}
+
+
+# Função Objetivo: A ajuda de uma coluna já montada: as 3 partes e o texto único que vai na dica "?" (uma parte por linha).
+def _ajuda_da_coluna(chave):
+    ajuda = AJUDA_DAS_COLUNAS[chave]
+    return {**ajuda, 'texto': f"O que é: {ajuda['o_que_e']}\nComo é calculado: {ajuda['como']}\nDe onde vem: {ajuda['origem']}"}
+
 
 # * [EXPLICAÇÃO] → Selos dos números NOVOS do cartão do Código ML. Eles não vêm do registro da ficha (lá ainda não existem campos do Flex),
 #                  então ficam aqui, num só lugar. Quando a equipe conferir o número com a realidade, troque 'a_validar' por 'valido' e o
@@ -480,9 +522,9 @@ def _numeros_do_codigo(codigo, consulta, agora, repos_erro=''):
         'codigo': codigo, 'estado': 'sem_consulta', 'erro': '', 'repos_erro': '', 'consultado_em': None, 'idade': '', 'consultado_completo': '',
         'desatualizado': False, 'total': None, 'disponivel': None, 'indisponivel': None, 'motivos': [], 'conferencia': None,
         'aptas': None, 'aptas_txt': '—', 'a_caminho': None, 'a_caminho_txt': '', 'a_caminho_qtd_txt': '—', 'aptas_nota': '', 'pct_indisponivel_txt': '',
-        'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '',
+        'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'a_caminho_conta_txt': '',
         'em_transferencia': None, 'em_transferencia_txt': '—',
-        'selo_deposito': SELO_DEPOSITO_FLEX, 'selo_em_transferencia': SELO_EM_TRANSFERENCIA, 'selo_a_caminho': BADGE_A_CAMINHO,
+        'selo_deposito': SELO_DEPOSITO_FLEX, 'selo_em_transferencia': SELO_EM_TRANSFERENCIA,
         'tem_locais': False,
         **_flex_do_codigo(None, None),
     }
@@ -534,7 +576,7 @@ def _numeros_do_codigo(codigo, consulta, agora, repos_erro=''):
 # aviso e deixo para o Planejamento. "perdidas" e "nao_suportadas" são as quantidades desses 2 motivos do indisponível do próprio Código.
 def _aptas_do_codigo(reposicao, total, perdidas=0, nao_suportadas=0):
     sem_numero = {'aptas': None, 'aptas_txt': '—', 'a_caminho': None, 'a_caminho_txt': '', 'a_caminho_qtd_txt': '—',
-                  'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'aptas_nota': ''}
+                  'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'a_caminho_conta_txt': '', 'aptas_nota': ''}
     valores = []
     for pacote in (reposicao or {}).values():
         dados = (pacote or {}).get('dados')
@@ -551,7 +593,8 @@ def _aptas_do_codigo(reposicao, total, perdidas=0, nao_suportadas=0):
         if aptas >= total:
             a_caminho = aptas - total
             resultado.update({'a_caminho': a_caminho, 'a_caminho_txt': f'+{_n(a_caminho)}' if a_caminho else '', 'a_caminho_qtd_txt': _n(a_caminho),
-                              'soma_geral': aptas, 'soma_geral_txt': _n(aptas), 'soma_conta_txt': f'{_n(total)} + {_n(a_caminho)}'})
+                              'soma_geral': aptas, 'soma_geral_txt': _n(aptas), 'soma_conta_txt': f'{_n(total)} + {_n(a_caminho)}',
+                              'a_caminho_conta_txt': f'{_n(aptas)} − {_n(total)} = {_n(a_caminho)}'})
         else:
             resultado['aptas_nota'] = _nota_aptas_menor_que_total(aptas, total, perdidas, nao_suportadas)
     return resultado
@@ -611,7 +654,8 @@ def _preencher_aptas(produtos, ultimas):
             a_caminho = sum(c['a_caminho'] for c in com_soma)
             produto.update({'soma_geral': sum(c['soma_geral'] for c in com_soma), 'a_caminho': a_caminho,
                             'a_caminho_txt': f'+{_n(a_caminho)}' if a_caminho else '', 'a_caminho_qtd_txt': _n(a_caminho),
-                            'soma_conta_txt': f'{_n(total_deles)} + {_n(a_caminho)}'})
+                            'soma_conta_txt': f'{_n(total_deles)} + {_n(a_caminho)}',
+                            'a_caminho_conta_txt': f"{_n(sum(c['soma_geral'] for c in com_soma))} − {_n(total_deles)} = {_n(a_caminho)}"})
             produto['soma_geral_txt'] = _n(produto['soma_geral'])
         produto['aptas_parcial'] = bool(com_soma) and len(com_soma) < produto['n_codigos']
         # Soma do depósito do produto: o depósito é do SKU (o ERP manda o mesmo estoque para todos os anúncios), então cada LOJA entra UMA vez só, mesmo que
@@ -749,10 +793,10 @@ def _montar_produto(sku, codigos_do_sku, cadastro, ultimas, produtos_do_codigo, 
         'total': total, 'disponivel': disponivel, 'indisponivel': indisponivel,
         'total_txt': _n(total), 'disponivel_txt': _n(disponivel), 'indisponivel_txt': _n(indisponivel),
         'parcial': bool(ok) and len(ok) < len(cartoes), 'motivos': _somar_motivos(cartoes),
-        'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'a_caminho': None, 'a_caminho_txt': '', 'a_caminho_qtd_txt': '—', 'aptas_parcial': False,
+        'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'a_caminho_conta_txt': '', 'a_caminho': None, 'a_caminho_txt': '', 'a_caminho_qtd_txt': '—', 'aptas_parcial': False,
         'em_transferencia': em_transferencia, 'em_transferencia_txt': _n(em_transferencia),
         'deposito': None, 'deposito_txt': '—', 'deposito_parcial': False, 'deposito_repetido': False, 'deposito_aviso': '',
-        'selo_deposito': SELO_DEPOSITO_FLEX, 'selo_em_transferencia': SELO_EM_TRANSFERENCIA, 'selo_a_caminho': BADGE_A_CAMINHO,
+        'selo_deposito': SELO_DEPOSITO_FLEX, 'selo_em_transferencia': SELO_EM_TRANSFERENCIA,
         'pct_indisponivel': pct_indisponivel, 'pct_indisponivel_txt': _pct_txt(pct_indisponivel),
         'marca': marca, 'marca_chave': _normalizar(marca),
         'n_compartilhados': sum(1 for c in cartoes if c['compartilhado_com']),
@@ -1083,9 +1127,10 @@ def montar_estoque(parametros, validacoes, rotulos_situacao):
     for posicao, produto in enumerate(produtos_da_pagina, start=1):
         produto['indice'] = (pagina.number - 1) * por_pagina + posicao
 
-    colunas = {chave: {'rotulo': rotulo, 'meta': _meta_do_campo(fonte, caminho, validacoes, rotulos_situacao)}
+    # O "meta" (selo de conferência da equipe, campo da API) continua montado, mas a tela do usuário só mostra a "ajuda" (veja AJUDA_DAS_COLUNAS).
+    colunas = {chave: {**_titulo_da_coluna(rotulo), 'meta': _meta_do_campo(fonte, caminho, validacoes, rotulos_situacao), 'ajuda': _ajuda_da_coluna(chave)}
                for chave, fonte, caminho, rotulo in COLUNAS_FONTE}
-    colunas['a_caminho'] = COLUNA_A_CAMINHO
+    colunas['a_caminho'] = {**_titulo_da_coluna('A caminho'), 'ajuda': _ajuda_da_coluna('a_caminho')}
     grupos_ordens = [{'rotulo': grupo['rotulo'], 'ordens': [{'chave': chave, 'rotulo': rotulo, 'ativo': chave == ordem, 'url': _url(estado, ordem=chave)}
                                                             for chave, rotulo, _ in grupo['itens']]}
                      for grupo in _agrupar(ORDENS, lambda item: item[2])]
@@ -1107,7 +1152,7 @@ def montar_estoque(parametros, validacoes, rotulos_situacao):
         'opcoes_por_pagina': [{'valor': n, 'rotulo': f'{n} por página', 'ativo': n == por_pagina, 'url': _url(estado, por_pagina=n)}
                               for n in OPCOES_POR_PAGINA],
         'ordenacao': _ordenacao_das_colunas(estado, ordem),
-        'colunas': colunas, 'badge_a_caminho': BADGE_A_CAMINHO,
+        'colunas': colunas,
         'resumo': _resumo(lista), 'varredura': _info_varredura(produtos, agora), 'produtos': produtos_da_pagina,
         'abrir_sozinho': bool(texto) and len(lista) <= LIMITE_PARA_ABRIR_SOZINHO,
         'sem_codigos_no_banco': not por_sku,

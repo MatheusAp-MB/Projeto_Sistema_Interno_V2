@@ -74,9 +74,7 @@
             <span class="est-num-rotulo">A caminho</span>
             <span class="est-num-valor">{% if cartao.a_caminho %}≈ {% endif %}{{ cartao.a_caminho_qtd_txt }}</span>
             {% if cartao.a_caminho %}
-                <span class="est-a-caminho" title="Hipótese: 'Soma geral' menos 'Total no Full'. Ainda não conferido com a tela do Mercado Livre.">
-                    hipótese {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
-                </span>
+                <span class="est-a-caminho" title="Estimativa. O Mercado Livre não informa este número direto: a tela calcula Soma geral − Total no Full ({{ cartao.a_caminho_conta_txt }}). Em produto que vende muito pode variar 1 unidade.">estimativa</span>
             {% endif %}
         </div>
         <div class="est-num est-num--soma">
@@ -171,10 +169,10 @@
                         </li>
                         <li class="est-local-item">
                             <span class="est-local-item-valor{% if not cartao.a_caminho %} est-local-valor--zero{% endif %}">{% if cartao.a_caminho is not None %}{% if cartao.a_caminho %}≈ {% endif %}{{ cartao.a_caminho_qtd_txt }}{% else %}—{% endif %}</span>
-                            <span class="est-local-item-titulo">enviadas e ainda não recebidas {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.selo_a_caminho %}</span>
+                            <span class="est-local-item-titulo">enviadas e ainda não recebidas <span class="est-a-caminho est-a-caminho--inline">estimativa</span></span>
                             <span class="est-local-item-texto">
                                 {% if cartao.a_caminho is not None %}
-                                    Estimativa: "Soma geral" ({{ cartao.soma_geral_txt }}, a reposição que o Mercado Livre informa) menos "Total no Full" ({{ cartao.total_txt }}). O Mercado Livre não manda este número pronto.
+                                    O Mercado Livre não informa este número direto, então a tela estima: "Soma geral" ({{ cartao.soma_geral_txt }}, a reposição que o Mercado Livre informa) menos "Total no Full" ({{ cartao.total_txt }}) = {{ cartao.a_caminho_qtd_txt }}. Em produto que vende muito pode variar 1 unidade, porque os dois números vêm de consultas separadas.
                                 {% elif cartao.repos_erro %}
                                     Sem como estimar: a consulta de reposição falhou (veja o aviso no alto do cartão).
                                 {% elif cartao.aptas is None %}
