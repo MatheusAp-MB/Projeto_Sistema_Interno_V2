@@ -621,6 +621,22 @@ def _nota_aptas_menor_que_total(aptas, total, perdidas, nao_suportadas):
     return texto + f'{explicacao} Vale conferir com a tela do Mercado Livre, ou usar o Atualizar para ler os dois números de novo.'
 
 
+# Função Objetivo: Por que um Código ML ficou de fora da "Soma geral" / "A caminho" do produto, em poucas palavras (vai no balão da linha do produto; o cartão
+# do Código tem o aviso completo).
+def _motivo_sem_soma(cartao):
+    if cartao['estado'] == 'sem_consulta':
+        return 'ainda sem consulta'
+    if cartao['estado'] == 'erro':
+        return 'a consulta do estoque deu erro'
+    if cartao['repos_erro']:
+        return 'a consulta de reposição deu erro'
+    if cartao.get('aptas') is not None:
+        return 'a reposição veio menor que o Total no Full'
+    if 'valores diferentes' in (cartao.get('aptas_nota') or ''):
+        return 'o Mercado Livre devolveu valores diferentes'
+    return 'sem consulta de reposição salva'
+
+
 # Função Objetivo: Preenche, só dos Códigos dos produtos que aparecem na página (a reposição e o Flex são a parte pesada da consulta; para os
 # milhares de Códigos da lista inteira eles não são lidos): "Aptas e a caminho" (REPOS) e o estoque no depósito do vendedor (FLEX). A reposição só
 # entra para Código com estoque (estado "ok"); o Flex entra também para Código cujo estoque falhou — o depósito pode ter número mesmo assim.
@@ -658,6 +674,14 @@ def _preencher_aptas(produtos, ultimas):
                             'a_caminho_conta_txt': f"{_n(sum(c['soma_geral'] for c in com_soma))} − {_n(total_deles)} = {_n(a_caminho)}"})
             produto['soma_geral_txt'] = _n(produto['soma_geral'])
         produto['aptas_parcial'] = bool(com_soma) and len(com_soma) < produto['n_codigos']
+        # Balão da conta "185 + 961": com Código de fora, diz a conta só dos que entraram e QUAIS ficaram de fora (senão o Total do produto, que é maior,
+        # parece não bater com a conta mostrada).
+        if produto['aptas_parcial']:
+            produto['soma_fora_txt'] = '; '.join(f"{c['codigo']} ({_motivo_sem_soma(c)})" for c in produto['codigos'] if c['soma_geral'] is None)
+        if com_soma:
+            conta = f"Total no Full {_n(total_deles)} + A caminho {_n(a_caminho)} = Soma geral {produto['soma_geral_txt']}"
+            produto['soma_conta_dica'] = (f"Soma só dos Códigos ML que têm este número: {conta}. Ficaram de fora (por isso o Total do produto, na outra coluna, "
+                                          f"pode ser maior): {produto['soma_fora_txt']}." if produto['aptas_parcial'] else f'{conta}.')
         # Soma do depósito do produto: o depósito é do SKU (o ERP manda o mesmo estoque para todos os anúncios), então cada LOJA entra UMA vez só, mesmo que
         # apareça nos 3 Códigos ML do produto. Se a mesma loja trouxer quantidades diferentes, vale a maior e o aviso diz isso.
         valores_da_loja, rotulos_da_loja, em_quantos_codigos = {}, {}, {}
@@ -793,7 +817,7 @@ def _montar_produto(sku, codigos_do_sku, cadastro, ultimas, produtos_do_codigo, 
         'total': total, 'disponivel': disponivel, 'indisponivel': indisponivel,
         'total_txt': _n(total), 'disponivel_txt': _n(disponivel), 'indisponivel_txt': _n(indisponivel),
         'parcial': bool(ok) and len(ok) < len(cartoes), 'motivos': _somar_motivos(cartoes),
-        'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'a_caminho_conta_txt': '', 'a_caminho': None, 'a_caminho_txt': '', 'a_caminho_qtd_txt': '—', 'aptas_parcial': False,
+        'soma_geral': None, 'soma_geral_txt': '—', 'soma_conta_txt': '', 'a_caminho_conta_txt': '', 'a_caminho': None, 'a_caminho_txt': '', 'a_caminho_qtd_txt': '—', 'aptas_parcial': False, 'soma_fora_txt': '', 'soma_conta_dica': '',
         'em_transferencia': em_transferencia, 'em_transferencia_txt': _n(em_transferencia),
         'deposito': None, 'deposito_txt': '—', 'deposito_parcial': False, 'deposito_repetido': False, 'deposito_aviso': '',
         'selo_deposito': SELO_DEPOSITO_FLEX, 'selo_em_transferencia': SELO_EM_TRANSFERENCIA,

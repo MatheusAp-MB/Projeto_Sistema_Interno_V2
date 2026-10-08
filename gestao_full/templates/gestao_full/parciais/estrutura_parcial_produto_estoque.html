@@ -69,13 +69,13 @@
                 <span class="est-num-rotulo">A caminho</span>
                 <span class="est-num-valor{% if not produto.a_caminho %} est-num-valor--zero{% endif %}">{% if produto.a_caminho %}≈ {% endif %}{{ produto.a_caminho_qtd_txt }}</span>
                 {% if produto.a_caminho %}
-                    <span class="est-a-caminho" title="Estimativa. O Mercado Livre não informa este número direto: a tela calcula Soma geral − Total no Full ({{ produto.a_caminho_conta_txt }}).{% if produto.aptas_parcial %} Soma só dos Códigos ML que têm esse número.{% endif %} Em produto que vende muito pode variar 1 unidade.">estimativa</span>
+                    <span class="est-a-caminho" title="Estimativa. O Mercado Livre não informa este número direto: a tela calcula Soma geral − Total no Full ({{ produto.a_caminho_conta_txt }}).{% if produto.aptas_parcial %} Soma só dos Códigos ML que têm esse número. Ficaram de fora: {{ produto.soma_fora_txt }}.{% endif %} Em produto que vende muito pode variar 1 unidade.">estimativa</span>
                 {% endif %}
             </div>
             <div class="est-num est-num--soma">
                 <span class="est-num-rotulo">Soma geral</span>
                 <span class="est-num-valor{% if not produto.soma_geral %} est-num-valor--zero{% endif %}">{{ produto.soma_geral_txt }}</span>
-                {% if produto.soma_conta_txt %}<span class="est-nota" title="Total no Full + A caminho = Soma geral">{{ produto.soma_conta_txt }}</span>{% endif %}
+                {% if produto.soma_conta_txt %}<span class="est-nota" title="{{ produto.soma_conta_dica }}">{{ produto.soma_conta_txt }}</span>{% endif %}
                 {% if produto.n_repos_erro %}
                     {# Reposição que falhou explica o número que falta melhor que "parcial": vem no lugar dele. #}
                     <small class="est-parcial est-parcial--erro"
@@ -83,7 +83,7 @@
                         <i class="fas fa-triangle-exclamation" aria-hidden="true"></i> com erro
                     </small>
                 {% elif produto.aptas_parcial %}
-                    <small class="est-parcial" title="Alguns Códigos ML deste produto não têm este número (A caminho e Soma geral).">parcial</small>
+                    <small class="est-parcial" title="A Soma geral e o A caminho do produto somam só os Códigos ML que têm esse número. Ficaram de fora: {{ produto.soma_fora_txt }}. Abra a seta para ver o motivo no cartão de cada Código.">parcial</small>
                 {% endif %}
             </div>
             <div class="est-consulta">
