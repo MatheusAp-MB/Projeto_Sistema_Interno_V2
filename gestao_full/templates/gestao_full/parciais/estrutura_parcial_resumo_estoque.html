@@ -1,0 +1,66 @@
+{% comment %}
+* [RESUMO] → A FAIXA DE TOTAIS da tela "Estoque no Full" (o "Total no Full" em destaque, os números que o explicam e, no canto, o botão
+  "Fazer varredura completa" com o resumo de quando a coisa foi consultada). É uma parcial porque a tela a REDESENHA no lugar depois de um
+  botão "Atualizar" (o topo soma a lista inteira, então muda quando um Código muda). Não tem nada que dependa de estado do navegador:
+  o JS só precisa trocar a faixa inteira pela nova.
+  Recebe: pagina (com resumo, filtrada e varredura).
+{% endcomment %}
+<section class="est-resumo" id="est-resumo" aria-label="Totais da lista">
+    <div class="est-resumo-linha">
+        <div class="est-resumo-destaque">
+            <p class="est-resumo-rotulo">Total no Full</p>
+            <p class="est-resumo-valor">
+                <span class="est-resumo-numero">{{ pagina.resumo.total_txt }}</span>
+                <span class="est-resumo-sub">unidades · {% if pagina.filtrada %}lista filtrada{% else %}todos os produtos{% endif %}</span>
+            </p>
+        </div>
+        <dl class="est-resumo-lado">
+            <div class="est-resumo-item{% if pagina.resumo.tem_disponivel %} est-resumo-item--bom{% endif %}">
+                <dt>Disponível para venda</dt>
+                <dd>{{ pagina.resumo.disponivel_txt }}</dd>
+            </div>
+            <div class="est-resumo-item{% if pagina.resumo.tem_indisponivel %} est-resumo-item--atencao{% endif %}">
+                <dt>Indisponível</dt>
+                <dd>{{ pagina.resumo.indisponivel_txt }}</dd>
+            </div>
+            <div class="est-resumo-item">
+                <dt>Produtos</dt>
+                <dd>{{ pagina.resumo.n_produtos }}</dd>
+            </div>
+            <div class="est-resumo-item">
+                <dt>Códigos ML com número</dt>
+                <dd>{{ pagina.resumo.n_ok }} <span class="est-resumo-de">de {{ pagina.resumo.n_codigos }}</span></dd>
+            </div>
+        </dl>
+        <div class="est-resumo-varredura">
+            <button type="button" class="est-btn est-btn--varredura" id="est-btn-varredura"
+                    data-bs-toggle="modal" data-bs-target="#est-modal-varredura"
+                    title="Consulta no Mercado Livre todos os Códigos ML da empresa, um por vez, e guarda o resultado">
+                <i class="fas fa-satellite-dish" aria-hidden="true"></i> Fazer varredura completa
+            </button>
+            <p class="est-resumo-varredura-info">
+                <span>
+                    {% if pagina.varredura.mais_antiga_idade %}
+                        Consulta mais antiga: <strong title="{{ pagina.varredura.mais_antiga_completa }}">{{ pagina.varredura.mais_antiga_idade }}</strong>
+                    {% else %}
+                        Nenhum Código ML foi consultado ainda
+                    {% endif %}
+                </span>
+                {% if pagina.varredura.n_sem_numero %}
+                    <span title="Conta a empresa toda, não só a lista que está na tela">{{ pagina.varredura.n_sem_numero }} {% if pagina.varredura.n_sem_numero == 1 %}Código ML sem número{% else %}Códigos ML sem número{% endif %}</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    {% if pagina.resumo.n_sem_numero %}
+        <p class="est-resumo-nota">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            <span>
+                <strong>Total parcial:</strong> só soma o que já foi consultado.
+                {{ pagina.resumo.n_sem_numero }} Código{{ pagina.resumo.n_sem_numero|pluralize }} ML
+                {% if pagina.resumo.n_sem_numero == 1 %}ainda não tem{% else %}ainda não têm{% endif %} número (nunca consultado ou o Mercado Livre não respondeu).
+                Use o <strong>Atualizar</strong> do produto (ou do Código ML), ou faça a varredura completa.
+            </span>
+        </p>
+    {% endif %}
+</section>

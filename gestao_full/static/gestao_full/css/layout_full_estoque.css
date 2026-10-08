@@ -16,13 +16,17 @@
 }
 
 /* * [EXPLICAÇÃO] → Para a barra de colunas FICAR FIXA ao rolar (position: sticky), nenhuma caixa entre ela e a janela pode ter
- *                  "overflow" que crie rolagem própria. No layout global duas têm: ".main-wrapper" (overflow: hidden) e ".conteudo-principal"
- *                  (overflow: auto) — por isso até a barra de título do sistema, que foi pensada para ficar fixa, rola junto com a página.
- *                  "overflow: clip" corta o excesso do mesmo jeito, mas NÃO cria rolagem. Só esta tela (classe "est-tela" no body) muda; a
- *                  barra de título continua rolando como nas outras telas. */
-.est-tela .main-wrapper,
+ *                  "overflow" que crie rolagem própria. No layout global duas têm: ".main-wrapper" (já corrigida lá, com "overflow: clip",
+ *                  que é o que mantém a barra de título e o botão ☰ fixos em todas as telas) e ".conteudo-principal" (overflow: auto, que
+ *                  também serve para a rolagem para o lado em telas com tabela larga). "overflow: clip" corta o excesso do mesmo jeito, mas
+ *                  NÃO cria rolagem. Só esta tela (classe "est-tela" no body) muda a ".conteudo-principal"; as outras continuam como estão.
+ *                  A barra de colunas fica logo abaixo da barra de título, que tem 60px ("--toolbar-altura"): veja "top" mais adiante. */
 .est-tela .conteudo-principal { overflow: clip; }
-.est-tela .toolbar { position: static; }
+
+/* * [EXPLICAÇÃO] → O layout global já deixa 60px livres no alto (a barra de título) quando o navegador rola até um item pelo teclado ou
+ *                  por link interno. Aqui, com a barra de colunas também fixa (39px), soma-se o espaço dela. Precisa estar no <html>
+ *                  (é ele quem rola), por isso o ":has". */
+html:has(.est-tela) { scroll-padding-top: calc(var(--toolbar-altura, 60px) + 56px); }
 
 /* "hidden" precisa ganhar de qualquer display que as linhas desta tela tenham. */
 .est-pagina [hidden] { display: none !important; }
@@ -77,8 +81,8 @@
     justify-content: center;
     gap: 2px;
     padding: 10px 22px;
-    background: #eef4fa;
-    border-right: 1px solid var(--cor-borda);
+    background: #e1edf8;
+    border-right: 1px solid #c3d6e9;
     color: var(--cor-primaria);
 }
 
@@ -98,8 +102,8 @@
 }
 
 .est-resumo-numero {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: 2.2rem;
+    font-weight: 600;
     line-height: 1.1;
     font-variant-numeric: tabular-nums;
     color: var(--cor-primaria);
@@ -118,7 +122,7 @@
 .est-resumo-lado {
     flex: 1 1 380px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
     gap: 1px;
     margin: 0;
     background: var(--cor-borda);
@@ -143,12 +147,16 @@
 
 .est-resumo-item dd {
     margin: 0;
-    font-size: 1.35rem;
-    font-weight: 700;
+    font-size: 1.45rem;
+    font-weight: 600;
     line-height: 1.15;
     color: var(--cor-primaria);
     font-variant-numeric: tabular-nums;
 }
+
+/* Mesmo código de cor da lista: verde = disponível, laranja = indisponível (só quando há unidade indisponível). */
+.est-resumo-item--bom dd { color: var(--cor-positivo); }
+.est-resumo-item--atencao dd { color: #b45309; }
 
 .est-resumo-de {
     font-size: 0.85rem;
@@ -212,16 +220,17 @@
  *                  ganha um fundo azulado e, embaixo dela, vêm os motivos do indisponível e um cartão por Código ML.
  *                  Para os números continuarem alinhados em coluna de um bloco para o outro, a barra de colunas, a linha do produto e o
  *                  cartão de cada Código usam as MESMAS larguras de coluna (variáveis abaixo) e o MESMO respiro do lado direito
- *                  (--est-lado + --est-miolo). A lista passa de 1100px de propósito: em tela estreita ela rola DENTRO da caixa, em vez de
+ *                  (--est-lado + --est-miolo). A lista passa de 1290px de propósito: em tela estreita ela rola DENTRO da caixa, em vez de
  *                  espremer os números. */
 .est-rolagem { overflow-x: auto; }
 
 .est-lista {
-    --est-col-numeros: 110px 110px 120px 150px 190px;           /* total | disponível | indisponível | aptas e a caminho | consulta */
-    --est-colunas: 44px minmax(0, 1fr) var(--est-col-numeros);   /* seta | produto | números */
+    --est-col-acao: 112px;                                       /* o botão "Atualizar" do produto (última coluna da linha) */
+    --est-col-numeros: 100px 116px 116px 112px 120px 160px var(--est-col-acao);   /* total | disponível para venda | indisponível | a caminho | soma geral | consulta | atualizar */
+    --est-colunas: 44px minmax(0, 1fr) var(--est-col-numeros);   /* seta | produto | números e botão */
     --est-lado: 20px;     /* respiro entre a borda do bloco e os cartões de Código */
     --est-miolo: 16px;    /* respiro dentro do cartão de Código */
-    min-width: 1120px;
+    min-width: 1296px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -234,10 +243,10 @@
     column-gap: 16px;
     align-items: center;
     padding: 8px calc(var(--est-lado) + var(--est-miolo)) 8px var(--est-lado);
-    background: var(--cor-fundo-card);
-    border: 1px solid var(--cor-borda);
+    background: #dbe7f3;
+    border: 1px solid #b9cde2;
     border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(20, 41, 67, 0.07);
+    box-shadow: 0 2px 6px rgba(20, 41, 67, 0.10);
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.03em;
@@ -259,11 +268,14 @@
 }
 
 .est-coluna-rotulo { display: block; }
+/* * [EXPLICAÇÃO] → Só o título comprido ("Disponível para venda", classe "est-coluna--quebra" vinda do template) quebra em DUAS linhas, alinhadas à direita
+ *                  como os números; os curtos continuam em uma só. O resto da barra segue com "nowrap" (o selo e a seta ficam na mesma linha do título). */
+.est-coluna--quebra .tabela-dados-ordenar span { white-space: normal; text-align: right; line-height: 1.15; }
 .est-coluna-selo { display: inline-flex; font-weight: 400; letter-spacing: 0; cursor: help; }
 /* O ícone do selo não recebe o mouse: quem recebe é a caixa em volta, que carrega o texto completo (o ícone sozinho só diria "Não conferido"). */
 .est-coluna-selo .badge-tabela { padding: 2px 4px; font-size: 0.7rem; pointer-events: none; }
 .est-colunas .tabela-dados-ordenar:focus-visible { outline-color: var(--cor-primaria-clara); }
-.est-coluna--destaque .tabela-dados-ordenar { padding-bottom: 2px; border-bottom: 2px solid var(--cor-primaria-clara); }
+.est-colunas .tabela-dados-ordenar--ativa { padding-bottom: 2px; border-bottom: 2px solid var(--cor-primaria-clara); }
 
 /* ---------- um bloco por produto ---------- */
 .est-blocos {
@@ -304,6 +316,26 @@
     background: #e8f1fa;
     border-bottom: 1px solid #c9dcee;
 }
+
+/* * [EXPLICAÇÃO] → FAIXA LATERAL só nas linhas com EXCEÇÃO: laranja = tem unidade indisponível; vermelha = consulta com erro ou total que não bate.
+ *                  Linha normal fica sem faixa. É um desenho por cima (::before), então não empurra nem desalinha as colunas. O bloco já corta
+ *                  o excesso nos cantos arredondados (overflow: hidden). */
+.est-bloco-cabeca { position: relative; }
+
+.est-bloco--indisp .est-bloco-cabeca::before,
+.est-bloco--erro .est-bloco-cabeca::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 5px;
+    background: var(--cor-alerta);
+}
+
+.est-bloco--erro .est-bloco-cabeca::before { background: var(--cor-negativo); }
+
+.est-bloco:not(.est-bloco--aberto):hover { background: #f8fbfe; }
 
 .est-bloco-topo {
     display: grid;
@@ -369,11 +401,13 @@
     min-width: 0;
 }
 
+/* * [EXPLICAÇÃO] → A fonte do sistema (Open Sans) só carrega os pesos 400 e 600; pedir 700 mostra 600. Por isso o "peso" da tela vem do TAMANHO e da COR:
+ *                  título grande e escuro, SKU/marca pequenos e cinza, Total maior e azul. */
 .est-produto-titulo {
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 1.05rem;
+    font-weight: 600;
     line-height: 1.3;
-    color: var(--cor-primaria-escura);
+    color: #0b2038;
     overflow-wrap: anywhere;
 }
 
@@ -381,7 +415,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 2px 14px;
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     color: var(--cor-texto-muted);
 }
 
@@ -495,6 +529,19 @@
     color: var(--cor-texto-muted);
 }
 
+/* * [EXPLICAÇÃO] → No cartão do Código o nome de cada número fica à mostra e pode ser comprido ("Disponível para venda"): ele quebra em duas linhas, alinhado
+ *                  à direita, e TODOS os nomes reservam a altura de duas linhas — assim os valores ficam na mesma altura de uma coluna para a outra. */
+.est-codigo-topo .est-num-rotulo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    min-height: 2.3em;
+    white-space: normal;
+    text-align: right;
+    line-height: 1.15;
+    text-wrap: balance;
+}
+
 .est-num-valor {
     font-size: 1.15rem;
     font-weight: 700;
@@ -508,8 +555,19 @@
 }
 
 /* Na linha do produto os números são mais discretos que no cartão do Código, e o Total no Full é o único que cresce. */
-.est-bloco-cabeca .est-num-valor { font-size: 1.05rem; font-weight: 600; }
-.est-bloco-cabeca .est-num--destaque .est-num-valor { font-size: 1.4rem; font-weight: 700; }
+.est-bloco-cabeca .est-num-valor { font-size: 1.15rem; font-weight: 600; }
+.est-bloco-cabeca .est-num--destaque .est-num-valor { font-size: 1.7rem; font-weight: 600; }
+
+/* * [EXPLICAÇÃO] → COR COM SIGNIFICADO (tom suave, só no número, nunca num bloco): verde = o que está disponível para vender; laranja = o que está
+ *                  indisponível. Só colore quando o número é maior que zero (a classe "--com-valor" vem do template). Vale igual na linha do
+ *                  produto, no cartão de cada Código ML e na faixa de totais do topo. O vermelho fica só para erro e "total não bate". */
+.est-num--disponivel.est-num--com-valor .est-num-valor { color: var(--cor-positivo); }
+.est-num--indisponivel.est-num--com-valor .est-num-valor { color: #b45309; }
+
+/* * [EXPLICAÇÃO] → A "Soma geral" é a conta que fecha (Total no Full + A caminho): fica no azul-escuro do Total no Full, mas sem o tamanho de destaque. A conta
+ *                  ("185 + 961") vem embaixo, em cinza. Quando não há número ("—") ela cai no cinza claro, como os outros. */
+.est-num--soma .est-num-valor { color: var(--cor-primaria); }
+.est-bloco-cabeca .est-num--soma .est-num-valor--zero { color: #a3adbb; }
 
 /* * [EXPLICAÇÃO] → Zero (ou "—", sem número) fica cinza claro: assim o olho pula direto para os produtos que TÊM estoque. */
 .est-bloco-cabeca .est-num-valor--zero { color: #a3adbb; font-weight: 500; }
@@ -522,6 +580,9 @@
     text-transform: uppercase;
     color: #1d4ed8;
 }
+
+/* A reposição (Aptas e a caminho) falhou em algum Código ML do produto: vermelho, como os outros avisos de erro, no lugar do "parcial". */
+.est-parcial--erro { color: #b91c1c; }
 
 .est-confere {
     margin-left: 4px;
@@ -565,6 +626,9 @@
     gap: 6px 10px;
 }
 
+/* Aviso/nota dentro do bloco "Somando os N Códigos ML": ocupa a linha inteira, embaixo dos chips. */
+.est-detalhe .est-nota { flex: 1 1 100%; }
+
 .est-detalhe-rotulo {
     font-size: 0.66rem;
     font-weight: 700;
@@ -593,6 +657,156 @@
 }
 
 /* ================================================
+   ONDE ESTÁ O ESTOQUE (os 3 blocos do cartão do Código ML)
+   Pronto pra venda no Full | No Flex (depósito do vendedor) | A caminho do Full. Cada bloco diz de onde vem o número: o selo
+   (Hipótese / Não conferido / Conferido) é o mesmo dos outros números da tela.
+   ================================================ */
+/* * [EXPLICAÇÃO] → Sempre 3 colunas, sem "@media": a lista da tela mantém mais de 1290px de largura (em tela estreita ela rola DENTRO da caixa), então o
+ *                  cartão nunca fica mais estreito que isso e os 3 blocos cabem lado a lado. */
+.est-locais {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.est-local {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 12px 14px;
+    background: #f7f9fc;
+    border: 1px solid #e3e8f0;
+    border-radius: 8px;
+}
+
+.est-local-cabeca {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* O ícone de cada bloco tem a cor do assunto: verde = vendável, azul = depósito do vendedor, laranja = ainda não dá pra vender. */
+.est-local-icone {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #e6edf7;
+    color: var(--cor-primaria);
+    font-size: 0.78rem;
+}
+
+.est-local--full .est-local-icone { background: #dcfce7; color: #15803d; }
+.est-local--flex .est-local-icone { background: #dbeafe; color: #1d4ed8; }
+.est-local--caminho .est-local-icone { background: #fef3c7; color: #92400e; }
+
+.est-local-titulo {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #1f2d3d;
+}
+
+.est-local-titulo small {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--cor-texto-muted);
+}
+
+.est-local-valor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #1f2d3d;
+    font-variant-numeric: tabular-nums;
+}
+
+.est-local-valor--bom { color: var(--cor-positivo); }
+.est-local-valor--zero { color: #a3adbb; font-weight: 500; }
+
+.est-local-texto {
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: var(--cor-texto-muted);
+}
+
+/* * [EXPLICAÇÃO] → ".est-pagina .est-local-linhas" (e não só ".est-local-linhas"): a regra geral ".est-pagina ul" zera margem e padding e ganharia. */
+.est-pagina .est-local-linhas {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 6px 0 0;
+    border-top: 1px solid #e3e8f0;
+    list-style: none;
+}
+
+.est-local-linhas li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: #334155;
+}
+
+.est-local-linhas strong { font-variant-numeric: tabular-nums; }
+.est-local-linhas .est-local-inativo { color: #94a3b8; font-style: italic; }
+
+.est-pagina .est-local-itens {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.est-local-item {
+    display: grid;
+    grid-template-columns: minmax(3.4ch, auto) minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: baseline;
+}
+
+.est-local-item-valor {
+    grid-row: 1;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-align: right;
+    color: #1f2d3d;
+    font-variant-numeric: tabular-nums;
+}
+
+.est-local-item-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1f2d3d;
+}
+
+.est-local-item-texto {
+    grid-column: 2;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--cor-texto-muted);
+}
+
+/* ================================================
    ANÚNCIOS DO CÓDIGO ML
    Abrem DENTRO do cartão do Código (botão "N anúncios"); o cartão de cada anúncio é o compartilhado
    (core/static/base_compartilhada/css/layout_cartao_anuncio.css). Aqui só o botão e a caixa que os agrupa.
@@ -615,6 +829,34 @@
 .est-anuncios-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
 .est-anuncios-toggle i { font-size: 0.6rem; transition: transform 0.15s ease; }
 .est-anuncios-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+
+/* ================================================
+   O CABEÇALHO QUE ABRE OS 3 BLOCOS (cartão do Código ML)
+   A setinha redonda fica ao lado do código; ela e um clique na parte vazia do cabeçalho mostram ou escondem os 3 blocos "onde está o
+   estoque" (começam fechados). O visual é o da seta do produto, só menor.
+   ================================================ */
+.est-locais-toggle {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #c3d3e5;
+    border-radius: 50%;
+    background: #f1f5fa;
+    color: var(--cor-primaria);
+    font-size: 0.65rem;
+    cursor: pointer;
+}
+
+.est-locais-toggle:hover, .est-codigo-topo--abre:hover .est-locais-toggle { background: #dfeaf6; }
+.est-locais-toggle:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.est-locais-toggle i { transition: transform 0.15s ease; }
+.est-locais-toggle[aria-expanded="true"] { border-color: var(--cor-primaria-clara); background: var(--cor-primaria-clara); color: var(--cor-texto-claro); }
+.est-locais-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+.est-codigo-topo--abre { cursor: pointer; }
 
 .est-anuncios {
     display: flex;
@@ -644,21 +886,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .est-toggle i, .est-anuncios-toggle i, .est-bloco { transition: none; }
+    .est-toggle i, .est-anuncios-toggle i, .est-locais-toggle i, .est-bloco { transition: none; }
 }
 
 /* ================================================
-   TELA LARGA  (cabe a lista inteira: 1120px)
+   TELA LARGA  (cabe a lista inteira: 1296px)
    ================================================ */
 /* * [EXPLICAÇÃO] → Nesta largura não há rolagem para o lado, então a barra de colunas pode FICAR FIXA no alto enquanto a lista rola
  *                  (por isso o ".est-rolagem" deixa de ser uma caixa de rolagem) e a linha do produto não precisa repetir o nome de cada
  *                  coluna. O nome continua lido por leitores de tela (esconder "visualmente" não é "display: none"). */
-@container est (min-width: 1120px) {
+@container est (min-width: 1296px) {
     .est-rolagem { overflow: visible; }
 
     .est-colunas {
         position: sticky;
-        top: 0;
+        top: var(--toolbar-altura, 60px);   /* logo abaixo da barra de título, que também fica fixa */
         z-index: 20;
     }
 
@@ -672,6 +914,30 @@
         clip-path: inset(50%);
         white-space: nowrap;
     }
+}
+
+/* * [EXPLICAÇÃO] → Abaixo de 1296px a lista rola para o lado e NÃO tem barra de colunas fixa: a linha do produto repete o nome de cada número. Nomes
+ *                  compridos ("Disponível para venda") quebram em duas linhas, como no cartão do Código, e todos reservam a altura de duas linhas
+ *                  para os valores ficarem na mesma altura (senão o nome comprido invade o vizinho). */
+@container est (max-width: 1295px) {
+    .est-bloco-cabeca .est-num .est-num-rotulo {
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-end;
+        min-height: 2.3em;
+        white-space: normal;
+        text-align: right;
+        line-height: 1.15;
+        text-wrap: balance;
+    }
+}
+
+/* * [EXPLICAÇÃO] → Em tela de notebook (lista entre 1296 e 1576px) o botão "Atualizar" do produto vira só o ÍCONE (a coluna cai de 112px para
+ *                  40px). Sem isso o título do produto ficaria espremido, quebrando em 4 ou 5 linhas. O nome continua no "title" (passar o mouse)
+ *                  e no aria-label; em tela larga o texto volta. Só o botão da linha do produto muda: o "Atualizar" do cartão de Código não. */
+@container est (max-width: 1575px) {
+    .est-lista { --est-col-acao: 40px; }
+    .est-col-acao .est-btn-texto { display: none; }
 }
 
 /* ================================================
@@ -791,3 +1057,221 @@
 }
 
 .est-legenda-selos .badge-tabela { flex-shrink: 0; }
+
+/* ================================================
+   BOTÕES DE ATUALIZAÇÃO  (Atualizar · Atualizar produto · Fazer varredura completa)
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → Um botão só, em 3 tamanhos/cores: AZUL CHEIO para a ação grande (varredura completa e confirmar), CONTORNO AZUL para os
+ *                  "Atualizar" (discretos: a lista tem um por Código e não pode virar barulho), e CONTORNO VERMELHO para o "Parar". Enquanto
+ *                  um deles trabalha, o ícone gira (a classe fa-spin é posta pelo JS) e TODOS os de atualizar ficam desabilitados. */
+.est-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 6px;
+    background: var(--cor-fundo-card);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--cor-primaria-clara);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.est-btn:hover { background: #e8f1fa; color: var(--cor-primaria); border-color: var(--cor-primaria); }
+.est-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.est-btn:disabled, .est-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--cor-fundo-card); color: var(--cor-texto-muted); border-color: var(--cor-borda); }
+
+/* O botão que está trabalhando agora: continua legível (não fica "apagado" como os outros, que só estão esperando). */
+.est-btn.est-btn--ocupado:disabled { opacity: 1; cursor: progress; background: #e8f1fa; border-color: var(--cor-primaria-clara); color: var(--cor-primaria); }
+
+/* A última coluna da linha do produto: o "Atualizar" do produto, encostado na borda direita (alinhado com o resto da lista, aberto ou fechado).
+   Fica sempre à vista de propósito: a pessoa atualiza um produto sem abrir. Se o texto "Atualizando…" passar da coluna, cresce para a esquerda. */
+.est-col-acao { display: flex; justify-content: flex-end; align-items: center; }
+
+/* Pequeno: o "Atualizar" de cada cartão de Código ML, na mesma linha do código e do "N anúncios". */
+.est-btn--mini { padding: 2px 9px; font-size: 0.74rem; border-radius: 12px; }
+
+.est-btn--varredura,
+.est-btn--primario {
+    background: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+}
+
+.est-btn--varredura:hover,
+.est-btn--primario:hover { background: var(--cor-primaria); border-color: var(--cor-primaria); color: var(--cor-texto-claro); }
+
+.est-btn--secundario { border-color: var(--cor-borda); color: #243247; }
+.est-btn--parar { border-color: var(--cor-negativo); color: var(--cor-negativo); }
+.est-btn--parar:hover { background: #fdecec; border-color: #b91c1c; color: #b91c1c; }
+
+/* ---------- o canto da faixa de totais: botão da varredura + "consulta mais antiga" ---------- */
+.est-resumo-varredura {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 5px;
+    min-width: 236px;
+    padding: 10px 20px;
+    background: var(--cor-fundo-card);
+    border-left: 1px solid var(--cor-borda);
+}
+
+.est-resumo-varredura-info {
+    font-size: 0.74rem;
+    line-height: 1.35;
+    color: var(--cor-texto-muted);
+}
+
+.est-resumo-varredura-info strong { font-weight: 600; color: #243247; }
+/* Cada informação em sua linha (senão a frase quebra no meio e o canto fica largo, espremendo os números ao lado em telas de 1280px). */
+.est-resumo-varredura-info span { display: block; }
+
+/* ---------- andamento da varredura completa ---------- */
+.est-varredura {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 18px;
+    background: var(--cor-fundo-card);
+    border: 1px solid #b9cde2;
+    border-radius: 10px;
+}
+
+.est-varredura-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+}
+
+.est-varredura-rotulo { font-weight: 600; color: var(--cor-primaria); }
+
+.est-varredura-numeros {
+    flex: 1 1 auto;
+    font-size: 0.85rem;
+    color: var(--cor-texto-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.est-barra {
+    width: 100%;
+    height: 10px;
+    border: 0;
+    border-radius: 5px;
+    background: #e3e9f1;
+    overflow: hidden;
+    appearance: none;
+}
+
+.est-barra::-webkit-progress-bar { background: #e3e9f1; border-radius: 5px; }
+.est-barra::-webkit-progress-value { background: var(--cor-primaria-clara); border-radius: 5px; transition: width 0.4s ease; }
+.est-barra::-moz-progress-bar { background: var(--cor-primaria-clara); border-radius: 5px; }
+
+.est-varredura-dica { font-size: 0.76rem; color: var(--cor-texto-muted); }
+
+/* ---------- resultado da varredura (azul = informa, verde = tudo certo, âmbar = com ressalvas, vermelho = parou) ---------- */
+.est-resultado {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #e8eef7;
+    border: 1px solid #d3deee;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--cor-primaria);
+}
+
+.est-resultado-icone { margin-top: 3px; }
+.est-resultado-corpo { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.est-resultado--ok { background: #e8f5ee; border-color: #bfe3cf; color: #1f6a42; }
+.est-resultado--atencao { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+.est-resultado--erro { background: #fdecec; border-color: #f5c2c2; color: #991b1b; }
+
+.est-resultado-falhas { font-size: 0.8rem; }
+.est-resultado-falhas summary { cursor: pointer; font-weight: 600; }
+.est-resultado-falhas ul { display: flex; flex-direction: column; gap: 2px; margin: 6px 0 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; }
+.est-resultado-falhas li { color: #243247; }
+
+.est-resultado-fechar {
+    padding: 2px 6px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+}
+
+.est-resultado-fechar:hover { opacity: 1; }
+.est-resultado-fechar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* ---------- janela de confirmação ---------- */
+.est-modal-corpo { font-size: 0.9rem; color: #243247; }
+.est-modal-corpo ul { margin: 0 0 12px; padding-left: 1.2rem; }
+.est-modal-nota { margin: 0; font-size: 0.82rem; color: var(--cor-texto-muted); }
+
+/* ---------- aviso flutuante dos botões Atualizar ---------- */
+/* * [EXPLICAÇÃO] → Fixo na parte de baixo da janela: o produto é REDESENHADO depois de atualizar, então um aviso dentro dele sumiria junto. */
+.est-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 1080;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: max-content;
+    max-width: min(760px, calc(100vw - 48px));
+    padding: 10px 12px 10px 14px;
+    background: var(--cor-fundo-card);
+    border: 1px solid #b9cde2;
+    border-left: 5px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(20, 41, 67, 0.22);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #243247;
+}
+
+.est-aviso-icone { margin-top: 3px; color: var(--cor-primaria-clara); }
+.est-aviso-texto { flex: 1 1 auto; min-width: 0; }
+.est-aviso--ok { border-left-color: var(--cor-positivo); }
+.est-aviso--ok .est-aviso-icone { color: var(--cor-positivo); }
+.est-aviso--aviso { border-left-color: var(--cor-alerta); }
+.est-aviso--aviso .est-aviso-icone { color: #b45309; }
+.est-aviso--erro { border-left-color: var(--cor-negativo); }
+.est-aviso--erro .est-aviso-icone { color: var(--cor-negativo); }
+
+.est-aviso-fechar {
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--cor-texto-muted);
+    cursor: pointer;
+}
+
+.est-aviso-fechar:hover { color: #243247; }
+.est-aviso-fechar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* ---------- o produto que acabou de ser redesenhado pisca uma vez, para a pessoa ver onde o número mudou ---------- */
+@keyframes est-piscar {
+    from { box-shadow: 0 0 0 4px rgba(46, 123, 181, 0.5), 0 4px 14px rgba(20, 41, 67, 0.14); }
+    to { box-shadow: 0 0 0 4px rgba(46, 123, 181, 0), 0 4px 14px rgba(20, 41, 67, 0.14); }
+}
+
+.est-bloco--atualizado { animation: est-piscar 1.6s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+    .est-bloco--atualizado { animation: none; }
+    .est-barra::-webkit-progress-value { transition: none; }
+}

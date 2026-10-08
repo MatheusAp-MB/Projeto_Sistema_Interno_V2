@@ -4,12 +4,21 @@
   um fundo azulado e, embaixo dela, aparecem os motivos do indisponível, o link do Planejamento e um cartão por Código ML (as contas que
   fecham o total), com os anúncios de cada Código dentro do cartão (script_full_estoque.js). Os números do produto vêm SÓ de Códigos
   ML que já foram consultados; se algum não foi, o total aparece marcado como "parcial".
+  Os números, da esquerda para a direita: Total no Full | Disponível para venda | Indisponível | A caminho | Soma geral (= Total no Full + A caminho;
+  a conta aparece embaixo, ex.: "185 + 961") | Consulta. "A caminho" é HIPÓTESE (por isso o selo); só mostra número nos Códigos em que o Mercado Livre
+  informou a reposição e ela não veio menor que o Total no Full.
   As colunas da linha têm as mesmas larguras da barra de colunas (que fica fixa no alto ao rolar) e do cartão de cada Código: por isso
   os números ficam alinhados. Em tela larga os nomes das colunas só aparecem nessa barra; em tela estreita (a lista rola para o lado
   e a barra não acompanha) cada número volta a mostrar o próprio nome.
+  O botão "Atualizar" do PRODUTO fica na última coluna da própria linha (consulta no Mercado Livre, um por vez, todos os Códigos ML dele):
+  assim a pessoa atualiza sem precisar abrir o produto, e o botão continua lá com o produto aberto. Embaixo, na barra do produto aberto,
+  ficam só a soma dos Códigos (pronto pra venda, depósito Flex, em transferência e a caminho), os motivos do indisponível e o link para o Planejamento. Depois de qualquer botão "Atualizar" desta tela, este bloco inteiro é
+  REDESENHADO no lugar com os números novos (view_full_estoque_atualizar renderiza esta mesma parcial; o JS devolve o bloco ao estado em
+  que estava, aberto ou fechado): por isso ele leva o SKU e o índice nos data-attributes, e nada que a pessoa tenha digitado ou escolhido
+  pode morar só aqui dentro.
   Recebe: produto (um item de pagina.produtos), aberto (True = Códigos ML já vêm abertos), badge_a_caminho.
 {% endcomment %}
-<li class="est-bloco est-grupo{% if aberto %} est-bloco--aberto{% endif %}" id="est-p-{{ produto.indice }}">
+<li class="est-bloco est-grupo{% if aberto %} est-bloco--aberto{% endif %}{% if produto.n_erro or produto.n_diverge %} est-bloco--erro{% elif produto.indisponivel %} est-bloco--indisp{% endif %}" id="est-p-{{ produto.indice }}" data-sku="{{ produto.sku }}" data-indice="{{ produto.indice }}">
     <div class="est-bloco-cabeca">
         <div class="est-bloco-topo">
             <div class="est-col-toggle">
@@ -48,23 +57,36 @@
                     <small class="est-parcial" title="Soma parcial: {{ produto.n_ok }} de {{ produto.n_codigos }} Códigos ML deste produto têm número.">parcial</small>
                 {% endif %}
             </div>
-            <div class="est-num">
-                <span class="est-num-rotulo">Disponível</span>
+            <div class="est-num est-num--disponivel{% if produto.disponivel %} est-num--com-valor{% endif %}">
+                <span class="est-num-rotulo">Disponível para venda</span>
                 <span class="est-num-valor{% if not produto.disponivel %} est-num-valor--zero{% endif %}">{{ produto.disponivel_txt }}</span>
             </div>
-            <div class="est-num">
+            <div class="est-num est-num--indisponivel{% if produto.indisponivel %} est-num--com-valor{% endif %}">
                 <span class="est-num-rotulo">Indisponível</span>
                 <span class="est-num-valor{% if not produto.indisponivel %} est-num-valor--zero{% endif %}">{{ produto.indisponivel_txt }}</span>
             </div>
-            <div class="est-num">
-                <span class="est-num-rotulo">Aptas e a caminho</span>
-                <span class="est-num-valor{% if not produto.aptas %} est-num-valor--zero{% endif %}">{{ produto.aptas_txt }}</span>
-                {% if produto.a_caminho_txt %}
-                    <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
-                        {{ produto.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+            <div class="est-num est-num--caminho">
+                <span class="est-num-rotulo">A caminho</span>
+                <span class="est-num-valor{% if not produto.a_caminho %} est-num-valor--zero{% endif %}">{% if produto.a_caminho %}≈ {% endif %}{{ produto.a_caminho_qtd_txt }}</span>
+                {% if produto.a_caminho %}
+                    <span class="est-a-caminho" title="Hipótese: 'Soma geral' menos 'Total no Full'. Ainda não conferido com a tela do Mercado Livre.">
+                        hipótese {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
                     </span>
                 {% endif %}
-                {% if produto.aptas_parcial %}<small class="est-parcial" title="Alguns Códigos ML deste produto não têm este número.">parcial</small>{% endif %}
+            </div>
+            <div class="est-num est-num--soma">
+                <span class="est-num-rotulo">Soma geral</span>
+                <span class="est-num-valor{% if not produto.soma_geral %} est-num-valor--zero{% endif %}">{{ produto.soma_geral_txt }}</span>
+                {% if produto.soma_conta_txt %}<span class="est-nota" title="Total no Full + A caminho = Soma geral">{{ produto.soma_conta_txt }}</span>{% endif %}
+                {% if produto.n_repos_erro %}
+                    {# Reposição que falhou explica o número que falta melhor que "parcial": vem no lugar dele. #}
+                    <small class="est-parcial est-parcial--erro"
+                           title="Em {{ produto.n_repos_erro }} Código{{ produto.n_repos_erro|pluralize }} ML deste produto a consulta de reposição falhou, por isso falta este número. Abra a seta para ver qual e o motivo.">
+                        <i class="fas fa-triangle-exclamation" aria-hidden="true"></i> com erro
+                    </small>
+                {% elif produto.aptas_parcial %}
+                    <small class="est-parcial" title="Alguns Códigos ML deste produto não têm este número (A caminho e Soma geral).">parcial</small>
+                {% endif %}
             </div>
             <div class="est-consulta">
                 <span class="est-num-rotulo">Consulta</span>
@@ -82,9 +104,36 @@
                     {% endif %}
                 {% endif %}
             </div>
+            <div class="est-col-acao">
+                <button type="button" class="est-btn est-btn--atualizar est-btn--mini" data-est-atualizar="produto"
+                        aria-label="Atualizar {{ produto.titulo }}"
+                        title="Consulta agora no Mercado Livre {% if produto.n_codigos > 1 %}os {{ produto.n_codigos }} Códigos ML deste produto, um por vez{% else %}o Código ML deste produto{% endif %}">
+                    <i class="fas fa-rotate" aria-hidden="true"></i> <span class="est-btn-texto">Atualizar</span>
+                </button>
+            </div>
         </div>
     </div>
     <div class="est-corpo"{% if not aberto %} hidden{% endif %}>
+        {% comment %}Só com mais de um Código ML: com um só, o cartão dele já mostra estes mesmos números.{% endcomment %}
+        {% if produto.n_codigos > 1 and produto.n_ok %}
+            <div class="est-detalhe-produto">
+                <div class="est-detalhe">
+                    <span class="est-detalhe-rotulo">Somando os {{ produto.n_codigos }} Códigos ML</span>
+                    <ul class="est-chips">
+                        <li class="est-chip">Pronto pra venda no Full: <strong>{{ produto.disponivel_txt }}</strong></li>
+                        <li class="est-chip" title="O depósito é do SKU: cada loja entra uma vez só, mesmo aparecendo em mais de um Código ML.">No Flex (depósito): <strong>{{ produto.deposito_txt }}</strong>{% if produto.deposito_parcial %} · parcial{% endif %}</li>
+                        <li class="est-chip">Em transferência: <strong>{{ produto.em_transferencia_txt }}</strong></li>
+                        {% if produto.a_caminho %}<li class="est-chip">Enviadas e ainda não recebidas: <strong>≈ {{ produto.a_caminho_qtd_txt }}</strong></li>{% endif %}
+                    </ul>
+                    {% if produto.deposito_aviso %}
+                        <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ produto.deposito_aviso }}</span>
+                    {% endif %}
+                    {% if produto.deposito_repetido %}
+                        <span class="est-nota"><i class="fas fa-link" aria-hidden="true"></i> O depósito aparece em mais de um Código, mas é um estoque só (o ERP manda o mesmo estoque para todos os anúncios do SKU): no total ele entra uma vez.</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
         {% if produto.motivos or produto.url_planejamento %}
             <div class="est-detalhe-produto">
                 {% if produto.motivos %}
@@ -94,7 +143,7 @@
                     </div>
                 {% endif %}
                 {% if produto.url_planejamento %}
-                    <a href="{{ produto.url_planejamento }}" class="est-link">Atualizar no Planejamento <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+                    <a href="{{ produto.url_planejamento }}" class="est-link">Abrir no Planejamento <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
                 {% endif %}
             </div>
         {% endif %}

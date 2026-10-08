@@ -10,10 +10,13 @@ class ConsultaFullMercadoLivre(models.Model):
     #                  guardada (não sobrescreve a anterior), para dar para
     #                  comparar a mesma ficha em momentos diferentes; a tela
     #                  mostra a mais recente.
-    #                  Os 3 campos JSON guardam o dado CRU, do jeito que o ML
+    #                  Os 4 campos JSON guardam o dado CRU, do jeito que o ML
     #                  mandou (nada é renomeado nem corrigido):
     #                    - estoque:  {inventory_id: pacote da API de estoque};
     #                    - reposicao: {user_product_id: pacote da API de reposição};
+    #                    - flex: {user_product_id: pacote da API de estoque por local}
+    #                      (o que está no Full e o que está no depósito do vendedor;
+    #                      campo criado em 08/10/2026 — consultas antigas ficam com {});
     #                    - registros_arquivo: os registros do detalhes_mlbs.json
     #                      que pertencem ao código (a "foto" local do dia em que
     #                      o buscar_detalhes rodou), para a ficha mostrar de onde
@@ -34,6 +37,7 @@ class ConsultaFullMercadoLivre(models.Model):
     registros_arquivo = models.JSONField(default=list, blank=True)
     estoque = models.JSONField(default=dict, blank=True)
     reposicao = models.JSONField(default=dict, blank=True)
+    flex = models.JSONField(default=dict, blank=True)
 
     class Meta:
         verbose_name        = 'Consulta Full Mercado Livre'

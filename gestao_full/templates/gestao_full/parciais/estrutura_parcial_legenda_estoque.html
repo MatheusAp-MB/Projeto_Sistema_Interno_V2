@@ -14,13 +14,60 @@
                 <div><dt>Disponível para venda</dt><dd>A parte do total que o Mercado Livre pode vender agora.</dd></div>
                 <div><dt>Indisponível</dt><dd>A parte do total que está no Full mas não pode ser vendida (em transferência, perdida, danificada...). O motivo aparece embaixo do número.</dd></div>
                 <div>
-                    <dt>Aptas e a caminho</dt>
+                    <dt>A caminho</dt>
                     <dd>
-                        Outro número, vindo de outra consulta (a de reposição). O trecho <strong>"a caminho"</strong> é só uma
-                        <strong>hipótese</strong>: a diferença entre este número e o total no Full. Ela ainda não foi conferida com a tela do Mercado Livre.
+                        Unidades que ainda <strong>não chegaram</strong> ao Full. O Mercado Livre não informa este número pronto: a tela calcula
+                        "Soma geral" menos "Total no Full". Por isso o selo <strong>Hipótese</strong> e o sinal "≈". Enquanto a equipe não conferir com os
+                        envios abertos do Mercado Livre, trate como estimativa.
+                    </dd>
+                </div>
+                <div>
+                    <dt>Soma geral</dt>
+                    <dd>
+                        <strong>Total no Full + A caminho</strong>: tudo que é seu no Full ou está a caminho dele. A conta aparece embaixo do número (ex.: "185 + 961").
+                        É o número que o Mercado Livre chama de "aptas e a caminho" (vem de outra consulta, a de reposição).
+                        Se o Mercado Livre informar <strong>menos</strong> que o Total no Full, não existe "a caminho negativo": A caminho e Soma geral ficam com "—" e o cartão do
+                        Código explica com os números. Costuma ser unidade perdida ou não suportada, que o Mercado Livre não conta nesse número.
                     </dd>
                 </div>
             </dl>
+        </div>
+        <div class="est-legenda-bloco">
+            <h3 class="est-legenda-subtitulo">Onde está o estoque (cartão do Código ML)</h3>
+            <p class="est-legenda-texto">
+                Estes 3 blocos ficam <strong>recolhidos</strong> para a lista não ficar enorme. Para vê-los, clique na <strong>setinha redonda</strong> ao lado do código
+                ML (ou numa parte vazia do cabeçalho do cartão). Ao fechar o produto, eles voltam a ficar recolhidos.
+            </p>
+            <dl class="est-legenda-lista">
+                <div><dt>Pronto pra venda no Full</dt><dd>O que está no Full e o Mercado Livre pode vender agora. É o "Disponível para venda".</dd></div>
+                <div>
+                    <dt>No Flex (seu depósito)</dt>
+                    <dd>
+                        O que o Mercado Livre informa como estoque <strong>seu, fora do Full</strong> (hoje, o depósito do vendedor). Não está no Total no Full
+                        e não entra no "Estoque" do anúncio do Full. O número vem direto do Mercado Livre; o selo mostra se a equipe já conferiu com o estoque real.
+                    </dd>
+                </div>
+                <div>
+                    <dt>A caminho do Full — em transferência</dt>
+                    <dd>
+                        Unidades que já estão no Full, indo de um centro para outro. Elas <strong>já estão contadas</strong> no Total no Full (e aparecem nos motivos do
+                        indisponível), mas só podem ser vendidas quando chegarem.
+                    </dd>
+                </div>
+                <div>
+                    <dt>A caminho do Full — enviadas e ainda não recebidas</dt>
+                    <dd>
+                        Unidades que você mandou e o Full ainda não recebeu. O Mercado Livre <strong>não informa</strong> esse número pronto: a tela estima com "Soma geral"
+                        menos "Total no Full" (por isso o selo <strong>Hipótese</strong> e o sinal "≈"). Pode incluir unidades paradas por falta de documentação fiscal.
+                    </dd>
+                </div>
+            </dl>
+            <p class="est-legenda-texto">
+                O depósito é do <strong>SKU</strong>, não do Código ML: fisicamente existem X unidades e o ERP manda esse mesmo X para todos os anúncios. Por isso o
+                Mercado Livre repete o mesmo número em cada Código e cada produto do vendedor do SKU, e na soma do produto <strong>cada loja entra uma vez só</strong>.
+                Se a mesma loja vier com quantidades diferentes (o ERP atualiza os anúncios em horários diferentes), a conta usa a maior e a tela avisa. Para o número
+                aparecer, o Código ML precisa ter sido consultado depois que o Flex entrou na consulta (use o <strong>Atualizar</strong> ou a varredura completa).
+            </p>
         </div>
         <div class="est-legenda-bloco">
             <h3 class="est-legenda-subtitulo">Código ML e anúncio</h3>
@@ -38,7 +85,7 @@
                 Quem não tem número para a ordem escolhida (por exemplo, nunca consultado) fica no fim da lista.
             </p>
             <p class="est-legenda-texto">
-                As ordens de <strong>Aptas e a caminho</strong> leem a reposição de toda a lista, e não só da página, por isso podem demorar um pouco mais.
+                As ordens de <strong>Soma geral</strong> e de <strong>A caminho</strong> leem a reposição de toda a lista, e não só da página, por isso podem demorar um pouco mais.
             </p>
             <p class="est-legenda-texto">
                 <strong>Filtrar:</strong> escolha um botão (um por vez), uma marca e a busca de texto — tudo combina. O número ao lado de cada botão
@@ -53,7 +100,15 @@
                     <li>{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=situacao.badge %} <span>{{ situacao.texto }}</span></li>
                 {% endfor %}
             </ul>
-            <p class="est-legenda-texto">Para atualizar, use <strong>Atualizar no Planejamento</strong> no bloco do produto e clique em "Consultar no Mercado Livre".</p>
+            <p class="est-legenda-texto">
+                <strong>Reposição com erro:</strong> o estoque do Código ML veio, mas o Mercado Livre falhou na consulta de reposição (a que traz o
+                A caminho e a Soma geral). Esse Código fica com "—" nesses números e o motivo aparece no cartão dele. O filtro <strong>Reposição com erro</strong>
+                lista os produtos nessa situação.
+            </p>
+            <p class="est-legenda-texto">
+                Para atualizar, use o botão <strong>Atualizar</strong> do produto ou do Código ML, ou <strong>Fazer varredura completa</strong>
+                no alto da tela. Só esses botões consultam o Mercado Livre.
+            </p>
         </div>
     </div>
 </details>

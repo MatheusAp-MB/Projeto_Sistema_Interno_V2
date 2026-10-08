@@ -179,3 +179,8 @@ class ApiMercadoLivre:
     # 1 chamada GET. Mesma regra: só por botão da tela do Full, nunca automático.
     def buscar_full_estoque(self, inventory_id):
         return self._contexto_full.buscar_estoque(inventory_id, self._pasta_logs)
+
+    # Função Objetivo: O estoque de 1 produto do vendedor POR LOCAL (o que está no Full e o que está no depósito do vendedor, o "Flex") —
+    # 1 chamada GET. Mesma regra: só por botão da tela do Full, nunca automático.
+    def buscar_full_flex(self, user_product_id):
+        return self._contexto_full.buscar_flex(user_product_id, self._pasta_logs)

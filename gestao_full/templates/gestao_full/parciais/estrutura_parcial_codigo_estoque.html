@@ -1,15 +1,26 @@
 {% comment %}
 * [RESUMO] → UM Código ML dentro de um produto da tela "Estoque no Full": um CARTÃO com o código em destaque, os mesmos números da
-  linha do produto (alinhados nas mesmas colunas, por isso a soma dos cartões fecha o total do produto), os motivos do indisponível
+  linha do produto (Total no Full | Disponível para venda | Indisponível | A caminho | Soma geral, alinhados nas mesmas colunas, por isso a soma dos cartões fecha o total do produto), 3 blocos que respondem "onde
+  está o estoque?" (pronto pra venda no Full / no Flex, o depósito do vendedor / a caminho do Full), os motivos do indisponível
   em etiquetas e, abrindo no botão "N anúncios", os anúncios que usam esse Código. Os cartões ficam dentro da lista "est-codigos"
   do produto; a seta da linha do produto é quem mostra ou esconde a parte de baixo dele (script_full_estoque.js).
+  O CABEÇALHO do cartão (código, botões e números) fica sempre à mostra e é o que abre/fecha os 3 blocos "onde está o estoque": a setinha
+  redonda ao lado do código (ou um clique em qualquer parte vazia do cabeçalho) mostra os blocos. Eles começam FECHADOS para a lista não ficar
+  enorme; os "Motivos do indisponível" continuam à mostra embaixo do cabeçalho, como eram antes dos blocos.
+  O botão "Atualizar" do cartão consulta SÓ este Código no Mercado Livre (script_full_estoque.js) e redesenha o produto no lugar.
   Recebe: cartao (um item de produto.codigos), produto_indice e posicao (só para dar um id único ao painel dos anúncios).
 {% endcomment %}
 <li class="est-codigo-cartao">
-    <div class="est-codigo-topo">
+    <div class="est-codigo-topo{% if cartao.tem_locais %} est-codigo-topo--abre{% endif %}">
         <div class="est-codigo">
             <span class="est-codigo-rotulo"><i class="fas fa-box-open" aria-hidden="true"></i> Código ML do Full</span>
             <span class="est-codigo-linha">
+                {% if cartao.tem_locais %}
+                    <button type="button" class="est-locais-toggle" aria-expanded="false" aria-controls="est-d-{{ produto_indice }}-{{ posicao }}"
+                            aria-label="Mostrar onde está o estoque do Código ML {{ cartao.codigo }}" title="Mostrar ou esconder onde está o estoque deste Código (pronto pra venda, depósito e a caminho)">
+                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                    </button>
+                {% endif %}
                 <code class="est-codigo-valor">{{ cartao.codigo }}</code>
                 {% if cartao.anuncios %}
                     <button type="button" class="est-anuncios-toggle" aria-expanded="false" aria-controls="est-a-{{ produto_indice }}-{{ posicao }}">
@@ -18,6 +29,10 @@
                 {% else %}
                     <span class="est-codigo-meta">{{ cartao.n_anuncios }} anúncio{{ cartao.n_anuncios|pluralize }}</span>
                 {% endif %}
+                <button type="button" class="est-btn est-btn--atualizar est-btn--mini" data-est-atualizar="codigo" data-codigo="{{ cartao.codigo }}"
+                        aria-label="Atualizar o Código ML {{ cartao.codigo }}" title="Consulta agora só este Código ML no Mercado Livre">
+                    <i class="fas fa-rotate" aria-hidden="true"></i> <span class="est-btn-texto">Atualizar</span>
+                </button>
             </span>
             {% if cartao.compartilhado_com %}
                 <span class="est-nota"><i class="fas fa-link" aria-hidden="true"></i> Este Código ML também aparece no SKU {{ cartao.compartilhado_com|join:", " }}</span>
@@ -27,8 +42,11 @@
             {% elif cartao.estado == 'erro' %}
                 <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.erro }}</span>
             {% endif %}
+            {% if cartao.repos_erro %}
+                <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> <strong>Reposição com erro</strong> (faltam o A caminho e a Soma geral): {{ cartao.repos_erro }}. O estoque veio normal; use o Atualizar deste Código para tentar de novo.</span>
+            {% endif %}
             {% if cartao.aptas_nota %}
-                <span class="est-nota"><strong>Aptas e a caminho:</strong> {{ cartao.aptas_nota }}</span>
+                <span class="est-nota"><strong>A caminho e Soma geral sem número:</strong> {{ cartao.aptas_nota }}</span>
             {% endif %}
             {% if cartao.conferencia and not cartao.conferencia.bate %}
                 <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.conferencia.texto }}</span>
@@ -43,23 +61,28 @@
                 {{ cartao.total_txt }}
             </span>
         </div>
-        <div class="est-num">
-            <span class="est-num-rotulo">Disponível</span>
+        <div class="est-num est-num--disponivel{% if cartao.disponivel %} est-num--com-valor{% endif %}">
+            <span class="est-num-rotulo">Disponível para venda</span>
             <span class="est-num-valor">{{ cartao.disponivel_txt }}</span>
         </div>
-        <div class="est-num">
+        <div class="est-num est-num--indisponivel{% if cartao.indisponivel %} est-num--com-valor{% endif %}">
             <span class="est-num-rotulo">Indisponível</span>
             <span class="est-num-valor">{{ cartao.indisponivel_txt }}</span>
             {% if cartao.pct_indisponivel_txt %}<span class="est-nota">{{ cartao.pct_indisponivel_txt }} do total</span>{% endif %}
         </div>
-        <div class="est-num">
-            <span class="est-num-rotulo">Aptas e a caminho</span>
-            <span class="est-num-valor">{{ cartao.aptas_txt }}</span>
-            {% if cartao.a_caminho_txt %}
-                <span class="est-a-caminho" title="Hipótese: 'aptas e a caminho' menos 'total no Full'. Ainda não conferido com a tela do Mercado Livre.">
-                    {{ cartao.a_caminho_txt }} a caminho {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
+        <div class="est-num est-num--caminho">
+            <span class="est-num-rotulo">A caminho</span>
+            <span class="est-num-valor">{% if cartao.a_caminho %}≈ {% endif %}{{ cartao.a_caminho_qtd_txt }}</span>
+            {% if cartao.a_caminho %}
+                <span class="est-a-caminho" title="Hipótese: 'Soma geral' menos 'Total no Full'. Ainda não conferido com a tela do Mercado Livre.">
+                    hipótese {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=badge_a_caminho compacto=True %}
                 </span>
             {% endif %}
+        </div>
+        <div class="est-num est-num--soma">
+            <span class="est-num-rotulo">Soma geral</span>
+            <span class="est-num-valor">{{ cartao.soma_geral_txt }}</span>
+            {% if cartao.soma_conta_txt %}<span class="est-nota" title="Total no Full + A caminho = Soma geral">{{ cartao.soma_conta_txt }}</span>{% endif %}
         </div>
         <div class="est-consulta">
             <span class="est-num-rotulo">Consulta</span>
@@ -67,6 +90,105 @@
             {% if cartao.idade %}<small title="Consultado em {{ cartao.consultado_completo }}">{{ cartao.idade }}</small>{% endif %}
         </div>
     </div>
+    {% comment %}
+      Os 3 blocos "onde está o estoque?". O bloco "No Flex" aparece sempre que o cartão tem número (ou o Flex respondeu mesmo com o estoque
+      falhando); os blocos do Full e "A caminho" só quando o estoque do Full veio (estado "ok"). Cada número diz de onde vem: "em transferência"
+      e o depósito são EXATOS (o Mercado Livre manda pronto) mas ainda sem conferência da equipe (selo); "enviadas e ainda não recebidas" é
+      ESTIMATIVA (Soma geral menos o total no Full).
+    {% endcomment %}
+    {% if cartao.tem_locais %}
+        <div class="est-locais" id="est-d-{{ produto_indice }}-{{ posicao }}" hidden>
+            {% if cartao.estado == 'ok' %}
+                <section class="est-local est-local--full" aria-label="Pronto pra venda no Full">
+                    <header class="est-local-cabeca">
+                        <span class="est-local-icone" aria-hidden="true"><i class="fas fa-bolt"></i></span>
+                        <span class="est-local-titulo">Pronto pra venda <small>no Full</small></span>
+                    </header>
+                    <p class="est-local-valor{% if cartao.disponivel %} est-local-valor--bom{% else %} est-local-valor--zero{% endif %}">{{ cartao.disponivel_txt }}</p>
+                    <p class="est-local-texto">O Mercado Livre pode vender estas unidades agora.</p>
+                    <ul class="est-local-linhas">
+                        <li><span>Total no Full</span><strong>{{ cartao.total_txt }}</strong></li>
+                        <li><span>Indisponível no Full</span><strong>{{ cartao.indisponivel_txt }}</strong></li>
+                    </ul>
+                </section>
+            {% endif %}
+            <section class="est-local est-local--flex" aria-label="No Flex, seu depósito">
+                <header class="est-local-cabeca">
+                    <span class="est-local-icone" aria-hidden="true"><i class="fas fa-warehouse"></i></span>
+                    <span class="est-local-titulo">No Flex <small>seu depósito, fora do Full</small></span>
+                </header>
+                {% if cartao.flex_estado == 'ok' or cartao.flex_estado == 'parcial' %}
+                    <p class="est-local-valor{% if not cartao.deposito %} est-local-valor--zero{% endif %}">
+                        {{ cartao.deposito_txt }}
+                        <span title="O que o Mercado Livre informa como estoque seu fora do Full (consulta user-products/stock). O ERP manda o mesmo estoque para todos os anúncios do SKU, então este número se repete nos outros Códigos. Ainda não foi conferido com o estoque real.">{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.selo_deposito %}</span>
+                    </p>
+                    {% if cartao.deposito_locais %}
+                        <ul class="est-local-linhas">
+                            {% for local in cartao.deposito_locais %}
+                                <li{% if not local.ativo %} class="est-local-inativo"{% endif %}><span>{{ local.rotulo }}{% if not local.ativo %} (inativo: não conta){% endif %}</span><strong>{{ local.quantidade_txt }}</strong></li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="est-local-texto">O Mercado Livre não informa nenhum local seu fora do Full para este produto.</p>
+                    {% endif %}
+                    {% if cartao.flex_estado == 'parcial' %}
+                        <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Só parte dos produtos deste Código respondeu, então o número está incompleto: {{ cartao.flex_erro }}</span>
+                    {% endif %}
+                    {% if cartao.deposito_aviso %}
+                        <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.deposito_aviso }}</span>
+                    {% endif %}
+                    {% if cartao.deposito_repetido %}
+                        <span class="est-nota"><i class="fas fa-link" aria-hidden="true"></i> Mesmo depósito dos outros Códigos deste SKU (o ERP manda o mesmo estoque para todos os anúncios): no total do produto entra uma vez só.</span>
+                    {% endif %}
+                    {% if cartao.flex_confere %}
+                        {% if cartao.flex_confere.bate %}
+                            <span class="est-nota"><i class="fas fa-check est-confere" aria-hidden="true"></i> {{ cartao.flex_confere.texto }}</span>
+                        {% else %}
+                            <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.flex_confere.texto }}</span>
+                        {% endif %}
+                    {% endif %}
+                    {% if cartao.flex_aviso %}<span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.flex_aviso }}</span>{% endif %}
+                    {% if cartao.flex_atualizado_ml %}<span class="est-nota">Informado pelo Mercado Livre em {{ cartao.flex_atualizado_ml }}.</span>{% endif %}
+                {% elif cartao.flex_estado == 'erro' %}
+                    <p class="est-local-valor est-local-valor--zero">—</p>
+                    <span class="est-nota est-nota--erro"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> <strong>O Mercado Livre não devolveu o estoque do depósito (Flex):</strong> {{ cartao.flex_erro }}. Use o Atualizar deste Código para tentar de novo.</span>
+                {% else %}
+                    <p class="est-local-valor est-local-valor--zero">—</p>
+                    <span class="est-nota">A última consulta deste Código ainda não trouxe o depósito (Flex). Use o Atualizar deste Código (ou a varredura completa) para buscar.</span>
+                {% endif %}
+            </section>
+            {% if cartao.estado == 'ok' %}
+                <section class="est-local est-local--caminho" aria-label="A caminho do Full">
+                    <header class="est-local-cabeca">
+                        <span class="est-local-icone" aria-hidden="true"><i class="fas fa-truck-fast"></i></span>
+                        <span class="est-local-titulo">A caminho do Full <small>ainda não dá pra vender</small></span>
+                    </header>
+                    <ul class="est-local-itens">
+                        <li class="est-local-item">
+                            <span class="est-local-item-valor{% if not cartao.em_transferencia %} est-local-valor--zero{% endif %}">{{ cartao.em_transferencia_txt }}</span>
+                            <span class="est-local-item-titulo">em transferência {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.selo_em_transferencia %}</span>
+                            <span class="est-local-item-texto">Indo de um centro do Full para outro. Já está dentro do Total no Full, mas só pode ser vendida quando chegar.</span>
+                        </li>
+                        <li class="est-local-item">
+                            <span class="est-local-item-valor{% if not cartao.a_caminho %} est-local-valor--zero{% endif %}">{% if cartao.a_caminho is not None %}{% if cartao.a_caminho %}≈ {% endif %}{{ cartao.a_caminho_qtd_txt }}{% else %}—{% endif %}</span>
+                            <span class="est-local-item-titulo">enviadas e ainda não recebidas {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=cartao.selo_a_caminho %}</span>
+                            <span class="est-local-item-texto">
+                                {% if cartao.a_caminho is not None %}
+                                    Estimativa: "Soma geral" ({{ cartao.soma_geral_txt }}, a reposição que o Mercado Livre informa) menos "Total no Full" ({{ cartao.total_txt }}). O Mercado Livre não manda este número pronto.
+                                {% elif cartao.repos_erro %}
+                                    Sem como estimar: a consulta de reposição falhou (veja o aviso no alto do cartão).
+                                {% elif cartao.aptas is None %}
+                                    Sem como estimar: falta a consulta de reposição deste Código.
+                                {% else %}
+                                    Sem como estimar: a reposição que o Mercado Livre informou ({{ cartao.aptas_txt }}) é menor que o Total no Full ({{ cartao.total_txt }}). A explicação está no aviso no alto do cartão.
+                                {% endif %}
+                            </span>
+                        </li>
+                    </ul>
+                </section>
+            {% endif %}
+        </div>
+    {% endif %}
     {% if cartao.motivos %}
         <div class="est-detalhe">
             <span class="est-detalhe-rotulo">Motivos do indisponível</span>

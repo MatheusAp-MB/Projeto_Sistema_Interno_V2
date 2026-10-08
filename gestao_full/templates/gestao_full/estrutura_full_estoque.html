@@ -11,10 +11,19 @@
     {% comment %}
     * [RESUMO] → Tela "Full — Estoque no Full": para cada PRODUTO, quanto estoque ele tem hoje no Full (soma dos Códigos
       ML dele). O número em destaque é o "Total no Full"; abrindo a linha do produto aparece cada Código ML, com a conta
-      que fecha o total. A tela NUNCA chama o Mercado Livre: lê só os Códigos ML do banco e a consulta mais recente de cada
-      um (feita pelo botão "Consultar no Mercado Livre" do Planejamento de envios).
+      que fecha o total. A tela NUNCA chama o Mercado Livre sozinha: abrir, buscar, filtrar e ordenar só leem os Códigos ML do
+      banco e a consulta mais recente de cada um. O Mercado Livre só é consultado por CLIQUE: "Atualizar" (um Código ML), "Atualizar
+      produto" (todos os Códigos dele) e "Fazer varredura completa" (todos os Códigos da empresa, em segundo plano, com barra de
+      andamento e botão Parar). As peças dos botões: a faixa de totais (parcial resumo), a barra de andamento e o resultado da
+      varredura (logo abaixo dela), a janela de confirmação e o aviso flutuante (no fim). Quem faz tudo funcionar é script_full_estoque.js.
     {% endcomment %}
-    <div class="est-pagina">
+    <div class="est-pagina"
+         data-url-atualizar="{{ url_atualizar }}"
+         data-url-faixa="{{ url_faixa }}"
+         data-url-varredura-iniciar="{{ url_varredura_iniciar }}"
+         data-url-varredura-status="{{ url_varredura_status }}"
+         data-url-varredura-parar="{{ url_varredura_parar }}">
+        <form id="est-csrf" hidden>{% csrf_token %}</form>
 
         <form method="get" action="{{ url_estoque }}" class="lista-busca" role="search">
             <div class="lista-busca-campo">
@@ -58,44 +67,38 @@
             </section>
         {% else %}
 
-            <section class="est-resumo" aria-label="Totais da lista">
-                <div class="est-resumo-linha">
-                    <div class="est-resumo-destaque">
-                        <p class="est-resumo-rotulo">Total no Full</p>
-                        <p class="est-resumo-valor">
-                            <span class="est-resumo-numero">{{ pagina.resumo.total_txt }}</span>
-                            <span class="est-resumo-sub">unidades · {% if pagina.filtrada %}lista filtrada{% else %}todos os produtos{% endif %}</span>
-                        </p>
-                    </div>
-                    <dl class="est-resumo-lado">
-                        <div class="est-resumo-item">
-                            <dt>Disponível para venda</dt>
-                            <dd>{{ pagina.resumo.disponivel_txt }}</dd>
-                        </div>
-                        <div class="est-resumo-item">
-                            <dt>Indisponível</dt>
-                            <dd>{{ pagina.resumo.indisponivel_txt }}</dd>
-                        </div>
-                        <div class="est-resumo-item">
-                            <dt>Produtos</dt>
-                            <dd>{{ pagina.resumo.n_produtos }}</dd>
-                        </div>
-                        <div class="est-resumo-item">
-                            <dt>Códigos ML com número</dt>
-                            <dd>{{ pagina.resumo.n_ok }} <span class="est-resumo-de">de {{ pagina.resumo.n_codigos }}</span></dd>
-                        </div>
-                    </dl>
+            {% include 'gestao_full/parciais/estrutura_parcial_resumo_estoque.html' %}
+
+            {# Andamento e resultado da varredura completa: ficam escondidos até a pessoa confirmar a varredura (ou até a tela achar uma em andamento). #}
+            <section class="est-varredura" id="est-varredura" hidden aria-live="polite">
+                <div class="est-varredura-linha">
+                    <span class="est-varredura-rotulo" id="est-varredura-rotulo">Preparando a varredura</span>
+                    <span class="est-varredura-numeros" id="est-varredura-numeros"></span>
+                    <button type="button" class="est-btn est-btn--parar" id="est-varredura-parar">
+                        <i class="fas fa-stop" aria-hidden="true"></i> Parar
+                    </button>
                 </div>
-                {% if pagina.resumo.n_sem_numero %}
-                    <p class="est-resumo-nota">
-                        <i class="fas fa-circle-info" aria-hidden="true"></i>
-                        <span>
-                            <strong>Total parcial:</strong> só soma o que já foi consultado.
-                            {{ pagina.resumo.n_sem_numero }} Código{{ pagina.resumo.n_sem_numero|pluralize }} ML
-                            {% if pagina.resumo.n_sem_numero == 1 %}ainda não tem{% else %}ainda não têm{% endif %} número (nunca consultado ou o Mercado Livre não respondeu).
-                        </span>
-                    </p>
-                {% endif %}
+                <progress class="est-barra" id="est-varredura-barra" max="100"></progress>
+                <p class="est-varredura-dica" id="est-varredura-dica">
+                    Você pode continuar nesta tela. Enquanto a varredura roda, os botões <strong>Atualizar</strong> ficam bloqueados.
+                </p>
+            </section>
+
+            <section class="est-resultado" id="est-resultado" hidden role="status">
+                <i class="fas fa-circle-info est-resultado-icone" id="est-resultado-icone" aria-hidden="true"></i>
+                <div class="est-resultado-corpo">
+                    <p class="est-resultado-texto" id="est-resultado-texto"></p>
+                    <details class="est-resultado-falhas" id="est-resultado-falhas" hidden>
+                        <summary id="est-resultado-falhas-titulo">Ver os que falharam</summary>
+                        <ul id="est-resultado-falhas-lista"></ul>
+                    </details>
+                </div>
+                <button type="button" class="est-btn est-btn--secundario" id="est-resultado-recarregar">
+                    <i class="fas fa-rotate-right" aria-hidden="true"></i> Recarregar a lista
+                </button>
+                <button type="button" class="est-resultado-fechar" id="est-resultado-fechar" aria-label="Fechar este aviso">
+                    <i class="fas fa-xmark" aria-hidden="true"></i>
+                </button>
             </section>
 
             <div class="est-controles">
@@ -171,7 +174,8 @@
                             {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.total ordenar=pagina.ordenacao.total destaque=True %}
                             {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.disponivel ordenar=pagina.ordenacao.disponivel %}
                             {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.indisponivel ordenar=pagina.ordenacao.indisponivel %}
-                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.aptas ordenar=pagina.ordenacao.aptas %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.a_caminho ordenar=pagina.ordenacao.a_caminho %}
+                            {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_estoque.html' with coluna=pagina.colunas.soma ordenar=pagina.ordenacao.soma %}
                             <div class="est-coluna">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=pagina.ordenacao.consulta rotulo='Consulta' %}</div>
                         </div>
                         <ul class="est-blocos">
@@ -211,7 +215,41 @@
             {% endif %}
 
             {% include 'gestao_full/parciais/estrutura_parcial_legenda_estoque.html' %}
+
+            <div class="modal fade" id="est-modal-varredura" tabindex="-1" aria-labelledby="est-modal-varredura-titulo" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="est-modal-varredura-titulo">Fazer varredura completa?</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        </div>
+                        <div class="modal-body est-modal-corpo">
+                            <p>Vou consultar o Mercado Livre agora, um Código ML por vez, e guardar cada resposta no banco. Pela contagem de hoje:</p>
+                            <ul>
+                                <li><strong>{{ pagina.varredura.n_codigos }}</strong> Código{{ pagina.varredura.n_codigos|pluralize }} ML (de todos os produtos, não só os da lista que está na tela);</li>
+                                <li>cerca de <strong>{{ pagina.varredura.n_chamadas }}</strong> chamadas ao Mercado Livre no total (quase sempre 3 por Código: estoque, reposição e depósito/Flex).</li>
+                            </ul>
+                            <p class="est-modal-nota">
+                                Os que estão sem número, e depois os de consulta mais antiga, vêm primeiro. Você acompanha o andamento na tela e pode
+                                clicar em <strong>Parar</strong> a qualquer momento: o que já foi consultado fica salvo. Se o Mercado Livre recusar o
+                                acesso, a varredura para na hora. Cada Código consultado guarda uma linha nova no histórico (as antigas continuam guardadas).
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="est-btn est-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="est-btn est-btn--primario" id="est-modal-confirmar">Fazer varredura</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         {% endif %}
+
+        {# Aviso flutuante dos botões Atualizar (sucesso some sozinho; erro fica até a pessoa fechar). Fora do produto, porque o produto é redesenhado. #}
+        <div class="est-aviso" id="est-aviso" hidden role="status" aria-live="polite">
+            <i class="fas fa-circle-info est-aviso-icone" id="est-aviso-icone" aria-hidden="true"></i>
+            <span class="est-aviso-texto" id="est-aviso-texto"></span>
+            <button type="button" class="est-aviso-fechar" id="est-aviso-fechar" aria-label="Fechar este aviso"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
     </div>
 {% endblock %}
 {% block scripts %}

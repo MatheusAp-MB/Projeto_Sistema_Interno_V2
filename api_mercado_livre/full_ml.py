@@ -1,12 +1,16 @@
 # api_mercado_livre/full_ml.py
 
 # Função Objetivo: Contexto "Full (Fulfillment) de 1 código" — sabe tudo que o
-# ClienteApiMercadoLivre (transporte puro) não deve saber: os 2 endpoints
+# ClienteApiMercadoLivre (transporte puro) não deve saber: os 3 endpoints
 #   GET /marketplace/fbm/user-products/{user_product_id}/replenishment?country=BR
 #       (doc "Planejamento de reposição": os dados da tela "Planejamento de
 #       envios" — vendas, urgência, mínimo, sugestão, Estrela, estoque antigo)
 #   GET /inventories/{inventory_id}/stock/fulfillment
 #       (doc "Envios Fulfillment": estoque apto e não apto, com o motivo)
+#   GET /user-products/{user_product_id}/stock
+#       (doc "Convivência Full e Flex": o estoque do produto do vendedor POR LOCAL — o que está no
+#       Full ("meli_facility") e o que está no depósito do vendedor ("seller_warehouse"); testado em
+#       07/10/2026 e funciona para o MLB da Magazine)
 # e o formato de "pacote" da resposta (endpoint/http/erro/dados). Compõe um
 # ClienteApiMercadoLivre (nunca herda dele). Só leitura (GET).
 #
@@ -47,6 +51,10 @@ class FullML:
 
     def buscar_estoque(self, inventory_id, pasta_logs) -> PacoteFull:
         return self._buscar(f"/inventories/{inventory_id}/stock/fulfillment", None, pasta_logs)
+
+    # O estoque do produto do vendedor por local (Full + depósito do vendedor). Limite do ML para este endpoint: 100 chamadas por minuto.
+    def buscar_flex(self, user_product_id, pasta_logs) -> PacoteFull:
+        return self._buscar(f"/user-products/{user_product_id}/stock", None, pasta_logs)
 
     # Função Objetivo: 1 GET. Só a autenticação recusada (401) é repassada (levanta
     # ErroAutenticacaoAPI): nenhuma chamada seguinte funcionaria, quem chama decide.

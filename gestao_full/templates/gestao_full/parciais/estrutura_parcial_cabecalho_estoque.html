@@ -1,10 +1,10 @@
 {% comment %}
 * [RESUMO] → Uma coluna de número na barra de colunas da tela "Estoque no Full": o título clicável (ordena a lista) e, ao lado, o selo de
   conferência daquele dado, só como ÍCONE (o mesmo registro que a equipe preenche na ficha de debug). Passar o mouse no ícone mostra a
-  situação por extenso, a fonte e o campo exato da API. O título usa o rótulo curto ("Disponível") para o cabeçalho caber em uma linha só.
+  situação por extenso, a fonte e o campo exato da API. Só os títulos compridos (mais de 16 letras: "Disponível para venda") quebram em duas linhas, alinhadas à direita, junto dos números; os curtos ficam em uma só.
   Recebe: coluna (pagina.colunas.<chave>), ordenar (pagina.ordenacao.<chave>), destaque (True na coluna em destaque).
 {% endcomment %}
-<div class="est-coluna est-coluna--num{% if destaque %} est-coluna--destaque{% endif %}">
-    <span class="est-coluna-rotulo">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=ordenar rotulo=coluna.rotulo_curto %}</span>
+<div class="est-coluna est-coluna--num{% if destaque %} est-coluna--destaque{% endif %}{% if coluna.rotulo|length > 16 %} est-coluna--quebra{% endif %}">
+    <span class="est-coluna-rotulo">{% include 'gestao_full/parciais/estrutura_parcial_ordenar_estoque.html' with ordenar=ordenar rotulo=coluna.rotulo %}</span>
     <span class="est-coluna-selo" role="img" aria-label="{{ coluna.meta.selo.badge.label }}" title="{{ coluna.meta.selo.dica }} · Fonte: {{ coluna.meta.fonte }} · campo {{ coluna.meta.caminho }}">{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=coluna.meta.selo.badge compacto=True %}</span>
 </div>

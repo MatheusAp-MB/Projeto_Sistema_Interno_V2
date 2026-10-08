@@ -227,13 +227,22 @@ a:hover {
 .main-wrapper {
     /*
     * [EXPLICAÇÃO] → flex: 1 faz a área principal ocupar todo o
-    * espaço restante após a sidebar. overflow: hidden evita
-    * que conteúdo largo quebre o layout.
+    * espaço restante após a sidebar. O overflow evita que conteúdo
+    * largo quebre o layout.
+    * "overflow: clip" corta o excesso do mesmo jeito que "hidden",
+    * mas NÃO transforma esta caixa numa área de rolagem. Isso é
+    * necessário porque a toolbar (position: sticky) só consegue
+    * ficar fixa no alto da janela se nenhuma caixa entre ela e a
+    * janela rolar por conta própria. Com "hidden" a toolbar rolava
+    * junto com a página e o botão de ocultar a sidebar sumia.
+    * A linha "hidden" fica antes só como reserva para navegador
+    * muito antigo que não conhece "clip" (ele ignora a de baixo).
     */
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overflow: clip;
     min-width: 0;
 }
 
@@ -255,6 +264,16 @@ a:hover {
     align-items: center;
     gap: 16px;
     padding: 0 20px;
+}
+
+/*
+* [EXPLICAÇÃO] → Com a toolbar fixa no alto, quem chega a um item pelo
+* teclado (Shift+Tab, por exemplo) ou por um link interno ficaria
+* escondido embaixo dela. "scroll-padding-top" avisa o navegador para
+* deixar esse espaço livre. Precisa estar no <html>, que é quem rola.
+*/
+html {
+    scroll-padding-top: var(--toolbar-altura);
 }
 
 /* Botão toggle da sidebar */
