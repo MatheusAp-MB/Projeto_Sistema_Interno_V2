@@ -6,6 +6,8 @@
 # idêntico em todo o resto do repo.
 
 from .imposto_com_aliquota import ImpostoComAliquota
+from .nota_fiscal_entrada import NotaFiscalEntrada
+from .item_nota_fiscal_entrada import ItemNotaFiscalEntrada
 from .impostos_e_custos_xml_entrada_produto import ImpostosECustosXMLEntradaProduto
 from .icms_entrada_produto import IcmsEntradaProduto
 from .icms_st_entrada_produto import IcmsStEntradaProduto

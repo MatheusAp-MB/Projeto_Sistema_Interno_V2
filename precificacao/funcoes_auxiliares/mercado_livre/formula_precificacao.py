@@ -24,6 +24,11 @@
 # junto pra a tela poder provar a conta em vez de só mostrar o resultado. Linhas calculadas
 # ANTES dessa mudança não têm esses campos — passam None, e quem consome (Camada 3) precisa
 # tratar como opcional.
+#
+# Identificação da NF na ProvaFiscalEntrada (09/10/2026) — numero_nf/chave_acesso/emissao/
+# data_entrada_nota/fornecedor/empresa_fantasia: de qual nota fiscal vieram os créditos
+# fiscais, fotografado junto com os valores (a tela mostra "NF usada" e o botão "Ver NF").
+# Mesma regra acima: linhas calculadas antes dessa mudança passam None.
 
 from dataclasses import dataclass, asdict
 from decimal import Decimal
@@ -50,6 +55,9 @@ class ProvaImposto:
 # Explicação em detalhe: quantidade_nota é o divisor que transforma cada .valor daqui no
 # "R$/unidade" que DadosIntermediarios usa (ex: ipi_valor = ipi.valor ÷ quantidade_nota).
 # icms_st só vem preenchido quando tem_icms_st=True — nunca finge um ICMS ST que não existe.
+# Os 6 campos de identificação da NF (numero_nf em diante) ficam por último e com padrão None:
+# datas guardadas como texto ISO (AAAA-MM-DD) pra a foto continuar 100% JSON, e None quando a
+# linha foi calculada antes desses campos existirem (ou o retrato ainda não tem a chave da nota).
 @dataclass
 class ProvaFiscalEntrada:
     quantidade_nota: Decimal
@@ -59,6 +67,12 @@ class ProvaFiscalEntrada:
     icms_st: ProvaImposto | None
     pis: ProvaImposto
     cofins: ProvaImposto
+    numero_nf: str | None = None
+    chave_acesso: str | None = None
+    emissao: str | None = None
+    data_entrada_nota: str | None = None
+    fornecedor: str | None = None
+    empresa_fantasia: str | None = None
 
 
 # Função Objetivo: Foto imutável de tudo que a fórmula consumiu.
@@ -649,6 +663,12 @@ class FormulaPrecificacao:
             ) if tem_st else None,
             pis=ProvaImposto(valor=ie.pis.valor, base_calculo=ie.pis.base_calculo, aliquota=ie.pis.aliquota),
             cofins=ProvaImposto(valor=ie.cofins.valor, base_calculo=ie.cofins.base_calculo, aliquota=ie.cofins.aliquota),
+            numero_nf=ie.nr_nf,
+            chave_acesso=ie.chave_acesso,
+            emissao=ie.emissao.isoformat() if ie.emissao else None,
+            data_entrada_nota=ie.data_entrada_nota.isoformat() if ie.data_entrada_nota else None,
+            fornecedor=ie.fornecedor,
+            empresa_fantasia=ie.empresa_fantasia,
         )
 
     # Função Objetivo: Monta a foto imutável de tudo que foi consumido.

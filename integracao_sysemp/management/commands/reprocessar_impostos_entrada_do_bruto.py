@@ -8,6 +8,12 @@
 # mesmo com dado real no bruto) e o bruto em disco continua válido — evita
 # rechamar a API (cara/lenta). Diferente de reprocessar_impostos_entrada_de_json
 # (que só relê o json de selecionados já correto, sem re-filtrar).
+#
+# Atualizado (09/10/2026): (1) acompanha o formato atual de filtrar_por_cfop() e
+# selecionar_nota_mais_recente_por_produto(), que desde 15/08/2026 devolvem
+# (resultado, erros) — este comando ainda tratava o retorno como só o
+# resultado; (2) grava também o espelho da nota inteira (todos os itens) de
+# cada nota usada como base, a partir das linhas do próprio bruto.
 
 from django.core.management.base import CommandError
 from core.management.commands._base_empresa import ComandoComEmpresa
@@ -22,6 +28,7 @@ from integracao_sysemp.servicos.arquivos_retorno_api import (
     salvar_json,
 )
 from integracao_sysemp.servicos.filtro_cfop import filtrar_por_cfop
+from integracao_sysemp.servicos.notas_completas import agrupar_manifesto_por_chave
 from integracao_sysemp.servicos.orquestrador import RelatorioDeSincronizacao, persistir_selecionados_no_banco
 from integracao_sysemp.servicos.selecao_nota_recente import selecionar_nota_mais_recente_por_produto
 
@@ -40,18 +47,20 @@ class Command(ComandoComEmpresa):
             raise CommandError(f'Arquivo "{NOME_ARQUIVO_BRUTO}" não encontrado ou vazio — nada pra reprocessar.')
 
         console.print(f'{len(bruto["retorno"])} notas brutas — filtrando por CFOP...')
-        filtrado = filtrar_por_cfop(bruto['retorno'])
+        filtrado, erros_filtro = filtrar_por_cfop(bruto['retorno'])
         salvar_json(filtrado, NOME_ARQUIVO_FILTRADO)
 
         console.print(f'{len(filtrado)} registros filtrados — selecionando a nota mais recente por produto...')
-        selecionados = selecionar_nota_mais_recente_por_produto(filtrado)
+        selecionados, erros_selecao = selecionar_nota_mais_recente_por_produto(filtrado)
         salvar_json(selecionados, NOME_ARQUIVO_NOTAS_MAIS_RECENTES)
 
         relatorio = RelatorioDeSincronizacao()
         relatorio.produtos_selecionados = len(selecionados)
 
         console.print(f'{len(selecionados)} produtos selecionados — persistindo no banco...')
-        persistir_selecionados_no_banco(selecionados, relatorio)
+        persistir_selecionados_no_banco(
+            selecionados, relatorio, linhas_por_chave=agrupar_manifesto_por_chave(bruto['retorno']),
+        )
 
         tabela = Table(title='Reprocessamento a partir do Bruto — Resultado')
         tabela.add_column('Campo')
@@ -62,6 +71,10 @@ class Command(ComandoComEmpresa):
         tabela.add_row('Produtos sincronizados', str(relatorio.produtos_sincronizados))
         tabela.add_row('Sem Produto correspondente', str(relatorio.produtos_sem_correspondencia))
         tabela.add_row('Com erro (foram pros erros)', str(relatorio.produtos_com_erro))
+        tabela.add_row('Notas puladas no filtro CFOP', str(len(erros_filtro)))
+        tabela.add_row('Linhas puladas na seleção', str(len(erros_selecao)))
+        tabela.add_row('NFs completas gravadas', str(relatorio.notas_completas_gravadas))
+        tabela.add_row('NFs completas com erro', str(relatorio.notas_completas_com_erro))
         console.print(tabela)
 
         self.stdout.write(self.style.SUCCESS('Reprocessamento concluído.'))

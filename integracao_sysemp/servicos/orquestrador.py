@@ -27,16 +27,28 @@
 # Novos campos no relatório (notas_com_erro_no_filtro,
 # linhas_com_erro_na_selecao) tornam essas pendências visíveis sem
 # precisar abrir o json de erros.
+#
+# Atualizado (09/10/2026): além do retrato por produto, grava também o
+# espelho da NOTA INTEIRA (todos os itens, ver NotaCompletaXml) de cada nota
+# usada como base por algum produto — alimenta o botão "Ver NF" da grade de
+# precificação. Falha no espelho nunca derruba o retrato do produto (mesma
+# filosofia de resiliência: vira pendência + contador no relatório). Também
+# ganhou o parâmetro desde (busca mais pra trás que a janela normal, pra
+# preencher o espelho de notas antigas sem mexer na cobertura).
 
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import date
+
+from django.db import DatabaseError
 
 from api_sysemp import ApiSysemp
 from api_sysemp.core.excecoes import ErroAPISysemp
 from produtos.models import Produto
 
 from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
+from impostos.funcoes_auxiliares.entrada.sincronizacao_nota_fiscal_entrada import gravar_nota_fiscal_completa
 from integracao_sysemp.models import SincronizacaoXmlManifestoNotaEntrada
 
 from .arquivos_retorno_api import (
@@ -46,9 +58,10 @@ from .arquivos_retorno_api import (
     NOME_ARQUIVO_NOTAS_MAIS_RECENTES,
     salvar_json,
 )
-from .dados_xml_nf import DadosXmlNF
+from .dados_xml_nf import DadosXmlNF, NotaCompletaXml
 from .erros_sincronizacao import registrar_erro, remover_erro
 from .filtro_cfop import contar_por_cfop, filtrar_por_cfop
+from .notas_completas import agrupar_manifesto_por_chave
 from .selecao_nota_recente import selecionar_nota_mais_recente_por_produto
 
 CAMPO_CODIGO_PRODUTO = 'Código Barras'
@@ -76,6 +89,11 @@ class RelatorioDeSincronizacao:
     produtos_com_erro: int = 0
     notas_com_erro_no_filtro: int = 0
     linhas_com_erro_na_selecao: int = 0
+    # * [EXPLICAÇÃO] → espelho da nota inteira (ver NotaCompletaXml): quantas
+    #                  notas foram gravadas/atualizadas e quantas falharam
+    #                  (a falha vira pendência, nunca derruba o produto).
+    notas_completas_gravadas: int = 0
+    notas_completas_com_erro: int = 0
     # * [EXPLICAÇÃO] → 1 tupla (cfop, descrição, contagem) por CFOP
     #                  mantido, sempre na ordem de CFOPS_PARA_MANTER —
     #                  mostra qual CFOP puxou o volume, sem abrir json.
@@ -102,12 +120,47 @@ def _registrar_erros(erros: list[dict], etapa: str) -> None:
         registrar_erro(erro['identificador'], etapa=etapa, mensagem=erro['mensagem'])
 
 
-def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: RelatorioDeSincronizacao) -> None:
+def _gravar_nota_completa_uma_vez(
+    chave: str, linhas_por_chave: dict[str, list[dict]], chaves_ja_tratadas: set[str],
+    relatorio: RelatorioDeSincronizacao,
+) -> None:
+    """Grava o espelho da nota inteira (todos os itens) 1 única vez por
+    execução — vários produtos selecionados costumam sair da mesma nota.
+    Qualquer falha vira pendência (a chave da nota é o identificador da
+    pendência, em vez de um Código Barras) e nunca interrompe o lote."""
+    if chave in chaves_ja_tratadas:
+        return
+    chaves_ja_tratadas.add(chave)
+    try:
+        linhas_da_nota = linhas_por_chave.get(chave)
+        if not linhas_da_nota:
+            raise ValueError('nota não encontrada entre as linhas do bruto')
+        nota = NotaCompletaXml.a_partir_dos_registros(linhas_da_nota)
+        gravar_nota_fiscal_completa(nota)
+    except (KeyError, ValueError, TypeError, DatabaseError) as erro:
+        registrar_erro(chave, etapa='persistencia_nota_completa', mensagem=str(erro))
+        relatorio.notas_completas_com_erro += 1
+        return
+    remover_erro(chave)
+    relatorio.notas_completas_gravadas += 1
+
+
+def persistir_selecionados_no_banco(
+    selecionados: list[dict], relatorio: RelatorioDeSincronizacao,
+    linhas_por_chave: dict[str, list[dict]] | None = None,
+) -> None:
     """Único ponto que persiste os registros já selecionados (1 nota mais
     recente por produto) no banco — usado tanto pelo pipeline completo
     (sincronizar_impostos_entrada_xml) quanto por qualquer reprocessamento
     a partir de um json já salvo em disco, sem tocar API nem watermark
-    (ver management command reprocessar_impostos_entrada_de_json)."""
+    (ver management command reprocessar_impostos_entrada_de_json).
+
+    linhas_por_chave (opcional, ver notas_completas.py): todas as linhas
+    do bruto agrupadas por nota. Quando passado, grava também o espelho da
+    nota inteira de cada produto sincronizado. None (reprocessamento só a
+    partir do json de selecionados, que não tem os outros itens da nota)
+    = grava só o retrato por produto, como sempre."""
+    chaves_ja_tratadas: set[str] = set()
     for registro in selecionados:
         codigo_barras = registro[CAMPO_CODIGO_PRODUTO]
         produto = Produto.objects.filter(ean=codigo_barras).first()
@@ -117,16 +170,29 @@ def persistir_selecionados_no_banco(selecionados: list[dict], relatorio: Relator
         try:
             dados = DadosXmlNF.a_partir_do_registro(registro)
             sincronizar_impostos_entrada_do_xml(produto, dados)
-        except (KeyError, ValueError, TypeError) as erro:
+        except (KeyError, ValueError, TypeError, DatabaseError) as erro:
+            # * [EXPLICAÇÃO] → DatabaseError entra aqui (09/10/2026): dado de
+            #                  nota que não cabe na coluna (ex: redução de PIS/
+            #                  COFINS absurda quando o Custo Total do Sysemp está
+            #                  inconsistente com a base de cálculo — achado real
+            #                  na Samvale, NF 1781) levantava DataError, que não
+            #                  era capturado e derrubava o lote INTEIRO no meio
+            #                  de milhares de produtos. Agora vira pendência
+            #                  daquele produto só (a transação dele já foi
+            #                  desfeita, nada fica pela metade) e o lote segue.
             registrar_erro(codigo_barras, etapa='parse_ou_persistencia', mensagem=str(erro))
             relatorio.produtos_com_erro += 1
             continue
         remover_erro(codigo_barras)
         relatorio.produtos_sincronizados += 1
+        if linhas_por_chave is not None:
+            _gravar_nota_completa_uma_vez(
+                dados.identificacao_nf.chave_acesso_nf, linhas_por_chave, chaves_ja_tratadas, relatorio,
+            )
 
 
 def sincronizar_impostos_entrada_xml(
-    informar_fase=None, informar_pagina=None, forcar=False,
+    informar_fase=None, informar_pagina=None, forcar=False, desde: date | None = None,
 ) -> RelatorioDeSincronizacao:
     """Executa a sincronização de ponta a ponta. Devolve o relatório de
     tempo/contagens — só mede, não decide nem aplica nenhuma otimização
@@ -140,7 +206,12 @@ def sincronizar_impostos_entrada_xml(
     a cobertura ainda esteja fresca — usado quando se sabe que um dado
     pode ter entrado no Sysemp fora do ritmo normal (ex: nota fiscal
     antiga cuja entrada só foi lançada agora, achado real de 19/08/2026
-    com a marca HIDROLIGHT) e não dá pra esperar o prazo normal."""
+    com a marca HIDROLIGHT) e não dá pra esperar o prazo normal.
+    desde (opcional, implica forcar): busca a partir desta data se ela for
+    anterior ao início da janela normal — nunca encurta a janela normal.
+    Serve pra preencher o espelho de notas antigas (ver notas_completas.py)
+    sem esperar uma nota nova de cada produto. Não mexe na cobertura além
+    do que uma sincronização normal já faria."""
 
     def _informar(mensagem: str) -> None:
         if informar_fase is not None:
@@ -174,11 +245,13 @@ def sincronizar_impostos_entrada_xml(
         return relatorio
 
     registro_watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
-    if not forcar and not registro_watermark.esta_desatualizada():
+    if not forcar and desde is None and not registro_watermark.esta_desatualizada():
         _informar('Dados já atualizados — nada a fazer.')
         return _finalizar()
 
     data_inicial, data_final = registro_watermark.calcular_janela_da_proxima_busca()
+    if desde is not None and desde < data_inicial:
+        data_inicial = desde
     _informar(f'Buscando manifesto na API ({data_inicial.isoformat()} → {data_final.isoformat()})...')
 
     # * [EXPLICAÇÃO] → limpa o parcial ANTES de tentar, não só depois de um
@@ -241,7 +314,9 @@ def sincronizar_impostos_entrada_xml(
 
     _informar(f'Persistindo no banco ({len(selecionados)} produtos selecionados)...')
     with _cronometrar(relatorio, 'persistencia_no_banco'):
-        persistir_selecionados_no_banco(selecionados, relatorio)
+        persistir_selecionados_no_banco(
+            selecionados, relatorio, linhas_por_chave=agrupar_manifesto_por_chave(bruto['retorno']),
+        )
 
     registro_watermark.registrar_sincronizacao_bem_sucedida(data_inicial, data_final)
     _informar('Sincronização concluída.')

@@ -25,6 +25,10 @@
 # impostos de entrada: empresa_fantasia (em IdentificacaoNF) e
 # aliquota_fcp/valor_fcp (em IcmsSt, referentes ao FCP ST — Fundo de Combate
 # à Pobreza).
+#
+# Adicionados (09/10/2026), pro "espelho da NF" da grade de precificação:
+# ItemNotaXml e NotaCompletaXml — a nota INTEIRA (todos os itens, com o
+# registro cru de cada um), em vez de só o item do produto como DadosXmlNF.
 
 from dataclasses import dataclass
 
@@ -286,6 +290,69 @@ class Custos:
             total=float(registro['Custo Total']),
             unitario=float(registro['Custo Unitário']),
         )
+
+
+def _inteiro_ou_none(valor) -> int | None:
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclass(frozen=True)
+class ItemNotaXml:
+    # * [EXPLICAÇÃO] → 1 item de uma nota, só com o que identifica o item, mais
+    #                  o registro cru INTEIRO (registro_bruto). Identificação
+    #                  é propositalmente tolerante (campo ausente vira
+    #                  vazio/None em vez de levantar erro): este objeto
+    #                  alimenta o espelho da nota, que mostra também itens
+    #                  de produtos que o sistema nem usa — 1 item com dado
+    #                  estranho não pode impedir o espelho da nota toda. Só
+    #                  numero_item é obrigatório (é a identidade do item).
+    numero_item: int
+    id_produto_sysemp: int | None
+    nome_produto: str
+    codigo_barras: str | None
+    codigo_auxiliar: str | None
+    codigo_fabricante: str | None
+    registro_bruto: dict
+
+    @classmethod
+    def a_partir_do_registro(cls, registro: dict) -> 'ItemNotaXml':
+        return cls(
+            numero_item=int(registro['Item']),
+            id_produto_sysemp=_inteiro_ou_none(registro.get('ID Produto')),
+            nome_produto=registro.get('Produto') or '',
+            codigo_barras=registro.get('Código Barras') or None,
+            codigo_auxiliar=registro.get('Código Auxiliar') or None,
+            codigo_fabricante=registro.get('Código Fabricante') or None,
+            registro_bruto=registro,
+        )
+
+
+@dataclass(frozen=True)
+class NotaCompletaXml:
+    # * [EXPLICAÇÃO] → A nota inteira (cabeçalho + TODOS os itens), diferente
+    #                  de DadosXmlNF (1 item, o do produto). Montada a partir
+    #                  das linhas cruas que têm a mesma Chave — inclusive
+    #                  itens de CFOP que o filtro descarta pro cálculo, já
+    #                  que o espelho mostra a nota como ela é.
+    identificacao_nf: IdentificacaoNF
+    itens: tuple[ItemNotaXml, ...]
+
+    @classmethod
+    def a_partir_dos_registros(cls, registros: list[dict]) -> 'NotaCompletaXml':
+        if not registros:
+            raise ValueError('nota sem nenhum item')
+        identificacao_nf = IdentificacaoNF.a_partir_do_registro(registros[0])
+        for registro in registros:
+            if registro['Chave'] != identificacao_nf.chave_acesso_nf:
+                raise ValueError(
+                    f'itens de notas diferentes misturados '
+                    f'({identificacao_nf.chave_acesso_nf} e {registro["Chave"]})',
+                )
+        itens = tuple(ItemNotaXml.a_partir_do_registro(registro) for registro in registros)
+        return cls(identificacao_nf=identificacao_nf, itens=itens)
 
 
 @dataclass(frozen=True)

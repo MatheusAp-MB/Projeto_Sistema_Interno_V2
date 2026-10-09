@@ -9,6 +9,8 @@
 
 from .entrada import (
     ImpostoComAliquota,
+    NotaFiscalEntrada,
+    ItemNotaFiscalEntrada,
     ImpostosECustosXMLEntradaProduto,
     IcmsEntradaProduto,
     IcmsStEntradaProduto,

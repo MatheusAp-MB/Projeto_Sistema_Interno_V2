@@ -52,6 +52,7 @@ def sincronizar_impostos_entrada_do_xml(produto: Produto, dados: 'DadosXmlNF') -
             produto=produto,
             defaults={
                 'nr_nf': dados.identificacao_nf.numero_nf,
+                'chave_acesso': dados.identificacao_nf.chave_acesso_nf,
                 'data_entrada_nota': data_entrada,
                 'emissao': emissao,
                 'ncm_xml': dados.classificacao_fiscal.ncm_xml,

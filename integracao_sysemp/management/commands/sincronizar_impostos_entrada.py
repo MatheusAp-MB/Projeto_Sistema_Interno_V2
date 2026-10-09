@@ -1,5 +1,8 @@
 # integracao_sysemp/management/commands/sincronizar_impostos_entrada.py
 
+import argparse
+from datetime import date
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
@@ -8,6 +11,13 @@ from rich.table import Table
 from core.management.commands._base_empresa import ComandoComEmpresa
 from integracao_sysemp.models import SincronizacaoXmlManifestoNotaEntrada
 from integracao_sysemp.servicos.orquestrador import sincronizar_impostos_entrada_xml
+
+def _data_iso(texto: str) -> date:
+    try:
+        return date.fromisoformat(texto)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f'"{texto}" não é uma data válida — use o formato AAAA-MM-DD (ex: 2026-01-01).')
+
 
 FASES_EM_ORDEM = (
     'busca_api', 'salvar_bruto', 'filtro_cfop', 'salvar_filtrado',
@@ -42,11 +52,22 @@ class Command(ComandoComEmpresa):
             help='Ignora a checagem de "já atualizado" e busca de novo a janela recente '
                  '(cobertura - margem até hoje), mesmo que a última sincronização tenha sido há poucos dias.',
         )
+        # * [EXPLICAÇÃO] → Preenche o espelho da NF (botão "Ver NF" da grade de
+        #                  precificação) de notas mais antigas que a janela
+        #                  normal. Já implica --forcar. Nunca encurta a janela
+        #                  normal — só estica pra trás quando a data pedida é
+        #                  mais antiga que o início dela.
+        parser.add_argument(
+            '--desde', type=_data_iso, default=None, metavar='AAAA-MM-DD',
+            help='Busca a partir desta data (se for anterior ao início da janela normal) — '
+                 'preenche o espelho de NFs antigas. Implica --forcar.',
+        )
 
     def handle(self, *args, **options):
         console = Console()
         empresa = options['empresa']
         forcar = options['forcar']
+        desde = options['desde']
 
         registro_watermark = SincronizacaoXmlManifestoNotaEntrada.obter()
         console.print(f'[bold]Empresa[/bold] {empresa}')
@@ -59,11 +80,13 @@ class Command(ComandoComEmpresa):
         else:
             console.print('[yellow]Nenhuma sincronização anterior registrada — primeira carga.[/yellow]')
 
-        if forcar or registro_watermark.esta_desatualizada():
+        if forcar or desde is not None or registro_watermark.esta_desatualizada():
             data_inicial_busca, data_final_busca = registro_watermark.calcular_janela_da_proxima_busca()
+            if desde is not None and desde < data_inicial_busca:
+                data_inicial_busca = desde
             rotulo_forcado = (
-                ' [yellow](forçado com --forcar)[/yellow]'
-                if forcar and not registro_watermark.esta_desatualizada() else ''
+                ' [yellow](forçado com --forcar/--desde)[/yellow]'
+                if (forcar or desde is not None) and not registro_watermark.esta_desatualizada() else ''
             )
             console.print(
                 f'Buscando agora{rotulo_forcado}: '
@@ -90,7 +113,7 @@ class Command(ComandoComEmpresa):
                 )
 
             relatorio = sincronizar_impostos_entrada_xml(
-                informar_fase=_informar_fase, informar_pagina=_informar_pagina, forcar=forcar,
+                informar_fase=_informar_fase, informar_pagina=_informar_pagina, forcar=forcar, desde=desde,
             )
 
         if relatorio.contagem_por_cfop:
@@ -115,6 +138,8 @@ class Command(ComandoComEmpresa):
             f'[bold]Selecionados[/bold]        {relatorio.produtos_selecionados}\n'
             f'[bold]Sincronizados[/bold]        {relatorio.produtos_sincronizados}\n'
             f'[yellow]Sem produto no ERP[/yellow]  {relatorio.produtos_sem_correspondencia}\n'
-            f'[bold]Com erro[/bold]             {relatorio.produtos_com_erro}'
+            f'[bold]Com erro[/bold]             {relatorio.produtos_com_erro}\n'
+            f'[bold]NFs completas gravadas[/bold] {relatorio.notas_completas_gravadas}\n'
+            f'[bold]NFs completas com erro[/bold] {relatorio.notas_completas_com_erro}'
         )
         console.print(Panel(resumo, title=f'Sincronização concluída — {empresa}', border_style='green'))

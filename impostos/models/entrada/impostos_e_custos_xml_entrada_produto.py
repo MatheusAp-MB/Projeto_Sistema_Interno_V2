@@ -16,6 +16,16 @@ class ImpostosECustosXMLEntradaProduto(models.Model):
     produto = models.OneToOneField(Produto, on_delete=models.CASCADE, related_name='impostos_entrada')
 
     nr_nf = models.CharField(max_length=20)
+
+    # * [EXPLICAÇÃO] → Chave de acesso da NF que originou este retrato — liga
+    #                  ao espelho completo da nota (NotaFiscalEntrada.
+    #                  chave_acesso). Texto simples em vez de FK de propósito:
+    #                  a chave identifica a nota mesmo se o espelho dela ainda
+    #                  não foi gravado. Nullable porque linhas gravadas antes
+    #                  deste campo existir só ganham valor na próxima
+    #                  sincronização/reprocessamento.
+    chave_acesso = models.CharField(max_length=60, null=True, blank=True)
+
     data_entrada_nota = models.DateField(null=True, blank=True)
     emissao = models.DateField(null=True, blank=True)
 

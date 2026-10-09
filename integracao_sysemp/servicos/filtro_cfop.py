@@ -64,6 +64,17 @@ def _achatar_em_linhas(notas: list[dict]) -> tuple[list[dict], list[dict]]:
     return linhas, erros
 
 
+def achatar_manifesto_em_linhas(notas_brutas: list[dict]) -> list[dict]:
+    """Mesmo achatamento (1 linha = 1 item) que o filtro usa, mas SEM
+    filtrar por CFOP — devolve só as linhas. Usado pra montar o espelho da
+    nota inteira (ver notas_completas.py), que precisa de todos os itens da
+    nota, inclusive os de CFOP que o filtro descarta pro cálculo. Os erros
+    de nota malformada já são registrados pelo próprio filtro (mesma lista
+    de notas), por isso não são devolvidos aqui."""
+    linhas, _erros = _achatar_em_linhas(notas_brutas)
+    return linhas
+
+
 def _cfop_relevante(linha: dict) -> bool:
     # * [EXPLICAÇÃO] → CFOP não é como os outros campos XML×Cadastro (NCM,
     #                  CST, Origem) — não é "qual lado tem o dado mais
