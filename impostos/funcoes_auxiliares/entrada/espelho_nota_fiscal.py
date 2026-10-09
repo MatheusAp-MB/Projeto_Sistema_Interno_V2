@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -25,23 +24,61 @@ from impostos.models import ImpostosECustosXMLEntradaProduto, NotaFiscalEntrada
 
 # * [EXPLICAÇÃO] → Campos que a API repete em TODOS os itens da nota (dados do
 #                  cabeçalho) mais o número do item: já aparecem no topo do
-#                  espelho / na 1ª coluna da tabela, então ficam fora da lista
-#                  "todos os campos" de cada item.
+#                  espelho / na 1ª coluna da tabela, então ficam fora das tabelas
+#                  de detalhe de cada item.
 CAMPOS_JA_MOSTRADOS = frozenset({
     'Chave', 'NR NF', 'Fornecedor', 'Empresa Fantasia', 'Emissão', 'Entrada NF', 'Item', 'itens_nf',
+    'Produto',   # o nome do produto já é a 2ª coluna da tabela de itens
 })
 
-CAMPOS_DE_IDENTIFICACAO_DO_PRODUTO = frozenset({
-    'ID Produto', 'Produto', 'Código Barras', 'Código Auxiliar', 'Código Fabricante', 'Qtde',
-})
+# * [EXPLICAÇÃO] → Tabela "Impostos deste item": 1 linha por imposto, e cada coluna aponta
+#                  pro nome do campo no registro cru da API (None = esse imposto não tem
+#                  essa coluna). Ex: o FCP do ICMS ST só tem alíquota e valor; o ICMS
+#                  retido só tem base e valor. A redução de PIS/COFINS não vem na nota —
+#                  o sistema calcula, por isso a coluna fica em branco pra eles.
+IMPOSTOS_DO_ITEM = (
+    # nome na tela, CST (XML), CST (cadastro), base de cálculo, alíquota, redução, valor
+    ('ICMS', 'CST ICMS', 'CST ICMS Cadastro', 'Base Calculo ICMS', 'Aliquota ICMS', 'Redução ICMS', 'Valor ICMS'),
+    ('ICMS ST', None, None, 'Base Calculo ICMS ST', 'Aliquota ICMS ST', 'Redução ICMS ST', 'Valor ICMS ST'),
+    ('FCP do ICMS ST', None, None, None, '% FCP ST', None, 'Valor FCP ST'),
+    ('ICMS retido', None, None, 'Base ICMS Ret', None, None, 'Valor ICMS Ret'),
+    ('IPI', 'CST IPI', 'CST IPI Cadastro', 'Base Calculo IPI', 'Aliquota IPI', None, 'Valor IPI'),
+    ('PIS', 'CST PIS', 'CST PIS Cadastro', 'Base Calculo PIS', 'Aliquota PIS', None, 'Valor PIS'),
+    ('COFINS', 'CST COFINS', 'CST COFINS Cadastro', 'Base Calculo COFINS', 'Aliquota COFINS', None, 'Valor COFINS'),
+)
 
-# * [EXPLICAÇÃO] → Ordem em que os grupos aparecem na lista "todos os campos".
-#                  O MySQL reordena as chaves de uma coluna JSON (por tamanho,
-#                  depois alfabético) — então a ordem da API se perde no banco;
-#                  agrupar por assunto devolve uma ordem que faz sentido.
-ORDEM_DOS_GRUPOS = (
-    'Produto', 'Custos', 'ICMS', 'ICMS ST', 'ICMS retido', 'IPI', 'PIS', 'COFINS',
-    'Classificação fiscal', 'Outros campos',
+# * [EXPLICAÇÃO] → Tabela "Classificação fiscal": o que a nota diz × o que o cadastro do
+#                  Sysemp diz, lado a lado. `origem` define como a linha aparece:
+#                  'ambos' (XML e Cadastro), 'so_cadastro' (só existe no cadastro) e
+#                  'sem_origem' (campo único da API, sem par XML/Cadastro).
+CLASSIFICACAO_FISCAL_DO_ITEM = (
+    # rótulo, origem, chave XML, chave cadastro, descrição XML, descrição cadastro
+    ('NCM', 'ambos', 'NCM XML', 'NCM Cadastro', None, None),
+    ('CFOP', 'ambos', 'CFOP XML', 'CFOP Cadastro', None, None),
+    ('Origem da mercadoria', 'ambos', 'Origem XML', 'Origem Cadastro', 'Origem Descricão XML', 'Origem Descricão Cadastro'),
+    ('CEST', 'sem_origem', 'CEST', None, None, None),
+    ('Natureza da operação', 'so_cadastro', None, 'Natureza da Operacao Cadastro', None, None),
+    ('TES de saída', 'so_cadastro', None, 'TES Saida Cadastro', None, None),
+)
+
+# * [EXPLICAÇÃO] → Tabela "Produto e custos": rótulo na tela, chave no registro cru e formato
+#                  ('texto' nunca é formatado como número — EAN/ID/código perderiam zeros
+#                  ou ganhariam separador de milhar).
+PRODUTO_E_CUSTOS_DO_ITEM = (
+    ('ID no Sysemp', 'ID Produto', 'texto'),
+    ('Código de barras (EAN)', 'Código Barras', 'texto'),
+    ('Código auxiliar', 'Código Auxiliar', 'texto'),
+    ('Código do fabricante', 'Código Fabricante', 'texto'),
+    ('Quantidade', 'Qtde', 'quantidade'),
+    ('Custo unitário', 'Custo Unitário', 'dinheiro'),
+    ('Custo total', 'Custo Total', 'dinheiro'),
+)
+
+# Tudo que as 3 tabelas acima já mostram — o que sobrar do registro cru vai pra "Outros campos".
+CAMPOS_MOSTRADOS_NAS_TABELAS = frozenset(
+    {chave for linha in IMPOSTOS_DO_ITEM for chave in linha[1:] if chave}
+    | {chave for linha in CLASSIFICACAO_FISCAL_DO_ITEM for chave in (linha[2], linha[3], linha[4], linha[5]) if chave}
+    | {chave for _, chave, _ in PRODUTO_E_CUSTOS_DO_ITEM}
 )
 
 
@@ -57,9 +94,32 @@ class CampoBrutoItem:
 
 
 @dataclass
-class GrupoCamposItem:
-    titulo: str
-    campos: list[CampoBrutoItem]
+class LinhaImpostoItem:
+    # Função Objetivo: 1 linha da tabela "Impostos deste item". None em qualquer coluna =
+    # "—" na tela (o imposto não tem essa coluna, ou a nota não trouxe o dado).
+    nome: str
+    cst_xml: str | None
+    cst_cadastro: str | None
+    base_calculo: Decimal | None
+    aliquota: Decimal | None
+    reducao: Decimal | None
+    valor: Decimal | None
+
+
+@dataclass
+class LinhaClassificacaoItem:
+    rotulo: str
+    origem: str                  # 'ambos' | 'so_cadastro' | 'sem_origem'
+    xml: str | None
+    cadastro: str | None
+
+
+@dataclass
+class LinhaProdutoCustoItem:
+    rotulo: str
+    formato: str                 # 'texto' | 'quantidade' | 'dinheiro'
+    texto: str | None
+    numero: Decimal | None
 
 
 @dataclass
@@ -84,7 +144,13 @@ class ItemEspelhoNota:
     cofins_valor: Decimal | None
     cofins_aliquota: Decimal | None
     eh_do_produto: bool
-    grupos_de_campos: list[GrupoCamposItem] = field(default_factory=list)
+    # * [EXPLICAÇÃO] → `aberto`: a tela já mostra o detalhe deste item sem precisar clicar no
+    #                  "+" (o item do produto auditado, ou todos quando a nota tem poucos itens).
+    aberto: bool = False
+    impostos: list[LinhaImpostoItem] = field(default_factory=list)
+    classificacao: list[LinhaClassificacaoItem] = field(default_factory=list)
+    produto_e_custos: list[LinhaProdutoCustoItem] = field(default_factory=list)
+    outros_campos: list[CampoBrutoItem] = field(default_factory=list)
 
 
 @dataclass
@@ -145,32 +211,6 @@ def _texto_ou_none(valor) -> str | None:
     return str(valor).strip() or None
 
 
-def _grupo_do_campo(rotulo: str) -> str:
-    # * [EXPLICAÇÃO] → Compara por PALAVRAS (não por trecho de texto) pra
-    #                  "IPI" não casar com o meio de outra palavra.
-    palavras = set(re.findall(r'\w+', rotulo.upper()))
-
-    if 'FCP' in palavras or ('ICMS' in palavras and 'ST' in palavras):
-        return 'ICMS ST'
-    if 'ICMS' in palavras and 'RET' in palavras:
-        return 'ICMS retido'
-    if 'ICMS' in palavras:
-        return 'ICMS'
-    if 'IPI' in palavras:
-        return 'IPI'
-    if 'PIS' in palavras:
-        return 'PIS'
-    if 'COFINS' in palavras:
-        return 'COFINS'
-    if 'CUSTO' in palavras:
-        return 'Custos'
-    if palavras & {'NCM', 'CFOP', 'ORIGEM', 'TES', 'NATUREZA'}:
-        return 'Classificação fiscal'
-    if rotulo in CAMPOS_DE_IDENTIFICACAO_DO_PRODUTO:
-        return 'Produto'
-    return 'Outros campos'
-
-
 def _montar_campo_bruto(rotulo: str, valor) -> CampoBrutoItem:
     # * [EXPLICAÇÃO] → float = número decimal de verdade (alíquota, valor) —
     #                  a tela formata. int/str = código ou identificador
@@ -182,18 +222,68 @@ def _montar_campo_bruto(rotulo: str, valor) -> CampoBrutoItem:
     return CampoBrutoItem(rotulo=rotulo, texto=_texto_ou_none(valor), numero=None)
 
 
-def _agrupar_campos(registro_bruto: dict) -> list[GrupoCamposItem]:
-    campos_por_grupo: dict[str, list[CampoBrutoItem]] = {}
-    for rotulo, valor in registro_bruto.items():
-        if rotulo in CAMPOS_JA_MOSTRADOS:
-            continue
-        campos_por_grupo.setdefault(_grupo_do_campo(rotulo), []).append(_montar_campo_bruto(rotulo, valor))
+def _valor_da_chave(bruto: dict, chave: str | None):
+    return bruto.get(chave) if chave else None
 
+
+def _montar_linhas_de_impostos(bruto: dict) -> list[LinhaImpostoItem]:
     return [
-        GrupoCamposItem(titulo=titulo, campos=sorted(campos_por_grupo[titulo], key=lambda campo: campo.rotulo))
-        for titulo in ORDEM_DOS_GRUPOS
-        if titulo in campos_por_grupo
+        LinhaImpostoItem(
+            nome=nome,
+            cst_xml=_texto_ou_none(_valor_da_chave(bruto, chave_cst_xml)),
+            cst_cadastro=_texto_ou_none(_valor_da_chave(bruto, chave_cst_cadastro)),
+            base_calculo=_numero(_valor_da_chave(bruto, chave_base)),
+            aliquota=_numero(_valor_da_chave(bruto, chave_aliquota)),
+            reducao=_numero(_valor_da_chave(bruto, chave_reducao)),
+            valor=_numero(_valor_da_chave(bruto, chave_valor)),
+        )
+        for nome, chave_cst_xml, chave_cst_cadastro, chave_base, chave_aliquota, chave_reducao, chave_valor
+        in IMPOSTOS_DO_ITEM
     ]
+
+
+def _texto_com_descricao(bruto: dict, chave: str | None, chave_descricao: str | None) -> str | None:
+    # Ex: origem da mercadoria — a descrição ("0 - Nacional, exceto...") já traz o código; se a
+    # API não mandou a descrição, mostra só o código.
+    return _texto_ou_none(_valor_da_chave(bruto, chave_descricao)) or _texto_ou_none(_valor_da_chave(bruto, chave))
+
+
+def _montar_linhas_de_classificacao(bruto: dict) -> list[LinhaClassificacaoItem]:
+    return [
+        LinhaClassificacaoItem(
+            rotulo=rotulo,
+            origem=origem,
+            xml=_texto_com_descricao(bruto, chave_xml, descricao_xml),
+            cadastro=_texto_com_descricao(bruto, chave_cadastro, descricao_cadastro),
+        )
+        for rotulo, origem, chave_xml, chave_cadastro, descricao_xml, descricao_cadastro
+        in CLASSIFICACAO_FISCAL_DO_ITEM
+    ]
+
+
+def _montar_linhas_de_produto_e_custos(bruto: dict) -> list[LinhaProdutoCustoItem]:
+    linhas = []
+    for rotulo, chave, formato in PRODUTO_E_CUSTOS_DO_ITEM:
+        valor = bruto.get(chave)
+        linhas.append(LinhaProdutoCustoItem(
+            rotulo=rotulo,
+            formato=formato,
+            texto=_texto_ou_none(valor) if formato == 'texto' else None,
+            numero=_numero(valor) if formato != 'texto' else None,
+        ))
+    return linhas
+
+
+def _montar_outros_campos(bruto: dict) -> list[CampoBrutoItem]:
+    # Nada some: campo que a API mandar e que não está em nenhuma das tabelas aparece aqui.
+    return sorted(
+        (
+            _montar_campo_bruto(rotulo, valor)
+            for rotulo, valor in bruto.items()
+            if rotulo not in CAMPOS_JA_MOSTRADOS and rotulo not in CAMPOS_MOSTRADOS_NAS_TABELAS
+        ),
+        key=lambda campo: campo.rotulo,
+    )
 
 
 def _montar_item(item, ean_destaque: str | None) -> ItemEspelhoNota:
@@ -220,7 +310,10 @@ def _montar_item(item, ean_destaque: str | None) -> ItemEspelhoNota:
         cofins_valor=_numero(bruto.get('Valor COFINS')),
         cofins_aliquota=_numero(bruto.get('Aliquota COFINS')),
         eh_do_produto=bool(ean_destaque) and item.codigo_barras == ean_destaque,
-        grupos_de_campos=_agrupar_campos(bruto),
+        impostos=_montar_linhas_de_impostos(bruto),
+        classificacao=_montar_linhas_de_classificacao(bruto),
+        produto_e_custos=_montar_linhas_de_produto_e_custos(bruto),
+        outros_campos=_montar_outros_campos(bruto),
     )
 
 
@@ -238,6 +331,18 @@ def _montar_totais(itens: list[ItemEspelhoNota]) -> TotaisEspelho:
         pis=_somar(item.pis_valor for item in itens),
         cofins=_somar(item.cofins_valor for item in itens),
     )
+
+
+# * [EXPLICAÇÃO] → Nota pequena (até 3 itens): o detalhe de todos já vem aberto — o usuário
+#                  bate o olho na nota inteira sem clicar. Nota grande: só o item do produto
+#                  auditado vem aberto (os outros abrem no "+", ou no "Expandir todos").
+MAXIMO_DE_ITENS_PARA_ABRIR_TODOS = 3
+
+
+def _marcar_itens_abertos(itens: list[ItemEspelhoNota]) -> None:
+    abrir_todos = len(itens) <= MAXIMO_DE_ITENS_PARA_ABRIR_TODOS
+    for item in itens:
+        item.aberto = abrir_todos or item.eh_do_produto
 
 
 def montar_espelho_nota_fiscal(chave_acesso: str, ean_destaque: str | None = None) -> EspelhoNotaFiscal | None:
@@ -258,6 +363,7 @@ def montar_espelho_nota_fiscal(chave_acesso: str, ean_destaque: str | None = Non
 
     if nota is not None:
         itens = [_montar_item(item, ean_destaque) for item in nota.itens.all()]
+        _marcar_itens_abertos(itens)
         return EspelhoNotaFiscal(
             chave_acesso=nota.chave_acesso,
             chave_formatada=formatar_chave_acesso(nota.chave_acesso),

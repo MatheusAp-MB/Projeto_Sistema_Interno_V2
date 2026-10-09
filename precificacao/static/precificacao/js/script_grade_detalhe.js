@@ -158,6 +158,12 @@ function obterSobreposicaoEspelhoNF() {
     return sobreposicao;
 }
 
+function definirTituloEspelhoNF(sobreposicao, numeroDaNota) {
+    const titulo = sobreposicao.querySelector('.nf-espelho-barra-titulo');
+    if (!titulo) return;
+    titulo.textContent = '🧾 Espelho da nota fiscal' + (numeroDaNota ? ' · ' + numeroDaNota : '');
+}
+
 function abrirEspelhoNF(botao) {
     const url = botao.getAttribute('data-url');
     if (!url) return;
@@ -165,13 +171,24 @@ function abrirEspelhoNF(botao) {
     const sobreposicao = obterSobreposicaoEspelhoNF();
     const conteudo = sobreposicao.querySelector('.nf-espelho-conteudo');
     conteudo.innerHTML = '<div class="nf-espelho-carregando">Carregando a nota fiscal…</div>';
+    definirTituloEspelhoNF(sobreposicao, '');
     sobreposicao.classList.add('nf-espelho-sobreposicao--aberta');
     document.body.classList.add('nf-espelho-aberto');
 
     htmx.ajax('GET', url, { target: conteudo, swap: 'innerHTML' }).then(function () {
-        // * [EXPLICAÇÃO] → Nota grande (dezenas de itens): já rola até o item do produto auditado.
+        // * [EXPLICAÇÃO] → O número da NF vai também pra barra fixa do topo: mesmo rolando a nota até o
+        //                  item auditado (ou até o fim da lista), o usuário nunca perde de vista qual NF é.
+        const numero = conteudo.querySelector('.nf-espelho-numero');
+        definirTituloEspelhoNF(sobreposicao, numero ? numero.textContent.trim() : '');
+
+        // * [EXPLICAÇÃO] → Nota grande (dezenas de itens): já rola até o item do produto auditado, deixando-o
+        //                  no TOPO (o detalhe aberto dele aparece logo abaixo). Nota pequena, em que o item já
+        //                  está à vista, não rola — senão o cabeçalho da nota sairia da tela à toa.
         const destaque = conteudo.querySelector('.nf-espelho-linha--destaque');
-        if (destaque) destaque.scrollIntoView({ block: 'center' });
+        if (destaque) {
+            const distanciaDoTopo = destaque.getBoundingClientRect().top - conteudo.getBoundingClientRect().top;
+            if (distanciaDoTopo > conteudo.clientHeight * 0.6) destaque.scrollIntoView({ block: 'start' });
+        }
     }).catch(function () {
         conteudo.innerHTML = '<div class="nf-espelho-carregando">Não foi possível carregar a nota fiscal. Feche e tente de novo.</div>';
     });
@@ -193,16 +210,39 @@ document.addEventListener('keydown', function (evento) {
     }
 });
 
-// * [EXPLICAÇÃO] → O "+" de cada item mostra/esconde a linha logo abaixo, que traz TODOS os
-//                  campos do item como a API devolveu (XML e Cadastro). Sem isso a tabela
-//                  teria 50+ colunas por item.
-function alternarCamposItemNF(botao) {
+// * [EXPLICAÇÃO] → O "+"/"−" de cada item mostra/esconde a linha logo abaixo, que traz as tabelas de
+//                  detalhe dele (impostos, produto e custos, classificação fiscal). O item do produto
+//                  auditado (e todos, em nota pequena) já vem aberto do servidor.
+function definirDetalheItemNF(botao, abrir) {
     const linha = botao.closest('tr');
     const detalhe = linha ? linha.nextElementSibling : null;
     if (!detalhe || !detalhe.classList.contains('nf-espelho-linha-detalhe')) return;
 
-    const vaiAbrir = detalhe.hidden;
-    detalhe.hidden = !vaiAbrir;
-    botao.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
-    botao.textContent = vaiAbrir ? '−' : '+';
+    detalhe.hidden = !abrir;
+    botao.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+    botao.textContent = abrir ? '−' : '+';
+}
+
+function alternarCamposItemNF(botao) {
+    definirDetalheItemNF(botao, botao.getAttribute('aria-expanded') !== 'true');
+}
+
+// "Abrir todos" / "Fechar todos" — vale só pros itens que estão à vista (respeita o filtro "Só o produto auditado").
+function expandirTodosItensNF(botao, abrir) {
+    const raiz = botao.closest('.nf-espelho');
+    if (!raiz) return;
+    raiz.querySelectorAll('.nf-espelho-linha').forEach(function (linha) {
+        if (linha.offsetParent === null) return;
+        const alternador = linha.querySelector('.nf-espelho-expandir');
+        if (alternador) definirDetalheItemNF(alternador, abrir);
+    });
+}
+
+// "Só o produto auditado" — esconde os outros itens da nota (CSS: .nf-espelho--so-auditado).
+function alternarSoProdutoAuditadoNF(botao) {
+    const raiz = botao.closest('.nf-espelho');
+    if (!raiz) return;
+    const ligar = botao.getAttribute('aria-pressed') !== 'true';
+    raiz.classList.toggle('nf-espelho--so-auditado', ligar);
+    botao.setAttribute('aria-pressed', ligar ? 'true' : 'false');
 }

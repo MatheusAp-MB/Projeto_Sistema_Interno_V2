@@ -3,6 +3,13 @@
     Parcial (sem <html>): carregado por abrirEspelhoNF() (precificacao/static/precificacao/js/
     script_grade_detalhe.js) dentro da janela "Ver NF" da grade de precificação.
 
+    Tudo em TABELAS, pra dar uma visão ampla da nota sem precisar abrir nada:
+      1) cabeçalho da nota + soma dos itens (2 tabelas lado a lado);
+      2) tabela de itens (1 linha por item, com valor e alíquota de cada imposto);
+      3) logo abaixo de cada item (já aberto pro item auditado, ou pra todos em nota
+         pequena): matriz "Impostos deste item", "Produto e custos" e "Classificação
+         fiscal" (XML × Cadastro).
+
     Visual: reaproveita as classes audit-* e as variáveis de cor (.audit-painel) de
     precificacao/static/precificacao/css/layout_grade_precificacao_ml.css — esse CSS já está
     carregado na tela da grade, que é onde esta parcial aparece. Se o espelho passar a ser aberto
@@ -19,32 +26,88 @@
         <b>Nota fiscal não encontrada.</b> O sistema não tem nenhuma nota com essa chave de acesso.
     </div>
 {% else %}
-    <div class="nf-espelho-topo">
-        <div class="nf-espelho-papel">{{ titulo_do_espelho }}</div>
-        <div class="nf-espelho-numero">NF {{ espelho.numero_nf }}</div>
-        <div class="nf-espelho-aviso">Espelho informativo: reúne os dados da nota como o Sysemp devolveu — não é o documento fiscal (DANFE).</div>
+    <div class="nf-espelho-topo nf-espelho-topo--com-nota">
+        <div>
+            <div class="nf-espelho-papel">{{ titulo_do_espelho }}</div>
+            <div class="nf-espelho-numero">NF {{ espelho.numero_nf }}</div>
+        </div>
+        <div class="nf-espelho-aviso">Espelho informativo: reúne os dados da nota como o Sysemp devolveu — não é o documento fiscal (DANFE).{% if espelho.atualizada_em %}<br>Guardada no sistema em {{ espelho.atualizada_em|date:"d/m/Y H:i" }}.{% endif %}</div>
     </div>
 
-    <dl class="audit-nf-base-dados nf-espelho-dados">
-        <div><dt>Emissão</dt><dd>{{ espelho.emissao|date:"d/m/Y"|default:"—" }}</dd></div>
-        <div><dt>Data de entrada</dt><dd>{{ espelho.data_entrada_nota|date:"d/m/Y"|default:"—" }}</dd></div>
-        <div><dt>Fornecedor</dt><dd>{{ espelho.fornecedor|default:"—" }}</dd></div>
-        <div><dt>Empresa</dt><dd>{{ espelho.empresa_fantasia|default:"—" }}</dd></div>
+    <div class="nf-espelho-resumo">
+        <div class="nf-espelho-resumo-tabela nf-espelho-resumo-tabela--nota">
+            <table class="nf-espelho-mini">
+                <caption>Nota</caption>
+                <thead>
+                    <tr>
+                        <th>Emissão</th>
+                        <th>Entrada</th>
+                        <th>Fornecedor</th>
+                        <th>Empresa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="nf-espelho-nowrap">{{ espelho.emissao|date:"d/m/Y"|default:"—" }}</td>
+                        <td class="nf-espelho-nowrap">{{ espelho.data_entrada_nota|date:"d/m/Y"|default:"—" }}</td>
+                        <td>{{ espelho.fornecedor|default:"—" }}</td>
+                        <td>{{ espelho.empresa_fantasia|default:"—" }}</td>
+                    </tr>
+                    <tr class="nf-espelho-linha-chave">
+                        <td colspan="4"><span class="nf-espelho-chave-rotulo">Chave de acesso</span> <span class="nf-espelho-chave">{{ espelho.chave_formatada }}</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         {% if espelho.itens_guardados %}
-        <div><dt>Itens na nota</dt><dd>{{ espelho.totais.quantidade_de_itens }}</dd></div>
-        <div><dt>Soma dos itens (custo total)</dt><dd>R$ {{ espelho.totais.custo_total|floatformat:2 }}</dd></div>
+        <div class="nf-espelho-resumo-tabela nf-espelho-resumo-tabela--soma">
+            <table class="nf-espelho-mini">
+                <caption>Soma dos itens <span class="nf-espelho-caption-nota">(não é o total oficial da nota)</span></caption>
+                <thead>
+                    <tr>
+                        <th class="n">Itens</th>
+                        <th class="n">Custo total (R$)</th>
+                        <th class="n">ICMS (R$)</th>
+                        <th class="n">ICMS ST (R$)</th>
+                        <th class="n">IPI (R$)</th>
+                        <th class="n">PIS (R$)</th>
+                        <th class="n">COFINS (R$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="n">{{ espelho.totais.quantidade_de_itens }}</td>
+                        <td class="n nf-espelho-forte">{{ espelho.totais.custo_total|floatformat:"2g" }}</td>
+                        <td class="n{% if espelho.totais.icms == 0 %} nf-zero{% endif %}">{{ espelho.totais.icms|floatformat:"2g" }}</td>
+                        <td class="n{% if espelho.totais.icms_st == 0 %} nf-zero{% endif %}">{{ espelho.totais.icms_st|floatformat:"2g" }}</td>
+                        <td class="n{% if espelho.totais.ipi == 0 %} nf-zero{% endif %}">{{ espelho.totais.ipi|floatformat:"2g" }}</td>
+                        <td class="n{% if espelho.totais.pis == 0 %} nf-zero{% endif %}">{{ espelho.totais.pis|floatformat:"2g" }}</td>
+                        <td class="n{% if espelho.totais.cofins == 0 %} nf-zero{% endif %}">{{ espelho.totais.cofins|floatformat:"2g" }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
         {% endif %}
-        {% if espelho.atualizada_em %}
-        <div><dt>Guardada no sistema em</dt><dd>{{ espelho.atualizada_em|date:"d/m/Y H:i" }}</dd></div>
-        {% endif %}
-        <div class="audit-nf-base-dado--largo"><dt>Chave de acesso</dt><dd class="audit-nf-base-chave">{{ espelho.chave_formatada }}</dd></div>
-    </dl>
+    </div>
 
     {% if espelho.itens_guardados %}
-        {% if espelho.itens_do_produto %}
+        {% if espelho.itens_do_produto and espelho.totais.quantidade_de_itens > 3 %}
         <div class="nf-espelho-info nf-espelho-info--ok">⭐ O produto auditado aparece em {{ espelho.itens_do_produto }} item{{ espelho.itens_do_produto|pluralize:",ns" }} desta nota — destacado{{ espelho.itens_do_produto|pluralize }} em amarelo na tabela.</div>
-        {% elif ean_destaque %}
+        {% elif ean_destaque and not espelho.itens_do_produto %}
         <div class="nf-espelho-info nf-espelho-info--aviso">⚠ Nenhum item desta nota tem o EAN do produto auditado ({{ ean_destaque }}).</div>
+        {% endif %}
+
+        {% if espelho.totais.quantidade_de_itens > 1 %}
+        <div class="nf-espelho-barra-itens">
+            <div class="nf-espelho-barra-itens-titulo">Itens da nota <span>({{ espelho.totais.quantidade_de_itens }})</span></div>
+            <div class="nf-espelho-barra-itens-botoes">
+                {% if espelho.itens_do_produto %}
+                <button type="button" class="nf-espelho-botao" aria-pressed="false" onclick="alternarSoProdutoAuditadoNF(this)">Só o produto auditado</button>
+                {% endif %}
+                <button type="button" class="nf-espelho-botao" onclick="expandirTodosItensNF(this, true)">Abrir todos</button>
+                <button type="button" class="nf-espelho-botao" onclick="expandirTodosItensNF(this, false)">Fechar todos</button>
+            </div>
+        </div>
         {% endif %}
 
         <div class="audit-tabela-itens-wrap nf-espelho-tabela-wrap">
@@ -67,55 +130,123 @@
                     {% for item in espelho.itens %}
                     <tr class="nf-espelho-linha{% if item.eh_do_produto %} nf-espelho-linha--destaque{% endif %}">
                         <td class="nf-espelho-col-item">
-                            <button type="button" class="nf-espelho-expandir" aria-expanded="false" title="Ver todos os campos deste item" onclick="alternarCamposItemNF(this)">+</button>
+                            <button type="button" class="nf-espelho-expandir" aria-expanded="{% if item.aberto %}true{% else %}false{% endif %}" title="Ver o detalhe deste item" onclick="alternarCamposItemNF(this)">{% if item.aberto %}−{% else %}+{% endif %}</button>
                             {{ item.numero_item }}
                         </td>
                         <td class="nf-espelho-col-produto">
                             <span class="nf-espelho-produto-nome">{{ item.nome_produto|default:"—" }}</span>{% if item.eh_do_produto %}<span class="audit-tag audit-tag--api">produto auditado</span>{% endif %}
                             <span class="nf-espelho-produto-codigos">{% if item.codigo_barras %}EAN {{ item.codigo_barras }}{% else %}sem EAN{% endif %}{% if item.codigo_auxiliar %} · Cód. aux. {{ item.codigo_auxiliar }}{% endif %}{% if item.ncm %} · NCM {{ item.ncm }}{% endif %}{% if item.cfop_cadastro %} · CFOP {{ item.cfop_cadastro }}{% endif %}</span>
                         </td>
-                        <td class="audit-num">{{ item.quantidade|floatformat:"-3"|default:"—" }}</td>
-                        <td class="audit-num">{{ item.custo_unitario|floatformat:2|default:"—" }}</td>
-                        <td class="audit-num">{{ item.custo_total|floatformat:2|default:"—" }}</td>
-                        <td class="audit-num">{{ item.icms_valor|floatformat:2|default:"—" }}{% if item.icms_aliquota %}<span class="nf-espelho-aliquota">{{ item.icms_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
-                        <td class="audit-num">{{ item.icms_st_valor|floatformat:2|default:"—" }}{% if item.icms_st_aliquota %}<span class="nf-espelho-aliquota">{{ item.icms_st_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
-                        <td class="audit-num">{{ item.ipi_valor|floatformat:2|default:"—" }}{% if item.ipi_aliquota %}<span class="nf-espelho-aliquota">{{ item.ipi_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
-                        <td class="audit-num">{{ item.pis_valor|floatformat:2|default:"—" }}{% if item.pis_aliquota %}<span class="nf-espelho-aliquota">{{ item.pis_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
-                        <td class="audit-num">{{ item.cofins_valor|floatformat:2|default:"—" }}{% if item.cofins_aliquota %}<span class="nf-espelho-aliquota">{{ item.cofins_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
+                        <td class="audit-num">{{ item.quantidade|floatformat:"-3g"|default:"—" }}</td>
+                        <td class="audit-num">{{ item.custo_unitario|floatformat:"2g"|default:"—" }}</td>
+                        <td class="audit-num">{{ item.custo_total|floatformat:"2g"|default:"—" }}</td>
+                        <td class="audit-num{% if item.icms_valor == 0 %} nf-zero{% endif %}">{{ item.icms_valor|floatformat:"2g"|default:"—" }}{% if item.icms_aliquota %}<span class="nf-espelho-aliquota">{{ item.icms_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
+                        <td class="audit-num{% if item.icms_st_valor == 0 %} nf-zero{% endif %}">{{ item.icms_st_valor|floatformat:"2g"|default:"—" }}{% if item.icms_st_aliquota %}<span class="nf-espelho-aliquota">{{ item.icms_st_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
+                        <td class="audit-num{% if item.ipi_valor == 0 %} nf-zero{% endif %}">{{ item.ipi_valor|floatformat:"2g"|default:"—" }}{% if item.ipi_aliquota %}<span class="nf-espelho-aliquota">{{ item.ipi_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
+                        <td class="audit-num{% if item.pis_valor == 0 %} nf-zero{% endif %}">{{ item.pis_valor|floatformat:"2g"|default:"—" }}{% if item.pis_aliquota %}<span class="nf-espelho-aliquota">{{ item.pis_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
+                        <td class="audit-num{% if item.cofins_valor == 0 %} nf-zero{% endif %}">{{ item.cofins_valor|floatformat:"2g"|default:"—" }}{% if item.cofins_aliquota %}<span class="nf-espelho-aliquota">{{ item.cofins_aliquota|floatformat:"-2" }}%</span>{% endif %}</td>
                     </tr>
-                    {# spaceless nos campos: nota com 200 itens × ~50 campos — tirar a indentação entre as tags corta o HTML pela metade #}
-                    <tr class="nf-espelho-linha-detalhe" hidden>
+                    {# spaceless: nota com 200 itens × 3 tabelas por item — tirar a indentação entre as tags corta bastante o HTML #}
+                    <tr class="nf-espelho-linha-detalhe{% if item.eh_do_produto %} nf-espelho-linha-detalhe--destaque{% endif %}"{% if not item.aberto %} hidden{% endif %}>
                         <td colspan="10">
                             {% spaceless %}
-                            <div class="nf-espelho-campos">
-                                {% for grupo in item.grupos_de_campos %}
-                                <div class="nf-espelho-campos-grupo">
-                                    <div class="nf-espelho-campos-titulo">{{ grupo.titulo }}</div>
-                                    {% for campo in grupo.campos %}
-                                    <div class="nf-espelho-campo"><span class="k">{{ campo.rotulo }}</span><span class="v">{% if campo.numero is not None %}{{ campo.numero|floatformat:"-4" }}{% elif campo.texto %}{{ campo.texto }}{% else %}—{% endif %}</span></div>
-                                    {% endfor %}
+                            <div class="nf-espelho-detalhe">
+                                <section class="nf-espelho-bloco">
+                                    <h4>Impostos deste item</h4>
+                                    <div class="nf-espelho-mini-wrap">
+                                        <table class="nf-espelho-mini nf-espelho-mini--impostos">
+                                            <thead>
+                                                <tr>
+                                                    <th>Imposto</th>
+                                                    <th>CST na nota (XML)</th>
+                                                    <th>CST no cadastro</th>
+                                                    <th class="n">Base de cálculo (R$)</th>
+                                                    <th class="n">Alíquota</th>
+                                                    <th class="n">Redução</th>
+                                                    <th class="n">Valor (R$)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for linha in item.impostos %}
+                                                <tr>
+                                                    <th scope="row">{{ linha.nome }}</th>
+                                                    <td>{% if linha.cst_xml %}{{ linha.cst_xml }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td>
+                                                    <td>{% if linha.cst_cadastro %}{{ linha.cst_cadastro }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td>
+                                                    <td class="n{% if linha.base_calculo == 0 %} nf-zero{% endif %}">{% if linha.base_calculo is None %}<span class="nf-nulo">—</span>{% else %}{{ linha.base_calculo|floatformat:"2g" }}{% endif %}</td>
+                                                    <td class="n{% if linha.aliquota == 0 %} nf-zero{% endif %}">{% if linha.aliquota is None %}<span class="nf-nulo">—</span>{% else %}{{ linha.aliquota|floatformat:"-2" }}%{% endif %}</td>
+                                                    <td class="n{% if linha.reducao == 0 %} nf-zero{% endif %}">{% if linha.reducao is None %}<span class="nf-nulo">—</span>{% else %}{{ linha.reducao|floatformat:"-2" }}%{% endif %}</td>
+                                                    <td class="n nf-espelho-forte{% if linha.valor == 0 %} nf-zero{% endif %}">{% if linha.valor is None %}<span class="nf-nulo">—</span>{% else %}{{ linha.valor|floatformat:"2g" }}{% endif %}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+                                <div class="nf-espelho-detalhe-duplo">
+                                    <section class="nf-espelho-bloco">
+                                        <h4>Produto e custos</h4>
+                                        <div class="nf-espelho-mini-wrap">
+                                            <table class="nf-espelho-mini nf-espelho-mini--chave-valor">
+                                                <tbody>
+                                                    {% for linha in item.produto_e_custos %}
+                                                    <tr>
+                                                        <th scope="row">{{ linha.rotulo }}</th>
+                                                        <td class="n">{% if linha.formato == 'dinheiro' %}{% if linha.numero is None %}<span class="nf-nulo">—</span>{% else %}R$ {{ linha.numero|floatformat:"2g" }}{% endif %}{% elif linha.formato == 'quantidade' %}{% if linha.numero is None %}<span class="nf-nulo">—</span>{% else %}{{ linha.numero|floatformat:"-3g" }}{% endif %}{% elif linha.texto %}{{ linha.texto }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
+                                    <section class="nf-espelho-bloco">
+                                        <h4>Classificação fiscal</h4>
+                                        <div class="nf-espelho-mini-wrap">
+                                            <table class="nf-espelho-mini nf-espelho-mini--classificacao">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Campo</th>
+                                                        <th>Na nota (XML)</th>
+                                                        <th>No cadastro</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for linha in item.classificacao %}
+                                                    <tr>
+                                                        <th scope="row">{{ linha.rotulo }}</th>
+                                                        {% if linha.origem == 'sem_origem' %}
+                                                        <td colspan="2">{% if linha.xml %}{{ linha.xml }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td>
+                                                        {% else %}
+                                                        <td>{% if linha.xml %}{{ linha.xml }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td>
+                                                        <td>{% if linha.cadastro %}{{ linha.cadastro }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td>
+                                                        {% endif %}
+                                                    </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </section>
                                 </div>
-                                {% endfor %}
+                                {% if item.outros_campos %}
+                                <details class="nf-espelho-outros">
+                                    <summary>Outros campos que a nota trouxe ({{ item.outros_campos|length }})</summary>
+                                    <table class="nf-espelho-mini nf-espelho-mini--chave-valor">
+                                        <tbody>
+                                            {% for campo in item.outros_campos %}
+                                            <tr><th scope="row">{{ campo.rotulo }}</th><td class="n">{% if campo.numero is not None %}{{ campo.numero|floatformat:"-4" }}{% elif campo.texto %}{{ campo.texto }}{% else %}<span class="nf-nulo">—</span>{% endif %}</td></tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </details>
+                                {% endif %}
                             </div>
                             {% endspaceless %}
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
-                <tfoot>
-                    <tr class="nf-espelho-totais">
-                        <td colspan="4">Soma dos {{ espelho.totais.quantidade_de_itens }} itens (não é o total oficial da nota)</td>
-                        <td class="audit-num">{{ espelho.totais.custo_total|floatformat:2 }}</td>
-                        <td class="audit-num">{{ espelho.totais.icms|floatformat:2 }}</td>
-                        <td class="audit-num">{{ espelho.totais.icms_st|floatformat:2 }}</td>
-                        <td class="audit-num">{{ espelho.totais.ipi|floatformat:2 }}</td>
-                        <td class="audit-num">{{ espelho.totais.pis|floatformat:2 }}</td>
-                        <td class="audit-num">{{ espelho.totais.cofins|floatformat:2 }}</td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
-        <div class="nf-espelho-rodape">Clique no <b>+</b> de um item pra ver todos os campos dele (XML e Cadastro, como vieram do Sysemp). Os impostos mostram o valor do item na nota inteira, com a alíquota logo abaixo.</div>
+        <div class="nf-espelho-rodape">Valores em R$ pelo total do item na nota (não por unidade). A redução de PIS/COFINS não vem na nota — o sistema calcula a partir da base de cálculo e do custo total, por isso aparece em branco aqui.</div>
     {% else %}
         <div class="nf-espelho-sem-itens">
             <b>Os itens completos desta nota ainda não estão guardados no sistema.</b>
