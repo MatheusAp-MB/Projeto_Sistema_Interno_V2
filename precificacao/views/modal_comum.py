@@ -15,8 +15,15 @@
 # Campos de prova (10/09, Camada 3) — ipi_valor_nota/icms_valor_nota/etc + quantidade_nota
 # vêm de DadosEntrada.prova_fiscal (Camada 2). Todos opcionais (None em linha calculada
 # ANTES da Camada 2) — o template só mostra a mini-fórmula quando o valor existe.
+#
+# Nota fiscal usada como base (09/10/2026) — NotaFiscalBase/montar_nota_fiscal_base: de qual NF
+# vieram os créditos fiscais do cálculo (lida da foto DadosEntrada.prova_fiscal), comparada com a
+# NF que o produto usa HOJE, pra tela mostrar "NF 12345" e o botão "Ver NF".
 
 from dataclasses import dataclass
+from datetime import date
+
+from django.core.exceptions import ObjectDoesNotExist
 
 
 @dataclass
@@ -231,6 +238,93 @@ class GrupoItensAuditoria:
     linhas: list
 
 
+# Função Objetivo: Qual nota fiscal foi a BASE de 1 cálculo da grade — mostrada no topo de "Todos
+# os itens usados no cálculo" e no PDF, com o botão "Ver NF" (só no modal).
+# Explicação em detalhe:
+#   estado 'registrada' → a foto do cálculo guardou a nota (numero_nf/chave_acesso/...). É a
+#                         nota USADA no cálculo, não necessariamente a atual do produto.
+#   estado 'antiga'     → cálculo feito antes de a foto guardar a nota (ou produto sem dado fiscal):
+#                         não dá pra afirmar qual NF foi a base — a tela avisa e pede recálculo,
+#                         em vez de mostrar a nota atual como se fosse a usada.
+#   mudou               → a nota usada no cálculo é diferente da que o produto usa hoje (chegou NF
+#                         mais nova depois do cálculo) — a grade está defasada, precisa recalcular.
+#   *_espelho_disponivel → o espelho completo (todos os itens) dessa nota está guardado; sem ele o
+#                         botão "Ver NF" não aparece (nota mais antiga que a janela sincronizada).
+@dataclass
+class NotaFiscalBase:
+    estado: str
+    numero_nf: object = None
+    chave_acesso: object = None
+    chave_formatada: str = ''
+    emissao: object = None
+    data_entrada_nota: object = None
+    fornecedor: object = None
+    empresa_fantasia: object = None
+    espelho_disponivel: bool = False
+    atual_conhecida: bool = False
+    atual_numero_nf: object = None
+    atual_chave_acesso: object = None
+    atual_espelho_disponivel: bool = False
+    mudou: bool = False
+
+
+# Função Objetivo: ISO (AAAA-MM-DD, como a foto guarda) → date; None se vazio ou inválido.
+def _data_de_texto_iso(texto):
+    if not texto:
+        return None
+    try:
+        return date.fromisoformat(texto)
+    except (TypeError, ValueError):
+        return None
+
+
+# Função Objetivo: Monta NotaFiscalBase a partir da foto do cálculo (`e` = DadosEntrada em dict) e
+# do produto (pra descobrir a nota que ele usa hoje). Máx. 2 consultas: o retrato atual do
+# produto e quais das 2 notas têm espelho completo guardado.
+def montar_nota_fiscal_base(e, produto):
+    from impostos.funcoes_auxiliares.entrada.espelho_nota_fiscal import formatar_chave_acesso
+    from impostos.models import NotaFiscalEntrada
+
+    prova = e.get('prova_fiscal') or {}
+    chave_usada = prova.get('chave_acesso')
+
+    try:
+        retrato_atual = produto.impostos_entrada
+    except ObjectDoesNotExist:
+        retrato_atual = None
+    chave_atual = retrato_atual.chave_acesso if retrato_atual else None
+    numero_atual = retrato_atual.nr_nf if retrato_atual else None
+
+    chaves_a_consultar = [chave for chave in (chave_usada, chave_atual) if chave]
+    chaves_com_espelho = set(
+        NotaFiscalEntrada.objects.filter(chave_acesso__in=chaves_a_consultar).values_list('chave_acesso', flat=True)
+    ) if chaves_a_consultar else set()
+
+    if not chave_usada:
+        return NotaFiscalBase(
+            estado='antiga',
+            atual_conhecida=bool(chave_atual),
+            atual_numero_nf=numero_atual,
+        )
+
+    return NotaFiscalBase(
+        estado='registrada',
+        numero_nf=prova.get('numero_nf'),
+        chave_acesso=chave_usada,
+        chave_formatada=formatar_chave_acesso(chave_usada),
+        emissao=_data_de_texto_iso(prova.get('emissao')),
+        data_entrada_nota=_data_de_texto_iso(prova.get('data_entrada_nota')),
+        fornecedor=prova.get('fornecedor'),
+        empresa_fantasia=prova.get('empresa_fantasia'),
+        espelho_disponivel=chave_usada in chaves_com_espelho,
+        atual_conhecida=bool(chave_atual),
+        atual_numero_nf=numero_atual,
+        atual_chave_acesso=chave_atual,
+        atual_espelho_disponivel=bool(chave_atual) and chave_atual in chaves_com_espelho,
+        mudou=bool(chave_atual) and chave_atual != chave_usada,
+    )
+
+
 # Função Objetivo: Monta a tabela de valores de entrada (créditos de NF + saída + config) —
 # comum a qualquer marketplace.
 def montar_tabela_percentuais(e, i, dec, label_comissao='Comissão'):
@@ -391,6 +485,15 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
             return f'R$ {valor_nota:.2f} nota × {aliquota:.2f}% ÷ {qtd_nota:.0f} unid.'
         return f'R$ {valor_nota:.2f} nota ÷ {qtd_nota:.0f} unid.'
 
+    # * [EXPLICAÇÃO] → O grupo 3 é o único cujos valores vêm da nota fiscal — o título
+    #                  carrega o número da NF pra ficar 100% explícito de qual nota são.
+    #                  Cálculo antigo (sem NF registrada) mantém o título de sempre.
+    numero_nf_usada = (e.get('prova_fiscal') or {}).get('numero_nf')
+    titulo_creditos = (
+        f'3. Créditos fiscais de entrada — NF {numero_nf_usada}' if numero_nf_usada
+        else '3. Créditos fiscais de entrada (NF)'
+    )
+
     return [
         GrupoItensAuditoria('1. Produto / Custo base', [
             LinhaItemAuditoria('Custo do produto', 'produto', valor_reais=dec(e.get('custo'))),
@@ -404,7 +507,7 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
             LinhaItemAuditoria('Peso cúbico', 'calculado', valor_reais=dec(e.get('peso_cubico')), unidade='kg'),
             LinhaItemAuditoria('Peso usado (maior entre físico e cúbico)', 'calculado', valor_reais=dec(e.get('peso')), unidade='kg'),
         ]),
-        GrupoItensAuditoria('3. Créditos fiscais de entrada (NF)', [
+        GrupoItensAuditoria(titulo_creditos, [
             LinhaItemAuditoria('IPI', 'nf', valor_reais=dec(i.get('ipi_valor')), mini_form=mini(ipi_valor_nota, None)),
             LinhaItemAuditoria('Crédito ICMS entrada', 'nf', valor_reais=dec(i.get('credito_icms_entrada')), valor_percentual=dec(icms_aliquota), mini_form=mini(icms_valor_nota, icms_aliquota)),
             LinhaItemAuditoria('Crédito PIS entrada', 'nf', valor_reais=dec(i.get('credito_pis')), valor_percentual=dec(pis_aliquota), mini_form=mini(pis_valor_nota, pis_aliquota)),

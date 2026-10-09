@@ -13,7 +13,7 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.db import transaction
+from django.db import router, transaction
 
 from impostos.descritores_impostos import DESCRITORES_IMPOSTOS
 from impostos.models import ImpostosECustosXMLEntradaProduto
@@ -47,7 +47,18 @@ def sincronizar_impostos_entrada_do_xml(produto: Produto, dados: 'DadosXmlNF') -
     emissao = date.fromisoformat(dados.identificacao_nf.data_emissao_nf) \
         if dados.identificacao_nf.data_emissao_nf else None
 
-    with transaction.atomic():
+    # * [EXPLICAÇÃO] → A transação precisa abrir no MESMO banco onde as gravações
+    #                  abaixo vão cair (o da empresa ativa — magazine ou samvale,
+    #                  decidido pelo EmpresaRouter). transaction.atomic() sem
+    #                  `using` abre no banco 'default', que aqui é só outra
+    #                  conexão: se um passo falhasse no meio (achado real de
+    #                  09/10/2026, DataError no PIS), o guarda-chuva já gravado
+    #                  ficava no banco da empresa SEM nenhuma das filhas — retrato
+    #                  órfão, que quebrava a grade de precificação inteira com
+    #                  "has no pis". Com o banco certo, a falha desfaz tudo.
+    banco_da_empresa = router.db_for_write(ImpostosECustosXMLEntradaProduto)
+
+    with transaction.atomic(using=banco_da_empresa):
         guarda_chuva, _ = ImpostosECustosXMLEntradaProduto.objects.update_or_create(
             produto=produto,
             defaults={

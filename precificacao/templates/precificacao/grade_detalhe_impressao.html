@@ -56,7 +56,7 @@
     <div class="audit-painel">
 
         <div class="audit-meta">
-            {% if det.ean %}EAN <b>{{ det.ean }}</b>{% endif %}{% if det.sku %} · SKU <b>{{ det.sku }}</b>{% endif %}
+            {% if det.ean %}EAN <b>{{ det.ean }}</b>{% endif %}{% if det.sku %} · SKU <b>{{ det.sku }}</b>{% endif %}{% if det.nota_fiscal.estado == 'registrada' %} · NF <b>{{ det.nota_fiscal.numero_nf }}</b>{% else %} · <span class="audit-resumo-sem-nf">NF não registrada</span>{% endif %}
         </div>
 
         <div class="audit-veredito {% if det.alertas %}audit-veredito--alerta{% else %}audit-veredito--ok{% endif %}">
@@ -85,6 +85,9 @@
 
         <div class="audit-secao-titulo">📋 Todos os itens usados no cálculo</div>
         <div class="audit-secao-sub">Cada valor, isolado, do jeito que aparece na planilha de referência — pra comparar linha a linha.</div>
+        <div class="audit-nf-base-moldura-impressao">
+            {% include 'precificacao/parciais/bloco_nota_fiscal_base.html' with nf=det.nota_fiscal %}
+        </div>
         <div class="audit-tabela-itens-wrap">
             <table class="audit-tabela-itens">
                 <thead>

@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
 
-from django.db import transaction
+from django.db import router, transaction
 
 from impostos.models import ItemNotaFiscalEntrada, NotaFiscalEntrada
 
@@ -29,7 +29,13 @@ def gravar_nota_fiscal_completa(nota: 'NotaCompletaXml') -> NotaFiscalEntrada:
     emissao = date.fromisoformat(identificacao.data_emissao_nf) if identificacao.data_emissao_nf else None
     data_entrada = date.fromisoformat(identificacao.data_entrada_nf) if identificacao.data_entrada_nf else None
 
-    with transaction.atomic():
+    # * [EXPLICAÇÃO] → Mesmo motivo do retrato por produto (sincronizacao_impostos_entrada.py):
+    #                  a transação abre no banco da empresa ativa, não no 'default' —
+    #                  senão uma falha no meio dos itens deixaria o cabeçalho da nota
+    #                  gravado sem os itens dela.
+    banco_da_empresa = router.db_for_write(NotaFiscalEntrada)
+
+    with transaction.atomic(using=banco_da_empresa):
         cabecalho, _ = NotaFiscalEntrada.objects.update_or_create(
             chave_acesso=identificacao.chave_acesso_nf,
             defaults={

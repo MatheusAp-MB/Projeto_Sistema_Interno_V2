@@ -12,7 +12,7 @@ from precificacao.views.modal_comum import (
     PassoFaixaFrete, PassoPrecoExato, ContraprovaVisao1,
     montar_tabela_percentuais, montar_valores_soltos, montar_tabela_itens_agrupada,
     montar_dimensao, montar_passos_1_a_6, montar_saida, montar_alertas,
-    montar_visao_2_teardown,
+    montar_visao_2_teardown, montar_nota_fiscal_base,
 )
 from impostos.funcoes_auxiliares.entrada.badges_fiscais_produto import montar_badges_fiscais_produto
 
@@ -367,6 +367,11 @@ class DetalheFormulaExibida:
     #                  (calcular_margem, implementação independente). Só pra exibir a
     #                  prova, nunca substitui nem grava o valor oficial da grade.
     contraprova_1: object
+    # * [EXPLICAÇÃO] → Nota fiscal usada como base do cálculo (09/10/2026) — NotaFiscalBase:
+    #                  lida da foto persistida (prova_fiscal) + comparada com a NF que o produto
+    #                  usa hoje. Só consulta o banco pra saber a nota atual e se o espelho
+    #                  completo existe; continua sem recalcular nada da fórmula.
+    nota_fiscal: object
     # * [EXPLICAÇÃO] → Comissão Real (por MLB, seção 8 do checkpoint) e Comissão Média
     #                  do Produto (seção 9) — 25/09. Mesmo padrão do frete_real: só
     #                  comparação/referência no modal, nunca entra no cálculo (Passo 5
@@ -502,6 +507,7 @@ class DetalheFormulaExibida:
             ),
             visao_2=visao_2,
             contraprova_1=contraprova_1,
+            nota_fiscal=montar_nota_fiscal_base(e, linha.produto),
             comissao_real_percentual=comissao_real_percentual,
             comissao_real_atualizado_em=comissao_real_atualizado_em,
             comissao_media_produto_percentual=comissao_media_produto_percentual,

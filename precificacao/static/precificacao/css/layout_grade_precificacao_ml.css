@@ -1301,3 +1301,153 @@
 .audit-teardown-linha--final .audit-teardown-valor,
 .audit-teardown-linha--final .audit-teardown-pct { color: var(--audit-green); }
 .audit-linha-destaque td:first-child { color: var(--audit-navy); font-size: 14px; }
+
+
+/*
+* [RESUMO] → Nota fiscal usada como base (09/10/2026) — 3 pedaços:
+*   1) .audit-nf-base*    → bloco no topo de "Todos os itens usados no cálculo" (modal e PDF):
+*                           número da NF, datas, fornecedor, chave + botão "Ver NF" (só no modal).
+*   2) .nf-espelho-sobreposicao/-caixa/-barra → a janela "Ver NF" (criada por abrirEspelhoNF(),
+*                           em script_grade_detalhe.js).
+*   3) .nf-espelho*       → o conteúdo da janela (parcial impostos/parciais/
+*                           estrutura_parcial_espelho_nota_entrada.html). Reaproveita as
+*                           variáveis de cor e as classes .audit-* acima — por isso o conteúdo
+*                           da janela também leva a classe .audit-painel.
+*/
+
+.audit-resumo-sem-nf { color: var(--audit-amber-ink); font-weight: 600; }
+
+/* 1) Bloco da NF base */
+.audit-nf-base {
+    margin: 0 0 12px;
+    padding: 11px 14px;
+    border: 1px solid var(--audit-blue-bg);
+    border-left: 3px solid var(--audit-blue);
+    background: #f6f9ff;
+    border-radius: 9px;
+}
+.audit-nf-base--sem-registro {
+    border-color: #f1d9a8;
+    border-left-color: var(--audit-amber-ink);
+    background: var(--audit-amber-bg);
+}
+.audit-nf-base-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.audit-nf-base-titulo { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--audit-blue-ink); }
+.audit-nf-base--sem-registro .audit-nf-base-titulo { color: var(--audit-amber-ink); }
+.audit-nf-base-numero { font-size: 18px; font-weight: 700; color: var(--audit-navy); font-variant-numeric: tabular-nums; }
+.audit-nf-base-aviso { margin-top: 4px; font-size: 12.5px; color: var(--audit-ink); line-height: 1.5; }
+.audit-nf-base-dados {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px 18px;
+    margin: 10px 0 0;
+    padding: 0;
+}
+.audit-nf-base-dados > div { min-width: 0; }
+.audit-nf-base-dados dt { font-size: 11px; color: var(--audit-ink-mid); }
+.audit-nf-base-dados dd { margin: 1px 0 0; font-size: 13px; font-weight: 600; color: var(--audit-ink); overflow-wrap: anywhere; }
+.audit-nf-base-dado--largo { grid-column: 1 / -1; }
+.audit-nf-base-dados dd.audit-nf-base-chave { font-family: Consolas, 'Courier New', monospace; font-size: 12px; font-weight: 500; letter-spacing: .2px; }
+.audit-nf-base-moldura-impressao { padding: 0 20px 8px; }
+
+.audit-nf-botao {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--audit-navy); color: #fff; border: 1px solid var(--audit-navy); border-radius: 6px;
+    padding: 7px 14px; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.audit-nf-botao:hover { opacity: .9; }
+.audit-nf-botao--secundario { background: #fff; color: var(--audit-navy); padding: 4px 11px; font-size: 12px; }
+.audit-nf-sem-espelho {
+    font-size: 11.5px; color: var(--audit-ink-mid); background: var(--audit-slate-bg);
+    border-radius: 6px; padding: 5px 10px;
+}
+.audit-nf-status {
+    margin-top: 10px; padding: 8px 11px; border-radius: 8px; font-size: 12.5px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.audit-nf-status--ok { background: var(--audit-green-bg); border: 1px solid var(--audit-green-border); color: var(--audit-green); font-weight: 600; }
+.audit-nf-status--aviso { background: var(--audit-red-bg); border: 1px solid var(--audit-red-border); color: var(--audit-ink); line-height: 1.5; }
+.audit-nf-status--aviso b { color: var(--audit-red); }
+
+/* 2) Janela "Ver NF" */
+body.nf-espelho-aberto { overflow: hidden; }
+.nf-espelho-sobreposicao {
+    display: none; position: fixed; inset: 0; z-index: 10000;
+    background: rgba(15, 23, 42, .55);
+    align-items: flex-start; justify-content: center;
+    padding: 3vh 2vw; box-sizing: border-box;
+}
+.nf-espelho-sobreposicao--aberta { display: flex; }
+.nf-espelho-caixa {
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 1180px; max-height: 94vh; overflow: hidden;
+    background: #fff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+.nf-espelho-barra {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 14px; border-bottom: 1px solid #e5e8ec; background: #fafbfd;
+}
+.nf-espelho-barra-titulo { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+.nf-espelho-fechar {
+    background: #fff; color: #1e3a5f; border: 1px solid #c9d1dc; border-radius: 6px;
+    padding: 5px 12px; font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.nf-espelho-fechar:hover { background: #eef2f7; }
+.nf-espelho-conteudo { flex: 1 1 auto; overflow: auto; }
+.nf-espelho-carregando { padding: 40px 20px; text-align: center; color: #667; font-size: 14px; }
+
+/* 3) Conteúdo da janela */
+.nf-espelho { padding-bottom: 14px; }
+.nf-espelho-topo { padding: 16px 20px 0; }
+.nf-espelho-papel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--audit-blue-ink); }
+.nf-espelho-numero { font-size: 24px; font-weight: 700; color: var(--audit-navy); font-variant-numeric: tabular-nums; }
+.nf-espelho-aviso { font-size: 12px; color: var(--audit-ink-mid); margin-top: 2px; }
+.nf-espelho-dados {
+    margin: 12px 20px 0; padding: 12px 14px;
+    background: #f6f9ff; border: 1px solid var(--audit-blue-bg); border-radius: 9px;
+}
+.nf-espelho-info { margin: 12px 20px 0; padding: 9px 13px; border-radius: 8px; font-size: 12.5px; line-height: 1.5; }
+.nf-espelho-info--ok { background: #fff6cc; border: 1px solid #f3dd8a; color: var(--audit-ink); }
+.nf-espelho-info--aviso { background: var(--audit-red-bg); border: 1px solid var(--audit-red-border); color: var(--audit-red); font-weight: 600; }
+.nf-espelho-sem-itens {
+    margin: 14px 20px 0; padding: 12px 15px;
+    border-left: 3px solid var(--audit-amber-ink); background: var(--audit-amber-bg);
+    border-radius: 0 9px 9px 0; font-size: 13px; line-height: 1.55; color: var(--audit-ink);
+}
+.nf-espelho-sem-itens b { display: block; color: var(--audit-amber-ink); margin-bottom: 3px; }
+.nf-espelho-tabela-wrap { padding-top: 12px; }
+.nf-espelho-tabela { min-width: 980px; }
+.audit-tabela-itens.nf-espelho-tabela tbody td { vertical-align: top; }
+.nf-espelho-col-item { white-space: nowrap; font-variant-numeric: tabular-nums; width: 58px; }
+.nf-espelho-expandir {
+    width: 20px; height: 20px; padding: 0; margin-right: 4px; line-height: 1;
+    border: 1px solid var(--audit-line); border-radius: 5px; background: #fff;
+    color: var(--audit-navy); font-weight: 700; cursor: pointer;
+}
+.nf-espelho-expandir:hover { background: var(--audit-slate-bg); }
+.nf-espelho-col-produto { min-width: 240px; }
+.nf-espelho-produto-nome { font-weight: 600; color: var(--audit-ink); }
+.nf-espelho-produto-codigos { display: block; font-size: 11px; color: var(--audit-ink-mid); margin-top: 1px; }
+.nf-espelho-aliquota { display: block; font-size: 10.5px; font-weight: 400; color: var(--audit-ink-mid); }
+.audit-tabela-itens.nf-espelho-tabela tbody .nf-espelho-linha--destaque td { background: #fff6cc; }
+.audit-tabela-itens.nf-espelho-tabela tbody .nf-espelho-linha--destaque td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+.nf-espelho-linha-detalhe[hidden] { display: none; }
+.audit-tabela-itens.nf-espelho-tabela tbody .nf-espelho-linha-detalhe td { background: #fafbfd; padding: 10px 12px; }
+.nf-espelho-campos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px 22px; }
+.nf-espelho-campos-titulo {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--audit-navy);
+    border-bottom: 1px solid var(--audit-line); padding-bottom: 2px; margin-bottom: 3px;
+}
+.nf-espelho-campo { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; padding: 1.5px 0; }
+.nf-espelho-campo .k { color: var(--audit-ink-soft); }
+.nf-espelho-campo .v { font-weight: 600; color: var(--audit-ink); text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.audit-tabela-itens.nf-espelho-tabela tfoot td {
+    padding: 8px; font-weight: 700; color: var(--audit-navy);
+    background: var(--audit-slate-bg); border-top: 2px solid var(--audit-line);
+}
+.audit-tabela-itens.nf-espelho-tabela tfoot td.audit-num { text-align: right; font-variant-numeric: tabular-nums; }
+.nf-espelho-rodape { margin: 8px 20px 0; font-size: 11.5px; color: var(--audit-ink-mid); line-height: 1.5; }
+
+@media print {
+    .audit-nf-base { break-inside: avoid; page-break-inside: avoid; }
+}

@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from impostos.funcoes_auxiliares.entrada.conversao_valores_impostos import valor_por_unidade
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
@@ -58,6 +60,25 @@ def _credito_icms_da_nota(impostos_entrada: ImpostosECustosXMLEntradaProduto) ->
 
 
 def montar_creditos_fiscais_para_precificacao(
+    impostos_entrada: ImpostosECustosXMLEntradaProduto,
+) -> CreditosFiscaisEntradaParaPrecificacao:
+    # * [EXPLICAÇÃO] → Retrato INCOMPLETO (guarda-chuva gravado, mas sem alguma das 6
+    #                  tabelas de imposto filhas) é tratado como "sem dado fiscal
+    #                  confiável" — exatamente como produto sem retrato nenhum: os 4
+    #                  créditos voltam None e quem consome decide não precificar. Antes
+    #                  (achado real de 09/10/2026) o acesso a `.pis` levantava
+    #                  RelatedObjectDoesNotExist e derrubava o cálculo da grade INTEIRA
+    #                  por causa de 1 produto. A causa que criava esses retratos
+    #                  (transação no banco errado) já foi corrigida em
+    #                  sincronizacao_impostos_entrada.py; o comando
+    #                  verificar_retratos_impostos_entrada lista/limpa os que sobraram.
+    try:
+        return _montar_creditos_do_retrato_completo(impostos_entrada)
+    except ObjectDoesNotExist:
+        return CreditosFiscaisEntradaParaPrecificacao(icms=None, ipi=None, pis=None, cofins=None)
+
+
+def _montar_creditos_do_retrato_completo(
     impostos_entrada: ImpostosECustosXMLEntradaProduto,
 ) -> CreditosFiscaisEntradaParaPrecificacao:
     quantidade_nota = impostos_entrada.quantidade_nota

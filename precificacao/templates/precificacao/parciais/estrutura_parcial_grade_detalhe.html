@@ -21,7 +21,7 @@
     <div class="audit-painel">
 
         <div class="audit-meta">
-            {% if det.ean %}EAN <b>{{ det.ean }}</b>{% endif %}{% if det.sku %} · SKU <b>{{ det.sku }}</b>{% endif %}
+            {% if det.ean %}EAN <b>{{ det.ean }}</b>{% endif %}{% if det.sku %} · SKU <b>{{ det.sku }}</b>{% endif %}{% if det.nota_fiscal.estado == 'registrada' %} · NF <b>{{ det.nota_fiscal.numero_nf }}</b>{% else %} · <span class="audit-resumo-sem-nf">NF não registrada</span>{% endif %}
         </div>
 
         <div class="audit-veredito {% if det.alertas %}audit-veredito--alerta{% else %}audit-veredito--ok{% endif %}">
@@ -62,11 +62,12 @@
             <button type="button" class="audit-secao-colapsavel-cabecalho" onclick="toggleSecaoColapsavel(this)">
                 <span class="audit-secao-colapsavel-titulo">📋 Todos os itens usados no cálculo</span>
                 <span class="audit-secao-colapsavel-resumo">
-                    {% if not det.custo and not det.custo_com_boni %}⚠ custo zerado{% else %}custo R$ {{ det.custo|floatformat:2 }}{% endif %} · clique pra expandir
+                    {% if det.nota_fiscal.estado == 'registrada' %}NF {{ det.nota_fiscal.numero_nf }}{% else %}<span class="audit-resumo-sem-nf">NF não registrada</span>{% endif %} · {% if not det.custo and not det.custo_com_boni %}⚠ custo zerado{% else %}custo R$ {{ det.custo|floatformat:2 }}{% endif %} · clique pra expandir
                 </span>
                 <span class="audit-secao-colapsavel-seta">›</span>
             </button>
             <div class="audit-secao-colapsavel-corpo">
+                {% include 'precificacao/parciais/bloco_nota_fiscal_base.html' with nf=det.nota_fiscal ean=det.ean interativo=True %}
                 <div class="audit-secao-sub">Cada valor, isolado, do jeito que aparece na planilha de referência — pra comparar linha a linha.</div>
                 <div class="audit-tabela-itens-wrap">
                     <table class="audit-tabela-itens">

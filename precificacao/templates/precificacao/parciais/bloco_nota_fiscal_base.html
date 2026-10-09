@@ -1,0 +1,54 @@
+{% comment %}
+    Bloco "Nota fiscal usada como base" — de qual NF vêm os créditos fiscais de 1 cálculo da grade.
+    Incluído no topo de "Todos os itens usados no cálculo" (modal e PDF).
+
+    Variáveis:
+      nf         → NotaFiscalBase (precificacao/views/modal_comum.py)
+      ean        → EAN do produto auditado (o espelho destaca o item dele)
+      interativo → só no modal: liga o botão "Ver NF" e o aviso "mesma nota / a nota mudou".
+                   No PDF fica de fora (impressão mostra só os dados da NF, sem botão).
+
+    O botão chama abrirEspelhoNF() (precificacao/static/precificacao/js/script_grade_detalhe.js),
+    que busca o espelho em impostos_espelho_nota_entrada e mostra numa janela.
+{% endcomment %}
+{% if nf.estado == 'registrada' %}
+<div class="audit-nf-base">
+    <div class="audit-nf-base-topo">
+        <div>
+            <div class="audit-nf-base-titulo">Nota fiscal usada como base</div>
+            <div class="audit-nf-base-numero">NF {{ nf.numero_nf }}</div>
+        </div>
+        {% if interativo %}
+            {% if nf.espelho_disponivel %}
+            <button type="button" class="audit-nf-botao" data-url="{% url 'impostos_espelho_nota_entrada' nf.chave_acesso %}?papel=calculo{% if ean %}&amp;ean={{ ean|urlencode }}{% endif %}" onclick="abrirEspelhoNF(this)">🧾 Ver NF</button>
+            {% else %}
+            <span class="audit-nf-sem-espelho">Itens completos desta NF ainda não estão guardados no sistema</span>
+            {% endif %}
+        {% endif %}
+    </div>
+    <dl class="audit-nf-base-dados">
+        <div><dt>Emissão</dt><dd>{{ nf.emissao|date:"d/m/Y"|default:"—" }}</dd></div>
+        <div><dt>Data de entrada</dt><dd>{{ nf.data_entrada_nota|date:"d/m/Y"|default:"—" }}</dd></div>
+        <div><dt>Fornecedor</dt><dd>{{ nf.fornecedor|default:"—" }}</dd></div>
+        <div><dt>Empresa</dt><dd>{{ nf.empresa_fantasia|default:"—" }}</dd></div>
+        <div class="audit-nf-base-dado--largo"><dt>Chave de acesso</dt><dd class="audit-nf-base-chave">{{ nf.chave_formatada }}</dd></div>
+    </dl>
+    {% if interativo %}
+        {% if nf.mudou %}
+        <div class="audit-nf-status audit-nf-status--aviso">
+            <span>⚠ <b>A nota mudou.</b> Este cálculo usou a NF {{ nf.numero_nf }}, mas hoje o produto usa a NF {{ nf.atual_numero_nf }}. Recalcule a grade deste produto.</span>
+            {% if nf.atual_espelho_disponivel %}
+            <button type="button" class="audit-nf-botao audit-nf-botao--secundario" data-url="{% url 'impostos_espelho_nota_entrada' nf.atual_chave_acesso %}?papel=atual{% if ean %}&amp;ean={{ ean|urlencode }}{% endif %}" onclick="abrirEspelhoNF(this)">Ver NF atual</button>
+            {% endif %}
+        </div>
+        {% elif nf.atual_conhecida %}
+        <div class="audit-nf-status audit-nf-status--ok">✓ É a mesma nota que o produto usa hoje.</div>
+        {% endif %}
+    {% endif %}
+</div>
+{% else %}
+<div class="audit-nf-base audit-nf-base--sem-registro">
+    <div class="audit-nf-base-titulo">Nota fiscal usada como base</div>
+    <div class="audit-nf-base-aviso">⚠ Este cálculo não guardou qual nota fiscal usou — por isso não dá pra afirmar de qual NF vêm os créditos fiscais abaixo.{% if interativo and nf.atual_numero_nf %} Hoje o produto usa a NF {{ nf.atual_numero_nf }}.{% endif %} Recalcule a grade deste produto para registrar a nota.</div>
+</div>
+{% endif %}

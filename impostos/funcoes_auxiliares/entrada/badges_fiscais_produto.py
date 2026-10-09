@@ -33,6 +33,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
 PIS_SAIDA_REDUZIDO = 'PIS SAÍDA REDUZIDO'
@@ -69,21 +71,23 @@ def montar_badges_fiscais_produto(
     impostos_entrada: ImpostosECustosXMLEntradaProduto | None,
 ) -> BadgesFiscaisProduto:
     if impostos_entrada is None:
-        return BadgesFiscaisProduto(
-            pis_rotulo=PIS_SAIDA_INTEGRAL, pis_classe='badge-fiscal-integral',
-            cofins_rotulo=COFINS_SAIDA_INTEGRAL, cofins_classe='badge-fiscal-integral',
-            icms_rotulo=ICMS_ENTRADA_INTEGRAL, icms_classe='badge-fiscal-integral',
-        )
+        return _badges_integrais()
 
-    pis_reduzido = impostos_entrada.pis.reducao > 0
-    cofins_reduzido = impostos_entrada.cofins.reducao > 0
+    # * [EXPLICAÇÃO] → Retrato incompleto (sem alguma das tabelas de imposto filhas — ver
+    #                  creditos_fiscais_para_precificacao.py) cai no mesmo fallback de
+    #                  "sem retrato": a tela da grade não pode quebrar por causa dele.
+    try:
+        pis_reduzido = impostos_entrada.pis.reducao > 0
+        cofins_reduzido = impostos_entrada.cofins.reducao > 0
 
-    if _produto_tem_icms_st(impostos_entrada):
-        icms_rotulo, icms_classe = ICMS_ENTRADA_ST, 'badge-fiscal-st'
-    elif impostos_entrada.icms.reducao > 0:
-        icms_rotulo, icms_classe = ICMS_ENTRADA_REDUZIDO, 'badge-fiscal-reduzido'
-    else:
-        icms_rotulo, icms_classe = ICMS_ENTRADA_INTEGRAL, 'badge-fiscal-integral'
+        if _produto_tem_icms_st(impostos_entrada):
+            icms_rotulo, icms_classe = ICMS_ENTRADA_ST, 'badge-fiscal-st'
+        elif impostos_entrada.icms.reducao > 0:
+            icms_rotulo, icms_classe = ICMS_ENTRADA_REDUZIDO, 'badge-fiscal-reduzido'
+        else:
+            icms_rotulo, icms_classe = ICMS_ENTRADA_INTEGRAL, 'badge-fiscal-integral'
+    except ObjectDoesNotExist:
+        return _badges_integrais()
 
     return BadgesFiscaisProduto(
         pis_rotulo=PIS_SAIDA_REDUZIDO if pis_reduzido else PIS_SAIDA_INTEGRAL,
@@ -91,4 +95,13 @@ def montar_badges_fiscais_produto(
         cofins_rotulo=COFINS_SAIDA_REDUZIDO if cofins_reduzido else COFINS_SAIDA_INTEGRAL,
         cofins_classe='badge-fiscal-reduzido' if cofins_reduzido else 'badge-fiscal-integral',
         icms_rotulo=icms_rotulo, icms_classe=icms_classe,
+    )
+
+
+# Função Objetivo: As 3 badges "tudo integral" — fallback de produto sem retrato (ou com retrato incompleto).
+def _badges_integrais() -> BadgesFiscaisProduto:
+    return BadgesFiscaisProduto(
+        pis_rotulo=PIS_SAIDA_INTEGRAL, pis_classe='badge-fiscal-integral',
+        cofins_rotulo=COFINS_SAIDA_INTEGRAL, cofins_classe='badge-fiscal-integral',
+        icms_rotulo=ICMS_ENTRADA_INTEGRAL, icms_classe='badge-fiscal-integral',
     )

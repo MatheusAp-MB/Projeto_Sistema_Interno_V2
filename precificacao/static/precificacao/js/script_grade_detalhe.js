@@ -115,3 +115,94 @@ function fecharDetalheMargem(produtoId, tipo, variacaoId) {
     }
 }
 
+// ================================================
+// ESPELHO DA NF ("Ver NF") — janela com a nota fiscal inteira
+// ================================================
+
+/*
+* [RESUMO] → O botão "Ver NF" do bloco "Nota fiscal usada como base" (modal de auditoria da
+* grade) abre esta janela com o espelho da nota: todos os itens, com impostos, e o produto
+* auditado destacado. O conteúdo vem pronto do servidor (impostos_espelho_nota_entrada) via
+* HTMX — aqui só abre/fecha a janela e expande os campos de cada item. A janela é criada na
+* 1ª vez que alguém clica e reaproveitada nas seguintes, 1 só pra tela inteira (nunca 1 por
+* card, o modal da grade pode ter vários painéis abertos ao mesmo tempo).
+*/
+
+var ID_SOBREPOSICAO_ESPELHO_NF = 'nf-espelho-sobreposicao';
+
+function obterSobreposicaoEspelhoNF() {
+    let sobreposicao = document.getElementById(ID_SOBREPOSICAO_ESPELHO_NF);
+    if (sobreposicao) return sobreposicao;
+
+    sobreposicao = document.createElement('div');
+    sobreposicao.id = ID_SOBREPOSICAO_ESPELHO_NF;
+    sobreposicao.className = 'nf-espelho-sobreposicao';
+    sobreposicao.setAttribute('role', 'dialog');
+    sobreposicao.setAttribute('aria-modal', 'true');
+    sobreposicao.setAttribute('aria-label', 'Espelho da nota fiscal');
+    sobreposicao.innerHTML =
+        '<div class="nf-espelho-caixa">' +
+            '<div class="nf-espelho-barra">' +
+                '<span class="nf-espelho-barra-titulo">🧾 Espelho da nota fiscal</span>' +
+                '<button type="button" class="nf-espelho-fechar" onclick="fecharEspelhoNF()">✕ Fechar</button>' +
+            '</div>' +
+            '<div class="nf-espelho-conteudo"></div>' +
+        '</div>';
+
+    // * [EXPLICAÇÃO] → Clique no fundo escuro (fora da caixa branca) também fecha.
+    sobreposicao.addEventListener('click', function (evento) {
+        if (evento.target === sobreposicao) fecharEspelhoNF();
+    });
+
+    document.body.appendChild(sobreposicao);
+    return sobreposicao;
+}
+
+function abrirEspelhoNF(botao) {
+    const url = botao.getAttribute('data-url');
+    if (!url) return;
+
+    const sobreposicao = obterSobreposicaoEspelhoNF();
+    const conteudo = sobreposicao.querySelector('.nf-espelho-conteudo');
+    conteudo.innerHTML = '<div class="nf-espelho-carregando">Carregando a nota fiscal…</div>';
+    sobreposicao.classList.add('nf-espelho-sobreposicao--aberta');
+    document.body.classList.add('nf-espelho-aberto');
+
+    htmx.ajax('GET', url, { target: conteudo, swap: 'innerHTML' }).then(function () {
+        // * [EXPLICAÇÃO] → Nota grande (dezenas de itens): já rola até o item do produto auditado.
+        const destaque = conteudo.querySelector('.nf-espelho-linha--destaque');
+        if (destaque) destaque.scrollIntoView({ block: 'center' });
+    }).catch(function () {
+        conteudo.innerHTML = '<div class="nf-espelho-carregando">Não foi possível carregar a nota fiscal. Feche e tente de novo.</div>';
+    });
+}
+
+function fecharEspelhoNF() {
+    const sobreposicao = document.getElementById(ID_SOBREPOSICAO_ESPELHO_NF);
+    if (!sobreposicao) return;
+    sobreposicao.classList.remove('nf-espelho-sobreposicao--aberta');
+    sobreposicao.querySelector('.nf-espelho-conteudo').innerHTML = '';
+    document.body.classList.remove('nf-espelho-aberto');
+}
+
+document.addEventListener('keydown', function (evento) {
+    if (evento.key !== 'Escape') return;
+    const sobreposicao = document.getElementById(ID_SOBREPOSICAO_ESPELHO_NF);
+    if (sobreposicao && sobreposicao.classList.contains('nf-espelho-sobreposicao--aberta')) {
+        fecharEspelhoNF();
+    }
+});
+
+// * [EXPLICAÇÃO] → O "+" de cada item mostra/esconde a linha logo abaixo, que traz TODOS os
+//                  campos do item como a API devolveu (XML e Cadastro). Sem isso a tabela
+//                  teria 50+ colunas por item.
+function alternarCamposItemNF(botao) {
+    const linha = botao.closest('tr');
+    const detalhe = linha ? linha.nextElementSibling : null;
+    if (!detalhe || !detalhe.classList.contains('nf-espelho-linha-detalhe')) return;
+
+    const vaiAbrir = detalhe.hidden;
+    detalhe.hidden = !vaiAbrir;
+    botao.setAttribute('aria-expanded', vaiAbrir ? 'true' : 'false');
+    botao.textContent = vaiAbrir ? '−' : '+';
+}
