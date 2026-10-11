@@ -7,7 +7,7 @@
 #   - "Atualizar" de um MLB (e "Atualizar produto", que a tela faz em TRECHOS CURTOS, vários ao mesmo tempo): primeiro pergunta o PLANO (só o que
 #     falta: view_vendas_planejar, que não chama o ML) e depois chama view_vendas_atualizar_mlb uma vez por trecho
 #   - "Atualizar dia" (1 dia da conta toda, o ícone dentro de cada dia do calendário)                              → view_vendas_atualizar_dia
-#   - "Coletar período da conta" (N dias da conta toda, em segundo plano) → view_vendas_periodo_iniciar (com _status para a barra e _parar)
+#   - "Coletar período da conta" (um período por calendário da conta toda, em segundo plano) → view_vendas_periodo_iniciar (com _status para a barra e _parar)
 # Depois de uma atualização que deu certo a tela recarrega e lê o banco de novo.
 
 import traceback
@@ -45,21 +45,22 @@ def _verdadeiro(valor):
     return str(valor).strip().lower() in ('1', 'true', 'sim', 'on')
 
 
-# Função Objetivo: A tela. LÊ SÓ DO BANCO. Os parâmetros da URL (sku, q, dias, nivel, item) são validados dentro de montar_pagina.
+# Função Objetivo: A tela. LÊ SÓ DO BANCO. Os parâmetros da URL (sku, q, periodo, nivel, item, visao) são validados dentro de montar_pagina.
 @require_GET
 def view_vendas(request):
-    from gestao_vendas.funcoes_auxiliares.vendas_ml import PERIODOS, montar_pagina
-    from integracao_mercado_livre.servicos.cobertura_vendas_ml import DIAS_DE_REVISAO
-    from integracao_mercado_livre.servicos.coletar_vendas_ml import DIAS_PADRAO, MAX_DIAS_DA_COLETA, estimar_opcoes_do_periodo
+    from gestao_vendas.funcoes_auxiliares.vendas_ml import montar_pagina
+    from integracao_mercado_livre.servicos.cobertura_vendas_ml import DIAS_DE_REVISAO, periodos_de_hoje
+    from integracao_mercado_livre.servicos.coletar_vendas_ml import dias_padrao, estimar_opcoes_do_periodo
 
     base = reverse('gestao_vendas_principal')
+    pagina = montar_pagina(request.GET, base)
     return render(request, 'gestao_vendas/estrutura_vendas.html', {
-        'pagina': montar_pagina(request.GET, base),
+        'pagina': pagina,
         'url_vendas': base,
-        # Opções da janela "Coletar período da conta": quantos dias faltam, quantas chamadas e quantos minutos se espera (estimativa), só o que
-        # falta e "reler tudo".
-        'opcoes_coleta': estimar_opcoes_do_periodo([d for d in PERIODOS if d <= MAX_DIAS_DA_COLETA]),
-        'dias_padrao_coleta': DIAS_PADRAO,
+        # Opções da janela "Coletar período da conta": os mesmos 5 períodos dos botões (com as datas de hoje), e para cada um quantos dias faltam,
+        # quantas chamadas e quantos minutos se espera (estimativa), só o que falta e "reler tudo".
+        'opcoes_coleta': estimar_opcoes_do_periodo(periodos_de_hoje(pagina['hoje'])),
+        'dias_padrao_coleta': dias_padrao(),
         'dias_de_revisao': DIAS_DE_REVISAO,
         # Endereços que o JS usa (só são chamados depois de um clique).
         'url_planejar': reverse('gestao_vendas_planejar'),
@@ -101,18 +102,18 @@ def _responder_coleta(coletar):
                          'chamadas': relatorio.chamadas, 'erros_429': relatorio.erros_429})
 
 
-# Função Objetivo: Coleta os pedidos de UM MLB e grava no banco: nos últimos `dias` dias ou, se vierem `de` e `ate` (AAAA-MM-DD), só nesse trecho
+# Função Objetivo: Coleta os pedidos de UM MLB e grava no banco: de (hoje − `dias`) até hoje (`dias` = dias para trás) ou, se vierem `de` e `ate` (AAAA-MM-DD), só nesse trecho
 # (é assim que a tela faz o "Atualizar", em trechos curtos). `max_pedidos` (50 a 5000, opcional): se o ML anunciar mais que isso para o trecho, NADA
 # é gravado e a resposta vem com "dividir" e os pedaços. Recusa se uma coleta de período está rodando ou se o mesmo trecho já está sendo coletado.
 @require_POST
 def view_vendas_atualizar_mlb(request):
-    from integracao_mercado_livre.servicos.coletar_vendas_ml import DIAS_PADRAO, coletar_mlb
+    from integracao_mercado_livre.servicos.coletar_vendas_ml import coletar_mlb, dias_padrao
 
     corpo = _ler_json(request) or {}
     mlb = str(corpo.get('mlb') or '').strip().upper()
     if not mlb.startswith('MLB'):
         return JsonResponse({'ok': False, 'mensagem': 'MLB inválido. Recarregue a página e tente de novo.'}, status=400)
-    dias = _inteiro(corpo.get('dias'), DIAS_PADRAO)
+    dias = _inteiro(corpo.get('dias'), dias_padrao())
     sku = str(corpo.get('sku') or '').strip()
     de = ate = None
     if corpo.get('de') or corpo.get('ate'):
@@ -127,15 +128,15 @@ def view_vendas_atualizar_mlb(request):
 
 
 # Função Objetivo: O PLANO do "Atualizar" — NÃO chama o Mercado Livre, só lê o registro de coletas. Para o `sku` (todos os MLBs dele) ou para um
-# `mlb`, nos últimos `dias` dias, devolve os trechos que faltam buscar (dia nunca coletado, só parcial, ou dentro dos últimos 30 dias) e quantos
+# `mlb`, de (hoje − `dias`) até hoje, devolve os trechos que faltam buscar (dia nunca coletado, só parcial, ou dentro dos últimos 30 dias) e quantos
 # pedidos no máximo cada requisição deve ler. `tudo=1` = reler tudo.
 @require_GET
 def view_vendas_planejar(request):
     from gestao_vendas.funcoes_auxiliares.vendas_ml import carregar_produto
     from integracao_mercado_livre.servicos.coletar_vendas_ml import (
-        DIAS_PADRAO, MAX_PEDIDOS_POR_REQUISICAO, ErroColetaVendas, planejar_trechos)
+        MAX_PEDIDOS_POR_REQUISICAO, ErroColetaVendas, dias_padrao, planejar_trechos)
 
-    dias = _inteiro(request.GET.get('dias'), DIAS_PADRAO)
+    dias = _inteiro(request.GET.get('dias'), dias_padrao())
     mlb = str(request.GET.get('mlb') or '').strip().upper()
     if mlb:
         if not mlb.startswith('MLB'):
@@ -171,11 +172,11 @@ def view_vendas_atualizar_dia(request):
 # Se já há uma rodando, devolve o estado dela em vez de começar outra.
 @require_POST
 def view_vendas_periodo_iniciar(request):
-    from integracao_mercado_livre.servicos.coletar_vendas_ml import DIAS_PADRAO, ErroColetaVendas, iniciar_periodo
+    from integracao_mercado_livre.servicos.coletar_vendas_ml import ErroColetaVendas, dias_padrao, iniciar_periodo
 
     corpo = _ler_json(request) or {}
     try:
-        estado, _ = iniciar_periodo(obter_empresa_ativa(), _inteiro(corpo.get('dias'), DIAS_PADRAO), _nome_usuario(request),
+        estado, _ = iniciar_periodo(obter_empresa_ativa(), _inteiro(corpo.get('dias'), dias_padrao()), _nome_usuario(request),
                                     reler_tudo=_verdadeiro(corpo.get('reler_tudo')))
     except ErroColetaVendas as erro:
         return JsonResponse({'status': 'erro', 'mensagem': str(erro)}, status=422)

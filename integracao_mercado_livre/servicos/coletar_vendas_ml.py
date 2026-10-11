@@ -5,12 +5,15 @@
 # (gestao_vendas) — nunca nada automático, e a tela nunca consulta o ML sozinha (regra do Matheus, a mesma das telas do Full).
 #
 # As coletas são GRANULARES (decisão do Matheus, 11/10/2026: nem sempre a varredura completa de todos os SKUs):
-#   - coletar_mlb      → 1 MLB, nos últimos N dias (filtro "item" do /orders/search). O botão "Atualizar produto" chama esta mesma função
+#   - coletar_mlb      → 1 MLB, de (hoje − N dias) até hoje (filtro "item" do /orders/search). O botão "Atualizar produto" chama esta mesma função
 #                        1 vez por MLB do SKU.
 #   - coletar_dia      → 1 dia da conta toda (todos os SKUs), ~4 páginas em um dia de ~160 pedidos.
-#   - iniciar_periodo  → os últimos N dias da conta toda, dia por dia, numa THREAD (com andamento e botão Parar), do dia mais novo para o
+#   - iniciar_periodo  → de (hoje − N dias) até hoje da conta toda, dia por dia, numa THREAD (com andamento e botão Parar), do dia mais novo para o
 #                        mais antigo: se parar no meio, o que ficou pronto é o trecho mais recente, que é o mais valioso.
 #
+# * [EXPLICAÇÃO] → "N dias" aqui significa N dias PARA TRÁS de hoje: o intervalo é [hoje − N, hoje], ou seja, N + 1 dias de calendário (hoje entra, parcial).
+#                  O N vem dos períodos por calendário da tela (Última semana, Último mês...; ver cobertura_vendas_ml.periodos_de_hoje).
+#                  O limite é o primeiro dia que o ML ainda devolve (cobertura_vendas_ml.primeiro_dia_do_ml): ~12 meses atrás.
 # * [EXPLICAÇÃO] → O que se mediu do endpoint em 10/10/2026 (conta Magazine; ver api_mercado_livre/pedidos_ml.py): 0 erro 429 em 42 chamadas,
 #                  ~0,27 s por chamada, páginas de 50 e teto de offset + limit <= 10000. Por isso: (1) cada consulta que anuncia mais de
 #                  10000 pedidos é partida ao meio (por hora, no mínimo) antes de paginar; (2) a espera entre chamadas é curta
@@ -39,15 +42,17 @@ from api_mercado_livre import ApiMercadoLivre
 from api_mercado_livre.core.estrutura_api.excecoes import ErroAutenticacaoAPI
 from core.empresa import definir_empresa_ativa
 from integracao_mercado_livre.servicos.buscar_detalhes import _caminho_pasta_logs
-from integracao_mercado_livre.servicos.cobertura_vendas_ml import DIAS_DE_REVISAO, carregar_coletas, dias_pendentes, dividir_janela, faixas_de_dias
+from integracao_mercado_livre.servicos.cobertura_vendas_ml import (
+    DIAS_DE_REVISAO, PERIODO_PADRAO, carregar_coletas, dias_para_tras, dias_pendentes, dica_de_borda, dividir_janela, faixas_de_dias,
+    primeiro_dia_do_ml)
 from mercado_livre.models import ColetaVendasMercadoLivre, VendaItemMercadoLivre
 
 FUSO = ZoneInfo('America/Sao_Paulo')
 
 LIMITE_POR_PAGINA = 50
 TETO_OFFSET_MAIS_LIMITE = 10000         # medido em 10/10/2026: offset 9950 + limit 50 passou; offset 82100 deu 400
-MAX_DIAS_DA_COLETA = 365                # a doc guarda pedidos por até 12 meses (365 dias = 1 ano); 360 foi lido com 200 OK (82106 pedidos) em 10/10/2026, 365 ainda não medido
-DIAS_PADRAO = 90
+# * [EXPLICAÇÃO] → O limite de quão para trás se coleta NÃO é mais um número fixo de dias: é o primeiro dia que o ML guarda (cobertura_vendas_ml.
+#                  primeiro_dia_do_ml). 360 dias foi lido com 200 OK (82106 pedidos) em 10/10/2026; o dia exato de 12 meses atrás (11/10/2025) foi lido com sucesso em 11/10/2026.
 
 # * [EXPLICAÇÃO] → 0,3 s ≈ o tempo de 1 chamada medida (0,27 s): 1 chamada por vez, sem paralelismo. Para 90 dias da conta toda
 #                  (~360 chamadas) dá poucos minutos. Subir/baixar aqui se o ML começar a devolver 429.
@@ -367,21 +372,34 @@ def _api(empresa):
     return ApiMercadoLivre(pasta_logs=_caminho_pasta_logs(empresa), empresa=empresa)
 
 
-# Função Objetivo: Coleta os pedidos de 1 MLB: nos últimos `dias` dias (contando hoje) ou, se vierem `de` e `ate`, só nesse trecho. Botão
+# Função Objetivo: O N (dias para trás de hoje) do período padrão da tela (hoje: Últimos 3 meses). Substitui o antigo número fixo de dias.
+def dias_padrao():
+    return dias_para_tras(PERIODO_PADRAO, _hoje())
+
+
+# Função Objetivo: Garante que `dias` (para trás de hoje) cabe no histórico que o Mercado Livre guarda; senão levanta ErroColetaVendas.
+def _validar_dias(dias, hoje):
+    primeiro = primeiro_dia_do_ml(hoje)
+    maximo = (hoje - primeiro).days
+    if not 1 <= dias <= maximo:
+        raise ErroColetaVendas(f'O período precisa voltar de 1 a {maximo} dias a partir de hoje (o Mercado Livre guarda a partir de {primeiro:%d/%m/%Y}).')
+
+
+# Função Objetivo: Coleta os pedidos de 1 MLB: de (hoje − `dias`) até hoje (dias para trás + hoje) ou, se vierem `de` e `ate`, só nesse trecho. Botão
 # "Atualizar" da tela. Sempre devolve o relatório (status concluida ou falha); só ErroAutenticacaoAPI (token recusado), ColetaOcupada e
 # JanelaGrande sobem. `max_pedidos` (a tela manda): se o ML anunciar mais pedidos que isso para a janela, NADA é gravado e sobe JanelaGrande
 # com a janela já partida; janela de 1 dia não se parte, então lá o limite não vale.
-def coletar_mlb(empresa, mlb, dias=DIAS_PADRAO, usuario='', sku='', api_ml=None, de=None, ate=None, max_pedidos=None):
+def coletar_mlb(empresa, mlb, dias=None, usuario='', sku='', api_ml=None, de=None, ate=None, max_pedidos=None):
     mlb = _texto(mlb).upper()
     if not mlb.startswith('MLB'):
         raise ErroColetaVendas(f'"{mlb}" não parece um MLB.')
     hoje = _hoje()
     if de is None and ate is None:
-        if not 1 <= dias <= MAX_DIAS_DA_COLETA:
-            raise ErroColetaVendas(f'O período precisa ter de 1 a {MAX_DIAS_DA_COLETA} dias.')
-        de, ate = hoje - timedelta(days=dias - 1), hoje
-    elif de is None or ate is None or de > ate or ate > hoje or de < hoje - timedelta(days=MAX_DIAS_DA_COLETA - 1):
-        raise ErroColetaVendas(f'O trecho pedido é inválido (precisa estar entre os últimos {MAX_DIAS_DA_COLETA} dias, com início antes do fim).')
+        dias = dias_padrao() if dias is None else dias
+        _validar_dias(dias, hoje)
+        de, ate = hoje - timedelta(days=dias), hoje
+    elif de is None or ate is None or de > ate or ate > hoje or de < primeiro_dia_do_ml(hoje):
+        raise ErroColetaVendas(f'O trecho pedido é inválido (precisa estar entre {primeiro_dia_do_ml(hoje):%d/%m/%Y} e hoje, com início antes do fim).')
     _garantir_sem_periodo(empresa)
     relatorio = RelatorioColetaVendas(
         escopo=ColetaVendasMercadoLivre.Escopo.MLB, alvo=mlb, data_de=de, data_ate=ate, iniciado_em=timezone.now(),
@@ -405,19 +423,18 @@ def coletar_mlb(empresa, mlb, dias=DIAS_PADRAO, usuario='', sku='', api_ml=None,
             raise
         except ErroColetaVendas as erro:
             relatorio.status = ColetaVendasMercadoLivre.Status.FALHA
-            relatorio.mensagem = f'{mlb}: {erro}'
+            relatorio.mensagem = f'{mlb}: {erro}{dica_de_borda(de, hoje)}'
         _registrar(relatorio, usuario, sku)
     return relatorio
 
 
 # Função Objetivo: O PLANO do "Atualizar" (1 MLB ou o produto todo): para cada MLB, as faixas de dias que faltam buscar (ver dias_pendentes em
 # cobertura_vendas_ml: dia nunca coletado, só parcial, ou dentro dos últimos 30 dias; "reler_tudo" = todos). Não chama o Mercado Livre.
-# Devolve {'trechos': [{'mlb', 'de', 'ate', 'dias'}...], 'dias_total': dias x MLBs, 'dias_a_coletar': o que vai ser lido, 'dias_de_revisao': 30}.
+# Devolve {'trechos': [{'mlb', 'de', 'ate', 'dias'}...], 'dias_total': (dias + 1) x MLBs, 'dias_a_coletar': o que vai ser lido, 'dias_de_revisao': 30}.
 def planejar_trechos(mlbs, dias, reler_tudo=False, hoje=None):
-    if not 1 <= dias <= MAX_DIAS_DA_COLETA:
-        raise ErroColetaVendas(f'O período precisa ter de 1 a {MAX_DIAS_DA_COLETA} dias.')
     hoje = hoje or _hoje()
-    de = hoje - timedelta(days=dias - 1)
+    _validar_dias(dias, hoje)
+    de = hoje - timedelta(days=dias)
     coletas = carregar_coletas(de, hoje)
     trechos, a_coletar = [], 0
     for mlb in mlbs:
@@ -425,13 +442,16 @@ def planejar_trechos(mlbs, dias, reler_tudo=False, hoje=None):
         a_coletar += len(pendentes)
         for inicio, fim in faixas_de_dias(pendentes):
             trechos.append({'mlb': mlb, 'de': inicio.isoformat(), 'ate': fim.isoformat(), 'dias': (fim - inicio).days + 1})
-    return {'trechos': trechos, 'dias_total': dias * len(mlbs), 'dias_a_coletar': a_coletar, 'dias_de_revisao': DIAS_DE_REVISAO}
+    return {'trechos': trechos, 'dias_total': (dias + 1) * len(mlbs), 'dias_a_coletar': a_coletar, 'dias_de_revisao': DIAS_DE_REVISAO}
 
 
 # Função Objetivo: Coleta 1 dia INTEIRO da conta toda (todos os SKUs). Botão "Atualizar dia" da tela. Mesma regra de retorno de coletar_mlb.
 def coletar_dia(empresa, dia: date, usuario='', api_ml=None):
-    if dia > _hoje():
+    hoje = _hoje()
+    if dia > hoje:
         raise ErroColetaVendas('Esse dia ainda não chegou.')
+    if dia < primeiro_dia_do_ml(hoje):
+        raise ErroColetaVendas(f'O Mercado Livre só guarda pedidos a partir de {primeiro_dia_do_ml(hoje):%d/%m/%Y}; esse dia ficou para trás.')
     _garantir_sem_periodo(empresa)
     relatorio = RelatorioColetaVendas(
         escopo=ColetaVendasMercadoLivre.Escopo.DIA, alvo=f'{dia:%Y-%m-%d}', data_de=dia, data_ate=dia, iniciado_em=timezone.now())
@@ -448,7 +468,7 @@ def coletar_dia(empresa, dia: date, usuario='', api_ml=None):
             raise
         except ErroColetaVendas as erro:
             relatorio.status = ColetaVendasMercadoLivre.Status.FALHA
-            relatorio.mensagem = f'Dia {dia:%d/%m/%Y}: {erro}'
+            relatorio.mensagem = f'Dia {dia:%d/%m/%Y}: {erro}{dica_de_borda(dia, hoje)}'
         _registrar(relatorio, usuario)
     return relatorio
 
@@ -463,7 +483,7 @@ def _chave_parar(empresa):
     return CHAVE_CACHE_PARAR.format(empresa=empresa)
 
 
-# Função Objetivo: Quantas chamadas se espera para os últimos `dias` dias da conta toda: 1 + pedidos do dia / 50 por dia. Usa a média por dia
+# Função Objetivo: Quantas chamadas se espera para [hoje − `dias`, hoje] da conta toda: 1 + pedidos do dia / 50 por dia. Usa a média por dia
 # do que já está no banco (últimos 30 dias gravados); sem dado, 4 páginas por dia (160 pedidos/dia medidos em 09/10/2026). É estimativa.
 def _paginas_por_dia():
     from django.db.models import Count
@@ -476,34 +496,36 @@ def _paginas_por_dia():
 
 
 def estimar_chamadas_do_periodo(dias, reler_tudo=False):
-    a_ler = dias if reler_tudo else len(_dias_pendentes_da_conta(dias))
+    a_ler = dias + 1 if reler_tudo else len(_dias_pendentes_da_conta(dias))
     return int(round(a_ler * _paginas_por_dia()))
 
 
-# Função Objetivo: As opções da janela "Coletar período da conta" de uma vez só (poucas consultas ao banco): para cada quantidade de dias, os dias
-# que faltam, as chamadas e os minutos estimados — só o que falta e "reler tudo". É estimativa: usa o ritmo de pedidos por dia já gravado.
-def estimar_opcoes_do_periodo(lista_dias):
+# Função Objetivo: As opções da janela "Coletar período da conta" de uma vez só (poucas consultas ao banco): recebe os períodos de hoje
+# (cobertura_vendas_ml.periodos_de_hoje) e devolve cada um com os dias que faltam, as chamadas e os minutos estimados — só o que falta e
+# "reler tudo". `dias` = N para trás de hoje (o que a coleta recebe); `total_dias` = N + 1. É estimativa: usa o ritmo de pedidos por dia já gravado.
+def estimar_opcoes_do_periodo(periodos):
     paginas = _paginas_por_dia()
     hoje = _hoje()
-    coletas = carregar_coletas(hoje - timedelta(days=max(lista_dias) - 1), hoje)
+    coletas = carregar_coletas(hoje - timedelta(days=max(p['dias_para_tras'] for p in periodos)), hoje)
 
     def minutos(chamadas):
         return max(1, ceil(chamadas * SEGUNDOS_POR_CHAMADA_ESTIMADO / 60))
 
     opcoes = []
-    for dias in lista_dias:
-        pendentes = len(dias_pendentes(coletas, None, hoje - timedelta(days=dias - 1), hoje, hoje))
-        faltam, tudo = int(round(pendentes * paginas)), int(round(dias * paginas))
-        opcoes.append({'dias': dias, 'dias_a_coletar': pendentes, 'chamadas': faltam, 'minutos': minutos(faltam),
+    for periodo in periodos:
+        dias = periodo['dias_para_tras']
+        pendentes = len(dias_pendentes(coletas, None, hoje - timedelta(days=dias), hoje, hoje))
+        faltam, tudo = int(round(pendentes * paginas)), int(round((dias + 1) * paginas))
+        opcoes.append({**periodo, 'dias': dias, 'dias_a_coletar': pendentes, 'chamadas': faltam, 'minutos': minutos(faltam),
                        'chamadas_tudo': tudo, 'minutos_tudo': minutos(tudo)})
     return opcoes
 
 
-# Função Objetivo: Os dias dos últimos `dias` que a coleta da CONTA TODA ainda precisa buscar (do mais antigo ao mais novo): só coleta de dia/período
+# Função Objetivo: Os dias de [hoje − `dias`, hoje] que a coleta da CONTA TODA ainda precisa buscar (do mais antigo ao mais novo): só coleta de dia/período
 # cobre a conta toda, e a regra de "só o que falta" é a mesma do Atualizar por MLB (ver cobertura_vendas_ml.dias_pendentes).
 def _dias_pendentes_da_conta(dias, reler_tudo=False):
     hoje = _hoje()
-    de = hoje - timedelta(days=dias - 1)
+    de = hoje - timedelta(days=dias)
     return dias_pendentes(carregar_coletas(de, hoje), None, de, hoje, hoje, reler_tudo)
 
 
@@ -516,12 +538,11 @@ def periodo_em_andamento(empresa):
     return estado
 
 
-# Função Objetivo: Começa a varredura do período (depois da confirmação na janela): grava o estado inicial e dispara a thread sem esperar.
+# Função Objetivo: Começa a varredura do período [hoje − dias, hoje] (depois da confirmação na janela): grava o estado inicial e dispara a thread sem esperar.
 # Só busca os dias que faltam (ver _dias_pendentes_da_conta); `reler_tudo` busca todos. Se já há uma rodando, devolve o estado dela.
 # Devolve (estado, comecou_agora).
 def iniciar_periodo(empresa, dias, usuario='', reler_tudo=False):
-    if not 1 <= dias <= MAX_DIAS_DA_COLETA:
-        raise ErroColetaVendas(f'O período precisa ter de 1 a {MAX_DIAS_DA_COLETA} dias.')
+    _validar_dias(dias, _hoje())
     em_andamento = periodo_em_andamento(empresa)
     if em_andamento is not None:
         return em_andamento, False
@@ -576,7 +597,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
     inicio = time.time()
     hoje = _hoje()
     relatorio = RelatorioColetaVendas(
-        escopo=ColetaVendasMercadoLivre.Escopo.PERIODO, alvo=f'{dias} dias', data_de=hoje - timedelta(days=dias - 1), data_ate=hoje,
+        escopo=ColetaVendasMercadoLivre.Escopo.PERIODO, alvo=f'{dias + 1} dias', data_de=hoje - timedelta(days=dias), data_ate=hoje,
         iniciado_em=timezone.now())
     estado = {
         'status': 'rodando', 'rotulo': 'Consultando o Mercado Livre', 'atual': 0, 'total': len(pendentes), 'dia': '', 'parando': False,
@@ -609,7 +630,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
         gravar_andamento(forcar=True)
         interrompida, erro_texto = False, ''
         n_lidos = 0
-        for posicao in range(dias):
+        for posicao in range(dias + 1):
             if parar():
                 interrompida = True
                 break
@@ -627,7 +648,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
                 interrompida = True
                 break
             except ErroColetaVendas as erro:
-                erro_texto = f'Parou no dia {dia:%d/%m/%Y}: {erro}'
+                erro_texto = f'Parou no dia {dia:%d/%m/%Y}: {erro}{dica_de_borda(dia, hoje)}'
                 break
             _gravar_pedidos(relatorio, pedidos)
             ultimo_dia_completo = dia
@@ -651,7 +672,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
         duracao = int(time.time() - inicio)
         tempo = f'{duracao // 60} min {duracao % 60:02d} s' if duracao >= 60 else f'{duracao} s'
         if ultimo_dia_completo is None:
-            relatorio.data_de = hoje - timedelta(days=dias - 1)
+            relatorio.data_de = hoje - timedelta(days=dias)
             relatorio.mensagem = erro_texto or 'Coleta interrompida antes de concluir o primeiro dia; nada ficou coberto.'
         else:
             abertura = 'Coleta concluída' if completa else ('Coleta interrompida a pedido' if interrompida else 'Coleta parou')

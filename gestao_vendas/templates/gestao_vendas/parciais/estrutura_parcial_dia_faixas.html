@@ -1,0 +1,8 @@
+{% comment %}
+    * [RESUMO] → As faixas de baixo do dia do calendário (a faixa de cima, com o número do dia, é de cada visão). Vale para Meses e para Semanas:
+      faixa 2 = "Total de vendas" e o total; faixa 3 = Full | Fora do Full, cada um com o rótulo em cima do número (uma grade: a linha dos rótulos e a linha dos números, assim os números ficam alinhados).
+    * [EXPLICAÇÃO] → Recebe "c" (o dia) e usa "produto.divisao_dias" (o nível tem divisão Full / fora do Full?). Dia coletado e sem venda mostra Full 0 e Fora 0
+      (é zero confirmado). Nos níveis "No Full" e "Fora do Full" a divisão só repetiria o total, então a faixa 3 mostra os pedidos. Venda sem origem
+      informada aparece numa linha extra, só quando existe. Em dia estreito (celular) o CSS troca os rótulos por F / N / Ped. e esconde "Total de vendas".
+{% endcomment %}{% if c.estado != 'sem_dado' %}<span class="vnd-cel-total"><span class="vnd-cel-rot vnd-cel-rot--total">Total de vendas</span><strong class="vnd-cel-un">{{ c.un }}</strong></span>
+{% if c.divisao or c.zero and produto.divisao_dias %}<span class="vnd-cel-orig"><span class="vnd-cel-rot"><i class="vnd-l">Full</i><i class="vnd-c">F</i></span><span class="vnd-cel-rot"><i class="vnd-l">Fora do Full</i><i class="vnd-c">N</i></span><strong>{{ c.un_full }}</strong><strong>{{ c.un_fora }}</strong>{% if c.divisao and c.un_sem %}<span class="vnd-cel-sem"><i class="vnd-l">Sem origem</i><i class="vnd-c">?</i> <b>{{ c.un_sem }}</b></span>{% endif %}</span>{% else %}<span class="vnd-cel-orig vnd-cel-orig--um"><span class="vnd-cel-rot"><i class="vnd-l">Pedidos</i><i class="vnd-c">Ped.</i></span><strong>{{ c.pedidos }}</strong></span>{% endif %}{% endif %}

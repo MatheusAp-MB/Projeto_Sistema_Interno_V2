@@ -8,7 +8,7 @@
 //      relidos; "Reler tudo" lê todos) — pergunta que só lê o banco — e lê o plano em TRECHOS CURTOS, vários ao mesmo tempo (CONCORRENCIA). Trecho com
 //      pedidos demais volta partido do servidor e os pedaços entram na frente da fila. Um trecho que falha não impede os outros; acesso recusado para tudo.
 //   3) o ícone de cada dia do calendário: coleta aquele dia da conta toda (todos os SKUs);
-//   4) "Coletar período da conta": abre a janela de confirmação e, se a pessoa confirmar, o servidor coleta N dias da conta toda em segundo plano.
+//   4) "Coletar período da conta": abre a janela de confirmação e, se a pessoa confirmar, o servidor coleta o período escolhido (por calendário) da conta toda em segundo plano.
 //      A tela só pergunta o andamento a cada 2 s, mostra a barra, deixa Parar e, no fim, mostra o resumo. (Ao abrir, ela também pergunta UMA vez se já
 //      existe uma coleta rodando: isso só lê o cache do servidor, não toca o Mercado Livre.)
 // Depois de uma atualização que deu certo (1, 2 e 3) a tela recarrega para ler o banco de novo, e o aviso de "deu certo" aparece depois do recarregamento.
@@ -486,8 +486,10 @@
             return;
         }
         const d = opcao.dataset;
-        mostrar('vnd-modal-total', opcao.value);
-        mostrar('vnd-modal-faltam', reler ? opcao.value : d.faltam);
+        // value = dias PARA TRÁS de hoje (o que o servidor recebe); data-total = dias de calendário do período (esse mais hoje).
+        const total = d.total !== undefined ? d.total : opcao.value;
+        mostrar('vnd-modal-total', total);
+        mostrar('vnd-modal-faltam', reler ? total : d.faltam);
         mostrar('vnd-modal-chamadas', reler ? d.chamadasTudo : d.chamadas);
         mostrar('vnd-modal-minutos', reler ? d.minutosTudo : d.minutos);
     }

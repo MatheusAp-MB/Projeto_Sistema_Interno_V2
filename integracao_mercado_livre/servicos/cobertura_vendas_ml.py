@@ -10,10 +10,16 @@
 #   - Dia "completo" = a coleta terminou DEPOIS que o dia acabou. Hoje nunca é completo.
 #   - Coleta com falha não cobre nada; coleta parcial cobre o trecho que chegou a ser lido.
 #
+# PERÍODOS DA TELA DE VENDAS (decisão do Matheus, 11/10/2026): por CALENDÁRIO, não por contagem de dias. O fim é sempre HOJE (dia parcial) e o
+# início é "a mesma data uma unidade atrás": Última semana = hoje − 7 dias; Último mês = mesma data 1 mês atrás; 3 meses; 6 meses; Último ano.
+# Em 11/10/2026: semana 04/10→11/10 · mês 11/09→11/10 · 3 meses 11/07→11/10 · 6 meses 11/04→11/10 · ano 11/10/2025→11/10/2026.
+# A regra mora AQUI (e só aqui) porque a tela e o coletor precisam concordar no primeiro dia: se divergissem em 1 dia, esse dia ficaria "sem dado".
+#
 # * [EXPLICAÇÃO] → "Só o que falta" (dias_pendentes): um dia já coletado COMPLETO não precisa voltar do Mercado Livre, EXCETO os últimos
 #                  DIAS_DE_REVISAO dias: ali um pedido ainda pode ser cancelado/alterado, e o cancelamento só chega ao banco relendo o dia.
 #                  O valor 30 é PROVISÓRIO (decisão do Matheus, 11/10/2026: pode subir ou descer aqui). "Reler tudo" ignora esta regra.
 
+import calendar
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -22,6 +28,12 @@ from mercado_livre.models import ColetaVendasMercadoLivre
 FUSO = ZoneInfo('America/Sao_Paulo')
 RANGE_MIN = datetime(2000, 1, 1, tzinfo=FUSO)
 DIAS_DE_REVISAO = 30
+
+# O Mercado Livre guarda ~12 meses de pedidos. `FOLGA_DO_LIMITE_ML_DIAS` = quantos dias a MAIS (depois do dia exato de 12 meses atrás) o primeiro
+# dia disponível fica. 0 = tenta o dia exato (11/10/2025 em 11/10/2026). Se o ML recusar o dia da borda, suba para 1 (12/10/2025): a tela passa a
+# mostrar sozinha o aviso "limite do ML" e o coletor para de pedir o dia recusado. MEDIDO em 11/10/2026: o ML devolveu o dia exato de 12 meses atrás (11/10/2025: 39 un num produto), então 0 funciona; só mude se o ML passar a recusar.
+MESES_DO_HISTORICO_ML = 12
+FOLGA_DO_LIMITE_ML_DIAS = 0
 
 
 def carregar_coletas(de, ate):
@@ -92,3 +104,102 @@ def dividir_janela(de, ate, partes):
         saida.append((inicio, fim))
         inicio = fim + timedelta(days=1)
     return saida
+
+
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# PERÍODOS POR CALENDÁRIO (usados pela tela de Vendas e pelo coletor)
+# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+# chave → (meses, dias, rótulo, frase "frente ao anterior", frase "no anterior"). `meses` > 0 = volta por calendário; senão volta `dias`.
+PERIODOS_DA_TELA = {
+    'semana': (0, 7, 'Última semana', 'frente à semana anterior', 'na semana anterior'),
+    'mes': (1, 0, 'Último mês', 'frente ao mês anterior', 'no mês anterior'),
+    '3meses': (3, 0, 'Últimos 3 meses', 'frente aos 3 meses anteriores', 'nos 3 meses anteriores'),
+    '6meses': (6, 0, 'Últimos 6 meses', 'frente aos 6 meses anteriores', 'nos 6 meses anteriores'),
+    'ano': (12, 0, 'Último ano', 'frente ao ano anterior', 'no ano anterior'),
+}
+ORDEM_DOS_PERIODOS = ['semana', 'mes', '3meses', '6meses', 'ano']
+PERIODO_PADRAO = '3meses'
+# Links antigos da tela (?dias=7/30/90/180/365) continuam funcionando.
+PERIODO_DOS_DIAS_ANTIGOS = {7: 'semana', 30: 'mes', 90: '3meses', 180: '6meses', 365: 'ano'}
+
+
+# Função Objetivo: A mesma data `meses` meses atrás. Mês mais curto encurta o dia (31/03 − 1 mês = 28/02; 29/02/2028 − 1 ano = 28/02/2027).
+def voltar_meses(dia, meses):
+    total = dia.year * 12 + (dia.month - 1) - meses
+    ano, mes = divmod(total, 12)
+    mes += 1
+    return dia.replace(year=ano, month=mes, day=min(dia.day, calendar.monthrange(ano, mes)[1]))
+
+
+# Função Objetivo: O dia "uma unidade atrás" do período (7 dias, ou N meses de calendário).
+def voltar_unidade(dia, chave):
+    meses, dias = PERIODOS_DA_TELA[chave][0], PERIODOS_DA_TELA[chave][1]
+    return voltar_meses(dia, meses) if meses else dia - timedelta(days=dias)
+
+
+def rotulo_do_periodo(chave):
+    return PERIODOS_DA_TELA[chave][2]
+
+
+def frase_frente_ao_anterior(chave):
+    return PERIODOS_DA_TELA[chave][3]
+
+
+def frase_no_anterior(chave):
+    return PERIODOS_DA_TELA[chave][4]
+
+
+# Função Objetivo: Aceita a chave nova ou o número antigo de dias (7/30/90/180/365) e devolve a chave; qualquer outra coisa vira o padrão.
+def normalizar_periodo(valor):
+    valor = str(valor or '').strip().lower()
+    if valor in PERIODOS_DA_TELA:
+        return valor
+    return PERIODO_DOS_DIAS_ANTIGOS.get(int(valor)) if valor.isdigit() and int(valor) in PERIODO_DOS_DIAS_ANTIGOS else PERIODO_PADRAO
+
+
+# Função Objetivo: Primeiro dia que o Mercado Livre ainda devolve: o dia de 12 meses atrás (+ folga, ver FOLGA_DO_LIMITE_ML_DIAS).
+def primeiro_dia_do_ml(hoje):
+    return voltar_meses(hoje, MESES_DO_HISTORICO_ML) + timedelta(days=FOLGA_DO_LIMITE_ML_DIAS)
+
+
+# Função Objetivo: Início do período pedido (fim = hoje). Já recortado no limite do ML; `recortado` diz se o limite cortou o período.
+def inicio_do_periodo(chave, hoje):
+    inicio = voltar_unidade(hoje, chave)
+    limite = primeiro_dia_do_ml(hoje)
+    return (limite, True) if inicio < limite else (inicio, False)
+
+
+# Função Objetivo: O período imediatamente ANTES, da mesma unidade, colado no atual (sem buraco nem sobreposição):
+# anterior = [início − 1 unidade, início − 1 dia]. Usa o início SEM recorte (o do calendário), para o tamanho ser o certo.
+def periodo_anterior(chave, hoje):
+    inicio = voltar_unidade(hoje, chave)
+    return voltar_unidade(inicio, chave), inicio - timedelta(days=1)
+
+
+# Função Objetivo: "Quantos dias para trás" do início de um período, que é o N do coletor (`de = hoje − N`, `ate = hoje`; N+1 dias no total).
+def dias_para_tras(chave, hoje):
+    return (hoje - inicio_do_periodo(chave, hoje)[0]).days
+
+
+def texto_do_intervalo(de, ate):
+    com_ano = de.year != ate.year
+    formato = '%d/%m/%Y' if com_ano else '%d/%m'
+    return f'{de.strftime(formato)} a {ate.strftime(formato)}'
+
+
+# Função Objetivo: Os 5 períodos de hoje, na ordem dos botões, com as datas reais: chave, rótulo, de, ate, dias_para_tras, total_dias, recortado, texto.
+def periodos_de_hoje(hoje):
+    saida = []
+    for chave in ORDEM_DOS_PERIODOS:
+        de, recortado = inicio_do_periodo(chave, hoje)
+        saida.append({'chave': chave, 'rotulo': rotulo_do_periodo(chave), 'de': de, 'ate': hoje, 'dias_para_tras': (hoje - de).days,
+                      'total_dias': (hoje - de).days + 1, 'recortado': recortado, 'texto': texto_do_intervalo(de, hoje)})
+    return saida
+
+
+# Função Objetivo: Texto de ajuda para quando o Mercado Livre recusa um dia que está na borda dos 12 meses (vazio se o dia não é da borda).
+def dica_de_borda(dia, hoje):
+    if (dia - voltar_meses(hoje, MESES_DO_HISTORICO_ML)).days <= FOLGA_DO_LIMITE_ML_DIAS + 1:
+        return ' (limite do ML: este dia está na borda dos 12 meses que o Mercado Livre guarda)'
+    return ''

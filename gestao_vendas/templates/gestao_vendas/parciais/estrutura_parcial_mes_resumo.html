@@ -1,0 +1,6 @@
+{% comment %}
+    * [RESUMO] → O resumo do mês (nome, recorte do período, média por dia e total de unidades) da visão em MESES.
+    * [EXPLICAÇÃO] → Recebe "m" (o mês). Aparece na linha de cabeçalho do mês (primeira linha da grade do mês, com a altura de uma semana), em letras grandes, igual em
+      todos os meses para que as semanas de meses lado a lado fiquem alinhadas. No celular o CSS esconde essa linha e mostra o cabeçalho pequeno de cima.
+{% endcomment %}<span class="vnd-mes-nome">{{ m.nome }}{% if m.recorte %} <span class="vnd-etiqueta">{{ m.recorte }}</span>{% endif %}</span>
+<span class="vnd-mes-resumo">{% if m.media_txt != '—' %}<span class="vnd-mes-media" title="Média dos dias completos do mês">{{ m.media_txt }} un/dia</span>{% endif %}<span class="vnd-mes-total">{{ m.un_txt }} un</span></span>
