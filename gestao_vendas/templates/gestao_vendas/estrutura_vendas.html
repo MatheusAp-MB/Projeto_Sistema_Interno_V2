@@ -263,79 +263,89 @@
                         <p class="vnd-legenda" aria-label="Legenda do calendário">
                             {% for l in produto.legenda_niveis %}<span class="vnd-legenda-item"><i class="vnd-amostra vnd-nivel-{{ l.nivel }}"></i> {{ l.texto }}</span>{% endfor %}
                             <span class="vnd-legenda-item"><i class="vnd-amostra vnd-amostra--zero"></i> Sem venda no dia</span>
-                            <span class="vnd-legenda-item"><i class="vnd-amostra vnd-amostra--parcial"></i> Parcial</span>
+                            <span class="vnd-legenda-item"><i class="vnd-amostra vnd-amostra--parcial"></i> Parcial (dia incompleto, pode mudar)</span>
                             <span class="vnd-legenda-item"><i class="vnd-amostra vnd-amostra--sem-dado"></i> Sem dado (não é zero)</span>
-                            {% if produto.divisao_dias %}<span class="vnd-legenda-item"><b>F</b> = Full · <b>N</b> = fora do Full{% if produto.divisao_sem_origem %} · <b>?</b> = sem origem informada{% endif %}</span>{% endif %}
+                            {% if produto.divisao_dias and produto.visao == 'meses' %}<span class="vnd-legenda-item vnd-legenda-abrev"><b>F</b> = Full · <b>N</b> = fora do Full{% if produto.divisao_sem_origem %} · <b>?</b> = sem origem informada{% endif %}</span>{% endif %}
                             <span class="vnd-legenda-item vnd-legenda-dica"><i class="fas fa-hand-pointer" aria-hidden="true"></i> Clique num dia para ver o detalhe</span>
                         </p>
 
-                        <div class="vnd-cal-corpo vnd-cal-corpo--{{ produto.visao }}">
-                            <div class="vnd-cal-rolagem vnd-cal-rolagem--{{ produto.visao }}" tabindex="0" role="region" aria-label="Calendário de vendas: role aqui dentro para ver {% if produto.visao == 'meses' %}os outros meses{% else %}as outras semanas{% endif %}">
-                                {% if produto.visao == 'meses' %}
-                                <div class="vnd-meses{% if produto.meses|length < 3 %} vnd-meses--poucos{% endif %}" aria-label="Um calendário por mês">
-                                    {% for m in produto.meses %}
-                                        <section class="vnd-mes" aria-label="{{ m.nome }}, {{ m.un_txt }} unidades">
-                                            <header class="vnd-mes-cab">
-                                                {% include 'gestao_vendas/parciais/estrutura_parcial_mes_resumo.html' %}
-                                            </header>
-                                            <div class="vnd-mes-dias" role="group" aria-label="Dias de {{ m.nome }}">
-                                                <div class="vnd-mes-titulo">{% include 'gestao_vendas/parciais/estrutura_parcial_mes_resumo.html' %}</div>
-                                                <span class="vnd-mes-sem" aria-hidden="true">S</span><span class="vnd-mes-sem" aria-hidden="true">T</span><span class="vnd-mes-sem" aria-hidden="true">Q</span><span class="vnd-mes-sem" aria-hidden="true">Q</span><span class="vnd-mes-sem" aria-hidden="true">S</span><span class="vnd-mes-sem" aria-hidden="true">S</span><span class="vnd-mes-sem" aria-hidden="true">D</span>
-                                                {% for linha in m.linhas %}{% for c in linha %}{% if c.estado == 'vazio' %}<span class="vnd-mdia vnd-mdia--vazio" aria-hidden="true"></span>{% else %}<button type="button" class="vnd-mdia vnd-mdia--{{ c.estado }}{% if c.zero %} vnd-mdia--zero{% endif %} vnd-nivel-{{ c.nivel }}" data-vnd-detalhe="{{ c.iso }}" title="{{ c.titulo }}" aria-label="{{ c.titulo }}. Clique para ver o detalhe do dia."><span class="vnd-cel-topo"><span class="vnd-cel-dia">{{ c.dia|stringformat:"02d" }}</span>{% if c.estado == 'parcial' %}<span class="vnd-cel-selo">parcial</span>{% endif %}</span>{% include 'gestao_vendas/parciais/estrutura_parcial_dia_faixas.html' %}</button>{% endif %}{% endfor %}{% endfor %}
-                                            </div>
-                                        </section>
-                                    {% endfor %}
-                                    <section class="vnd-mes vnd-mes--zeros" aria-label="Dias sem venda no período">
-                                        <h3 class="vnd-zeros-titulo">Dias sem venda no período</h3>
-                                        {% if produto.dias_zerados %}
-                                            <ul class="vnd-zeros-lista">
-                                                {% for z in produto.dias_zerados %}<li title="{{ z.titulo }}"><i class="vnd-amostra vnd-amostra--zero" aria-hidden="true"></i> {{ z.texto }}</li>{% endfor %}
-                                            </ul>
-                                            {% if produto.dias_zerados_extra %}<p class="vnd-legenda">… e mais {{ produto.dias_zerados_extra }}.</p>{% endif %}
-                                        {% else %}
-                                            <p class="vnd-bloco-aviso">Nenhum dia completo ficou sem vendas.</p>
-                                        {% endif %}
-                                        <p class="vnd-legenda">Zero venda confirmado em dia completo; não equivale a dado ausente.</p>
-                                    </section>
-                                </div>
-                                {% else %}
-                                    <div class="vnd-cal" role="table" aria-label="Unidades vendidas por dia">
-                                        <div class="vnd-cal-cabecalho" role="row">
-                                            <span class="vnd-cal-semana-rotulo" role="columnheader">Semana</span>
-                                            {% for m in produto.medias_semana %}<span role="columnheader">{{ m.rotulo }}</span>{% endfor %}
-                                            <span role="columnheader">Total</span>
-                                        </div>
-                                        {% for s in produto.semanas %}
-                                            <div class="vnd-cal-linha" role="row">
-                                                <span class="vnd-cal-semana-rotulo" role="rowheader"><strong>{{ s.rotulo }}</strong><small>{{ s.dias_texto }}</small></span>
-                                                {% for c in s.celulas %}
-                                                    {% if c.estado == 'fora' %}
-                                                        <div class="vnd-dia vnd-dia--fora" role="cell" title="Fora do período"></div>
-                                                    {% elif c.estado == 'futuro' %}
-                                                        <div class="vnd-dia vnd-dia--futuro" role="cell" title="Ainda não aconteceu"><span class="vnd-dia-traco" aria-hidden="true">—</span><span class="vnd-dia-vazio">futuro</span></div>
-                                                    {% else %}
-                                                        <div class="vnd-dia vnd-dia--{{ c.estado }}{% if c.zero %} vnd-dia--zero{% endif %} vnd-nivel-{{ c.nivel }}" role="cell" title="{{ c.titulo }}">
-                                                            <button type="button" class="vnd-dia-abrir" data-vnd-detalhe="{{ c.iso }}" aria-label="{{ c.titulo }}. Clique para ver o detalhe do dia."></button>
-                                                            <span class="vnd-cel-topo">
-                                                                <span class="vnd-cel-dia">{{ c.rotulo }}</span>
-                                                                {% if c.estado == 'parcial' %}<span class="vnd-cel-selo">parcial</span>{% endif %}
-                                                                <button type="button" class="vnd-dia-atualizar" data-vnd-dia="{{ c.iso }}" aria-label="Atualizar o dia {{ c.iso }} (conta toda)" title="Atualizar este dia (conta toda)"><i class="fas fa-rotate" aria-hidden="true"></i></button>
-                                                            </span>
-                                                            {% include 'gestao_vendas/parciais/estrutura_parcial_dia_faixas.html' %}
-                                                        </div>
-                                                    {% endif %}
-                                                {% endfor %}
-                                                <span class="vnd-cal-total{% if s.incompleta and s.tem_dado %} vnd-cal-total--incompleto{% endif %}" role="cell"{% if s.incompleta and s.tem_dado %} title="Semana incompleta no período (veja a nota abaixo do calendário)"{% endif %}>{{ s.total }}{% if s.incompleta and s.tem_dado %}*{% endif %}</span>
-                                            </div>
+                        {% comment %}
+                            * [EXPLICAÇÃO] → .vnd-cal-area = o calendário (.vnd-cal-corpo) + o detalhe do dia (#vnd-dia-card). Quando há largura, o detalhe vira uma COLUNA
+                              fixa ao lado do calendário (modo "fixado": o script_vendas_dia.js põe data-vnd-fixar na área); quando não há, ele continua flutuando junto do dia clicado.
+                              O card NÃO pode ficar dentro de .vnd-cal-corpo: aquele é um "container" de CSS e prenderia o card flutuante (position: fixed) dentro dele.
+                        {% endcomment %}
+                        <div class="vnd-cal-area vnd-cal-area--{{ produto.visao }}" data-vnd-area>
+                            <div class="vnd-cal-corpo vnd-cal-corpo--{{ produto.visao }}">
+                                <div class="vnd-cal-rolagem vnd-cal-rolagem--{{ produto.visao }}" tabindex="0" role="region" aria-label="Calendário de vendas: role aqui dentro para ver {% if produto.visao == 'meses' %}os outros meses{% else %}as outras semanas{% endif %}">
+                                    {% if produto.visao == 'meses' %}
+                                    <div class="vnd-meses{% if produto.meses|length < 3 %} vnd-meses--poucos{% endif %}" aria-label="Um calendário por mês">
+                                        {% for m in produto.meses %}
+                                            <section class="vnd-mes" aria-label="{{ m.nome }}, {{ m.un_txt }} unidades">
+                                                <header class="vnd-mes-cab">
+                                                    {% include 'gestao_vendas/parciais/estrutura_parcial_mes_resumo.html' %}
+                                                </header>
+                                                <div class="vnd-mes-dias" role="group" aria-label="Dias de {{ m.nome }}">
+                                                    <div class="vnd-mes-titulo">{% include 'gestao_vendas/parciais/estrutura_parcial_mes_resumo.html' %}</div>
+                                                    <span class="vnd-mes-sem" aria-hidden="true">S</span><span class="vnd-mes-sem" aria-hidden="true">T</span><span class="vnd-mes-sem" aria-hidden="true">Q</span><span class="vnd-mes-sem" aria-hidden="true">Q</span><span class="vnd-mes-sem" aria-hidden="true">S</span><span class="vnd-mes-sem" aria-hidden="true">S</span><span class="vnd-mes-sem" aria-hidden="true">D</span>
+                                                    {% for linha in m.linhas %}{% for c in linha %}{% if c.estado == 'vazio' %}<span class="vnd-mdia vnd-mdia--vazio" aria-hidden="true"></span>{% else %}<button type="button" class="vnd-mdia vnd-mdia--{{ c.estado }}{% if c.zero %} vnd-mdia--zero{% endif %} vnd-nivel-{{ c.nivel }}" data-vnd-detalhe="{{ c.iso }}" title="{{ c.titulo }}" aria-label="{{ c.titulo }}. Clique para ver o detalhe do dia."><span class="vnd-cel-topo"><span class="vnd-cel-dia">{{ c.dia|stringformat:"02d" }}</span>{% if c.estado == 'parcial' %}<span class="vnd-cel-selo">parcial</span>{% endif %}</span>{% include 'gestao_vendas/parciais/estrutura_parcial_dia_faixas.html' %}</button>{% endif %}{% endfor %}{% endfor %}
+                                                </div>
+                                            </section>
                                         {% endfor %}
-                                        <div class="vnd-cal-linha vnd-cal-linha--media" role="row">
-                                            <span class="vnd-cal-semana-rotulo" role="rowheader">Média (dias completos)</span>
-                                            {% for m in produto.medias_semana %}<span class="vnd-cal-media" role="cell" title="{{ m.n }} dia{{ m.n|pluralize }} completo{{ m.n|pluralize }}">{{ m.media }}</span>{% endfor %}
-                                            <span role="cell"></span>
-                                        </div>
+                                        <section class="vnd-mes vnd-mes--zeros" aria-label="Dias sem venda no período">
+                                            <h3 class="vnd-zeros-titulo">Dias sem venda no período</h3>
+                                            {% if produto.dias_zerados %}
+                                                <ul class="vnd-zeros-lista">
+                                                    {% for z in produto.dias_zerados %}<li title="{{ z.titulo }}"><i class="vnd-amostra vnd-amostra--zero" aria-hidden="true"></i> {{ z.texto }}</li>{% endfor %}
+                                                </ul>
+                                                {% if produto.dias_zerados_extra %}<p class="vnd-legenda">… e mais {{ produto.dias_zerados_extra }}.</p>{% endif %}
+                                            {% else %}
+                                                <p class="vnd-bloco-aviso">Nenhum dia completo ficou sem vendas.</p>
+                                            {% endif %}
+                                            <p class="vnd-legenda">Zero venda confirmado em dia completo; não equivale a dado ausente.</p>
+                                        </section>
                                     </div>
-                                {% endif %}
+                                    {% else %}
+                                        <div class="vnd-cal" role="table" aria-label="Unidades vendidas por dia">
+                                            <div class="vnd-cal-cabecalho" role="row">
+                                                <span class="vnd-cal-semana-rotulo" role="columnheader">Semana</span>
+                                                {% for m in produto.medias_semana %}<span role="columnheader">{{ m.rotulo }}</span>{% endfor %}
+                                                <span role="columnheader">Total</span>
+                                            </div>
+                                            {% for s in produto.semanas %}
+                                                <div class="vnd-cal-linha" role="row">
+                                                    <span class="vnd-cal-semana-rotulo" role="rowheader"><strong>{{ s.rotulo }}</strong><small>{{ s.dias_texto }}</small></span>
+                                                    {% for c in s.celulas %}
+                                                        {% if c.estado == 'fora' %}
+                                                            <div class="vnd-dia vnd-dia--fora" role="cell" title="Fora do período"></div>
+                                                        {% elif c.estado == 'futuro' %}
+                                                            <div class="vnd-dia vnd-dia--futuro" role="cell" title="Ainda não aconteceu"><span class="vnd-dia-traco" aria-hidden="true">—</span><span class="vnd-dia-vazio">futuro</span></div>
+                                                        {% else %}
+                                                            <div class="vnd-dia vnd-dia--{{ c.estado }}{% if c.zero %} vnd-dia--zero{% endif %} vnd-nivel-{{ c.nivel }}" role="cell" title="{{ c.titulo }}">
+                                                                <button type="button" class="vnd-dia-abrir" data-vnd-detalhe="{{ c.iso }}" aria-label="{{ c.titulo }}. Clique para ver o detalhe do dia."></button>
+                                                                <span class="vnd-cel-topo">
+                                                                    <span class="vnd-cel-dia">{{ c.rotulo }}</span>
+                                                                    {% if c.estado == 'parcial' %}<span class="vnd-cel-selo">parcial</span>{% endif %}
+                                                                    <button type="button" class="vnd-dia-atualizar" data-vnd-dia="{{ c.iso }}" aria-label="Atualizar o dia {{ c.iso }} (conta toda)" title="Atualizar este dia (conta toda)"><i class="fas fa-rotate" aria-hidden="true"></i></button>
+                                                                </span>
+                                                                {% include 'gestao_vendas/parciais/estrutura_parcial_dia_faixas.html' %}
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    <span class="vnd-cal-total{% if s.incompleta and s.tem_dado %} vnd-cal-total--incompleto{% endif %}" role="cell"{% if s.incompleta and s.tem_dado %} title="Semana incompleta no período (veja a nota abaixo do calendário)"{% endif %}>{{ s.total }}{% if s.incompleta and s.tem_dado %}*{% endif %}</span>
+                                                </div>
+                                            {% endfor %}
+                                            <div class="vnd-cal-linha vnd-cal-linha--media" role="row">
+                                                <span class="vnd-cal-semana-rotulo" role="rowheader">Média (dias completos)</span>
+                                                {% for m in produto.medias_semana %}<span class="vnd-cal-media" role="cell" title="{{ m.n }} dia{{ m.n|pluralize }} completo{{ m.n|pluralize }}">{{ m.media }}</span>{% endfor %}
+                                                <span role="cell"></span>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </div>
                             </div>
+                            {% if produto.dias_json %}
+                                <div class="vnd-dia-card" id="vnd-dia-card" role="dialog" aria-labelledby="vnd-dia-card-titulo" tabindex="-1" hidden></div>
+                            {% endif %}
                         </div>
                         {% if produto.visao != 'meses' %}
                             <div class="vnd-rodape-calendario">
@@ -538,10 +548,9 @@
             </div>
         </div>
 
-        {# Card de detalhe do dia: o conteúdo é montado por script_vendas_dia.js a partir deste JSON (textos já formatados pelo Python). #}
+        {# Dados do detalhe do dia: o card/painel (#vnd-dia-card, dentro de .vnd-cal-area, ao lado do calendário) é montado por script_vendas_dia.js a partir deste JSON (textos já formatados pelo Python). #}
         {% if produto.dias_json %}
             {{ produto.dias_json|json_script:"vnd-dias-dados" }}
-            <div class="vnd-dia-card" id="vnd-dia-card" role="dialog" aria-labelledby="vnd-dia-card-titulo" tabindex="-1" hidden></div>
         {% endif %}
 
         {# Aviso flutuante dos botões de atualizar (sucesso some sozinho; erro fica até a pessoa fechar). #}

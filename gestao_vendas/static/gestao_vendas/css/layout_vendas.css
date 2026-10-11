@@ -559,15 +559,36 @@
 
 .vnd-cel-topo { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 3px 22px; font-size: 0.82rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .vnd-cel-selo { padding: 0 6px; border: 1px solid currentColor; border-radius: 9px; font-size: 0.66rem; font-weight: 700; line-height: 1.45; }
-.vnd-cel-total { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 4px 5px; background: rgba(255, 255, 255, 0.45); }
+/* * [EXPLICAÇÃO] → A faixa do total NÃO tem fundo próprio: o dia inteiro é de uma cor só (a do mapa de calor, .vnd-nivel-N) e quem separa as informações são as linhas (ver "LINHAS QUE SEPARAM AS INFORMAÇÕES DO DIA"). */
+.vnd-cel-total { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 4px 5px; }
 .vnd-cel-rot { font-size: 0.66rem; font-weight: 500; line-height: 1.15; white-space: nowrap; }
 .vnd-cel-un { font-size: 1.45rem; line-height: 1.05; font-weight: 750; font-variant-numeric: tabular-nums; }
-.vnd-cel-orig { display: grid; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; justify-items: center; gap: 1px 2px; padding: 4px 2px 5px; }
+.vnd-cel-orig { --vnd-orig-pb: 5px; --vnd-sem-fs: 0.66rem; position: relative; display: grid; flex: 1 1 auto; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: center; justify-items: center; gap: 1px 2px; padding: 4px 2px var(--vnd-orig-pb); box-shadow: inset 0 var(--vnd-lin-esp) 0 0 var(--vnd-lin); }
 .vnd-cel-orig--um { grid-template-columns: minmax(0, 1fr); }
 .vnd-cel-orig .vnd-cel-rot { align-self: end; }
 .vnd-cel-orig strong { font-size: 1.05rem; line-height: 1.1; font-weight: 750; font-variant-numeric: tabular-nums; }
-.vnd-cel-sem { grid-column: 1 / -1; padding-top: 1px; font-size: 0.66rem; line-height: 1.2; white-space: nowrap; }
+.vnd-cel-sem { grid-column: 1 / -1; padding-top: 1px; font-size: var(--vnd-sem-fs); line-height: 1.2; white-space: nowrap; }
 .vnd-cel-sem b { font-weight: 750; }
+
+/* ---- LINHAS QUE SEPARAM AS INFORMAÇÕES DO DIA (iguais em Meses e em Semanas) ----
+ * [EXPLICAÇÃO] → Uma linha entre o total e a faixa de baixo (Full | Fora do Full) e outra, vertical, no meio de Full e Fora do Full (formando um "T").
+ *                  Nenhuma das duas muda o tamanho do dia: a horizontal é um box-shadow por dentro da faixa e a vertical é um pseudo-elemento solto (position: absolute).
+ *                  Quando existe a linha "Sem origem" (classe --sem, posta pelo template), a vertical para acima dela para não cortar o texto (nesses dias a linha "Sem origem" fica colada embaixo e Full / Fora do Full em cima).
+ *                  Cor: branca nos dias escuros (níveis 4 e 5) e verde-escuro translúcido nos claros. Para mudar a espessura ou a cor, mude só --vnd-lin-esp e --vnd-lin. */
+.vnd-dia,
+.vnd-mdia { --vnd-lin: rgba(20, 83, 45, 0.3); --vnd-lin-esp: 2px; }
+.vnd-dia.vnd-nivel-4,
+.vnd-dia.vnd-nivel-5,
+.vnd-mdia.vnd-nivel-4,
+.vnd-mdia.vnd-nivel-5 { --vnd-lin: #ffffff; }
+.vnd-cel-orig:not(.vnd-cel-orig--um)::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(50% - var(--vnd-lin-esp) / 2); width: var(--vnd-lin-esp); background: var(--vnd-lin); pointer-events: none; }
+.vnd-cel-orig--sem { grid-template-rows: auto auto 1fr; }
+.vnd-cel-orig--sem .vnd-cel-sem { align-self: end; }
+.vnd-cel-orig.vnd-cel-orig--sem::before { font-size: var(--vnd-sem-fs); bottom: calc(1.2em + 1px + var(--vnd-orig-pb)); }
+/* Dia de desenho completo (Semanas): o rótulo "Fora do Full" tinha a largura da própria coluna e encostava na linha do meio; com 0.62rem sobra ~1,5px de cada lado. */
+@container (width > 119px) {
+    .vnd-cel-orig .vnd-cel-rot { font-size: 0.62rem; }
+}
 .vnd-c { display: none; }
 .vnd-l,
 .vnd-c { font-style: normal; }
@@ -576,8 +597,6 @@
 .vnd-dia.vnd-nivel-5,
 .vnd-mdia.vnd-nivel-4,
 .vnd-mdia.vnd-nivel-5 { color: #ffffff; }
-.vnd-nivel-4 .vnd-cel-total,
-.vnd-nivel-5 .vnd-cel-total { background: rgba(0, 0, 0, 0.2); }
 
 /* O ícone de atualizar o dia (Semanas) só aparece com o mouse em cima; o botão "Atualizar este dia" do card faz o mesmo e existe em todas as telas. */
 .vnd-dia-atualizar {
@@ -621,10 +640,9 @@
     .vnd-cel-total { padding: 3px 2px 4px; }
     .vnd-cel-rot { font-size: clamp(7px, calc(4.8px + 4.2cqw), 0.66rem); }
     .vnd-cel-un { font-size: min(1.45rem, 31cqw); }
-    .vnd-cel-orig { gap: 0 1px; padding: 3px 1px 4px; }
+    .vnd-cel-orig { --vnd-orig-pb: 4px; --vnd-sem-fs: clamp(7px, calc(4.8px + 4.2cqw), 0.66rem); gap: 0 3px; padding: 3px 1px var(--vnd-orig-pb); }
     .vnd-cel-orig .vnd-cel-rot { white-space: normal; line-height: 1.05; overflow-wrap: anywhere; }
     .vnd-cel-orig strong { font-size: min(1.05rem, 23cqw); }
-    .vnd-cel-sem { font-size: clamp(7px, calc(4.8px + 4.2cqw), 0.66rem); }
 }
 
 /* Dia muito estreito (celular): rótulos curtos F / N / Ped. e sem "Total de vendas". */
@@ -642,8 +660,6 @@
 .vnd-dia--zero { background: var(--cor-fundo-card); border: var(--vnd-cel-borda) dashed var(--cor-primaria-clara); color: var(--cor-primaria); }
 .vnd-dia--zero .vnd-cel-un,
 .vnd-mdia--zero .vnd-cel-un { color: var(--cor-primaria-clara); }
-.vnd-dia--zero .vnd-cel-total,
-.vnd-mdia--zero .vnd-cel-total { background: #eef7f1; }
 /* Parcial: contorno escuro de 2px + 1px branco por dentro, desenhado POR CIMA das faixas (::after). A borda do dia continua 1px, então o tamanho não muda. */
 .vnd-dia--parcial { border-color: var(--cor-primaria-escura); }
 .vnd-dia--parcial::after { content: ''; position: absolute; inset: 0; z-index: 1; border: 1px solid var(--cor-primaria-escura); border-radius: inherit; box-shadow: inset 0 0 0 1px #ffffff; pointer-events: none; }
@@ -770,6 +786,12 @@
 /* ---- clicar num dia: o card de detalhe ---- */
 .vnd-legenda-dica { font-weight: 600; color: var(--cor-primaria); }
 .vnd-legenda b { font-weight: 800; color: var(--cor-primaria); }
+/* * [EXPLICAÇÃO] → "F = Full · N = fora do Full · ? = sem origem" explica as letras que o dia usa só quando fica MUITO estreito (celular: dia de até 57px, só na visão Meses).
+ *                  Nas outras telas o dia escreve "Full", "Fora do Full" e "Sem origem" por extenso e essa explicação ficaria sobrando, então o item fica escondido.
+ *                  A legenda vira um "container" para o item saber a largura do calendário: o dia chega a 57px quando o calendário tem uns 477px de largura (se mudar o padding dos meses, reveja esse número). */
+.vnd-calendario .vnd-legenda { container-type: inline-size; container-name: vndlegenda; }
+.vnd-legenda-abrev { display: none; }
+@container vndlegenda (max-width: 477px) { .vnd-legenda-abrev { display: inline-flex; } }
 
 /* O dia (em Meses) é um botão com as mesmas três faixas do dia das Semanas (regras em "O DIA em TRÊS FAIXAS"). */
 .vnd-mdia:hover { outline: 2px solid var(--cor-primaria-clara); outline-offset: 0; z-index: 1; }
@@ -795,6 +817,18 @@
 
 .vnd-calendario { --vnd-cal-altura: clamp(340px, calc(100vh - 240px), 880px); --vnd-cal-fundo: #f1f8f3; }
 .vnd-cal-corpo { position: relative; container-type: inline-size; }
+
+/* ---- DETALHE DO DIA AO LADO DO CALENDÁRIO ----
+ * [EXPLICAÇÃO] → .vnd-cal-area = calendário + detalhe do dia. Fechado (ou sem largura), é uma coluna só e o card flutua junto do dia clicado (o desenho de sempre).
+ *                  Aberto E com largura, o script_vendas_dia.js põe data-vnd-fixar="1" (cabe) e data-vnd-aberto="1" (há um dia aberto): aí a área vira 2 colunas e o card vira
+ *                  um painel FIXO à direita, com a altura do calendário e rolagem própria. O calendário só passa de 3 para 2 meses por linha porque a largura dele diminui.
+ *                  "Cabe" = o calendário continua com o tamanho mínimo: Meses = 1000px (2 meses por linha, dia de ~62px); Semanas = a largura fixa da visão (--vnd-sem-larg).
+ *                  --vnd-painel-area-min (registrada como <length> para o JS conseguir ler o número em px) = esse mínimo + o vão + o painel. Para mudar a largura do painel, mude só --vnd-painel-larg. */
+@property --vnd-painel-area-min { syntax: '<length>'; inherits: true; initial-value: 0px; }
+.vnd-cal-area { --vnd-painel-larg: 340px; --vnd-painel-vao: 12px; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--vnd-painel-vao); align-items: start; }
+.vnd-cal-area--meses { --vnd-painel-area-min: calc(1000px + var(--vnd-painel-vao) + var(--vnd-painel-larg)); }
+.vnd-cal-area--semanas { --vnd-painel-area-min: calc(var(--vnd-sem-larg) + var(--vnd-painel-vao) + var(--vnd-painel-larg)); }
+.vnd-cal-area[data-vnd-fixar="1"][data-vnd-aberto="1"] { grid-template-columns: minmax(0, 1fr) var(--vnd-painel-larg); }
 
 .vnd-cal-rolagem {
     max-height: var(--vnd-cal-altura);
@@ -878,6 +912,16 @@
 }
 
 .vnd-dia-card:focus { outline: none; }
+/* Modo fixado: o card deixa de flutuar e vira a coluna da direita (fica visível junto do calendário mesmo se a página rolar; nunca mais alto que o calendário). */
+.vnd-cal-area[data-vnd-fixar="1"] .vnd-dia-card {
+    position: sticky;
+    top: 8px;
+    z-index: auto;
+    width: auto;
+    max-width: none;
+    max-height: min(var(--vnd-cal-altura), calc(100vh - 16px));
+    box-shadow: none;
+}
 .vnd-card-cab { display: flex; align-items: flex-start; gap: 6px; }
 .vnd-card-tit { flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .vnd-card-titulo { margin: 0; font-size: 1rem; font-weight: 750; color: var(--cor-primaria); }

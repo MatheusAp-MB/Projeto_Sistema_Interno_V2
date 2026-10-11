@@ -8,6 +8,10 @@
  * * [EXPLICAÇÃO] → O card é "position: fixed" e segue o dia quando a página rola ou quando o calendário rola por dentro (.vnd-cal-rolagem); se o dia sai
  *                  da área visível do calendário, o card fecha. No celular (até 760px) ele vira uma folha embaixo da tela.
  *                  Fecha com Esc, com o X ou clicando fora; as setas ‹ › (ou as teclas ← →) vão para o dia anterior / seguinte.
+ * * [EXPLICAÇÃO] → MODO FIXADO: quando a área do calendário (.vnd-cal-area) tem largura para o calendário continuar legível E o painel (ver --vnd-painel-area-min no CSS),
+ *                  o card deixa de flutuar e vira uma coluna ao lado do calendário. Nesse modo ele não segue o dia, não fecha ao clicar fora nem quando o dia rola para fora
+ *                  (fecha só com o X, Esc ou clicando de novo no mesmo dia). Sem largura (menu lateral aberto numa tela menor) ou no celular, vale o card flutuante de sempre.
+ *                  Ao abrir/fechar a coluna o calendário muda de largura (3 meses por linha viram 2); por isso o dia aberto é trazido de volta para a vista.
  */
 (function () {
     'use strict';
@@ -15,6 +19,7 @@
     const pagina = document.querySelector('.vnd-pagina');
     const card = document.getElementById('vnd-dia-card');
     const fonte = document.getElementById('vnd-dias-dados');
+    const area = document.querySelector('[data-vnd-area]');
     if (!pagina || !card || !fonte) {
         return;
     }
@@ -34,6 +39,49 @@
     let aberto = '';
     let ancora = null;
     let quadro = 0;
+
+    // ---------- modo "fixado" (coluna ao lado do calendário) x "flutuante" (card junto do dia) ----------
+    // * [EXPLICAÇÃO] → Para ENTRAR no modo fixado a área precisa ter o mínimo + FOLGA_DA_BARRA_DE_ROLAGEM px; para continuar nele, só o mínimo. Motivo: abrir o painel pode
+    //                  fazer surgir a barra de rolagem da página (a área encolhe ~15px) e, sem essa folga, o modo ficaria trocando sozinho (painel abre, barra aparece, painel sai...).
+    //                  Com a folga na entrada, o calendário nunca fica abaixo do tamanho mínimo.
+    const FOLGA_DA_BARRA_DE_ROLAGEM = 16;
+    let larguraDaArea = 0;
+
+    function fixado() {
+        return !!area && area.dataset.vndFixar === '1';
+    }
+
+    // Função Objetivo: Decide se o painel cabe fixo ao lado do calendário (largura da área >= --vnd-painel-area-min do CSS) e avisa o CSS por data-vnd-fixar.
+    //                  Se o navegador não entender a variável, o mínimo vira 0 e o painel nunca fixa (continua flutuando).
+    function atualizarModo() {
+        if (!area) {
+            return;
+        }
+        const minima = parseFloat(window.getComputedStyle(area).getPropertyValue('--vnd-painel-area-min')) || 0;
+        const folga = fixado() ? 0 : FOLGA_DA_BARRA_DE_ROLAGEM;
+        const cabe = !celular.matches && minima > 0 && area.clientWidth >= minima + folga;
+        area.dataset.vndFixar = cabe ? '1' : '';
+        card.setAttribute('role', cabe ? 'region' : 'dialog');
+    }
+
+    // Função Objetivo: Avisa o CSS (data-vnd-aberto) se há um dia aberto: com o modo fixado, é isso que abre a 2ª coluna.
+    function marcarAberto(sim) {
+        if (!area) {
+            return;
+        }
+        if (sim) {
+            area.dataset.vndAberto = '1';
+        } else {
+            area.removeAttribute('data-vnd-aberto');
+        }
+    }
+
+    // Função Objetivo: Depois que a coluna abre/fecha o calendário se reorganiza; traz o dia de volta para a vista (o mínimo de rolagem possível).
+    function manterDiaAVista(elemento) {
+        if (elemento && document.contains(elemento) && elemento.scrollIntoView) {
+            elemento.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+    }
 
     function criar(tag, classe, texto) {
         const elemento = document.createElement(tag);
@@ -208,12 +256,12 @@
         }
     }
 
-    // Função Objetivo: Põe o card ao lado do dia (à direita; se não couber, à esquerda) sem sair da janela. No celular o CSS o prende embaixo.
+    // Função Objetivo: Põe o card ao lado do dia (à direita; se não couber, à esquerda) sem sair da janela. No celular o CSS o prende embaixo; no modo fixado não há o que posicionar.
     function posicionar() {
         if (card.hidden) {
             return;
         }
-        if (celular.matches || !ancora) {
+        if (fixado() || celular.matches || !ancora) {
             card.style.left = '';
             card.style.top = '';
             return;
@@ -262,8 +310,12 @@
         }
         partes.forEach(function (parte) { card.appendChild(parte); });
         card.hidden = false;
+        marcarAberto(true);
         card.scrollTop = 0;
         posicionar();
+        if (fixado()) {
+            manterDiaAVista(ancora);
+        }
         let foco = card;
         if (o.direcao) {
             const botao = card.querySelector('[data-direcao="' + o.direcao + '"]:not(:disabled)') || card.querySelector('[data-direcao]:not(:disabled)');
@@ -277,10 +329,14 @@
             return;
         }
         card.hidden = true;
+        marcarAberto(false);
         desmarcar();
         const elemento = ancora;
         aberto = '';
         ancora = null;
+        if (fixado()) {
+            manterDiaAVista(elemento);
+        }
         if (devolverFoco && elemento && document.contains(elemento)) {
             elemento.focus({ preventScroll: true });
         }
@@ -311,7 +367,7 @@
     // * [EXPLICAÇÃO] → Os botões ‹ › refazem o card inteiro: quando o clique chega aqui, o botão clicado já saiu da página. Por isso o teste
     //                  "document.contains": sem ele, esse clique contaria como "clicou fora" e fecharia o card que acabou de abrir.
     document.addEventListener('click', function (evento) {
-        if (card.hidden || !document.contains(evento.target) || card.contains(evento.target) || evento.target.closest('[data-vnd-detalhe]')) {
+        if (card.hidden || fixado() || !document.contains(evento.target) || card.contains(evento.target) || evento.target.closest('[data-vnd-detalhe]')) {
             return;
         }
         fechar(false);
@@ -330,7 +386,7 @@
     });
 
     function reposicionar(evento) {
-        if (card.hidden || quadro || (evento && evento.target && evento.target !== document && card.contains(evento.target))) {
+        if (card.hidden || quadro || (evento && evento.target && evento.target !== document && evento.target instanceof Node && card.contains(evento.target))) {
             return;
         }
         quadro = window.requestAnimationFrame(function () {
@@ -340,6 +396,23 @@
     }
     window.addEventListener('scroll', reposicionar, true);
     window.addEventListener('resize', reposicionar);
+
+    // ---------- modo fixado x flutuante: decide agora e de novo sempre que a largura da área (ou o celular) mudar ----------
+    atualizarModo();
+    if (area && 'ResizeObserver' in window) {
+        new ResizeObserver(function () {
+            if (area.clientWidth === larguraDaArea) {
+                return;
+            }
+            larguraDaArea = area.clientWidth;
+            atualizarModo();
+            reposicionar();
+        }).observe(area);
+    }
+    celular.addEventListener('change', function () {
+        atualizarModo();
+        reposicionar();
+    });
 
     // ---------- depois de "Atualizar este dia": reabre o mesmo dia ----------
     (function reabrirSeHouver() {
