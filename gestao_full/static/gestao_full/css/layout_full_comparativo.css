@@ -1,0 +1,822 @@
+/* * [RESUMO] → CSS da tela "Full — Comparativo de estoque (debug)". Prefixo cmp- em tudo, para não esbarrar em nenhuma outra tela.
+ *              AQUI ficam só as peças INDIVIDUAIS desta tela: os 3 cartões das fontes (cada fonte tem a sua cor, a mesma nas colunas e nas contas), a
+ *              barra de andamento da coleta, a tabela (numa caixa que rola sozinha, com cabeçalho de 3 linhas e colunas do produto fixos), as pastilhas das
+ *              diferenças (Δ) e a parte que abre embaixo de cada SKU. A busca, os chips de filtro, a
+ *              paginação, os seletores e a tabela de dados são COMPARTILHADOS (core/static/base_compartilhada/css/layout_tabela_dados.css).
+ */
+
+.cmp-pagina {
+    /* A cor de cada fonte (e a versão clara, para pastilhas em fundo escuro). Não são as cores de status (verde = igual, amarelo = diferente). */
+    --cmp-arquivo: #7a5bb5;
+    --cmp-arquivo-claro: #d4c6f3;
+    --cmp-sysemp: #2e7bb5;
+    --cmp-sysemp-claro: #b4d9f2;
+    --cmp-ml: #c2477f;
+    --cmp-ml-claro: #f6c0d8;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: #243247;
+    font-size: 0.9rem;
+}
+
+/* "hidden" precisa ganhar de qualquer display que as caixas desta tela tenham. */
+.cmp-pagina [hidden] { display: none !important; }
+
+/* * [EXPLICAÇÃO] → O Bootstrap dá margem a <p>, <dl>, <dd> e <h2>/<h3>, e recuo a <ul>. Aqui o espaçamento é do "gap" de cada caixa. */
+.cmp-pagina p,
+.cmp-pagina dl,
+.cmp-pagina dd,
+.cmp-pagina h2,
+.cmp-pagina h3 { margin: 0; }
+
+.cmp-pagina ul {
+    margin: 0;
+    padding: 0;
+}
+
+.cmp-pagina code {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.85em;
+    color: inherit;
+    background: rgba(26, 58, 92, 0.07);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* Texto só para leitor de tela (título da tabela, nome do botão da seta). */
+.cmp-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.cmp-intro { color: var(--cor-texto-muted); }
+
+/* ================================================
+   OS 3 CARTÕES DAS FONTES
+   ================================================ */
+
+.cmp-fontes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 12px;
+}
+
+.cmp-fonte {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 0;
+}
+
+.cmp-fonte--erro { border-color: var(--cor-negativo); }
+.cmp-fonte--indisponivel,
+.cmp-fonte--vazio { background: #f7f9fc; }
+
+.cmp-fonte-cor--arquivo { border-top: 4px solid var(--cmp-arquivo); }
+.cmp-fonte-cor--sysemp { border-top: 4px solid var(--cmp-sysemp); }
+.cmp-fonte-cor--ml { border-top: 4px solid var(--cmp-ml); }
+.cmp-fonte-cor--arquivo .cmp-fonte-titulo i { color: var(--cmp-arquivo); }
+.cmp-fonte-cor--sysemp .cmp-fonte-titulo i { color: var(--cmp-sysemp); }
+.cmp-fonte-cor--ml .cmp-fonte-titulo i { color: var(--cmp-ml); }
+
+.cmp-fonte-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.cmp-fonte-mensagem {
+    color: var(--cor-texto-muted);
+    line-height: 1.4;
+}
+
+.cmp-fonte--erro .cmp-fonte-mensagem { color: var(--cor-negativo); }
+
+.cmp-fonte-lista {
+    display: flex;
+    flex-direction: column;
+}
+
+.cmp-fonte-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.cmp-fonte-item:last-child { border-bottom: 0; }
+
+.cmp-fonte-item dt {
+    flex: 0 0 auto;
+    font-weight: 600;
+    color: var(--cor-texto-muted);
+    font-size: 0.82rem;
+}
+
+.cmp-fonte-item dd {
+    text-align: right;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+
+.cmp-fonte-item--alerta dd {
+    color: #8a5a00;
+    font-weight: 600;
+}
+
+.cmp-fonte-acoes { margin-top: auto; }
+
+.cmp-fonte-rodape {
+    margin-top: auto;
+    font-size: 0.8rem;
+    color: var(--cor-texto-muted);
+}
+
+/* ================================================
+   ANDAMENTO E RESULTADO DA COLETA
+   ================================================ */
+
+.cmp-andamento,
+.cmp-resultado {
+    display: flex;
+    gap: 10px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+
+.cmp-andamento { flex-direction: column; }
+
+.cmp-andamento-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.cmp-andamento-rotulo { font-weight: 700; color: var(--cor-primaria); }
+
+.cmp-andamento-numeros {
+    flex: 1 1 auto;
+    color: var(--cor-texto-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.cmp-barra {
+    width: 100%;
+    height: 8px;
+    accent-color: var(--cor-primaria-clara);
+}
+
+.cmp-andamento-dica { font-size: 0.8rem; color: var(--cor-texto-muted); }
+
+.cmp-resultado {
+    align-items: center;
+    flex-wrap: wrap;
+    border-left: 4px solid var(--cor-primaria-clara);
+}
+
+.cmp-resultado--ok { border-left-color: var(--cor-positivo); }
+.cmp-resultado--atencao { border-left-color: var(--cor-alerta); }
+.cmp-resultado--erro { border-left-color: var(--cor-negativo); }
+
+.cmp-resultado-icone { color: var(--cor-primaria-clara); }
+.cmp-resultado--ok .cmp-resultado-icone { color: var(--cor-positivo); }
+.cmp-resultado--atencao .cmp-resultado-icone { color: var(--cor-alerta); }
+.cmp-resultado--erro .cmp-resultado-icone { color: var(--cor-negativo); }
+
+.cmp-resultado-texto {
+    flex: 1 1 280px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+.cmp-resultado-fechar {
+    border: 0;
+    background: transparent;
+    color: var(--cor-texto-muted);
+    padding: 4px 6px;
+    cursor: pointer;
+}
+
+.cmp-resultado-fechar:hover { color: var(--cor-primaria); }
+
+/* ================================================
+   "COMO LER OS NÚMEROS"
+   ================================================ */
+
+.cmp-legenda {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 8px 14px;
+}
+
+.cmp-legenda summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.cmp-legenda ul {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    list-style: none;
+    line-height: 1.45;
+}
+
+/* ================================================
+   FERRAMENTAS (contagem, abrir/fechar todos, seletores)
+   ================================================ */
+
+.cmp-ferramentas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.cmp-ferramentas-contagem { color: var(--cor-texto-muted); }
+
+.cmp-ferramentas-controles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ================================================
+   A TABELA
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → A tabela tem umas 16 colunas. Ela fica dentro de uma CAIXA COM ALTURA MÁXIMA (.cmp-rolagem) que rola sozinha, para baixo e para o lado
+ *                  (mesmo padrão das outras tabelas do sistema, como a de Produtos e a de Resumo por Marketplace): a página não cresce com as linhas e a barra de
+ *                  rolagem fica sempre à vista, no pé da caixa. Enquanto rola, o cabeçalho (3 linhas) e as colunas do produto (seta, foto, SKU, título e marca)
+ *                  ficam FIXOS (position: sticky), como "congelar painéis" no Excel.
+ *                  O cabeçalho tem 3 linhas: (1) os 4 BLOCOS em ordem de leitura (1 Produto → 2 O que cada fonte diz → 3 Contas → 4 Achados);
+ *                  (2) o nome de cada FONTE, com a data dos dados e a cor dela; (3) o título de cada coluna (clicável, ordena).
+ *                  A caixa ocupa toda a largura da página. Se a tabela for mais estreita que ela (tela grande, ou a Magazine, que tem menos colunas), o script reparte a
+ *                  largura que sobra entre as colunas (mais para o título e a marca): não sobra um buraco em branco do lado. */
+.cmp-rolagem {
+    overflow: auto;
+    min-width: 0;
+    max-width: 100%;
+    max-height: max(380px, calc(100vh - var(--toolbar-altura, 60px) - 140px));
+}
+
+.cmp-rolagem:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+/* Chegando pela âncora (#cmp-rolagem: depois de ordenar, paginar ou trocar o "Mostrar") o navegador dá o foco à caixa sozinho, e o anel azul apareceria sem a pessoa
+   ter usado o teclado. O script põe esta classe nesse caso; o anel volta na primeira tecla apertada (ex.: Tab) ou quando o foco sai da caixa. */
+.cmp-rolagem.cmp-rolagem--sem-anel:focus-visible {
+    outline: none;
+}
+
+/* * [EXPLICAÇÃO] → "table-layout: fixed" + <colgroup>: a largura de cada coluna é UMA só, definida abaixo por classe (.cmp-col--*), e vale para o cabeçalho e para
+ *                  as linhas (nunca desalinham). "width: 1px" parece estranho, mas é o jeito de a tabela medir exatamente a SOMA das colunas (em layout fixo, a
+ *                  tabela nunca fica menor que essa soma, e também não estica): isso é o que mantém certo o "left" das colunas fixas. "border-collapse: separate"
+ *                  porque, com "collapse", as bordas das células fixas ficam para trás ao rolar. */
+.cmp-tabela {
+    --cmp-w-seta: 40px;
+    --cmp-w-foto: 56px;
+    --cmp-w-sku: 164px;
+    --cmp-w-titulo: 152px;   /* estas duas o script pode aumentar quando sobra largura na caixa (inclusive o "left" das colunas fixas segue junto) */
+    --cmp-w-marca: 100px;
+    --cmp-w-fixas: calc(var(--cmp-w-seta) + var(--cmp-w-foto) + var(--cmp-w-sku) + var(--cmp-w-titulo) + var(--cmp-w-marca));
+    /* Onde cada linha do cabeçalho "gruda": a 2ª logo abaixo da 1ª, a 3ª abaixo das duas. O script mede as alturas reais e troca estes valores. */
+    --cmp-topo-fontes: 30px;
+    --cmp-topo-colunas: 66px;
+    width: 1px;
+    min-width: 0;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.84rem;
+}
+
+.cmp-col--seta { width: var(--cmp-w-seta); }
+.cmp-col--foto { width: var(--cmp-w-foto); }
+.cmp-col--sku { width: var(--cmp-w-sku); }
+.cmp-col--titulo { width: var(--cmp-w-titulo); }
+.cmp-col--marca { width: var(--cmp-w-marca); }
+.cmp-col--num { width: 112px; }
+/* A fonte com UMA coluna só (o arquivo do Samvale) precisa de mais largura: o nome e a data da fonte moram na faixa de cima, que tem a largura dela. */
+.cmp-col--sozinha { width: 164px; }
+.cmp-col--conta { width: 136px; }
+.cmp-col--achados { width: 106px; }
+
+.cmp-tabela td {
+    padding: 6px 10px;
+    background: var(--cor-fundo-card);
+}
+
+.cmp-tabela tbody tr.tabela-dados-linha > td { height: 54px; }
+
+/* Divisórias: um bloco novo (2, 3, 4) ganha uma linha grossa; uma fonte nova dentro do bloco 2, uma linha fina. */
+.cmp-tabela td.cmp-inicio-bloco { border-left: 2px solid #9fb0c6; }
+.cmp-tabela td.cmp-inicio-fonte { border-left: 1px solid #c5ced9; }
+.cmp-tabela thead th.cmp-inicio-bloco { border-left: 2px solid rgba(255, 255, 255, 0.55); }
+.cmp-tabela thead th.cmp-inicio-fonte { border-left: 1px solid rgba(255, 255, 255, 0.35); }
+
+/* ---------- Cabeçalho fixo (as 3 linhas "grudam" no alto da caixa) e colunas fixas (as do produto "grudam" à esquerda) ---------- */
+.cmp-tabela thead th {
+    position: sticky;
+    z-index: 4;
+    padding: 0 10px;
+    overflow: hidden;
+}
+
+.cmp-tabela thead .cmp-blocos th { top: 0; }
+.cmp-tabela thead .cmp-fontes-linha th { top: var(--cmp-topo-fontes); }
+.cmp-tabela thead .cmp-colunas-linha th { top: var(--cmp-topo-colunas); }
+
+/* * [EXPLICAÇÃO] → O "left" de cada coluna fixa é a soma da largura das anteriores. A última delas (a marca) leva uma sombra do lado: mostra onde a parte
+ *                  fixa termina quando o resto rola por baixo. */
+.cmp-fixa { position: sticky; z-index: 2; }
+.cmp-tabela thead .cmp-fixa { z-index: 6; }
+.cmp-fixa--seta { left: 0; }
+.cmp-fixa--foto { left: var(--cmp-w-seta); }
+.cmp-fixa--sku { left: calc(var(--cmp-w-seta) + var(--cmp-w-foto)); }
+.cmp-fixa--titulo { left: calc(var(--cmp-w-seta) + var(--cmp-w-foto) + var(--cmp-w-sku)); }
+.cmp-fixa--marca { left: calc(var(--cmp-w-seta) + var(--cmp-w-foto) + var(--cmp-w-sku) + var(--cmp-w-titulo)); }
+.cmp-fixa--ultima { box-shadow: 7px 0 7px -5px rgba(16, 42, 71, 0.35); }
+
+/* A linha em foco no corpo precisa de cor SÓLIDA nas células fixas (a do CSS compartilhado é transparente e deixaria ver o que rola por baixo). */
+.cmp-tabela tbody tr.tabela-dados-linha:hover > td.cmp-fixa { background: #f0f6fa; }
+
+/* 1ª linha: os blocos. O número em bolinha diz a ordem de leitura; a seta (→) mostra que o bloco seguinte nasce dele. */
+.cmp-tabela thead .cmp-blocos th {
+    height: 30px;
+    padding: 6px 26px 0 10px;
+    background: var(--cor-primaria-escura);
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.cmp-tabela thead .cmp-blocos th.cmp-th-seta { padding: 0; }
+
+.cmp-bloco--seta::after {
+    content: '→';
+    position: absolute;
+    right: 8px;
+    top: 5px;
+    font-size: 0.95rem;
+    opacity: 0.75;
+}
+
+.cmp-bloco-n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 7px;
+    border-radius: 50%;
+    background: #ffffff;
+    color: var(--cor-primaria-escura);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    vertical-align: middle;
+}
+
+.cmp-bloco-titulo {
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+}
+
+/* O que o bloco é: embaixo do título nos blocos de 2 linhas de altura (1, 3 e 4); ao lado dele no bloco 2 (que só tem 1 linha). */
+.cmp-bloco-sub {
+    display: block;
+    margin: 2px 0 0 25px;
+    font-size: 0.64rem;
+    font-weight: 500;
+    font-style: normal;
+    letter-spacing: 0;
+    text-transform: none;
+    opacity: 0.8;
+}
+
+/* * [EXPLICAÇÃO] → Os blocos 2 e 3 são largos: quando a tabela rola para o lado e o começo deles some atrás das colunas fixas, o título deles "gruda" logo depois
+ *                  das colunas fixas (position: sticky no miolo) e continua legível até o fim do bloco. Por isso estas células não cortam o que passa da borda. */
+.cmp-tabela thead .cmp-blocos th.cmp-bloco--rolante { overflow: visible; }
+
+.cmp-bloco--rolante .cmp-bloco-conteudo {
+    position: sticky;
+    left: calc(var(--cmp-w-fixas) + 12px);
+    display: inline-block;
+}
+
+.cmp-tabela thead .cmp-blocos th[colspan]:not([rowspan]) .cmp-bloco-sub {
+    display: inline;
+    margin: 0 0 0 10px;
+    vertical-align: middle;
+}
+
+/* O bloco 4 é estreito: só a bolinha e o título (o resto vai na dica). */
+.cmp-tabela thead .cmp-blocos th.cmp-bloco--curto { padding-right: 6px; }
+
+/* 2ª linha: o nome de cada fonte, com a cor dela embaixo (as mesmas cores dos cartões de cima e das contas). */
+.cmp-tabela thead .cmp-fontes-linha th {
+    height: 36px;
+    padding: 4px 8px 7px;
+    background: var(--cor-primaria-escura);
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.cmp-fonte-nome {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.25;
+}
+
+.cmp-fonte-quando {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.25;
+    opacity: 0.85;
+}
+
+/* A data da fonte quebra de linha se não couber (melhor a faixa ficar mais alta do que esconder a data); o script mede a altura real. */
+.cmp-tabela thead .cmp-fontes-linha .cmp-fonte-quando { white-space: normal; }
+
+.cmp-tabela thead .cmp-fonte-banda--arquivo { box-shadow: inset 0 -4px 0 var(--cmp-arquivo); }
+.cmp-tabela thead .cmp-fonte-banda--sysemp { box-shadow: inset 0 -4px 0 var(--cmp-sysemp); }
+.cmp-tabela thead .cmp-fonte-banda--ml { box-shadow: inset 0 -4px 0 var(--cmp-ml); }
+
+/* 3ª linha: o título de cada coluna. Nome em cima, o que ela é embaixo (a etiqueta do local e o papel, ou a conta com as cores das fontes). */
+.cmp-tabela thead .cmp-colunas-linha th {
+    height: 68px;
+    padding: 6px 10px 7px;
+    vertical-align: bottom;
+    font-size: 0.68rem;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+    white-space: normal;
+}
+
+.cmp-tabela thead th.cmp-th-num { text-align: right; }
+
+.cmp-cab {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.cmp-th-num .cmp-cab { align-items: flex-end; }
+
+.cmp-cab-titulo { overflow-wrap: anywhere; }
+/* O ícone de ordenar é inline (e não inline-block, como o Font Awesome o deixa): assim ele não se separa da última palavra do título e nunca fica sozinho
+   numa linha — quando o título quebra, o ícone vai junto com a última palavra. */
+.cmp-cab-titulo i { font-size: 0.9em; display: inline; }
+
+.cmp-cab-sub {
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.25;
+    opacity: 0.9;
+}
+
+/* O id do local ("id 10") como pastilha: é o que separa duas colunas com o mesmo nome de local. */
+.cmp-etiqueta {
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.22);
+    font-weight: 700;
+}
+
+/* A conta: o nome (Δ Full) e, embaixo, de quais colunas ela vem, com as cores das fontes. */
+.cmp-cab-conta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    max-width: 100%;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* A pastilha da fonte: mesma cor em todo lugar onde a fonte aparece (cartões, bandas, contas, legenda). */
+.cmp-op {
+    display: inline-block;
+    max-width: 100%;
+    padding: 1px 7px;
+    border-radius: 999px;
+    color: #1b2433;
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.4;
+    text-transform: none;
+    white-space: nowrap;
+}
+
+.cmp-op--arquivo { background: var(--cmp-arquivo-claro); }
+.cmp-op--sysemp { background: var(--cmp-sysemp-claro); }
+.cmp-op--ml { background: var(--cmp-ml-claro); }
+
+.cmp-ordenar { align-items: flex-end; max-width: 100%; }
+.cmp-th-num .cmp-ordenar { justify-content: flex-end; text-align: right; }
+
+.cmp-th-achados { text-align: center; }
+.cmp-th-achados .cmp-ordenar { justify-content: center; }
+.cmp-th-achados .cmp-cab { align-items: center; }
+
+/* ---------- Corpo ---------- */
+.cmp-col-seta { padding-right: 0; }
+
+.cmp-toggle {
+    border: 0;
+    background: transparent;
+    color: var(--cor-primaria);
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.cmp-toggle:hover { background: rgba(46, 123, 181, 0.12); }
+
+.cmp-toggle:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 1px;
+}
+
+.cmp-toggle i { transition: transform 0.15s ease; }
+.cmp-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+
+/* ① PRODUTO: foto, SKU, título e marca. */
+.cmp-col-foto { padding: 6px 8px; }
+
+.cmp-foto-link {
+    display: block;
+    width: 40px;
+    height: 40px;
+}
+
+.cmp-foto {
+    display: block;
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    background: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.cmp-foto-vazia,
+.cmp-foto-falha {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px dashed var(--cor-borda);
+    border-radius: 6px;
+    color: var(--cor-texto-muted);
+    font-size: 0.8rem;
+}
+
+.cmp-foto-falha {
+    color: #8a5a00;
+    border-color: #e8c775;
+}
+
+.cmp-col-sku,
+.cmp-col-marca { padding-left: 8px; padding-right: 8px; }
+
+.cmp-sku {
+    display: block;
+    overflow-wrap: anywhere;
+    font-weight: 700;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.8rem;
+}
+
+.cmp-sku--sem {
+    font-family: inherit;
+    font-style: italic;
+    color: #8a5a00;
+}
+
+/* * [EXPLICAÇÃO] → O título é cortado em 2 linhas (o texto inteiro está na dica ao passar o mouse e na parte que abre). */
+.cmp-col-titulo { padding-left: 8px; padding-right: 8px; }
+
+.cmp-titulo {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    line-height: 1.3;
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+/* De onde veio o título quando não é do arquivo (do banco ou da Sysemp). */
+.cmp-origem {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+    font-size: 0.68rem;
+    font-style: italic;
+    color: #8a5a00;
+}
+
+.cmp-marca {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cmp-vazio { color: var(--cor-texto-muted); }
+
+.cmp-tabela td.tabela-dados-num { padding-right: 14px; }
+
+.cmp-col-achados { text-align: center; white-space: nowrap; }
+
+.cmp-achados {
+    display: inline-block;
+    min-width: 24px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #fff4d6;
+    color: #8a5a00;
+    font-weight: 700;
+    font-size: 0.78rem;
+}
+
+.cmp-sem-achados { color: var(--cor-texto-muted); }
+
+/* * [EXPLICAÇÃO] → A pastilha da diferença: verde = igual (Δ 0); amarela = diferente (qualquer outro número); cinza = não dá para calcular.
+ *                  A cor nunca é o único sinal: o texto traz o número com sinal ("+3", "−2", "0", "—"). */
+.cmp-delta {
+    display: inline-block;
+    min-width: 34px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.cmp-delta--igual { background: #e4f4ea; color: #1f6b43; }
+.cmp-delta--diferente { background: #fff4d6; color: #8a5a00; }
+.cmp-delta--nd { background: transparent; color: var(--cor-texto-muted); font-weight: 400; }
+
+/* Zero IMPLÍCITO: a API Sysemp só manda linhas com estoque maior que zero, então "ausente" vale 0 (só com a coleta completa). */
+.cmp-implicito {
+    color: #8a96a6;
+    font-style: italic;
+    cursor: help;
+}
+
+/* * [EXPLICAÇÃO] → Em tela média as colunas fixas do produto ficam mais estreitas (para sobrar espaço aos números); em tela estreita não há espaço para fixá-las:
+ *                  só o cabeçalho continua fixo no alto. O SKU não encolhe: ele tem de aparecer inteiro. */
+@media (max-width: 1500px) {
+    .cmp-tabela {
+        --cmp-w-titulo: 130px;
+        --cmp-w-marca: 90px;
+    }
+}
+
+@media (max-width: 1100px) {
+    .cmp-tabela .cmp-fixa { left: auto; }
+}
+
+/* ================================================
+   A PARTE QUE ABRE EMBAIXO DE CADA SKU
+   ================================================ */
+
+/* * [EXPLICAÇÃO] → A parte que abre ocupa a tabela inteira (colspan), que é mais larga que a caixa. "position: sticky; left: 0" + a largura da caixa
+ *                  (o script mede e põe em --cmp-largura-caixa) a mantêm à vista, em vez de rolar para o lado junto com as colunas. */
+.cmp-tabela .tabela-dados-detalhe > td { padding: 0; }
+
+.cmp-detalhe {
+    position: sticky;
+    left: 0;
+    box-sizing: border-box;
+    width: var(--cmp-largura-caixa, 100%);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--cor-borda);
+    border-top: 1px solid var(--cor-borda);
+}
+
+.cmp-detalhe-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f4f6f9;
+    padding: 10px 14px;
+    min-width: 0;
+}
+
+.cmp-detalhe-titulo {
+    font-size: 0.74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-primaria);
+}
+
+.cmp-detalhe-bloco--arquivo { box-shadow: inset 0 3px 0 var(--cmp-arquivo); }
+.cmp-detalhe-bloco--sysemp { box-shadow: inset 0 3px 0 var(--cmp-sysemp); }
+.cmp-detalhe-bloco--ml { box-shadow: inset 0 3px 0 var(--cmp-ml); }
+
+.cmp-detalhe-lista { display: flex; flex-direction: column; }
+
+.cmp-detalhe-lista > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    padding: 3px 0;
+    border-bottom: 1px dashed var(--cor-borda);
+}
+
+.cmp-detalhe-lista > div:last-child { border-bottom: 0; }
+
+.cmp-detalhe-lista dt { font-weight: 600; color: var(--cor-texto-muted); font-size: 0.82rem; }
+.cmp-detalhe-lista dd { text-align: right; font-variant-numeric: tabular-nums; }
+.cmp-detalhe-alerta dd { color: #8a5a00; font-weight: 700; }
+
+.cmp-papel {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(46, 123, 181, 0.14);
+    color: var(--cor-primaria);
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.cmp-detalhe-nota {
+    font-size: 0.8rem;
+    color: var(--cor-texto-muted);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.cmp-detalhe-nota--alerta { color: #8a5a00; }
+
+.cmp-detalhe-achados {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    list-style: none;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}

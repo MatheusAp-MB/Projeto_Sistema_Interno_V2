@@ -1,0 +1,5 @@
+{% comment %}
+* [RESUMO] → A diferença (Δ) de uma linha do Comparativo de estoque, como uma pastilha: verde "0" = igual; amarela com sinal = diferente; cinza "—" =
+  não dá para calcular (falta número em uma das fontes). Recebe: txt (o texto já pronto), estado ("igual", "diferente" ou "nd") e dica (opcional).
+{% endcomment %}
+<span class="cmp-delta cmp-delta--{{ estado }}"{% if dica %} title="{{ dica }}"{% endif %}>{{ txt }}</span>

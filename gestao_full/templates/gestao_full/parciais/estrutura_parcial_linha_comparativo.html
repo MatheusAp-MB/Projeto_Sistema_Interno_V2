@@ -1,0 +1,136 @@
+{% comment %}
+* [RESUMO] → 1 SKU do Comparativo de estoque, na mesma ordem dos 4 blocos do cabeçalho: ① quem é o produto (foto, SKU, título, marca) → ② os números crus de cada
+  fonte → ③ as contas (diferenças) → ④ os achados. Embaixo, escondida, a parte que abre com a seta: SÓ o que não cabe na tabela (nada que já esteja nela se repete).
+  Cada SKU é um <tbody> próprio (o CSS compartilhado da tabela de dados já trata tabelas com vários <tbody>).
+  As células de ② e ③ vêm prontas em linha.celulas, na MESMA ordem das colunas do cabeçalho (pagina.colunas).
+  Recebe: linha (o dict montado por comparativo_estoque._montar_linha), numero (a posição na página, para o id da parte escondida), n_colunas (o colspan da parte
+  escondida) e sysemp_coletada (se já existe uma coleta da Sysemp).
+{% endcomment %}
+<tbody>
+    <tr class="tabela-dados-linha">
+        <td class="cmp-col-seta cmp-fixa cmp-fixa--seta">
+            <button type="button" class="cmp-toggle" aria-expanded="false" aria-controls="cmp-d-{{ numero }}"
+                    aria-label="Abrir o resto dos dados de {% if linha.sku %}{{ linha.sku }}{% else %}linha sem SKU{% endif %}">
+                <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </button>
+        </td>
+
+        {# ① PRODUTO #}
+        <td class="cmp-col-foto cmp-fixa cmp-fixa--foto">
+            {% if linha.foto %}
+                <a href="{{ linha.foto }}" target="_blank" rel="noopener noreferrer" class="cmp-foto-link" title="Abrir a foto (URL 1) em outra aba">
+                    <img class="cmp-foto" src="{{ linha.foto }}" alt="Foto de {% if linha.sku %}{{ linha.sku }}{% else %}linha sem SKU{% endif %}" width="40" height="40"
+                         loading="lazy" decoding="async" referrerpolicy="no-referrer">
+                </a>
+            {% else %}
+                <span class="cmp-foto-vazia" title="Este SKU não tem foto (URL 1) cadastrada">—</span>
+            {% endif %}
+        </td>
+        <td class="cmp-col-sku cmp-fixa cmp-fixa--sku">
+            {% if linha.sku %}<span class="cmp-sku">{{ linha.sku }}</span>{% else %}<span class="cmp-sku cmp-sku--sem">(sem SKU)</span>{% endif %}
+        </td>
+        <td class="cmp-col-titulo cmp-fixa cmp-fixa--titulo">
+            {% if linha.titulo %}<span class="cmp-titulo" title="{{ linha.titulo }}">{{ linha.titulo }}</span>{% else %}<span class="cmp-vazio">—</span>{% endif %}
+            {% if linha.identificacao_nota %}<span class="cmp-origem">{{ linha.identificacao_nota }}</span>{% endif %}
+        </td>
+        <td class="cmp-col-marca cmp-fixa cmp-fixa--marca cmp-fixa--ultima">{% if linha.marca %}<span class="cmp-marca" title="{{ linha.marca }}">{{ linha.marca }}</span>{% else %}<span class="cmp-vazio">—</span>{% endif %}</td>
+
+        {# ② AS FONTES e ③ AS CONTAS: as células já vêm na ordem das colunas #}
+        {% for celula in linha.celulas %}
+            <td class="tabela-dados-num{% if celula.inicio_bloco %} cmp-inicio-bloco{% elif celula.inicio_fonte %} cmp-inicio-fonte{% endif %}">
+                {% if celula.tipo == 'delta' %}
+                    {% include 'gestao_full/parciais/estrutura_parcial_delta_comparativo.html' with txt=celula.txt estado=celula.estado dica=celula.dica %}
+                {% elif celula.implicito %}
+                    <span class="cmp-implicito" title="{{ celula.dica }} — a API Sysemp só manda linhas com estoque maior que zero: este 0 é a ausência da linha.">{{ celula.txt }}</span>
+                {% else %}
+                    <span title="{{ celula.dica }}">{{ celula.txt }}</span>
+                {% endif %}
+            </td>
+        {% endfor %}
+
+        {# ④ ACHADOS #}
+        <td class="cmp-col-achados cmp-inicio-bloco">
+            {% if linha.n_achados %}<span class="cmp-achados" title="{% for rotulo, dica in linha.achados %}{{ rotulo }}{% if not forloop.last %}; {% endif %}{% endfor %}">{{ linha.n_achados }}</span>{% else %}<span class="cmp-sem-achados">—</span>{% endif %}
+        </td>
+    </tr>
+    <tr class="tabela-dados-detalhe" id="cmp-d-{{ numero }}" hidden>
+        <td colspan="{{ n_colunas }}">
+            <div class="cmp-detalhe">
+                <section class="cmp-detalhe-bloco" aria-label="Produto">
+                    <h3 class="cmp-detalhe-titulo">Produto</h3>
+                    <dl class="cmp-detalhe-lista">
+                        <div><dt>Está em</dt><dd>Arquivo: {% if linha.no_arquivo %}sim{% else %}não{% endif %} · Sysemp: {% if linha.no_sysemp %}sim{% else %}não{% endif %} · ML: {% if linha.no_ml %}sim{% else %}não{% endif %}</dd></div>
+                        <div><dt>Título, marca e foto</dt><dd>{% if linha.identificacao_origem %}{{ linha.identificacao_nota|default:'do arquivo do ERP' }}{% else %}nenhuma fonte tem o cadastro{% endif %}</dd></div>
+                    </dl>
+                    {% if linha.foto %}<p class="cmp-detalhe-nota">Foto (URL 1): <a href="{{ linha.foto }}" target="_blank" rel="noopener noreferrer" class="lista-link">{{ linha.foto }}</a></p>{% endif %}
+                </section>
+
+                <section class="cmp-detalhe-bloco cmp-detalhe-bloco--arquivo" aria-label="Arquivo do ERP: outras colunas de estoque">
+                    <h3 class="cmp-detalhe-titulo">Arquivo do ERP · outras colunas</h3>
+                    {% if linha.no_arquivo %}
+                        {% if linha.arquivo_fora_da_tabela %}
+                            <dl class="cmp-detalhe-lista">
+                                {% for coluna in linha.arquivo_fora_da_tabela %}<div><dt>Coluna «{{ coluna.rotulo }}»</dt><dd>{{ coluna.txt }}</dd></div>{% endfor %}
+                            </dl>
+                            <p class="cmp-detalhe-nota">Colunas de estoque do arquivo que não entram nas contas.</p>
+                        {% else %}
+                            <p class="cmp-detalhe-nota">Todas as colunas de estoque do arquivo já estão na tabela.</p>
+                        {% endif %}
+                    {% else %}
+                        <p class="cmp-detalhe-nota">Este SKU não está no arquivo.</p>
+                    {% endif %}
+                </section>
+
+                <section class="cmp-detalhe-bloco cmp-detalhe-bloco--sysemp" aria-label="API Sysemp: o que não está na tabela">
+                    <h3 class="cmp-detalhe-titulo">API Sysemp · fora da tabela</h3>
+                    {% if not sysemp_coletada %}
+                        <p class="cmp-detalhe-nota">Sem coleta da API Sysemp (ou sem mapa de locais para esta empresa).</p>
+                    {% else %}
+                        {% if linha.sysemp_fora_da_tabela %}
+                            <dl class="cmp-detalhe-lista">
+                                {% for local in linha.sysemp_fora_da_tabela %}
+                                    <div>
+                                        <dt>{{ local.rotulo }}{% if local.papel == 'sem_movimento' %} <span class="cmp-papel">Sem movimento</span>{% endif %}</dt>
+                                        <dd>{% if local.implicito %}<span class="cmp-implicito" title="A API não manda linha com estoque zero: este 0 é a ausência da linha.">{{ local.txt }}</span>{% else %}{{ local.txt }}{% endif %}</dd>
+                                    </div>
+                                {% endfor %}
+                            </dl>
+                        {% endif %}
+                        {% if linha.no_sysemp %}
+                            <p class="cmp-detalhe-nota">id_produto: {{ linha.sysemp_ids_produto|join:', '|default:'—' }}{% if linha.sku and linha.sysemp_sku_bruto != linha.sku %} · SKU como veio: "{{ linha.sysemp_sku_bruto }}"{% endif %}</p>
+                        {% else %}
+                            <p class="cmp-detalhe-nota">Este SKU não veio na API Sysemp.</p>
+                        {% endif %}
+                    {% endif %}
+                </section>
+
+                <section class="cmp-detalhe-bloco cmp-detalhe-bloco--ml" aria-label="API Mercado Livre: Códigos ML">
+                    <h3 class="cmp-detalhe-titulo">API Mercado Livre · Códigos ML</h3>
+                    {% if linha.ml %}
+                        <dl class="cmp-detalhe-lista">
+                            <div><dt>Códigos ML</dt><dd>{{ linha.ml.n_codigos }}</dd></div>
+                            <div><dt>Consultados</dt><dd>{{ linha.ml.n_ok }}</dd></div>
+                            {% if linha.ml.n_erro %}<div class="cmp-detalhe-alerta"><dt>Com erro</dt><dd>{{ linha.ml.n_erro }}</dd></div>{% endif %}
+                            {% if linha.ml.n_sem_consulta %}<div class="cmp-detalhe-alerta"><dt>Sem consulta</dt><dd>{{ linha.ml.n_sem_consulta }}</dd></div>{% endif %}
+                        </dl>
+                        {% if linha.ml.mais_antiga_txt %}<p class="cmp-detalhe-nota">Consulta mais antiga: {{ linha.ml.mais_antiga_txt }}{% if linha.ml.mais_recente_txt != linha.ml.mais_antiga_txt %} · mais recente: {{ linha.ml.mais_recente_txt }}{% endif %}</p>{% endif %}
+                        {% if linha.ml.flex_aviso %}<p class="cmp-detalhe-nota cmp-detalhe-nota--alerta">{{ linha.ml.flex_aviso }}</p>{% endif %}
+                    {% else %}
+                        <p class="cmp-detalhe-nota">Este SKU não tem Código ML do Full no banco.</p>
+                    {% endif %}
+                </section>
+
+                <section class="cmp-detalhe-bloco" aria-label="Achados deste SKU">
+                    <h3 class="cmp-detalhe-titulo">Achados deste SKU</h3>
+                    {% if linha.achados %}
+                        <ul class="cmp-detalhe-achados">
+                            {% for rotulo, dica in linha.achados %}<li><strong>{{ rotulo }}</strong> — {{ dica }}</li>{% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="cmp-detalhe-nota">Nenhum achado: as fontes carregadas concordam e nada estranho foi marcado.</p>
+                    {% endif %}
+                </section>
+            </div>
+        </td>
+    </tr>
+</tbody>

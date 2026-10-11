@@ -430,6 +430,14 @@ def _ler_codigos_por_sku():
     return por_sku
 
 
+# Função Objetivo: Os Códigos ML de 1 SKU segundo o banco (do jeito que a API mandou, sem repetir, em ordem alfabética). É a porta
+# PÚBLICA de _ler_codigos_por_sku para quem precisa dos Códigos de UM produto (ex.: a coleta das operações do Full): a lista nunca
+# diverge da desta tela. SKU sem Código ML no banco devolve lista vazia.
+def codigos_ml_do_produto(sku):
+    codigos = _ler_codigos_por_sku().get(str(sku or '').strip(), {})
+    return sorted(info['codigo'] for info in codigos.values())
+
+
 def _ler_cadastro(skus):
     from produtos.models import Produto
 
@@ -682,26 +690,67 @@ def _preencher_aptas(produtos, ultimas):
             conta = f"Total no Full {_n(total_deles)} + A caminho {_n(a_caminho)} = Soma geral {produto['soma_geral_txt']}"
             produto['soma_conta_dica'] = (f"Soma só dos Códigos ML que têm este número: {conta}. Ficaram de fora (por isso o Total do produto, na outra coluna, "
                                           f"pode ser maior): {produto['soma_fora_txt']}." if produto['aptas_parcial'] else f'{conta}.')
-        # Soma do depósito do produto: o depósito é do SKU (o ERP manda o mesmo estoque para todos os anúncios), então cada LOJA entra UMA vez só, mesmo que
-        # apareça nos 3 Códigos ML do produto. Se a mesma loja trouxer quantidades diferentes, vale a maior e o aviso diz isso.
-        valores_da_loja, rotulos_da_loja, em_quantos_codigos = {}, {}, {}
+        _somar_deposito_do_produto(produto)
+
+
+# Função Objetivo: A soma do depósito (Flex) de UM produto, a partir dos cartões dos Códigos ML dele (cada cartão já com o resultado de _flex_do_codigo).
+# Preenche no produto: deposito, deposito_txt, deposito_repetido, deposito_aviso e deposito_parcial (e deposito_repetido em cada cartão).
+# * [EXPLICAÇÃO] → Existe UM dono deste cálculo, chamado pela tela "Estoque no Full" (_preencher_aptas) e pelo Comparativo de estoque
+#                  (preencher_flex_dos_produtos): as duas telas somam o depósito do mesmo jeito.
+def _somar_deposito_do_produto(produto):
+    # Soma do depósito do produto: o depósito é do SKU (o ERP manda o mesmo estoque para todos os anúncios), então cada LOJA entra UMA vez só, mesmo que
+    # apareça nos 3 Códigos ML do produto. Se a mesma loja trouxer quantidades diferentes, vale a maior e o aviso diz isso.
+    valores_da_loja, rotulos_da_loja, em_quantos_codigos = {}, {}, {}
+    for cartao in produto['codigos']:
+        for chave, quantidade in cartao['deposito_por_loja'].items():
+            valores_da_loja.setdefault(chave, set()).add(quantidade)
+            rotulos_da_loja.setdefault(chave, cartao['deposito_rotulos'].get(chave, 'Depósito'))
+            em_quantos_codigos[chave] = em_quantos_codigos.get(chave, 0) + 1
+        for chave, valores in cartao['deposito_diverge'].items():
+            valores_da_loja.setdefault(chave, set()).update(valores)
+    for cartao in produto['codigos']:
+        cartao['deposito_repetido'] = any(em_quantos_codigos.get(chave, 0) > 1 for chave in cartao['deposito_por_loja'])
+    com_flex = [c for c in produto['codigos'] if c['flex_estado'] in ('ok', 'parcial')]
+    if com_flex:
+        produto['deposito'] = sum(max(valores) for valores in valores_da_loja.values())
+        produto['deposito_txt'] = _n(produto['deposito'])
+        produto['deposito_repetido'] = any(n > 1 for n in em_quantos_codigos.values())
+        produto['deposito_aviso'] = _aviso_divergencia({k: sorted(v) for k, v in valores_da_loja.items() if len(v) > 1}, rotulos_da_loja,
+                                                       'Os Códigos deste produto')
+    produto['deposito_parcial'] = bool(com_flex) and any(c['flex_estado'] != 'ok' for c in produto['codigos'])
+
+
+# Função Objetivo: Preenche SÓ o Flex (depósito) dos produtos, lendo da última consulta de cada Código ML apenas a coluna "flex" (a reposição, que é
+# bem maior, não é lida). É o que o Comparativo de estoque precisa para TODOS os produtos de uma vez; a tela "Estoque no Full" continua lendo
+# tudo, mas só dos produtos da página (_preencher_aptas). LÊ SÓ DO BANCO.
+def preencher_flex_dos_produtos(produtos, ultimas):
+    from mercado_livre.models import ConsultaFullMercadoLivre
+
+    pks = {ultimas[c['codigo'].upper()].pk for p in produtos for c in p['codigos'] if c['estado'] in ('ok', 'erro')}
+    consultas = {c.pk: c for c in ConsultaFullMercadoLivre.objects.filter(pk__in=pks).only('id', 'flex')} if pks else {}
+    for produto in produtos:
         for cartao in produto['codigos']:
-            for chave, quantidade in cartao['deposito_por_loja'].items():
-                valores_da_loja.setdefault(chave, set()).add(quantidade)
-                rotulos_da_loja.setdefault(chave, cartao['deposito_rotulos'].get(chave, 'Depósito'))
-                em_quantos_codigos[chave] = em_quantos_codigos.get(chave, 0) + 1
-            for chave, valores in cartao['deposito_diverge'].items():
-                valores_da_loja.setdefault(chave, set()).update(valores)
-        for cartao in produto['codigos']:
-            cartao['deposito_repetido'] = any(em_quantos_codigos.get(chave, 0) > 1 for chave in cartao['deposito_por_loja'])
-        com_flex = [c for c in produto['codigos'] if c['flex_estado'] in ('ok', 'parcial')]
-        if com_flex:
-            produto['deposito'] = sum(max(valores) for valores in valores_da_loja.values())
-            produto['deposito_txt'] = _n(produto['deposito'])
-            produto['deposito_repetido'] = any(n > 1 for n in em_quantos_codigos.values())
-            produto['deposito_aviso'] = _aviso_divergencia({k: sorted(v) for k, v in valores_da_loja.items() if len(v) > 1}, rotulos_da_loja,
-                                                           'Os Códigos deste produto')
-        produto['deposito_parcial'] = bool(com_flex) and any(c['flex_estado'] != 'ok' for c in produto['codigos'])
+            if cartao['estado'] not in ('ok', 'erro'):
+                continue
+            consulta = consultas.get(ultimas[cartao['codigo'].upper()].pk)
+            cartao.update(_flex_do_codigo(consulta.flex if consulta else None, cartao['disponivel']))
+        _somar_deposito_do_produto(produto)
+
+
+# Função Objetivo: TODOS os produtos do banco que têm Código ML do Full, com o número do Full (soma do Total no Full dos Códigos) e do Flex (depósito)
+# da última consulta de cada Código — a matéria-prima do Comparativo de estoque. LÊ SÓ DO BANCO (nunca chama o Mercado Livre). "agora" é só
+# para a idade das consultas.
+def montar_produtos_com_full_e_flex(agora):
+    por_sku = _ler_codigos_por_sku()
+    produtos_do_codigo = {}
+    for sku, codigos in por_sku.items():
+        for codigo_maiusculo in codigos:
+            produtos_do_codigo.setdefault(codigo_maiusculo, set()).add(sku)
+    ultimas = _ler_ultimas_consultas(set(produtos_do_codigo))
+    produtos = [_montar_produto(sku, codigos, None, ultimas, produtos_do_codigo, agora) for sku, codigos in por_sku.items()]
+    preencher_flex_dos_produtos(produtos, ultimas)
+    return produtos
+
 
 
 # ---------------------------------------------------------------------------

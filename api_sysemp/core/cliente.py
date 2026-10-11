@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 MAXIMO_TENTATIVAS_PADRAO = 4
 
+# * [EXPLICAÇÃO] → Prazo de espera de CADA chamada. 30 s serve para os métodos leves; um método pesado (ex.: listarAnaliseEstoqueFull,
+#                  que a doc da Sysemp mostra com "sem limite de tempo") passa um prazo maior no próprio chamar(), sem mudar o padrão dos outros.
+TIMEOUT_PADRAO_SEGUNDOS = 30
+
 
 class ClienteApiSysemp:
     # * [EXPLICAÇÃO] → Achado real (17/08/2026): cada empresa é uma
@@ -62,7 +66,7 @@ class ClienteApiSysemp:
     #                  passageiros e valem retentativa com espera; erro de
     #                  autenticação e de negócio não são — repetir a mesma
     #                  chamada não resolve, então sobem na hora.
-    def chamar(self, metodo, corpo):
+    def chamar(self, metodo, corpo, timeout=TIMEOUT_PADRAO_SEGUNDOS):
         url = f'{self.URL_BASE}/{metodo}'
         ultimo_erro_passageiro = None
 
@@ -70,7 +74,7 @@ class ClienteApiSysemp:
             self._espacador.aguardar()
 
             try:
-                resposta = requests.post(url, json=corpo, headers=self._cabecalhos, timeout=30)
+                resposta = requests.post(url, json=corpo, headers=self._cabecalhos, timeout=timeout)
             except requests.exceptions.RequestException as excecao_rede:
                 logger.warning(
                     'Sysemp: falha de rede em %s (tentativa %d/%d)',

@@ -184,3 +184,13 @@ class ApiMercadoLivre:
     # 1 chamada GET. Mesma regra: só por botão da tela do Full, nunca automático.
     def buscar_full_flex(self, user_product_id):
         return self._contexto_full.buscar_flex(user_product_id, self._pasta_logs)
+
+    # ATENÇÃO (10/10/2026, 20:04): endpoint de operações do Full ABANDONADO para o histórico de vendas (429 "over quota" frequente já
+    # com 1 SKU; ver o aviso completo no topo de api_mercado_livre/full_ml.py e as notas em Historico_de_Vendas/ no vault).
+    # Função Objetivo: UMA página das operações do Full (venda, cancelamento, não entregue, devolução) de 1 ou mais Códigos
+    # ML, de 1 tipo, numa janela de datas (date_to exclusivo, máximo de 60 dias) — 1 chamada GET. O seller_id é o da conta e
+    # nunca sai daqui. Só o coletor (coletar_operacoes_full_ml) chama, por comando ou botão manual — nunca automático.
+    def buscar_full_operacoes(self, inventory_ids, tipo, data_de, data_ate, scroll=None, limite=1000):
+        return self._contexto_full.buscar_operacoes(
+            self._user_id, inventory_ids, tipo, data_de, data_ate, scroll, limite, self._pasta_logs,
+        )

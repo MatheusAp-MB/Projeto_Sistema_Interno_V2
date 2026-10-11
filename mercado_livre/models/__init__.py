@@ -16,3 +16,4 @@ from .atributo_categoria import AtributoCategoriaMercadoLivre
 from .caracteristica_produto import CaracteristicaProdutoMercadoLivre
 from .varredura_caracteristicas import VarreduraCaracteristicasMercadoLivre
 from .full_ml import ConsultaFullMercadoLivre, CampoFullMercadoLivre
+from .operacao_full import OperacaoFullMercadoLivre, CoberturaOperacaoFullMercadoLivre

@@ -4,6 +4,7 @@ import os
 
 from dotenv import load_dotenv
 
+from .analise_estoque_full import AnaliseEstoqueFull
 from .core.cliente import ClienteApiSysemp
 from .impostos_entrada_xml import ImpostosEntradaXML
 from core.empresa import obter_empresa_ativa, PREFIXO_ENV_POR_EMPRESA
@@ -40,6 +41,7 @@ class ApiSysemp:
             url_base = self._carregar_url_base_do_env(empresa)
         self._cliente = ClienteApiSysemp(token, url_base=url_base)
         self._impostos_entrada = None
+        self._analise_estoque_full = None
 
     @staticmethod
     def _carregar_token_do_env(empresa):
@@ -65,3 +67,9 @@ class ApiSysemp:
         if self._impostos_entrada is None:
             self._impostos_entrada = ImpostosEntradaXML(self._cliente)
         return self._impostos_entrada
+
+    @property
+    def analise_estoque_full(self):
+        if self._analise_estoque_full is None:
+            self._analise_estoque_full = AnaliseEstoqueFull(self._cliente)
+        return self._analise_estoque_full

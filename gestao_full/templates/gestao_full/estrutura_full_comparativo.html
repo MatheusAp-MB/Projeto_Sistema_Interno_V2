@@ -1,0 +1,276 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Comparativo de estoque — Full — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Full — Comparativo de estoque (debug){% endblock %}
+{% block body_class %}cmp-tela{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'gestao_full/css/layout_full_comparativo.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Full — Comparativo de estoque (debug)": o estoque de cada SKU lado a lado em 3 fontes — Arquivo do ERP | API Sysemp |
+      API Mercado Livre — para o Matheus entender se os dados da API Sysemp são confiáveis e o que pedir à Sysemp. É só de debug: nenhum outro
+      módulo usa estes números. A tela NUNCA chama API sozinha: abrir, buscar, filtrar e ordenar só leem o arquivo, a última coleta da Sysemp
+      (guardada na memória do servidor) e as consultas do Mercado Livre já gravadas no banco. A API Sysemp só é chamada por CLIQUE, no botão
+      "Coletar do Sysemp" do cartão dela (roda em segundo plano, com andamento e botão Parar). As diferenças (Δ) são só a conta "esquerda
+      menos direita": sem tolerância. Quem faz os botões funcionarem é script_full_comparativo.js.
+    {% endcomment %}
+    <div class="cmp-pagina"
+         data-url-coletar="{{ url_coletar }}"
+         data-url-status="{{ url_coletar_status }}"
+         data-url-parar="{{ url_coletar_parar }}">
+        <form id="cmp-csrf" hidden>{% csrf_token %}</form>
+
+        <p class="cmp-intro">
+            Estoque de cada SKU lado a lado em <strong>{{ pagina.empresa_nome }}</strong>: <strong>Arquivo</strong> do ERP, <strong>API Sysemp</strong> e
+            <strong>API Mercado Livre</strong>. Só números e diferenças, sem tolerância: zero é igual, qualquer outro número é diferente.
+        </p>
+
+        <section class="cmp-fontes" aria-label="As três fontes de dados">
+            <article class="cmp-fonte cmp-fonte--{{ pagina.fontes.arquivo.estado }} cmp-fonte-cor--arquivo">
+                <h2 class="cmp-fonte-titulo"><i class="fas fa-file-excel" aria-hidden="true"></i> Arquivo do ERP</h2>
+                {% if pagina.fontes.arquivo.mensagem %}<p class="cmp-fonte-mensagem">{{ pagina.fontes.arquivo.mensagem }}</p>{% endif %}
+                <dl class="cmp-fonte-lista">
+                    {% for item in pagina.fontes.arquivo.itens %}
+                        <div class="cmp-fonte-item{% if item.alerta %} cmp-fonte-item--alerta{% endif %}"><dt>{{ item.rotulo }}</dt><dd>{{ item.valor }}</dd></div>
+                    {% endfor %}
+                </dl>
+                <p class="cmp-fonte-rodape">É o mesmo arquivo que alimenta o banco. Para atualizar, troque o arquivo e recarregue esta tela.</p>
+            </article>
+
+            <article class="cmp-fonte cmp-fonte--{{ pagina.fontes.sysemp.estado }} cmp-fonte-cor--sysemp">
+                <h2 class="cmp-fonte-titulo"><i class="fas fa-database" aria-hidden="true"></i> API Sysemp</h2>
+                {% if pagina.fontes.sysemp.mensagem %}<p class="cmp-fonte-mensagem">{{ pagina.fontes.sysemp.mensagem }}</p>{% endif %}
+                <dl class="cmp-fonte-lista">
+                    {% for item in pagina.fontes.sysemp.itens %}
+                        <div class="cmp-fonte-item{% if item.alerta %} cmp-fonte-item--alerta{% endif %}"><dt>{{ item.rotulo }}</dt><dd>{{ item.valor }}</dd></div>
+                    {% endfor %}
+                </dl>
+                <div class="cmp-fonte-acoes">
+                    <button type="button" class="lista-botao" id="cmp-coletar"{% if not pagina.api_disponivel %} disabled title="A Sysemp ainda não liberou este método para esta empresa."{% endif %}>
+                        <i class="fas fa-cloud-arrow-down" aria-hidden="true"></i> Coletar do Sysemp
+                    </button>
+                </div>
+            </article>
+
+            <article class="cmp-fonte cmp-fonte--{{ pagina.fontes.ml.estado }} cmp-fonte-cor--ml">
+                <h2 class="cmp-fonte-titulo"><i class="fas fa-handshake" aria-hidden="true"></i> API Mercado Livre</h2>
+                {% if pagina.fontes.ml.mensagem %}<p class="cmp-fonte-mensagem">{{ pagina.fontes.ml.mensagem }}</p>{% endif %}
+                <dl class="cmp-fonte-lista">
+                    {% for item in pagina.fontes.ml.itens %}
+                        <div class="cmp-fonte-item{% if item.alerta %} cmp-fonte-item--alerta{% endif %}"><dt>{{ item.rotulo }}</dt><dd>{{ item.valor }}</dd></div>
+                    {% endfor %}
+                </dl>
+                <p class="cmp-fonte-rodape">Só lê o que já está gravado no banco. Para consultar o Mercado Livre de novo, use <a href="{{ url_estoque }}" class="lista-link">Estoque no Full</a>.</p>
+            </article>
+        </section>
+
+        {# Andamento e resultado da coleta: ficam escondidos até a pessoa clicar em "Coletar do Sysemp" (ou até a tela achar uma coleta em andamento). #}
+        <section class="cmp-andamento" id="cmp-andamento" hidden aria-live="polite">
+            <div class="cmp-andamento-linha">
+                <span class="cmp-andamento-rotulo" id="cmp-andamento-rotulo">Chamando a API Sysemp</span>
+                <span class="cmp-andamento-numeros" id="cmp-andamento-numeros"></span>
+                <button type="button" class="lista-botao" id="cmp-parar"><i class="fas fa-stop" aria-hidden="true"></i> Parar</button>
+            </div>
+            <progress class="cmp-barra" id="cmp-barra" aria-label="Coleta em andamento"></progress>
+            <p class="cmp-andamento-dica">Você pode continuar nesta tela. A lista de baixo só muda quando você clicar em "Recarregar a lista".</p>
+        </section>
+
+        <section class="cmp-resultado" id="cmp-resultado" hidden role="status">
+            <i class="fas fa-circle-info cmp-resultado-icone" id="cmp-resultado-icone" aria-hidden="true"></i>
+            <p class="cmp-resultado-texto" id="cmp-resultado-texto"></p>
+            <button type="button" class="lista-botao" id="cmp-recarregar"><i class="fas fa-rotate-right" aria-hidden="true"></i> Recarregar a lista</button>
+            <button type="button" class="cmp-resultado-fechar" id="cmp-resultado-fechar" aria-label="Fechar este aviso"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </section>
+
+        <details class="cmp-legenda">
+            <summary>Como ler a tabela</summary>
+            <ul>
+                <li><strong>Da esquerda para a direita:</strong> <span class="cmp-bloco-n cmp-bloco-n--texto">1</span> <strong>Produto</strong> (quem é) →
+                    <span class="cmp-bloco-n cmp-bloco-n--texto">2</span> <strong>O que cada fonte diz</strong> (os números crus de cada fonte, sem conta) →
+                    <span class="cmp-bloco-n cmp-bloco-n--texto">3</span> <strong>Contas</strong> (a diferença entre duas colunas do bloco 2; o cabeçalho de cada conta mostra de quais colunas ela vem) →
+                    <span class="cmp-bloco-n cmp-bloco-n--texto">4</span> <strong>Achados</strong> (o que está estranho naquele SKU).</li>
+                <li><strong>Cores das fontes:</strong> <span class="cmp-op cmp-op--arquivo">Arquivo do ERP</span> <span class="cmp-op cmp-op--sysemp">API Sysemp</span>
+                    <span class="cmp-op cmp-op--ml">API Mercado Livre</span> — as mesmas cores nos cartões de cima, nas colunas e nas contas.</li>
+                <li><strong>Δ</strong> é a conta "coluna da esquerda − coluna da direita". <span class="cmp-delta cmp-delta--igual">0</span> igual;
+                    <span class="cmp-delta cmp-delta--diferente">+3</span> ou <span class="cmp-delta cmp-delta--diferente">−2</span> diferente; <span class="cmp-delta cmp-delta--nd">—</span> não dá para calcular (falta número em uma das fontes).</li>
+                <li><strong>—</strong> quer dizer "sem dado nessa fonte". Nunca é zero: o SKU não está lá, ainda não foi consultado ou a fonte não tem esse número.</li>
+                <li><span class="cmp-implicito">0</span> em cinza é um zero <strong>implícito</strong>: a API Sysemp só manda linhas com estoque maior que zero. Com a coleta completa, SKU que não veio vale 0.
+                    Com a coleta incompleta, ele aparece como — (não sei).</li>
+                <li><strong>Full</strong>: o estoque que o ERP controla do Full (API Sysemp) × o Full do Mercado Livre. <strong>Flex</strong>: o estoque fora do Full, nas 3 fontes.
+                    O que cada local significa está em <code>comparativo_estoque_locais.py</code>.</li>
+                <li><strong>Ordenar:</strong> clique no título de uma coluna; clique de novo para inverter. Vale para todos os SKUs, não só os da página. O "—" fica sempre no fim.
+                    Nas colunas Δ, a ordem é pela maior diferença, ignorando o sinal.</li>
+                <li><strong>Rolagem:</strong> a tabela rola sozinha, para baixo e para o lado. O cabeçalho e as colunas do produto (foto, SKU, título e marca) ficam fixos enquanto você rola.</li>
+                <li>Abra uma linha (seta à esquerda) para ver o que não cabe na tabela: outras colunas do arquivo, locais da Sysemp fora da tabela, os Códigos ML e os achados do SKU.</li>
+            </ul>
+        </details>
+
+        <form method="get" action="{{ url_comparativo }}" class="lista-busca" role="search">
+            <div class="lista-busca-campo">
+                <i class="fas fa-magnifying-glass lista-busca-icone" aria-hidden="true"></i>
+                <input type="search"
+                       id="cmp-q"
+                       name="q"
+                       value="{{ pagina.texto }}"
+                       class="lista-busca-input"
+                       placeholder="Buscar por SKU ou descrição..."
+                       aria-label="Buscar por SKU ou descrição"
+                       autocomplete="off"
+                       spellcheck="false">
+            </div>
+            {% if pagina.filtro != pagina.filtro_padrao %}<input type="hidden" name="filtro" value="{{ pagina.filtro }}">{% endif %}
+            {% if pagina.ordem != pagina.ordem_padrao %}<input type="hidden" name="ordem" value="{{ pagina.ordem }}">{% endif %}
+            {% if pagina.por_pagina != pagina.por_pagina_padrao %}<input type="hidden" name="por_pagina" value="{{ pagina.por_pagina }}">{% endif %}
+            <button type="submit" class="btn-acao">Buscar</button>
+            {% if pagina.tem_ajustes %}
+                <a href="{{ pagina.url_limpar }}" class="lista-link"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar</a>
+            {% endif %}
+        </form>
+
+        <nav class="lista-filtros" aria-label="Filtros da lista">
+            {% for grupo in pagina.grupos_filtros %}
+                <div class="lista-chips-grupo">
+                    {% if grupo.rotulo %}<span class="lista-chips-rotulo">{{ grupo.rotulo }}</span>{% endif %}
+                    <ul class="lista-chips">
+                        {% for filtro in grupo.filtros %}
+                            <li>
+                                <a href="{{ filtro.url }}"
+                                   class="lista-chip{% if filtro.ativo %} lista-chip--ativo{% endif %}{% if not filtro.contagem %} lista-chip--vazio{% endif %}"
+                                   title="{{ filtro.dica }}"
+                                   {% if filtro.ativo %}aria-current="true"{% endif %}>
+                                    {{ filtro.rotulo }} <span class="lista-chip-contagem">{{ filtro.contagem }}</span>
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        </nav>
+
+        {% if pagina.paginacao.total %}
+            <div class="cmp-ferramentas">
+                <p class="cmp-ferramentas-contagem">
+                    Mostrando {{ pagina.paginacao.primeiro }}–{{ pagina.paginacao.ultimo }} de {{ pagina.paginacao.total }} SKU{{ pagina.paginacao.total|pluralize }}
+                </p>
+                <div class="cmp-ferramentas-controles">
+                    <a href="{{ pagina.url_exportar }}" class="lista-botao cmp-botao-exportar"
+                       title="Baixa um Excel com TODOS os {{ pagina.paginacao.total }} SKU{{ pagina.paginacao.total|pluralize }} da lista atual (respeita a busca, o filtro e a ordem; não só esta página). Só lê: não chama nenhuma API.">
+                        <i class="fas fa-file-excel" aria-hidden="true"></i> Exportar Excel</a>
+                    <button type="button" class="lista-botao" data-acao="abrir-todos"><i class="fas fa-angles-down" aria-hidden="true"></i> Abrir todos</button>
+                    <button type="button" class="lista-botao" data-acao="fechar-todos"><i class="fas fa-angles-up" aria-hidden="true"></i> Fechar todos</button>
+                    <div class="lista-campo">
+                        <label for="cmp-por-pagina" class="lista-campo-rotulo">Mostrar</label>
+                        <select id="cmp-por-pagina" class="lista-select" data-navegar>
+                            {% for opcao in pagina.opcoes_por_pagina %}
+                                <option value="{{ opcao.url }}"{% if opcao.ativo %} selected{% endif %}>{{ opcao.rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {# A caixa que ROLA sozinha (para baixo e para o lado): o cabeçalho e as colunas do produto ficam fixos. Mesmo padrão das outras tabelas do sistema (caixa com altura máxima). #}
+            <div class="tabela-dados-rolagem cmp-rolagem" id="cmp-rolagem" role="region" aria-label="Tabela de estoque: role para baixo e para o lado" tabindex="0">
+                <table class="tabela-dados cmp-tabela">
+                    <caption class="cmp-sr">Estoque de cada SKU: produto, números de cada fonte (arquivo do ERP, API Sysemp, Mercado Livre) e as diferenças entre eles</caption>
+                    {# A largura de cada coluna mora SÓ aqui (e no CSS, por classe): com table-layout fixo, cabeçalho e linhas nunca desalinham. #}
+                    <colgroup>
+                        <col class="cmp-col cmp-col--seta">
+                        <col class="cmp-col cmp-col--foto">
+                        <col class="cmp-col cmp-col--sku">
+                        <col class="cmp-col cmp-col--titulo">
+                        <col class="cmp-col cmp-col--marca">
+                        {% for grupo in pagina.colunas.fontes %}{% for coluna in grupo.colunas %}<col class="cmp-col cmp-col--num{% if grupo.colunas|length == 1 %} cmp-col--sozinha{% endif %}">{% endfor %}{% endfor %}
+                        {% for grupo in pagina.colunas.contas %}{% for coluna in grupo.colunas %}<col class="cmp-col cmp-col--conta">{% endfor %}{% endfor %}
+                        <col class="cmp-col cmp-col--achados">
+                    </colgroup>
+                    <thead>
+                        {# 1ª linha: os 4 blocos, da esquerda para a direita (produto → fontes → contas → achados). #}
+                        <tr class="cmp-blocos">
+                            <th rowspan="3" scope="col" class="cmp-th-seta cmp-fixa cmp-fixa--seta"><span class="cmp-sr">Abrir</span></th>
+                            <th colspan="4" rowspan="2" scope="colgroup" class="cmp-bloco cmp-bloco--seta cmp-fixa cmp-fixa--foto cmp-fixa--ultima">
+                                <span class="cmp-bloco-n">1</span><span class="cmp-bloco-titulo">Produto</span><span class="cmp-bloco-sub">quem é</span>
+                            </th>
+                            {% if pagina.colunas.n_fontes %}
+                                <th colspan="{{ pagina.colunas.n_fontes }}" scope="colgroup" class="cmp-bloco cmp-bloco--seta cmp-bloco--rolante cmp-inicio-bloco">
+                                    <span class="cmp-bloco-conteudo"><span class="cmp-bloco-n">2</span><span class="cmp-bloco-titulo">O que cada fonte diz</span><span class="cmp-bloco-sub">números crus, ainda sem conta</span></span>
+                                </th>
+                            {% endif %}
+                            {% if pagina.colunas.n_contas %}
+                                <th colspan="{{ pagina.colunas.n_contas }}" rowspan="2" scope="colgroup" class="cmp-bloco cmp-bloco--seta cmp-bloco--rolante cmp-inicio-bloco">
+                                    <span class="cmp-bloco-conteudo"><span class="cmp-bloco-n">3</span><span class="cmp-bloco-titulo">Contas</span><span class="cmp-bloco-sub">esquerda − direita</span></span>
+                                </th>
+                            {% endif %}
+                            <th rowspan="2" scope="col" class="cmp-bloco cmp-bloco--curto cmp-inicio-bloco" title="Achados: o que está estranho neste SKU">
+                                <span class="cmp-bloco-n">4</span><span class="cmp-bloco-titulo">Achados</span>
+                            </th>
+                        </tr>
+                        {# 2ª linha: o nome de cada fonte (com a data dos dados dela). #}
+                        <tr class="cmp-fontes-linha">
+                            {% for grupo in pagina.colunas.fontes %}
+                                <th colspan="{{ grupo.colunas|length }}" scope="colgroup"
+                                    class="cmp-fonte-banda cmp-fonte-banda--{{ grupo.chave }}{% if forloop.first %} cmp-inicio-bloco{% else %} cmp-inicio-fonte{% endif %}">
+                                    <span class="cmp-fonte-nome">{{ grupo.titulo }}</span><span class="cmp-fonte-quando">{{ grupo.subtitulo }}</span>
+                                </th>
+                            {% endfor %}
+                        </tr>
+                        {# 3ª linha: o título de cada coluna (clicável: ordena). #}
+                        <tr class="cmp-colunas-linha">
+                            <th scope="col" class="cmp-th-foto cmp-fixa cmp-fixa--foto"><span class="cmp-cab"><span class="cmp-cab-titulo">Foto</span><span class="cmp-cab-sub">URL 1</span></span></th>
+                            <th scope="col" class="cmp-th-sku cmp-fixa cmp-fixa--sku" aria-sort="{{ pagina.ordenacao.sku.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_cabecalho_comparativo.html' with ordenar=pagina.ordenacao.sku titulo='SKU' dica='Código do produto (coluna Codigo Auxiliar do arquivo; na API, o campo sku)' %}</th>
+                            <th scope="col" class="cmp-th-titulo cmp-fixa cmp-fixa--titulo" aria-sort="{{ pagina.ordenacao.titulo.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_cabecalho_comparativo.html' with ordenar=pagina.ordenacao.titulo titulo='Título' dica='Detalhes do Produto no arquivo do ERP' %}</th>
+                            <th scope="col" class="cmp-th-marca cmp-fixa cmp-fixa--marca cmp-fixa--ultima" aria-sort="{{ pagina.ordenacao.marca.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_cabecalho_comparativo.html' with ordenar=pagina.ordenacao.marca titulo='Marca' dica='Marca no arquivo do ERP' %}</th>
+                            {% for grupo in pagina.colunas.fontes %}
+                                {% for coluna in grupo.colunas %}
+                                    <th scope="col" class="tabela-dados-num cmp-th-num cmp-th-fonte--{{ grupo.chave }}{% if coluna.inicio_bloco %} cmp-inicio-bloco{% elif coluna.inicio_fonte %} cmp-inicio-fonte{% endif %}" aria-sort="{{ coluna.ordenacao.aria }}">
+                                        {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_comparativo.html' with ordenar=coluna.ordenacao titulo=coluna.titulo_cab subtitulo=coluna.papel etiqueta=coluna.etiqueta dica=coluna.dica_cabecalho %}
+                                    </th>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for grupo in pagina.colunas.contas %}
+                                {% for coluna in grupo.colunas %}
+                                    <th scope="col" class="tabela-dados-num cmp-th-num cmp-th-conta{% if coluna.inicio_bloco %} cmp-inicio-bloco{% endif %}" aria-sort="{{ coluna.ordenacao.aria }}">
+                                        {% include 'gestao_full/parciais/estrutura_parcial_cabecalho_comparativo.html' with ordenar=coluna.ordenacao titulo=coluna.nome operandos=coluna.operandos dica=coluna.dica_cabecalho %}
+                                    </th>
+                                {% endfor %}
+                            {% endfor %}
+                            <th scope="col" class="cmp-th-achados cmp-inicio-bloco" aria-sort="{{ pagina.ordenacao.achados.aria }}">{% include 'gestao_full/parciais/estrutura_parcial_cabecalho_comparativo.html' with ordenar=pagina.ordenacao.achados titulo='Achados' dica='Quantas coisas estranhas foram marcadas neste SKU' %}</th>
+                        </tr>
+                    </thead>
+                    {% for linha in pagina.linhas %}
+                        {% include 'gestao_full/parciais/estrutura_parcial_linha_comparativo.html' with linha=linha numero=forloop.counter n_colunas=pagina.n_colunas_total sysemp_coletada=pagina.sysemp_coletada %}
+                    {% endfor %}
+                </table>
+            </div>
+
+            {% if pagina.paginacao.total_paginas > 1 %}
+                <nav class="lista-paginacao" aria-label="Páginas">
+                    <span>Página {{ pagina.paginacao.numero }} de {{ pagina.paginacao.total_paginas }}</span>
+                    <div class="lista-paginacao-botoes">
+                        {% if pagina.paginacao.url_anterior %}
+                            <a href="{{ pagina.paginacao.url_anterior }}#cmp-rolagem" class="lista-paginacao-botao" rel="prev"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</a>
+                        {% else %}
+                            <span class="lista-paginacao-botao" aria-disabled="true"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</span>
+                        {% endif %}
+                        {% if pagina.paginacao.url_proxima %}
+                            <a href="{{ pagina.paginacao.url_proxima }}#cmp-rolagem" class="lista-paginacao-botao" rel="next">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                        {% else %}
+                            <span class="lista-paginacao-botao" aria-disabled="true">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
+                        {% endif %}
+                    </div>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="tabela-dados-rolagem">
+                <p class="tabela-dados-vazio">
+                    Nenhum SKU para mostrar{% if pagina.tem_ajustes %} com esta busca e este filtro. <a href="{{ pagina.url_limpar }}" class="lista-link">Limpar</a>{% else %}: nenhuma das fontes trouxe dados.{% endif %}
+                </p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'gestao_full/js/script_full_comparativo.js' %}"></script>
+{% endblock %}
