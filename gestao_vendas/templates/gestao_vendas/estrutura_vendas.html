@@ -272,7 +272,7 @@
                         <div class="vnd-cal-corpo vnd-cal-corpo--{{ produto.visao }}">
                             <div class="vnd-cal-rolagem vnd-cal-rolagem--{{ produto.visao }}" tabindex="0" role="region" aria-label="Calendário de vendas: role aqui dentro para ver {% if produto.visao == 'meses' %}os outros meses{% else %}as outras semanas{% endif %}">
                                 {% if produto.visao == 'meses' %}
-                                <div class="vnd-meses" aria-label="Um calendário por mês">
+                                <div class="vnd-meses{% if produto.meses|length < 3 %} vnd-meses--poucos{% endif %}" aria-label="Um calendário por mês">
                                     {% for m in produto.meses %}
                                         <section class="vnd-mes" aria-label="{{ m.nome }}, {{ m.un_txt }} unidades">
                                             <header class="vnd-mes-cab">
