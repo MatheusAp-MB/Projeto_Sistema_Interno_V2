@@ -1,0 +1,435 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Histórico de vendas — Vendas — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Vendas — Histórico de vendas{% endblock %}
+{% block body_class %}vnd-tela{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'gestao_vendas/css/layout_vendas.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Vendas — Histórico de vendas": o ritmo de vendas de UM produto (SKU) no Mercado Livre, lido do banco. Cartões-resumo no topo
+      e, embaixo, o calendário semana × dia da semana (cada dia mostra as unidades vendidas; dia que nunca foi coletado aparece como "sem dado",
+      NUNCA como zero). Cinco níveis: Produto (o SKU todo), No Full, Fora do Full, Por MLB e Por Código ML. Venda cancelada não conta (nem no dia da
+      venda original). A tela NUNCA chama o Mercado Livre sozinha: o ML só é consultado por CLIQUE, em botões granulares: "Atualizar" (um MLB),
+      "Atualizar produto" (todos os MLBs do SKU, um por vez), o ícone de cada dia do calendário (1 dia da conta toda) e "Coletar período da conta"
+      (N dias da conta toda, em segundo plano, com barra de andamento e botão Parar). Quem faz tudo funcionar é script_vendas.js.
+    {% endcomment %}
+    {% with produto=pagina.produto %}
+    <div class="vnd-pagina"
+         data-url-planejar="{{ url_planejar }}"
+         data-url-mlb="{{ url_atualizar_mlb }}"
+         data-url-dia="{{ url_atualizar_dia }}"
+         data-url-periodo-iniciar="{{ url_periodo_iniciar }}"
+         data-url-periodo-status="{{ url_periodo_status }}"
+         data-url-periodo-parar="{{ url_periodo_parar }}"
+         data-sku="{{ pagina.sku }}"
+         data-dias="{{ pagina.dias }}">
+        <form id="vnd-csrf" hidden>{% csrf_token %}</form>
+
+        <form method="get" action="{{ url_vendas }}" class="lista-busca" role="search">
+            <div class="lista-busca-campo">
+                <i class="fas fa-magnifying-glass lista-busca-icone" aria-hidden="true"></i>
+                <input type="search"
+                       id="vnd-q"
+                       name="q"
+                       value="{{ pagina.texto }}"
+                       class="lista-busca-input"
+                       placeholder="Buscar produto por SKU, título, EAN, MLB ou Código ML..."
+                       aria-label="Buscar produto por SKU, título, EAN, MLB ou Código ML"
+                       autocomplete="off"
+                       spellcheck="false">
+            </div>
+            {% if pagina.dias != 90 %}<input type="hidden" name="dias" value="{{ pagina.dias }}">{% endif %}
+            <button type="submit" class="btn-acao">Buscar</button>
+            {% if pagina.sku or pagina.texto %}
+                <a href="{{ pagina.url_limpar }}" class="lista-link"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar</a>
+            {% endif %}
+            <button type="button" class="vnd-btn vnd-btn--varredura vnd-btn--direita" id="vnd-btn-periodo" data-bs-toggle="modal" data-bs-target="#vnd-modal-periodo">
+                <i class="fas fa-cloud-arrow-down" aria-hidden="true"></i> <span class="vnd-btn-texto">Coletar período da conta</span>
+            </button>
+        </form>
+
+        {# Andamento e resultado da coleta de período: ficam escondidos até a pessoa confirmar (ou até a tela achar uma em andamento). #}
+        <section class="vnd-periodo" id="vnd-periodo" hidden aria-live="polite">
+            <div class="vnd-periodo-linha">
+                <span class="vnd-periodo-rotulo" id="vnd-periodo-rotulo">Preparando a coleta</span>
+                <span class="vnd-periodo-numeros" id="vnd-periodo-numeros"></span>
+                <button type="button" class="vnd-btn vnd-btn--parar" id="vnd-periodo-parar">
+                    <i class="fas fa-stop" aria-hidden="true"></i> Parar
+                </button>
+            </div>
+            <progress class="vnd-barra" id="vnd-periodo-barra" max="100"></progress>
+            <p class="vnd-periodo-dica" id="vnd-periodo-dica">
+                Você pode continuar nesta tela. Enquanto a coleta roda, os botões de atualizar ficam bloqueados.
+            </p>
+        </section>
+
+        <section class="vnd-resultado" id="vnd-resultado" hidden role="status">
+            <i class="fas fa-circle-info vnd-resultado-icone" id="vnd-resultado-icone" aria-hidden="true"></i>
+            <p class="vnd-resultado-texto" id="vnd-resultado-texto"></p>
+            <button type="button" class="vnd-btn vnd-btn--secundario" id="vnd-resultado-recarregar">
+                <i class="fas fa-rotate-right" aria-hidden="true"></i> Recarregar a tela
+            </button>
+            <button type="button" class="vnd-resultado-fechar" id="vnd-resultado-fechar" aria-label="Fechar este aviso">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </section>
+
+        {% if not pagina.sku %}
+            {% if pagina.texto %}
+                {% if pagina.resultados %}
+                    <section class="vnd-bloco" aria-label="Produtos encontrados">
+                        <h2 class="vnd-bloco-titulo">Produtos encontrados</h2>
+                        <ul class="vnd-achados">
+                            {% for r in pagina.resultados %}
+                                <li>
+                                    <a href="{{ r.url }}" class="vnd-achado">
+                                        <strong class="vnd-achado-sku">{{ r.sku }}</strong>
+                                        <span class="vnd-achado-titulo">{{ r.titulo }}</span>
+                                        {% if r.marca %}<span class="vnd-achado-marca">{{ r.marca }}</span>{% endif %}
+                                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </section>
+                {% else %}
+                    <section class="lista-painel lista-painel--aviso" aria-label="Nada encontrado">
+                        <div class="lista-painel-icone" aria-hidden="true"><i class="fas fa-magnifying-glass"></i></div>
+                        <div class="lista-painel-texto">
+                            <h2 class="lista-painel-titulo">Nenhum produto com anúncio do Mercado Livre encontrado</h2>
+                            <p>Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML.</p>
+                        </div>
+                    </section>
+                {% endif %}
+            {% else %}
+                <section class="lista-painel" aria-label="Como usar">
+                    <div class="lista-painel-icone" aria-hidden="true"><i class="fas fa-chart-line"></i></div>
+                    <div class="lista-painel-texto">
+                        <h2 class="lista-painel-titulo">Escolha um produto para ver o ritmo de vendas</h2>
+                        <p>
+                            Busque pelo SKU, título, EAN, MLB ou Código ML. Depois de abrir o produto, clique em <strong>Atualizar produto</strong>
+                            para trazer as vendas dele do Mercado Livre. A tela só consulta o Mercado Livre quando você clica; abrir, trocar o
+                            período ou o nível só lê o que já está no banco.
+                        </p>
+                    </div>
+                </section>
+            {% endif %}
+            {% if pagina.atalhos %}
+                <section class="vnd-bloco" aria-label="Mais vendidos">
+                    <h2 class="vnd-bloco-titulo">Mais vendidos nos últimos 30 dias <span class="vnd-bloco-nota">(do que já está no banco)</span></h2>
+                    <ul class="lista-chips">
+                        {% for a in pagina.atalhos %}
+                            <li><a href="{{ a.url }}" class="lista-chip">{{ a.sku }} <span class="lista-chip-contagem">{{ a.unidades }}</span></a></li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endif %}
+        {% else %}
+
+            <section class="vnd-produto" aria-label="Produto">
+                {% if produto.imagem %}<img src="{{ produto.imagem }}" alt="" class="vnd-produto-imagem" loading="lazy">{% endif %}
+                <div class="vnd-produto-texto">
+                    <h2 class="vnd-produto-titulo">{{ produto.titulo|default:"(SKU fora do cadastro de Produto)" }}</h2>
+                    <p class="vnd-produto-meta">
+                        <code>{{ produto.sku }}</code>
+                        {% if produto.marca %}<span>{{ produto.marca }}</span>{% endif %}
+                        <span>{{ produto.n_mlbs }} anúncio{{ produto.n_mlbs|pluralize }} (MLB)</span>
+                    </p>
+                </div>
+                <div class="vnd-produto-acao">
+                    <div class="vnd-produto-botoes">
+                        <button type="button" class="vnd-btn vnd-btn--secundario" data-vnd-produto="tudo"{% if not produto.n_mlbs %} disabled{% endif %}
+                                title="Lê de novo todos os {{ produto.dias }} dias, inclusive os que já estão coletados (mais demorado)">
+                            <i class="fas fa-arrows-rotate" aria-hidden="true"></i> <span class="vnd-btn-texto">Reler tudo</span>
+                        </button>
+                        <button type="button" class="vnd-btn vnd-btn--primario" data-vnd-produto{% if not produto.n_mlbs %} disabled{% endif %}>
+                            <i class="fas fa-rotate" aria-hidden="true"></i> <span class="vnd-btn-texto">Atualizar produto</span>
+                        </button>
+                    </div>
+                    <span class="vnd-produto-acao-nota">busca só o que falta nos últimos {{ produto.dias }} dias (os {{ dias_de_revisao }} mais recentes sempre são relidos)</span>
+                </div>
+            </section>
+
+            <div class="vnd-controles">
+                <div class="vnd-grupo">
+                    <span class="vnd-grupo-rotulo">Período</span>
+                    <ul class="lista-chips">
+                        {% for p in pagina.periodos %}
+                            <li><a href="{{ p.url }}" class="lista-chip{% if p.ativo %} lista-chip--ativo{% endif %}"{% if p.ativo %} aria-current="true"{% endif %}>{{ p.valor }} dias</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="vnd-grupo">
+                    <span class="vnd-grupo-rotulo">Nível</span>
+                    <ul class="lista-chips">
+                        {% for n in produto.niveis %}
+                            <li><a href="{{ n.url }}" class="lista-chip{% if n.ativo %} lista-chip--ativo{% endif %}" title="{{ n.dica }}"{% if n.ativo %} aria-current="true"{% endif %}>{{ n.rotulo }}</a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% if produto.itens %}
+                    <div class="vnd-grupo">
+                        <span class="vnd-grupo-rotulo">{% if produto.nivel == 'mlb' %}MLB{% else %}Código ML{% endif %}</span>
+                        <ul class="lista-chips">
+                            {% for i in produto.itens %}
+                                <li><a href="{{ i.url }}" class="lista-chip{% if i.ativo %} lista-chip--ativo{% endif %}"{% if i.ativo %} aria-current="true"{% endif %}>{{ i.rotulo }} <span class="lista-chip-contagem">{{ i.sub }}</span></a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+
+            <section class="vnd-cobertura{% if produto.cobertura.nada_coletado %} vnd-cobertura--vazia{% elif not produto.cobertura.tudo_coletado %} vnd-cobertura--parcial{% endif %}" aria-label="O que foi coletado">
+                <i class="fas {% if produto.cobertura.nada_coletado %}fa-database{% elif produto.cobertura.tudo_coletado %}fa-circle-check{% else %}fa-triangle-exclamation{% endif %} vnd-cobertura-icone" aria-hidden="true"></i>
+                <div class="vnd-cobertura-texto">
+                    {% if produto.cobertura.nada_coletado %}
+                        <p><strong>Ainda não há vendas coletadas para este produto em {{ produto.cobertura.periodo }}.</strong></p>
+                        <p>Clique em <strong>Atualizar produto</strong> (consulta cada MLB do SKU) ou em <strong>Coletar período da conta</strong> (todos os SKUs de uma vez). Dia que nunca foi coletado aparece como "sem dado", nunca como zero.</p>
+                    {% else %}
+                        <p>
+                            Período {{ produto.cobertura.periodo }} · <strong>{{ produto.cobertura.n_com_dado }} de {{ produto.cobertura.n_dias }} dias coletados</strong>
+                            ({{ produto.cobertura.n_completos }} completo{{ produto.cobertura.n_completos|pluralize }}) · última coleta em {{ produto.cobertura.ultima }}.
+                        </p>
+                        {% if not produto.cobertura.tudo_coletado %}
+                            <p>Sem dado ({{ produto.cobertura.n_sem_dado }} dia{{ produto.cobertura.n_sem_dado|pluralize }}): {{ produto.cobertura.faixas_sem_dado }}. Esses dias não entram nas médias; atualize o produto ou colete o período para preenchê-los.</p>
+                        {% endif %}
+                        <p class="vnd-cobertura-nota">Dia "completo" = coletado depois que o dia acabou; hoje nunca é completo. Dia parcial entra nas somas, mas não na média por dia, nos dias sem venda nem na comparação.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            {% if produto.avisos %}
+                <section class="vnd-avisos" aria-label="Pontos de atenção">
+                    <ul>
+                        {% for a in produto.avisos %}<li><i class="fas fa-circle-exclamation" aria-hidden="true"></i> {{ a }}</li>{% endfor %}
+                    </ul>
+                </section>
+            {% endif %}
+
+            {% if not produto.cobertura.nada_coletado %}
+
+                <section class="vnd-cartoes" aria-label="Resumo — {{ produto.nivel_nome }}{% if produto.item %} {{ produto.item }}{% endif %}">
+                    {% for c in produto.cartoes %}
+                        <div class="vnd-cartao{% if c.destaque %} vnd-cartao--destaque{% endif %}">
+                            <span class="vnd-cartao-rotulo">{{ c.rotulo }}</span>
+                            <span class="vnd-cartao-valor{% if c.dinheiro %} vnd-cartao-valor--dinheiro{% endif %}">{{ c.valor }}</span>
+                            {% if c.comparacao %}
+                                <span class="vnd-variacao vnd-variacao--{{ c.comparacao.classe }}" title="Média por dia agora contra {{ c.comparacao.base }}">
+                                    <i class="fas {% if c.comparacao.classe == 'sobe' %}fa-arrow-trend-up{% elif c.comparacao.classe == 'desce' %}fa-arrow-trend-down{% else %}fa-minus{% endif %}" aria-hidden="true"></i>
+                                    {{ c.comparacao.texto }} <span class="vnd-variacao-base">vs {{ c.comparacao.base }}</span>
+                                </span>
+                            {% endif %}
+                            <span class="vnd-cartao-sub">{{ c.sub }}</span>
+                            {% if c.nota %}<span class="vnd-cartao-nota">{{ c.nota }}</span>{% endif %}
+                        </div>
+                    {% endfor %}
+                </section>
+
+                <section class="vnd-bloco" aria-label="Calendário de vendas">
+                    <h2 class="vnd-bloco-titulo">
+                        Calendário de vendas — {{ produto.nivel_nome }}{% if produto.item %} <code>{{ produto.item }}</code>{% endif %}
+                        <span class="vnd-bloco-nota">unidades por dia (semana mais recente em cima)</span>
+                    </h2>
+                    {% if produto.sem_vendas_no_recorte %}
+                        <p class="vnd-bloco-aviso">Nenhuma venda neste recorte nos dias coletados.</p>
+                    {% endif %}
+                    <div class="vnd-rolagem">
+                        <div class="vnd-cal" role="table" aria-label="Unidades vendidas por dia">
+                            <div class="vnd-cal-cabecalho" role="row">
+                                <span class="vnd-cal-semana-rotulo" role="columnheader">Semana</span>
+                                {% for m in produto.medias_semana %}<span role="columnheader">{{ m.rotulo }}</span>{% endfor %}
+                                <span role="columnheader">Total</span>
+                            </div>
+                            {% for s in produto.semanas %}
+                                <div class="vnd-cal-linha" role="row">
+                                    <span class="vnd-cal-semana-rotulo" role="rowheader">{{ s.rotulo }}</span>
+                                    {% for c in s.celulas %}
+                                        {% if c.estado == 'fora' %}
+                                            <div class="vnd-dia vnd-dia--fora" role="cell"><span class="vnd-dia-num">{{ c.dia }}</span></div>
+                                        {% else %}
+                                            <div class="vnd-dia vnd-dia--{{ c.estado }} vnd-nivel-{{ c.nivel }}{% if c.hoje %} vnd-dia--hoje{% endif %}" role="cell" title="{{ c.titulo }}">
+                                                <span class="vnd-dia-topo">
+                                                    <span class="vnd-dia-num">{{ c.dia }}</span>{% if c.mes %}<span class="vnd-dia-mes">{{ c.mes }}</span>{% endif %}
+                                                    <button type="button" class="vnd-dia-atualizar" data-vnd-dia="{{ c.iso }}" aria-label="Atualizar o dia {{ c.iso }} (conta toda)" title="Atualizar este dia (conta toda)"><i class="fas fa-rotate" aria-hidden="true"></i></button>
+                                                </span>
+                                                {% if c.estado == 'sem_dado' %}
+                                                    <span class="vnd-dia-vazio">sem dado</span>
+                                                {% else %}
+                                                    <strong class="vnd-dia-un">{{ c.un }}</strong>
+                                                    <span class="vnd-dia-ped">{{ c.pedidos }} ped.</span>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    <span class="vnd-cal-total{% if s.incompleta %} vnd-cal-total--incompleto{% endif %}" role="cell"{% if s.incompleta %} title="Semana com dia sem dado ou ainda incompleto"{% endif %}>{{ s.total }}{% if s.incompleta and s.tem_dado %}*{% endif %}</span>
+                                </div>
+                            {% endfor %}
+                            <div class="vnd-cal-linha vnd-cal-linha--media" role="row">
+                                <span class="vnd-cal-semana-rotulo" role="rowheader">Média (dias completos)</span>
+                                {% for m in produto.medias_semana %}<span class="vnd-cal-media" role="cell" title="{{ m.n }} dia{{ m.n|pluralize }} completo{{ m.n|pluralize }}">{{ m.media }}</span>{% endfor %}
+                                <span role="cell"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="vnd-legenda">
+                        <span class="vnd-legenda-item"><i class="vnd-amostra vnd-nivel-0"></i> 0</span>
+                        <span class="vnd-legenda-item"><i class="vnd-amostra vnd-nivel-1"></i><i class="vnd-amostra vnd-nivel-2"></i><i class="vnd-amostra vnd-nivel-3"></i><i class="vnd-amostra vnd-nivel-4"></i><i class="vnd-amostra vnd-nivel-5"></i> menos → mais unidades</span>
+                        <span class="vnd-legenda-item"><i class="vnd-amostra vnd-amostra--sem-dado"></i> sem dado (não é zero)</span>
+                        <span class="vnd-legenda-item"><i class="vnd-amostra vnd-amostra--parcial"></i> dia incompleto</span>
+                        <span class="vnd-legenda-item">* semana com dia sem dado ou incompleto</span>
+                    </p>
+                </section>
+
+                <section class="vnd-bloco" aria-label="Mapa de calor por hora">
+                    <h2 class="vnd-bloco-titulo">Hora × dia da semana <span class="vnd-bloco-nota">unidades somadas nos dias coletados</span></h2>
+                    {% if produto.mapa_calor.total %}
+                        <div class="vnd-rolagem">
+                            <div class="vnd-calor" role="table" aria-label="Unidades por hora e dia da semana">
+                                <div class="vnd-calor-linha vnd-calor-linha--cabecalho" role="row">
+                                    <span></span>
+                                    {% for celula in produto.mapa_calor.linhas.0.celulas %}<span role="columnheader">{{ celula.hora }}</span>{% endfor %}
+                                    <span role="columnheader">Total</span>
+                                </div>
+                                {% for l in produto.mapa_calor.linhas %}
+                                    <div class="vnd-calor-linha" role="row">
+                                        <span class="vnd-calor-rotulo" role="rowheader">{{ l.rotulo }}</span>
+                                        {% for celula in l.celulas %}<span class="vnd-calor-celula vnd-nivel-{{ celula.nivel }}" role="cell" title="{{ celula.titulo }}"></span>{% endfor %}
+                                        <span class="vnd-calor-total" role="cell">{{ l.total }}</span>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% if produto.mapa_calor.picos %}
+                            <p class="vnd-legenda">Horas com mais venda:
+                                {% for p in produto.mapa_calor.picos %}<strong>{{ p.hora }}</strong> ({{ p.un }} un){% if not forloop.last %}, {% endif %}{% endfor %}.
+                                Horário de Brasília.
+                            </p>
+                        {% endif %}
+                    {% else %}
+                        <p class="vnd-bloco-aviso">Sem vendas neste recorte para montar o mapa.</p>
+                    {% endif %}
+                </section>
+
+                <section class="vnd-bloco" aria-label="Por origem">
+                    <h2 class="vnd-bloco-titulo">Por origem <span class="vnd-bloco-nota">produto inteiro, últimos {{ produto.dias }} dias</span></h2>
+                    <div class="vnd-rolagem">
+                        <table class="vnd-tabela">
+                            <thead><tr><th>Origem</th><th class="vnd-num">Unidades</th><th class="vnd-num">Pedidos</th><th class="vnd-num">Faturamento</th><th class="vnd-num">% das un</th></tr></thead>
+                            <tbody>
+                                {% for o in produto.tabela_origem %}
+                                    <tr{% if o.ativo %} class="vnd-linha--ativa"{% endif %}>
+                                        <td>{% if o.url %}<a href="{{ o.url }}" class="lista-link">{{ o.rotulo }}</a>{% else %}{{ o.rotulo }}{% endif %}</td>
+                                        <td class="vnd-num">{{ o.un }}</td><td class="vnd-num">{{ o.pedidos }}</td><td class="vnd-num">{{ o.fat }}</td><td class="vnd-num">{{ o.pct }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="vnd-legenda">Regra provisória: nó do pedido com store_id ou começando por BRP = fora do Full; outro nó = Full; sem nó = indefinida.</p>
+                </section>
+
+                <section class="vnd-bloco" aria-label="Por Código ML">
+                    <h2 class="vnd-bloco-titulo">Por Código ML <span class="vnd-bloco-nota">produto inteiro, últimos {{ produto.dias }} dias</span></h2>
+                    {% if produto.tabela_codigo %}
+                        <div class="vnd-rolagem">
+                            <table class="vnd-tabela">
+                                <thead><tr><th>Código ML</th><th>MLBs</th><th class="vnd-num">Unidades</th><th class="vnd-num">Pedidos</th><th class="vnd-num">Faturamento</th><th class="vnd-num">% das un</th></tr></thead>
+                                <tbody>
+                                    {% for c in produto.tabela_codigo %}
+                                        <tr{% if c.ativo %} class="vnd-linha--ativa"{% endif %}>
+                                            <td>{% if c.url %}<a href="{{ c.url }}" class="lista-link"><code>{{ c.codigo }}</code></a>{% else %}<code>{{ c.codigo }}</code>{% endif %}</td>
+                                            <td class="vnd-texto-curto">{{ c.mlbs }}</td>
+                                            <td class="vnd-num">{{ c.un }}</td><td class="vnd-num">{{ c.pedidos }}</td><td class="vnd-num">{{ c.fat }}</td><td class="vnd-num">{{ c.pct }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="vnd-bloco-aviso">O banco não tem Código ML (inventory_id) para os anúncios deste SKU.</p>
+                    {% endif %}
+                </section>
+            {% endif %}
+
+            <section class="vnd-bloco" aria-label="Por MLB">
+                <h2 class="vnd-bloco-titulo">Por MLB <span class="vnd-bloco-nota">cada anúncio do SKU, com o botão para atualizar só ele</span></h2>
+                <div class="vnd-rolagem">
+                    <table class="vnd-tabela" id="vnd-tabela-mlb">
+                        <thead><tr><th>MLB</th><th>Título do anúncio</th><th class="vnd-num">Unidades</th><th class="vnd-num">Pedidos</th><th class="vnd-num">Faturamento</th><th class="vnd-num">% das un</th><th>Atualizado em</th><th></th></tr></thead>
+                        <tbody>
+                            {% for m in produto.tabela_mlb %}
+                                <tr{% if m.ativo %} class="vnd-linha--ativa"{% endif %} data-vnd-linha-mlb="{{ m.mlb }}" data-no-cadastro="{% if m.no_cadastro %}1{% else %}0{% endif %}">
+                                    <td><a href="{{ m.url }}" class="lista-link"><code>{{ m.mlb }}</code></a></td>
+                                    <td class="vnd-texto-curto" title="{{ m.titulo }}">{{ m.titulo }}</td>
+                                    <td class="vnd-num">{{ m.un }}</td><td class="vnd-num">{{ m.pedidos }}</td><td class="vnd-num">{{ m.fat }}</td><td class="vnd-num">{{ m.pct }}</td>
+                                    <td class="vnd-quando{% if m.atualizado == 'nunca' %} vnd-quando--nunca{% endif %}">{{ m.atualizado }}</td>
+                                    <td class="vnd-acao">
+                                        <button type="button" class="vnd-btn vnd-btn--mini" data-vnd-mlb="{{ m.mlb }}">
+                                            <i class="fas fa-rotate" aria-hidden="true"></i> <span class="vnd-btn-texto">Atualizar</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="8" class="vnd-vazio">Nenhum anúncio ligado a este SKU no banco.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        {% endif %}
+
+        <div class="modal fade" id="vnd-modal-periodo" tabindex="-1" aria-labelledby="vnd-modal-periodo-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="vnd-modal-periodo-titulo">Coletar período da conta?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body vnd-modal-corpo">
+                        <p>Vou consultar o Mercado Livre agora, dia por dia (do mais novo para o mais antigo), e guardar os pedidos de <strong>todos os SKUs</strong> da conta no banco.</p>
+                        <div class="vnd-modal-campo">
+                            <label for="vnd-modal-dias" class="vnd-modal-rotulo">Quantos dias</label>
+                            <select id="vnd-modal-dias" class="lista-select">
+                                {% for o in opcoes_coleta %}
+                                    <option value="{{ o.dias }}" data-faltam="{{ o.dias_a_coletar }}" data-chamadas="{{ o.chamadas }}" data-minutos="{{ o.minutos }}"
+                                            data-chamadas-tudo="{{ o.chamadas_tudo }}" data-minutos-tudo="{{ o.minutos_tudo }}"{% if o.dias == dias_padrao_coleta %} selected{% endif %}>Últimos {{ o.dias }} dias</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="vnd-modal-campo">
+                            <input type="checkbox" id="vnd-modal-reler" class="vnd-modal-marcar">
+                            <label for="vnd-modal-reler">Reler também os dias já coletados (bem mais demorado)</label>
+                        </div>
+                        <p>Estimativa: vou buscar <strong id="vnd-modal-faltam">—</strong> de <strong id="vnd-modal-total">—</strong> dias, cerca de
+                            <strong id="vnd-modal-chamadas">—</strong> chamadas ao Mercado Livre (50 pedidos por chamada), uns <strong id="vnd-modal-minutos">—</strong> min.
+                            Dias já coletados por completo são pulados; os últimos {{ dias_de_revisao }} dias sempre são relidos.</p>
+                        <p class="vnd-modal-nota">
+                            Você acompanha o andamento na tela e pode clicar em <strong>Parar</strong>: os dias já coletados ficam salvos e contam como coletados.
+                            Puxar o mesmo dia de novo não duplica nada (atualiza as linhas, inclusive cancelamentos feitos depois). Se o Mercado Livre
+                            recusar o acesso, a coleta para na hora.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="vnd-btn vnd-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="vnd-btn vnd-btn--primario" id="vnd-modal-confirmar">Coletar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Aviso flutuante dos botões de atualizar (sucesso some sozinho; erro fica até a pessoa fechar). #}
+        <div class="vnd-aviso" id="vnd-aviso" hidden role="status" aria-live="polite">
+            <i class="fas fa-circle-info vnd-aviso-icone" id="vnd-aviso-icone" aria-hidden="true"></i>
+            <span class="vnd-aviso-texto" id="vnd-aviso-texto"></span>
+            <button type="button" class="vnd-aviso-fechar" id="vnd-aviso-fechar" aria-label="Fechar este aviso"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+        </div>
+    </div>
+    {% endwith %}
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'gestao_vendas/js/script_vendas.js' %}"></script>
+{% endblock %}

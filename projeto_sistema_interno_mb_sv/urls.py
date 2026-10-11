@@ -17,5 +17,6 @@ urlpatterns = [
     path('precificacao/', include('precificacao.urls')),
     path('agenda-videos/', include('agenda_videos.urls')),
     path('gestao-full/', include('gestao_full.urls')),
+    path('gestao-vendas/', include('gestao_vendas.urls')),
     path('api/', include('api.urls')),
 ]

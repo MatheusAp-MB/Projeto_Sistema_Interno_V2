@@ -17,3 +17,5 @@ from .caracteristica_produto import CaracteristicaProdutoMercadoLivre
 from .varredura_caracteristicas import VarreduraCaracteristicasMercadoLivre
 from .full_ml import ConsultaFullMercadoLivre, CampoFullMercadoLivre
 from .operacao_full import OperacaoFullMercadoLivre, CoberturaOperacaoFullMercadoLivre
+from .venda_item import VendaItemMercadoLivre
+from .coleta_vendas import ColetaVendasMercadoLivre

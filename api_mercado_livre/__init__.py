@@ -24,6 +24,7 @@ from .comissao_real_ml import ComissaoRealML
 from .categorias_ml import CategoriasML
 from .atributos_ml import AtributosML
 from .full_ml import FullML
+from .pedidos_ml import PedidosML
 from core.empresa import obter_empresa_ativa, PREFIXO_ENV_POR_EMPRESA
 
 
@@ -55,6 +56,7 @@ class ApiMercadoLivre:
         self._categorias = None
         self._atributos = None
         self._full = None
+        self._pedidos = None
 
     @staticmethod
     def _carregar_user_id(conta):
@@ -194,3 +196,15 @@ class ApiMercadoLivre:
         return self._contexto_full.buscar_operacoes(
             self._user_id, inventory_ids, tipo, data_de, data_ate, scroll, limite, self._pasta_logs,
         )
+
+    @property
+    def _contexto_pedidos(self):
+        if self._pedidos is None:
+            self._pedidos = PedidosML(self._cliente)
+        return self._pedidos
+
+    # Função Objetivo: UMA página (até 50) dos pedidos do vendedor criados entre inicio e fim (datetimes COM fuso), de 1 MLB se `mlb` vier —
+    # 1 chamada GET /orders/search. O seller_id é o da conta e nunca sai daqui. Só o coletor (coletar_vendas_ml) chama, por botão da tela
+    # de vendas — nunca automático.
+    def buscar_pedidos(self, inicio, fim, offset=0, limite=50, mlb=None):
+        return self._contexto_pedidos.buscar_pagina(self._user_id, inicio, fim, offset, limite, self._pasta_logs, mlb=mlb)

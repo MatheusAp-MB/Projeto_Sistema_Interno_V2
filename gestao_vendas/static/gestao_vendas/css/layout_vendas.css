@@ -1,0 +1,514 @@
+/* * [RESUMO] → CSS da tela "Vendas — Histórico de vendas" (Mercado Livre). Prefixo vnd- em tudo, para não esbarrar em nenhuma outra tela.
+ *              AQUI ficam só as peças INDIVIDUAIS desta tela: o produto, os chips de controle, a faixa de cobertura, os cartões-resumo, o calendário
+ *              (semana × dia da semana), o mapa de calor hora × dia e as tabelas. A busca, os chips, os avisos e os painéis são COMPARTILHADOS
+ *              (core/static/base_compartilhada/css/layout_tabela_dados.css). Os botões, a barra de andamento, o resultado e o aviso flutuante repetem
+ *              o jeito das telas do Full (mesmas cores e tamanhos), com o prefixo vnd-.
+ */
+
+.vnd-pagina {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: #243247;
+    font-size: 0.9rem;
+    /* Cores do mapa de calor / calendário: do "zero" (cinza claro) ao mais vendido (azul escuro da marca). */
+    --vnd-n0: #eef1f6;
+    --vnd-n1: #d6e6f5;
+    --vnd-n2: #a9cbe8;
+    --vnd-n3: #6fa6d3;
+    --vnd-n4: #2e7bb5;
+    --vnd-n5: #1a3a5c;
+}
+
+/* "hidden" precisa ganhar de qualquer display que as caixas desta tela tenham. */
+.vnd-pagina [hidden] { display: none !important; }
+
+/* * [EXPLICAÇÃO] → O Bootstrap dá margem a <p>, <dl> e <dd> e recuo a <ul>. Aqui o espaçamento é do "gap" de cada caixa, então tudo isso volta a zero. */
+.vnd-pagina p,
+.vnd-pagina dl,
+.vnd-pagina dd,
+.vnd-pagina h2 { margin: 0; }
+
+.vnd-pagina ul {
+    margin: 0;
+    padding: 0;
+}
+
+.vnd-pagina code {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.85em;
+    color: inherit;
+    background: rgba(26, 58, 92, 0.07);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* ================================================
+   BOTÕES
+   ================================================ */
+.vnd-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 6px;
+    background: var(--cor-fundo-card);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--cor-primaria-clara);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.vnd-btn:hover { background: #e8f1fa; color: var(--cor-primaria); border-color: var(--cor-primaria); }
+.vnd-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.vnd-btn:disabled, .vnd-btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--cor-fundo-card); color: var(--cor-texto-muted); border-color: var(--cor-borda); }
+
+/* O botão que está trabalhando agora: continua legível (não fica "apagado" como os outros, que só estão esperando). */
+.vnd-btn.vnd-btn--ocupado:disabled { opacity: 1; cursor: progress; background: #e8f1fa; border-color: var(--cor-primaria-clara); color: var(--cor-primaria); }
+
+.vnd-btn--mini { padding: 2px 9px; font-size: 0.74rem; border-radius: 12px; }
+
+.vnd-btn--varredura,
+.vnd-btn--primario {
+    background: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+}
+
+.vnd-btn--varredura:hover,
+.vnd-btn--primario:hover { background: var(--cor-primaria); border-color: var(--cor-primaria); color: var(--cor-texto-claro); }
+.vnd-btn--varredura:disabled,
+.vnd-btn--primario:disabled { background: #b8c7d8; border-color: #b8c7d8; color: var(--cor-texto-claro); }
+.vnd-btn.vnd-btn--primario.vnd-btn--ocupado:disabled { background: var(--cor-primaria); border-color: var(--cor-primaria); color: var(--cor-texto-claro); }
+
+.vnd-btn--secundario { border-color: var(--cor-borda); color: #243247; }
+.vnd-btn--parar { border-color: var(--cor-negativo); color: var(--cor-negativo); }
+.vnd-btn--parar:hover { background: #fdecec; border-color: #b91c1c; color: #b91c1c; }
+.vnd-btn--direita { margin-left: auto; }
+
+/* ================================================
+   ANDAMENTO DA COLETA DE PERÍODO, RESULTADO E AVISO FLUTUANTE
+   ================================================ */
+.vnd-periodo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 18px;
+    background: var(--cor-fundo-card);
+    border: 1px solid #b9cde2;
+    border-radius: 10px;
+}
+
+.vnd-periodo-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+}
+
+.vnd-periodo-rotulo { font-weight: 600; color: var(--cor-primaria); }
+
+.vnd-periodo-numeros {
+    flex: 1 1 auto;
+    font-size: 0.85rem;
+    color: var(--cor-texto-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.vnd-barra {
+    width: 100%;
+    height: 10px;
+    border: 0;
+    border-radius: 5px;
+    background: #e3e9f1;
+    overflow: hidden;
+    appearance: none;
+}
+
+.vnd-barra::-webkit-progress-bar { background: #e3e9f1; border-radius: 5px; }
+.vnd-barra::-webkit-progress-value { background: var(--cor-primaria-clara); border-radius: 5px; transition: width 0.4s ease; }
+.vnd-barra::-moz-progress-bar { background: var(--cor-primaria-clara); border-radius: 5px; }
+
+.vnd-periodo-dica { font-size: 0.76rem; color: var(--cor-texto-muted); }
+
+.vnd-resultado {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #e8eef7;
+    border: 1px solid #d3deee;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--cor-primaria);
+}
+
+.vnd-resultado-icone { margin-top: 3px; }
+.vnd-resultado-texto { flex: 1 1 auto; min-width: 0; }
+.vnd-resultado--ok { background: #e8f5ee; border-color: #bfe3cf; color: #1f6a42; }
+.vnd-resultado--atencao { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+.vnd-resultado--erro { background: #fdecec; border-color: #f5c2c2; color: #991b1b; }
+
+.vnd-resultado-fechar {
+    padding: 2px 6px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+}
+
+.vnd-resultado-fechar:hover { opacity: 1; }
+.vnd-resultado-fechar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+.vnd-modal-corpo { font-size: 0.9rem; color: #243247; }
+.vnd-modal-corpo p { margin: 0 0 10px; }
+.vnd-modal-campo { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.vnd-modal-rotulo { font-weight: 600; }
+.vnd-modal-marcar { width: 16px; height: 16px; flex: none; accent-color: var(--cor-primaria-clara); cursor: pointer; }
+.vnd-modal-nota { margin: 0; font-size: 0.82rem; color: var(--cor-texto-muted); }
+
+/* Fixo na parte de baixo da janela: depois de atualizar a tela recarrega, então um aviso dentro dela sumiria junto. */
+.vnd-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 1080;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: max-content;
+    max-width: min(760px, calc(100vw - 48px));
+    padding: 10px 12px 10px 14px;
+    background: var(--cor-fundo-card);
+    border: 1px solid #b9cde2;
+    border-left: 5px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(20, 41, 67, 0.22);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #243247;
+}
+
+.vnd-aviso-icone { margin-top: 3px; color: var(--cor-primaria-clara); }
+.vnd-aviso-texto { flex: 1 1 auto; min-width: 0; }
+.vnd-aviso--ok { border-left-color: var(--cor-positivo); }
+.vnd-aviso--ok .vnd-aviso-icone { color: var(--cor-positivo); }
+.vnd-aviso--aviso { border-left-color: var(--cor-alerta); }
+.vnd-aviso--aviso .vnd-aviso-icone { color: #b45309; }
+.vnd-aviso--erro { border-left-color: var(--cor-negativo); }
+.vnd-aviso--erro .vnd-aviso-icone { color: var(--cor-negativo); }
+
+.vnd-aviso-fechar {
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    color: var(--cor-texto-muted);
+    cursor: pointer;
+}
+
+.vnd-aviso-fechar:hover { color: #243247; }
+.vnd-aviso-fechar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* ================================================
+   BUSCA: PRODUTOS ENCONTRADOS
+   ================================================ */
+.vnd-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+}
+
+.vnd-bloco-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.vnd-bloco-nota { font-size: 0.76rem; font-weight: 400; color: var(--cor-texto-muted); }
+.vnd-bloco-aviso { font-size: 0.85rem; color: var(--cor-texto-muted); }
+
+.vnd-achados { display: flex; flex-direction: column; list-style: none; }
+
+.vnd-achado {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 6px;
+    border-top: 1px solid var(--cor-borda);
+    color: inherit;
+    text-decoration: none;
+}
+
+.vnd-achados li:first-child .vnd-achado { border-top: 0; }
+.vnd-achado:hover { background: #f1f6fb; color: var(--cor-primaria); }
+.vnd-achado-sku { flex: 0 0 auto; min-width: 150px; font-family: 'SF Mono', Consolas, monospace; font-size: 0.85rem; color: var(--cor-primaria); }
+.vnd-achado-titulo { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vnd-achado-marca { flex: 0 0 auto; font-size: 0.78rem; color: var(--cor-texto-muted); }
+
+/* ================================================
+   O PRODUTO, OS CONTROLES E A COBERTURA
+   ================================================ */
+.vnd-produto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    padding: 12px 18px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+}
+
+.vnd-produto-imagem { width: 64px; height: 64px; object-fit: contain; border-radius: 6px; background: #f4f6fa; }
+.vnd-produto-texto { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.vnd-produto-titulo { font-size: 1.05rem; font-weight: 600; color: var(--cor-primaria); }
+.vnd-produto-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 0.8rem; color: var(--cor-texto-muted); }
+.vnd-produto-acao { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.vnd-produto-acao-nota { font-size: 0.72rem; color: var(--cor-texto-muted); max-width: 300px; text-align: right; }
+.vnd-produto-botoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+.vnd-controles { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+.vnd-grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vnd-grupo-rotulo { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cor-texto-muted); }
+
+.vnd-cobertura {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #e8f5ee;
+    border: 1px solid #bfe3cf;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    color: #1f6a42;
+}
+
+.vnd-cobertura--parcial { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+.vnd-cobertura--vazia { background: #e8eef7; border-color: #d3deee; color: var(--cor-primaria); }
+.vnd-cobertura-icone { margin-top: 3px; }
+.vnd-cobertura-texto { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vnd-cobertura-nota { font-size: 0.76rem; opacity: 0.85; }
+
+.vnd-avisos {
+    padding: 8px 14px;
+    background: #fff8e6;
+    border: 1px solid #f3dfa2;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: #7a5a06;
+}
+
+.vnd-avisos ul { display: flex; flex-direction: column; gap: 4px; list-style: none; }
+
+/* ================================================
+   CARTÕES-RESUMO
+   ================================================ */
+.vnd-cartoes {
+    display: grid;
+    /* 7 cartões: cabem numa linha só a partir de ~1000px; em tela menor quebram em linhas cheias (auto-fit, sem sobra solta). */
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+    gap: 10px;
+}
+
+.vnd-cartao {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 14px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    min-width: 0;
+}
+
+.vnd-cartao--destaque { background: #e1edf8; border-color: #c3d6e9; }
+.vnd-cartao-rotulo { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cor-texto-muted); }
+.vnd-cartao-valor { font-size: 1.55rem; overflow-wrap: anywhere; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; color: var(--cor-primaria); }
+.vnd-cartao-valor--dinheiro { font-size: 1.25rem; }
+.vnd-cartao-sub { font-size: 0.76rem; color: var(--cor-texto-muted); }
+.vnd-cartao-nota { font-size: 0.72rem; color: #92400e; }
+
+.vnd-variacao {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+    width: fit-content;
+    max-width: 100%;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.vnd-variacao--sobe { background: #e8f5ee; color: #1f6a42; }
+.vnd-variacao--desce { background: #fdecec; color: #991b1b; }
+.vnd-variacao--igual { background: #eef1f6; color: #4a5568; }
+.vnd-variacao-base { font-size: 0.68rem; font-weight: 400; }
+
+/* ================================================
+   CALENDÁRIO (semana × dia da semana)
+   ================================================ */
+.vnd-rolagem { overflow-x: auto; }
+
+/* * [EXPLICAÇÃO] → Uma linha por semana (segunda a domingo), a mais recente em cima. A grade tem largura mínima: em tela estreita a caixa rola para o
+ *                  lado (vnd-rolagem) em vez de espremer os números. */
+.vnd-cal { display: flex; flex-direction: column; gap: 4px; min-width: 760px; }
+
+.vnd-cal-cabecalho,
+.vnd-cal-linha {
+    display: grid;
+    grid-template-columns: 104px repeat(7, minmax(80px, 1fr)) 64px;
+    gap: 4px;
+    align-items: stretch;
+}
+
+.vnd-cal-cabecalho { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cor-texto-muted); text-align: center; }
+.vnd-cal-semana-rotulo { display: flex; align-items: center; font-size: 0.76rem; color: var(--cor-texto-muted); text-align: left; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.vnd-cal-cabecalho .vnd-cal-semana-rotulo { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; font-size: 0.7rem; }
+
+.vnd-dia {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 66px;
+    padding: 4px 7px 5px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: var(--vnd-n0);
+    color: #243247;
+}
+
+.vnd-dia-topo { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: inherit; opacity: 0.8; }
+.vnd-dia-mes { font-weight: 700; }
+.vnd-dia-un { font-size: 1.15rem; line-height: 1.15; font-weight: 600; font-variant-numeric: tabular-nums; }
+.vnd-dia-ped { font-size: 0.68rem; opacity: 0.8; }
+.vnd-dia-vazio { margin-top: auto; font-size: 0.7rem; font-style: italic; color: var(--cor-texto-muted); }
+
+.vnd-dia-atualizar {
+    margin-left: auto;
+    padding: 1px 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.7rem;
+    opacity: 0.35;
+    cursor: pointer;
+}
+
+.vnd-dia:hover .vnd-dia-atualizar,
+.vnd-dia-atualizar:focus-visible { opacity: 1; }
+.vnd-dia-atualizar:hover { background: rgba(255, 255, 255, 0.55); }
+.vnd-dia-atualizar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
+.vnd-dia-atualizar:disabled { cursor: not-allowed; opacity: 0.2; }
+.vnd-dia-atualizar.vnd-btn--ocupado:disabled { opacity: 1; cursor: progress; }
+
+/* Escala de cor (também usada no mapa de calor). 4 e 5 são escuros: o texto passa a ser claro. */
+.vnd-nivel-0 { background: var(--vnd-n0); }
+.vnd-nivel-1 { background: var(--vnd-n1); }
+.vnd-nivel-2 { background: var(--vnd-n2); }
+.vnd-nivel-3 { background: var(--vnd-n3); }
+.vnd-nivel-4 { background: var(--vnd-n4); }
+.vnd-nivel-5 { background: var(--vnd-n5); }
+.vnd-dia.vnd-nivel-4,
+.vnd-dia.vnd-nivel-5 { color: #ffffff; }
+.vnd-dia.vnd-nivel-4 .vnd-dia-atualizar:hover,
+.vnd-dia.vnd-nivel-5 .vnd-dia-atualizar:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* * [EXPLICAÇÃO] → "Sem dado" NÃO é zero: fundo listrado e borda tracejada, para ninguém ler como "vendeu 0". "Parcial" (hoje ou dia coletado antes de acabar)
+ *                  tem a borda pontilhada âmbar: a venda existe, mas o dia ainda pode crescer. */
+.vnd-dia--sem_dado {
+    background: repeating-linear-gradient(135deg, #f7f8fa, #f7f8fa 6px, #eceff4 6px, #eceff4 12px);
+    border: 1px dashed #c3cad6;
+    color: var(--cor-texto-muted);
+}
+
+.vnd-dia--parcial { border: 1px dotted #d97706; }
+.vnd-dia--hoje { box-shadow: 0 0 0 2px var(--cor-primaria-clara); }
+.vnd-dia--fora { background: transparent; min-height: 0; padding: 4px 7px; color: #b6bdc9; font-size: 0.7rem; }
+
+.vnd-cal-total {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--cor-primaria);
+}
+
+.vnd-cal-total--incompleto { color: #92400e; }
+.vnd-cal-linha--media { margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--cor-borda); }
+.vnd-cal-media { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--cor-primaria); }
+
+.vnd-legenda { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; font-size: 0.74rem; color: var(--cor-texto-muted); }
+.vnd-legenda-item { display: inline-flex; align-items: center; gap: 3px; }
+.vnd-amostra { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+.vnd-amostra--sem-dado { background: repeating-linear-gradient(135deg, #f7f8fa, #f7f8fa 3px, #e2e6ed 3px, #e2e6ed 6px); border: 1px dashed #c3cad6; }
+.vnd-amostra--parcial { background: var(--vnd-n0); border: 1px dotted #d97706; }
+
+/* ================================================
+   MAPA DE CALOR (hora × dia da semana)
+   ================================================ */
+.vnd-calor { display: flex; flex-direction: column; gap: 3px; min-width: 640px; }
+
+.vnd-calor-linha {
+    display: grid;
+    grid-template-columns: 44px repeat(24, minmax(18px, 1fr)) 52px;
+    gap: 2px;
+    align-items: center;
+}
+
+.vnd-calor-linha--cabecalho { font-size: 0.64rem; color: var(--cor-texto-muted); text-align: center; }
+.vnd-calor-rotulo { font-size: 0.76rem; font-weight: 600; color: var(--cor-texto-muted); }
+.vnd-calor-celula { display: block; height: 24px; border-radius: 3px; }
+.vnd-calor-total { text-align: right; font-size: 0.76rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--cor-primaria); }
+
+/* ================================================
+   TABELAS
+   ================================================ */
+.vnd-tabela { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+
+.vnd-tabela th {
+    padding: 6px 10px;
+    border-bottom: 2px solid var(--cor-borda);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}
+
+.vnd-tabela td { padding: 7px 10px; border-bottom: 1px solid var(--cor-borda); vertical-align: middle; }
+.vnd-tabela tbody tr:hover { background: #f6f9fc; }
+.vnd-tabela .vnd-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vnd-tabela th.vnd-num { text-align: right; }
+.vnd-texto-curto { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vnd-linha--ativa { background: #e8f1fa; }
+.vnd-quando { font-size: 0.78rem; color: var(--cor-texto-muted); white-space: nowrap; }
+.vnd-quando--nunca { color: #92400e; font-weight: 600; }
+.vnd-acao { text-align: right; }
+.vnd-vazio { text-align: center; color: var(--cor-texto-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+    .vnd-barra::-webkit-progress-value { transition: none; }
+}
