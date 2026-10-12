@@ -815,13 +815,15 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 }
 .rup-nota-fora i { flex: none; color: var(--rup-mundo); }
 
-/* ---- linha de contexto: o ritmo à esquerda; a cobertura da coleta e a ajuda ("?") à direita ---- */
-.rup-contexto { display: flex; align-items: center; justify-content: space-between; gap: 6px 24px; min-height: 32px; padding: 0 2px; }
-.rup-contexto-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; font-weight: 600; color: #4b5a6b; }
-.rup-status-grupo { display: inline-flex; flex: none; align-items: center; gap: 12px; }
-.rup-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: #1f6a42; white-space: nowrap; cursor: help; }
-.rup-status--parcial { color: #8a6100; }
-.rup-status--vazio { color: #9b1c1c; }
+/* ---- os indicadores de dados ("posso confiar nestes números?"): vendas coletadas e estoque consultado, em verde (em dia), âmbar (atenção) ou vermelho (sem dado) ---- */
+.rup-dados { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.rup-dados--linha { display: flex; min-height: 30px; padding: 0 2px; }
+.rup-dado { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; background: #e6f4ec; border: 1px solid #c3e3cf; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: #1f6a42; text-decoration: none; white-space: nowrap; cursor: help; }
+.rup-dado--parcial { background: #fff6e0; border-color: #f3d9a0; color: #7a4b00; }
+.rup-dado--vazio { background: #fde8e8; border-color: #f3b8b8; color: #9b1c1c; }
+a.rup-dado { cursor: pointer; }
+a.rup-dado:hover { text-decoration: underline; }
+a.rup-dado:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
 
 .rup-ajuda { position: relative; display: inline-flex; font-size: 1rem; color: var(--cor-texto-muted); cursor: help; }
 .rup-ajuda:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 50%; }
@@ -847,6 +849,7 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
     cursor: default;
 }
 
+.rup-ajuda--esq .rup-ajuda-balao { left: 0; right: auto; }
 .rup-ajuda-balao strong { color: var(--cor-primaria); }
 .rup-ajuda:hover .rup-ajuda-balao,
 .rup-ajuda:focus .rup-ajuda-balao,
@@ -898,15 +901,37 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 }
 .rup-dica--sem-seta::before { display: none; }
 
-/* ---- os cartões de nível (também são o filtro): 4 por linha na janela média, 7 na larga (nunca "o que couber"); o 7º, "Divergem", não é um nível de estoque e por isso tem borda tracejada ---- */
-.rup-niveis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* ---- a faixa "Situação": em cima o título (com o "?") e os indicadores de dados; embaixo os cartões de situação (também são o filtro), em blocos com legenda: "Total", "Pedem ação", "Tranquilo", "Não analisados" e o
+ * "Filtro extra" (Divergem, que não é uma situação e combina com qualquer cartão: borda tracejada). A disposição depende só da largura da JANELA: 1 linha a partir de 1600px, 2 linhas abaixo disso. ---- */
+.rup-situacao { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: calc(var(--toolbar-altura, 0px) + 12px); }
+.rup-situacao-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 24px; min-height: 30px; padding: 0 2px; }
+.rup-situacao-titulo-grupo { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.rup-situacao-titulo { margin: 0; font-size: 0.98rem; font-weight: 700; color: #0b2038; }
+
+.rup-niveis {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 3fr) minmax(0, 1fr) minmax(0, 2fr) 176px;
+    grid-template-areas: "todos acao tranquilo nao extra";
+    gap: 12px 18px;
+}
+.rup-nivel-bloco { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rup-nivel-bloco--todos { grid-area: todos; }
+.rup-nivel-bloco--acao { grid-area: acao; }
+.rup-nivel-bloco--tranquilo { grid-area: tranquilo; }
+.rup-nivel-bloco--nao_analisados { grid-area: nao; }
+.rup-nivel-bloco--extra { grid-area: extra; }
+.rup-nivel-bloco-rotulo { display: flex; align-items: center; gap: 8px; padding: 0 2px; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; line-height: 1.4; text-transform: uppercase; white-space: nowrap; color: #6b7686; }
+.rup-nivel-bloco-rotulo::after { content: ''; flex: 1; height: 1px; background: #d9e1ec; }
+.rup-nivel-bloco--acao .rup-nivel-bloco-rotulo { color: #9b1c1c; }
+.rup-nivel-cartoes { flex: 1; display: grid; grid-template-columns: repeat(var(--cartoes, 1), minmax(0, 1fr)); gap: 10px; }
 
 .rup-nivel-cartao {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
-    padding: 10px 14px;
+    padding: 10px 12px;
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
     border-radius: 10px;
@@ -922,9 +947,11 @@ a.rup-nivel-cartao--ativo:hover { background: #e1edf8; border-color: var(--cor-p
 .rup-nivel-cartao--vazio { opacity: 0.6; }
 .rup-nivel-cartao--divergem { border-style: dashed; }
 .rup-nivel-cartao--divergem .rup-nivel-cartao-valor { color: #6d28d9; }
-.rup-nivel-cartao-rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cor-texto-muted); }
+.rup-nivel-cartao-rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #5b6b7d; }
+.rup-nivel-cartao--ativo .rup-nivel-cartao-rotulo { padding-right: 16px; }
 .rup-nivel-cartao-valor { font-size: 1.6rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; color: #0b2038; }
-.rup-nivel-cartao-apoio { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; color: #4b5a6b; }
+.rup-nivel-cartao-apoio { font-size: 0.78rem; line-height: 1.3; color: #4b5a6b; }   /* quebra em até 2 linhas, nunca "…": o apoio é a explicação do cartão */
+.rup-nivel-cartao-limpar { position: absolute; top: 9px; right: 10px; font-size: 0.78rem; color: var(--cor-primaria); }
 .rup-nivel-cartao--ruptura .rup-nivel-cartao-valor { color: #9b1c1c; }
 .rup-nivel-cartao--critico .rup-nivel-cartao-valor { color: #b34100; }
 .rup-nivel-cartao--baixo .rup-nivel-cartao-valor { color: #8a6100; }
@@ -1167,9 +1194,9 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
 /* ================================================================================================================================================
    DISPOSIÇÃO PELA LARGURA DA JANELA (a lista; nunca pelo espaço ao lado da barra lateral)
    ================================================================================================================================================ */
-/* janela larga (1500px ou mais): os 7 cartões de nível numa linha só */
-@media (min-width: 1500px) {
-    .rup-niveis { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+/* janela média (menos de 1600px): a faixa Situação em 2 linhas: "Total", "Pedem ação" e "Tranquilo" em cima; "Não analisados" e o filtro extra embaixo */
+@media (max-width: 1599px) {
+    .rup-niveis { grid-template-columns: 112px minmax(0, 3fr) minmax(0, 1fr); grid-template-areas: "todos acao tranquilo" "nao nao extra"; }
 }
 
 /* janela larga (1500px ou mais): colunas de números mais folgadas */
@@ -1190,16 +1217,11 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
     .rup-l-cabecalho { position: sticky; top: var(--toolbar-altura); z-index: 20; box-shadow: 0 8px 0 0 var(--cor-fundo-pagina); }
 }
 
-/* janela média (menos de 1450px): o contexto fica em duas linhas e o topo da lista também */
-@media (max-width: 1449px) {
-    .rup-contexto { flex-direction: column; align-items: flex-start; }
-    .rup-contexto-texto { max-width: 100%; }   /* em coluna o texto não tem de onde tirar a largura: sem isto ele passa da borda em vez de terminar em "…" (o texto inteiro está no title) */
-}
-
 /* janela bem pequena (menos de 1100px, sem uso real com a barra lateral): volta a acomodar pela largura */
 @media (max-width: 1099px) {
     .rup-pagina--lista { max-width: none; }
-    .rup-niveis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .rup-niveis { grid-template-columns: minmax(0, 1fr); grid-template-areas: "todos" "acao" "tranquilo" "nao" "extra"; }
+    .rup-nivel-cartoes { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .rup-l-lista-topo { flex-wrap: wrap; }
     .rup-linha > .rup-campo--busca { flex: 1 1 260px; }
 }

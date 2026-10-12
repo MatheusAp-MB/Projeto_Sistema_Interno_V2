@@ -612,9 +612,12 @@ def _organizar_avisos(pagina):
 
 # Função Objetivo: Os textos do cartão "Regras" que mudam de um mundo para o outro (título, apoio, "?", etiquetas dos campos e a conta em palavras do rodapé), já com os números de agora. As frases do
 # Full falam de ENVIO ao Full; as do Fora do Full, de PEDIDO. A folga é a mesma ideia nos dois: "estou mandando este envio e quero ter X dias de estoque de folga".
-def _textos_do_mundo(mundo, lead, ante, folga):
+# * [EXPLICAÇÃO] → O PERÍODO do ritmo ("de 12/09/2026 até hoje") mora aqui, no apoio do campo "Vendas dos últimos N dias" (decisão do Matheus, 12/10/2026): o dono dos valores do ritmo são os cartões de controle, e a lista
+#                  não repete mais uma linha de contexto com eles.
+def _textos_do_mundo(mundo, lead, ante, folga, dias, hoje):
     P = palavras(mundo)
     full_ = mundo == 'full'
+    de = _data(hoje - timedelta(days=dias))
     ate = P['enviar_ate']
     enviar_ate = f'ruptura − {lead} d (prazo) − {ante} d (chegar antes)' if ante else f'ruptura − {lead} d (prazo)'
     return {
@@ -635,19 +638,19 @@ def _textos_do_mundo(mundo, lead, ante, folga):
         'regra_quantidade': f'ritmo × {folga} d (a ruptura vai {folga} d para frente)',
         'vendas_dica': ('Quantos dias de vendas entram na média por dia (o "ritmo"). Só contam os dias completos e só o que saiu do Full.' if full_
                         else 'Quantos dias de vendas entram na média por dia (o "ritmo"). Só contam os dias completos e só o que saiu de fora do Full.'),
-        'ritmo_apoio': 'Média por dia que projeta quando o estoque acaba.',
-        'ritmo_apoio_dica': 'A média de vendas por dia (o "ritmo") projeta quando o estoque acaba: estoque ÷ ritmo = quantos dias o estoque dura.',
+        'ritmo_apoio': f'De {de} até hoje · média por dia que projeta a ruptura.',
+        'ritmo_apoio_dica': f'A média de vendas por dia (o "ritmo"), de {de} até ontem (hoje é parcial e não entra), projeta quando o estoque acaba: estoque ÷ ritmo = quantos dias o estoque dura.',
     }
 
 
 # Função Objetivo: O endereço de um mundo (para o seletor "Envios Full | Fora do Full"): leva os parâmetros dos DOIS mundos (trocar de mundo não perde o que foi digitado no outro) e o que identifica a tela
-# (o item aberto no detalhe; a busca, o filtro e a ordem na lista).
+# (o item aberto no detalhe; a busca, a situação, o "Divergem" e a ordem na lista).
 def _endereco_do_mundo(base_url, parametros, comuns, chave, sku, gran, item):
     destino = {**comuns, 'mundo': chave}
     if sku:
         identificacao = {'sku': sku, 'gran': gran if gran != 'sku' else None, 'item': item if gran != 'sku' else None}
     else:
-        identificacao = {k: (parametros.get(k) or '').strip() or None for k in ('gran', 'q', 'nivel', 'ord', 'por')}
+        identificacao = {k: (parametros.get(k) or '').strip() or None for k in ('gran', 'q', 'nivel', 'diverge', 'ord', 'por')}
     return url_da_tela(base_url, **identificacao, **para_url(destino, detalhe=bool(sku)))
 
 
@@ -670,7 +673,7 @@ def montar_pagina(parametros, base_url, hoje=None):
         # * [EXPLICAÇÃO] → O campo "Folga" fica VAZIO enquanto vale o padrão (o prazo, mostrado em cinza dentro do campo): assim, ao mudar o prazo, ele acompanha. Só um valor digitado fixa o número.
         'folga_dias': folga, 'folga_texto': _plural(folga, 'dia', 'dias'), 'folga_valor': '' if comuns['folga_digitada'] is None else str(comuns['folga_digitada']), 'folga_placeholder': str(folga),
         'folga_e_padrao': comuns['folga_digitada'] is None,
-        'txt': _textos_do_mundo(mundo, lead, ante, folga),
+        'txt': _textos_do_mundo(mundo, lead, ante, folga, dias, hoje),
         'avisos': [], 'lista': None, 'estado': 'lista', 'ocultos': [],
         # * [EXPLICAÇÃO] → Os dois seletores de referência só existem no Full (o Mercado Livre só recomenda para o Full) e na lista e no detalhe. "Minha quantidade" só existe no detalhe de um item (a lista não tem quantidade digitada: lá vale "Sistema").
         'urg_opcoes': _opcoes_de_urgencia(comuns['ref_urg']),

@@ -12,8 +12,8 @@
 #     PROVISÓRIOS de ruptura_calculo.py. Esta lista é só do mundo ENVIOS FULL (a do Fora do Full é a de ruptura_lista_fora.py: outro mundo, outra lista).
 #   - Item sem consulta de estoque NÃO vira "estoque zero": fica em "Sem estoque lido" ("ausente não é zero"). Item com só parte dos Códigos lidos fica marcado "Estoque parcial".
 #   - DUAS REFERÊNCIAS de urgência e de quanto enviar (decisão do Matheus, 12/10/2026): a do MERCADO LIVRE (lida da consulta de reposição salva: ruptura_estoque.resumir_ml) e a do SISTEMA (a regra da tela:
-#     ruptura_calculo.urgencia_do_sistema e sugestao_do_sistema). A escolhida manda na ordem "Mais urgentes primeiro" e aparece grande; a outra aparece pequena na mesma célula. O filtro "Divergem" mostra os
-#     itens em que as duas urgências estão em faixas diferentes. Item sem número do ML NUNCA vira urgência ou quantidade zero: fica "sem número do ML".
+#     ruptura_calculo.urgencia_do_sistema e sugestao_do_sistema). A escolhida manda na ordem "Mais urgentes primeiro" e aparece grande; a outra aparece pequena na mesma célula. O filtro "Divergem" (à parte dos
+#     cartões de situação, combina com eles) mostra os itens em que as duas urgências estão em faixas diferentes. Item sem número do ML NUNCA vira urgência ou quantidade zero: fica "sem número do ML".
 #
 # * [EXPLICAÇÃO] → DE ONDE VEM CADA GRANULARIDADE: o estoque do Full mora no Código ML. Um MLB pode ter mais de um Código (variações) e um Código pode ser usado por mais de um MLB:
 #                  nesse caso o estoque é o MESMO para os dois, e a cobertura do MLB (que olha só as vendas dele) pode ficar maior do que a real. A linha ganha o selo "Estoque compartilhado".
@@ -23,7 +23,7 @@
 #                  unidades a caminho" esteja marcada: aí ele entra na cobertura (muda nível e ordem) e é lido para TODOS os Códigos, em lotes de LOTE_DO_A_CAMINHO (uma consulta por lote, nunca por
 #                  Código). Textos e endereços só são montados para a página mostrada. Nenhuma consulta por SKU, por MLB ou por Código.
 # * [EXPLICAÇÃO] → O que o ML recomenda (urgência e sugestão) também vem da consulta de reposição, mas o RESUMO de cada consulta é guardado no cache pelo id dela (full_estoque_ml.ml_dos_codigos): depois da
-#                  primeira leitura só a consulta NOVA é lida de novo. Ele é lido para TODOS os Códigos porque a ordem, o cartão "Divergem" e o filtro olham a lista inteira.
+#                  primeira leitura só a consulta NOVA é lida de novo. Ele é lido para TODOS os Códigos porque a ordem, o filtro "Divergem" e a faixa Situação olham a lista inteira.
 
 import unicodedata
 from datetime import timedelta
@@ -36,6 +36,7 @@ from gestao_ruptura.funcoes_auxiliares import ruptura_estoque as full
 from gestao_ruptura.funcoes_auxiliares.ruptura_filtros import notas_dos_filtros, mlbs_permitidos, painel_do_mundo, passa_no_filtro, sem_filtros_na_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import campos_escondidos, para_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_avisos import aviso, aviso_de_contagem
+from gestao_ruptura.funcoes_auxiliares.ruptura_situacao import CHAVES_DE_NIVEL, contar_consultas, indicador_de_estoque, indicador_de_vendas, montar_situacao
 from gestao_ruptura.funcoes_auxiliares.ruptura_texto import aviso_do_deposito, data, data_curta, data_do_ml, em_dias, inteiro, pct as pct_texto, plural, porque_da_urgencia_do_sistema, quantidade_do_ml, reais, un_dia
 from gestao_vendas.funcoes_auxiliares.lista_vendas_ml import unidades_do_full_por_dia
 from mercado_livre.funcoes_auxiliares.logistica_do_anuncio import logistica_e_de_fora_do_full, logistica_e_do_full
@@ -48,24 +49,9 @@ GRANULARIDADES = [
     ('codigo', 'Código ML', 'Cada linha é um Código ML: o estoque exato dele no Full e as vendas que saíram dele. É o jeito mais preciso de olhar a ruptura.', 'Códigos ML', 'Código ML'),
 ]
 GRANULARIDADE_PADRAO = 'sku'
-# (chave do filtro de nível, rótulo do cartão, texto de apoio). Cada cartão é também o filtro: clicar mostra só aquele nível. O texto de apoio de "Baixo" e "Alto" depende do prazo e da folga
-# (baixo = dura até prazo + folga), por isso é montado por _filtros_de_nivel. O último cartão, "Divergem", não é um nível de estoque: é o filtro dos itens em que a urgência do
-# Mercado Livre e a do Sistema estão em faixas diferentes (ruptura_calculo.urgencias_divergem).
-CHAVES_DE_NIVEL = ('ruptura', 'critico', 'baixo', 'alto', 'sem_previsao', 'sem_estoque', 'divergem')
+# Os cartões de situação (nome, apoio, grupo, contagem e explicação) e os indicadores de dados são do dono único ruptura_situacao.py. Cada cartão é também o filtro "nivel" da URL (clicar mostra só aquela situação).
+# "Divergem" NÃO é uma situação: é o filtro à parte `diverge=1` (os itens em que a urgência do Mercado Livre e a do Sistema estão em faixas diferentes, ruptura_calculo.urgencias_divergem), que combina com qualquer cartão.
 NIVEIS_VALIDOS = ('todos',) + CHAVES_DE_NIVEL
-
-
-def _filtros_de_nivel(lead, folga):
-    limite = lead + folga
-    return (
-        ('ruptura', 'Em ruptura', 'estoque zerado no Full'),
-        ('critico', 'Crítico', 'acaba antes do prazo'),
-        ('baixo', 'Baixo', f'dura até {limite} dias'),
-        ('alto', 'Alto', f'dura mais de {limite} dias'),
-        ('sem_previsao', 'Sem previsão', 'sem venda no ritmo ou sem dias coletados'),
-        ('sem_estoque', 'Sem estoque lido', 'sem consulta de estoque salva'),
-        ('divergem', 'Divergem', 'ML e Sistema discordam'),
-    )
 
 
 ORDENS = (
@@ -445,8 +431,10 @@ def _apresentar(l, gran, ctx, base_url):
     # ---- nível ----
     if l['nivel']:
         nivel_rotulo, nivel_classe, nivel_dica = calc.NIVEIS_CURTOS[l['nivel']], l['nivel'], calc.NIVEIS[l['nivel']]
+    elif cat == 'sem_previsao' and media is None:
+        nivel_rotulo, nivel_classe, nivel_dica = 'Sem previsão', 'neutro', f'Nenhum dos últimos {dias} dias está completo na coleta da conta toda: sem ritmo de vendas não há como prever a ruptura.'
     elif cat == 'sem_previsao':
-        nivel_rotulo, nivel_classe, nivel_dica = 'Sem previsão', 'neutro', 'Sem venda no ritmo (ou sem dias coletados): não há ruptura prevista.'
+        nivel_rotulo, nivel_classe, nivel_dica = 'Sem vendas', 'neutro', f'Tem estoque, mas nenhuma venda do Full nos dias completos do período (ou vendas tão baixas que o estoque dura mais de {numero(calc.DIAS_MAXIMOS_DA_PROJECAO)} dias): não há ruptura prevista neste ritmo.'
     elif cat == 'sem_estoque':
         nivel_rotulo, nivel_classe, nivel_dica = 'Sem estoque', 'neutro', 'Nenhum Código ML com estoque do Full lido.'
     else:
@@ -483,7 +471,8 @@ def _apresentar(l, gran, ctx, base_url):
 
 # ==================================================== a lista ====================================================
 
-# Função Objetivo: Tudo da lista a partir da query string. Parâmetros: gran (sku|mlb|codigo), q (busca), nivel (todos|ruptura|critico|baixo|alto|sem_previsao|sem_estoque|divergem), ord, por e pag; o ritmo
+# Função Objetivo: Tudo da lista a partir da query string. Parâmetros: gran (sku|mlb|codigo), q (busca), nivel (todos|ruptura|critico|baixo|alto|sem_previsao|sem_estoque), diverge (1 = só os que divergem; combina com o nivel; o
+# antigo nivel=divergem de endereços salvos vale como diverge=1), ord, por e pag; o ritmo
 # (dias), o prazo, os dias para chegar antes da ruptura, a folga, a opção "Contar o que está a caminho" (caminho=1) e as referências (ref_urg, ref_qtd) chegam já lidos em `comuns`
 # (ruptura_parametros, mundo Full). Parâmetro inválido volta ao padrão. Qualquer mudança de filtro, busca ou ordem volta para a página 1.
 def montar_lista(parametros, base_url, hoje, comuns):
@@ -493,6 +482,7 @@ def montar_lista(parametros, base_url, hoje, comuns):
     _, _, ajuda, unidade_plural, unidade_singular = por_chave[gran]
     texto = (parametros.get('q') or '').strip()
     filtro = _escolher(parametros, 'nivel', NIVEIS_VALIDOS, 'todos')
+    diverge = (parametros.get('diverge') or '').strip() == '1' or (parametros.get('nivel') or '').strip() == 'divergem'   # "nivel=divergem" é o endereço antigo (quando era um cartão de nível)
     ordem = _escolher(parametros, 'ord', dict(ORDENS), 'urgencia')
     por = inteiro(parametros.get('por'), 1, 1000)
     por = por if por in POR_PAGINA_OPCOES else POR_PAGINA_PADRAO
@@ -502,10 +492,10 @@ def montar_lista(parametros, base_url, hoje, comuns):
     ref_qtd = 'sistema' if comuns['ref_qtd'] == 'manual' else comuns['ref_qtd']   # a lista não tem quantidade digitada: "Minha quantidade" só existe no detalhe de um item
     padroes = {'gran': GRANULARIDADE_PADRAO, 'nivel': 'todos', 'ord': 'urgencia', 'por': POR_PAGINA_PADRAO, 'pag': 1}
 
-    # * [EXPLICAÇÃO] → O endereço leva só o que a pessoa mudou: o que é da lista (Ver por, busca, nível, ordem, itens por página e página) sai daqui e as regras (ritmo, prazo, chegar antes, folga, "a caminho" e as
+    # * [EXPLICAÇÃO] → O endereço leva só o que a pessoa mudou: o que é da lista (Ver por, busca, nível, "Divergem", ordem, itens por página e página) sai daqui e as regras (ritmo, prazo, chegar antes, folga, "a caminho" e as
     #                  referências, dos dois mundos) saem de ruptura_parametros.para_url, a mesma fonte do detalhe.
     def parametros_da_url(mudancas):
-        atuais = {'gran': gran, 'q': texto, 'nivel': filtro, 'ord': ordem, 'por': por, 'pag': numero_da_pagina}
+        atuais = {'gran': gran, 'q': texto, 'nivel': filtro, 'diverge': '1' if diverge else None, 'ord': ordem, 'por': por, 'pag': numero_da_pagina}
         atuais.update(mudancas)
         if 'pag' not in mudancas:
             atuais['pag'] = 1
@@ -530,17 +520,14 @@ def montar_lista(parametros, base_url, hoje, comuns):
     ml_dos_codigos(cartoes)   # o que o Mercado Livre recomenda (urgência e sugestão), de todos os Códigos: a ordem, o "Divergem" e a contagem olham a lista inteira (resumos em cache)
     todas = [_calcular_linha(e, gran, dados, cartoes, ctx) for e in entidades]
 
-    # ---- busca e filtro de nível (os números dos cartões são sobre o resultado da busca) ----
+    # ---- busca, situação (cartões) e "Divergem" (os números da faixa Situação são sobre o resultado da busca; quem conta é ruptura_situacao.montar_situacao) ----
+    n_ok = sum(1 for d in ctx['jan_p'] if estados.get(d) == 'ok')
+    coletado_em = dados['coletado_em']
     procurado = _sem_acento(texto)
     base = [l for l in todas if not procurado or procurado in l['e']['busca']]
-    filtros_de_nivel = _filtros_de_nivel(lead, folga)
-    contagem = {chave: sum(1 for l in base if l['cat'] == chave) for chave in CHAVES_DE_NIVEL if chave != 'divergem'}
-    contagem['divergem'] = sum(1 for l in base if l['diverge'])
-    filtradas = [l for l in base if filtro == 'todos' or (l['diverge'] if filtro == 'divergem' else l['cat'] == filtro)]
+    filtradas = [l for l in base if (filtro == 'todos' or l['cat'] == filtro) and (l['diverge'] or not diverge)]
     filtradas = _ordenar(filtradas, ordem, ref_urg)
-
-    cartoes_de_nivel = [{'chave': chave, 'rotulo': rotulo, 'apoio': apoio, 'n': numero(contagem[chave]), 'vazio': contagem[chave] == 0, 'ativo': filtro == chave,
-                         'url': url(nivel='todos' if filtro == chave else chave)} for chave, rotulo, apoio in filtros_de_nivel]
+    situacao = montar_situacao(base, filtro, diverge, url, unidade_plural, unidade_singular, lead, folga, sem_dados=n_ok == 0)
 
     # ---- a página atual: só aqui se lê o "A caminho" e se montam textos e endereços ----
     total = len(filtradas)
@@ -557,12 +544,9 @@ def montar_lista(parametros, base_url, hoje, comuns):
     ctx['erp'] = estoque_do_erp({l['e']['sku'] for l in da_pagina if l['e']['sku']})   # o depósito (ERP) dos SKUs da página: 1 leitura, só para o aviso de "só há N un no depósito"
     linhas = [_apresentar(l, gran, ctx, base_url) for l in da_pagina]
 
-    # ---- cobertura das vendas e pontos de atenção (sobre a lista inteira) ----
-    n_ok = sum(1 for d in ctx['jan_p'] if estados.get(d) == 'ok')
-    coletado_em = dados['coletado_em']
-    n_sem_consulta = sum(1 for c in cartoes.values() if c['estado'] == 'sem_consulta')
-    n_erro = sum(1 for c in cartoes.values() if c['estado'] == 'erro')
-    n_antigas = sum(1 for c in cartoes.values() if c['estado'] == 'ok' and c['desatualizado'])
+    # ---- cobertura das vendas, consultas de estoque e pontos de atenção (sobre a lista inteira) ----
+    consultas = contar_consultas(cartoes)
+    n_sem_consulta, n_erro, n_antigas = consultas['sem_consulta'], consultas['erro'], consultas['antigas']
     # * [EXPLICAÇÃO] → Todo aviso nasce em ruptura_avisos.py (aviso / aviso_de_contagem) e a caixa os ordena por gravidade: aqui só se diz O QUE aconteceu (título curto + número), O QUE ISSO CAUSA (texto) e, se der, ONDE resolver (link).
     link_estoque = reverse('gestao_full_estoque')
     avisos = []
@@ -629,18 +613,15 @@ def montar_lista(parametros, base_url, hoje, comuns):
 
     ordens = [{'rotulo': rotulo, 'url': url(**{'ord': chave}), 'ativo': chave == ordem} for chave, rotulo in ORDENS]
     # os campos escondidos do formulário: o que é da lista (Ver por, nível, ordem, itens por página) + o que é do outro mundo; os campos visíveis (busca, ritmo, prazo, chegar antes, folga, caminho e as referências) não viram campo escondido
-    ocultos = [{'nome': k, 'valor': v} for k, v in {'gran': gran, 'nivel': filtro, 'ord': ordem, 'por': por}.items() if v != padroes.get(k)] + campos_escondidos(comuns)
+    ocultos = [{'nome': k, 'valor': v} for k, v in {'gran': gran, 'nivel': filtro, 'diverge': '1' if diverge else None, 'ord': ordem, 'por': por}.items() if v != padroes.get(k) and v is not None] + campos_escondidos(comuns)
     return {
         'gran': gran, 'ajuda': ajuda, 'texto': texto, 'ocultos': ocultos,
         'granularidades': [{'chave': g[0], 'rotulo': g[1], 'ativo': g[0] == gran, 'url': url(gran=g[0], nivel='todos')} for g in GRANULARIDADES],
-        'contexto': (f'Ritmo dos últimos {dias} dias (de {data(ctx["de"])} até hoje) · só as vendas que saíram do Full · prazo de {plural(lead, "dia", "dias")} · chegar {plural(ante, "dia", "dias")} antes · folga de {plural(folga, "dia", "dias")}'
-                     + (' · estoque com as unidades a caminho' if caminho else '')
-                     + f' · urgência: {"Mercado Livre" if ref_urg == "ml" else "Sistema"}'),
-        'cobertura': {'n_completos': n_ok, 'n_dias': dias, 'tudo_completo': n_ok >= dias, 'nada_coletado': not coletado_em, 'ultima': data_hora(coletado_em) if coletado_em else ''},
-        'avisos': avisos, 'cartoes_de_nivel': cartoes_de_nivel, 'url_todos': url(nivel='todos'), 'n_base': numero(len(base)), 'filtro_ativo': filtro != 'todos',
+        'dados': [d for d in (indicador_de_vendas(n_ok, dias, not coletado_em, data_hora(coletado_em) if coletado_em else ''), indicador_de_estoque(consultas, link_estoque)) if d],
+        'avisos': avisos, 'situacao': situacao,
         'ordens': ordens, 'por_pagina': [{'rotulo': str(p), 'url': url(por=p), 'ativo': p == por} for p in POR_PAGINA_OPCOES],
         'total_texto': f'{numero(total)} {unidade_singular if total == 1 else unidade_plural} com os filtros atuais', 'coluna_nome': por_chave[gran][1], 'linhas': linhas, 'vazio': total == 0,
-        'filtros_ativos': bool(texto or filtro != 'todos'), 'url_limpar_tudo': url(q='', nivel='todos'),
+        'filtros_ativos': bool(texto or filtro != 'todos' or diverge), 'url_limpar_tudo': url(q='', nivel='todos', diverge=None),
         'painel': painel_do_mundo(comuns, url_da_tela(base_url, **sem_filtros_na_url(parametros_da_url({})))), 'notas_filtros': notas_dos_filtros(comuns, gran, unidade_plural),
         'paginacao': {
             'numero': pagina_atual, 'total_paginas': total_paginas,

@@ -1,7 +1,7 @@
 {% comment %}
     * [RESUMO] → A LISTA do mundo ENVIOS FULL da tela "Previsão de Ruptura de estoque" (a do Fora do Full é a parcial lista_fora): uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
-      ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar, a urgência (do Mercado Livre ou do Sistema, conforme a referência escolhida), quanto enviar e o nível. Os 7 cartões
-      (6 níveis + "Divergem": itens em que a urgência do ML e a do Sistema discordam) são também o filtro. O nome da linha e o botão do gráfico abrem o detalhe
+      ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar, a urgência (do Mercado Livre ou do Sistema, conforme a referência escolhida), quanto enviar e o nível. A faixa "Situação" logo acima (parcial
+      estrutura_parcial_situacao.html: "Todos", 6 cartões em 3 grupos e o filtro à parte "Divergem", mais os indicadores de dados) é também o filtro; o "?" das colunas mora no topo da tabela. O nome da linha e o botão do gráfico abrem o detalhe
       (a curva) do item. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco (o botão de consulta ao ML fica no detalhe de cada item).
     * [EXPLICAÇÃO] → Recebe "pagina" (ruptura_pagina.montar_pagina) e usa "pagina.lista" (ruptura_lista.montar_lista); os números já vêm formatados de lá.
     * [EXPLICAÇÃO] → O cartão de identidade de cada linha usa o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e os
@@ -52,51 +52,25 @@
 
 {% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with caixa=pagina.avisos_caixa %}
 
-{# Linha de contexto: o ritmo usado à esquerda; a cobertura da coleta e a ajuda ("?") à direita. #}
-<div class="rup-contexto">
-    <span class="rup-contexto-texto" title="{{ lista.contexto }}">{{ lista.contexto }}</span>
-    <span class="rup-status-grupo">
-        {% if lista.cobertura.nada_coletado %}
-            <span class="rup-status rup-status--vazio" title="Nenhum dia do período foi coletado da conta toda.">
-                <i class="fas fa-database" aria-hidden="true"></i> Nada coletado neste período
-            </span>
-        {% else %}
-            <span class="rup-status{% if not lista.cobertura.tudo_completo %} rup-status--parcial{% endif %}"
-                  title="O ritmo usa a coleta da CONTA TODA: {{ lista.cobertura.n_completos }} de {{ lista.cobertura.n_dias }} dias completos (coletados depois que o dia acabou; hoje nunca é completo). Hoje e dias parciais não entram na média por dia.">
-                <i class="fas {% if lista.cobertura.tudo_completo %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}" aria-hidden="true"></i>
-                {{ lista.cobertura.n_completos }}/{{ lista.cobertura.n_dias }} dias completos · vendas atualizadas {{ lista.cobertura.ultima }}
-            </span>
-        {% endif %}
-        <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler esta lista">
-            <i class="fas fa-circle-question" aria-hidden="true"></i>
-            <span class="rup-ajuda-balao">
-                <strong>Como ler esta lista</strong>
-                <span>{{ lista.ajuda }}</span>
-                <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Contar o que está a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
-                <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o prazo até vender.</span>
-                <span><b>Urgência</b>: o selo é o da fonte escolhida em "Urgência segundo" (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Mercado Livre vem da consulta de reposição já salva (a mesma da tela de Planejamento de envios); a do Sistema vem da data de &quot;Enviar até&quot; (hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas). Item sem número do ML mostra &quot;sem número do ML&quot; (nunca zero). <b>Divergem</b>: itens em que as duas estão em faixas diferentes.</span>
-                <span><b>Níveis</b> (provisórios): ruptura = estoque zerado; crítico = dura menos que o prazo; baixo = até prazo + folga; alto = mais que isso. <b>Enviar até</b> = data da ruptura − prazo − chegar antes (&quot;Enviar já&quot; = a data recomendada passou, mas ainda dá tempo; &quot;Atrasado&quot; = não dá mais tempo). <b>Enviar (un)</b> = sugestão do Sistema: ritmo × os dias de folga (a ruptura vai esses dias para frente).</span>
-            </span>
-        </span>
-    </span>
-</div>
-
-<section class="rup-niveis" aria-label="Filtrar por nível ou por divergência de urgência">
-    {% for c in lista.cartoes_de_nivel %}
-        <a href="{{ c.url }}" class="rup-nivel-cartao rup-nivel-cartao--{{ c.chave }}{% if c.ativo %} rup-nivel-cartao--ativo{% endif %}{% if c.vazio and not c.ativo %} rup-nivel-cartao--vazio{% endif %}"{% if c.ativo %} aria-current="true"{% endif %}
-           title="{{ c.rotulo }}: {{ c.apoio }}. Clique para {% if c.ativo %}voltar a mostrar todos{% else %}mostrar só estes{% endif %}.">
-            <span class="rup-nivel-cartao-rotulo">{{ c.rotulo }}</span>
-            <span class="rup-nivel-cartao-valor">{{ c.n }}</span>
-            <span class="rup-nivel-cartao-apoio">{{ c.apoio }}</span>
-        </a>
-    {% endfor %}
-</section>
+{% include 'gestao_ruptura/parciais/estrutura_parcial_situacao.html' %}
 
 <section class="rup-l-lista" aria-label="Lista de ruptura">
     <div class="rup-l-lista-topo">
         <div class="rup-l-total-grupo">
             <span class="rup-l-total">{{ lista.total_texto }}</span>
-            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e nível</a>{% endif %}
+            {# O "?" das COLUNAS mora aqui, no topo da tabela (o dos cartões de situação mora na faixa Situação): cada explicação perto do que explica. #}
+            <span class="rup-ajuda rup-ajuda--esq" tabindex="0" role="note" aria-label="Como ler as colunas da lista">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">
+                    <strong>Como ler as colunas</strong>
+                    <span>{{ lista.ajuda }}</span>
+                    <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Contar o que está a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
+                    <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o prazo até vender.</span>
+                    <span><b>Urgência</b>: o selo é o da fonte escolhida em "Urgência segundo" (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Mercado Livre vem da consulta de reposição já salva (a mesma da tela de Planejamento de envios); a do Sistema vem da data de &quot;Enviar até&quot; (hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas). Item sem número do ML mostra &quot;sem número do ML&quot; (nunca zero).</span>
+                    <span><b>Enviar até</b> = data da ruptura − prazo − chegar antes (&quot;Enviar já&quot; = a data recomendada passou, mas ainda dá tempo; &quot;Atrasado&quot; = não dá mais tempo). <b>Enviar (un)</b> = sugestão do Sistema: ritmo × os dias de folga (a ruptura vai esses dias para frente). <b>Nível</b>: a situação do item (veja o "?" da faixa Situação).</span>
+                </span>
+            </span>
+            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e situação</a>{% endif %}
         </div>
         <div class="rup-l-selects">
             <div class="rup-l-campo">
@@ -133,7 +107,7 @@
             {% if lista.vazio %}
                 <div class="rup-l-vazio">
                     Nenhum item com essa busca, esse nível e esses filtros. Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML — ou
-                    <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca e o nível</a>{% if lista.painel.tem_filtro_ativo %} ou <a href="{{ lista.painel.url_limpar }}" class="rup-l-limpar">limpe os filtros</a>{% endif %}.
+                    <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca e a situação</a>{% if lista.painel.tem_filtro_ativo %} ou <a href="{{ lista.painel.url_limpar }}" class="rup-l-limpar">limpe os filtros</a>{% endif %}.
                 </div>
             {% endif %}
 

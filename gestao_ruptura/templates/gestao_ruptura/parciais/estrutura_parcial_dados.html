@@ -1,0 +1,4 @@
+{% comment %}
+    * [RESUMO] → Os INDICADORES DE DADOS da lista ("posso confiar nestes números?"): um por linha de `dados` (ruptura_situacao.indicador_de_vendas e indicador_de_estoque), em verde (em dia), âmbar (atenção) ou vermelho (sem dado).
+      Recebe `dados`. Só DESENHA: o texto, a cor e o link vêm prontos de lá. O de estoque (só no Envios Full) leva para a tela "Estoque no Full", onde se atualiza.
+{% endcomment %}{% for d in dados %}{% if d.link %}<a href="{{ d.link }}" class="rup-dado rup-dado--{{ d.classe }}" title="{{ d.dica }}"><i class="fas {{ d.icone }}" aria-hidden="true"></i> {{ d.texto }}</a>{% else %}<span class="rup-dado rup-dado--{{ d.classe }}" title="{{ d.dica }}"><i class="fas {{ d.icone }}" aria-hidden="true"></i> {{ d.texto }}</span>{% endif %}{% endfor %}

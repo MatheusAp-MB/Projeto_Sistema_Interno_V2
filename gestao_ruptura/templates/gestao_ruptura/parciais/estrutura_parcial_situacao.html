@@ -1,0 +1,64 @@
+{% comment %}
+    * [RESUMO] → A faixa "Situação" da lista do mundo ENVIOS FULL: em cima o título (com o total e o "?" dos cartões) e os indicadores de dados; embaixo os CARTÕES, que também são o filtro: "Todos" + 3 grupos ("Pedem ação",
+      "Tranquilo", "Não analisados") + o filtro à parte "Divergem". Recebe `lista` (ruptura_lista.montar_lista); tudo vem pronto de `lista.situacao` (ruptura_situacao.montar_situacao): nomes, apoios, contagens, endereços e o texto do "?".
+      Aqui só se DESENHA. Cada cartão é um link normal (GET) com #rup-situacao no fim, para a página recarregar sem a pessoa perder a faixa de vista.
+    * [EXPLICAÇÃO] → A disposição depende só da largura da JANELA (layout_ruptura.css), nunca do espaço ao lado da barra lateral: 1 linha na janela larga e 2 linhas na média. O cartão ativo ganha o "×" (clicar nele de novo limpa).
+{% endcomment %}{% with s=lista.situacao %}
+<section class="rup-situacao" id="{{ s.id }}" aria-label="Situação dos itens: cartões que também filtram a lista">
+    <div class="rup-situacao-topo">
+        <div class="rup-situacao-titulo-grupo">
+            <h2 class="rup-situacao-titulo">{{ s.titulo }}</h2>
+            <span class="rup-ajuda rup-ajuda--esq" tabindex="0" role="note" aria-label="Como ler os cartões de situação">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">
+                    <strong>Situação dos itens</strong>
+                    {% for a in s.ajuda %}<span><b>{{ a.rotulo }}</b>: {{ a.texto }}</span>{% endfor %}
+                    <span>{{ s.ajuda_nota }}</span>
+                </span>
+            </span>
+        </div>
+        <div class="rup-dados">{% include 'gestao_ruptura/parciais/estrutura_parcial_dados.html' with dados=lista.dados %}</div>
+    </div>
+    <div class="rup-niveis">
+        <div class="rup-nivel-bloco rup-nivel-bloco--todos">
+            <span class="rup-nivel-bloco-rotulo">Total</span>
+            <div class="rup-nivel-cartoes">
+                <a href="{{ s.todos.url }}" class="rup-nivel-cartao rup-nivel-cartao--todos{% if s.todos.ativo %} rup-nivel-cartao--ativo{% endif %}"{% if s.todos.ativo %} aria-current="true"{% endif %}
+                   title="Todos: sem filtro de situação. Clique para mostrar todos os itens.">
+                    <span class="rup-nivel-cartao-rotulo">Todos</span>
+                    <span class="rup-nivel-cartao-valor">{{ s.todos.n }}</span>
+                    <span class="rup-nivel-cartao-apoio">sem filtro</span>
+                </a>
+            </div>
+        </div>
+        {% for g in s.grupos %}
+        <div class="rup-nivel-bloco rup-nivel-bloco--{{ g.chave }}">
+            <span class="rup-nivel-bloco-rotulo">{{ g.rotulo }}</span>
+            <div class="rup-nivel-cartoes" style="--cartoes: {{ g.cartoes|length }}">
+                {% for c in g.cartoes %}
+                <a href="{{ c.url }}" class="rup-nivel-cartao rup-nivel-cartao--{{ c.chave }}{% if c.ativo %} rup-nivel-cartao--ativo{% endif %}{% if c.vazio and not c.ativo %} rup-nivel-cartao--vazio{% endif %}"{% if c.ativo %} aria-current="true"{% endif %}
+                   title="{{ c.rotulo }}: {{ c.apoio }}. Clique para {% if c.ativo %}voltar a mostrar todos{% else %}mostrar só estes{% endif %}.">
+                    <span class="rup-nivel-cartao-rotulo">{{ c.rotulo }}</span>
+                    <span class="rup-nivel-cartao-valor">{{ c.n }}</span>
+                    <span class="rup-nivel-cartao-apoio">{{ c.apoio }}</span>
+                    {% if c.ativo %}<i class="fas fa-xmark rup-nivel-cartao-limpar" aria-hidden="true"></i>{% endif %}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        <div class="rup-nivel-bloco rup-nivel-bloco--extra">
+            <span class="rup-nivel-bloco-rotulo">Filtro extra</span>
+            <div class="rup-nivel-cartoes">
+                <a href="{{ s.divergem.url }}" class="rup-nivel-cartao rup-nivel-cartao--divergem{% if s.divergem.ativo %} rup-nivel-cartao--ativo{% endif %}{% if s.divergem.vazio %} rup-nivel-cartao--vazio{% endif %}"{% if s.divergem.ativo %} aria-current="true"{% endif %}
+                   title="Divergem: itens em que a urgência do Mercado Livre e a do Sistema estão em faixas diferentes. Combina com qualquer cartão. Clique para {% if s.divergem.ativo %}desligar{% else %}ligar{% endif %}.">
+                    <span class="rup-nivel-cartao-rotulo">Divergem</span>
+                    <span class="rup-nivel-cartao-valor">{{ s.divergem.n }}</span>
+                    <span class="rup-nivel-cartao-apoio">ML e Sistema discordam</span>
+                    {% if s.divergem.ativo %}<i class="fas fa-xmark rup-nivel-cartao-limpar" aria-hidden="true"></i>{% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endwith %}

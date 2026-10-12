@@ -29,6 +29,7 @@ from gestao_ruptura.funcoes_auxiliares.ruptura_lista import POR_PAGINA_OPCOES, P
 from gestao_ruptura.funcoes_auxiliares.ruptura_filtros import complemento_do_total, mlbs_permitidos, notas_dos_filtros, painel_do_mundo, passa_no_filtro, sem_filtros_na_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import campos_escondidos, para_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_avisos import aviso, aviso_de_contagem
+from gestao_ruptura.funcoes_auxiliares.ruptura_situacao import indicador_de_vendas
 from gestao_ruptura.funcoes_auxiliares.ruptura_texto import data, inteiro, pct as pct_texto, plural, reais, un_dia
 from gestao_vendas.funcoes_auxiliares.lista_vendas_ml import unidades_por_dia_da_origem
 from gestao_vendas.funcoes_auxiliares.vendas_ml import data_hora, numero, url_da_tela
@@ -277,9 +278,7 @@ def montar_lista_fora(parametros, base_url, hoje, comuns):
     return {
         'gran': gran, 'ajuda': ajuda, 'texto': texto, 'ocultos': ocultos,
         'granularidades': [{'chave': g[0], 'rotulo': g[1], 'ativo': g[0] == gran, 'url': url(gran=g[0])} for g in GRANULARIDADES],
-        'contexto': (f'Ritmo dos últimos {dias} dias (de {data(ctx["de"])} até hoje) · só as vendas que saíram de fora do Full · prazo de {plural(lead, "dia", "dias")} · chegar {plural(ante, "dia", "dias")} antes · '
-                     f'folga de {plural(folga, "dia", "dias")}'),
-        'cobertura': {'n_completos': n_ok, 'n_dias': dias, 'tudo_completo': n_ok >= dias, 'nada_coletado': not coletado_em, 'ultima': data_hora(coletado_em) if coletado_em else ''},
+        'dados': [indicador_de_vendas(n_ok, dias, not coletado_em, data_hora(coletado_em) if coletado_em else '')],   # sem estoque de fora do Full não há indicador de estoque (ele nasce com a fonte do estoque)
         'avisos': avisos, 'ordens': ordens, 'por_pagina': [{'rotulo': str(p), 'url': url(por=p), 'ativo': p == por} for p in POR_PAGINA_OPCOES],
         'total_texto': f'{numero(total)} {unidade_singular if total == 1 else unidade_plural}' + complemento_do_total(bool(texto), permitidos is not None), 'coluna_nome': por_chave[gran][1], 'linhas': linhas, 'vazio': total == 0,
         'filtros_ativos': bool(texto), 'url_limpar_tudo': url(q=''),

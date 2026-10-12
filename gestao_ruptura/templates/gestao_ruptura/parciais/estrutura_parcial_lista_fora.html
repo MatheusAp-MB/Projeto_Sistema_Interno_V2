@@ -49,33 +49,8 @@
 
 {% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with caixa=pagina.avisos_caixa %}
 
-{# Linha de contexto: o ritmo usado à esquerda; a cobertura da coleta e a ajuda ("?") à direita. #}
-<div class="rup-contexto">
-    <span class="rup-contexto-texto" title="{{ lista.contexto }}">{{ lista.contexto }}</span>
-    <span class="rup-status-grupo">
-        {% if lista.cobertura.nada_coletado %}
-            <span class="rup-status rup-status--vazio" title="Nenhum dia do período foi coletado da conta toda.">
-                <i class="fas fa-database" aria-hidden="true"></i> Nada coletado neste período
-            </span>
-        {% else %}
-            <span class="rup-status{% if not lista.cobertura.tudo_completo %} rup-status--parcial{% endif %}"
-                  title="O ritmo usa a coleta da CONTA TODA: {{ lista.cobertura.n_completos }} de {{ lista.cobertura.n_dias }} dias completos (coletados depois que o dia acabou; hoje nunca é completo). Hoje e dias parciais não entram na média por dia.">
-                <i class="fas {% if lista.cobertura.tudo_completo %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}" aria-hidden="true"></i>
-                {{ lista.cobertura.n_completos }}/{{ lista.cobertura.n_dias }} dias completos · vendas atualizadas {{ lista.cobertura.ultima }}
-            </span>
-        {% endif %}
-        <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler esta lista">
-            <i class="fas fa-circle-question" aria-hidden="true"></i>
-            <span class="rup-ajuda-balao">
-                <strong>Como ler esta lista</strong>
-                <span>{{ lista.ajuda }}</span>
-                <span><b>Estoque</b>: fica em &quot;—&quot; porque o estoque de fora do Full ainda não vem de nenhuma fonte ligada a esta tela (sem leitura não é estoque zero). Para simular a ruptura, abra o item e digite o estoque no cartão Projeção.</span>
-                <span><b>Vendas</b> e <b>Ritmo</b>: só o que saiu de fora do Full (coleta, agência, Flex) nos dias completos do período. Ritmo = unidades ÷ dias completos.</span>
-                <span><b>Ponto de pedido</b> = ritmo × (prazo + chegar antes): com menos estoque que isso já não dá tempo de pedir e o pedido chegar antes da ruptura. <b>Pedir (un)</b> = ritmo × os dias de folga (a ruptura vai esses dias para frente). As duas contas são das Regras de pedido e não dependem do estoque.</span>
-            </span>
-        </span>
-    </span>
-</div>
+{# Os indicadores de dados (vendas coletadas), à direita; as regras do ritmo (período, prazo, folga) ficam só nos cartões de controle do topo. #}
+<div class="rup-dados rup-dados--linha">{% include 'gestao_ruptura/parciais/estrutura_parcial_dados.html' with dados=lista.dados %}</div>
 
 <div class="rup-nota-fora" title="O estoque de fora do Full ainda não vem de nenhuma fonte ligada a esta tela. Abra o item e digite o estoque no cartão Projeção para simular a ruptura.">
     <i class="fas fa-circle-info" aria-hidden="true"></i>
@@ -86,6 +61,17 @@
     <div class="rup-l-lista-topo">
         <div class="rup-l-total-grupo">
             <span class="rup-l-total">{{ lista.total_texto }}</span>
+            {# O "?" das COLUNAS mora aqui, no topo da tabela. #}
+            <span class="rup-ajuda rup-ajuda--esq" tabindex="0" role="note" aria-label="Como ler as colunas da lista">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">
+                    <strong>Como ler as colunas</strong>
+                    <span>{{ lista.ajuda }}</span>
+                    <span><b>Estoque</b>: fica em &quot;—&quot; porque o estoque de fora do Full ainda não vem de nenhuma fonte ligada a esta tela (sem leitura não é estoque zero). Para simular a ruptura, abra o item e digite o estoque no cartão Projeção.</span>
+                    <span><b>Vendas</b> e <b>Ritmo</b>: só o que saiu de fora do Full (coleta, agência, Flex) nos dias completos do período. Ritmo = unidades ÷ dias completos.</span>
+                    <span><b>Ponto de pedido</b> = ritmo × (prazo + chegar antes): com menos estoque que isso já não dá tempo de pedir e o pedido chegar antes da ruptura. <b>Pedir (un)</b> = ritmo × os dias de folga (a ruptura vai esses dias para frente). As duas contas são das Regras de pedido e não dependem do estoque.</span>
+                </span>
+            </span>
             {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca</a>{% endif %}
         </div>
         <div class="rup-l-selects">
