@@ -6,6 +6,8 @@
       das linhas e os selects usam script_vendas_lista.js. A lista NUNCA chama o Mercado Livre: só lê o banco. A coleta da conta toda continua sendo o botão "Coletar período
       da conta", lá em cima.
     * [EXPLICAÇÃO] → Recebe "lista" (montar_lista, em lista_vendas_ml.py). Os números já vêm formatados de lá.
+    * [EXPLICAÇÃO] → Disposição (12/10/2026): uma caixa de controles (Ver por/Período em cima; chips de filtro à esquerda e selects à direita, embaixo), uma linha de contexto (período e
+      cobertura da coleta, com a ajuda no "?"), os 5 cartões de resumo e a lista. A regra do CSS é "fluida na horizontal, rígida na vertical" (veja o fim de layout_vendas.css).
 {% endcomment %}
 {% if lista.cobertura.nada_coletado %}
     <section class="lista-painel lista-painel--aviso" aria-label="Nada coletado">
@@ -20,7 +22,8 @@
     </section>
 {% endif %}
 
-<section class="vnd-l-caixa" aria-label="Como ver as vendas">
+{# Controles: "Ver por" e "Período" na 1ª linha; embaixo, os chips de filtro (à esquerda) e os 3 selects (à direita, cada um na linha de um grupo de chips). #}
+<section class="vnd-l-caixa" aria-label="Como ver as vendas e filtros">
     <div class="vnd-l-topo">
         <div class="vnd-l-grupo">
             <span class="vnd-l-rotulo">Ver por</span>
@@ -37,106 +40,113 @@
             </ul>
         </div>
     </div>
-    <div class="vnd-l-rodape">
-        <span class="vnd-l-ajuda">{{ lista.ajuda }}</span>
-        <span class="vnd-l-status">
-            {% if lista.cobertura.nada_coletado %}
-                <span class="vnd-status vnd-status--vazio" title="Nenhum dia deste período foi coletado da conta toda: {{ lista.cobertura.periodo }}.">
-                    <i class="fas fa-database" aria-hidden="true"></i> Nada coletado neste período
-                </span>
-            {% else %}
-                <span class="vnd-status{% if not lista.cobertura.tudo_coletado %} vnd-status--parcial{% endif %}"
-                      title="Período {{ lista.cobertura.periodo }}. A lista usa a coleta da CONTA TODA: {{ lista.cobertura.n_completos }} dia{{ lista.cobertura.n_completos|pluralize }} completo{{ lista.cobertura.n_completos|pluralize }} (coletado depois que o dia acabou; hoje nunca é completo). Dia parcial entra nas unidades, mas não na média por dia nem em &quot;vs. anterior&quot;.">
-                    <i class="fas {% if lista.cobertura.tudo_coletado %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}" aria-hidden="true"></i>
-                    {{ lista.cobertura.n_com_dado }}/{{ lista.cobertura.n_dias }} dias coletados (conta toda) · atualizado {{ lista.cobertura.ultima }}
-                </span>
-            {% endif %}
-            {% if lista.avisos %}
-                <span class="vnd-alerta" tabindex="0" role="note" aria-label="{{ lista.avisos|length }} ponto{{ lista.avisos|length|pluralize }} de atenção">
-                    <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-                    <span class="vnd-alerta-balao">
-                        <strong>Pontos de atenção</strong>
-                        <ul>{% for a in lista.avisos %}<li>{{ a }}</li>{% endfor %}</ul>
-                    </span>
-                </span>
-            {% endif %}
-        </span>
+    <div class="vnd-l-filtros">
+        <div class="vnd-l-chips" role="group" aria-label="Filtros">
+            {% for g in lista.grupos_chips %}
+                <div class="lista-chips-grupo">
+                    <span class="lista-chips-rotulo vnd-l-chips-rotulo">{{ g.titulo }}</span>
+                    <ul class="lista-chips">
+                        {% for c in g.chips %}
+                            <li><a href="{{ c.url }}" class="lista-chip{% if c.ativo %} lista-chip--ativo{% endif %}{% if c.vazio %} lista-chip--vazio{% endif %}"{% if c.ativo %} aria-current="true"{% endif %}>{{ c.rotulo }} <span class="lista-chip-contagem">{{ c.n }}</span></a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="vnd-l-selects">
+            <div class="vnd-l-campo">
+                <label for="vnd-l-marca" class="vnd-l-rotulo">Marca</label>
+                <select id="vnd-l-marca" class="lista-select" data-vnd-l-ir>
+                    {% for m in lista.marcas %}<option value="{{ m.url }}"{% if m.ativo %} selected{% endif %}>{{ m.rotulo }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="vnd-l-campo">
+                <label for="vnd-l-ordem" class="vnd-l-rotulo">Ordenar por</label>
+                <select id="vnd-l-ordem" class="lista-select" data-vnd-l-ir>
+                    {% for o in lista.ordens %}<option value="{{ o.url }}"{% if o.ativo %} selected{% endif %}{% if o.desabilitada %} disabled{% endif %}>{{ o.rotulo }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="vnd-l-campo">
+                <label for="vnd-l-por" class="vnd-l-rotulo">Por página</label>
+                <select id="vnd-l-por" class="lista-select" data-vnd-l-ir>
+                    {% for p in lista.por_pagina %}<option value="{{ p.url }}"{% if p.ativo %} selected{% endif %}>{{ p.rotulo }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
     </div>
 </section>
 
-<section class="vnd-l-caixa" aria-label="Filtros">
-    <div class="vnd-l-selects">
-        <div class="vnd-l-campo">
-            <label for="vnd-l-marca" class="vnd-l-rotulo">Marca</label>
-            <select id="vnd-l-marca" class="lista-select" data-vnd-l-ir>
-                {% for m in lista.marcas %}<option value="{{ m.url }}"{% if m.ativo %} selected{% endif %}>{{ m.rotulo }}</option>{% endfor %}
-            </select>
-        </div>
-        <div class="vnd-l-campo">
-            <label for="vnd-l-ordem" class="vnd-l-rotulo">Ordenar por</label>
-            <select id="vnd-l-ordem" class="lista-select" data-vnd-l-ir>
-                {% for o in lista.ordens %}<option value="{{ o.url }}"{% if o.ativo %} selected{% endif %}{% if o.desabilitada %} disabled{% endif %}>{{ o.rotulo }}</option>{% endfor %}
-            </select>
-        </div>
-        <div class="vnd-l-campo">
-            <label for="vnd-l-por" class="vnd-l-rotulo">Por página</label>
-            <select id="vnd-l-por" class="lista-select" data-vnd-l-ir>
-                {% for p in lista.por_pagina %}<option value="{{ p.url }}"{% if p.ativo %} selected{% endif %}>{{ p.rotulo }}</option>{% endfor %}
-            </select>
-        </div>
-        {% if lista.filtros_ativos %}
-            <a href="{{ lista.url_limpar_tudo }}" class="lista-link vnd-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e filtros</a>
+{# Linha de contexto: o período (datas, dias, média por dia) à esquerda; a cobertura da coleta, os pontos de atenção e a ajuda à direita. #}
+<div class="vnd-l-contexto">
+    <span class="vnd-l-contexto-texto">{{ lista.resumo.periodo_texto }}</span>
+    <span class="vnd-l-status">
+        {% if lista.cobertura.nada_coletado %}
+            <span class="vnd-status vnd-status--vazio" title="Nenhum dia deste período foi coletado da conta toda: {{ lista.cobertura.periodo }}.">
+                <i class="fas fa-database" aria-hidden="true"></i> Nada coletado neste período
+            </span>
+        {% else %}
+            <span class="vnd-status{% if not lista.cobertura.tudo_coletado %} vnd-status--parcial{% endif %}"
+                  title="Período {{ lista.cobertura.periodo }}. A lista usa a coleta da CONTA TODA: {{ lista.cobertura.n_completos }} dia{{ lista.cobertura.n_completos|pluralize }} completo{{ lista.cobertura.n_completos|pluralize }} (coletado depois que o dia acabou; hoje nunca é completo). Dia parcial entra nas unidades, mas não na média por dia nem em &quot;vs. anterior&quot;.">
+                <i class="fas {% if lista.cobertura.tudo_coletado %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}" aria-hidden="true"></i>
+                {{ lista.cobertura.n_com_dado }}/{{ lista.cobertura.n_dias }} dias coletados (conta toda) · atualizado {{ lista.cobertura.ultima }}
+            </span>
         {% endif %}
-    </div>
-    <div class="vnd-l-chips">
-        {% for g in lista.grupos_chips %}
-            <div class="lista-chips-grupo">
-                <span class="lista-chips-rotulo vnd-l-chips-rotulo">{{ g.titulo }}</span>
-                <ul class="lista-chips">
-                    {% for c in g.chips %}
-                        <li><a href="{{ c.url }}" class="lista-chip{% if c.ativo %} lista-chip--ativo{% endif %}{% if c.vazio %} lista-chip--vazio{% endif %}"{% if c.ativo %} aria-current="true"{% endif %}>{{ c.rotulo }} <span class="lista-chip-contagem">{{ c.n }}</span></a></li>
-                    {% endfor %}
-                </ul>
-            </div>
-        {% endfor %}
-    </div>
-</section>
+        {% if lista.avisos %}
+            <span class="vnd-alerta" tabindex="0" role="note" aria-label="{{ lista.avisos|length }} ponto{{ lista.avisos|length|pluralize }} de atenção">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                <span class="vnd-alerta-balao">
+                    <strong>Pontos de atenção</strong>
+                    <ul>{% for a in lista.avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+                </span>
+            </span>
+        {% endif %}
+        <span class="vnd-alerta vnd-alerta--ajuda" tabindex="0" role="note" aria-label="Como ler esta lista">
+            <i class="fas fa-circle-question" aria-hidden="true"></i>
+            <span class="vnd-alerta-balao">
+                <strong>Como ler esta lista</strong>
+                {{ lista.ajuda }}
+            </span>
+        </span>
+    </span>
+</div>
 
 <section class="vnd-l-resumo" aria-label="Resumo do período">
     <div class="vnd-l-card vnd-l-card--destaque">
         <span class="vnd-l-card-rotulo">Unidades vendidas</span>
-        <span class="vnd-l-card-valor">{{ lista.resumo.un }}</span>
-        <span class="vnd-l-card-sub">
+        <span class="vnd-l-card-linha">
+            <span class="vnd-l-card-valor">{{ lista.resumo.un }}</span>
             <span class="vnd-l-tend vnd-l-tend--{{ lista.resumo.delta_classe }}">{% if lista.resumo.delta_classe == 'sobe' %}<i class="fas fa-arrow-up" aria-hidden="true"></i>{% elif lista.resumo.delta_classe == 'desce' %}<i class="fas fa-arrow-down" aria-hidden="true"></i>{% endif %}{{ lista.resumo.delta_texto }}</span>
-            <span>{{ lista.resumo.vs_texto }}</span>
         </span>
-        <span class="vnd-l-card-nota">{{ lista.resumo.periodo_texto }}</span>
+        <span class="vnd-l-card-sub" title="{{ lista.resumo.vs_texto }}">{{ lista.resumo.vs_texto }}</span>
     </div>
     <div class="vnd-l-card">
         <span class="vnd-l-card-rotulo">Pedidos</span>
-        <span class="vnd-l-card-valor">{{ lista.resumo.ped }}</span>
-        <span class="vnd-l-card-sub">{{ lista.resumo.un_por_ped }} unidades por pedido</span>
+        <span class="vnd-l-card-linha"><span class="vnd-l-card-valor">{{ lista.resumo.ped }}</span></span>
+        <span class="vnd-l-card-sub" title="{{ lista.resumo.un_por_ped }} unidades por pedido">{{ lista.resumo.un_por_ped }} unidades por pedido</span>
     </div>
     <div class="vnd-l-card">
         <span class="vnd-l-card-rotulo">Faturamento</span>
-        <span class="vnd-l-card-valor">{{ lista.resumo.fat }}</span>
-        <span class="vnd-l-card-sub">{{ lista.resumo.ticket }} por pedido</span>
+        <span class="vnd-l-card-linha"><span class="vnd-l-card-valor">{{ lista.resumo.fat }}</span></span>
+        <span class="vnd-l-card-sub" title="{{ lista.resumo.ticket }} por pedido">{{ lista.resumo.ticket }} por pedido</span>
     </div>
     <div class="vnd-l-card">
         <span class="vnd-l-card-rotulo"><i class="vnd-l-amostra vnd-l-amostra--full" aria-hidden="true"></i>Full</span>
-        <span class="vnd-l-card-valor">{{ lista.resumo.full }}</span>
-        <span class="vnd-l-card-sub">{{ lista.resumo.p_full }} das unidades</span>
+        <span class="vnd-l-card-linha"><span class="vnd-l-card-valor">{{ lista.resumo.full }}</span></span>
+        <span class="vnd-l-card-sub" title="{{ lista.resumo.p_full }} das unidades">{{ lista.resumo.p_full }} das unidades</span>
     </div>
     <div class="vnd-l-card">
         <span class="vnd-l-card-rotulo"><i class="vnd-l-amostra vnd-l-amostra--fora" aria-hidden="true"></i>Fora do Full</span>
-        <span class="vnd-l-card-valor">{{ lista.resumo.fora }}</span>
-        <span class="vnd-l-card-sub">{{ lista.resumo.p_fora }} das unidades{% if lista.resumo.sem_origem %} · +{{ lista.resumo.sem_origem }} un sem origem informada{% endif %}</span>
+        <span class="vnd-l-card-linha"><span class="vnd-l-card-valor">{{ lista.resumo.fora }}</span></span>
+        <span class="vnd-l-card-sub" title="{{ lista.resumo.p_fora }} das unidades{% if lista.resumo.sem_origem %} · mais {{ lista.resumo.sem_origem }} un sem origem informada (o pedido veio sem centro de estoque){% endif %}">{{ lista.resumo.p_fora }} das unidades{% if lista.resumo.sem_origem %} · +{{ lista.resumo.sem_origem }} sem origem{% endif %}</span>
     </div>
 </section>
 
 <section class="vnd-l-lista" aria-label="Lista de vendas">
     <div class="vnd-l-lista-topo">
-        <span class="vnd-l-total">{{ lista.total_texto }}</span>
+        <div class="vnd-l-total-grupo">
+            <span class="vnd-l-total">{{ lista.total_texto }}</span>
+            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="lista-link vnd-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e filtros</a>{% endif %}
+        </div>
         {% if lista.pode_abrir and lista.linhas %}
             <div class="vnd-l-abrir">
                 <button type="button" class="vnd-btn vnd-btn--secundario" data-vnd-l-abrir-todos>Abrir todos</button>
@@ -146,7 +156,7 @@
     </div>
 
     <div class="vnd-l-rolagem">
-        <div class="vnd-l-tabela" role="table" aria-label="Vendas no período">
+        <div class="vnd-l-tabela{% if not lista.pode_abrir %} vnd-l-tabela--plana{% endif %}" role="table" aria-label="Vendas no período">
             <div class="vnd-l-colunas vnd-l-cabecalho" role="row">
                 <div></div>
                 {% for c in lista.cabecalho %}
@@ -174,7 +184,7 @@
                         </div>
                         {% if l.anuncio %}
                             <div class="vnd-l-id vnd-l-id--anuncio">
-                                {% include 'gestao_vendas/parciais/estrutura_parcial_lista_anuncio.html' with a=l.anuncio v=l.v url=l.url_calendario motivo=l.motivo %}
+                                {% include 'gestao_vendas/parciais/estrutura_parcial_lista_anuncio.html' with a=l.anuncio url=l.url_calendario motivo=l.motivo %}
                             </div>
                         {% else %}
                         <div class="vnd-l-id">
@@ -184,13 +194,13 @@
                             <div class="vnd-l-id-texto">
                                 <div class="vnd-l-titulo-linha">
                                     {% if l.url_calendario %}
-                                        <a href="{{ l.url_calendario }}" class="vnd-l-titulo{% if l.codigo %} vnd-l-titulo--codigo{% endif %}" title="Abrir o calendário de vendas deste item">{{ l.titulo }}</a>
+                                        <a href="{{ l.url_calendario }}" class="vnd-l-titulo{% if l.codigo %} vnd-l-titulo--codigo{% endif %}" title="{{ l.titulo }} — abrir o calendário de vendas deste item">{{ l.titulo }}</a>
                                     {% else %}
                                         <span class="vnd-l-titulo vnd-l-titulo--parado{% if l.codigo %} vnd-l-titulo--codigo{% endif %}" title="{{ l.motivo }}">{{ l.titulo }}</span>
                                     {% endif %}
                                     {% if l.selo %}<span class="vnd-l-selo">{{ l.selo }}</span>{% endif %}
                                 </div>
-                                <div class="vnd-l-meta">{{ l.meta }}</div>
+                                <div class="vnd-l-meta" title="{{ l.meta }}">{{ l.meta }}</div>
                             </div>
                         </div>
                         {% endif %}
@@ -209,7 +219,7 @@
                                 <div class="vnd-l-filho vnd-l-colunas" role="row">
                                     <div></div>
                                     <div class="vnd-l-id vnd-l-id--anuncio">
-                                        {% include 'gestao_vendas/parciais/estrutura_parcial_lista_anuncio.html' with a=f.anuncio v=f.v url=f.url_calendario motivo=f.motivo %}
+                                        {% include 'gestao_vendas/parciais/estrutura_parcial_lista_anuncio.html' with a=f.anuncio url=f.url_calendario motivo=f.motivo %}
                                     </div>
                                     {% include 'gestao_vendas/parciais/estrutura_parcial_lista_numeros.html' with v=f.v %}
                                     <div class="vnd-l-cal">

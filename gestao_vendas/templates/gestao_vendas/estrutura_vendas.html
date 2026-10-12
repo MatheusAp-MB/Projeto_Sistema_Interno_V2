@@ -2,7 +2,7 @@
 {% load static %}
 {% block titulo %}Histórico de vendas — Vendas — Mercado Livre{% endblock %}
 {% block toolbar_titulo %}Vendas — Histórico de vendas{% endblock %}
-{% block body_class %}vnd-tela{% endblock %}
+{% block body_class %}vnd-tela{% if not pagina.sku %} vnd-tela--lista{% endif %}{% endblock %}
 {% block head_extra %}
     <link rel="stylesheet"
           href="{% static 'gestao_vendas/css/layout_vendas.css' %}">

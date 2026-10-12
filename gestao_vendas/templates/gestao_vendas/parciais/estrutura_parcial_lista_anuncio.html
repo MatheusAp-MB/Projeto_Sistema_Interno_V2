@@ -4,20 +4,22 @@
     * [EXPLICAÇÃO] → As classes .cartao-anuncio-* são o estilo compartilhado (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e as cores
       dos selos (.badge-tabela) são do registro único (layout_badges.css): nada de visual é copiado para a tela de vendas. Só se usa a PARTE DE IDENTIDADE do cartão (foto + corpo);
       os números ficam nas colunas da própria lista.
-    * [EXPLICAÇÃO] → Recebe "a" (o cartão, montado em lista_vendas_ml._cartao_do_anuncio), "v" (os números da linha; aqui só o preço médio), "url" (o endereço do calendário, ou
+    * [EXPLICAÇÃO] → Na lista o cartão tem altura FIXA (o CSS corta o que não cabe: título em 1 linha com reticências; selos e IDs que não cabem somem inteiros, de trás para a frente), para a linha
+      não mudar de altura quando a barra lateral abre ou fecha. Por isso o aviso ("Sem cadastro") vem antes dos selos e o nome completo fica no tooltip do título.
+    * [EXPLICAÇÃO] → Recebe "a" (o cartão, montado em lista_vendas_ml._cartao_do_anuncio), "url" (o endereço do calendário, ou
       vazio) e "motivo" (por que não abre). Os botões de copiar (data-copiar) e a foto quebrada são tratados por script_vendas_lista.js.
 {% endcomment %}{% if a.imagem %}<img src="{{ a.imagem }}" class="cartao-anuncio-imagem" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">{% else %}<div class="cartao-anuncio-imagem cartao-anuncio-imagem--vazia" role="img" aria-label="Anúncio sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>{% endif %}
 <div class="cartao-anuncio-corpo">
     {% if a.selos or a.aviso %}
         <div class="cartao-anuncio-badges">
-            {% for s in a.selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i>{% endif %} {{ s.rotulo }}</span>{% endfor %}
             {% if a.aviso %}<span class="vnd-l-chip vnd-l-chip--{{ a.aviso_classe }}">{{ a.aviso }}</span>{% endif %}
+            {% for s in a.selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i>{% endif %} {{ s.rotulo }}</span>{% endfor %}
         </div>
     {% endif %}
     <div class="cartao-anuncio-titulo">
         {% if a.titulo %}
             <span class="cartao-anuncio-copiavel">
-                <span>{% if url %}<a href="{{ url }}" class="vnd-l-anu-link" title="Abrir o calendário de vendas deste anúncio">{{ a.titulo }}</a>{% else %}{{ a.titulo }}{% endif %}</span>
+                <span>{% if url %}<a href="{{ url }}" class="vnd-l-anu-link" title="{{ a.titulo }} — abrir o calendário de vendas deste anúncio">{{ a.titulo }}</a>{% else %}{{ a.titulo }}{% endif %}</span>
                 <button type="button" class="cartao-anuncio-copiar" data-copiar="{{ a.titulo }}" aria-label="Copiar o título do anúncio {{ a.mlb }}" title="Copiar o título"><i class="fas fa-copy" aria-hidden="true"></i></button>
             </span>
         {% else %}
@@ -39,6 +41,5 @@
             <span class="cartao-anuncio-sku">sem SKU</span>
         {% endif %}
         {% if a.codigo %}<span class="cartao-anuncio-sku">{{ a.codigo }}</span>{% endif %}
-        <span>{% if v.preco_medio %}preço médio {{ v.preco_medio }}{% else %}sem vendas no período{% endif %}</span>
     </div>
 </div>

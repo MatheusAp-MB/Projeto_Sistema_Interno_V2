@@ -1280,26 +1280,21 @@ a.vnd-l-segmento:hover { background: #e8f1fa; color: var(--cor-primaria); }
 a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-texto-claro); }
 .vnd-l-segmento:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }
 
-.vnd-l-rodape {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 16px;
-    padding-top: 10px;
-    border-top: 1px solid #edf0f5;
-}
-
-.vnd-l-ajuda { flex: 1 1 320px; min-width: 0; font-size: 0.8rem; color: var(--cor-texto-muted); }
-.vnd-l-status { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* ---- linha de contexto (entre os controles e os cartões): o período à esquerda; a cobertura da coleta, os pontos de atenção e a ajuda ("?") à direita ---- */
+.vnd-l-contexto { display: flex; align-items: center; justify-content: space-between; gap: 6px 24px; min-height: 32px; padding: 0 2px; }
+.vnd-l-contexto-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; font-weight: 600; color: #4b5a6b; }
+.vnd-l-status { display: inline-flex; flex: none; flex-wrap: nowrap; align-items: center; gap: 8px; }
+.vnd-alerta--ajuda { color: var(--cor-texto-muted); }
 
 /* ---- filtros ---- */
-.vnd-l-selects { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
-.vnd-l-campo { display: flex; flex-direction: column; gap: 3px; }
-.vnd-l-campo .lista-select { min-width: 190px; max-width: 300px; }
-.vnd-l-limpar { align-self: center; margin-left: auto; font-size: 0.82rem; }
-.vnd-l-chips { display: flex; flex-wrap: wrap; gap: 8px 26px; padding-top: 10px; border-top: 1px solid #edf0f5; }
+/* os chips de filtro (um grupo por linha, com o rótulo numa coluna de largura fixa) à esquerda e os 3 selects à direita, cada um na linha de um grupo (veja o fim do arquivo) */
+.vnd-l-filtros { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px 24px; padding-top: 10px; border-top: 1px solid #edf0f5; }
+.vnd-l-chips { display: grid; grid-auto-rows: minmax(34px, auto); align-content: start; }
+.vnd-l-chips .lista-chips-grupo { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 6px 12px; }
 .vnd-l-chips-rotulo { white-space: nowrap; }
+.vnd-l-selects { display: flex; flex-wrap: nowrap; align-content: start; gap: 10px 24px; }
+.vnd-l-campo { display: grid; flex: 0 1 300px; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px; min-width: 0; }
+.vnd-l-campo .lista-select { width: 100%; min-width: 0; max-width: none; }
 
 /* ---- resumo do período (cartões): 5 cartões que se acomodam pela largura; o primeiro (Unidades) tem fundo azulado ---- */
 .vnd-l-resumo {
@@ -1311,9 +1306,9 @@ a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--co
 .vnd-l-card {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     min-width: 0;
-    padding: 14px 16px;
+    padding: 12px 16px;
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
     border-radius: 10px;
@@ -1323,11 +1318,12 @@ a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--co
 .vnd-l-card--destaque { background: #e1edf8; border-color: #b9cde2; }
 .vnd-l-card-rotulo { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cor-texto-muted); }
 .vnd-l-card--destaque .vnd-l-card-rotulo { color: var(--cor-primaria); }
-.vnd-l-card-valor { font-size: 1.9rem; font-weight: 600; line-height: 1.15; color: #0b2038; font-variant-numeric: tabular-nums; }
+.vnd-l-card-linha { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.vnd-l-card-linha .vnd-l-tend { flex: none; }
+.vnd-l-card-valor { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.9rem; font-weight: 600; line-height: 1.15; color: #0b2038; font-variant-numeric: tabular-nums; }
 .vnd-l-card--destaque .vnd-l-card-valor { color: var(--cor-primaria-escura); }
-.vnd-l-card-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.8rem; color: #4b5a6b; }
+.vnd-l-card-sub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; color: #4b5a6b; }
 .vnd-l-card--destaque .vnd-l-card-sub { color: #2f4259; }
-.vnd-l-card-nota { font-size: 0.78rem; color: #2f4259; }
 
 .vnd-l-amostra { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 2px; }
 .vnd-l-amostra--full { background: var(--cor-primaria-clara); }
@@ -1356,15 +1352,18 @@ a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--co
 
 /* ---- a lista: topo (total + abrir/fechar todos) e a tabela ---- */
 .vnd-l-lista-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
-.vnd-l-total { font-size: 0.9rem; font-weight: 600; color: #243247; }
+.vnd-l-total-grupo { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px 16px; min-width: 0; }
+.vnd-l-total { font-size: 0.9rem; font-weight: 600; color: #243247; white-space: nowrap; }
+.vnd-l-limpar { font-size: 0.82rem; white-space: nowrap; }
 .vnd-l-abrir { display: flex; gap: 8px; }
 .vnd-l-rolagem { overflow-x: auto; }
-.vnd-l-tabela { min-width: 1100px; }
+.vnd-l-tabela { --vnd-l-colunas-numeros: 88px 70px 116px 64px 72px 64px 84px 96px 44px; min-width: 1040px; }
 
-/* As 11 colunas: seta | nome | un | pedidos | faturamento | Full | fora | média | vs. anterior | última venda | calendário. Linha principal e linhas de dentro usam a mesma grade. */
+/* As 11 colunas: seta | nome | un | pedidos | faturamento | Full | fora | média | vs. anterior | última venda | calendário. Linha principal e linhas de dentro usam a mesma grade.
+ * As 9 larguras dos números ficam na variável --vnd-l-colunas-numeros (na ordem: un, pedidos, faturamento, Full, fora, média, vs. anterior, última venda, calendário). */
 .vnd-l-colunas {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) 88px 70px 100px 64px 72px 64px 84px 96px 44px;
+    grid-template-columns: 36px minmax(0, 1fr) var(--vnd-l-colunas-numeros);
     gap: 8px;
     align-items: center;
 }
@@ -1414,7 +1413,7 @@ a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--co
 .vnd-l-bloco--alerta { border-color: #f0c36d; }
 .vnd-l-bloco--aberto { border-color: var(--cor-primaria-clara); }
 .vnd-l-bloco--aberto > .vnd-l-linha { background: #e8f1fa; }
-.vnd-l-linha { padding: 10px 16px; }
+.vnd-l-linha { padding: 8px 16px; }
 .vnd-l-seta { display: flex; align-items: center; justify-content: center; }
 
 .vnd-l-seta-btn {
@@ -1437,7 +1436,7 @@ a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--co
 .vnd-l-seta-btn[aria-expanded="true"] i { transform: rotate(90deg); }
 
 .vnd-l-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.vnd-l-id-texto { min-width: 0; }
+.vnd-l-id-texto { flex: 1 1 0; min-width: 0; }
 
 .vnd-l-foto {
     display: flex;
@@ -1456,8 +1455,8 @@ a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--co
 .vnd-l-foto img { width: 100%; height: 100%; object-fit: cover; }
 .vnd-l-foto--alerta { background: #fff4dd; color: #b45309; }
 
-.vnd-l-titulo-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.vnd-l-titulo { font-size: 1.05rem; font-weight: 600; line-height: 1.3; color: #0b2038; text-decoration: none; overflow-wrap: anywhere; }
+.vnd-l-titulo-linha { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.vnd-l-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1.05rem; font-weight: 600; line-height: 1.3; color: #0b2038; text-decoration: none; }
 a.vnd-l-titulo:hover { color: var(--cor-primaria); text-decoration: underline; }
 a.vnd-l-titulo:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 3px; }
 .vnd-l-titulo--parado { cursor: default; }
@@ -1475,12 +1474,13 @@ a.vnd-l-titulo:focus-visible { outline: 2px solid var(--cor-primaria-clara); out
     letter-spacing: 0.02em;
     color: #b45309;
     white-space: nowrap;
+    flex: none;
 }
 
-.vnd-l-meta { margin-top: 2px; font-size: 0.8rem; color: var(--cor-texto-muted); overflow-wrap: anywhere; }
+.vnd-l-meta { margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; color: var(--cor-texto-muted); }
 
 /* ---- as 8 colunas de números ---- */
-.vnd-l-num { text-align: right; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; color: #243247; }
+.vnd-l-num { text-align: right; white-space: nowrap; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; color: #243247; }
 .vnd-l-num strong { display: block; font-size: 1rem; font-weight: 700; color: #0b2038; }
 .vnd-l-num small { display: block; font-size: 0.72rem; font-weight: 400; color: var(--cor-texto-muted); }
 .vnd-l-num--full { color: var(--cor-primaria); }
@@ -1592,40 +1592,60 @@ a.vnd-l-cal-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); ou
 .vnd-l-anu-sem-titulo { font-style: italic; color: var(--cor-texto-muted); }
 a.cartao-anuncio-copiar { display: inline-flex; text-decoration: none; }
 
-/* ---- LAYOUT ESTÁVEL (12/10/2026): nada muda de lugar, some ou fica cortado só porque a barra lateral abriu ou fechou ----
- * REGRA DESTA TELA: a lista de vendas tem SEMPRE a largura que teria com a barra lateral ABERTA (a janela menos a barra de 260px e as margens). Com a barra fechada o conteúdo
- * NÃO estica: sobra uma faixa vazia à direita. Assim a tela é idêntica com a barra aberta ou fechada: nada muda de linha, nenhuma coluna fica cortada e a tabela nunca precisa
- * rolar para o lado por causa da barra. Os 68px são as margens da área de conteúdo (24px de cada lado) mais 20px de folga para a barra de rolagem da página.
- * A disposição (quem fica em qual linha e em qual coluna) depende só da largura da JANELA (@media). Cuidado ao mexer: não usar tamanho em % nem vw que não seja este. */
-.vnd-pagina--lista { max-width: calc(100vw - var(--sidebar-largura) - 68px); }
+/* ================================================================================================================================================
+   LAYOUT DA LISTA (12/10/2026): "FLUIDA NA HORIZONTAL, RÍGIDA NA VERTICAL"
+   O que a barra lateral muda (abrir/fechar = 260px a mais ou a menos de largura) só pode mexer na LARGURA das coisas, nunca no lugar, na ordem ou na altura delas:
+     1) LARGURA: a lista usa a área inteira, com a barra aberta ou fechada (só há um teto, para telas gigantes). Quem estica ou encolhe é a coluna do nome do anúncio, as caixas e os cartões.
+     2) DISPOSIÇÃO: quem fica em qual linha e em qual coluna depende só da largura da JANELA (os @media abaixo), nunca do espaço que sobra ao lado da barra. Por isso não há "flex-wrap" nem
+        "auto-fit" em nada acima da tabela (só na janela bem pequena, < 1100px).
+     3) ALTURA: nenhum texto pode quebrar de linha por falta de largura. O que não cabe é cortado: título e meta em 1 linha com reticências (nome completo no tooltip); selos e IDs do cartão
+        do anúncio somem inteiros, de trás para a frente; cartões de resumo têm 1 linha de apoio. Assim cada linha da lista tem sempre a mesma altura e nada "pula" para baixo ao abrir a barra.
+   Cuidado ao mexer: um "flex-wrap: wrap" (sem altura fixa), um "repeat(auto-fit, ...)" ou um texto que passe a quebrar traz o problema de volta.
+   ================================================================================================================================================ */
+.vnd-pagina--lista { max-width: 1800px; }
 
-/* filtros em chips: um grupo por linha (Situação, Tendência, Origem), com o rótulo numa coluna de largura fixa */
-.vnd-l-chips { display: grid; gap: 8px; }
-.vnd-l-chips .lista-chips-grupo { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 6px 12px; }
+/* medidas das duas linhas do cartão do anúncio que ficam com altura fixa (selos e IDs): se mudar o tamanho da letra deles, ajuste aqui */
+.vnd-l-id--anuncio { --vnd-l-altura-selos: 20px; --vnd-l-altura-ids: 18px; }
 
-/* "Limpar busca e filtros" fica logo depois dos filtros (antes ia para a ponta direita) */
-.vnd-l-limpar { margin-left: 0; }
+/* cartão do anúncio (MLB): título em 1 linha; selos e IDs em 1 linha (o que não cabe some inteiro) */
+.vnd-l-id--anuncio .cartao-anuncio-corpo { overflow: hidden; }
+.vnd-l-id--anuncio .cartao-anuncio-titulo { display: flex; align-items: center; min-width: 0; overflow-wrap: normal; }
+.vnd-l-id--anuncio .cartao-anuncio-titulo .cartao-anuncio-copiavel { display: flex; min-width: 0; }
+.vnd-l-id--anuncio .cartao-anuncio-titulo .cartao-anuncio-copiavel > span:first-child,
+.vnd-l-id--anuncio .vnd-l-anu-sem-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vnd-l-id--anuncio .cartao-anuncio-titulo .cartao-anuncio-copiar { margin-left: 0; }
+.vnd-l-id--anuncio .cartao-anuncio-badges { flex-wrap: wrap; height: var(--vnd-l-altura-selos); overflow: hidden; }
+.vnd-l-id--anuncio .cartao-anuncio-ids { flex-wrap: wrap; height: var(--vnd-l-altura-ids); overflow: hidden; }
+.vnd-l-id--anuncio .cartao-anuncio-badges > *,
+.vnd-l-id--anuncio .cartao-anuncio-ids > * { flex: none; white-space: nowrap; }
 
-/* cartões de resumo: 5 colunas (janela larga) ou 3 (janela menor), nunca "o que couber" */
-.vnd-l-resumo { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-
-/* legenda: sempre 3 colunas */
+/* a lista tem sempre 3 colunas de legenda; os cartões de resumo, 5 (o de Unidades, o destaque, é um pouco mais largo) */
 .vnd-l-legenda { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.vnd-l-resumo { grid-template-columns: minmax(0, 1.25fr) repeat(4, minmax(0, 1fr)); }
 
-/* janela larga: "Ver por" e "Período" lado a lado; a ajuda e o status de coleta lado a lado, colados à esquerda */
+/* visão por Anúncio (MLB): nenhuma linha abre (não há seta), então a coluna da seta some e o nome ganha esse espaço */
+.vnd-l-tabela--plana .vnd-l-colunas { grid-template-columns: minmax(0, 1fr) var(--vnd-l-colunas-numeros); }
+.vnd-l-tabela--plana .vnd-l-seta,
+.vnd-l-tabela--plana .vnd-l-cabecalho > div:first-child { display: none; }
+
+/* janela larga (1600px ou mais): colunas de números mais folgadas, e os cabeçalhos "Fora do Full", "Média/dia", "Vs. anterior" e "Última venda" cabem numa linha só */
+@media (min-width: 1600px) {
+    .vnd-l-tabela { --vnd-l-colunas-numeros: 88px 70px 116px 64px 96px 76px 92px 104px 44px; }
+}
+
+/* janela larga (1500px ou mais): "Ver por" e "Período" lado a lado; os 3 selects à direita dos chips, cada um na linha de um grupo de chips */
 @media (min-width: 1500px) {
     .vnd-l-topo,
     .vnd-l-grupo { flex-wrap: nowrap; }
-    .vnd-l-rodape { flex-wrap: nowrap; justify-content: flex-start; gap: 8px 32px; }
-    .vnd-l-ajuda { flex: 0 1 560px; }
-    .vnd-l-status { flex: none; }
+    .vnd-l-filtros { grid-template-columns: minmax(0, 1fr) 310px; }
+    .vnd-l-selects { display: grid; grid-auto-rows: minmax(34px, auto); align-content: start; gap: 0; }
+    .vnd-l-campo { flex: none; grid-template-columns: 92px minmax(0, 1fr); }
 }
 
-/* janela média ou pequena: "Ver por"/"Período" e a ajuda/status ficam um embaixo do outro, e os cartões de resumo passam para 3 colunas */
+/* janela média (menos de 1500px): "Ver por"/"Período" e o contexto ficam um embaixo do outro, os selects numa linha embaixo dos chips e os cartões passam para 3 colunas */
 @media (max-width: 1499px) {
     .vnd-l-topo,
-    .vnd-l-rodape { flex-direction: column; align-items: flex-start; }
-    .vnd-l-ajuda { flex: 0 1 auto; max-width: 760px; }
+    .vnd-l-contexto { flex-direction: column; align-items: flex-start; }
     .vnd-l-resumo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
@@ -1633,9 +1653,19 @@ a.cartao-anuncio-copiar { display: inline-flex; text-decoration: none; }
     .vnd-l-card-valor { font-size: 1.6rem; }
 }
 
+/* cabeçalho da tabela FIXO ao rolar (1450px ou mais, onde a tabela cabe sem rolar para o lado): "sticky" não funciona dentro de uma caixa com rolagem própria, por isso aqui a área de conteúdo e a
+ * caixa da tabela deixam de ser caixas de rolagem (o .main-wrapper já corta o excesso). O body ganha .vnd-tela--lista só na lista. Abaixo de 1450px o cabeçalho rola junto, como antes. */
+@media (min-width: 1450px) {
+    .vnd-tela--lista .conteudo-principal { overflow: visible; }
+    .vnd-l-rolagem { overflow: visible; }
+    .vnd-l-cabecalho { position: sticky; top: var(--toolbar-altura); z-index: 20; box-shadow: 0 8px 0 0 var(--cor-fundo-pagina); }
+}
+
 /* janela bem pequena (menos de 1100px, sem uso real com a barra lateral): volta a acomodar pela largura */
 @media (max-width: 1099px) {
     .vnd-pagina--lista { max-width: none; }
+    .vnd-l-selects { flex-wrap: wrap; }
+    .vnd-l-campo { flex: 1 1 240px; }
     .vnd-l-resumo { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
     .vnd-l-legenda { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 }

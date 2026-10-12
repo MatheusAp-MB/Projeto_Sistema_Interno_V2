@@ -1,5 +1,5 @@
 {% comment %}
-    * [RESUMO] → As 8 colunas de NÚMEROS de uma linha da lista de vendas (unidades, pedidos, faturamento, Full, Fora do Full, média por dia, "vs. anterior" e última
+    * [RESUMO] → As 8 colunas de NÚMEROS de uma linha da lista de vendas (unidades, pedidos, faturamento (com o preço médio por unidade embaixo), Full, Fora do Full, média por dia, "vs. anterior" e última
       venda). É a mesma peça na linha principal e nas linhas de dentro (os MLBs); só o tamanho da letra muda (o CSS troca por .vnd-l-filho).
     * [EXPLICAÇÃO] → Recebe "v" (os textos já formatados em lista_vendas_ml._visual). A barra sob as unidades mostra a divisão Full | Fora do Full | sem origem.
 {% endcomment %}<div class="vnd-l-num vnd-l-num--un">
@@ -7,7 +7,7 @@
     <span class="vnd-l-barra" title="Full {{ v.p_fu }} · Fora do Full {{ v.p_fo }}{% if v.sem_origem %} · sem origem informada: {{ v.sem_origem }} un{% endif %}"><span class="vnd-l-barra-full" style="width: {{ v.l_fu|stringformat:'.1f' }}%"></span><span class="vnd-l-barra-fora" style="width: {{ v.l_fo|stringformat:'.1f' }}%"></span></span>
 </div>
 <div class="vnd-l-num">{{ v.ped }}</div>
-<div class="vnd-l-num" title="{{ v.fat_titulo }}">{{ v.fat }}</div>
+<div class="vnd-l-num" title="{{ v.fat_titulo }}">{{ v.fat }}{% if v.preco_medio %}<small title="Preço médio por unidade no período">{{ v.preco_medio }}/un</small>{% endif %}</div>
 <div class="vnd-l-num vnd-l-num--full">{{ v.fu }}<small>{{ v.p_fu }}</small></div>
 <div class="vnd-l-num vnd-l-num--fora">{{ v.fo }}<small>{{ v.p_fo }}</small></div>
 <div class="vnd-l-num vnd-l-num--leve">{{ v.media }}</div>
