@@ -1,10 +1,8 @@
 {% comment %}
-    * [RESUMO] → A linha de opções com o checkbox "Considerar as unidades a caminho" — a mesma na lista e no detalhe. Recebe "pagina". Marcado (caminho=1), o "a caminho" (unidades enviadas ao
-      Full e ainda não recebidas) é SOMADO ao estoque lido do Full, como se já estivesse lá hoje; desmarcado (padrão), ele só aparece como informação. Marcar ou desmarcar refaz o cálculo na hora
-      (script_ruptura.js).
-    * [EXPLICAÇÃO] → O checkbox mora numa linha PRÓPRIA (e não ao lado do lead time) para que a disposição do formulário não dependa do espaço que sobra: nenhuma linha fica apertada em janela alguma.
-{% endcomment %}<div class="rup-linha rup-linha--opcoes">
-    <label class="rup-campo rup-campo--caminho"
+    * [RESUMO] → A caixa "Contar o que está a caminho" (era "Considerar as unidades a caminho") — a última linha do cartão "1 Projeção", igual na lista e no detalhe. Só existe no mundo FULL (o "a caminho" é do Full). Recebe "pagina". Marcada (caminho=1), o "a caminho" (unidades enviadas ao
+      Full e ainda não recebidas) é SOMADO ao estoque lido do Full, como se já estivesse lá hoje; desmarcada (padrão), ele só aparece como informação. Marcar ou desmarcar refaz o cálculo na hora (script_ruptura.js).
+{% endcomment %}<div class="rup-fld rup-fld--caminho">
+    <label class="rup-fld-check"
            for="rup-caminho"
            title="Soma ao estoque as unidades que já foram enviadas ao Full e ainda não chegaram (o &quot;a caminho&quot;), como se já estivessem lá hoje. É uma hipótese: não se sabe quando elas chegam. Desmarcado, o a caminho fica só como informação.">
         <input type="checkbox"
@@ -12,7 +10,7 @@
                name="caminho"
                value="1"
                class="rup-marcar"{% if pagina.caminho %} checked{% endif %}>
-        <span class="rup-marcar-texto">Considerar as unidades a caminho</span>
+        <span class="rup-marcar-texto">Contar o que está a caminho</span>
     </label>
-    <span class="rup-opcao-ajuda">Soma ao estoque o que já foi enviado ao Full e ainda não chegou, como se já estivesse lá hoje (é uma hipótese).</span>
+    <p class="rup-fld-dica" title="Soma ao estoque o que já foi enviado ao Full e ainda não chegou, como se já estivesse lá hoje. É uma hipótese: não se sabe quando chega.">Soma o que já foi enviado ao Full e ainda não chegou.</p>
 </div>

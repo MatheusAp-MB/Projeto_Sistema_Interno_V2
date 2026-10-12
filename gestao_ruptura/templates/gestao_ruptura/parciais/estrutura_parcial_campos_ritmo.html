@@ -1,22 +1,25 @@
 {% comment %}
-    * [RESUMO] → O campo "Ritmo dos últimos N dias" com os atalhos (7, 15, 30, 60, 90, 120 e 1 ano) — o mesmo na lista e no detalhe. Recebe "pagina". Os atalhos são <button> que o script
-      da tela (script_ruptura.js) usa para preencher o campo e refazer o cálculo.
-{% endcomment %}<div class="rup-campo rup-campo--ritmo">
-    <label class="rup-rotulo" for="rup-dias">Ritmo dos últimos</label>
-    <input type="number"
-           id="rup-dias"
-           name="dias"
-           value="{{ pagina.dias_valor }}"
-           min="1"
-           step="1"
-           inputmode="numeric"
-           class="rup-input rup-input--num">
-    <span class="rup-unidade">dias</span>
-    <div class="lista-chips" aria-label="Atalhos de período">
-        {% for a in pagina.atalhos %}
-            <button type="button"
-                    class="lista-chip rup-atalho{% if a.ativo %} lista-chip--ativo{% endif %}"
-                    data-dias="{{ a.dias }}">{{ a.rotulo }}</button>
-        {% endfor %}
+    * [RESUMO] → O campo "Vendas dos últimos N dias" com os atalhos (7, 15, 30, 60, 90, 120 e 1 ano) — o primeiro campo do cartão "1 Projeção" (estrutura_parcial_controles.html), igual na lista e no detalhe. Recebe "pagina".
+      Os atalhos são <button> que o script da tela (script_ruptura.js) usa para preencher o campo e refazer o cálculo na hora; o número digitado só vale ao apertar Enter ou "Recalcular".
+    * [EXPLICAÇÃO] → O nome do campo no endereço é o do MUNDO da tela (pagina.nomes.dias): "dias" no Full e "dias_f" no Fora do Full; o id é sempre "rup-dias" (o script preenche pelo id). As vendas do Full e as de fora do Full são separadas: cada mundo tem o seu período.
+      A frase de apoio, sempre numa linha só, diz para que o número serve (textos de pagina.txt).
+{% endcomment %}<div class="rup-fld rup-fld--ritmo">
+    <div class="rup-fld-linha">
+        <label class="rup-fld-rotulo" for="rup-dias" title="{{ pagina.txt.vendas_dica }}">Vendas dos últimos</label>
+        <input type="number"
+               id="rup-dias"
+               name="{{ pagina.nomes.dias }}"
+               value="{{ pagina.dias_valor }}"
+               min="1"
+               step="1"
+               inputmode="numeric"
+               class="rup-input rup-input--num">
+        <span class="rup-unidade">dias</span>
     </div>
+    <div class="lista-chips rup-atalhos" aria-label="Atalhos de período">
+        {% for a in pagina.atalhos %}<button type="button"
+                class="lista-chip rup-atalho{% if a.ativo %} lista-chip--ativo{% endif %}"
+                data-dias="{{ a.dias }}">{{ a.rotulo }}</button>{% endfor %}
+    </div>
+    <p class="rup-fld-dica" title="{{ pagina.txt.ritmo_apoio_dica }}">{{ pagina.txt.ritmo_apoio }}</p>
 </div>

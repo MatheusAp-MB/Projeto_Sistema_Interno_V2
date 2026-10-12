@@ -1,0 +1,147 @@
+/* ================================================
+   FILTROS DO HUB — painel "Filtros" e chips de filtros ativos
+   Compartilhado pelo Hub de Anúncios, pelo Hub de Fotos e pela Previsão de Ruptura de estoque
+   (mercado_livre/parciais/estrutura_parcial_filtros_painel.html e _chips.html).
+   Estes estilos viviam em layout_hub_anuncios.css; moraram aqui para as telas não carregarem o CSS inteiro do Hub só pelo painel.
+   ================================================ */
+
+/* ================================================
+   FILTROS
+   ================================================ */
+
+.hub-filtros {
+    flex-basis: 100%;
+    margin-top: 12px;
+    background: #fff;
+    border: 1px solid #dde3ec;
+    border-radius: 10px;
+    padding: 4px 16px;
+}
+
+.hub-filtros-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    font-weight: 600;
+    color: #1e3a5f;
+    cursor: pointer;
+    list-style: none;
+}
+
+.hub-filtros-ativo-indicador {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1d6b5a;
+}
+
+
+.hub-filtros-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 0 16px 0;
+    border-top: 1px solid #eee;
+}
+
+.filtro-grupo {
+    width: 240px;
+    height: 270px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.filtro-busca-interna {
+    font-size: 0.78rem;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.filtro-opcoes-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 4px;
+}
+
+.filtro-grupo-titulo {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 4px;
+    background-color: rgba(47, 47, 118, 0.811);
+    padding: 4px 8px;
+    border-radius: 4px;
+    color: #fff;
+}
+
+.filtro-opcao {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #333333;
+    cursor: pointer;
+    border: 1px solid #000000;
+    border-radius: 4px;
+    padding: 3px;
+    margin: 2px;
+}
+
+.filtro-opcao:hover{
+    background-color: #dff5ffbd;
+    color: #05004f;
+}
+
+.hub-filtros-acoes {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0 12px 0;
+    border-top: 1px solid #eee;
+}
+
+.btn-limpar-filtros {
+    font-size: 0.85rem;
+    color: #99a;
+    text-decoration: underline;
+}
+
+/* ================================================
+   CHIPS DE FILTROS ATIVOS
+   ================================================ */
+
+.hub-chips-filtros {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.chip-filtro {
+    background: #eef2f7;
+    color: #1e3a5f;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 14px;
+    border: 1px solid #d7e0ec;
+}
+
+
+.chips-filtros-rotulo {
+    font-size: 0.78rem;
+    color: #556;
+    margin-right: 2px;
+}

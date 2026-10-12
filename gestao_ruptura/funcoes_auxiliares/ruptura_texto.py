@@ -6,6 +6,24 @@
 
 from gestao_vendas.funcoes_auxiliares.vendas_ml import numero
 
+# * [EXPLICAÇÃO] → AS PALAVRAS DE CADA MUNDO (decisão do Matheus, 12/10/2026): as contas são as mesmas, mas no Full a pessoa ENVIA uma remessa ao Full e fora do Full ela faz um PEDIDO e espera a transportadora
+#                  entregar. Aqui moram as palavras que mudam (Enviar até / Pedir até, Quanto enviar / Quanto pedir, Com o envio / Com o pedido...), para a lista, o detalhe e o gráfico escreverem igual.
+PALAVRAS_DOS_MUNDOS = {
+    'full': {
+        'enviar_ate': 'Enviar até', 'enviar_ja': 'Enviar já', 'acao_cartao': 'Enviar', 'quanto': 'Quanto enviar', 'com': 'Com o envio', 'urgencia': 'Urgência de envio', 'verbo': 'enviar', 'gerundio': 'enviando',
+        'enviado': 'enviado', 'a_remessa': 'a remessa', 'da_remessa': 'da remessa', 'o_envio': 'o envio', 'do_envio': 'do envio', 'estoque': 'Estoque no Full', 'vendas_de': 'do Full', 'unidade_de_venda': 'o Full',
+    },
+    'fora': {
+        'enviar_ate': 'Pedir até', 'enviar_ja': 'Pedir já', 'acao_cartao': 'Pedir', 'quanto': 'Quanto pedir', 'com': 'Com o pedido', 'urgencia': 'Urgência do pedido', 'verbo': 'pedir', 'gerundio': 'pedindo',
+        'enviado': 'pedido', 'a_remessa': 'o pedido', 'da_remessa': 'do pedido', 'o_envio': 'o pedido', 'do_envio': 'do pedido', 'estoque': 'Estoque fora do Full', 'vendas_de': 'de fora do Full', 'unidade_de_venda': 'o estoque de fora',
+    },
+}
+
+
+# Função Objetivo: As palavras do mundo ('full' | 'fora'): o dicionário de PALAVRAS_DOS_MUNDOS dele (qualquer outra coisa vale como Full).
+def palavras(mundo):
+    return PALAVRAS_DOS_MUNDOS.get(mundo, PALAVRAS_DOS_MUNDOS['full'])
+
 # Função Objetivo: O número inteiro digitado (aceita "1.200"), preso entre o mínimo e o máximo. None se vazio ou inválido.
 def inteiro(valor, minimo, maximo):
     texto = str(valor if valor is not None else '').strip().replace('.', '').replace(' ', '')
@@ -32,8 +50,9 @@ def data_curta(dia, hoje):
     return f'{dia:%d/%m}' if dia.year == hoje.year else f'{dia:%d/%m/%y}'
 
 
+# Função Objetivo: O número com a palavra no singular ou no plural ("1 dia", "15 dias", "1.214 anúncios"): inteiros a partir de mil saem com ponto de milhar, igual ao resto da tela.
 def plural(n, singular, plural_):
-    return f'{n} {singular if n == 1 else plural_}'
+    return f'{numero(n) if isinstance(n, int) else n} {singular if n == 1 else plural_}'
 
 
 def em_dias(n):
@@ -56,8 +75,9 @@ def data_do_ml(texto):
 
 
 # Função Objetivo: Por que o SISTEMA deu a urgência que deu, em uma frase (balão da célula "Urgência" da lista e texto do cartão do detalhe). `cat` é 'sem_estoque' | 'ruptura' | qualquer outra (há projeção)
-# e `envio` o resultado de ruptura_calculo.envio (None se não há data de enviar até).
-def porque_da_urgencia_do_sistema(cat, envio):
+# e `envio` o resultado de ruptura_calculo.envio (None se não há data de enviar até). `mundo` escolhe as palavras (enviar x pedir).
+def porque_da_urgencia_do_sistema(cat, envio, mundo='full'):
+    P = palavras(mundo)
     if cat == 'sem_estoque':
         return 'sem estoque lido (não dá para calcular)'
     if cat == 'ruptura':
@@ -65,10 +85,10 @@ def porque_da_urgencia_do_sistema(cat, envio):
     if envio is None:
         return 'não há ruptura prevista neste ritmo'
     if envio['estado'] == 'vencido':
-        return f'o prazo de envio acabou em {data(envio["ultimo_dia"])}'
+        return f'o prazo {P["do_envio"]} acabou em {data(envio["ultimo_dia"])}'
     if envio['estado'] != 'ok':
-        return f'a data recomendada para enviar ({data(envio["enviar_ate"])}) {"é hoje" if envio["estado"] == "hoje" else "já passou"}'
-    return f'enviar até {data(envio["enviar_ate"])}, daqui a {plural(envio["em_dias"], "dia", "dias")} (faixas: até 7 dias = esta semana, até 14 = próxima semana, até 21 = em 2 semanas)'
+        return f'a data recomendada para {P["verbo"]} ({data(envio["enviar_ate"])}) {"é hoje" if envio["estado"] == "hoje" else "já passou"}'
+    return f'{P["enviar_ate"].lower()} {data(envio["enviar_ate"])}, daqui a {plural(envio["em_dias"], "dia", "dias")} (faixas: até 7 dias = esta semana, até 14 = próxima semana, até 21 = em 2 semanas)'
 
 
 # Função Objetivo: A sugestão do MERCADO LIVRE como texto: (texto, dica). `ml` é o resultado de ruptura_estoque.resumir_ml. O texto é o número ("120") ou a faixa ("100–150"); None quando o ML não tem número

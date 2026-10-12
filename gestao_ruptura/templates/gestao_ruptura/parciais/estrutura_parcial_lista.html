@@ -1,5 +1,5 @@
 {% comment %}
-    * [RESUMO] → A LISTA da tela "Previsão de Ruptura de estoque": uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
+    * [RESUMO] → A LISTA do mundo ENVIOS FULL da tela "Previsão de Ruptura de estoque" (a do Fora do Full é a parcial lista_fora): uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
       ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar, a urgência (do Mercado Livre ou do Sistema, conforme a referência escolhida), quanto enviar e o nível. Os 7 cartões
       (6 níveis + "Divergem": itens em que a urgência do ML e a do Sistema discordam) são também o filtro. O nome da linha e o botão do gráfico abrem o detalhe
       (a curva) do item. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco (o botão de consulta ao ML fica no detalhe de cada item).
@@ -7,44 +7,50 @@
     * [EXPLICAÇÃO] → O cartão de identidade de cada linha usa o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e os
       selos do anúncio (.badge-tabela) vêm do registro único (layout_badges.css). Aqui a linha tem altura FIXA (o CSS corta o que não cabe: título em 1 linha, selos e IDs somem inteiros de trás para a
       frente), para nada mudar de altura quando a barra lateral abre ou fecha.
+    * [EXPLICAÇÃO] → Os FILTROS do Hub de Anúncios (Marca, Situação do anúncio, Tipo, Flex, Situação do catálogo, Desconto, Faixa de score, Competição e Conexão com ERP) são o MESMO painel da tela de Anúncios — Mercado Livre
+      (parciais de mercado_livre/), dentro deste formulário: "Aplicar filtros" e "Recalcular" mandam tudo junto. Quem decide QUEM PASSA é o Hub (classificacao_catalogo.mlbs_visiveis_com_filtros), nunca esta tela
+      (ruptura_filtros.py só pergunta). Os filtros decidem quais LINHAS aparecem; os números da linha continuam sendo os do item inteiro (a nota sob os chips explica). O filtro de Logística só vale no Fora do Full
+      (aqui todo anúncio já é FULL): ele fica guardado na URL e volta a valer ao trocar de mundo.
 {% endcomment %}{% with lista=pagina.lista %}
-<form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-caixa" role="search">
+<form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-controles" role="search">
     {% for o in lista.ocultos %}<input type="hidden" name="{{ o.nome }}" value="{{ o.valor }}">{% endfor %}
-    <div class="rup-linha">
-        <div class="rup-campo">
-            <span class="rup-rotulo">Ver por</span>
-            <div class="rup-segmentado" role="group" aria-label="Nível de detalhe">
-                {% for g in lista.granularidades %}<a href="{{ g.url }}" class="rup-segmento{% if g.ativo %} rup-segmento--ativo{% endif %}"{% if g.ativo %} aria-current="true"{% endif %}>{{ g.rotulo }}</a>{% endfor %}
+    {# A barra de cima serve para ESCOLHER O MUNDO e ACHAR (nível de detalhe + busca); os 3 cartões de baixo servem para CONFIAR no número (ver estrutura_parcial_controles.html). #}
+    <div class="rup-caixa">
+        <div class="rup-linha">
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_mundos.html' %}
+            <div class="rup-campo">
+                <span class="rup-rotulo">Ver por</span>
+                <div class="rup-segmentado" role="group" aria-label="Nível de detalhe">
+                    {% for g in lista.granularidades %}<a href="{{ g.url }}" class="rup-segmento{% if g.ativo %} rup-segmento--ativo{% endif %}"{% if g.ativo %} aria-current="true"{% endif %}>{{ g.rotulo }}</a>{% endfor %}
+                </div>
             </div>
+            <div class="rup-campo rup-campo--busca">
+                <label class="rup-rotulo" for="rup-busca">Buscar</label>
+                <span class="rup-busca">
+                    <i class="fas fa-magnifying-glass rup-busca-icone" aria-hidden="true"></i>
+                    <input type="search"
+                           id="rup-busca"
+                           name="q"
+                           value="{{ lista.texto }}"
+                           class="rup-input rup-busca-input"
+                           placeholder="SKU, título, EAN, MLB ou Código ML"
+                           autocomplete="off"
+                           spellcheck="false">
+                </span>
+            </div>
+            <button type="submit" class="btn-acao rup-calcular" title="Aplica o que foi digitado nos campos e na busca e refaz o cálculo. Os botões e seletores já valem na hora.">
+                <i class="fas fa-calculator" aria-hidden="true"></i> Recalcular
+            </button>
         </div>
-        <div class="rup-campo rup-campo--busca">
-            <label class="rup-rotulo" for="rup-busca">Buscar</label>
-            <span class="rup-busca">
-                <i class="fas fa-magnifying-glass rup-busca-icone" aria-hidden="true"></i>
-                <input type="search"
-                       id="rup-busca"
-                       name="q"
-                       value="{{ lista.texto }}"
-                       class="rup-input rup-busca-input"
-                       placeholder="SKU, título, EAN, MLB ou Código ML"
-                       autocomplete="off"
-                       spellcheck="false">
-            </span>
-        </div>
-        <button type="submit" class="btn-acao rup-calcular">
-            <i class="fas fa-calculator" aria-hidden="true"></i> Calcular
-        </button>
+        {# Os filtros do Hub de Anúncios: o MESMO painel da tela de Anúncios (mercado_livre/parciais), dentro deste formulário; "Aplicar filtros" e "Recalcular" mandam tudo junto. #}
+        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_chips.html' with painel=lista.painel %}
+        {% for nota in lista.notas_filtros %}<p class="rup-filtros-nota"><i class="fas fa-circle-info" aria-hidden="true"></i><span>{{ nota }}</span></p>{% endfor %}
+        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_painel.html' with painel=lista.painel %}
     </div>
-    <div class="rup-linha rup-linha--valores">
-        {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
-        {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
-    </div>
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_regra.html' %}
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_referencia.html' %}
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_controles.html' %}
 </form>
 
-{% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with avisos=pagina.avisos_todos agrupar=pagina.avisos_agrupar atencao=pagina.avisos_tem_atencao %}
+{% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with caixa=pagina.avisos_caixa %}
 
 {# Linha de contexto: o ritmo usado à esquerda; a cobertura da coleta e a ajuda ("?") à direita. #}
 <div class="rup-contexto">
@@ -66,10 +72,10 @@
             <span class="rup-ajuda-balao">
                 <strong>Como ler esta lista</strong>
                 <span>{{ lista.ajuda }}</span>
-                <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Considerar as unidades a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
-                <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o lead time.</span>
-                <span><b>Urgência</b>: o selo é o da referência escolhida (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Mercado Livre vem da consulta de reposição já salva (a mesma da tela de Planejamento de envios); a do Sistema vem da data de &quot;Enviar até&quot; (hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas). Item sem número do ML mostra &quot;sem número do ML&quot; (nunca zero). <b>Divergem</b>: itens em que as duas estão em faixas diferentes.</span>
-                <span><b>Níveis</b> (provisórios): ruptura = estoque zerado; crítico = dura menos que o lead time; baixo = até lead time + margem de segurança; alto = mais que isso. <b>Enviar até</b> = data da ruptura − lead time − margem de segurança (&quot;Enviar já&quot; = a data recomendada passou, mas ainda dá tempo; &quot;Atrasado&quot; = não dá mais tempo). <b>Enviar (un)</b> = sugestão do Sistema: a quantidade que deixa, na chegada, a margem de segurança + os dias que cada remessa cobre.</span>
+                <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Contar o que está a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
+                <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o prazo até vender.</span>
+                <span><b>Urgência</b>: o selo é o da fonte escolhida em "Urgência segundo" (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Mercado Livre vem da consulta de reposição já salva (a mesma da tela de Planejamento de envios); a do Sistema vem da data de &quot;Enviar até&quot; (hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas). Item sem número do ML mostra &quot;sem número do ML&quot; (nunca zero). <b>Divergem</b>: itens em que as duas estão em faixas diferentes.</span>
+                <span><b>Níveis</b> (provisórios): ruptura = estoque zerado; crítico = dura menos que o prazo; baixo = até prazo + folga; alto = mais que isso. <b>Enviar até</b> = data da ruptura − prazo − chegar antes (&quot;Enviar já&quot; = a data recomendada passou, mas ainda dá tempo; &quot;Atrasado&quot; = não dá mais tempo). <b>Enviar (un)</b> = sugestão do Sistema: ritmo × os dias de folga (a ruptura vai esses dias para frente).</span>
             </span>
         </span>
     </span>
@@ -90,7 +96,7 @@
     <div class="rup-l-lista-topo">
         <div class="rup-l-total-grupo">
             <span class="rup-l-total">{{ lista.total_texto }}</span>
-            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e filtro</a>{% endif %}
+            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e nível</a>{% endif %}
         </div>
         <div class="rup-l-selects">
             <div class="rup-l-campo">
@@ -117,39 +123,24 @@
                 <div role="columnheader" class="rup-l-cab" title="Média por dia das vendas do Full nos dias completos">Ritmo un/dia</div>
                 <div role="columnheader" class="rup-l-cab" title="Quantos dias o estoque dura neste ritmo (estoque ÷ ritmo)">Cobertura dias</div>
                 <div role="columnheader" class="rup-l-cab" title="Dia em que o estoque acaba neste ritmo">Ruptura em</div>
-                <div role="columnheader" class="rup-l-cab" title="Data recomendada para preparar o envio (ruptura − lead time − margem de segurança)">Enviar até</div>
-                <div role="columnheader" class="rup-l-cab rup-l-cab--esq" title="Urgência de envio da referência escolhida (Mercado Livre ou Sistema); a outra aparece pequena embaixo. O selo é o mesmo da tela de Planejamento de envios.">Urgência</div>
-                <div role="columnheader" class="rup-l-cab" title="Quanto enviar, da referência escolhida (Do Mercado Livre ou Do Sistema); a outra aparece pequena embaixo. A do Sistema deixa, na chegada, a margem de segurança + os dias que cada remessa cobre">Enviar (un)</div>
+                <div role="columnheader" class="rup-l-cab" title="Data recomendada para preparar o envio (ruptura − prazo − chegar antes)">Enviar até</div>
+                <div role="columnheader" class="rup-l-cab rup-l-cab--esq" title="Urgência de envio, da fonte escolhida em &quot;Urgência segundo&quot; (Mercado Livre ou Sistema); a outra aparece pequena embaixo. O selo é o mesmo da tela de Planejamento de envios.">Urgência</div>
+                <div role="columnheader" class="rup-l-cab" title="Quanto enviar, da fonte escolhida em &quot;Quantidade segundo&quot; (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Sistema é o ritmo × os dias de folga (a ruptura vai esses dias para frente)">Enviar (un)</div>
                 <div role="columnheader" class="rup-l-cab rup-l-cab--centro" title="Nível do estoque (regra provisória)">Nível</div>
                 <div role="columnheader" class="rup-l-cab rup-l-cab--acao"></div>
             </div>
 
             {% if lista.vazio %}
                 <div class="rup-l-vazio">
-                    Nenhum item com esses filtros. Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML — ou
-                    <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca e o filtro</a>.
+                    Nenhum item com essa busca, esse nível e esses filtros. Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML — ou
+                    <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca e o nível</a>{% if lista.painel.tem_filtro_ativo %} ou <a href="{{ lista.painel.url_limpar }}" class="rup-l-limpar">limpe os filtros</a>{% endif %}.
                 </div>
             {% endif %}
 
             {% for l in lista.linhas %}
                 <div class="rup-l-bloco rup-l-bloco--{{ l.cat }}" role="rowgroup">
                     <div class="rup-l-colunas rup-l-linha" role="row">
-                        <div class="rup-id">
-                            {% if l.foto %}<img src="{{ l.foto }}" class="cartao-anuncio-imagem" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">{% else %}<div class="cartao-anuncio-imagem cartao-anuncio-imagem--vazia" role="img" aria-label="Sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>{% endif %}
-                            <div class="cartao-anuncio-corpo">
-                                <div class="cartao-anuncio-badges">
-                                    {% for a in l.avisos %}<span class="rup-selo rup-selo--{{ a.classe }}" title="{{ a.dica }}">{{ a.texto }}</span>{% endfor %}
-                                    {% for s in l.selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i>{% endif %} {{ s.rotulo }}</span>{% endfor %}
-                                </div>
-                                <div class="cartao-anuncio-titulo">
-                                    {% if l.url_detalhe %}<a href="{{ l.url_detalhe }}" class="rup-id-link{% if l.codigo %} rup-id-link--codigo{% endif %}" title="{{ l.titulo }}{% if l.subtitulo %} — {{ l.subtitulo }}{% endif %} · abrir a curva de estoque">{{ l.titulo }}{% if l.subtitulo %} <span class="rup-id-sub">{{ l.subtitulo }}</span>{% endif %}</a>
-                                    {% else %}<span class="rup-id-link rup-id-link--parado" title="{{ l.motivo }}">{{ l.titulo }}</span>{% endif %}
-                                </div>
-                                <div class="cartao-anuncio-ids">
-                                    {% for i in l.ids %}<span class="{% if forloop.first and lista.gran == 'mlb' %}cartao-anuncio-mlb{% else %}cartao-anuncio-sku{% endif %}">{{ i }}</span>{% endfor %}
-                                </div>
-                            </div>
-                        </div>
+                        {% include 'gestao_ruptura/parciais/estrutura_parcial_identidade.html' with l=l gran=lista.gran %}
                         <div class="rup-num" title="{{ l.estoque_dica }}">
                             <strong>{{ l.estoque_txt }}</strong>
                             <small class="rup-sub{% if l.estoque_classe %} rup-sub--{{ l.estoque_classe }}{% endif %}">{{ l.estoque_sub }}</small>
@@ -206,27 +197,6 @@
         </div>
     </div>
 
-    <nav class="lista-paginacao rup-l-paginacao" aria-label="Páginas">
-        <span>{{ lista.paginacao.texto }}</span>
-        {% if lista.paginacao.total_paginas > 1 %}
-            <div class="lista-paginacao-botoes">
-                {% if lista.paginacao.url_anterior %}
-                    <a href="{{ lista.paginacao.url_anterior }}" class="lista-paginacao-botao" rel="prev"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</a>
-                {% else %}
-                    <span class="lista-paginacao-botao" aria-disabled="true"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</span>
-                {% endif %}
-                {% for j in lista.paginacao.janela %}
-                    {% if j.reticencias %}<span class="rup-l-reticencias" aria-hidden="true">…</span>
-                    {% elif j.atual %}<span class="lista-paginacao-botao rup-l-pag rup-l-pag--atual" aria-current="page">{{ j.numero }}</span>
-                    {% else %}<a href="{{ j.url }}" class="lista-paginacao-botao rup-l-pag" aria-label="Página {{ j.numero }}">{{ j.numero }}</a>{% endif %}
-                {% endfor %}
-                {% if lista.paginacao.url_proxima %}
-                    <a href="{{ lista.paginacao.url_proxima }}" class="lista-paginacao-botao" rel="next">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
-                {% else %}
-                    <span class="lista-paginacao-botao" aria-disabled="true">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
-                {% endif %}
-            </div>
-        {% endif %}
-    </nav>
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_paginacao.html' with lista=lista %}
 </section>
 {% endwith %}

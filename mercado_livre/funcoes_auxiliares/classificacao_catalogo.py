@@ -431,7 +431,10 @@ def carregar_variacoes_por_sku(skus=None):
 
     return variacoes_por_sku
 
-def montar_estrutura_de_sku(sku, variacoes, filtros=None):
+def montar_estrutura_de_sku(sku, variacoes, filtros=None, montar_folhas=True):
+    # * [EXPLICAÇÃO] → `montar_folhas=False` roda a MESMA cascata de filtros (quem passa, Base puxada por Catálogo filho, órfãos...) sem montar os
+    #                  cards (info_variacao por variação), que é a parte cara. Quem só precisa saber QUEM passa (a Previsão de Ruptura de estoque,
+    #                  via mlbs_visiveis_com_filtros) usa assim; a tela do Hub continua com True. As folhas vêm vazias, o resto da estrutura é igual.
     filtros = filtros or {}
     filtro_excecao_ativo = bool(filtros.get('faixas_score')) or bool(filtros.get('situacoes_competicao'))
 
@@ -461,6 +464,8 @@ def montar_estrutura_de_sku(sku, variacoes, filtros=None):
         paginas.setdefault(anuncio.catalog_product_id, []).append(mlb)
 
     def folhas_do_mlb(mlb):
+        if not montar_folhas:
+            return []
         return [
             info_variacao(
                 v,
@@ -584,9 +589,23 @@ def classificar_todos_os_skus(filtros=None):
     }
 
 
-def listar_skus_filtrados(busca=None, filtros=None):
-    filtros = filtros or {}
+# * [EXPLICAÇÃO] → Os filtros que olham a FOLHA (a variação) ou o anúncio, e por isso precisam da árvore montada para saber quem sobrevive à
+#                  cascata Base↔Catálogo. Marca e a busca de texto não entram aqui: elas só restringem a consulta (ver _variacoes_da_busca).
+CHAVES_DE_FILTRO_AVANCADO = [
+    'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
+    'flex', 'estoque', 'desconto', 'conexao_erp',
+    'categorias_estado', 'comportamentos',
+    'faixas_score', 'situacoes_competicao',
+]
 
+
+def tem_filtro_avancado(filtros):
+    return any((filtros or {}).get(chave) for chave in CHAVES_DE_FILTRO_AVANCADO)
+
+
+# * [EXPLICAÇÃO] → A consulta de variações de onde sai a lista de SKUs: sem os fósseis (regra fixa), com a chave do SKU (Produto → SKU do ML → MLB),
+#                  a busca de texto e o filtro de marca. É a mesma para o Hub (listar_skus_filtrados) e para a Previsão (mlbs_visiveis_com_filtros).
+def _variacoes_da_busca(busca, filtros):
     qs = VariacaoAnuncioMercadoLivre.objects.exclude(
         anuncio__eh_fossil_migracao=True
     ).annotate(
@@ -608,16 +627,15 @@ def listar_skus_filtrados(busca=None, filtros=None):
     if filtros.get('marcas'):
         qs = qs.filter(produto__marca__in=filtros['marcas'])
 
-    chaves_avancadas = [
-        'status', 'tipos_anuncio', 'tipos_logisticos', 'catalogos',
-        'flex', 'estoque', 'desconto', 'conexao_erp',
-        'categorias_estado', 'comportamentos',
-        'faixas_score', 'situacoes_competicao',
-    ]
+    return qs
 
-    tem_filtro_avancado = any(filtros.get(chave) for chave in chaves_avancadas)
 
-    if not tem_filtro_avancado:
+def listar_skus_filtrados(busca=None, filtros=None):
+    filtros = filtros or {}
+
+    qs = _variacoes_da_busca(busca, filtros)
+
+    if not tem_filtro_avancado(filtros):
         # * [EXPLICAÇÃO] → Caminho rápido: sem filtro de folha ativo, não
         #                  precisa montar a árvore completa. Total de
         #                  anúncios aqui é só contar MLBs distintos.
@@ -651,6 +669,38 @@ def listar_skus_filtrados(busca=None, filtros=None):
 
     skus_finais.sort()
     return skus_finais, total_anuncios
+
+
+# Função Objetivo: Os anúncios (cada um com o seu 'mlb') que UMA estrutura de SKU mostra, na ordem da tela: por página de catálogo, a Base e os catálogos filhos
+# dela, depois os catálogos órfãos, e por fim os simples. É a mesma leitura que o Hub faz ao desenhar a árvore.
+def anuncios_da_estrutura(estrutura):
+    for pagina in estrutura['paginas_catalogo']:
+        for base in pagina['anuncios_base']:
+            yield base
+            yield from base['anuncios_catalogo']
+        yield from pagina['anuncios_catalogo_orfaos']
+    yield from estrutura['anuncios_simples']
+
+
+# Função Objetivo: O conjunto de MLBs que os filtros do Hub deixam aparecer: exatamente os anúncios que o Hub mostraria com esses filtros (e essa busca, se houver). É o que a
+# Previsão de Ruptura de estoque usa para ter os MESMOS filtros do Hub, sem repetir a regra de ninguém: a decisão de quem passa continua sendo só do Hub.
+# * [EXPLICAÇÃO] → Sem filtro de folha (só marca e/ou busca), os MLBs saem direto da consulta, como no caminho rápido do Hub. Com filtro de folha, monta a árvore de cada SKU candidato
+#                  (sem os cards: montar_folhas=False) e junta os MLBs que sobrevivem: Base puxada por catálogo filho que passou, catálogo órfão, simples. Fósseis nunca entram.
+def mlbs_visiveis_com_filtros(filtros=None, busca=None):
+    filtros = filtros or {}
+    qs = _variacoes_da_busca(busca, filtros)
+
+    if not tem_filtro_avancado(filtros):
+        return set(qs.values_list('anuncio__mlb', flat=True).distinct())
+
+    skus_candidatos = list(qs.values_list('chave_sku', flat=True).distinct())
+    variacoes_por_sku = carregar_variacoes_por_sku(skus=skus_candidatos)
+
+    mlbs = set()
+    for sku, variacoes in variacoes_por_sku.items():
+        estrutura = montar_estrutura_de_sku(sku, variacoes, filtros=filtros, montar_folhas=False)
+        mlbs.update(anuncio['mlb'] for anuncio in anuncios_da_estrutura(estrutura))
+    return mlbs
 
 
 def classificar_lote_de_skus(skus, filtros=None):

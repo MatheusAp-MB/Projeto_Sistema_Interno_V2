@@ -8,7 +8,8 @@
 #   - O ESTOQUE da lista é o do FULL, lido da última consulta salva de cada Código ML (a mesma da tela "Estoque no Full"). O de um SKU ou de um MLB é a soma dos Códigos dele.
 #   - O RITMO da lista é só o das vendas que SAÍRAM DO FULL (o estoque é o do Full): unidades dos dias completos ÷ nº de dias completos, com as mesmas regras da tela de Vendas.
 #     O período é o "ritmo dos últimos N dias" escolhido na tela. Venda cancelada não conta; "ausente não é zero".
-#   - O lead time é UM só para a lista inteira (campo no topo); no detalhe de cada item dá para testar outro. Os níveis (ruptura, crítico, baixo, alto) são os PROVISÓRIOS de ruptura_calculo.py.
+#   - O prazo até vender, os dias para chegar antes da ruptura e a folga são UM só para a lista inteira (campos no topo); no detalhe de cada item dá para testar outros. Os níveis (ruptura, crítico, baixo, alto) são os
+#     PROVISÓRIOS de ruptura_calculo.py. Esta lista é só do mundo ENVIOS FULL (a do Fora do Full é a de ruptura_lista_fora.py: outro mundo, outra lista).
 #   - Item sem consulta de estoque NÃO vira "estoque zero": fica em "Sem estoque lido" ("ausente não é zero"). Item com só parte dos Códigos lidos fica marcado "Estoque parcial".
 #   - DUAS REFERÊNCIAS de urgência e de quanto enviar (decisão do Matheus, 12/10/2026): a do MERCADO LIVRE (lida da consulta de reposição salva: ruptura_estoque.resumir_ml) e a do SISTEMA (a regra da tela:
 #     ruptura_calculo.urgencia_do_sistema e sugestao_do_sistema). A escolhida manda na ordem "Mais urgentes primeiro" e aparece grande; a outra aparece pequena na mesma célula. O filtro "Divergem" mostra os
@@ -16,7 +17,7 @@
 #
 # * [EXPLICAÇÃO] → DE ONDE VEM CADA GRANULARIDADE: o estoque do Full mora no Código ML. Um MLB pode ter mais de um Código (variações) e um Código pode ser usado por mais de um MLB:
 #                  nesse caso o estoque é o MESMO para os dois, e a cobertura do MLB (que olha só as vendas dele) pode ficar maior do que a real. A linha ganha o selo "Estoque compartilhado".
-#                  Só entram na lista itens com pelo menos um Código ML (sem Código ML o anúncio não é Full: não há estoque do Full para projetar).
+#                  Quem entra na lista é decidido pelo ANÚNCIO, não pelo Código ML: ver "QUEM É DO FULL" (anuncio_e_do_full), a mesma regra do filtro FULL do Hub de Anúncios.
 # * [EXPLICAÇÃO] → COMO FICA RÁPIDA (~1000 SKUs): as vendas do Full do período entram numa consulta só (lista_vendas_ml.unidades_do_full_por_dia) e o estoque, em 2 consultas
 #                  (full_estoque_ml.estoque_full_dos_codigos). O "A caminho" (consulta de reposição, a parte pesada) só é lido para as linhas da PÁGINA, a não ser que a opção "Considerar as
 #                  unidades a caminho" esteja marcada: aí ele entra na cobertura (muda nível e ordem) e é lido para TODOS os Códigos, em lotes de LOTE_DO_A_CAMINHO (uma consulta por lote, nunca por
@@ -26,16 +27,18 @@
 
 import unicodedata
 from datetime import timedelta
-from math import ceil
 
 from django.urls import reverse
 
 from gestao_full.funcoes_auxiliares.full_estoque_ml import HORAS_PARA_DESATUALIZADO, a_caminho_dos_codigos, estoque_do_erp, estoque_full_dos_codigos, ml_dos_codigos
 from gestao_ruptura.funcoes_auxiliares import ruptura_calculo as calc
 from gestao_ruptura.funcoes_auxiliares import ruptura_estoque as full
-from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import REFERENCIA_DE_URGENCIA_PADRAO, para_url
+from gestao_ruptura.funcoes_auxiliares.ruptura_filtros import notas_dos_filtros, mlbs_permitidos, painel_do_mundo, passa_no_filtro, sem_filtros_na_url
+from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import campos_escondidos, para_url
+from gestao_ruptura.funcoes_auxiliares.ruptura_avisos import aviso, aviso_de_contagem
 from gestao_ruptura.funcoes_auxiliares.ruptura_texto import aviso_do_deposito, data, data_curta, data_do_ml, em_dias, inteiro, pct as pct_texto, plural, porque_da_urgencia_do_sistema, quantidade_do_ml, reais, un_dia
 from gestao_vendas.funcoes_auxiliares.lista_vendas_ml import unidades_do_full_por_dia
+from mercado_livre.funcoes_auxiliares.logistica_do_anuncio import logistica_e_de_fora_do_full, logistica_e_do_full
 from gestao_vendas.funcoes_auxiliares.vendas_ml import data_hora, numero, url_da_tela
 
 # (chave na URL, rótulo do botão, ajuda no "?", o que a linha é no plural, no singular)
@@ -45,8 +48,8 @@ GRANULARIDADES = [
     ('codigo', 'Código ML', 'Cada linha é um Código ML: o estoque exato dele no Full e as vendas que saíram dele. É o jeito mais preciso de olhar a ruptura.', 'Códigos ML', 'Código ML'),
 ]
 GRANULARIDADE_PADRAO = 'sku'
-# (chave do filtro de nível, rótulo do cartão, texto de apoio). Cada cartão é também o filtro: clicar mostra só aquele nível. O texto de apoio de "Baixo" e "Alto" depende do lead time e da margem
-# de segurança (baixo = dura até lead time + margem), por isso é montado por _filtros_de_nivel. O último cartão, "Divergem", não é um nível de estoque: é o filtro dos itens em que a urgência do
+# (chave do filtro de nível, rótulo do cartão, texto de apoio). Cada cartão é também o filtro: clicar mostra só aquele nível. O texto de apoio de "Baixo" e "Alto" depende do prazo e da folga
+# (baixo = dura até prazo + folga), por isso é montado por _filtros_de_nivel. O último cartão, "Divergem", não é um nível de estoque: é o filtro dos itens em que a urgência do
 # Mercado Livre e a do Sistema estão em faixas diferentes (ruptura_calculo.urgencias_divergem).
 CHAVES_DE_NIVEL = ('ruptura', 'critico', 'baixo', 'alto', 'sem_previsao', 'sem_estoque', 'divergem')
 NIVEIS_VALIDOS = ('todos',) + CHAVES_DE_NIVEL
@@ -56,7 +59,7 @@ def _filtros_de_nivel(lead, folga):
     limite = lead + folga
     return (
         ('ruptura', 'Em ruptura', 'estoque zerado no Full'),
-        ('critico', 'Crítico', 'acaba antes do lead time'),
+        ('critico', 'Crítico', 'acaba antes do prazo'),
         ('baixo', 'Baixo', f'dura até {limite} dias'),
         ('alto', 'Alto', f'dura mais de {limite} dias'),
         ('sem_previsao', 'Sem previsão', 'sem venda no ritmo ou sem dias coletados'),
@@ -78,7 +81,7 @@ RANK_DA_URGENCIA_ML = {u: i for i, u in enumerate(calc.URGENCIAS_DO_ML)}   # URG
 SEM_NUMERO_DO_ML = 9
 POR_PAGINA_OPCOES = (10, 25, 50, 100)
 POR_PAGINA_PADRAO = 25
-BARRA_EM_LEADS = 3   # a barra de cobertura enche quando o estoque dura 3 vezes o lead time (a marca na barra é o próprio lead time, a 1/3)
+BARRA_EM_LEADS = 3   # a barra de cobertura enche quando o estoque dura 3 vezes o prazo (a marca na barra é o próprio prazo, a 1/3)
 FIM_DO_TEMPO = 1e12
 LOTE_DO_A_CAMINHO = 150   # Códigos por leitura da reposição (a parte grande da consulta salva): limita a memória quando o "a caminho" é lido para a lista inteira
 
@@ -94,7 +97,7 @@ def _escolher(parametros, nome, validos, padrao):
     return valor if valor in validos else padrao
 
 
-# Função Objetivo: Lê o "A caminho" de TODOS os Códigos ML lidos da lista (só quando a opção "Considerar as unidades a caminho" está marcada: aí o número entra na cobertura de cada linha, não só
+# Função Objetivo: Lê o "A caminho" de TODOS os Códigos ML lidos da lista (só quando a opção "Contar o que está a caminho" está marcada: aí o número entra na cobertura de cada linha, não só
 # das da página). Faz uma leitura por lote de LOTE_DO_A_CAMINHO Códigos (a_caminho_dos_codigos preenche os cartões na hora); Código sem leitura do estoque fica de fora.
 def _ler_a_caminho_de_todos(cartoes):
     codigos = sorted(c for c, cartao in cartoes.items() if cartao['estado'] == 'ok')
@@ -113,6 +116,51 @@ def _janela_de_paginas(atual, total):
     return saida
 
 
+# ==================================================== quem é "do Full" ====================================================
+
+# * [EXPLICAÇÃO] → QUEM É "DO FULL" (decisão do Matheus, 12/10/2026: o Hub mostrava 887 anúncios no Full e a Previsão 1.290, "deveriam bater, é o mesmo filtro"): a MESMA regra do filtro FULL da tela Anúncios — Mercado Livre
+#                  (mercado_livre/funcoes_auxiliares/classificacao_catalogo.py). O anúncio é do Full quando a LOGÍSTICA dele é FULL (a pergunta tem UM dono: mercado_livre/funcoes_auxiliares/logistica_do_anuncio.py, que também a
+#                  tela de Vendas usa para a origem das vendas; aqui não se escreve "fulfillment" nem se compara logística) e ele NÃO é um
+#                  anúncio "fóssil" de migração de variações (o Hub sempre os ignora). Ter Código ML NÃO decide: o Código continua gravado no anúncio depois que ele sai do Full, então usá-lo como critério trazia anúncios
+#                  que já não são do Full (e deixava a conta diferente da do Hub). O Código ML serve para ler o ESTOQUE. As duas listas (Envios Full e Fora do Full) usam estas funções: nenhuma tem regra própria.
+# * [EXPLICAÇÃO] → QUEM É "FORA DO FULL" (decisão do Matheus, 12/10/2026: o Hub com as 6 logísticas que não são FULL mostrava 4.634 anúncios e a Previsão 4.676, "os números não batem"; conferido no banco real: 4.634 = 4.634): é o anúncio
+#                  com logística preenchida e diferente de FULL (hoje: Coleta, Agência, Flex Puro, Legado, Correios, Por nossa conta, as opções do filtro "Logística" do Hub), sem os fósseis. Quem não tem logística no banco não é
+#                  de nenhum dos dois mundos (o Hub também o ignora quando se filtra por logística): as listas contam esses casos num aviso, para a conta fechar.
+
+
+# Função Objetivo: O anúncio (um item de cad['anuncios'], de lista_vendas_ml._carregar_cadastro) é um "fóssil" de migração de variações? O Hub os ignora sempre: aqui eles não são nem do Full nem de fora do Full.
+def anuncio_fossil(anuncio):
+    return bool((anuncio or {}).get('fossil'))
+
+
+# Função Objetivo: O anúncio é do Full? Logística "fulfillment" e não fóssil, o mesmo critério do filtro FULL do Hub. Anúncio sem registro de tipo (sem logística conhecida) não é do Full.
+def anuncio_e_do_full(anuncio):
+    tipo = (anuncio or {}).get('tipo')
+    return bool(tipo) and logistica_e_do_full(tipo.get('tipo_logistico')) and not anuncio_fossil(anuncio)
+
+
+# Função Objetivo: O anúncio é de fora do Full? Logística preenchida e diferente de FULL e não fóssil (hoje, o mesmo que os 6 filtros de logística do Hub). Anúncio sem registro de tipo ou sem logística não é de fora do Full.
+def anuncio_e_de_fora_do_full(anuncio):
+    tipo = (anuncio or {}).get('tipo')
+    return bool(tipo) and logistica_e_de_fora_do_full(tipo.get('tipo_logistico')) and not anuncio_fossil(anuncio)
+
+
+# Função Objetivo: O aviso das listas "Produto (SKU)" (as duas, com o mesmo texto e a mesma conta): quantos anúncios do mundo (`do_mundo` = anuncio_e_do_full ou anuncio_e_de_fora_do_full) NÃO têm Produto vinculado no ERP
+# e por isso não aparecem em nenhuma linha de Produto. Devolve o aviso pronto ou None quando nenhum anúncio está nessa situação.
+# * [EXPLICAÇÃO] → A lista "Produto (SKU)" agrupa pelo SKU do Produto (cadastro em lote: `candidatos`, só anúncios com variação ligada a um Produto). O Hub agrupa também pelo SKU do Mercado Livre ou pelo próprio MLB quando não há Produto,
+#                  e conta cada um desses como "SKU": por isso o número de SKUs de lá é maior. Esses anúncios continuam na lista "Anúncio (MLB)", que bate com o Hub (decisão do Matheus, 12/10/2026: avisar).
+#                  `permitidos` (ruptura_filtros.mlbs_permitidos; None = sem filtro): com filtros do Hub ativos conta só os anúncios que passam neles, como o Hub.
+def aviso_anuncios_sem_produto(dados, do_mundo, permitidos=None):
+    cad = dados['cad']
+    n = sum(1 for mlb, a in cad['anuncios'].items() if do_mundo(a) and (permitidos is None or mlb in permitidos) and not cad['candidatos'].get(mlb))
+    if not n:
+        return None
+    um = n == 1
+    return aviso_de_contagem('info', n, 'anúncio não tem Produto vinculado no ERP', 'anúncios não têm Produto vinculado no ERP',
+                             f'{"Não aparece" if um else "Não aparecem"} em "Produto (SKU)" e {"fica" if um else "ficam"} só em "Anúncio (MLB)". '
+                             f'O Hub de Anúncios {"o conta" if um else "conta cada um deles"} como um "SKU" (pelo SKU do Mercado Livre ou pelo MLB), por isso o número de SKUs de lá é maior.')
+
+
 # ==================================================== as entidades de cada granularidade ====================================================
 
 # Função Objetivo: Uma entidade da lista (o que a linha representa), do jeito que as três granularidades usam: chave, sku (para abrir o detalhe), título, foto, selos, ids (os chips pequenos), os
@@ -122,42 +170,50 @@ def _entidade(chave, sku, titulo, subtitulo, marca, foto, selos, ids, codigos, b
             'busca': _sem_acento(' '.join(str(p) for p in busca if p)), 'titulo_ordem': _sem_acento(titulo), 'compartilha': list(compartilha)}
 
 
-# Função Objetivo: Monta as entidades da granularidade escolhida a partir do cadastro em lote (lista_vendas_ml._carregar_cadastro). Só entra quem tem pelo menos um Código ML.
-def _entidades(gran, dados):
+# Função Objetivo: Monta as entidades da granularidade escolhida a partir do cadastro em lote (lista_vendas_ml._carregar_cadastro). Só entra quem é do Full (anuncio_e_do_full): o produto (SKU) com pelo menos um anúncio do
+# Full, o anúncio (MLB) do Full e o Código ML usado por algum anúncio do Full.
+# * [EXPLICAÇÃO] → O ESTOQUE continua sendo a soma dos Códigos ML de verdade (todos os do SKU, ou todos os do MLB), tenha o anúncio do Código saído do Full ou não: o que está no depósito do Full existe e conta.
+#                  Anúncio do Full que ainda não tem Código ML no banco entra mesmo assim (é do Full pelo critério do Hub), sem estoque lido: a linha diz "sem Código ML" e cai em "Sem estoque lido".
+# * [EXPLICAÇÃO] → `permitidos` = os MLBs que os filtros do Hub deixam passar (ruptura_filtros.mlbs_permitidos; None = sem filtro). A linha só aparece se algum anúncio DELA que é do Full passa nos filtros; os números dela
+#                  (estoque, vendas, ritmo) seguem sendo os da entidade inteira, não só dos anúncios que passaram.
+def _entidades(gran, dados, permitidos=None):
     cad, produtos = dados['cad'], dados['produtos']
-    codigos_cad = cad['codigos']
+    codigos_cad, anuncios = cad['codigos'], cad['anuncios']
+    do_full = {mlb for mlb, a in anuncios.items() if anuncio_e_do_full(a)}
     entidades = []
     if gran == 'sku':
         for sku, info in cad['por_sku'].items():
-            codigos = {c for m in info['mlbs'].values() for _, c in m['variacoes'] if c}
-            if not codigos:
+            mlbs = sorted(m for m in info['mlbs'] if m in do_full)
+            if not mlbs or not passa_no_filtro(mlbs, permitidos):
                 continue
+            codigos = {c for m in info['mlbs'].values() for _, c in m['variacoes'] if c}
             produto = produtos.get(sku) or {}
-            mlbs = sorted(info['mlbs'])
             outros = sorted({s for c in codigos for s in codigos_cad[c]['skus'] if s != sku})
-            ids = [f'SKU {sku}', plural(len(mlbs), 'anúncio', 'anúncios'), plural(len(codigos), 'Código ML', 'Códigos ML')]
+            ids = [f'SKU {sku}', plural(len(mlbs), 'anúncio', 'anúncios'), plural(len(codigos), 'Código ML', 'Códigos ML') if codigos else 'sem Código ML']
             entidades.append(_entidade(sku, sku, produto.get('titulo') or '(SKU fora do cadastro de Produto)', '', produto.get('marca', ''), produto.get('imagem', ''), [], ids, codigos,
                                        [sku, produto.get('titulo'), produto.get('marca'), produto.get('ean')] + mlbs + sorted(codigos), outros))
     elif gran == 'mlb':
-        for mlb, anuncio in cad['anuncios'].items():
-            codigos = {c for _, c in anuncio['variacoes'] if c}
-            if not codigos:
+        for mlb, anuncio in anuncios.items():
+            if mlb not in do_full or not passa_no_filtro([mlb], permitidos):
                 continue
+            codigos = {c for _, c in anuncio['variacoes'] if c}
             skus = sorted(cad['candidatos'].get(mlb, {}))
             sku = skus[0] if skus else ''
             produto = produtos.get(sku) or {}
             outros_mlbs = sorted({m for c in codigos for m in codigos_cad[c]['mlbs'] if m != mlb})
-            ids = [mlb, (f'SKU {sku}' + (f' +{len(skus) - 1}' if len(skus) > 1 else '')) if sku else 'sem SKU',
-                   f'Código ML {sorted(codigos)[0]}' if len(codigos) == 1 else plural(len(codigos), 'Código ML', 'Códigos ML')]
+            codigo_txt = (f'Código ML {sorted(codigos)[0]}' if len(codigos) == 1 else plural(len(codigos), 'Código ML', 'Códigos ML')) if codigos else 'sem Código ML'
+            ids = [mlb, (f'SKU {sku}' + (f' +{len(skus) - 1}' if len(skus) > 1 else '')) if sku else 'sem SKU', codigo_txt]
             entidades.append(_entidade(mlb, sku, anuncio['titulo'] or produto.get('titulo') or 'Título indisponível', '', produto.get('marca', ''), anuncio['imagem'] or produto.get('imagem', ''),
                                        anuncio['selos'], ids, codigos, [mlb, anuncio['titulo'], sku, produto.get('marca'), produto.get('ean')] + sorted(codigos), outros_mlbs))
     else:
         for codigo, dados_do_codigo in codigos_cad.items():
+            if not (dados_do_codigo['mlbs'] & do_full) or not passa_no_filtro(dados_do_codigo['mlbs'] & do_full, permitidos):
+                continue
             skus = sorted(dados_do_codigo['skus'])
             sku = skus[0] if skus else ''
             produto = produtos.get(sku) or {}
             mlbs = sorted(dados_do_codigo['mlbs'])
-            foto = next((cad['anuncios'][m]['imagem'] for m in mlbs if cad['anuncios'].get(m, {}).get('imagem')), '') or produto.get('imagem', '')
+            foto = next((anuncios[m]['imagem'] for m in mlbs if anuncios.get(m, {}).get('imagem')), '') or produto.get('imagem', '')
             ids = [(f'SKU {sku}' + (f' +{len(skus) - 1}' if len(skus) > 1 else '')) if sku else 'sem SKU', plural(len(mlbs), 'anúncio', 'anúncios')]
             entidades.append(_entidade(codigo, sku, codigo, produto.get('titulo', ''), produto.get('marca', ''), foto, [], ids, {codigo},
                                        [codigo, produto.get('titulo'), sku, produto.get('marca'), produto.get('ean')] + mlbs, skus[1:]))
@@ -168,7 +224,7 @@ def _entidades(gran, dados):
 
 # Função Objetivo: Os números de UMA entidade: o estoque do Full (soma dos Códigos), o ritmo do Full no período e no recente, a projeção, o nível e a categoria do filtro. `cat` é uma de
 # ruptura | critico | baixo | alto | sem_previsao (sem venda no ritmo, ou nenhum dia completo) | sem_estoque (nenhum Código com estoque lido) | sem_nivel (sem lead time).
-# * [EXPLICAÇÃO] → Estoque zerado é "ruptura" mesmo sem ritmo: não há o que vender. Sem estoque LIDO nunca é ruptura (ausente não é zero). Com a opção "Considerar as unidades a caminho" marcada,
+# * [EXPLICAÇÃO] → Estoque zerado é "ruptura" mesmo sem ritmo: não há o que vender. Sem estoque LIDO nunca é ruptura (ausente não é zero). Com a opção "Contar o que está a caminho" marcada,
 #                  o "estoque" desta conta já inclui o a caminho (ruptura_estoque.estoque_para_cobertura): item zerado com unidades a caminho deixa de ser "ruptura".
 def _calcular_linha(e, gran, dados, cartoes, ctx):
     hoje = ctx['hoje']
@@ -196,9 +252,9 @@ def _calcular_linha(e, gran, dados, cartoes, ctx):
     # a sugestão do Sistema de quanto enviar (só quando há ritmo e a ruptura é calculável; sem estoque lido nunca vira "zero")
     sugestao = None
     if projecao and projecao['situacao'] in ('normal', 'zerado'):
-        sugestao = calc.sugestao_do_sistema(estoque, media, ctx['lead'], ctx['folga'], ctx['cobre'])
+        sugestao = calc.sugestao_do_sistema(estoque, media, ctx['lead'], ctx['folga'])
     # as duas urgências (Sistema e Mercado Livre) na mesma língua, para ordenar e comparar; `urg` é a da referência escolhida
-    envio = calc.envio(projecao, ctx['lead'], hoje, ctx['folga']) if projecao and projecao['situacao'] == 'normal' else None
+    envio = calc.envio(projecao, ctx['lead'], hoje, ctx['ante']) if projecao and projecao['situacao'] == 'normal' else None
     ml = full.resumir_ml(e['codigos'], cartoes)
     urg_sistema, urg_ml = calc.urgencia_do_sistema(cat, envio), ml['urgencia']
     comparacao = None
@@ -241,11 +297,11 @@ def _quantidade_do_sistema(l, ctx):
     sug, lead = l['sugestao'], ctx['lead']
     if sug is None:
         return None, ('Sem estoque lido: não há como sugerir a quantidade.' if l['cat'] == 'sem_estoque' else 'Sem ruptura prevista neste ritmo (ou sem dias coletados): não há quantidade a sugerir.')
+    folga = plural(ctx['folga'], 'dia', 'dias')
     if sug['qtd'] == 0:
-        return '0', (f'Sugestão do Sistema: nada agora. Na chegada de uma remessa (daqui a {plural(lead, "dia", "dias")}) o estoque ainda terá cerca de {numero(ceil(sug["sobra_na_chegada"]))} un, '
-                     f'mais que a meta de {numero(ceil(sug["meta"]))} un (margem de {ctx["folga"]} d + cobertura de {ctx["cobre"]} d).')
-    return numero(sug['qtd']), (f'Sugestão do Sistema: {numero(sug["qtd"])} un, cobrindo {ctx["cobre"]} d. Meta na chegada (daqui a {plural(lead, "dia", "dias")}): margem de {ctx["folga"]} d + cobertura de {ctx["cobre"]} d = '
-                                f'{numero(ceil(sug["meta"]))} un, menos {numero(ceil(sug["sobra_na_chegada"]))} un que ainda sobram.')
+        return '0', 'Sugestão do Sistema: 0 un, porque a folga está em 0 dias (a quantidade é o ritmo × a folga). Digite a folga desejada no cartão "Regras de envio".'
+    return numero(sug['qtd']), (f'Sugestão do Sistema: {numero(sug["qtd"])} un = ritmo ({un_dia(l["media"])} un/dia) × folga ({folga}). É a quantidade que acrescenta {folga} de estoque: a nova ruptura vem {folga} depois da atual '
+                                f'(ou depois da chegada, que leva {plural(lead, "dia", "dias")}, se o estoque acabar antes dela).')
 
 
 # Função Objetivo: A quantidade da referência escolhida como NÚMERO (None sem número): a do ML (numa faixa vale o começo dela; "não repor" é 0) ou a sugestão do Sistema. Serve para comparar com o depósito.
@@ -303,7 +359,7 @@ def _apresentar(l, gran, ctx, base_url):
         estoque_txt, estoque_sub, estoque_classe = '—', 'sem leitura', 'atencao'
         estoque_dica = f'Nenhum Código ML deste item tem o estoque do Full lido ({motivo}). Abra o item e clique em "Consultar no Mercado Livre" (ou faça a consulta na tela "Estoque no Full"). Sem leitura não é estoque zero: o item fica fora dos níveis.'
     else:
-        estoque_txt = numero(l['estoque'])   # com a opção "Considerar as unidades a caminho" marcada, já inclui o a caminho
+        estoque_txt = numero(l['estoque'])   # com a opção "Contar o que está a caminho" marcada, já inclui o a caminho
         estoque_classe = 'atencao' if r['estado'] == 'parcial' else ''
         if r['estado'] == 'parcial':
             estoque_sub = f'parcial {r["n_lidos"]}/{r["n_codigos"]}'
@@ -343,7 +399,7 @@ def _apresentar(l, gran, ctx, base_url):
         ruptura_txt, ruptura_sub = 'Agora', 'estoque zerado'
         enviar_txt, enviar_classe = 'Agora', 'vencido'
         enviar_sub = f'chega em {data_curta(hoje + timedelta(days=lead), hoje)}' if lead is not None else ''
-        enviar_dica = f'Estoque zerado: envie o quanto antes. Com lead time de {plural(lead, "dia", "dias")}, o produto só volta a ficar disponível em {data(hoje + timedelta(days=lead))}.'
+        enviar_dica = f'Estoque zerado: envie o quanto antes. Com prazo de {plural(lead, "dia", "dias")}, o produto só volta a ficar disponível em {data(hoje + timedelta(days=lead))}.'
         cob_dica = f'O estoque do Full está zerado{" (contando o que está a caminho)" if ctx["caminho"] else ""}: o produto já está em ruptura.'
     elif projecao and projecao['situacao'] == 'normal':
         dias_inteiros = projecao['dias']
@@ -352,21 +408,22 @@ def _apresentar(l, gran, ctx, base_url):
         barra_pct = min(100, round(l['dias_exatos'] / referencia * 100))
         ruptura_txt, ruptura_sub = data_curta(projecao['data'], hoje), em_dias(dias_inteiros)
         envio = l['envio']
-        regra = f'ruptura − lead time ({lead} d) − margem de segurança ({ctx["folga"]} d)'
+        regra = f'ruptura − prazo ({lead} d) − chegar antes ({ctx["ante"]} d)'
         if envio and envio['estado'] == 'vencido':
             enviar_txt, enviar_classe, enviar_sub = 'Atrasado', 'vencido', f'vão faltar {envio["faltam_dias"]} d'
             enviar_dica = (f'O último dia para enviar foi {data(envio["ultimo_dia"])}: enviando hoje o produto só fica disponível em {data(envio["chegada"])} '
                            f'e vão faltar cerca de {plural(envio["faltam_dias"], "dia", "dias")} de estoque.')
         elif envio and envio['estado'] == 'ja':
-            enviar_txt, enviar_classe, enviar_sub = 'Enviar já', 'alerta', f'chega c/ {envio["folga_na_chegada"]} d de folga'
-            enviar_dica = (f'A data recomendada ({data(envio["enviar_ate"])} = {regra}) já passou, mas ainda dá tempo: enviando hoje, o produto chega em {data(envio["chegada"])} com '
-                           f'{plural(envio["folga_na_chegada"], "dia", "dias")} de estoque sobrando (a margem é de {ctx["folga"]} d). O último dia possível é {data(envio["ultimo_dia"])}.')
+            sobra = envio['sobra_na_chegada']
+            enviar_txt, enviar_classe, enviar_sub = 'Enviar já', 'alerta', 'chega no dia da ruptura' if sobra == 0 else f'chega {sobra} d antes'
+            enviar_dica = (f'A data recomendada ({data(envio["enviar_ate"])} = {regra}) já passou, mas ainda dá tempo: enviando hoje, o produto chega em {data(envio["chegada"])}, '
+                           f'{"no próprio dia da ruptura" if sobra == 0 else plural(sobra, "dia", "dias") + " antes da ruptura"} (o desejado é chegar {ctx["ante"]} d antes). O último dia possível é {data(envio["ultimo_dia"])}.')
         elif envio:
             enviar_txt = data_curta(envio['enviar_ate'], hoje)
             enviar_sub, enviar_classe = ('hoje, último dia', 'alerta') if envio['estado'] == 'hoje' else (em_dias(envio['em_dias']), '')
-            enviar_dica = f'Data recomendada para enviar: {data(envio["enviar_ate"])} = {regra}. O último dia possível (sem margem) é {data(envio["ultimo_dia"])}.'
+            enviar_dica = f'Data recomendada para enviar: {data(envio["enviar_ate"])} = {regra}. O último dia possível (chegando em cima da ruptura) é {data(envio["ultimo_dia"])}.'
         cob_dica = (f'O estoque considerado{" (com as unidades a caminho)" if ctx["caminho"] else ""} ({numero(l["estoque"])} un) dura cerca de {plural(dias_inteiros, "dia", "dias")} no ritmo de {un_dia(media)} un/dia. '
-                    f'A marca na barra é o lead time ({plural(lead, "dia", "dias")}); a barra enche com {BARRA_EM_LEADS}× o lead time.')
+                    f'A marca na barra é o prazo até vender ({plural(lead, "dia", "dias")}); a barra enche com {BARRA_EM_LEADS}× o prazo.')
     elif cat == 'sem_previsao':
         cob_txt = '—'
         if media is None:
@@ -427,10 +484,10 @@ def _apresentar(l, gran, ctx, base_url):
 # ==================================================== a lista ====================================================
 
 # Função Objetivo: Tudo da lista a partir da query string. Parâmetros: gran (sku|mlb|codigo), q (busca), nivel (todos|ruptura|critico|baixo|alto|sem_previsao|sem_estoque|divergem), ord, por e pag; o ritmo
-# (dias), o lead time, a margem de segurança, os dias que a remessa cobre, a opção "Considerar as unidades a caminho" (caminho=1) e as referências (ref_urg, ref_qtd) chegam já lidos em `comuns`
-# (ruptura_pagina). Parâmetro inválido volta ao padrão. Qualquer mudança de filtro, busca ou ordem volta para a página 1.
+# (dias), o prazo, os dias para chegar antes da ruptura, a folga, a opção "Contar o que está a caminho" (caminho=1) e as referências (ref_urg, ref_qtd) chegam já lidos em `comuns`
+# (ruptura_parametros, mundo Full). Parâmetro inválido volta ao padrão. Qualquer mudança de filtro, busca ou ordem volta para a página 1.
 def montar_lista(parametros, base_url, hoje, comuns):
-    dias, lead, folga, cobre, recente, caminho = comuns['dias'], comuns['lead'], comuns['folga'], comuns['cobre'], comuns['recente'], comuns['caminho']
+    dias, lead, ante, folga, recente, caminho = comuns['dias'], comuns['lead'], comuns['ante'], comuns['folga'], comuns['recente'], comuns['caminho']
     por_chave = {g[0]: g for g in GRANULARIDADES}
     gran = _escolher(parametros, 'gran', por_chave, GRANULARIDADE_PADRAO)
     _, _, ajuda, unidade_plural, unidade_singular = por_chave[gran]
@@ -443,16 +500,16 @@ def montar_lista(parametros, base_url, hoje, comuns):
 
     ref_urg = comuns['ref_urg']
     ref_qtd = 'sistema' if comuns['ref_qtd'] == 'manual' else comuns['ref_qtd']   # a lista não tem quantidade digitada: "Minha quantidade" só existe no detalhe de um item
-    padroes = {'gran': GRANULARIDADE_PADRAO, 'dias': calc.DIAS_PADRAO, 'lead': calc.LEAD_TIME_PADRAO, 'margem': calc.MARGEM_PADRAO_PCT, 'cobre': None, 'nivel': 'todos', 'ord': 'urgencia',
-               'por': POR_PAGINA_PADRAO, 'pag': 1, 'caminho': 0, 'ref_urg': REFERENCIA_DE_URGENCIA_PADRAO, 'ref_qtd': 'sistema'}
+    padroes = {'gran': GRANULARIDADE_PADRAO, 'nivel': 'todos', 'ord': 'urgencia', 'por': POR_PAGINA_PADRAO, 'pag': 1}
 
+    # * [EXPLICAÇÃO] → O endereço leva só o que a pessoa mudou: o que é da lista (Ver por, busca, nível, ordem, itens por página e página) sai daqui e as regras (ritmo, prazo, chegar antes, folga, "a caminho" e as
+    #                  referências, dos dois mundos) saem de ruptura_parametros.para_url, a mesma fonte do detalhe.
     def parametros_da_url(mudancas):
-        atuais = {'gran': gran, 'dias': dias, 'lead': lead, 'margem': comuns['margem'], 'cobre': comuns['cobre_digitado'], 'q': texto, 'nivel': filtro, 'ord': ordem, 'por': por,
-                  'pag': numero_da_pagina, 'caminho': 1 if caminho else 0, 'ref_urg': ref_urg, 'ref_qtd': ref_qtd}
+        atuais = {'gran': gran, 'q': texto, 'nivel': filtro, 'ord': ordem, 'por': por, 'pag': numero_da_pagina}
         atuais.update(mudancas)
         if 'pag' not in mudancas:
             atuais['pag'] = 1
-        return {k: (None if v == padroes.get(k) else v) for k, v in atuais.items()}
+        return {**{k: (None if v == padroes.get(k) else v) for k, v in atuais.items()}, **para_url(comuns)}
 
     def url(**mudancas):
         return url_da_tela(base_url, **parametros_da_url(mudancas))
@@ -462,10 +519,11 @@ def montar_lista(parametros, base_url, hoje, comuns):
     dados = unidades_do_full_por_dia(de, hoje)
     estados = dados['estados']
     jan_p = [hoje - timedelta(days=i) for i in range(dias, -1, -1)]
-    ctx = {'hoje': hoje, 'dias': dias, 'recente': recente, 'lead': lead, 'folga': folga, 'cobre': cobre, 'comuns': comuns, 'caminho': caminho, 'de': hoje - timedelta(days=dias), 'mesmo_ritmo': dias <= recente,
+    ctx = {'hoje': hoje, 'dias': dias, 'recente': recente, 'lead': lead, 'ante': ante, 'folga': folga, 'comuns': comuns, 'caminho': caminho, 'de': hoje - timedelta(days=dias), 'mesmo_ritmo': dias <= recente,
            'ref_urg': ref_urg, 'ref_qtd': ref_qtd,
            'jan_p': jan_p, 'jan_r': [hoje - timedelta(days=i) for i in range(recente, -1, -1)], 'completos_p': {d for d in jan_p if estados.get(d) == 'ok'}}
-    entidades = _entidades(gran, dados)
+    permitidos = mlbs_permitidos(comuns)   # os filtros do Hub: None = sem filtro ativo (nada é lido do Hub)
+    entidades = _entidades(gran, dados, permitidos)
     cartoes = estoque_full_dos_codigos(sorted(set().union(*(e['codigos'] for e in entidades)))) if entidades else {}
     if caminho:
         _ler_a_caminho_de_todos(cartoes)   # o a caminho entra na cobertura de CADA linha (muda nível e ordem): lido para todos os Códigos, em lotes
@@ -505,44 +563,77 @@ def montar_lista(parametros, base_url, hoje, comuns):
     n_sem_consulta = sum(1 for c in cartoes.values() if c['estado'] == 'sem_consulta')
     n_erro = sum(1 for c in cartoes.values() if c['estado'] == 'erro')
     n_antigas = sum(1 for c in cartoes.values() if c['estado'] == 'ok' and c['desatualizado'])
+    # * [EXPLICAÇÃO] → Todo aviso nasce em ruptura_avisos.py (aviso / aviso_de_contagem) e a caixa os ordena por gravidade: aqui só se diz O QUE aconteceu (título curto + número), O QUE ISSO CAUSA (texto) e, se der, ONDE resolver (link).
+    link_estoque = reverse('gestao_full_estoque')
     avisos = []
     if not coletado_em:
-        avisos.append({'classe': 'aviso', 'texto': f'Nenhum dia dos últimos {dias} foi coletado da conta toda: sem ritmo de vendas, os itens ficam em "Sem previsão". Colete o período na tela de Vendas.'})
+        avisos.append(aviso('aviso', f'Nenhum dia dos últimos {dias} foi coletado da conta toda', 'Sem ritmo de vendas, os itens ficam em "Sem previsão". Colete o período na tela de Vendas.'))
     elif n_ok < dias:
-        avisos.append({'classe': 'aviso', 'texto': f'Só {n_ok} dos últimos {dias} dias estão completos na coleta da conta toda: a média usa só esses dias (hoje e dias parciais ficam de fora).'})
+        avisos.append(aviso('aviso', 'dias completos na coleta de vendas da conta toda', 'A média usa só os dias completos (hoje e dias parciais ficam de fora).', numero_texto=f'{n_ok}/{dias}'))
     if n_sem_consulta:
-        avisos.append({'classe': 'aviso', 'texto': f'{numero(n_sem_consulta)} de {numero(len(cartoes))} Códigos ML ainda não têm consulta de estoque salva: os itens deles ficam em "Sem estoque lido" '
-                                                   f'(ou "Estoque parcial"). Faça a consulta na tela "Estoque no Full".', 'link': reverse('gestao_full_estoque'), 'link_texto': 'Abrir Estoque no Full'})
+        avisos.append(aviso_de_contagem('aviso', n_sem_consulta, 'Código ML ainda sem consulta de estoque salva', 'Códigos ML ainda sem consulta de estoque salva',
+                                        f'Total na lista: {numero(len(cartoes))}. Os itens {"dele ficam" if n_sem_consulta == 1 else "deles ficam"} em "Sem estoque lido" (ou "Estoque parcial"). Faça a consulta na tela "Estoque no Full".',
+                                        link_estoque, 'Abrir Estoque no Full'))
     if n_erro:
-        avisos.append({'classe': 'aviso', 'texto': f'{numero(n_erro)} Códigos ML tiveram erro na última consulta de estoque: não entram na soma (ficam "parciais" ou "sem estoque lido").'})
+        avisos.append(aviso_de_contagem('aviso', n_erro, 'Código ML com erro na última consulta de estoque', 'Códigos ML com erro na última consulta de estoque',
+                                        f'{"Ele não entra" if n_erro == 1 else "Eles não entram"} na soma: os itens ficam "parciais" ou "sem estoque lido". Refaça a consulta na tela "Estoque no Full".',
+                                        link_estoque, 'Abrir Estoque no Full'))
     if n_antigas:
-        avisos.append({'classe': 'info', 'texto': f'{numero(n_antigas)} Códigos ML têm a consulta de estoque com mais de {HORAS_PARA_DESATUALIZADO} h: o estoque deles pode ter mudado desde então.'})
+        avisos.append(aviso_de_contagem('info', n_antigas, 'Código ML com consulta de estoque antiga', 'Códigos ML com consulta de estoque antiga',
+                                        f'A consulta {"dele" if n_antigas == 1 else "deles"} tem mais de {HORAS_PARA_DESATUALIZADO} h: o estoque pode ter mudado desde então. Atualize na tela "Estoque no Full".', link_estoque, 'Abrir Estoque no Full'))
     if ref_urg == 'ml' or ref_qtd == 'ml':
         n_sem_ml = sum(1 for l in todas if l['ml']['estado'] == 'sem_dados')
         if n_sem_ml:
-            avisos.append({'classe': 'aviso', 'texto': f'{numero(n_sem_ml)} {unidade_plural} não têm a recomendação do Mercado Livre (sem consulta de reposição salva ou com erro): ficam "sem número do ML", '
-                                                       f'nunca zero, e vão para o fim da ordem de urgência. A recomendação vem da mesma consulta da tela "Estoque no Full".', 'link': reverse('gestao_full_estoque'), 'link_texto': 'Abrir Estoque no Full'})
+            avisos.append(aviso_de_contagem('aviso', n_sem_ml, f'{unidade_singular} sem a recomendação do Mercado Livre', f'{unidade_plural} sem a recomendação do Mercado Livre',
+                                            f'Sem consulta de reposição salva (ou com erro): {"fica" if n_sem_ml == 1 else "ficam"} "sem número do ML", nunca zero, e {"vai" if n_sem_ml == 1 else "vão"} para o fim da ordem de urgência. '
+                                            f'A recomendação vem da mesma consulta da tela "Estoque no Full".', link_estoque, 'Abrir Estoque no Full'))
     if caminho:
         n_sem_caminho = sum(1 for c in cartoes.values() if c['estado'] == 'ok' and c.get('a_caminho') is None)
         if n_sem_caminho:
-            avisos.append({'classe': 'info', 'texto': f'{numero(n_sem_caminho)} Códigos ML não têm o número de "a caminho" (sem consulta de reposição salva, com erro ou sem conta que feche): neles só entra o estoque do Full.'})
+            avisos.append(aviso_de_contagem('info', n_sem_caminho, 'Código ML sem o número de "a caminho"', 'Códigos ML sem o número de "a caminho"',
+                                            'Sem consulta de reposição salva, com erro ou sem conta que feche: neles só entra o estoque do Full.'))
     if gran == 'mlb':
         n_compartilhados = sum(1 for e in entidades if e['compartilha'])
         if n_compartilhados:
-            avisos.append({'classe': 'info', 'texto': f'{numero(n_compartilhados)} anúncios dividem o Código ML com outro anúncio (selo "Estoque compartilhado"): o estoque é o mesmo, mas aqui só entram as vendas de cada anúncio.'})
-    if gran in ('sku', 'mlb'):
-        cad = dados['cad']
-        sem_codigo = (sum(1 for info in cad['por_sku'].values() if not any(c for m in info['mlbs'].values() for _, c in m['variacoes'])) if gran == 'sku'
-                      else sum(1 for a in cad['anuncios'].values() if not any(c for _, c in a['variacoes'])))
-        if sem_codigo:
-            avisos.append({'classe': 'info', 'texto': f'{numero(sem_codigo)} {unidade_plural} sem Código ML não aparecem aqui: sem Código ML não são Full, então não há estoque do Full para projetar.'})
+            avisos.append(aviso_de_contagem('info', n_compartilhados, 'anúncio divide o Código ML com outro anúncio', 'anúncios dividem o Código ML com outro anúncio',
+                                            'Selo "Estoque compartilhado": o estoque é o mesmo, mas aqui só entram as vendas de cada anúncio.'))
+    if gran == 'sku':
+        aviso_sem_produto = aviso_anuncios_sem_produto(dados, anuncio_e_do_full, permitidos)
+        if aviso_sem_produto:
+            avisos.append(aviso_sem_produto)
+    # * [EXPLICAÇÃO] → A conta com o Hub, em ANÚNCIOS (MLBs) seja qual for o "Ver por": quantos anúncios têm Código ML no banco mas não entram (já não são do Full, ou são fósseis de migração) e quantos anúncios do Full ainda
+    #                  não têm Código ML (entram, sem estoque lido). Assim a diferença para qualquer número antigo se explica na própria tela.
+    # * [EXPLICAÇÃO] → A MESMA BASE de todos os avisos da caixa (decisão do Matheus, 12/10/2026: com o filtro "Ativo" os avisos de consulta antiga e de Código compartilhado caíram, mas estes dois seguiam contando a conta toda):
+    #                  com filtros do Hub ativos, só contam os anúncios que passam neles (`permitidos`), como as linhas da lista e o aviso de "sem Produto". O Hub nunca deixa um fóssil passar num filtro, então com filtro
+    #                  ativo os fósseis não entram na conta. Só "dias completos na coleta" é da conta toda (as vendas são coletadas por dia, não por anúncio) e o próprio título diz isso.
+    n_ja_nao_full = n_fossil = n_full_sem_codigo = 0
+    for mlb, a in dados['cad']['anuncios'].items():
+        if permitidos is not None and mlb not in permitidos:
+            continue
+        tem_codigo = any(c for _, c in a['variacoes'])
+        if anuncio_fossil(a):
+            n_fossil += 1 if tem_codigo else 0
+        elif not anuncio_e_do_full(a):
+            n_ja_nao_full += 1 if tem_codigo else 0
+        elif not tem_codigo:
+            n_full_sem_codigo += 1
+    n_de_fora = n_ja_nao_full + n_fossil
+    if n_de_fora:
+        partes = ([f'{plural(n_ja_nao_full, "já não é do Full", "já não são do Full")} (a logística de hoje é diferente de FULL)'] if n_ja_nao_full else []) \
+                 + ([f'{plural(n_fossil, "é anúncio fóssil de migração", "são anúncios fósseis de migração")}'] if n_fossil else [])
+        avisos.append(aviso_de_contagem('info', n_de_fora, 'anúncio com Código ML no banco fica de fora', 'anúncios com Código ML no banco ficam de fora',
+                                        'Motivo: ' + ' e '.join(partes) + '. É o mesmo critério do filtro FULL da tela Anúncios — Mercado Livre.'))
+    if n_full_sem_codigo:
+        avisos.append(aviso_de_contagem('aviso', n_full_sem_codigo, 'anúncio do Full ainda sem Código ML no banco', 'anúncios do Full ainda sem Código ML no banco',
+                                        f'{"Ele fica" if n_full_sem_codigo == 1 else "Eles ficam"} em "Sem estoque lido". O Código ML vem da importação dos anúncios (popular_banco).'))
 
     ordens = [{'rotulo': rotulo, 'url': url(**{'ord': chave}), 'ativo': chave == ordem} for chave, rotulo in ORDENS]
-    ocultos = [{'nome': k, 'valor': v} for k, v in parametros_da_url({}).items() if v not in (None, '') and k not in ('q', 'dias', 'lead', 'margem', 'cobre', 'pag', 'caminho', 'ref_urg', 'ref_qtd')]   # os campos do formulário (ritmo, lead time, margem, cobre, caminho e as referências) não viram campo escondido
+    # os campos escondidos do formulário: o que é da lista (Ver por, nível, ordem, itens por página) + o que é do outro mundo; os campos visíveis (busca, ritmo, prazo, chegar antes, folga, caminho e as referências) não viram campo escondido
+    ocultos = [{'nome': k, 'valor': v} for k, v in {'gran': gran, 'nivel': filtro, 'ord': ordem, 'por': por}.items() if v != padroes.get(k)] + campos_escondidos(comuns)
     return {
         'gran': gran, 'ajuda': ajuda, 'texto': texto, 'ocultos': ocultos,
         'granularidades': [{'chave': g[0], 'rotulo': g[1], 'ativo': g[0] == gran, 'url': url(gran=g[0], nivel='todos')} for g in GRANULARIDADES],
-        'contexto': (f'Ritmo dos últimos {dias} dias (de {data(ctx["de"])} até hoje) · só as vendas que saíram do Full · lead time de {plural(lead, "dia", "dias")} · margem de {plural(folga, "dia", "dias")}'
+        'contexto': (f'Ritmo dos últimos {dias} dias (de {data(ctx["de"])} até hoje) · só as vendas que saíram do Full · prazo de {plural(lead, "dia", "dias")} · chegar {plural(ante, "dia", "dias")} antes · folga de {plural(folga, "dia", "dias")}'
                      + (' · estoque com as unidades a caminho' if caminho else '')
                      + f' · urgência: {"Mercado Livre" if ref_urg == "ml" else "Sistema"}'),
         'cobertura': {'n_completos': n_ok, 'n_dias': dias, 'tudo_completo': n_ok >= dias, 'nada_coletado': not coletado_em, 'ultima': data_hora(coletado_em) if coletado_em else ''},
@@ -550,6 +641,7 @@ def montar_lista(parametros, base_url, hoje, comuns):
         'ordens': ordens, 'por_pagina': [{'rotulo': str(p), 'url': url(por=p), 'ativo': p == por} for p in POR_PAGINA_OPCOES],
         'total_texto': f'{numero(total)} {unidade_singular if total == 1 else unidade_plural} com os filtros atuais', 'coluna_nome': por_chave[gran][1], 'linhas': linhas, 'vazio': total == 0,
         'filtros_ativos': bool(texto or filtro != 'todos'), 'url_limpar_tudo': url(q='', nivel='todos'),
+        'painel': painel_do_mundo(comuns, url_da_tela(base_url, **sem_filtros_na_url(parametros_da_url({})))), 'notas_filtros': notas_dos_filtros(comuns, gran, unidade_plural),
         'paginacao': {
             'numero': pagina_atual, 'total_paginas': total_paginas,
             'texto': 'Nenhum item' if not total else f'Mostrando {numero(ini + 1)}–{numero(fim)} de {numero(total)} {unidade_plural}',

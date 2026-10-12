@@ -1,0 +1,24 @@
+{% comment %}
+    * [RESUMO] → A paginação das listas da tela "Previsão de Ruptura de estoque" (a mesma dos dois mundos). Recebe "lista" (lista.paginacao: texto, janela de páginas, anterior e próxima); tudo é link normal (GET).
+{% endcomment %}<nav class="lista-paginacao rup-l-paginacao" aria-label="Páginas">
+    <span>{{ lista.paginacao.texto }}</span>
+    {% if lista.paginacao.total_paginas > 1 %}
+        <div class="lista-paginacao-botoes">
+            {% if lista.paginacao.url_anterior %}
+                <a href="{{ lista.paginacao.url_anterior }}" class="lista-paginacao-botao" rel="prev"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</a>
+            {% else %}
+                <span class="lista-paginacao-botao" aria-disabled="true"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</span>
+            {% endif %}
+            {% for j in lista.paginacao.janela %}
+                {% if j.reticencias %}<span class="rup-l-reticencias" aria-hidden="true">…</span>
+                {% elif j.atual %}<span class="lista-paginacao-botao rup-l-pag rup-l-pag--atual" aria-current="page">{{ j.numero }}</span>
+                {% else %}<a href="{{ j.url }}" class="lista-paginacao-botao rup-l-pag" aria-label="Página {{ j.numero }}">{{ j.numero }}</a>{% endif %}
+            {% endfor %}
+            {% if lista.paginacao.url_proxima %}
+                <a href="{{ lista.paginacao.url_proxima }}" class="lista-paginacao-botao" rel="next">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+            {% else %}
+                <span class="lista-paginacao-botao" aria-disabled="true">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
+            {% endif %}
+        </div>
+    {% endif %}
+</nav>

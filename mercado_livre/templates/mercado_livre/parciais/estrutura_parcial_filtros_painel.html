@@ -1,0 +1,223 @@
+{% comment %}
+    * [RESUMO] → O painel "Filtros" do Hub de Anúncios (o <details> com um cartão por filtro e os botões "Aplicar filtros" e "Limpar filtros"), compartilhado pelo Hub de Anúncios e pela Previsão de Ruptura de estoque: um painel só, nas duas telas.
+      Recebe "painel" (mercado_livre/funcoes_auxiliares/filtros_do_hub.contexto_do_painel). DEVE ficar dentro de um <form method="get">: os checkboxes e o botão "Aplicar filtros" são desse formulário.
+    * [EXPLICAÇÃO] → painel.escondidos: filtros que a tela não usa (o cartão some). Estilo: static/mercado_livre/css/layout_filtros_hub.css; a busca dentro de cada cartão: static/mercado_livre/js/script_filtros_hub.js.
+{% endcomment %}<details class="hub-filtros">
+    <summary class="hub-filtros-titulo">
+        <i class="fas fa-filter"></i> Filtros
+        {% if painel.tem_filtro_ativo %}
+            <span class="hub-filtros-ativo-indicador"></span>
+        {% endif %}
+    </summary>
+    <div class="hub-filtros-grid">
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Marca</span>
+            <input type="text"
+                   class="filtro-busca-interna"
+                   placeholder="Buscar marca...">
+            <div class="filtro-opcoes-lista">
+                {% for marca in painel.marcas_disponiveis %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox"
+                               name="marca"
+                               value="{{ marca }}"
+                               {% if marca in painel.filtros.marcas %}checked{% endif %}>
+                        <span>{{ marca }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Situação do anúncio</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for opcao in painel.opcoes_status %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox"
+                               name="status"
+                               value="{{ opcao.valor }}"
+                               {% if opcao.valor in painel.filtros.status %}checked{% endif %}>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Tipo de anúncio</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for opcao in painel.opcoes_tipo_anuncio %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox"
+                               name="tipo_anuncio"
+                               value="{{ opcao.valor }}"
+                               {% if opcao.valor in painel.filtros.tipos_anuncio %}checked{% endif %}>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% if 'tipos_logisticos' not in painel.escondidos %}
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Logística</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for opcao in painel.opcoes_logistica %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox"
+                               name="logistica"
+                               value="{{ opcao.valor }}"
+                               {% if opcao.valor in painel.filtros.tipos_logisticos %}checked{% endif %}>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Flex</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="flex"
+                           value="sim"
+                           {% if 'sim' in painel.filtros.flex %}checked{% endif %}>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=painel.badge_flex_ativo %}
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="flex"
+                           value="nao"
+                           {% if 'nao' in painel.filtros.flex %}checked{% endif %}>
+                    {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=painel.badge_flex_inativo %}
+                </label>
+            </div>
+        </div>
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Situação do catálogo</span>
+            <div class="filtro-opcoes-lista">
+                {% for opcao in painel.opcoes_catalogo %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox"
+                               name="catalogo"
+                               value="{{ opcao.valor }}"
+                               {% if opcao.valor in painel.filtros.catalogos %}checked{% endif %}>
+                        {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=opcao %}
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% if 'estoque' not in painel.escondidos %}
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Estoque</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="estoque"
+                           value="com"
+                           {% if 'com' in painel.filtros.estoque %}checked{% endif %}>
+                    <span>Com estoque</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="estoque"
+                           value="sem"
+                           {% if 'sem' in painel.filtros.estoque %}checked{% endif %}>
+                    <span>Sem estoque</span>
+                </label>
+            </div>
+        </div>
+        {% endif %}
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Desconto</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="desconto"
+                           value="com"
+                           {% if 'com' in painel.filtros.desconto %}checked{% endif %}>
+                    <span>Com desconto ativo</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="desconto"
+                           value="sem"
+                           {% if 'sem' in painel.filtros.desconto %}checked{% endif %}>
+                    <span>Sem desconto</span>
+                </label>
+            </div>
+        </div>
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Faixa de score</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="score"
+                           value="bom"
+                           {% if 'bom' in painel.filtros.faixas_score %}checked{% endif %}>
+                    <span>Bom</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="score"
+                           value="medio"
+                           {% if 'medio' in painel.filtros.faixas_score %}checked{% endif %}>
+                    <span>Médio</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="score"
+                           value="ruim"
+                           {% if 'ruim' in painel.filtros.faixas_score %}checked{% endif %}>
+                    <span>Ruim</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="score"
+                           value="sem_dados"
+                           {% if 'sem_dados' in painel.filtros.faixas_score %}checked{% endif %}>
+                    <span>Sem dados</span>
+                </label>
+            </div>
+        </div>
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Situação de competição</span>
+            <input type="text" class="filtro-busca-interna" placeholder="Buscar...">
+            <div class="filtro-opcoes-lista">
+                {% for valor, label in painel.opcoes_situacao_competicao %}
+                    <label class="filtro-opcao">
+                        <input type="checkbox"
+                               name="competicao"
+                               value="{{ valor }}"
+                               {% if valor in painel.filtros.situacoes_competicao %}checked{% endif %}>
+                        <span>{{ label }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="filtro-grupo">
+            <span class="filtro-grupo-titulo">Conexão com ERP</span>
+            <div class="filtro-opcoes-lista">
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="conexao_erp"
+                           value="com"
+                           {% if 'com' in painel.filtros.conexao_erp %}checked{% endif %}>
+                    <span>Com conexão ERP</span>
+                </label>
+                <label class="filtro-opcao">
+                    <input type="checkbox"
+                           name="conexao_erp"
+                           value="sem"
+                           {% if 'sem' in painel.filtros.conexao_erp %}checked{% endif %}>
+                    <span>Sem conexão ERP</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="hub-filtros-acoes">
+        <button type="submit" class="btn-acao">Aplicar filtros</button>
+        <a href="{{ painel.url_limpar }}"
+           class="btn-limpar-filtros">Limpar filtros</a>
+    </div>
+</details>

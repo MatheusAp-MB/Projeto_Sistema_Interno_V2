@@ -159,7 +159,9 @@ class _Conta:
 # Função Objetivo: O cadastro de TODOS os anúncios numa consulta só (a tela do produto, carregar_produto, faz isso para 1 SKU; aqui é para todos de uma vez).
 # Devolve: por_sku {sku: {'mlbs': {mlb: {'titulo', 'tipo', 'variacoes': [(variacao_id, Código ML)]}}}} (o MESMO formato de carregar_produto, para o
 # codigo_do_item dar o mesmo resultado), candidatos {mlb: {sku: {variacao_id}}} (para o pedido sem seller_sku), anuncios {mlb: {'titulo', 'tipo',
-# 'variacoes', 'imagem', 'link', 'selos'}} (todas as variações do MLB, de qualquer SKU; foto, link e selos para o cartão do anúncio) e codigos {Código ML: {'mlbs', 'skus'}}.
+# 'variacoes', 'imagem', 'link', 'selos', 'fossil'}} (todas as variações do MLB, de qualquer SKU; foto, link e selos para o cartão do anúncio) e codigos {Código ML: {'mlbs', 'skus'}}.
+# * [EXPLICAÇÃO] → `fossil` é o eh_fossil_migracao do anúncio (o Hub de Anúncios sempre os ignora). Esta função continua devolvendo TODOS os anúncios, fósseis também: a tela de Vendas precisa deles para ligar uma venda antiga
+#                  ao SKU. Quem decide ignorá-los é a Previsão de Ruptura (gestao_ruptura: ruptura_lista.anuncio_e_do_full e anuncio_fossil, a regra única das duas listas).
 def _carregar_cadastro():
     por_sku, anuncios = {}, {}
     candidatos = defaultdict(dict)
@@ -173,7 +175,7 @@ def _carregar_cadastro():
         if item is None:
             dados = _dados_do_anuncio(v.anuncio)
             item = anuncios[mlb] = {'titulo': dados['titulo'], 'tipo': dados['tipo'], 'variacoes': [], 'imagem': '', 'link': dados['link'],
-                                    'selos': _selos_do_anuncio(dados['tipo'])}
+                                    'selos': _selos_do_anuncio(dados['tipo']), 'fossil': bool(v.anuncio.eh_fossil_migracao)}
         # * [EXPLICAÇÃO] → A foto é do anúncio: vale a da primeira variação que tiver (imagem principal; sem ela, a miniatura), como no Hub e no painel do dia.
         if not item['imagem']:
             item['imagem'] = _url_segura(v.imagem_principal_url) or _url_segura(v.thumbnail_url)
@@ -310,6 +312,8 @@ def _calcular(periodo, hoje):
     }
 
 
+# (12/10/2026) GENERALIZADA: `origem` = 'full' ou 'fora' (a decisão única de classificar_origem; "Sem origem informada" não entra em nenhuma). Serve à lista dos DOIS mundos da tela "Previsão de Ruptura de estoque":
+# ENVIOS FULL (origem 'full', pelo atalho `unidades_do_full_por_dia`, logo abaixo) e FORA DO FULL (origem 'fora'). O texto a seguir foi escrito para o Full e vale igual para a origem escolhida.
 # Função Objetivo: As unidades que SAÍRAM DO FULL por dia, de TODOS os produtos de uma vez, para quem precisa do RITMO de vendas do Full em lista (hoje: a lista da tela "Ruptura de
 # estoque", app gestao_ruptura): por Produto (SKU), por Anúncio (MLB) e por Código ML. LÊ SÓ DO BANCO (nunca chama o Mercado Livre) e usa as MESMAS regras da lista de vendas: venda
 # cancelada não conta; "Full" é o que classificar_origem decide (a regra única de origem); o SKU e o Código ML de cada venda vêm de _atribuir; "ausente não é zero" (o estado de cada dia).
@@ -317,7 +321,7 @@ def _calcular(periodo, hoje):
 # 'sem_dado'}), `coletado_em` (a coleta mais recente da conta toda; None se nada foi coletado), `cad` (o cadastro de _carregar_cadastro) e `produtos` ({sku: título, marca, foto...}).
 # * [EXPLICAÇÃO] → Mesmo custo da lista de vendas: 1 consulta do cadastro, 1 das vendas do período (só as colunas necessárias) e 1 dos produtos. Nenhuma consulta por SKU ou por MLB.
 # * [EXPLICAÇÃO] → A cobertura é a da CONTA TODA (como na lista de vendas): se um produto foi atualizado sozinho além do que a conta toda coletou, os dias extras dele não contam aqui.
-def unidades_do_full_por_dia(de, hoje):
+def unidades_por_dia_da_origem(de, hoje, origem):
     dias_do_periodo = [de + timedelta(days=i) for i in range((hoje - de).days + 1)]
     cob = cobertura(carregar_coletas(de, hoje), [], de, hoje)
     estados = {d: _estado_do_dia(d, cob) for d in dias_do_periodo}
@@ -330,7 +334,7 @@ def unidades_do_full_por_dia(de, hoje):
     linhas = (VendaItemMercadoLivre.objects.filter(dia_venda__range=(de, hoje)).exclude(status=STATUS_CANCELADO)
               .values_list('seller_sku', 'mlb', 'variation_id', 'quantidade', 'preco_unitario', 'dia_venda', 'node_id', 'store_id'))
     for seller_sku, mlb, variation_id, qtd, preco, dia, node_id, store_id in linhas:
-        if classificar_origem(node_id, store_id, no_proprio, mlb in fora_pela_logistica) != 'full':
+        if classificar_origem(node_id, store_id, no_proprio, mlb in fora_pela_logistica) != origem:
             continue
         chave = (seller_sku, mlb, variation_id)
         if chave not in memo:
@@ -341,6 +345,11 @@ def unidades_do_full_por_dia(de, hoje):
             if preco is not None:
                 fat[gran][valor][dia] += preco * qtd
     return {'dias': dias, 'fat': fat, 'estados': estados, 'coletado_em': max(cob.values()) if cob else None, 'cad': cad, 'produtos': _carregar_produtos(set(cad['por_sku']))}
+
+
+# Função Objetivo: O atalho do Full: as unidades que SAÍRAM DO FULL por dia (unidades_por_dia_da_origem com origem 'full'). É o que a lista do mundo ENVIOS FULL da tela "Previsão de Ruptura de estoque" usa.
+def unidades_do_full_por_dia(de, hoje):
+    return unidades_por_dia_da_origem(de, hoje, 'full')
 
 
 # Função Objetivo: Os números de uma conta já prontos para ordenar, filtrar e mostrar: unidades, pedidos, faturamento, Full, fora, média por dia e "vs. anterior".

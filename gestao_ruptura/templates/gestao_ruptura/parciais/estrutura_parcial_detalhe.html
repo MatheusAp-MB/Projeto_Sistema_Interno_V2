@@ -1,57 +1,25 @@
 {% comment %}
-    * [RESUMO] → O DETALHE de um item da tela "Previsão de Ruptura de estoque" (o SKU, ou um MLB / Código ML dele): quem é o item, o formulário (ritmo, estoque e lead time), os 4 cartões, a curva de estoque, o
+    * [RESUMO] → O DETALHE de um item da tela "Previsão de Ruptura de estoque" (o SKU, ou um MLB / Código ML dele), no mundo escolhido (Envios Full ou Fora do Full): quem é o item, o formulário (ritmo, estoque, prazo, chegar antes e folga do mundo), os 4 cartões, a curva de estoque, o
       diagnóstico e a tabela "Estoque no Full por Código ML". Abre ao clicar numa linha da lista (o endereço leva o sku e, no MLB e no Código ML, gran e item). Recebe "pagina".
     * [EXPLICAÇÃO] → O ESTOQUE usado é o LIDO do Full (última consulta salva dos Códigos ML do item) enquanto o campo "Estoque" estiver vazio; digitar um valor SIMULA outro estoque (a linha de baixo
-      do formulário diz qual dos dois está valendo). Nas visões "Fora do Full" e "Produto (tudo)" nada é lido: o estoque é digitado (a API de estoque do ERP ainda será corrigida).
+      do formulário diz qual dos dois está valendo). No mundo "Fora do Full" nada é lido do Full: o estoque é digitado (a API de estoque do ERP ainda será corrigida) e as vendas são as de fora do Full. O seletor "Previsão para" da barra de cima troca de mundo mantendo o item aberto.
 {% endcomment %}
-<form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-caixa" role="search">
+<form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-controles" role="search">
     {% for o in pagina.ocultos %}<input type="hidden" name="{{ o.nome }}" value="{{ o.valor }}">{% endfor %}
-    <div class="rup-linha">
-        <a href="{{ pagina.url_lista }}" class="rup-voltar"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar à lista</a>
-        {% if pagina.mostra_visoes %}
-            <div class="rup-campo">
-                <span class="rup-rotulo" id="rup-visao-rotulo">Ver</span>
-                <div class="lista-chips" role="radiogroup" aria-labelledby="rup-visao-rotulo">
-                    {% for v in pagina.visoes %}
-                        <label class="lista-chip rup-chip{% if v.ativo %} lista-chip--ativo{% endif %}" title="{{ v.dica }}">
-                            <input type="radio" name="visao" value="{{ v.chave }}" class="rup-radio"{% if v.ativo %} checked{% endif %}>{{ v.rotulo }}
-                        </label>
-                    {% endfor %}
-                </div>
-            </div>
-        {% endif %}
-        <button type="submit" class="btn-acao rup-calcular">
-            <i class="fas fa-calculator" aria-hidden="true"></i> Calcular
-        </button>
-    </div>
-    <div class="rup-linha rup-linha--valores">
-        {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
-        <div class="rup-campo">
-            <label class="rup-rotulo" for="rup-estoque">{{ pagina.rotulo_do_estoque }}</label>
-            <input type="number"
-                   id="rup-estoque"
-                   name="estoque"
-                   value="{{ pagina.estoque_valor }}"
-                   min="0"
-                   step="1"
-                   inputmode="numeric"
-                   placeholder="{{ pagina.estoque_placeholder }}"
-                   class="rup-input rup-input--num">
+    {# A barra de cima serve para voltar e escolher o mundo; os cartões de baixo servem para CONFIAR no número (ver estrutura_parcial_controles.html). #}
+    <div class="rup-caixa">
+        <div class="rup-linha">
+            <a href="{{ pagina.url_lista }}" class="rup-voltar"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar à lista</a>
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_mundos.html' %}
+            <button type="submit" class="btn-acao rup-calcular" title="Aplica o que foi digitado nos campos e refaz o cálculo. Os botões e seletores já valem na hora.">
+                <i class="fas fa-calculator" aria-hidden="true"></i> Recalcular
+            </button>
         </div>
-        {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
     </div>
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_regra.html' %}
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_referencia.html' %}
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_quanto.html' %}
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}
-    {% if pagina.dica_do_estoque.texto %}
-        <p class="rup-dica-estoque{% if pagina.dica_do_estoque.classe %} rup-dica-estoque--{{ pagina.dica_do_estoque.classe }}{% endif %}" title="{{ pagina.dica_do_estoque.texto }}">
-            <i class="fas fa-warehouse" aria-hidden="true"></i> {{ pagina.dica_do_estoque.texto }}
-        </p>
-    {% endif %}
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_controles.html' %}
 </form>
 
-{% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with avisos=pagina.avisos_todos agrupar=pagina.avisos_agrupar atencao=pagina.avisos_tem_atencao %}
+{% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with caixa=pagina.avisos_caixa %}
 
 {% if pagina.estado == 'ok' %}
     {% with p=pagina.alvo g=pagina.grafico d=pagina.diagnostico t=pagina.tabela_de_codigos %}

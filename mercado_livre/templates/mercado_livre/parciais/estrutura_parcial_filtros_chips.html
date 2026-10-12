@@ -1,0 +1,14 @@
+{% comment %}
+    * [RESUMO] → A linha "Filtros ativos:" com um chip por filtro marcado. Recebe "painel" (filtros_do_hub.contexto_do_painel). Compartilhado pelo Hub de Anúncios e pela Previsão de Ruptura de estoque.
+{% endcomment %}{% if painel.chips_ativos %}
+    <div class="hub-chips-filtros">
+        <strong class="chips-filtros-rotulo">Filtros ativos:</strong>
+        {% for chip in painel.chips_ativos %}
+            {% if chip.classe %}
+                {% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=chip %}
+            {% else %}
+                <span class="chip-filtro">{{ chip.label }}</span>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endif %}

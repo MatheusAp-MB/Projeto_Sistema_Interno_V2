@@ -1,17 +1,22 @@
 {% comment %}
-    * [RESUMO] → O campo "Lead time" (dias até o produto ficar disponível para venda) — o mesmo na lista e no detalhe. Recebe "pagina". Sem digitar, vale o padrão PROVISÓRIO (ruptura_calculo.
-      LEAD_TIME_PADRAO) e o texto "padrão provisório" aparece ao lado do campo, para ninguém confundir com o lead time real.
-{% endcomment %}<div class="rup-campo rup-campo--lead">
-    <label class="rup-rotulo" for="rup-lead">Lead time</label>
-    <input type="number"
-           id="rup-lead"
-           name="lead"
-           value="{{ pagina.lead_valor }}"
-           min="0"
-           max="365"
-           step="1"
-           inputmode="numeric"
-           class="rup-input rup-input--num">
-    <span class="rup-unidade">dias</span>
-    {% if pagina.lead_e_padrao %}<span class="rup-provisorio" title="Você ainda não digitou o lead time: está valendo o padrão provisório da tela. Digite o lead time real e clique em Calcular.">padrão provisório</span>{% endif %}
+    * [RESUMO] → O campo "Prazo até vender" (o LEAD TIME) — o primeiro campo do cartão "2 Regras de envio ao Full" / "2 Regras de pedido", igual na lista e no detalhe. Recebe "pagina". Cada mundo tem o SEU prazo (decisão do Matheus, 12/10/2026):
+      no FULL é o tempo desde o ZERO (abrir o Mercado Livre, planejar o envio, escolher a data, a coleta acontecer e chegar ao Full); FORA DO FULL é o tempo entre fazer o pedido e a transportadora entregar para a gente. Sem digitar, vale o padrão
+      PROVISÓRIO (ruptura_calculo.LEAD_TIME_PADRAO) e a etiqueta "provisório" aparece ao lado do campo, para ninguém confundir com o prazo real.
+    * [EXPLICAÇÃO] → O nome do campo no endereço é o do mundo (pagina.nomes.lead): "lead" no Full e "lead_f" no Fora do Full; o id continua "rup-lead". Os textos vêm de pagina.txt.
+{% endcomment %}<div class="rup-fld rup-fld--lead">
+    <div class="rup-fld-linha">
+        <label class="rup-fld-rotulo" for="rup-lead" title="{{ pagina.txt.prazo_dica }}">Prazo até vender</label>
+        <input type="number"
+               id="rup-lead"
+               name="{{ pagina.nomes.lead }}"
+               value="{{ pagina.lead_valor }}"
+               min="0"
+               max="365"
+               step="1"
+               inputmode="numeric"
+               class="rup-input rup-input--num">
+        <span class="rup-unidade">dias</span>
+        {% if pagina.lead_e_padrao %}<span class="rup-provisorio" title="Você ainda não digitou o prazo (lead time) real: está valendo o padrão provisório da tela. Digite o prazo real e aperte Enter ou Recalcular.">provisório</span>{% endif %}
+    </div>
+    <p class="rup-fld-dica" title="{{ pagina.txt.prazo_dica }}">{{ pagina.txt.prazo_apoio }}</p>
 </div>

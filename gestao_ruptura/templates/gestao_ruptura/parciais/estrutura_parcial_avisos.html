@@ -1,28 +1,25 @@
 {% comment %}
-    * [RESUMO] → Os avisos da tela "Previsão de Ruptura de estoque" (informação, atenção ou erro), com um link opcional. Recebe "avisos" (lista de {classe, texto, link, link_texto}), "agrupar" (verdadeiro quando são 2 ou mais e
-      nenhum é erro) e "atencao" (verdadeiro quando algum é de atenção; só colore a caixa agrupada).
-    * [EXPLICAÇÃO] → Agrupados: UMA caixa recolhida de uma linha só ("N avisos sobre os dados" + o primeiro aviso), que abre para mostrar todos. Assim os avisos não empurram os cartões e a tabela para
-      baixo, e o erro nunca fica escondido (com erro, cada aviso é uma faixa). Quem muda é o conteúdo da tela (dados), nunca a largura da janela.
-{% endcomment %}{% if agrupar %}
-    <details class="rup-avisos{% if atencao %} rup-avisos--atencao{% endif %}">
+    * [RESUMO] → Os avisos da tela "Previsão de Ruptura de estoque" (erro, atenção ou informação). Recebe "caixa" (pagina.avisos_caixa, montada por funcoes_auxiliares/ruptura_avisos.organizar_avisos): a ordem, o agrupamento e o selo "pede atenção" já vêm prontos de lá.
+    * [EXPLICAÇÃO] → Agrupados (2 ou mais e nenhum erro): UMA caixa recolhida de uma linha só ("N avisos sobre os dados" e, se algum pede atenção, o selo "N pede atenção"; sem resumo dos avisos na linha), que abre para mostrar todos,
+      separados em "Pedem atenção" e "Para saber". Assim os avisos não empurram os cartões e a tabela para baixo. Erro nunca fica escondido: com erro (ou com um aviso só) cada aviso é uma faixa. O desenho de CADA aviso é
+      o mesmo nos dois casos (parciais/estrutura_parcial_aviso_linha.html). Quem muda é o conteúdo da tela (dados), nunca a largura da janela.
+{% endcomment %}{% if caixa.agrupar %}
+    <details class="rup-avisos{% if caixa.tem_atencao %} rup-avisos--atencao{% endif %}">
         <summary class="rup-avisos-topo">
-            <i class="fas {% if atencao %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
-            <strong>{{ avisos|length }} avisos sobre os dados</strong>
-            <span class="rup-avisos-resumo">{{ avisos.0.texto }}</span>
+            <i class="fas {% if caixa.tem_atencao %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+            <strong class="rup-avisos-titulo">{{ caixa.titulo }}</strong>
+            <span class="rup-avisos-contagens">{% for c in caixa.contagens %}<span class="rup-av-contagem rup-av-contagem--{{ c.classe }}">{{ c.texto }}</span>{% endfor %}</span>
             <i class="fas fa-chevron-down rup-avisos-seta" aria-hidden="true"></i>
         </summary>
-        <ul class="rup-avisos-lista">
-            {% for a in avisos %}
-                <li class="rup-avisos-item rup-avisos-item--{{ a.classe }}">
-                    <i class="fas {% if a.classe == 'aviso' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
-                    <span>{{ a.texto }}{% if a.link %} <a href="{{ a.link }}">{{ a.link_texto }}</a>{% endif %}</span>
-                </li>
+        <div class="rup-avisos-corpo">
+            {% for g in caixa.grupos %}
+                <section class="rup-avisos-grupo rup-avisos-grupo--{{ g.chave }}" aria-label="{{ g.rotulo }}">
+                    <h3 class="rup-avisos-grupo-rotulo">{{ g.rotulo }}</h3>
+                    {% for a in g.itens %}{% include 'gestao_ruptura/parciais/estrutura_parcial_aviso_linha.html' %}{% endfor %}
+                </section>
             {% endfor %}
-        </ul>
+        </div>
     </details>
-{% else %}{% for a in avisos %}
-    <div class="rup-aviso rup-aviso--{{ a.classe }}" role="status">
-        <i class="fas {% if a.classe == 'erro' %}fa-circle-xmark{% elif a.classe == 'aviso' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
-        <span>{{ a.texto }}{% if a.link %} <a href="{{ a.link }}">{{ a.link_texto }}</a>{% endif %}</span>
-    </div>
+{% else %}{% for a in caixa.avisos %}
+    <div class="rup-aviso rup-aviso--{{ a.classe }}" role="status">{% include 'gestao_ruptura/parciais/estrutura_parcial_aviso_linha.html' %}</div>
 {% endfor %}{% endif %}

@@ -11,26 +11,35 @@
 {% block body_class %}rup-tela{% if pagina.modo == 'lista' %} rup-tela--lista{% endif %}{% endblock %}
 {% block head_extra %}
     <link rel="stylesheet"
+          href="{% static 'mercado_livre/css/layout_filtros_hub.css' %}">
+    <link rel="stylesheet"
           href="{% static 'gestao_ruptura/css/layout_ruptura.css' %}">
 {% endblock %}
 {% block conteudo %}
     {% comment %}
     * [RESUMO] → Tela "Estoque — Previsão de Ruptura de estoque" (PROVA DE CONCEITO, 12/10/2026). Responde: com o ritmo de vendas dos últimos N dias, quantos dias dura o estoque (a COBERTURA), em que dia ele
-      acaba, até quando preparar o envio (ruptura − lead time) e em que NÍVEL ele está (alto, baixo, crítico ou ruptura; regra provisória). Tem DUAS visões:
-        1) a LISTA (sem SKU na URL): uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML, por ordem de urgência — parciais/estrutura_parcial_lista.html;
-        2) o DETALHE de um item (com SKU na URL; no MLB e no Código ML, também gran e item): a curva de estoque, os 4 cartões, o diagnóstico e o estoque do Full por Código ML —
-           parciais/estrutura_parcial_detalhe.html.
-      O ritmo vem das vendas reais já coletadas (a mesma regra da tela de Vendas). O ESTOQUE do Full vem da última consulta salva de cada Código ML (a mesma da tela "Estoque no Full"); fora do
-      Full o estoque é DIGITADO por enquanto (a API de estoque do ERP ainda será corrigida). Só lê o banco: nada é guardado e o ML só é chamado por CLIQUE (botão "Consultar no Mercado Livre" da tabela de estoque do detalhe).
-      TELA ÚNICA (decisão do Matheus, 12/10/2026): esta tela ABSORVE a antiga "Full — Planejamento de envios" (que continua funcionando, intocada, até esta ser validada; o atalho fica na barra de cima). Tem dois seletores:
-      "Referência de urgência" (Mercado Livre ou Sistema: de quem é o selo grande e a ordem da lista; a outra aparece pequena) e "Quanto enviar" (sugestão do Mercado Livre, do Sistema ou "Minha quantidade", digitada no detalhe).
+      acaba, até quando preparar o envio (ruptura − prazo − chegar antes) e em que NÍVEL ele está (alto, baixo, crítico ou ruptura; regra provisória).
+      DOIS MUNDOS ISOLADOS (decisão do Matheus, 12/10/2026), escolhidos no seletor "Previsão para" do topo (parciais/estrutura_parcial_mundos.html), cada um com as SUAS regras:
+        - ENVIOS FULL: estoque do Full, vendas do Full; prazo até vender = o tempo desde o zero (abrir o Mercado Livre, planejar o envio, escolher a data, a coleta acontecer) até a mercadoria chegar ao Full. É o único com "Quem recomenda" (o Mercado Livre só recomenda para o Full).
+        - FORA DO FULL: estoque e vendas de fora do Full; prazo até vender = do pedido até a transportadora entregar para a gente. O estoque ainda não tem fonte ligada: na lista a coluna fica em "—" e ele é DIGITADO no detalhe de cada item, para simular.
+      A FOLGA é o mesmo conceito nos dois: "estou mandando este envio e quero N dias de estoque de folga" (ruptura em 15/10 + folga de 15 dias = nova ruptura em 30/10). O envio tem que CHEGAR até N dias antes da ruptura total (padrão 3).
+      Em cada mundo há DUAS visões:
+        1) a LISTA (sem SKU na URL): no Full, uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML, por ordem de urgência — parciais/estrutura_parcial_lista.html; no Fora do Full, uma linha por Produto (SKU) ou por Anúncio (MLB)
+           fora do Full, com as vendas, o ritmo, o ponto de pedido e a quantidade a pedir, e o estoque em "—" — parciais/estrutura_parcial_lista_fora.html;
+        2) o DETALHE de um item (com SKU na URL; no MLB e no Código ML, também gran e item; o Código ML só existe no Full): a curva de estoque, os 4 cartões, o diagnóstico e, no Full, o estoque por Código ML — parciais/estrutura_parcial_detalhe.html.
+      O ritmo vem das vendas reais já coletadas (a mesma regra da tela de Vendas). O ESTOQUE do Full vem da última consulta salva de cada Código ML (a mesma da tela "Estoque no Full"); fora do Full o estoque é DIGITADO. Só lê o banco: nada é guardado e o ML só é chamado por CLIQUE
+      (botão "Consultar no Mercado Livre" da tabela de estoque do detalhe).
+      TELA ÚNICA: esta tela ABSORVE a antiga "Full — Planejamento de envios" (que continua funcionando, intocada, até esta ser validada; o atalho fica na barra de cima). Os controles do topo são uma barra para ACHAR + os cartões na ordem da conta (Full: 1 Projeção, 2 Regras de envio ao Full, 3 Quem recomenda;
+      Fora do Full: 1 Projeção, 2 Regras de pedido: parciais/estrutura_parcial_controles.html). No Full, dois seletores: "Urgência segundo" (Mercado Livre ou Sistema: de quem é o selo grande e a ordem da lista; a outra aparece pequena) e "Quantidade segundo" (Mercado Livre, Sistema ou "Minha quantidade", digitada no detalhe).
       A quantidade que passa do estoque do depósito (ERP) continua inteira na tela, com o aviso "só há N un no depósito".
     * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical" (regra do Matheus): a disposição só muda pela largura da JANELA (@media), nunca pelo espaço que sobra ao lado da barra lateral;
       todas as alturas são fixas (1 linha de valor e 1 de apoio nos cartões; linhas da lista com altura igual; gráfico e diagnóstico com altura fixa).
     {% endcomment %}
-    <div class="rup-pagina{% if pagina.modo == 'lista' %} rup-pagina--lista{% endif %}">
-        {% if pagina.modo == 'lista' %}
+    <div class="rup-pagina{% if pagina.modo == 'lista' %} rup-pagina--lista{% endif %}{% if not pagina.e_full %} rup-pagina--fora{% endif %}">
+        {% if pagina.modo == 'lista' and pagina.e_full %}
             {% include 'gestao_ruptura/parciais/estrutura_parcial_lista.html' %}
+        {% elif pagina.modo == 'lista' %}
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_lista_fora.html' %}
         {% else %}
             {% include 'gestao_ruptura/parciais/estrutura_parcial_detalhe.html' %}
         {% endif %}
@@ -38,4 +47,5 @@
 {% endblock %}
 {% block scripts %}
     <script src="{% static 'gestao_ruptura/js/script_ruptura.js' %}"></script>
+    <script src="{% static 'mercado_livre/js/script_filtros_hub.js' %}"></script>
 {% endblock %}

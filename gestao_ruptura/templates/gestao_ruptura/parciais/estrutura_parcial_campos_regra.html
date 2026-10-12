@@ -1,41 +1,43 @@
 {% comment %}
-    * [RESUMO] → A linha "regra do Sistema" do formulário — a mesma na lista e no detalhe. Recebe "pagina". Tem os dois números que mandam no "Enviar até" e na sugestão de "quanto enviar" do Sistema:
-        1) a MARGEM DE SEGURANÇA, em % do lead time (padrão 100%: com lead time de 15 dias, a remessa deve chegar com 15 dias de estoque sobrando; a tela mostra quantos dias isso dá);
-        2) quantos dias CADA REMESSA COBRE. Esse número AINDA NÃO FOI DEFINIDO (depende do responsável pelo Full): vazio, vale o lead time e aparece o aviso "padrão provisório".
-    * [EXPLICAÇÃO] → A frase da direita explica a conta em palavras (some pelo fim, com reticências, e vai inteira no "title"): a tela não muda de altura.
-{% endcomment %}<div class="rup-linha rup-linha--regra">
-    <div class="rup-campo rup-campo--margem">
-        <label class="rup-rotulo"
-               for="rup-margem"
-               title="Folga de estoque que a remessa deve ter ao chegar. 100% do lead time: com lead time de 15 dias, a ruptura precisa estar a 30 dias do envio. Define o &quot;Enviar até&quot; (ruptura − lead time − margem), o ponto de pedido e a sugestão do Sistema.">Margem de segurança</label>
+    * [RESUMO] → Os outros dois campos do cartão "2 Regras de envio ao Full" / "2 Regras de pedido" (o primeiro, "Prazo até vender", está em estrutura_parcial_campo_lead.html) — iguais na lista e no detalhe, nos dois mundos. Recebe "pagina". Eles e o prazo mandam no
+      "Enviar até" (ou "Pedir até") e na sugestão de quanto enviar (ou pedir) do Sistema:
+        1) CHEGAR ANTES (regra do Matheus, 12/10/2026): o envio tem que chegar até N dias ANTES da ruptura total (padrão 3), "para nunca ficarmos sem venda, mas também para não mandar envios muito antes e sobrecarregar o estoque".
+           Enviar até = ruptura − prazo − chegar antes. Editável.
+        2) FOLGA: o mesmo conceito nos dois mundos: "estou mandando este envio e quero ter N dias de estoque de folga". Com a ruptura em 15/10 e folga de 15 dias, a sugestão leva a nova ruptura para 30/10 (quantidade = ritmo × folga).
+           Esse número AINDA NÃO FOI DEFINIDO (depende do responsável pelo Full): vazio, vale o prazo e aparece a etiqueta "provisório".
+    * [EXPLICAÇÃO] → Os nomes no endereço são do mundo da tela (pagina.nomes): "ante" e "folga" no Full; "ante_f" e "folga_f" no Fora do Full. Os ids são sempre "rup-ante" e "rup-folga". Os textos vêm de pagina.txt (cada mundo fala do seu envio/pedido).
+      A conta em palavras (com os números de agora) fica no rodapé do cartão.
+{% endcomment %}<div class="rup-fld rup-fld--ante">
+    <div class="rup-fld-linha">
+        <label class="rup-fld-rotulo" for="rup-ante" title="{{ pagina.txt.ante_dica }}">Chegar antes</label>
         <input type="number"
-               id="rup-margem"
-               name="margem"
-               value="{{ pagina.margem_valor }}"
+               id="rup-ante"
+               name="{{ pagina.nomes.ante }}"
+               value="{{ pagina.ante_valor }}"
                min="0"
-               max="500"
+               max="60"
                step="1"
                inputmode="numeric"
                class="rup-input rup-input--num">
-        <span class="rup-unidade">% do lead time</span>
-        <span class="rup-equivale" title="A margem de segurança em dias (a % do lead time, arredondada para cima).">= {{ pagina.folga_texto }}</span>
+        <span class="rup-unidade">dias</span>
     </div>
-    <div class="rup-campo rup-campo--cobre">
-        <label class="rup-rotulo"
-               for="rup-cobre"
-               title="Quantos dias de vendas cada remessa deve cobrir depois de chegar (usado na sugestão do Sistema de quanto enviar). Ainda não foi definido: enquanto você não digitar, vale o lead time.">Cada remessa cobre</label>
+    <p class="rup-fld-dica" title="{{ pagina.txt.ante_dica }}">{{ pagina.txt.ante_apoio }}</p>
+</div>
+<div class="rup-fld rup-fld--folga">
+    <div class="rup-fld-linha">
+        <label class="rup-fld-rotulo" for="rup-folga" title="{{ pagina.txt.folga_dica }}">Folga</label>
         <input type="number"
-               id="rup-cobre"
-               name="cobre"
-               value="{{ pagina.cobre_valor }}"
+               id="rup-folga"
+               name="{{ pagina.nomes.folga }}"
+               value="{{ pagina.folga_valor }}"
                min="0"
                max="365"
                step="1"
                inputmode="numeric"
-               placeholder="{{ pagina.cobre_placeholder }}"
+               placeholder="{{ pagina.folga_placeholder }}"
                class="rup-input rup-input--num">
         <span class="rup-unidade">dias</span>
-        {% if pagina.cobre_e_padrao %}<span class="rup-provisorio" title="Você ainda não digitou quantos dias cada remessa cobre: está valendo o padrão provisório (o lead time). Esse número depende do responsável pelo Full.">padrão provisório</span>{% endif %}
+        {% if pagina.folga_e_padrao %}<span class="rup-provisorio" title="{{ pagina.txt.folga_provisoria_dica }}">provisório</span>{% endif %}
     </div>
-    <span class="rup-opcao-ajuda" title="{{ pagina.regra_texto }}">{{ pagina.regra_texto }}</span>
+    <p class="rup-fld-dica" title="{{ pagina.txt.folga_dica }}">{{ pagina.txt.folga_apoio }}</p>
 </div>

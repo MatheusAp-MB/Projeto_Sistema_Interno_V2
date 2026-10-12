@@ -1,29 +1,34 @@
 {% comment %}
-    * [RESUMO] → A linha "REFERÊNCIAS" do formulário — a mesma na lista e no detalhe. Recebe "pagina". Tem os dois seletores que decidem DE QUEM é a informação que manda na tela (decisão do Matheus, 12/10/2026):
-        1) REFERÊNCIA DE URGÊNCIA: Mercado Livre (a urgência que o ML calcula, lida da consulta de reposição salva) ou Sistema (a regra desta tela, pela data de "Enviar até"). A escolhida manda na ordem
+    * [RESUMO] → Os dois seletores do cartão "3 Quem recomenda" — iguais na lista e no detalhe. Só existem no mundo FULL (o Mercado Livre só recomenda para o Full). Recebe "pagina". Decidem DE QUEM é a informação que manda na tela (decisão do Matheus, 12/10/2026); NÃO mudam a conta:
+        1) URGÊNCIA SEGUNDO (era "Referência de urgência"): Mercado Livre (a urgência que o ML calcula, lida da consulta de reposição salva) ou Sistema (a regra desta tela, pela data de "Enviar até"). A escolhida manda na ordem
            "Mais urgentes primeiro" e aparece grande; a outra aparece pequena na mesma célula.
-        2) QUANTO ENVIAR: Do Mercado Livre (a sugestão dele), Do Sistema (a da regra da tela) ou, só no detalhe de um item, Minha quantidade (a pessoa digita; ver estrutura_parcial_campo_quanto.html).
-    * [EXPLICAÇÃO] → Trocar uma referência refaz o cálculo na hora (script_ruptura.js). Tudo é GET e só lê o banco (a recomendação do ML vem da consulta de reposição já salva: nenhuma chamada ao Mercado Livre).
-{% endcomment %}<div class="rup-linha rup-linha--referencia">
-    <div class="rup-campo">
-        <span class="rup-rotulo" id="rup-urg-rotulo">Referência de urgência</span>
-        <div class="lista-chips" role="radiogroup" aria-labelledby="rup-urg-rotulo">
-            {% for o in pagina.urg_opcoes %}
-                <label class="lista-chip rup-chip{% if o.ativo %} lista-chip--ativo{% endif %}" title="{{ o.dica }}">
-                    <input type="radio" name="ref_urg" value="{{ o.chave }}" class="rup-radio"{% if o.ativo %} checked{% endif %}>{{ o.rotulo }}
-                </label>
-            {% endfor %}
-        </div>
+        2) QUANTIDADE SEGUNDO (era "Quanto enviar"): Mercado Livre (a sugestão dele), Sistema (a da regra da tela) ou, só no detalhe de um item, Minha quantidade (a pessoa digita; o campo "Quantas unidades" é o de estrutura_parcial_campo_quanto.html).
+    * [EXPLICAÇÃO] → Trocar uma opção refaz o cálculo na hora (script_ruptura.js). Tudo é GET e só lê o banco (a recomendação do ML vem da consulta de reposição já salva: nenhuma chamada ao Mercado Livre). Os nomes no endereço continuam ref_urg e ref_qtd.
+      A frase de apoio da quantidade, no detalhe, diz o que a opção escolhida sugere (pagina.qtd_ajuda).
+{% endcomment %}<div class="rup-fld rup-fld--larga">
+    <span class="rup-fld-rotulo" id="rup-urg-rotulo">Urgência segundo</span>
+    <div class="lista-chips" role="radiogroup" aria-labelledby="rup-urg-rotulo">
+        {% for o in pagina.urg_opcoes %}
+            <label class="lista-chip rup-chip{% if o.ativo %} lista-chip--ativo{% endif %}" title="{{ o.dica }}">
+                <input type="radio" name="ref_urg" value="{{ o.chave }}" class="rup-radio"{% if o.ativo %} checked{% endif %}>{{ o.rotulo }}
+            </label>
+        {% endfor %}
     </div>
-    <div class="rup-campo">
-        <span class="rup-rotulo" id="rup-qtd-rotulo">Quanto enviar</span>
-        <div class="lista-chips" role="radiogroup" aria-labelledby="rup-qtd-rotulo">
-            {% for o in pagina.qtd_opcoes %}
-                <label class="lista-chip rup-chip{% if o.ativo %} lista-chip--ativo{% endif %}" title="{{ o.dica }}">
-                    <input type="radio" name="ref_qtd" value="{{ o.chave }}" class="rup-radio"{% if o.ativo %} checked{% endif %}>{{ o.rotulo }}
-                </label>
-            {% endfor %}
-        </div>
+    <p class="rup-fld-dica" title="Quem define o selo de urgência (Urgente, Esta semana…) e a ordem &quot;Mais urgentes primeiro&quot;. A outra urgência aparece pequena ao lado.">Quem define o selo de urgência e a ordem da lista.</p>
+</div>
+<div class="rup-fld rup-fld--larga">
+    <span class="rup-fld-rotulo" id="rup-qtd-rotulo">Quantidade segundo</span>
+    <div class="lista-chips" role="radiogroup" aria-labelledby="rup-qtd-rotulo">
+        {% for o in pagina.qtd_opcoes %}
+            <label class="lista-chip rup-chip{% if o.ativo %} lista-chip--ativo{% endif %}" title="{{ o.dica }}">
+                <input type="radio" name="ref_qtd" value="{{ o.chave }}" class="rup-radio"{% if o.ativo %} checked{% endif %}>{{ o.rotulo }}
+            </label>
+        {% endfor %}
     </div>
-    <span class="rup-opcao-ajuda" title="{{ pagina.referencia_ajuda }}">{{ pagina.referencia_ajuda }}</span>
+    {% if pagina.modo == 'detalhe' %}{% include 'gestao_ruptura/parciais/estrutura_parcial_campo_quanto.html' %}{% endif %}
+    {% if pagina.qtd_ajuda %}
+        <p class="rup-fld-dica" title="{{ pagina.qtd_ajuda }}">{{ pagina.qtd_ajuda }}</p>
+    {% else %}
+        <p class="rup-fld-dica" title="Quem define a quantidade sugerida a enviar (coluna &quot;Enviar (un)&quot;). A outra quantidade aparece pequena ao lado.">Quem define a quantidade sugerida a enviar.</p>
+    {% endif %}
 </div>

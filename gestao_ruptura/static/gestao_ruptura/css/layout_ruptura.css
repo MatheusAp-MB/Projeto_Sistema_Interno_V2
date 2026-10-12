@@ -20,11 +20,14 @@
     --rup-c15: #b0508a;
     --rup-c30: #2e6cc4;
     --rup-extra: #5b6675;
+    /* a cor do MUNDO escolhido nos controles do topo: o azul da tela no Envios Full; verde-água no Fora do Full (".rup-pagina--fora", mais abaixo) */
+    --rup-mundo: var(--cor-primaria);
+    --rup-mundo-fundo: #edf2f8;
     /* a linha da COBERTURA DA REMESSA (o estoque que sobe com o envio): verde, a cor de "chega a tempo" */
     --rup-sug: #1f8a4c;
-    /* zonas do fundo do gráfico (ritmo em destaque): antes do envio / margem de segurança / tempo de envio / depois da ruptura */
+    /* zonas do fundo do gráfico (ritmo em destaque): antes do envio / chegar antes da ruptura / prazo até vender / depois da ruptura */
     --rup-zona-antes: rgba(31, 106, 66, 0.09);
-    --rup-zona-folga: rgba(235, 183, 30, 0.2);
+    --rup-zona-ante: rgba(235, 183, 30, 0.2);
     --rup-zona-envio: rgba(224, 122, 31, 0.16);
     --rup-zona-envio-atrasada: rgba(224, 122, 31, 0.3);
     --rup-zona-pos: rgba(180, 35, 24, 0.09);
@@ -102,6 +105,7 @@
 .rup-unidade { color: var(--cor-texto-muted); font-size: 0.82rem; white-space: nowrap; }
 
 .rup-calcular {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -121,38 +125,80 @@
 /* ================================================
    AVISOS
    ================================================ */
-.rup-aviso {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 9px 14px;
-    background: #e8eef7;
-    border: 1px solid #d3deee;
-    border-radius: 8px;
-    color: var(--cor-primaria);
+/* * [EXPLICAÇÃO] → UM aviso (parciais/estrutura_parcial_aviso_linha.html): 4 colunas FIXAS (marca | título | explicação | ação). A marca é o NÚMERO em destaque (ou o ícone da gravidade quando não há número) e fica alinhada à esquerda, na mesma linha do rótulo do grupo, para os números
+ *              de uma linha para a outra ficarem um embaixo do outro. A cor do número é a da gravidade (laranja = pede atenção, azul = para saber, vermelho = erro). Só a largura da JANELA (@media, no fim do bloco) empilha as colunas. */
+.rup-av-linha {
+    display: grid;
+    grid-template-columns: 72px clamp(260px, 32%, 460px) minmax(0, 1fr) auto;
+    column-gap: 16px;
+    align-items: baseline;
+    padding: 10px 16px;
     font-size: 0.85rem;
+    line-height: 1.4;
 }
 
-.rup-aviso i { margin-top: 3px; }
-.rup-aviso a { color: inherit; font-weight: 600; text-decoration: underline; }
-.rup-aviso--aviso { background: #fff6e0; border-color: #f3d9a0; color: #7a4b00; }
-.rup-aviso--erro { background: #fde8e8; border-color: #f3b8b8; color: #9b1c1c; }
+.rup-av-linha + .rup-av-linha { border-top: 1px solid rgba(36, 50, 71, 0.08); }
+.rup-av-marca { grid-column: 1; justify-self: start; font-size: 1.2rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rup-av-marca i { font-size: 1rem; }
+.rup-av-titulo { grid-column: 2; font-weight: 700; color: #243247; }
+.rup-av-linha--sem-texto .rup-av-titulo { grid-column: 2 / 4; }
+.rup-av-texto { grid-column: 3; color: #566276; }
+.rup-av-acao {
+    grid-column: 4;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 11px;
+    border: 1px solid #c9d4e3;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--cor-primaria);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
 
-/* avisos AGRUPADOS: uma caixa recolhida de uma linha só; abre para mostrar todos (ver estrutura_parcial_avisos.html) */
-.rup-avisos { background: #e8eef7; border: 1px solid #d3deee; border-radius: 8px; color: var(--cor-primaria); font-size: 0.85rem; }
-.rup-avisos--atencao { background: #fff6e0; border-color: #f3d9a0; color: #7a4b00; }
-.rup-avisos-topo { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 14px; cursor: pointer; list-style: none; }
+.rup-av-acao:hover { background: #eef3fa; }
+.rup-av-acao:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.rup-av-linha--aviso .rup-av-marca { color: #a15c00; }
+.rup-av-linha--info .rup-av-marca { color: #3d5a80; }
+.rup-av-linha--erro .rup-av-marca { color: #b42318; }
+
+/* a faixa de UM aviso (ou de erro: erro nunca fica escondido na caixa recolhida) */
+.rup-aviso { background: #e8eef7; border: 1px solid #d3deee; border-radius: 8px; }
+.rup-aviso--aviso { background: #fff6e0; border-color: #f3d9a0; }
+.rup-aviso--erro { background: #fde8e8; border-color: #f3b8b8; }
+
+/* avisos AGRUPADOS: uma caixa recolhida de uma linha só (título e, se algum pede atenção, o selo); abre para mostrar todos em dois grupos (ver estrutura_parcial_avisos.html) */
+.rup-avisos { overflow: hidden; background: var(--cor-fundo-card); border: 1px solid #d3deee; border-radius: 8px; color: #243247; font-size: 0.85rem; }
+.rup-avisos--atencao { border-color: #f3d9a0; }
+.rup-avisos-topo { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 16px; background: #e8eef7; color: var(--cor-primaria); cursor: pointer; list-style: none; }
+.rup-avisos--atencao .rup-avisos-topo { background: #fff6e0; color: #7a4b00; }
 .rup-avisos-topo::-webkit-details-marker { display: none; }
-.rup-avisos-topo strong { flex: none; font-weight: 700; white-space: nowrap; }
-.rup-avisos-resumo { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
-.rup-avisos-seta { flex: none; transition: transform 0.15s; }
+.rup-avisos[open] .rup-avisos-topo { border-bottom: 1px solid #d3deee; }
+.rup-avisos--atencao[open] .rup-avisos-topo { border-bottom-color: #f3d9a0; }
+.rup-avisos-titulo { flex: none; font-weight: 700; white-space: nowrap; }
+.rup-avisos-contagens { flex: none; display: flex; gap: 6px; }
+.rup-av-contagem { padding: 2px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.rup-av-contagem--aviso { background: #ffe3a3; color: #7a4b00; }
+.rup-avisos-seta { flex: none; margin-left: auto; transition: transform 0.15s; }
 .rup-avisos[open] .rup-avisos-seta { transform: rotate(180deg); }
-.rup-avisos[open] .rup-avisos-resumo { visibility: hidden; }
 .rup-avisos-topo:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; border-radius: 8px; }
-.rup-avisos-lista { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 2px 14px 12px; list-style: none; }
-.rup-avisos-item { display: flex; align-items: flex-start; gap: 10px; }
-.rup-avisos-item i { margin-top: 3px; }
-.rup-avisos-item a { color: inherit; font-weight: 600; text-decoration: underline; }
+.rup-avisos-grupo { padding: 8px 0 4px; }
+.rup-avisos-grupo + .rup-avisos-grupo { border-top: 1px solid #e3e9f2; }
+.rup-avisos-grupo--aviso { background: #fffbf1; }
+.rup-avisos-grupo-rotulo { margin: 0; padding: 2px 16px 2px; color: #6b7686; font-family: inherit; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; line-height: 1.4; text-transform: uppercase; }
+.rup-avisos-grupo--aviso .rup-avisos-grupo-rotulo { color: #8a5a00; }
+
+/* janela estreita (a disposição só muda pela largura da JANELA): a marca fica à esquerda e título, explicação e ação descem uma embaixo da outra */
+@media (max-width: 1100px) {
+    .rup-av-linha { grid-template-columns: 64px minmax(0, 1fr); }
+    .rup-av-titulo, .rup-av-linha--sem-texto .rup-av-titulo, .rup-av-texto { grid-column: 2; }
+    .rup-av-acao { grid-column: 2; justify-self: start; margin-top: 6px; }
+}
 
 /* ================================================
    "COMO USAR" (antes de escolher um SKU)
@@ -311,7 +357,7 @@
 .rup-legenda li { display: inline-flex; align-items: center; gap: 6px; }
 .rup-amostra { display: inline-block; flex: none; width: 16px; height: 10px; border: 1px solid transparent; border-radius: 2px; }
 .rup-amostra--antes { background: rgba(31, 106, 66, 0.22); border-color: rgba(31, 106, 66, 0.45); }
-.rup-amostra--folga { background: rgba(235, 183, 30, 0.36); border-color: rgba(200, 150, 10, 0.6); }
+.rup-amostra--ante { background: rgba(235, 183, 30, 0.36); border-color: rgba(200, 150, 10, 0.6); }
 .rup-amostra--envio { background: rgba(224, 122, 31, 0.3); border-color: rgba(224, 122, 31, 0.6); }
 .rup-amostra--pos { background: rgba(180, 35, 24, 0.2); border-color: rgba(180, 35, 24, 0.45); }
 .rup-grafico-nota { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.74rem; color: var(--cor-texto-muted); }
@@ -351,7 +397,7 @@
 .rup-grade { stroke: #e3e8ef; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .rup-grade--x { stroke: #eef1f6; }
 .rup-zona--antes { fill: var(--rup-zona-antes); }
-.rup-zona--folga { fill: var(--rup-zona-folga); }
+.rup-zona--ante { fill: var(--rup-zona-ante); }
 .rup-zona--envio { fill: var(--rup-zona-envio); }
 .rup-zona--envio.rup-zona--atrasada { fill: var(--rup-zona-envio-atrasada); }
 .rup-zona--pos { fill: var(--rup-zona-pos); }
@@ -516,17 +562,6 @@
 /* ================================================
    DISPOSIÇÃO PELA LARGURA DA JANELA (nunca pelo espaço ao lado da barra lateral)
    ================================================ */
-/* janela média (menos de 1450px): a linha dos valores se divide em duas (ritmo em cima; estoque e lead time embaixo) */
-@media (max-width: 1449px) {
-    .rup-linha--valores { flex-wrap: wrap; }
-    .rup-campo--ritmo { flex: 1 1 100%; }
-}
-/* no DETALHE a linha dos valores tem 3 campos (ritmo, estoque, lead time = ~1220px): só cabe numa linha com a janela de 1640px ou mais (com a barra lateral aberta); abaixo disso quebra pela
-   janela, como na lista, em vez de espremer os campos quando a barra lateral está aberta */
-@media (max-width: 1639px) {
-    .rup-tela:not(.rup-tela--lista) .rup-linha--valores { flex-wrap: wrap; }
-    .rup-tela:not(.rup-tela--lista) .rup-campo--ritmo { flex: 1 1 100%; }
-}
 
 /* janela larga (1300px ou mais): 4 cartões numa linha */
 @media (min-width: 1300px) {
@@ -562,7 +597,7 @@
    ================================================================================================================================================ */
 .rup-pagina--lista { max-width: 1800px; }
 
-/* ---- controles: "Ver por" (segmentado), busca, "padrão provisório" do lead time, "Voltar à lista" e a linha do estoque lido ---- */
+/* ---- controles: "Ver por" (segmentado), busca, "Voltar à lista" e a etiqueta "provisório" ---- */
 .rup-segmentado {
     display: inline-flex;
     border: 1px solid var(--cor-primaria-clara);
@@ -586,24 +621,133 @@ a.rup-segmento:hover { background: #e8f1fa; color: var(--cor-primaria); }
 a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-texto-claro); }
 .rup-segmento:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }
 
-.rup-campo--busca { flex: 1 1 360px; }
+/* a barra de cima: o seletor de mundo e o "Ver por" nunca encolhem (quem encolhe é a busca). Abaixo de 1500px de janela a barra quebra em 2 linhas: os seletores em cima e a busca com o "Recalcular" embaixo (só a largura da JANELA decide). */
+.rup-linha > .rup-campo { flex: none; }
+.rup-linha > .rup-campo--busca { flex: 1 1 200px; }
+@media (max-width: 1499px) {
+    .rup-linha { flex-wrap: wrap; }
+    .rup-linha > .rup-campo--busca { flex: 1 1 320px; }
+}
 .rup-busca { position: relative; display: block; flex: 1 1 auto; min-width: 0; }
 .rup-busca-icone { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); color: #8a95a8; font-size: 0.8rem; pointer-events: none; }
 .rup-busca-input { width: 100%; padding-left: 30px; }
 
-/* o checkbox "Considerar as unidades a caminho" (lista e detalhe): numa linha própria do formulário; rótulo clicável inteiro, sem quebrar de linha; a frase de apoio some pelo fim (reticências) */
-.rup-linha--opcoes { gap: 10px 16px; }
-/* a linha da "regra do Sistema" (margem de segurança e quantos dias cada remessa cobre): os dois campos têm largura própria e a frase explicativa da direita some pelo fim */
-.rup-linha--regra,
-.rup-linha--referencia,
-.rup-linha--quanto { gap: 10px 28px; }
-.rup-linha--quanto .rup-campo,
-.rup-linha--referencia .rup-campo { flex: none; }   /* só a frase de ajuda da direita encolhe (com reticências): o seletor e o campo da quantidade nunca se espremem */
-.rup-campo--margem,
-.rup-campo--cobre { flex: none; }
-.rup-equivale { flex: none; font-size: 0.82rem; font-weight: 700; color: #243247; white-space: nowrap; }
-.rup-campo--caminho { flex: none; cursor: pointer; }
-.rup-opcao-ajuda { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); }
+/* ================================================================================================================================================
+   OS CONTROLES DO TOPO (reorganizados em 12/10/2026): uma barra para ESCOLHER O MUNDO e ACHAR ("Previsão para: Envios Full | Fora do Full" + Ver por + Buscar, ou Voltar + o seletor de mundo) e os cartões na ordem da conta.
+   Cada MUNDO tem as suas regras isoladas: ENVIOS FULL tem 3 cartões e FORA DO FULL tem 2:
+     1 PROJEÇÃO (muda os números de todas as linhas) → 2 REGRAS DE ENVIO AO FULL / REGRAS DE PEDIDO (mudam pouco; dependem do responsável: prazo até vender, chegar antes e folga) → 3 QUEM RECOMENDA (só no Full: muda de quem é a resposta que aparece grande, não a conta).
+   Cada cartão tem título, uma frase de para que serve e o "?" com a explicação longa; cada campo tem a frase de apoio EMBAIXO (1 linha, com reticências; o "title" tem a frase inteira).
+   Mesma regra da tela: fluido na horizontal, rígido na vertical: a disposição (3, 2 ou 1 cartão por linha) só depende da largura da JANELA (@media mais acima), nunca do espaço ao lado da barra lateral.
+   ================================================================================================================================================ */
+.rup-controles { display: flex; flex-direction: column; gap: 12px; }
+.rup-controles .rup-caixa { padding: 8px 12px; }
+
+/* os FILTROS DO HUB na caixa de cima da lista: o painel e os chips são os do Hub (mercado_livre/css/layout_filtros_hub.css, carregado antes deste arquivo); aqui só o encaixe (sem a margem de cima deles, a caixa já tem o espaço entre as partes) e as notas */
+.rup-caixa .hub-chips-filtros,
+.rup-caixa .hub-filtros { margin-top: 0; }
+.rup-filtros-nota { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.8rem; color: var(--cor-texto-muted); }
+.rup-filtros-nota i { flex: none; margin-top: 2px; }
+
+/* "mudança não aplicada": campo de número ou busca digitado e ainda não aplicado (o script marca o formulário); o botão acende com uma bolinha laranja, sem mudar de tamanho */
+.rup-controles--pendente .rup-calcular { box-shadow: 0 0 0 3px rgba(224, 122, 31, 0.4); }
+.rup-controles--pendente .rup-calcular::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: #e07a1f;
+    border: 2px solid #ffffff;
+}
+
+.rup-ctls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+
+.rup-ctl {
+    --rup-rot: 150px;   /* largura do rótulo dos campos "rótulo | valor": todos os valores de um cartão começam na mesma coluna */
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+}
+.rup-ctl--regras,
+.rup-ctl--recomenda { --rup-rot: 124px; }
+.rup-ctl--regras { background: #f6f8fb; }   /* o cartão que muda pouco fica mais apagado: os outros dois são os que se mexe sempre */
+
+.rup-ctl-cab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 5px 12px;
+    background: #edf2f8;
+    border-bottom: 1px solid var(--cor-borda);
+    border-radius: 9px 9px 0 0;
+}
+.rup-ctl--regras .rup-ctl-cab { background: #e9edf2; }
+.rup-ctl-num {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+.rup-ctl--regras .rup-ctl-num { background: #6b7a90; }
+.rup-ctl-titulos { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.rup-ctl-titulo { font-size: 0.92rem; font-weight: 700; line-height: 1.2; color: var(--cor-primaria); }
+.rup-ctl--regras .rup-ctl-titulo { color: #3b4a5f; }
+.rup-ctl-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.74rem; line-height: 1.25; color: var(--cor-texto-muted); }
+.rup-ctl-tag { flex: none; padding: 1px 8px; border-radius: 999px; background: #dfe5ed; color: #4b5a6b; font-size: 0.68rem; font-weight: 700; white-space: nowrap; cursor: help; }
+.rup-ctl .rup-ajuda-balao { width: 360px; }
+
+.rup-ctl-corpo { display: flex; flex: 1 1 auto; flex-direction: column; gap: 8px; padding: 8px 12px 10px; }
+.rup-ctl--regras .rup-ctl-corpo { gap: 6px; }
+
+/* o campo: (rótulo | valor | unidade | etiqueta) numa linha, e a frase de apoio embaixo; nos seletores de chips (".rup-fld--larga") o rótulo fica em cima dos chips */
+.rup-fld { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rup-fld-linha { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; }
+.rup-fld-linha > .rup-fld-rotulo { flex: none; width: var(--rup-rot); }
+.rup-fld--larga > .rup-fld-rotulo { display: block; }
+.rup-fld-rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.84rem; font-weight: 700; color: #243247; }
+.rup-fld-dica { height: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.74rem; line-height: 15px; color: var(--cor-texto-muted); }
+.rup-fld-dica--2 { display: -webkit-box; height: 30px; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.rup-fld-dica--atencao { color: #8a6100; }
+.rup-ctl .rup-input--num { width: 84px; }
+.rup-ctl .lista-chips { gap: 6px; }
+.rup-ctl .lista-chip { padding: 4px 10px; font-size: 0.8rem; }
+.rup-ctl .rup-atalhos { gap: 5px; }
+.rup-ctl .rup-atalhos .lista-chip { padding: 4px 9px; }
+.rup-fld-check { display: flex; align-items: center; gap: 8px; min-height: 24px; cursor: pointer; }
+.rup-fld--caminho .rup-fld-dica { padding-left: 24px; }
+
+/* o rodapé do cartão "Regras de envio": a conta em palavras, com os números de agora (cada frase numa linha só) */
+.rup-ctl-rodape { display: flex; flex-direction: column; gap: 2px; margin-top: auto; padding: 6px 12px 8px; border-top: 1px dashed #c9d1dc; font-size: 0.78rem; color: #243247; }
+.rup-regra-linha { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* os 3 cartões de controles (Projeção, Regras de envio, Quem recomenda): 3 numa linha na janela larga (1400px ou mais); 2 na janela média (1100 a 1399px; o terceiro ocupa a linha de baixo, com os dois seletores lado a lado); 1 por linha abaixo disso.
+   É a LARGURA DA JANELA que decide, nunca o espaço que sobra ao lado da barra lateral. */
+@media (min-width: 1400px) {
+    .rup-ctls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) and (max-width: 1399px) {
+    .rup-ctls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rup-ctl--recomenda { grid-column: 1 / -1; }
+    .rup-ctl--recomenda .rup-ctl-corpo { flex-direction: row; gap: 28px; }
+    .rup-ctl--recomenda .rup-ctl-corpo > .rup-fld { flex: 1 1 0; }
+}
+/* Fora do Full tem só 2 cartões (Projeção e Regras de pedido; não há "Quem recomenda"): 2 por linha a partir de 1100px de janela, 1 por linha abaixo disso. Fica DEPOIS das regras de 3 cartões para ganhar a cascata. */
+@media (min-width: 1100px) {
+    .rup-ctls.rup-ctls--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .rup-marcar { flex: none; width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--cor-primaria); }
 .rup-marcar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
 .rup-marcar-texto { font-size: 0.84rem; font-weight: 600; color: #243247; white-space: nowrap; }
@@ -639,11 +783,37 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 .rup-voltar:hover { background: #e8f1fa; color: var(--cor-primaria); }
 .rup-voltar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
 
-/* a linha que diz de onde vem o estoque do detalhe (lido do Full ou digitado): sempre 1 linha, com altura fixa */
-.rup-dica-estoque { height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; color: #4b5a6b; }
-.rup-dica-estoque i { margin-right: 4px; color: var(--cor-primaria-clara); }
-.rup-dica-estoque--atencao { color: #8a6100; }
-.rup-dica-estoque--atencao i { color: #b45309; }
+/* ---- o seletor "Previsão para: Envios Full | Fora do Full" (links; cada um leva ao mundo, mantendo o item aberto e os parâmetros dos dois mundos) ---- */
+.rup-campo--mundo { flex: none; }
+.rup-segmentado--mundo { border-color: var(--rup-mundo); }
+.rup-segmentado--mundo .rup-segmento + .rup-segmento { border-left-color: var(--rup-mundo); }
+.rup-segmentado--mundo a.rup-segmento:hover { background: var(--rup-mundo-fundo); color: var(--rup-mundo); }
+.rup-segmentado--mundo .rup-segmento--ativo,
+.rup-segmentado--mundo a.rup-segmento--ativo:hover { background: var(--rup-mundo); color: var(--cor-texto-claro); }
+.rup-segmento--desativado { background: #f1f3f6; color: #9aa5b5; cursor: not-allowed; }
+
+/* FORA DO FULL tem a sua cor (verde-água) nos números dos cartões, no cabeçalho do cartão "Projeção" e no seletor, para a pessoa saber de qual mundo é o número que está vendo */
+.rup-pagina--fora { --rup-mundo: #0f766e; --rup-mundo-fundo: #e3f2f0; }
+.rup-pagina--fora .rup-ctl--projecao .rup-ctl-cab { background: var(--rup-mundo-fundo); }
+.rup-pagina--fora .rup-ctl--projecao .rup-ctl-num { background: var(--rup-mundo); }
+.rup-pagina--fora .rup-ctl--projecao .rup-ctl-titulo { color: var(--rup-mundo); }
+.rup-pagina--fora .rup-atalhos .lista-chip--ativo { background: var(--rup-mundo); border-color: var(--rup-mundo); color: var(--cor-texto-claro); }
+
+/* a faixa de aviso da lista do Fora do Full: o estoque de fora ainda não tem fonte ligada ("—" na coluna) e o caminho para simular (digitar no item) */
+.rup-nota-fora {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--rup-mundo-fundo);
+    border: 1px solid #b6dcd7;
+    border-left: 4px solid var(--rup-mundo);
+    border-radius: 8px;
+    font-size: 0.84rem;
+    color: #243247;
+    cursor: help;
+}
+.rup-nota-fora i { flex: none; color: var(--rup-mundo); }
 
 /* ---- linha de contexto: o ritmo à esquerda; a cobertura da coleta e a ajuda ("?") à direita ---- */
 .rup-contexto { display: flex; align-items: center; justify-content: space-between; gap: 6px 24px; min-height: 32px; padding: 0 2px; }
@@ -681,6 +851,52 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 .rup-ajuda:hover .rup-ajuda-balao,
 .rup-ajuda:focus .rup-ajuda-balao,
 .rup-ajuda:focus-within .rup-ajuda-balao { display: flex; }
+
+/* ---- balão de dica (no lugar do balão preto do navegador): o mesmo visual do balão do "?", com setinha. Um só balão para a tela toda, criado e posicionado pelo script_ruptura.js ([6]); fixo na janela para nenhum "overflow: hidden" cortar. ---- */
+.rup-dica {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1090;
+    box-sizing: border-box;
+    max-width: min(340px, calc(100vw - 16px));
+    padding: 8px 12px;
+    background: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(20, 41, 67, 0.18);
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.4;
+    color: #243247;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+}
+.rup-dica--visivel { display: block; }
+.rup-dica::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: calc(var(--rup-dica-seta, 20px) - 5px);
+    width: 9px;
+    height: 9px;
+    background: #ffffff;
+    border-top: 1px solid var(--cor-borda);
+    border-left: 1px solid var(--cor-borda);
+    transform: rotate(45deg);
+}
+.rup-dica--acima::before {
+    top: auto;
+    bottom: -6px;
+    border-top: 0;
+    border-left: 0;
+    border-right: 1px solid var(--cor-borda);
+    border-bottom: 1px solid var(--cor-borda);
+}
+.rup-dica--sem-seta::before { display: none; }
 
 /* ---- os cartões de nível (também são o filtro): 4 por linha na janela média, 7 na larga (nunca "o que couber"); o 7º, "Divergem", não é um nível de estoque e por isso tem borda tracejada ---- */
 .rup-niveis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -726,6 +942,11 @@ a.rup-nivel-cartao--ativo:hover { background: #e1edf8; border-color: var(--cor-p
 .rup-l-campo .lista-select { min-width: 200px; }
 .rup-l-rolagem { overflow-x: auto; }
 .rup-l-tabela { --rup-l-colunas-numeros: 92px 72px 84px 92px 84px 92px 116px 76px 72px 40px; min-width: 1130px; }   /* janela de até 1499px: colunas enxutas; aqui a tabela rola para o lado dentro da própria caixa (a barra lateral aberta não deixa caber as 11 colunas) */
+/* a lista do FORA DO FULL tem só 6 colunas (nome | estoque | vendas | ritmo | ponto de pedido | pedir | gráfico): a mesma grade, com as medidas dela em qualquer largura de janela (o ".rup-l-tabela" na frente dá a força para valer sobre as medidas das janelas mais largas) */
+.rup-l-tabela.rup-l-tabela--fora { --rup-l-colunas-numeros: 112px 108px 108px 132px 108px 44px; min-width: 860px; }
+@media (max-width: 1499px) {
+    .rup-l-tabela.rup-l-tabela--fora { --rup-l-colunas-numeros: 92px 88px 88px 108px 92px 40px; min-width: 760px; }   /* janela de até 1499px (barra lateral aberta): colunas enxutas para o nome do item ter mais espaço */
+}
 
 /* As 11 colunas: nome | estoque | vendas | ritmo | cobertura | ruptura | enviar até | urgência | enviar (un) | nível | gráfico. Cabeçalho e linhas usam a mesma grade. */
 .rup-l-colunas {
@@ -813,6 +1034,7 @@ a.rup-id-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outl
 .rup-num .rup-forte--deposito { color: #b34100; }   /* a quantidade passa do que há no depósito (ERP): laranja, com o triângulo de aviso */
 .rup-aviso-deposito { font-size: 0.8em; }
 .rup-num .rup-forte--qtd { color: #2a6099; }   /* a quantidade sugerida (azul, o tom de "informação" do diagnóstico) */
+.rup-num .rup-forte--nulo { color: var(--cor-texto-muted); font-weight: 600; }   /* sem número ("—"): apagado, para não parecer um zero */
 .rup-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.1em; font-size: 0.72rem; font-weight: 400; color: var(--cor-texto-muted); }
 .rup-sub--atencao { color: #8a6100; font-weight: 600; }
 .rup-sub--alerta { color: #b34100; font-weight: 600; }
@@ -971,6 +1193,7 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
 /* janela média (menos de 1450px): o contexto fica em duas linhas e o topo da lista também */
 @media (max-width: 1449px) {
     .rup-contexto { flex-direction: column; align-items: flex-start; }
+    .rup-contexto-texto { max-width: 100%; }   /* em coluna o texto não tem de onde tirar a largura: sem isto ele passa da borda em vez de terminar em "…" (o texto inteiro está no title) */
 }
 
 /* janela bem pequena (menos de 1100px, sem uso real com a barra lateral): volta a acomodar pela largura */
@@ -978,5 +1201,5 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
     .rup-pagina--lista { max-width: none; }
     .rup-niveis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .rup-l-lista-topo { flex-wrap: wrap; }
-    .rup-campo--busca { flex: 1 1 260px; }
+    .rup-linha > .rup-campo--busca { flex: 1 1 260px; }
 }

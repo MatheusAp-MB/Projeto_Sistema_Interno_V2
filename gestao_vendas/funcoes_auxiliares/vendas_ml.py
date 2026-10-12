@@ -38,7 +38,8 @@ from integracao_mercado_livre.servicos.cobertura_vendas_ml import (  # noqa: F40
 from mercado_livre.funcoes_auxiliares.badges import (
     BADGE_PADRAO, BADGES_CATALOGO, BADGES_LOGISTICA, BADGES_STATUS, BADGES_TIPO_ANUNCIO, badge_de, badge_flex,
 )
-from mercado_livre.models import TipoDeAnuncioMercadoLivre, VariacaoAnuncioMercadoLivre, VendaItemMercadoLivre
+from mercado_livre.funcoes_auxiliares.logistica_do_anuncio import logistica_e_de_fora_do_full
+from mercado_livre.models import VariacaoAnuncioMercadoLivre, VendaItemMercadoLivre
 from produtos.models import Produto
 
 FUSO = ZoneInfo('America/Sao_Paulo')
@@ -138,9 +139,10 @@ def data_hora(instante):
     return timezone.localtime(instante, FUSO).strftime('%d/%m às %H:%M')
 
 
+# * [EXPLICAÇÃO] → Um valor pode ser uma LISTA (os filtros do Hub, ex.: marca=A&marca=B): cada item vira um parâmetro repetido (doseq). Lista vazia fica de fora do endereço, como None e texto vazio.
 def url_da_tela(base, **parametros):
-    limpos = {k: v for k, v in parametros.items() if v not in (None, '')}
-    return f'{base}?{urlencode(limpos)}' if limpos else base
+    limpos = {k: v for k, v in parametros.items() if v not in (None, '', [], ())}
+    return f'{base}?{urlencode(limpos, doseq=True)}' if limpos else base
 
 
 # ==================================================== produto, MLBs e Códigos ML ====================================================
@@ -262,9 +264,9 @@ def _carregar_linhas(sku, mlbs, de, ate, extras=()):
 # algum anúncio que não é Full (produto 100% Full não consulta nada).
 # * [EXPLICAÇÃO] → "Nunca vendeu por centro do Full" olha o histórico inteiro do MLB no banco (não só o período da tela), para o mesmo pedido ter a mesma origem
 #                  em qualquer período. Anúncio sem cadastro ou sem logística não decide (fica "Sem origem informada").
+# * [EXPLICAÇÃO] → "Hoje não é Full" vem de mercado_livre/funcoes_auxiliares/logistica_do_anuncio.py, o dono único dessa pergunta (a Previsão de Ruptura de estoque usa a mesma função).
 def _mlbs_fora_pela_logistica(mlbs, no_proprio):
-    full = TipoDeAnuncioMercadoLivre.TipoLogistico.FULL
-    hoje_fora_do_full = {mlb for mlb, d in mlbs.items() if (d.get('tipo') or {}).get('tipo_logistico') and d['tipo']['tipo_logistico'] != full}
+    hoje_fora_do_full = {mlb for mlb, d in mlbs.items() if logistica_e_de_fora_do_full((d.get('tipo') or {}).get('tipo_logistico'))}
     if not hoje_fora_do_full:
         return set()
     ja_venderam_pelo_full = set(

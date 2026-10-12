@@ -1,8 +1,9 @@
 # gestao_ruptura/funcoes_auxiliares/ruptura_grafico.py
 #
 # Função Objetivo: Calcula a CURVA DE ESTOQUE da tela "Previsão de Ruptura de estoque": uma linha do estoque caindo para CADA ritmo de vendas (3, 7, 15 e 30 dias, mais o período digitado quando
-# for outro), as zonas coloridas do fundo (antes do envio / margem de segurança / tempo de envio / depois da ruptura) do ritmo EM DESTAQUE, os marcadores "Enviar até" e "Ruptura", o ponto de pedido
-# e os cartões de cada ritmo (ponto de pedido, "enviar até", "enviar já" ou "prazo vencido"). Havendo uma quantidade para enviar (a do Sistema ou a digitada), desenha também a COBERTURA DA REMESSA:
+# for outro), as zonas coloridas do fundo (antes do envio / chegar antes da ruptura / prazo até vender / depois da ruptura) do ritmo EM DESTAQUE, os marcadores "Enviar até" e "Ruptura", o ponto de pedido
+# e os cartões de cada ritmo (ponto de pedido, "enviar até", "enviar já" ou "prazo vencido"). Serve aos dois mundos da tela (Envios Full e Fora do Full): só as palavras mudam (Enviar até x Pedir até, Com o envio
+# x Com o pedido; ruptura_texto.palavras). Havendo uma quantidade para enviar (a do Sistema ou a digitada), desenha também a COBERTURA DA REMESSA:
 # a linha que SOBE na chegada (hoje + lead time) e volta a cair no mesmo ritmo até a NOVA ruptura, com os marcadores "Chega" e "Nova ruptura". Aqui só se calcula a POSIÇÃO de cada peça e se escrevem os textos; quem desenha é o template (SVG para as
 # linhas e as zonas, HTML para os textos) e quem dá vida (ligar/desligar curvas, passar o mouse, zoom) é o script_ruptura.js.
 #
@@ -25,7 +26,7 @@ from datetime import timedelta
 from math import ceil, floor, log10
 
 from gestao_ruptura.funcoes_auxiliares import ruptura_calculo as calc
-from gestao_ruptura.funcoes_auxiliares.ruptura_texto import data as _data_completa, em_dias as _em_dias, plural as _plural, un_dia as _un_dia
+from gestao_ruptura.funcoes_auxiliares.ruptura_texto import data as _data_completa, em_dias as _em_dias, palavras, plural as _plural, un_dia as _un_dia
 
 HORIZONTE_MINIMO = 14
 HORIZONTE_MAXIMO = 730
@@ -38,7 +39,7 @@ ZOOM_MINIMO_EM_DIAS = 4        # a menor janela que o zoom aceita
 COR_DO_RITMO = {3: 'c3', 7: 'c7', 15: 'c15', 30: 'c30'}
 COR_DO_RITMO_AVULSO = 'extra'
 COR_DA_REMESSA = 'sug'   # a linha da cobertura da remessa tem cor própria (verde: o estoque que SOBE com o envio)
-ROTULO_DAS_ZONAS = {'antes': 'Antes do envio', 'folga': 'Margem de segurança', 'envio': 'Tempo de envio', 'pos': 'Depois da ruptura'}
+ROTULO_DAS_ZONAS = {'antes': 'Antes d{do_envio}', 'ante': 'Chegar antes da ruptura', 'envio': 'Prazo até vender', 'pos': 'Depois da ruptura'}   # "{do_envio}" vira "o envio" ou "o pedido" (ruptura_texto.palavras)
 
 
 def _c(valor):
@@ -68,22 +69,22 @@ def _passo_do_eixo_y(maximo):
 
 # Função Objetivo: As zonas do fundo, em dias a partir de hoje, para o ritmo em destaque: [(classe, inicio, fim, atrasada)]. Todas as divisas caem na meia-noite de um dia (número inteiro), porque
 # ruptura e "enviar até" são DIAS. Lendo de trás para a frente a partir da ruptura: o DIA da ruptura fica de fora das zonas (ganha a faixa vermelha própria, o marcador); os `lead` dias antes dele são
-# o "tempo de envio" (laranja: enviando nesse trecho já não dá tempo; com o prazo vencido começa em hoje); os `folga` dias antes disso são a "margem de segurança" (amarelo: ainda dá tempo, mas a
-# remessa chega com menos margem que a desejada: "enviar já"); tudo antes é "antes do envio" (verde: a data recomendada ainda não chegou); "pos" = os dias depois da ruptura.
+# o "prazo até vender" (laranja: enviando nesse trecho já não dá tempo; com o prazo vencido começa em hoje); os `ante` dias antes disso são o "chegar antes da ruptura" (amarelo: ainda dá tempo, mas a
+# remessa chega menos de `ante` dias antes da ruptura: "enviar já"); tudo antes é "antes do envio" (verde: a data recomendada ainda não chegou); "pos" = os dias depois da ruptura.
 # Estoque zerado = tudo "pos"; sem ruptura prevista (sem vendas) = tudo "antes".
-def _zonas(estoque, lead, folga, t_ruptura, horizonte):
+def _zonas(estoque, lead, ante, t_ruptura, horizonte):
     if estoque <= 0:
         return [('pos', 0.0, float(horizonte), False)]
     if t_ruptura is None:
         return [('antes', 0.0, float(horizonte), False)]
     dia_ruptura = floor(t_ruptura)
     dia_limite = dia_ruptura - lead      # o último dia possível do envio
-    dia_envio = dia_limite - folga       # a data recomendada ("Enviar até")
+    dia_envio = dia_limite - ante        # a data recomendada ("Enviar até")
     zonas = []
     if dia_envio > 0:
         zonas.append(('antes', 0.0, float(min(dia_envio, horizonte)), False))
-    if folga and dia_envio < horizonte and dia_limite > 0:
-        zonas.append(('folga', float(max(0, dia_envio)), float(min(dia_limite, horizonte)), False))
+    if ante and dia_envio < horizonte and dia_limite > 0:
+        zonas.append(('ante', float(max(0, dia_envio)), float(min(dia_limite, horizonte)), False))
     if lead and dia_limite < horizonte:
         zonas.append(('envio', float(max(0, dia_limite)), float(min(dia_ruptura, horizonte)), dia_limite < 0))
     if dia_ruptura + 1 < horizonte:
@@ -93,18 +94,18 @@ def _zonas(estoque, lead, folga, t_ruptura, horizonte):
 
 # Função Objetivo: O cartão de UM ritmo (a linha da legenda que também liga/desliga a curva): nome, ritmo, ponto de pedido e "enviar até" / "prazo vencido", mais o texto completo para o
 # "title". Sem dados (nenhum dia completo coletado nessa janela) o cartão fica no mesmo tamanho, dizendo isso.
-def _periodo(s, estoque, lead, folga, hoje, foco):
+def _periodo(s, estoque, lead, ante, hoje, foco, P):
     dias, media = s['dias'], s['media']
     base = {'id': f's{dias}', 'dias': dias, 'curto': _plural(dias, 'dia', 'dias'), 'cor': _cor(dias), 'foco': foco, 'url': s['url'], 'sem_dados': media is None}
     if media is None:
         return {**base, 'ritmo': 'sem dados', 'ritmo_numero': '', 'pedido_numero': '—', 'envio': 'Sem dados do período', 'envio_classe': 'neutro',
                 'dica': f'Nenhum dia completo {"do último dia" if dias == 1 else f"dos últimos {dias} dias"} foi coletado: não dá para calcular este ritmo.'}
-    pedido = calc.ponto_de_pedido(media, lead, folga)
+    pedido = calc.ponto_de_pedido(media, lead, ante)
     projecao = calc.projetar(estoque, media, hoje)
-    envio = calc.envio(projecao, lead, hoje, folga)
+    envio = calc.envio(projecao, lead, hoje, ante)
     dica = [f'Ritmo {"do último dia" if dias == 1 else f"dos últimos {dias} dias"}: {_un_dia(media)} un/dia.']
     if pedido is not None:
-        dica.append(f'Ponto de pedido (ritmo × (lead time + margem de segurança)): {_numero(pedido)} un.')
+        dica.append(f'Ponto de pedido (ritmo × (prazo + chegar antes)): {_numero(pedido)} un.')
     texto, classe = 'Informe o estoque', 'neutro'
     if projecao is not None:
         if projecao['situacao'] == 'zerado':
@@ -122,38 +123,42 @@ def _periodo(s, estoque, lead, folga, hoje, foco):
                 texto = f'Ruptura {_data_curta(projecao["data"], hoje)}'
             elif envio['estado'] == 'vencido':
                 texto, classe = 'Prazo vencido', 'vencido'
-                dica.append(f'O prazo para enviar acabou em {_data_completa(envio["ultimo_dia"])}. Enviando hoje, o produto só fica disponível em {_data_completa(envio["chegada"])}'
+                dica.append(f'O prazo {P["do_envio"]} acabou em {_data_completa(envio["ultimo_dia"])}. {P["gerundio"].capitalize()} hoje, o produto só fica disponível em {_data_completa(envio["chegada"])}'
                             f' e vão faltar {_plural(envio["faltam_dias"], "dia", "dias")} de estoque.')
             elif envio['estado'] == 'ja':
-                texto, classe = 'Enviar já', 'atencao'
-                dica.append(f'A data recomendada ({_data_completa(envio["enviar_ate"])}) já passou, mas ainda dá tempo: enviando hoje o produto chega em {_data_completa(envio["chegada"])} com '
-                            f'{_plural(envio["folga_na_chegada"], "dia", "dias")} de estoque sobrando (a margem de segurança é de {_plural(folga, "dia", "dias")}). O último dia possível é {_data_completa(envio["ultimo_dia"])}.')
+                texto, classe = P['enviar_ja'], 'atencao'
+                sobra = envio['sobra_na_chegada']
+                dica.append(f'A data recomendada ({_data_completa(envio["enviar_ate"])}) já passou, mas ainda dá tempo: {P["gerundio"]} hoje o produto chega em {_data_completa(envio["chegada"])}, '
+                            f'{"no próprio dia da ruptura" if sobra == 0 else _plural(sobra, "dia", "dias") + " antes da ruptura"} (o desejado é chegar {_plural(ante, "dia", "dias")} antes). O último dia possível é {_data_completa(envio["ultimo_dia"])}.')
             else:
-                texto = 'Enviar até hoje' if envio['em_dias'] == 0 else f'Enviar até {_data_curta(envio["enviar_ate"], hoje)}'
+                texto = f'{P["enviar_ate"]} hoje' if envio['em_dias'] == 0 else f'{P["enviar_ate"]} {_data_curta(envio["enviar_ate"], hoje)}'
                 classe = 'atencao' if envio['estado'] == 'hoje' else 'ok'
-                dica.append(f'Enviar até {_data_completa(envio["enviar_ate"])} ({_em_dias(envio["em_dias"])}), com margem de segurança de {_plural(folga, "dia", "dias")}.')
+                dica.append(f'{P["enviar_ate"]} {_data_completa(envio["enviar_ate"])} ({_em_dias(envio["em_dias"])}), para chegar {_plural(ante, "dia", "dias")} antes da ruptura.')
     return {**base, 'ritmo': f'{_un_dia(media)} un/dia', 'ritmo_numero': _un_dia(media), 'pedido_numero': _numero(pedido) if pedido is not None else '—',
             'envio': texto, 'envio_classe': classe, 'dica': ' '.join(dica)}
 
 
 # Função Objetivo: O cartão da COBERTURA DA REMESSA (a linha verde), no mesmo molde dos cartões de ritmo: liga/desliga a linha, diz a quantidade, quando chega e quando vem a nova ruptura. `com` vem de
-# ruptura_calculo.com_envio. A cor da última linha acompanha o diagnóstico: vermelho = falta produto antes de chegar; laranja = não atinge a meta do Sistema (folga + cobre).
-def _cartao_da_remessa(com, lead, folga, cobre, hoje):
+# ruptura_calculo.com_envio. A cor da última linha acompanha o diagnóstico: vermelho = falta produto antes de chegar; laranja = a quantidade acrescenta menos que a folga desejada.
+def _cartao_da_remessa(com, lead, folga, hoje, P):
     chegada, nova = hoje + timedelta(days=lead), hoje + timedelta(days=com['dia_nova_ruptura'])
-    meta, dias_apos = folga + cobre, floor(com['dias_apos'])
-    classe = 'vencido' if com['faltam'] > 0 else ('ok' if dias_apos >= meta else 'atencao')
-    dica = [f'Cobertura de estoque da {com.get("fonte", "remessa")}: enviando {_numero(com["qtd"])} un hoje, ela chega em {_data_completa(chegada)} (lead time de {_plural(lead, "dia", "dias")}).',
-            f'Nesse dia o estoque terá cerca de {_numero(com["apos"])} un ({_numero(ceil(com["antes"]))} que sobram + {_numero(com["qtd"])} da remessa) e volta a cair no mesmo ritmo até a nova ruptura, em {_data_completa(nova)}.']
+    dada = floor(round(com['folga_dada'], 6))
+    classe = 'vencido' if com['faltam'] > 0 else ('ok' if dada >= folga else 'atencao')
+    dica = [f'Cobertura de estoque {P["da_remessa"]} ({com.get("fonte", "quantidade")}): {P["gerundio"]} {_numero(com["qtd"])} un hoje, {P["a_remessa"]} chega em {_data_completa(chegada)} (prazo de {_plural(lead, "dia", "dias")}).',
+            f'Nesse dia o estoque terá cerca de {_numero(com["apos"])} un ({_numero(ceil(com["antes"]))} que sobram + {_numero(com["qtd"])} {P["da_remessa"]}) e volta a cair no mesmo ritmo até a nova ruptura, em {_data_completa(nova)}.',
+            f'A quantidade acrescenta {_plural(dada, "dia", "dias")} de estoque (a folga desejada é de {_plural(folga, "dia", "dias")}).']
     if com['faltam'] > 0:
         dica.append(f'Antes da chegada o estoque acaba: vão faltar cerca de {_plural(com["faltam"], "dia", "dias")}.')
-    return {'id': 'sug', 'cor': COR_DA_REMESSA, 'curto': 'Com o envio', 'quantidade': f'{_numero(com["qtd"])}', 'chega': f'Chega {_data_curta(chegada, hoje)}', 'nova': f'Nova ruptura {_data_curta(nova, hoje)}',
+    return {'id': 'sug', 'cor': COR_DA_REMESSA, 'curto': P['com'], 'quantidade': f'{_numero(com["qtd"])}', 'chega': f'Chega {_data_curta(chegada, hoje)}', 'nova': f'Nova ruptura {_data_curta(nova, hoje)}',
             'classe': classe, 'dica': ' '.join(dica)}
 
 
 # Função Objetivo: O gráfico pronto para o template, ou None quando não há o que desenhar (sem estoque, ou o ritmo em destaque sem dados). `series` = lista de
 # {'dias': N, 'media': un/dia ou None, 'url': endereço que põe esse ritmo em destaque}; `destaque` = os dias do ritmo em destaque (o período escolhido na tela); `com` = o que acontece com o estoque
-# se a quantidade escolhida for enviada hoje (ruptura_calculo.com_envio; None = sem quantidade, sem linha da remessa); `cobre` = os dias que cada remessa cobre (só para o cartão da remessa).
-def montar_grafico(estoque, lead, folga, series, destaque, hoje, com=None, cobre=0):
+# se a quantidade escolhida for enviada hoje (ruptura_calculo.com_envio; None = sem quantidade, sem linha da remessa); `ante` = quantos dias antes da ruptura o envio deve chegar (a zona amarela e o "Enviar até");
+# `folga` = os dias de estoque que o envio deve acrescentar (só para a cor do cartão da remessa); `mundo` = 'full' | 'fora' (só as palavras mudam).
+def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=0, mundo='full'):
+    P = palavras(mundo)
     series = sorted(series, key=lambda s: s['dias'])
     foco = next((s for s in series if s['dias'] == destaque), None)
     if estoque is None or foco is None or foco['media'] is None:
@@ -163,12 +168,12 @@ def montar_grafico(estoque, lead, folga, series, destaque, hoje, com=None, cobre
     quedas = [estoque / s['media'] for s in com_ritmo if estoque > 0 and s['media'] > 0]
     base = max(quedas) if quedas else 30
     if lead:
-        base = max(base, (lead + folga) * 1.3)
+        base = max(base, (lead + ante) * 1.3)
     if com:
         base = max(base, com['t_zero'])   # a nova ruptura (depois da remessa) também precisa caber no gráfico
     horizonte = min(HORIZONTE_MAXIMO, max(HORIZONTE_MINIMO, ceil(base * 1.12)))
 
-    pedidos = {s['dias']: calc.ponto_de_pedido(s['media'], lead, folga) for s in com_ritmo}
+    pedidos = {s['dias']: calc.ponto_de_pedido(s['media'], lead, ante) for s in com_ritmo}
     y_max = max(estoque, max((p for p in pedidos.values() if p), default=0), com['apos'] if com else 0, 10) * MARGEM_DO_TOPO
 
     def x(t):
@@ -193,10 +198,10 @@ def montar_grafico(estoque, lead, folga, series, destaque, hoje, com=None, cobre
     # ---- o ritmo em destaque: zonas, "Enviar até" e "Ruptura" ----
     media_foco = foco['media']
     t_ruptura = estoque / media_foco if estoque > 0 and media_foco > 0 else None
-    t_envio = t_ruptura - lead - folga if (t_ruptura is not None and (lead or folga)) else None   # a data RECOMENDADA (ruptura − lead time − margem de segurança)
-    zonas = [{'classe': c, 'inicio': _c(i), 'largura': _c(f - i), 'atrasada': atrasada} for c, i, f, atrasada in _zonas(estoque, lead, folga, t_ruptura, horizonte)]
-    dias_da_zona = {'envio': lead, 'folga': folga}
-    zonas_legenda = [{'classe': z['classe'], 'rotulo': ROTULO_DAS_ZONAS[z['classe']] + (f' ({_plural(dias_da_zona[z["classe"]], "dia", "dias")})' if dias_da_zona.get(z['classe']) else '')} for z in zonas]
+    t_envio = t_ruptura - lead - ante if (t_ruptura is not None and (lead or ante)) else None   # a data RECOMENDADA (ruptura − prazo − chegar antes)
+    zonas = [{'classe': c, 'inicio': _c(i), 'largura': _c(f - i), 'atrasada': atrasada} for c, i, f, atrasada in _zonas(estoque, lead, ante, t_ruptura, horizonte)]
+    dias_da_zona = {'envio': lead, 'ante': ante}
+    zonas_legenda = [{'classe': z['classe'], 'rotulo': ROTULO_DAS_ZONAS[z['classe']].format(do_envio=P['o_envio']) + (f' ({_plural(dias_da_zona[z["classe"]], "dia", "dias")})' if dias_da_zona.get(z['classe']) else '')} for z in zonas]
 
     marcadores = []
 
@@ -209,7 +214,7 @@ def montar_grafico(estoque, lead, folga, series, destaque, hoje, com=None, cobre
     dia_envio = dia_ruptura = None
     if t_envio is not None and 0 <= t_envio < horizonte:
         dia_envio = floor(t_envio)
-        marcador(dia_envio, 'enviar', f'Enviar até {_data_curta(hoje + timedelta(days=dia_envio), hoje)}', 0)
+        marcador(dia_envio, 'enviar', f'{P["enviar_ate"]} {_data_curta(hoje + timedelta(days=dia_envio), hoje)}', 0)
     if t_ruptura is not None and t_ruptura < horizonte:
         dia_ruptura = floor(t_ruptura)
         marcador(dia_ruptura, 'ruptura', f'Ruptura {_data_curta(hoje + timedelta(days=dia_ruptura), hoje)}', 1)
@@ -255,13 +260,13 @@ def montar_grafico(estoque, lead, folga, series, destaque, hoje, com=None, cobre
     passo_x = next((p for p in PASSOS_DO_EIXO_X if horizonte / p <= 8), 365)
     ticks_x = [{'t': t, 'x_meio': _c(x(t + 0.5)), 'hoje': t == 0, 'rotulo': 'HOJE' if t == 0 else _data_curta(hoje + timedelta(days=t), hoje)} for t in range(0, horizonte, passo_x)]
 
-    periodos = [_periodo(s, estoque, lead, folga, hoje, s['dias'] == destaque) for s in series]
-    cartao_da_remessa = _cartao_da_remessa(com, lead, folga, cobre, hoje) if com else None
+    periodos = [_periodo(s, estoque, lead, ante, hoje, s['dias'] == destaque, P) for s in series]
+    cartao_da_remessa = _cartao_da_remessa(com, lead, folga, hoje, P) if com else None
     dados = {
         'hoje': hoje.isoformat(), 'horizonte': horizonte, 'estoque': estoque, 'yMax': round(y_max, 4), 'zoomMinimo': ZOOM_MINIMO_EM_DIAS, 'lead': lead, 'foco': f's{destaque}',
         'ruptura': None if t_ruptura is None else round(t_ruptura, 4), 'enviar': None if (t_envio is None or t_envio < 0) else round(t_envio, 4), 'pedido': pedido if pedido else None,
         'rupturaDia': dia_ruptura, 'enviarDia': dia_envio,
-        'sug': None if not com else {'id': 'sug', 'rotulo': 'Com o envio', 'cor': COR_DA_REMESSA, 'media': round(media_foco, 6), 'chega': lead, 'antes': round(com['antes'], 4), 'depois': round(com['apos'], 4),
+        'sug': None if not com else {'id': 'sug', 'rotulo': P['com'], 'cor': COR_DA_REMESSA, 'media': round(media_foco, 6), 'chega': lead, 'antes': round(com['antes'], 4), 'depois': round(com['apos'], 4),
                                      'tZero': round(com['t_zero'], 4), 'diaZero': com['dia_nova_ruptura'], 'qtd': com['qtd']},
         'series': [{'id': f's{s["dias"]}', 'dias': s['dias'], 'rotulo': _plural(s['dias'], 'dia', 'dias'), 'media': round(s['media'], 6), 'cor': _cor(s['dias']),
                     'diaRuptura': floor(estoque / s['media']) if estoque > 0 and s['media'] > 0 else None} for s in com_ritmo],

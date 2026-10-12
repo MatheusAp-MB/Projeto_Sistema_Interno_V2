@@ -1,0 +1,11 @@
+{% comment %}
+    * [RESUMO] → O seletor "Previsão para: Envios Full | Fora do Full" — o primeiro item da barra de cima da tela "Previsão de Ruptura de estoque", na lista, no detalhe e no painel do Fora do Full. Recebe "pagina" (pagina.mundos, de
+      ruptura_pagina.montar_pagina). A tela tem DOIS MUNDOS ISOLADOS (decisão do Matheus, 12/10/2026), cada um com as suas regras (estoque, vendas, prazo, chegar antes, folga): Envios Full e Fora do Full.
+    * [EXPLICAÇÃO] → São LINKS (não botões de formulário): cada um leva ao mundo escolhido já com os parâmetros dos DOIS mundos no endereço (o que foi digitado em um não se perde ao olhar o outro) e com o item aberto, se houver.
+      O que estiver digitado e ainda não aplicado nos campos de número se perde ao trocar de mundo (aperte Enter antes). Fora do Full fica desativado no Código ML: o Código ML é o próprio estoque do Full.
+{% endcomment %}<div class="rup-campo rup-campo--mundo">
+    <span class="rup-rotulo" id="rup-mundo-rotulo">Previsão para</span>
+    <div class="rup-segmentado rup-segmentado--mundo" role="group" aria-labelledby="rup-mundo-rotulo">
+        {% for m in pagina.mundos %}{% if m.desativado %}<span class="rup-segmento rup-segmento--desativado" title="O Código ML é o estoque do Full: não existe fora do Full." aria-disabled="true">{{ m.rotulo }}</span>{% else %}<a href="{{ m.url }}" class="rup-segmento{% if m.ativo %} rup-segmento--ativo{% endif %}" title="{{ m.dica }}"{% if m.ativo %} aria-current="true"{% endif %}>{{ m.rotulo }}</a>{% endif %}{% endfor %}
+    </div>
+</div>

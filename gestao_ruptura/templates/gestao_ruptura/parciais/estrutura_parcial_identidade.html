@@ -1,0 +1,19 @@
+{% comment %}
+    * [RESUMO] → O cartão de IDENTIDADE de uma linha das listas da tela "Previsão de Ruptura de estoque" (foto, selos, título que abre o detalhe e os IDs), igual nos dois mundos. Recebe "l" (a linha) e "gran" (sku | mlb | codigo):
+      no MLB o primeiro ID é o do anúncio (estilo .cartao-anuncio-mlb). O desenho é o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css); aqui só vai a peça.
+{% endcomment %}<div class="rup-id">
+    {% if l.foto %}<img src="{{ l.foto }}" class="cartao-anuncio-imagem" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">{% else %}<div class="cartao-anuncio-imagem cartao-anuncio-imagem--vazia" role="img" aria-label="Sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>{% endif %}
+    <div class="cartao-anuncio-corpo">
+        <div class="cartao-anuncio-badges">
+            {% for a in l.avisos %}<span class="rup-selo rup-selo--{{ a.classe }}" title="{{ a.dica }}">{{ a.texto }}</span>{% endfor %}
+            {% for s in l.selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i>{% endif %} {{ s.rotulo }}</span>{% endfor %}
+        </div>
+        <div class="cartao-anuncio-titulo">
+            {% if l.url_detalhe %}<a href="{{ l.url_detalhe }}" class="rup-id-link{% if l.codigo %} rup-id-link--codigo{% endif %}" title="{{ l.titulo }}{% if l.subtitulo %} — {{ l.subtitulo }}{% endif %} · abrir a curva de estoque">{{ l.titulo }}{% if l.subtitulo %} <span class="rup-id-sub">{{ l.subtitulo }}</span>{% endif %}</a>
+            {% else %}<span class="rup-id-link rup-id-link--parado" title="{{ l.motivo }}">{{ l.titulo }}</span>{% endif %}
+        </div>
+        <div class="cartao-anuncio-ids">
+            {% for i in l.ids %}<span class="{% if forloop.first and gran == 'mlb' %}cartao-anuncio-mlb{% else %}cartao-anuncio-sku{% endif %}">{{ i }}</span>{% endfor %}
+        </div>
+    </div>
+</div>

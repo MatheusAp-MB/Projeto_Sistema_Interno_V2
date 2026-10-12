@@ -1,0 +1,23 @@
+{% comment %}
+    * [RESUMO] → O campo "Estoque" do DETALHE de um item (só existe no detalhe), no cartão "1 Projeção". Recebe "pagina". Vazio, vale o estoque LIDO do Full (última consulta salva dos Códigos ML do item); digitar um número SIMULA outro estoque.
+      A frase de baixo (pagina.dica_do_estoque) diz DE ONDE vem o estoque que está valendo e o que fazer; tem altura fixa de 2 linhas (o que não cabe é cortado com "…" e vai inteiro no "title"). No mundo "Fora do Full" nada é lido: o estoque é digitado (nome no endereço: "estoque_f"; no Full, "estoque").
+{% endcomment %}<div class="rup-fld rup-fld--estoque">
+    <div class="rup-fld-linha">
+        <label class="rup-fld-rotulo" for="rup-estoque" title="{{ pagina.rotulo_do_estoque }}. {% if pagina.e_full %}Vazio, vale o estoque lido do Full; digite um número para simular outro estoque.{% else %}Digite o estoque de fora do Full (por enquanto é digitado: a API de estoque do ERP ainda será corrigida).{% endif %}">{{ pagina.rotulo_do_estoque }}</label>
+        <input type="number"
+               id="rup-estoque"
+               name="{{ pagina.nomes.estoque }}"
+               value="{{ pagina.estoque_valor }}"
+               min="0"
+               step="1"
+               inputmode="numeric"
+               placeholder="{{ pagina.estoque_placeholder }}"
+               class="rup-input rup-input--num">
+        <span class="rup-unidade">un</span>
+    </div>
+    {% if pagina.dica_do_estoque.texto %}
+        <p class="rup-fld-dica rup-fld-dica--2{% if pagina.dica_do_estoque.classe %} rup-fld-dica--{{ pagina.dica_do_estoque.classe }}{% endif %}" title="{{ pagina.dica_do_estoque.texto }}">{{ pagina.dica_do_estoque.texto }}</p>
+    {% else %}
+        <p class="rup-fld-dica rup-fld-dica--2">{% if pagina.e_full %}Vazio: vale o estoque lido do Full. Digite um número para simular outro estoque.{% else %}Digite o estoque de fora do Full (a API do ERP ainda será corrigida).{% endif %}</p>
+    {% endif %}
+</div>

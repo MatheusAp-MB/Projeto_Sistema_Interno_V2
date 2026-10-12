@@ -3,14 +3,16 @@
  * [RESUMO] → Pequenos atalhos da tela "Previsão de Ruptura de estoque". Nenhum deles é obrigatório: sem JavaScript a tela continua funcionando (é só preencher e clicar em
  *            "Calcular" / clicar nos links). Só o item 5 (botão "Consultar no Mercado Livre", só por clique) chama o Mercado Livre; tudo o mais é GET comum que só lê o banco.
  *
- *            1) Os atalhos de dias (7, 15, 30...), o seletor "Ver" (No Full / Fora do Full / Produto), o checkbox "Considerar as unidades a caminho", o seletor "Referência de urgência" (Mercado Livre /
- *               Sistema) e o seletor "Quanto enviar" (Do Mercado Livre / Do Sistema / Minha quantidade) refazem o cálculo na hora. Digitar uma quantidade marca "Minha quantidade" sozinho; escolher outra
+ *            1) Os atalhos de dias (7, 15, 30...; valem para o mundo da tela: o campo é sempre #rup-dias, mesmo que no endereço seja "dias_f"), o checkbox "Contar o que está a caminho" (só existe no Full), o seletor "Urgência segundo" (Mercado Livre /
+ *               Sistema) e o seletor "Quantidade segundo" (Mercado Livre / Sistema / Minha quantidade) refazem o cálculo na hora. Os campos de número e a busca só valem ao apertar Enter ou "Recalcular": enquanto houver algo digitado e ainda não aplicado, o botão ganha uma bolinha laranja. Digitar uma quantidade marca "Minha quantidade" sozinho; escolher outra
  *               referência de quantidade limpa o campo.
  *            2) Os seletores "Ordenar por" e "Por página" da lista (marcados com data-rup-ir) levam para o endereço que está no value da opção escolhida.
  *            3) Foto que não carrega (anúncio sem foto, link vencido) vira o quadradinho "sem foto", para a linha não ficar com o ícone de imagem quebrada.
  *            4) O gráfico da curva de estoque (detalhe): ligar/desligar a curva de cada ritmo, passar o mouse (estoque projetado de cada ritmo naquele dia), zoom (botões ou scroll do mouse), mover e arrastar.
  *               Tudo é conta local sobre os dados que o servidor deixou na página; sem este script o gráfico continua inteiro, só não responde ao mouse.
  *            5) Os botões "Consultar no Mercado Livre" da tabela de estoque (um Código ML, ou todos em fila): chamam o servidor só por clique e recarregam a tela no fim.
+ *            6) Balão de dica no padrão da tela (branco, com setinha) no lugar do balão preto do navegador: o texto continua escrito no atributo title do HTML; ao carregar, este script o troca por
+ *               data-rup-dica e mostra o balão ao passar o mouse (ou ao chegar com o Tab). Sem JavaScript, volta o balão nativo do navegador.
  */
 (function () {
     'use strict';
@@ -34,14 +36,15 @@
     }
 
     if (form) {
-        form.querySelectorAll('input[name="visao"]').forEach(function (opcao) {
-            opcao.addEventListener('change', enviar);
+        // Campo de número e busca NÃO valem na hora (só ao apertar Enter ou "Recalcular"): enquanto houver algo digitado e ainda não aplicado, o formulário ganha a marca "pendente" e o botão "Recalcular" ganha uma bolinha laranja (CSS).
+        form.querySelectorAll('input[type="number"], input[type="search"]').forEach(function (campo) {
+            campo.addEventListener('input', function () { form.classList.add('rup-controles--pendente'); });
         });
-        // O checkbox "Considerar as unidades a caminho" e o seletor "Referência de urgência" também refazem o cálculo na hora.
+        // O checkbox "Contar o que está a caminho" e o seletor "Urgência segundo" também refazem o cálculo na hora.
         form.querySelectorAll('input[name="caminho"], input[name="ref_urg"]').forEach(function (caixa) {
             caixa.addEventListener('change', enviar);
         });
-        // "Quanto enviar" (só no detalhe): trocar a referência refaz o cálculo; "Minha quantidade" sem número ainda só leva o cursor ao campo (não há o que calcular); digitar marca "Minha quantidade".
+        // "Quantidade segundo" (a opção "Minha quantidade" só existe no detalhe): trocar a referência refaz o cálculo; "Minha quantidade" sem número ainda só leva o cursor ao campo (não há o que calcular); digitar marca "Minha quantidade".
         var campoQtd = document.getElementById('rup-qtd');
         var opcoesQtd = form.querySelectorAll('input[name="ref_qtd"]');
         function marcarReferencia(valor) {
@@ -68,7 +71,7 @@
         }
     }
 
-    // [2] Seletores que trocam de página: o value da opção já é o endereço pronto (montado no servidor, mantendo busca, filtro, ritmo e lead).
+    // [2] Seletores que trocam de página: o value da opção já é o endereço pronto (montado no servidor, mantendo busca, filtro, ritmo, prazo, chegar antes e folga).
     document.querySelectorAll('select[data-rup-ir]').forEach(function (seletor) {
         seletor.addEventListener('change', function () {
             var destino = seletor.value;
@@ -562,7 +565,7 @@
 
     // [5] Botões "Consultar no Mercado Livre" da tabela de estoque (detalhe): o ÚNICO lugar desta tela que chama o Mercado Livre, e só por clique. Um Código ML por chamada ao servidor (data-rup-url);
     //     "Consultar todos" faz os Códigos da tabela UM POR VEZ (em fila). Acesso recusado ou varredura rodando (o servidor responde "interromper") para a fila. Ao terminar, se algum Código foi atualizado,
-    //     a tela recarrega (o endereço guarda o ritmo, o lead time e as referências) e volta a ler só do banco; o resultado fica numa linha de apoio que sobrevive ao recarregamento.
+    //     a tela recarrega (o endereço guarda o ritmo, o prazo, o chegar antes, a folga e as referências dos dois mundos) e volta a ler só do banco; o resultado fica numa linha de apoio que sobrevive ao recarregamento.
     var secaoConsulta = document.querySelector('[data-rup-consulta]');
     if (secaoConsulta) {
         var urlConsulta = secaoConsulta.getAttribute('data-rup-url');
@@ -579,7 +582,7 @@
         function dizer(texto, tom) {
             if (!statusConsulta) { return; }
             statusConsulta.textContent = texto;
-            statusConsulta.title = texto;
+            statusConsulta.setAttribute('data-rup-dica', texto);
             statusConsulta.classList.remove('rup-consulta-status--erro', 'rup-consulta-status--ok');
             if (tom) { statusConsulta.classList.add('rup-consulta-status--' + tom); }
         }
@@ -667,5 +670,133 @@
                 }
             });
         });
+    }
+
+    // [6] Balão de dica no padrão da tela. Vale só dentro da tela (.rup-pagina) e do atalho da barra de cima.
+    var ESCOPO_DICA = '.rup-pagina, .rup-toolbar-link';
+    var balaoDica = null;
+    var alvoDica = null;
+    var esperaDica = null;
+    var mouseDicaX = 0;
+    var mouseDicaY = 0;
+
+    // Troca title por data-rup-dica (some o balão preto do navegador). Botão só com ícone não tem texto: o title vira o aria-label para o leitor de tela não perder o nome.
+    function prepararDicas() {
+        document.querySelectorAll(ESCOPO_DICA).forEach(function (area) {
+            var itens = Array.prototype.slice.call(area.querySelectorAll('[title]'));
+            if (area.hasAttribute('title')) { itens.push(area); }
+            itens.forEach(function (el) {
+                var texto = (el.getAttribute('title') || '').trim();
+                el.removeAttribute('title');
+                if (!texto) { return; }
+                el.setAttribute('data-rup-dica', texto);
+                if (!el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby') && !(el.textContent || '').trim()) {
+                    el.setAttribute('aria-label', texto);
+                }
+            });
+        });
+    }
+
+    function acharDica(elemento) {
+        if (!elemento || !elemento.closest) { return null; }
+        var alvo = elemento.closest('[data-rup-dica]');
+        return alvo && alvo.closest(ESCOPO_DICA) ? alvo : null;
+    }
+
+    function criarBalaoDica() {
+        if (!balaoDica) {
+            balaoDica = document.createElement('div');
+            balaoDica.id = 'rup-dica';
+            balaoDica.className = 'rup-dica';
+            balaoDica.setAttribute('role', 'tooltip');
+            document.body.appendChild(balaoDica);
+        }
+        return balaoDica;
+    }
+
+    // Põe o balão perto do alvo, sempre dentro da janela: embaixo se couber (senão em cima), centralizado no alvo e empurrado para dentro nas bordas; a setinha continua apontando para o alvo.
+    // Alvo alto (cartão, bloco) usa o ponto do mouse como referência, para o balão não aparecer longe do cursor.
+    function posicionarDica(alvo, pelaTeclado) {
+        var balao = criarBalaoDica();
+        var margem = 8;
+        var folga = 10;
+        var larguraJanela = document.documentElement.clientWidth;
+        var alturaJanela = document.documentElement.clientHeight;
+        var caixa = alvo.getBoundingClientRect();
+        var ref = { esq: caixa.left, dir: caixa.right, topo: caixa.top, base: caixa.bottom };
+        if (!pelaTeclado && caixa.height > 56) {
+            ref = { esq: mouseDicaX, dir: mouseDicaX, topo: mouseDicaY - 4, base: mouseDicaY + 14 };
+        }
+        var largura = balao.offsetWidth;
+        var altura = balao.offsetHeight;
+        var centro = (Math.max(ref.esq, 0) + Math.min(ref.dir, larguraJanela)) / 2;
+        var esq = Math.max(margem, Math.min(centro - largura / 2, larguraJanela - largura - margem));
+        var embaixo = ref.base + folga;
+        var emCima = ref.topo - folga - altura;
+        var usaCima = embaixo + altura > alturaJanela - margem && emCima >= margem;
+        var topo = usaCima ? emCima : embaixo;
+        var topoFinal = Math.max(margem, Math.min(topo, alturaJanela - altura - margem));
+        balao.style.left = Math.round(esq) + 'px';
+        balao.style.top = Math.round(topoFinal) + 'px';
+        balao.style.setProperty('--rup-dica-seta', Math.round(Math.max(14, Math.min(centro - esq, largura - 14))) + 'px');
+        balao.classList.toggle('rup-dica--acima', usaCima);
+        balao.classList.toggle('rup-dica--sem-seta', topoFinal !== topo);
+    }
+
+    function abrirDica(alvo, pelaTeclado) {
+        var texto = alvo.getAttribute('data-rup-dica');
+        if (!texto) { return; }
+        var balao = criarBalaoDica();
+        balao.textContent = texto;
+        balao.classList.add('rup-dica--visivel');
+        alvo.setAttribute('aria-describedby', 'rup-dica');
+        posicionarDica(alvo, pelaTeclado);
+    }
+
+    function fecharDica() {
+        clearTimeout(esperaDica);
+        esperaDica = null;
+        if (alvoDica) { alvoDica.removeAttribute('aria-describedby'); }
+        alvoDica = null;
+        if (balaoDica) { balaoDica.classList.remove('rup-dica--visivel'); }
+    }
+
+    function aprontarDicas() {
+        prepararDicas();
+        // Mouse: o balão abre depois de uma pausa curta (não pisca quando o mouse só passa por cima) e fecha ao sair do alvo.
+        document.addEventListener('mouseover', function (evento) {
+            var alvo = acharDica(evento.target);
+            if (alvo === alvoDica) { return; }
+            fecharDica();
+            if (!alvo) { return; }
+            alvoDica = alvo;
+            mouseDicaX = evento.clientX;
+            mouseDicaY = evento.clientY;
+            esperaDica = setTimeout(function () { esperaDica = null; if (alvoDica === alvo) { abrirDica(alvo, false); } }, 250);
+        });
+        document.addEventListener('mouseout', function (evento) {
+            if (alvoDica && !(evento.relatedTarget && alvoDica.contains(evento.relatedTarget))) { fecharDica(); }
+        });
+        // Teclado (Tab): abre na hora, só quando o foco veio do teclado.
+        document.addEventListener('focusin', function (evento) {
+            var alvo = acharDica(evento.target);
+            var doTeclado = false;
+            try { doTeclado = evento.target.matches(':focus-visible'); } catch (erro) { doTeclado = false; }
+            if (!alvo || !doTeclado) { return; }
+            fecharDica();
+            alvoDica = alvo;
+            abrirDica(alvo, true);
+        });
+        document.addEventListener('focusout', fecharDica);
+        document.addEventListener('keydown', function (evento) { if (evento.key === 'Escape') { fecharDica(); } });
+        document.addEventListener('mousedown', fecharDica);
+        window.addEventListener('scroll', fecharDica, true);
+        window.addEventListener('resize', fecharDica);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', aprontarDicas);
+    } else {
+        aprontarDicas();
     }
 })();

@@ -1,0 +1,99 @@
+{% comment %}
+    * [RESUMO] → Os CARTÕES de controles do topo da tela "Previsão de Ruptura de estoque" — os mesmos na lista e no detalhe. Recebe "pagina". A tela tem DOIS MUNDOS ISOLADOS (decisão do Matheus, 12/10/2026): ENVIOS FULL (3 cartões) e FORA DO FULL
+      (2 cartões); quem troca de mundo é o seletor "Previsão para" da barra de cima (estrutura_parcial_mundos.html). Os textos de cada mundo vêm de pagina.txt e pagina.palavras (ruptura_pagina._textos_do_mundo e ruptura_texto.palavras).
+        1) PROJEÇÃO — como se projeta quando o estoque acaba. Mexer aqui muda os NÚMEROS: vendas dos últimos N dias do mundo (o ritmo), no detalhe o estoque do mundo (do Full: lido da última consulta; de fora do Full: digitado) e, SÓ NO FULL, "contar o que está a caminho".
+        2) REGRAS DE ENVIO AO FULL / REGRAS DE PEDIDO — quando e quanto enviar (ou pedir). Mudam pouco e dependem do responsável (por isso o cartão é mais apagado): prazo até vender, chegar antes da ruptura e folga. Cada mundo tem o SEU prazo (Full: do zero até chegar ao Full;
+           Fora do Full: do pedido até a transportadora entregar). A folga é o mesmo conceito nos dois: "estou mandando este envio e quero N dias de estoque de folga" (a nova ruptura vem N dias depois da atual).
+        3) QUEM RECOMENDA — só no FULL (o Mercado Livre só recomenda para o Full). NÃO muda a conta: muda de quem é a urgência e a quantidade que aparecem grandes (a outra aparece pequena) e a ordem da lista.
+      A barra de cima (seletor de mundo + Ver por + Buscar na lista; Voltar + seletor no detalhe) fica nas partes lista/detalhe: ela serve para ACHAR, os cartões servem para CONFIAR no número.
+    * [EXPLICAÇÃO] → Quando um valor vale: botões e seletores (atalhos de dias, caixa "a caminho", Mercado Livre | Sistema) refazem o cálculo na hora; os campos de número e a busca só valem ao apertar Enter ou "Recalcular", que ganha uma bolinha laranja
+      enquanto houver algo digitado e ainda não aplicado (script_ruptura.js). Os nomes técnicos no endereço: Full = dias, lead, ante, folga, estoque; Fora do Full = os mesmos com _f no fim (dias_f, lead_f, ante_f, folga_f, estoque_f); só do Full: caminho, ref_urg, ref_qtd, qtd.
+      A disposição (3 cartões no Full, 2 no Fora do Full; 2 ou 1 por linha em janela menor) depende só da largura da JANELA (layout_ruptura.css), nunca do espaço ao lado da barra lateral. Cada cartão tem o "?" com a explicação longa; cada campo tem a frase de apoio embaixo, numa linha só.
+{% endcomment %}<div class="rup-ctls{% if not pagina.e_full %} rup-ctls--2{% endif %}">
+    <section class="rup-ctl rup-ctl--projecao" aria-labelledby="rup-ctl-1">
+        <header class="rup-ctl-cab">
+            <span class="rup-ctl-num" aria-hidden="true">1</span>
+            <div class="rup-ctl-titulos">
+                <h2 class="rup-ctl-titulo" id="rup-ctl-1">Projeção</h2>
+                <p class="rup-ctl-sub">{% if pagina.e_full %}Como projeto quando o estoque do Full acaba{% else %}Como projeto quando o estoque de fora do Full acaba{% endif %}</p>
+            </div>
+            <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler o cartão Projeção">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">
+                    <strong>Projeção</strong>
+                    {% if pagina.e_full %}
+                    <span>Estes campos mudam os <b>números de todas as linhas</b>.</span>
+                    <span><b>Vendas dos últimos N dias</b>: a média por dia das vendas que saíram do Full nos dias completos do período (o &quot;ritmo&quot;). Estoque ÷ ritmo = quantos dias o estoque dura (a cobertura).</span>
+                    <span><b>Contar o que está a caminho</b>: soma ao estoque o que já foi enviado ao Full e ainda não chegou, como se já estivesse lá hoje. É uma hipótese: não se sabe quando chega.</span>
+                    {% if pagina.modo == 'detalhe' %}<span><b>Estoque</b>: vazio, vale o estoque lido do Full (última consulta salva). Digitar um número simula outro estoque.</span>{% endif %}
+                    <span>Os atalhos de dias e a caixa &quot;a caminho&quot; valem na hora; o número digitado vale ao apertar Enter ou &quot;Recalcular&quot;.</span>
+                    {% else %}
+                    <span>Aqui vale o que está <b>fora do Full</b>: o estoque e as vendas de fora do Full.</span>
+                    <span><b>Vendas dos últimos N dias</b>: a média por dia das vendas que saíram de fora do Full nos dias completos do período (o &quot;ritmo&quot;). Estoque ÷ ritmo = quantos dias o estoque dura (a cobertura).</span>
+                    {% if pagina.modo == 'detalhe' %}<span><b>Estoque fora do Full</b>: por enquanto é digitado (a API de estoque do ERP ainda será corrigida).</span>{% endif %}
+                    <span>Os atalhos de dias valem na hora; o número digitado vale ao apertar Enter ou &quot;Recalcular&quot;.</span>
+                    {% endif %}
+                </span>
+            </span>
+        </header>
+        <div class="rup-ctl-corpo">
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
+            {% if pagina.modo == 'detalhe' %}{% include 'gestao_ruptura/parciais/estrutura_parcial_campo_estoque.html' %}{% endif %}
+            {% if pagina.e_full %}{% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}{% endif %}
+        </div>
+    </section>
+
+    <section class="rup-ctl rup-ctl--regras" aria-labelledby="rup-ctl-2">
+        <header class="rup-ctl-cab">
+            <span class="rup-ctl-num" aria-hidden="true">2</span>
+            <div class="rup-ctl-titulos">
+                <h2 class="rup-ctl-titulo" id="rup-ctl-2">{{ pagina.txt.regras_titulo }}</h2>
+                <p class="rup-ctl-sub">{{ pagina.txt.regras_sub }}</p>
+            </div>
+            <span class="rup-ctl-tag" title="Estas regras dependem do responsável e mudam pouco.">muda pouco</span>
+            <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler o cartão {{ pagina.txt.regras_titulo }}">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">
+                    <strong>{{ pagina.txt.regras_titulo }}</strong>
+                    <span>{% if pagina.e_full %}São as regras para enviar ao Full.{% else %}São as regras para pedir o que está fora do Full.{% endif %} Mudam pouco e dependem do responsável: <b>provisório</b> quer dizer que ainda não foram definidas e vale um número de partida.</span>
+                    <span>{{ pagina.txt.prazo_dica }}</span>
+                    <span>{{ pagina.txt.ante_dica }}</span>
+                    <span>{{ pagina.txt.folga_dica }}</span>
+                    <span>Com elas: <b>{{ pagina.palavras.enviar_ate }}</b> = ruptura − prazo − chegar antes; <b>nível</b> crítico = dura menos que o prazo; baixo = até prazo + folga. O número digitado vale ao apertar Enter ou &quot;Recalcular&quot;.</span>
+                </span>
+            </span>
+        </header>
+        <div class="rup-ctl-corpo">
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_regra.html' %}
+        </div>
+        <div class="rup-ctl-rodape" title="{{ pagina.txt.regra_texto }}">
+            <span class="rup-regra-linha"><b>{{ pagina.palavras.enviar_ate }}</b> = {{ pagina.txt.regra_enviar_ate }}</span>
+            <span class="rup-regra-linha"><b>Quantidade</b> = {{ pagina.txt.regra_quantidade }}</span>
+        </div>
+    </section>
+
+    {% if pagina.e_full %}
+    <section class="rup-ctl rup-ctl--recomenda" aria-labelledby="rup-ctl-3">
+        <header class="rup-ctl-cab">
+            <span class="rup-ctl-num" aria-hidden="true">3</span>
+            <div class="rup-ctl-titulos">
+                <h2 class="rup-ctl-titulo" id="rup-ctl-3">Quem recomenda</h2>
+                <p class="rup-ctl-sub">De quem é a palavra final</p>
+            </div>
+            <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler o cartão Quem recomenda">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">
+                    <strong>Quem recomenda</strong>
+                    <span>Estes seletores <b>não mudam a conta</b>: mudam de quem é a resposta que aparece grande (a outra aparece pequena ao lado) e a ordem da lista. Valem na hora.</span>
+                    <span><b>Urgência segundo</b>: <i>Mercado Livre</i> = a urgência que ele calcula (Urgente, Esta semana, Próxima semana, Em 2 semanas, Sem urgência, Excedente), lida da última consulta de reposição salva. <i>Sistema</i> = a regra desta tela, pela data de &quot;Enviar até&quot;: hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas; depois = Sem urgência. O filtro &quot;Divergem&quot; mostra onde as duas discordam.</span>
+                    <span><b>Quantidade segundo</b>: <i>Mercado Livre</i> = a quantidade que ele sugere (numa faixa vale o começo dela); <i>Sistema</i> = ritmo × os dias de folga das Regras de envio (a ruptura vai esses dias para frente){% if pagina.modo == 'detalhe' %}; <i>Minha quantidade</i> = você digita quantas unidades quer enviar e a linha verde do gráfico mostra o estoque subindo{% endif %}.</span>
+                </span>
+            </span>
+        </header>
+        <div class="rup-ctl-corpo">
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_referencia.html' %}
+        </div>
+    </section>
+    {% endif %}
+</div>

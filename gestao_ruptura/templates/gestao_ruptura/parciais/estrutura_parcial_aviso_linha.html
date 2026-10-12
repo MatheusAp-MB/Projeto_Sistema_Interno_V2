@@ -1,0 +1,10 @@
+{% comment %}
+    * [RESUMO] → UM aviso da tela "Previsão de Ruptura de estoque", desenhado sempre do mesmo jeito (na caixa agrupada e na faixa de um aviso só): marca (o NÚMERO em destaque ou, sem número, o ícone da gravidade), título,
+      explicação e, se houver, o botão de ação. Recebe "a" ({classe, titulo, texto, numero, link, link_texto}; ver funcoes_auxiliares/ruptura_avisos.py).
+    * [EXPLICAÇÃO] → A grade tem 4 colunas FIXAS (marca | título | explicação | ação) e só a largura da janela (@media) as empilha: assim os números ficam alinhados de uma linha para a outra e nada muda de lugar por causa da barra lateral.
+{% endcomment %}<div class="rup-av-linha rup-av-linha--{{ a.classe }}{% if not a.texto %} rup-av-linha--sem-texto{% endif %}">
+    <span class="rup-av-marca">{% if a.numero %}{{ a.numero }}{% else %}<i class="fas {% if a.classe == 'erro' %}fa-circle-xmark{% elif a.classe == 'aviso' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>{% endif %}</span>
+    <strong class="rup-av-titulo">{{ a.titulo }}</strong>
+    {% if a.texto %}<span class="rup-av-texto">{{ a.texto }}</span>{% endif %}
+    {% if a.link %}<a class="rup-av-acao" href="{{ a.link }}">{{ a.link_texto }} <i class="fas fa-arrow-right" aria-hidden="true"></i></a>{% endif %}
+</div>
