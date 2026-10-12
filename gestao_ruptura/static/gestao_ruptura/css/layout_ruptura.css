@@ -1,4 +1,4 @@
-/* * [RESUMO] → CSS da tela "Estoque — Ruptura de estoque" (prova de conceito, 12/10/2026). Prefixo rup- em tudo, para não esbarrar em nenhuma outra tela.
+/* * [RESUMO] → CSS da tela "Estoque — Previsão de Ruptura de estoque" (prova de conceito, 12/10/2026). Prefixo rup- em tudo, para não esbarrar em nenhuma outra tela.
  *              Reaproveita só o que é compartilhado do projeto: as cores (--cor-*), os chips (.lista-chip*) e o botão (.btn-acao).
  *
  * * [EXPLICAÇÃO] → REGRA DESTA TELA (pedido do Matheus, 12/10/2026): "fluida na horizontal, rígida na vertical". Ela usa a largura toda (com a barra lateral aberta ou
@@ -20,8 +20,11 @@
     --rup-c15: #b0508a;
     --rup-c30: #2e6cc4;
     --rup-extra: #5b6675;
-    /* zonas do fundo do gráfico (ritmo em destaque): antes do envio / tempo de envio / depois da ruptura */
+    /* a linha da COBERTURA DA REMESSA (o estoque que sobe com o envio): verde, a cor de "chega a tempo" */
+    --rup-sug: #1f8a4c;
+    /* zonas do fundo do gráfico (ritmo em destaque): antes do envio / margem de segurança / tempo de envio / depois da ruptura */
     --rup-zona-antes: rgba(31, 106, 66, 0.09);
+    --rup-zona-folga: rgba(235, 183, 30, 0.2);
     --rup-zona-envio: rgba(224, 122, 31, 0.16);
     --rup-zona-envio-atrasada: rgba(224, 122, 31, 0.3);
     --rup-zona-pos: rgba(180, 35, 24, 0.09);
@@ -308,6 +311,7 @@
 .rup-legenda li { display: inline-flex; align-items: center; gap: 6px; }
 .rup-amostra { display: inline-block; flex: none; width: 16px; height: 10px; border: 1px solid transparent; border-radius: 2px; }
 .rup-amostra--antes { background: rgba(31, 106, 66, 0.22); border-color: rgba(31, 106, 66, 0.45); }
+.rup-amostra--folga { background: rgba(235, 183, 30, 0.36); border-color: rgba(200, 150, 10, 0.6); }
 .rup-amostra--envio { background: rgba(224, 122, 31, 0.3); border-color: rgba(224, 122, 31, 0.6); }
 .rup-amostra--pos { background: rgba(180, 35, 24, 0.2); border-color: rgba(180, 35, 24, 0.45); }
 .rup-grafico-nota { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.74rem; color: var(--cor-texto-muted); }
@@ -347,6 +351,7 @@
 .rup-grade { stroke: #e3e8ef; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .rup-grade--x { stroke: #eef1f6; }
 .rup-zona--antes { fill: var(--rup-zona-antes); }
+.rup-zona--folga { fill: var(--rup-zona-folga); }
 .rup-zona--envio { fill: var(--rup-zona-envio); }
 .rup-zona--envio.rup-zona--atrasada { fill: var(--rup-zona-envio-atrasada); }
 .rup-zona--pos { fill: var(--rup-zona-pos); }
@@ -355,6 +360,8 @@
 .rup-dia { stroke: none; }
 .rup-dia--enviar { fill: rgba(31, 106, 66, 0.34); }
 .rup-dia--ruptura { fill: rgba(180, 35, 24, 0.38); }
+.rup-dia--chega { fill: rgba(31, 138, 76, 0.3); }
+.rup-dia--nova { fill: rgba(180, 35, 24, 0.16); }
 
 /* a COR de cada ritmo é fixa (variáveis no topo): o cartão, a curva, o pontinho e a caixa do mouse leem a mesma --rup-cor */
 .rup-cor--c3 { --rup-cor: var(--rup-c3); }
@@ -362,10 +369,12 @@
 .rup-cor--c15 { --rup-cor: var(--rup-c15); }
 .rup-cor--c30 { --rup-cor: var(--rup-c30); }
 .rup-cor--extra { --rup-cor: var(--rup-extra); }
+.rup-cor--sug { --rup-cor: var(--rup-sug); }
 
 /* os ritmos que NÃO estão em destaque ficam finos, tracejados e mais claros; o em destaque é grosso e inteiro */
 .rup-curva { fill: none; stroke: var(--rup-cor); stroke-width: 1.6; stroke-dasharray: 6 4; stroke-linejoin: round; opacity: 0.6; vector-effect: non-scaling-stroke; }
 .rup-curva--foco { stroke-width: 3; stroke-dasharray: none; opacity: 1; }
+.rup-curva--sug { stroke-width: 3; stroke-dasharray: none; stroke-linecap: round; opacity: 1; }   /* a cobertura da remessa: sempre inteira e por cima das outras */
 .rup-pagina .rup-oculto { display: none; }
 
 .rup-rotulo-y {
@@ -397,6 +406,8 @@
 .rup-etiqueta--dir { margin-left: 6px; }
 .rup-etiqueta--enviar { color: #1f6a42; border-color: #bfe3cf; }
 .rup-etiqueta--ruptura { color: #b42318; border-color: #f3b8b8; }
+.rup-etiqueta--chega { color: #1f6a42; border-color: #bfe3cf; }
+.rup-etiqueta--nova { color: #b42318; border-color: #f3b8b8; }
 .rup-etiqueta--pedido { right: 8px; transform: translateY(-115%); color: #4b5a6b; background: rgba(255, 255, 255, 0.85); }   /* canto direito: o esquerdo é dos marcadores */
 .rup-etiqueta--pedido.rup-etiqueta--abaixo { transform: translateY(15%); }                                                   /* linha no topo do gráfico: o rótulo vai embaixo dela */
 
@@ -466,6 +477,7 @@
 .rup-periodo-linha { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 16px; }
 .rup-periodo-linha--ok { color: #1f6a42; font-weight: 600; }
 .rup-periodo-linha--vencido { color: #b42318; font-weight: 700; }
+.rup-periodo-linha--atencao { color: #b34100; font-weight: 700; }
 .rup-vazio { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--cor-texto-muted); }
 
 /* ---- diagnóstico ---- */
@@ -581,6 +593,15 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 
 /* o checkbox "Considerar as unidades a caminho" (lista e detalhe): numa linha própria do formulário; rótulo clicável inteiro, sem quebrar de linha; a frase de apoio some pelo fim (reticências) */
 .rup-linha--opcoes { gap: 10px 16px; }
+/* a linha da "regra do Sistema" (margem de segurança e quantos dias cada remessa cobre): os dois campos têm largura própria e a frase explicativa da direita some pelo fim */
+.rup-linha--regra,
+.rup-linha--referencia,
+.rup-linha--quanto { gap: 10px 28px; }
+.rup-linha--quanto .rup-campo,
+.rup-linha--referencia .rup-campo { flex: none; }   /* só a frase de ajuda da direita encolhe (com reticências): o seletor e o campo da quantidade nunca se espremem */
+.rup-campo--margem,
+.rup-campo--cobre { flex: none; }
+.rup-equivale { flex: none; font-size: 0.82rem; font-weight: 700; color: #243247; white-space: nowrap; }
 .rup-campo--caminho { flex: none; cursor: pointer; }
 .rup-opcao-ajuda { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); }
 .rup-marcar { flex: none; width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: var(--cor-primaria); }
@@ -661,8 +682,8 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 .rup-ajuda:focus .rup-ajuda-balao,
 .rup-ajuda:focus-within .rup-ajuda-balao { display: flex; }
 
-/* ---- os cartões de nível (também são o filtro): 3 por linha na janela média, 6 na larga (nunca "o que couber") ---- */
-.rup-niveis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+/* ---- os cartões de nível (também são o filtro): 4 por linha na janela média, 7 na larga (nunca "o que couber"); o 7º, "Divergem", não é um nível de estoque e por isso tem borda tracejada ---- */
+.rup-niveis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 
 .rup-nivel-cartao {
     display: flex;
@@ -683,6 +704,8 @@ a.rup-nivel-cartao:focus-visible { outline: 2px solid var(--cor-primaria-clara);
 .rup-nivel-cartao--ativo,
 a.rup-nivel-cartao--ativo:hover { background: #e1edf8; border-color: var(--cor-primaria-clara); box-shadow: 0 0 0 1px var(--cor-primaria-clara); }
 .rup-nivel-cartao--vazio { opacity: 0.6; }
+.rup-nivel-cartao--divergem { border-style: dashed; }
+.rup-nivel-cartao--divergem .rup-nivel-cartao-valor { color: #6d28d9; }
 .rup-nivel-cartao-rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cor-texto-muted); }
 .rup-nivel-cartao-valor { font-size: 1.6rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; color: #0b2038; }
 .rup-nivel-cartao-apoio { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; color: #4b5a6b; }
@@ -702,9 +725,9 @@ a.rup-nivel-cartao--ativo:hover { background: #e1edf8; border-color: var(--cor-p
 .rup-l-campo { display: flex; align-items: center; gap: 10px; }
 .rup-l-campo .lista-select { min-width: 200px; }
 .rup-l-rolagem { overflow-x: auto; }
-.rup-l-tabela { --rup-l-colunas-numeros: 96px 80px 84px 100px 88px 90px 76px 40px; min-width: 960px; }   /* janela de até 1499px: colunas enxutas, para a tabela caber com a barra lateral aberta */
+.rup-l-tabela { --rup-l-colunas-numeros: 92px 72px 84px 92px 84px 92px 116px 76px 72px 40px; min-width: 1130px; }   /* janela de até 1499px: colunas enxutas; aqui a tabela rola para o lado dentro da própria caixa (a barra lateral aberta não deixa caber as 11 colunas) */
 
-/* As 9 colunas: nome | estoque | vendas | ritmo | cobertura | ruptura | enviar até | nível | gráfico. Cabeçalho e linhas usam a mesma grade. */
+/* As 11 colunas: nome | estoque | vendas | ritmo | cobertura | ruptura | enviar até | urgência | enviar (un) | nível | gráfico. Cabeçalho e linhas usam a mesma grade. */
 .rup-l-colunas {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--rup-l-colunas-numeros);
@@ -727,6 +750,7 @@ a.rup-nivel-cartao--ativo:hover { background: #e1edf8; border-color: var(--cor-p
 }
 
 .rup-l-cab--nome { text-align: left; }
+.rup-l-cab--esq { text-align: left; }
 .rup-l-cab--centro { text-align: center; }   /* "Nível": no mesmo eixo da etiqueta de nível das linhas */
 
 @media (max-width: 1499px) {
@@ -783,10 +807,16 @@ a.rup-id-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outl
 /* ---- as células de número: UM valor e UMA linha de apoio ---- */
 .rup-num { min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .rup-num strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; font-weight: 700; line-height: 1.25; color: #0b2038; }
-.rup-forte--alerta { color: #b34100; }
+/* as cores do valor (o ".rup-num" na frente dá a força para valer sobre o ".rup-num strong" de cima) */
+.rup-num .rup-forte--alerta { color: #b34100; }
+.rup-num .rup-forte--vencido { color: #b42318; }
+.rup-num .rup-forte--deposito { color: #b34100; }   /* a quantidade passa do que há no depósito (ERP): laranja, com o triângulo de aviso */
+.rup-aviso-deposito { font-size: 0.8em; }
+.rup-num .rup-forte--qtd { color: #2a6099; }   /* a quantidade sugerida (azul, o tom de "informação" do diagnóstico) */
 .rup-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.1em; font-size: 0.72rem; font-weight: 400; color: var(--cor-texto-muted); }
 .rup-sub--atencao { color: #8a6100; font-weight: 600; }
 .rup-sub--alerta { color: #b34100; font-weight: 600; }
+.rup-sub--vencido { color: #b42318; font-weight: 600; }
 .rup-sub--info { color: #4b5a6b; }
 
 /* a barra de cobertura: enche com 3× o lead time; a marca escura a 1/3 é o próprio lead time */
@@ -798,6 +828,13 @@ a.rup-id-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outl
 .rup-barra-preenchimento--baixo { background: #e0a800; }
 .rup-barra-preenchimento--alto { background: #2e9e5b; }
 
+/* a célula de urgência: o selo do Mercado Livre (mesmo registro da tela de Planejamento) e, embaixo, a outra referência pequena (laranja quando as duas divergem) */
+.rup-urg { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.rup-urg .badge-tabela { max-width: 100%; min-width: 0; text-transform: none; font-size: 0.74rem; }
+.rup-urg-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rup-urg-vazio { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-muted); }
+.rup-urg .rup-sub { max-width: 100%; }
+.rup-sub--diverge { color: #b34100; font-weight: 600; }
 .rup-l-nivel { display: flex; justify-content: center; min-width: 0; }
 .rup-l-acao { display: flex; justify-content: center; }
 
@@ -846,8 +883,30 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
 }
 
 .rup-estoque { display: flex; flex-direction: column; min-width: 0; background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; }
-.rup-estoque-nota { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); cursor: help; }
+.rup-estoque-nota { flex: 0 100 auto; min-width: 0;   /* encolhe bem antes do botão e do andamento (a nota é o que menos importa quando falta espaço) */
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); cursor: help; }
 .rup-estoque-rolagem { max-height: 260px; overflow: auto; }
+
+/* ---- o botão "Consultar no Mercado Livre" (único lugar que chama o ML, só por clique): o botão e UMA linha de apoio (custo antes do clique; andamento e resultado depois) ---- */
+.rup-estoque .rup-painel-titulo { flex: none; white-space: nowrap; }
+.rup-consulta { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; }
+.rup-consulta .rup-zoom-botao--texto { flex: none; margin-left: 0; white-space: nowrap; }
+.rup-consulta-status { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); }
+.rup-consulta-status--erro { color: #b42318; font-weight: 600; }
+.rup-consulta-status--ok { color: #1f6a42; font-weight: 600; }
+.rup-consulta-quando { margin-right: 6px; }
+.rup-consulta-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid #b9cde2; border-radius: 6px; background: #fff; color: var(--cor-primaria); font-size: 0.7rem; cursor: pointer; vertical-align: middle; }
+.rup-consulta-btn:hover:not(:disabled) { background: #eef3f9; }
+.rup-consulta-btn:disabled { color: #a3adb9; cursor: default; }
+.rup-consulta-btn.rup-consulta-btn--girando i,
+.rup-zoom-botao.rup-consulta-btn--girando i { animation: rup-girar 1s linear infinite; }
+@keyframes rup-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rup-consulta-btn--girando i { animation: none !important; } }
+/* o atalho para a tela antiga "Full — Planejamento de envios", na barra de cima (o mesmo jeito do botão de perfil) */
+.rup-toolbar-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: var(--cor-texto-claro); font-size: 0.82rem; white-space: nowrap; text-decoration: none; }
+.rup-toolbar-link:hover { background: rgba(255, 255, 255, 0.2); color: var(--cor-texto-claro); }
+.rup-estoque-deposito { flex: none; margin: 0; padding: 8px 16px; border-top: 1px solid var(--cor-borda); font-size: 0.8rem; color: #4b5a6b; cursor: help; }
+.rup-estoque-deposito i { margin-right: 4px; color: var(--cor-primaria); }
 
 .rup-tabela-codigos { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 0.84rem; font-variant-numeric: tabular-nums; color: #243247; }
 .rup-tabela-codigos th,
@@ -886,24 +945,24 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
 /* ================================================================================================================================================
    DISPOSIÇÃO PELA LARGURA DA JANELA (a lista; nunca pelo espaço ao lado da barra lateral)
    ================================================================================================================================================ */
-/* janela larga (1500px ou mais): os 6 cartões de nível numa linha só */
+/* janela larga (1500px ou mais): os 7 cartões de nível numa linha só */
 @media (min-width: 1500px) {
-    .rup-niveis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .rup-niveis { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 }
 
 /* janela larga (1500px ou mais): colunas de números mais folgadas */
 @media (min-width: 1500px) {
-    .rup-l-tabela { --rup-l-colunas-numeros: 104px 104px 92px 124px 96px 104px 88px 44px; min-width: 1120px; }
+    .rup-l-tabela { --rup-l-colunas-numeros: 92px 86px 92px 112px 84px 100px 116px 84px 70px 40px; min-width: 1180px; }
 }
 
 /* janela bem larga (1600px ou mais): ainda mais folgadas */
 @media (min-width: 1600px) {
-    .rup-l-tabela { --rup-l-colunas-numeros: 112px 112px 100px 132px 104px 112px 96px 44px; }
+    .rup-l-tabela { --rup-l-colunas-numeros: 100px 96px 96px 120px 92px 108px 124px 92px 80px 44px; min-width: 1250px; }
 }
 
-/* cabeçalho da tabela FIXO ao rolar (1280px ou mais, onde a tabela cabe sem rolar para o lado, mesmo com a barra lateral aberta): "sticky" não funciona dentro de uma caixa com rolagem própria, por isso aqui
- * a área de conteúdo e a caixa da tabela deixam de ser caixas de rolagem. O body ganha .rup-tela--lista só na lista. Abaixo de 1280px a tabela rola para o lado e o cabeçalho rola junto. */
-@media (min-width: 1280px) {
+/* cabeçalho da tabela FIXO ao rolar (1500px ou mais, onde a tabela cabe sem rolar para o lado, mesmo com a barra lateral aberta): "sticky" não funciona dentro de uma caixa com rolagem própria, por isso aqui
+ * a área de conteúdo e a caixa da tabela deixam de ser caixas de rolagem. O body ganha .rup-tela--lista só na lista. Abaixo de 1500px a tabela rola para o lado e o cabeçalho rola junto. */
+@media (min-width: 1500px) {
     .rup-tela--lista .conteudo-principal { overflow: visible; }
     .rup-l-rolagem { overflow: visible; }
     .rup-l-cabecalho { position: sticky; top: var(--toolbar-altura); z-index: 20; box-shadow: 0 8px 0 0 var(--cor-fundo-pagina); }

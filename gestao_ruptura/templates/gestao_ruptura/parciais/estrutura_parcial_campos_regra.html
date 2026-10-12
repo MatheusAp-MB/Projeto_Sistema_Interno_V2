@@ -1,0 +1,41 @@
+{% comment %}
+    * [RESUMO] → A linha "regra do Sistema" do formulário — a mesma na lista e no detalhe. Recebe "pagina". Tem os dois números que mandam no "Enviar até" e na sugestão de "quanto enviar" do Sistema:
+        1) a MARGEM DE SEGURANÇA, em % do lead time (padrão 100%: com lead time de 15 dias, a remessa deve chegar com 15 dias de estoque sobrando; a tela mostra quantos dias isso dá);
+        2) quantos dias CADA REMESSA COBRE. Esse número AINDA NÃO FOI DEFINIDO (depende do responsável pelo Full): vazio, vale o lead time e aparece o aviso "padrão provisório".
+    * [EXPLICAÇÃO] → A frase da direita explica a conta em palavras (some pelo fim, com reticências, e vai inteira no "title"): a tela não muda de altura.
+{% endcomment %}<div class="rup-linha rup-linha--regra">
+    <div class="rup-campo rup-campo--margem">
+        <label class="rup-rotulo"
+               for="rup-margem"
+               title="Folga de estoque que a remessa deve ter ao chegar. 100% do lead time: com lead time de 15 dias, a ruptura precisa estar a 30 dias do envio. Define o &quot;Enviar até&quot; (ruptura − lead time − margem), o ponto de pedido e a sugestão do Sistema.">Margem de segurança</label>
+        <input type="number"
+               id="rup-margem"
+               name="margem"
+               value="{{ pagina.margem_valor }}"
+               min="0"
+               max="500"
+               step="1"
+               inputmode="numeric"
+               class="rup-input rup-input--num">
+        <span class="rup-unidade">% do lead time</span>
+        <span class="rup-equivale" title="A margem de segurança em dias (a % do lead time, arredondada para cima).">= {{ pagina.folga_texto }}</span>
+    </div>
+    <div class="rup-campo rup-campo--cobre">
+        <label class="rup-rotulo"
+               for="rup-cobre"
+               title="Quantos dias de vendas cada remessa deve cobrir depois de chegar (usado na sugestão do Sistema de quanto enviar). Ainda não foi definido: enquanto você não digitar, vale o lead time.">Cada remessa cobre</label>
+        <input type="number"
+               id="rup-cobre"
+               name="cobre"
+               value="{{ pagina.cobre_valor }}"
+               min="0"
+               max="365"
+               step="1"
+               inputmode="numeric"
+               placeholder="{{ pagina.cobre_placeholder }}"
+               class="rup-input rup-input--num">
+        <span class="rup-unidade">dias</span>
+        {% if pagina.cobre_e_padrao %}<span class="rup-provisorio" title="Você ainda não digitou quantos dias cada remessa cobre: está valendo o padrão provisório (o lead time). Esse número depende do responsável pelo Full.">padrão provisório</span>{% endif %}
+    </div>
+    <span class="rup-opcao-ajuda" title="{{ pagina.regra_texto }}">{{ pagina.regra_texto }}</span>
+</div>

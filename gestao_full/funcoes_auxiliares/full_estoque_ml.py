@@ -440,7 +440,7 @@ def codigos_ml_do_produto(sku):
 
 # Função Objetivo: O estoque no Full de VÁRIOS Códigos ML de uma vez, da última consulta SALVA de cada um (esta função NUNCA chama o Mercado Livre). Devolve {CÓDIGO_MAIÚSCULO: cartão}, o mesmo
 # cartão da tela "Estoque no Full" (_numeros_do_codigo: estado ok/erro/sem_consulta, total, disponível, indisponível, motivos, idade, desatualizado...) mais 'consulta_id' (o id da consulta
-# lida, para a_caminho_dos_codigos). É a porta PÚBLICA para quem precisa do estoque do Full de muitos Códigos (hoje: a tela "Ruptura de estoque", app gestao_ruptura): lê o MESMO que esta tela lê.
+# lida, para a_caminho_dos_codigos). É a porta PÚBLICA para quem precisa do estoque do Full de muitos Códigos (hoje: a tela "Previsão de Ruptura de estoque", app gestao_ruptura): lê o MESMO que esta tela lê.
 # * [EXPLICAÇÃO] → Custo fixo de 2 consultas ao banco (o id da última consulta de cada Código e essas consultas, só com a coluna do estoque), seja 1 ou 1.500 Códigos.
 def estoque_full_dos_codigos(codigos, agora=None):
     agora = agora or timezone.now()
@@ -471,6 +471,111 @@ def a_caminho_dos_codigos(cartoes):
                                        _quantidade_do_motivo(cartao['motivos'], STATUS_PERDIDA), _quantidade_do_motivo(cartao['motivos'], STATUS_NAO_SUPORTADA)))
 
 
+# ---------------------------------------------------------------------------
+# O QUE O MERCADO LIVRE RECOMENDA (urgência e sugestão de envio, lidas da consulta de REPOSIÇÃO já salva)
+# ---------------------------------------------------------------------------
+# * [EXPLICAÇÃO] → É o MESMO dado da tela "Full — Planejamento de envios" (REPOS stock.shipping_urgency e recommendation.suggested_quantity), lido da consulta salva: esta função NUNCA chama o
+#                  Mercado Livre. A consulta de reposição é a parte pesada da linha salva (traz até o histórico de vendas por semana); por isso o RESUMO de cada consulta (poucos números) é guardado no
+#                  cache pelo id dela, do mesmo jeito que _ler_erros_de_reposicao: uma consulta já gravada nunca muda, então só a consulta NOVA precisa ser lida de novo.
+# * [EXPLICAÇÃO] → Um Código ML pode ter mais de um produto do vendedor (user_product_id) na consulta. Como a tela de Planejamento, vale o primeiro que tem dados (em ordem do id) e o resumo
+#                  guarda `n_produtos` para a tela avisar.
+CHAVE_CACHE_RESUMO_ML = 'full_resumo_ml_reposicao_{empresa}'
+TIMEOUT_CACHE_RESUMO_ML = 7 * 24 * 3600
+LOTE_DA_LEITURA_ML = 150   # consultas por leitura da coluna de reposição (a parte grande): limita a memória quando a lista inteira precisa do resumo
+
+
+def _inteiro_do_ml(valor):
+    if isinstance(valor, bool):
+        return None
+    if isinstance(valor, int):
+        return valor
+    return int(valor) if isinstance(valor, float) and valor == int(valor) else None
+
+
+# Função Objetivo: A sugestão de envio do ML (REPOS recommendation.suggested_quantity) já em número: {"tipo": "exact", "min": n, "max": n} (quantidade exata) ou {"tipo": "range", "min": a, "max": b}
+# (faixa). None quando o ML não mandou ou mandou num formato que não conheço (nunca vira zero).
+def _sugestao_do_ml(valor):
+    if not isinstance(valor, dict):
+        return None
+    if valor.get('type') == 'exact':
+        n = _inteiro_do_ml(valor.get('value'))
+        return {'tipo': 'exact', 'min': n, 'max': n} if n is not None else None
+    if valor.get('type') == 'range':
+        menor, maior = _inteiro_do_ml(valor.get('min')), _inteiro_do_ml(valor.get('max'))
+        return {'tipo': 'range', 'min': menor, 'max': maior} if None not in (menor, maior) else None
+    return None
+
+
+# Função Objetivo: O RESUMO do que o Mercado Livre recomenda para 1 Código ML, a partir da coluna `reposicao` de uma consulta salva (1 pacote por produto do vendedor). Função pura: o resultado só tem
+# textos e números simples, então cabe no cache. Devolve {estado, urgencia, sugestao, recomendacao, prazo, estrela, n_produtos, erro}:
+#   estado       'ok' (tem recomendação) | 'sem_reposicao' (a consulta não trouxe pacote de reposição) | 'erro' (todos os pacotes vieram com erro)
+#   urgencia     o valor exato da API (URGENT, THIS_WEEK, NEXT_WEEK, IN_TWO_WEEKS, NO_URGENCY, EXCEDENT) ou None
+#   sugestao     _sugestao_do_ml  |  recomendacao  REPLENISH, NO_REPLENISHMENT... (como a API manda) ou None  |  prazo  replenishment_deadline como veio ('' se não veio)
+#   estrela      True quando product.tags tem "star_product"
+def _resumo_da_reposicao(reposicao):
+    pacotes = sorted((reposicao or {}).items())
+    resumo = {'estado': 'sem_reposicao', 'urgencia': None, 'sugestao': None, 'recomendacao': None, 'prazo': '', 'estrela': False, 'n_produtos': len(pacotes), 'erro': ''}
+    erros = []
+    for upid, pacote in pacotes:
+        pacote = pacote or {}
+        dados = pacote.get('dados')
+        if pacote.get('erro') or dados is None:
+            erros.append(f"{upid}: {' '.join(str(pacote.get('erro') or 'sem resposta').split())[:MAX_TEXTO_ERRO_REPOSICAO]}")
+            continue
+        urgencia, recomendacao, prazo, tags = (pegar(dados, 'stock.shipping_urgency'), pegar(dados, 'recommendation.recommendation_type'),
+                                               pegar(dados, 'recommendation.replenishment_deadline'), pegar(dados, 'product.tags'))
+        resumo.update(estado='ok', urgencia=str(urgencia) if urgencia else None, sugestao=_sugestao_do_ml(pegar(dados, 'recommendation.suggested_quantity')),
+                      recomendacao=str(recomendacao) if recomendacao else None, prazo=str(prazo) if prazo else '', estrela=isinstance(tags, list) and 'star_product' in tags)
+        return resumo
+    if erros:
+        resumo.update(estado='erro', erro=' | '.join(erros))
+    return resumo
+
+
+# Função Objetivo: O resumo (_resumo_da_reposicao) de cada consulta salva em `ids`: {id da consulta: resumo}. O que já está no cache é reaproveitado; o resto é lido em lotes de LOTE_DA_LEITURA_ML.
+# Com guardar_no_cache=False (poucos Códigos, ex.: o detalhe de 1 produto) ainda LÊ o cache, mas não grava, para não trocar o cache da lista inteira por um pedacinho dela.
+def _resumos_das_consultas(ids, guardar_no_cache=True):
+    from django.core.cache import cache
+    from core.empresa import obter_empresa_ativa
+    from mercado_livre.models import ConsultaFullMercadoLivre
+
+    if not ids:
+        return {}
+    chave = CHAVE_CACHE_RESUMO_ML.format(empresa=obter_empresa_ativa())
+    try:
+        guardados = cache.get(chave) or {}
+    except Exception:
+        guardados = {}
+    resumos = {pk: guardados[pk] for pk in ids if pk in guardados}
+    faltam = sorted(pk for pk in ids if pk not in resumos)
+    for ini in range(0, len(faltam), LOTE_DA_LEITURA_ML):
+        for consulta in ConsultaFullMercadoLivre.objects.filter(pk__in=faltam[ini:ini + LOTE_DA_LEITURA_ML]).only('id', 'reposicao'):
+            resumos[consulta.pk] = _resumo_da_reposicao(consulta.reposicao)
+    if faltam and guardar_no_cache:
+        try:
+            cache.set(chave, resumos, timeout=TIMEOUT_CACHE_RESUMO_ML)
+        except Exception:
+            pass
+    return resumos
+
+
+# Função Objetivo: O `ml` de um cartão de Código ML: uma CÓPIA do resumo da consulta (o cache não pode ser alterado por quem usa o cartão). Sem consulta salva: estado "sem_consulta". O selo da urgência
+# (rótulo, cor e ícone) é escolhido por quem mostra (gestao_ruptura.ruptura_estoque.selo_da_urgencia), a partir do valor exato da API.
+def _ml_do_cartao(resumo):
+    if resumo is None:
+        return {'estado': 'sem_consulta', 'urgencia': None, 'sugestao': None, 'recomendacao': None, 'prazo': '', 'estrela': False, 'n_produtos': 0, 'erro': ''}
+    return {**resumo, 'sugestao': dict(resumo['sugestao']) if resumo['sugestao'] else None}
+
+
+# Função Objetivo: Preenche cartao["ml"] em cada cartão de estoque_full_dos_codigos com o que o Mercado Livre recomenda (urgência, sugestão de envio...), da consulta de REPOSIÇÃO salva do Código. É a
+# porta PÚBLICA para a tela "Previsão de Ruptura de estoque". Lê só do banco (e do cache dos resumos); funciona também para Código com o estoque em erro (a reposição pode ter vindo).
+def ml_dos_codigos(cartoes, guardar_no_cache=True):
+    ids = {c['consulta_id'] for c in cartoes.values() if c.get('consulta_id')}
+    resumos = _resumos_das_consultas(ids, guardar_no_cache)
+    for cartao in cartoes.values():
+        cartao['ml'] = _ml_do_cartao(resumos.get(cartao.get('consulta_id')))
+
+
 def _ler_cadastro(skus):
     from produtos.models import Produto
 
@@ -479,6 +584,12 @@ def _ler_cadastro(skus):
     return {p.sku: {'sku': p.sku, 'ean': p.ean or '', 'titulo': p.titulo or '', 'marca': p.marca or '',
                     'cod_fabricante': p.cod_fabricante or '', 'estoque': p.estoque, 'imagem_url': p.imagem_url or ''}
             for p in produtos}
+
+
+# Função Objetivo: O estoque do ERP (o que há no depósito) de cada SKU: {SKU: unidades}. É a porta PÚBLICA para a tela "Previsão de Ruptura de estoque" avisar quando a quantidade a enviar passa do que há no depósito.
+# LÊ SÓ DO BANCO (o campo Estoque do cadastro do Produto, que o ERP alimenta); SKU fora do cadastro não aparece no resultado.
+def estoque_do_erp(skus):
+    return {sku: dados['estoque'] for sku, dados in _ler_cadastro(skus).items() if dados['estoque'] is not None}
 
 
 # Função Objetivo: A consulta MAIS RECENTE de cada Código ML ({CÓDIGO_MAIÚSCULO: consulta}). Só traz o estoque (pequeno);

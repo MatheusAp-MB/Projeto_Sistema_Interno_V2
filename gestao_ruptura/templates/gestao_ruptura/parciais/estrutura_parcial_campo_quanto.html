@@ -1,0 +1,22 @@
+{% comment %}
+    * [RESUMO] → A linha "Minha quantidade" do formulário do DETALHE (só aparece quando um item está aberto). Recebe "pagina". Os seletores de referência (urgência e quanto enviar) estão em
+      estrutura_parcial_campos_referencia.html; aqui fica o campo onde a pessoa digita quantas unidades quer enviar para criar a própria sugestão. A quantidade escolhida (a digitada, a do Sistema ou a do
+      Mercado Livre) vira a linha verde "Com o envio" do gráfico e os cartões "Quanto enviar" e "Com o envio" do diagnóstico.
+    * [EXPLICAÇÃO] → Digitar no campo marca "Minha quantidade" sozinho; escolher outra referência limpa o campo (script_ruptura.js). O campo mostra, em cinza, a sugestão do Sistema (placeholder).
+{% endcomment %}<div class="rup-linha rup-linha--quanto">
+    <div class="rup-campo">
+        <label class="rup-rotulo" for="rup-qtd">Minha quantidade</label>
+        <input type="number"
+               id="rup-qtd"
+               name="qtd"
+               value="{{ pagina.qtd_valor }}"
+               min="0"
+               max="1000000"
+               step="1"
+               inputmode="numeric"
+               placeholder="{{ pagina.qtd_placeholder }}"
+               class="rup-input rup-input--num">
+        <span class="rup-unidade">un</span>
+    </div>
+    <span class="rup-opcao-ajuda" title="{{ pagina.qtd_ajuda }}">{{ pagina.qtd_ajuda }}</span>
+</div>

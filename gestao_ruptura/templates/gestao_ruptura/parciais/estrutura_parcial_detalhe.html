@@ -1,5 +1,5 @@
 {% comment %}
-    * [RESUMO] → O DETALHE de um item da tela "Ruptura de estoque" (o SKU, ou um MLB / Código ML dele): quem é o item, o formulário (ritmo, estoque e lead time), os 4 cartões, a curva de estoque, o
+    * [RESUMO] → O DETALHE de um item da tela "Previsão de Ruptura de estoque" (o SKU, ou um MLB / Código ML dele): quem é o item, o formulário (ritmo, estoque e lead time), os 4 cartões, a curva de estoque, o
       diagnóstico e a tabela "Estoque no Full por Código ML". Abre ao clicar numa linha da lista (o endereço leva o sku e, no MLB e no Código ML, gran e item). Recebe "pagina".
     * [EXPLICAÇÃO] → O ESTOQUE usado é o LIDO do Full (última consulta salva dos Códigos ML do item) enquanto o campo "Estoque" estiver vazio; digitar um valor SIMULA outro estoque (a linha de baixo
       do formulário diz qual dos dois está valendo). Nas visões "Fora do Full" e "Produto (tudo)" nada é lido: o estoque é digitado (a API de estoque do ERP ainda será corrigida).
@@ -40,6 +40,9 @@
         </div>
         {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
     </div>
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_regra.html' %}
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_referencia.html' %}
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_quanto.html' %}
     {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}
     {% if pagina.dica_do_estoque.texto %}
         <p class="rup-dica-estoque{% if pagina.dica_do_estoque.classe %} rup-dica-estoque--{{ pagina.dica_do_estoque.classe }}{% endif %}" title="{{ pagina.dica_do_estoque.texto }}">
@@ -109,12 +112,13 @@
                                 {% for t in g.ticks_x %}<line class="rup-grade rup-grade--x" x1="{{ t.t }}" x2="{{ t.t }}" y1="0" y2="100"/>{% endfor %}
                                 {% for t in g.grades_y %}<line class="rup-grade rup-grade--y" x1="0" x2="{{ g.horizonte }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}
                                 {% if g.ponto_de_pedido %}<line class="rup-pedido-linha" x1="0" x2="{{ g.horizonte }}" y1="{{ g.ponto_de_pedido.y }}" y2="{{ g.ponto_de_pedido.y }}"/>{% endif %}
-                                {% for m in g.marcadores %}<rect class="rup-dia rup-dia--{{ m.classe }}" x="{{ m.dia }}" y="0" width="1" height="100"/>{% endfor %}
+                                {% for m in g.marcadores %}<rect class="rup-dia rup-dia--{{ m.classe }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} x="{{ m.dia }}" y="0" width="1" height="100"/>{% endfor %}
                                 {% for l in g.linhas %}<polyline class="rup-curva rup-cor--{{ l.cor }}{% if l.foco %} rup-curva--foco{% endif %}" data-serie="{{ l.id }}" points="{{ l.pontos }}"/>{% endfor %}
+                                {% if g.remessa %}<polyline class="rup-curva rup-curva--sug rup-cor--{{ g.remessa.cor }}" data-serie="sug" points="{{ g.remessa.pontos }}"/>{% endif %}
                             </svg>
                             {% for t in g.grades_y %}<span class="rup-rotulo-y" style="top: {{ t.y }}%">{{ t.rotulo }}</span>{% endfor %}
                             {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.hoje %} rup-rotulo-x--hoje{% endif %}" style="left: {{ t.x_meio }}%">{{ t.rotulo }}</span>{% endfor %}
-                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}" data-rup-dia="{{ m.dia }}" data-rup-lado style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
+                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} data-rup-dia="{{ m.dia }}" data-rup-lado style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
                             {% for p in g.pontos_de_ruptura %}<span class="rup-ponto-ruptura rup-cor--{{ p.cor }}" data-serie="{{ p.id }}" data-rup-t="{{ p.t }}" style="left: {{ p.x }}%" title="{{ p.rotulo }}"></span>{% endfor %}
                             {% if g.ponto_de_pedido %}<span class="rup-etiqueta rup-etiqueta--pedido{% if g.ponto_de_pedido.abaixo %} rup-etiqueta--abaixo{% endif %}" style="top: {{ g.ponto_de_pedido.y }}%">{{ g.ponto_de_pedido.rotulo }}</span>{% endif %}
                         </div>
@@ -125,7 +129,7 @@
                         </ul>
                         {% if g.nota %}<p class="rup-grafico-nota" title="{{ g.nota }}">{{ g.nota }}</p>{% endif %}
                     </div>
-                    <ul class="rup-periodos{% if g.periodos|length > 4 %} rup-periodos--cinco{% endif %}" style="--rup-n: {{ g.periodos|length }}" aria-label="Ritmos de venda comparados no gráfico">
+                    <ul class="rup-periodos{% if g.n_cartoes > 4 %} rup-periodos--cinco{% endif %}" style="--rup-n: {{ g.n_cartoes }}" aria-label="Ritmos de venda comparados no gráfico">
                         {% for p in g.periodos %}
                             <li class="rup-periodo rup-cor--{{ p.cor }}{% if p.foco %} rup-periodo--foco{% endif %}{% if p.sem_dados %} rup-periodo--sem-dados{% endif %}"{% if p.foco %} aria-current="true"{% endif %} title="{% if p.foco %}Ritmo em destaque. {% endif %}{{ p.dica }}">
                                 <div class="rup-periodo-topo">
@@ -141,6 +145,19 @@
                                 <span class="rup-periodo-linha rup-periodo-linha--{{ p.envio_classe }}">{{ p.envio }}</span>
                             </li>
                         {% endfor %}
+                        {% if g.cartao_da_remessa %}
+                            {% with r=g.cartao_da_remessa %}
+                                <li class="rup-periodo rup-periodo--remessa rup-cor--{{ r.cor }}" title="{{ r.dica }}">
+                                    <div class="rup-periodo-topo">
+                                        <input type="checkbox" class="rup-periodo-marca" data-rup-curva="{{ r.id }}" aria-label="Mostrar no gráfico a cobertura da remessa" checked>
+                                        <span class="rup-periodo-nome">{{ r.curto }}</span>
+                                        <span class="rup-periodo-ritmo">{{ r.quantidade }} un</span>
+                                    </div>
+                                    <span class="rup-periodo-linha">{{ r.chega }}</span>
+                                    <span class="rup-periodo-linha rup-periodo-linha--{{ r.classe }}">{{ r.nova }}</span>
+                                </li>
+                            {% endwith %}
+                        {% endif %}
                     </ul>
                     {{ g.dados|json_script:"rup-grafico-dados" }}
                 {% else %}
@@ -186,9 +203,21 @@
             </aside>
         </section>
         {% if t %}
-            <section class="rup-estoque" aria-label="Estoque no Full por Código ML">
+            <section class="rup-estoque" aria-label="Estoque no Full por Código ML" data-rup-consulta data-rup-url="{{ pagina.url_consultar }}">
+                <form id="rup-csrf" hidden>{% csrf_token %}</form>
                 <header class="rup-painel-cab">
                     <h2 class="rup-painel-titulo">Estoque no Full por Código ML</h2>
+                    {% comment %}
+                    O ÚNICO lugar da tela que chama o Mercado Livre, e só por clique (script_ruptura.js, [5]). "Consultar todos" chama os Códigos da tabela um por vez e, no fim, recarrega a tela (que volta a ler só do banco).
+                    A linha de baixo do botão é uma só: antes do clique diz o custo ("cerca de N chamadas"), durante e depois diz o andamento e o resultado.
+                    {% endcomment %}
+                    <div class="rup-consulta">
+                        <button type="button" class="rup-zoom-botao rup-zoom-botao--texto" data-rup-consultar="todos"
+                                title="Consulta agora no Mercado Livre {% if t.linhas|length > 1 %}os {{ t.linhas|length }} Códigos ML da tabela, um por vez{% else %}o Código ML da tabela{% endif %}: estoque, reposição (urgência, sugestão e a caminho) e depósito. Quase sempre {{ pagina.chamadas_por_codigo }} chamadas por Código.">
+                            <i class="fas fa-rotate" aria-hidden="true"></i> Consultar {% if t.linhas|length > 1 %}todos {% endif %}no Mercado Livre
+                        </button>
+                        <span class="rup-consulta-status" data-rup-status aria-live="polite" data-rup-padrao="cerca de {{ t.n_chamadas }} chamadas ao Mercado Livre">cerca de {{ t.n_chamadas }} chamadas ao Mercado Livre</span>
+                    </div>
                     <span class="rup-estoque-nota" title="{{ t.conta }}">Estoque considerado = disponível + em transferência + em processo interno{% if pagina.caminho %} (+ a caminho, opção marcada){% else %} (regra provisória){% endif %}</span>
                 </header>
                 <div class="rup-estoque-rolagem">
@@ -219,7 +248,13 @@
                                     <td>{{ c.nao_conta }}</td>
                                     <td><strong>{{ c.considerado }}</strong></td>
                                     <td>{{ c.a_caminho }}</td>
-                                    <td class="rup-col-consulta">{{ c.consulta }}</td>
+                                    <td class="rup-col-consulta">
+                                        <span class="rup-consulta-quando">{{ c.consulta }}</span>
+                                        <button type="button" class="rup-consulta-btn" data-rup-consultar="{{ c.codigo }}" aria-label="Consultar o Código {{ c.codigo }} no Mercado Livre"
+                                                title="Consulta agora este Código ML no Mercado Livre (cerca de {{ pagina.chamadas_por_codigo }} chamadas).">
+                                            <i class="fas fa-rotate" aria-hidden="true"></i>
+                                        </button>
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -238,6 +273,9 @@
                         </tfoot>
                     </table>
                 </div>
+                {% if pagina.deposito %}
+                    <p class="rup-estoque-deposito" title="{{ pagina.deposito.dica }}"><i class="fas fa-warehouse" aria-hidden="true"></i> Estoque no depósito (ERP): <strong>{{ pagina.deposito.texto }}</strong></p>
+                {% endif %}
             </section>
         {% endif %}
     {% endwith %}

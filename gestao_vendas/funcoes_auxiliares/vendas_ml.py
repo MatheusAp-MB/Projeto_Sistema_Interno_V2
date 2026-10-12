@@ -354,7 +354,7 @@ def _s(n, singular, plural):
 
 
 # Função Objetivo: As unidades vendidas POR DIA de um produto (SKU) num recorte entre duas datas, mais o estado de cada dia, para quem precisa do RITMO de vendas sem montar a
-# tela de histórico (hoje: a tela "Ruptura de estoque", app gestao_ruptura). LÊ SÓ DO BANCO; nunca chama o Mercado Livre.
+# tela de histórico (hoje: a tela "Previsão de Ruptura de estoque", app gestao_ruptura). LÊ SÓ DO BANCO; nunca chama o Mercado Livre.
 # O recorte é o `nivel` ('produto' = tudo, 'full', 'fora', 'mlb' ou 'codigo'; nestes dois últimos `item` é o MLB ou o Código ML, como em _selecionar) e, opcionalmente, a
 # `origem` ('full' ou 'fora') aplicada por cima dele (ex.: nivel 'mlb' + origem 'full' = só o que aquele anúncio vendeu saindo do Full). Sem `item` e `origem` é o de sempre.
 # Devolve: `cadastro` (carregar_produto; None se o SKU não está em Produto), `por_dia` ({dia: unidades}, só dias com venda), `estados` ({dia: 'ok' (dia completo) |

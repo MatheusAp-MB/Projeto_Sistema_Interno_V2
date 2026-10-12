@@ -1,7 +1,8 @@
 {% comment %}
-    * [RESUMO] → A LISTA da tela "Ruptura de estoque": uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
-      ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar e o nível. Os 6 cartões de nível são também o filtro. O nome da linha e o botão do gráfico abrem o detalhe
-      (a curva) do item. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco.
+    * [RESUMO] → A LISTA da tela "Previsão de Ruptura de estoque": uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
+      ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar, a urgência (do Mercado Livre ou do Sistema, conforme a referência escolhida), quanto enviar e o nível. Os 7 cartões
+      (6 níveis + "Divergem": itens em que a urgência do ML e a do Sistema discordam) são também o filtro. O nome da linha e o botão do gráfico abrem o detalhe
+      (a curva) do item. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco (o botão de consulta ao ML fica no detalhe de cada item).
     * [EXPLICAÇÃO] → Recebe "pagina" (ruptura_pagina.montar_pagina) e usa "pagina.lista" (ruptura_lista.montar_lista); os números já vêm formatados de lá.
     * [EXPLICAÇÃO] → O cartão de identidade de cada linha usa o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e os
       selos do anúncio (.badge-tabela) vêm do registro único (layout_badges.css). Aqui a linha tem altura FIXA (o CSS corta o que não cabe: título em 1 linha, selos e IDs somem inteiros de trás para a
@@ -38,6 +39,8 @@
         {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
         {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
     </div>
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_regra.html' %}
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_referencia.html' %}
     {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}
 </form>
 
@@ -65,13 +68,14 @@
                 <span>{{ lista.ajuda }}</span>
                 <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Considerar as unidades a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
                 <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o lead time.</span>
-                <span><b>Níveis</b> (provisórios): ruptura = estoque zerado; crítico = dura menos que o lead time; baixo = até 2× o lead time; alto = mais que isso. <b>Enviar até</b> = data da ruptura − lead time.</span>
+                <span><b>Urgência</b>: o selo é o da referência escolhida (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Mercado Livre vem da consulta de reposição já salva (a mesma da tela de Planejamento de envios); a do Sistema vem da data de &quot;Enviar até&quot; (hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas). Item sem número do ML mostra &quot;sem número do ML&quot; (nunca zero). <b>Divergem</b>: itens em que as duas estão em faixas diferentes.</span>
+                <span><b>Níveis</b> (provisórios): ruptura = estoque zerado; crítico = dura menos que o lead time; baixo = até lead time + margem de segurança; alto = mais que isso. <b>Enviar até</b> = data da ruptura − lead time − margem de segurança (&quot;Enviar já&quot; = a data recomendada passou, mas ainda dá tempo; &quot;Atrasado&quot; = não dá mais tempo). <b>Enviar (un)</b> = sugestão do Sistema: a quantidade que deixa, na chegada, a margem de segurança + os dias que cada remessa cobre.</span>
             </span>
         </span>
     </span>
 </div>
 
-<section class="rup-niveis" aria-label="Filtrar por nível">
+<section class="rup-niveis" aria-label="Filtrar por nível ou por divergência de urgência">
     {% for c in lista.cartoes_de_nivel %}
         <a href="{{ c.url }}" class="rup-nivel-cartao rup-nivel-cartao--{{ c.chave }}{% if c.ativo %} rup-nivel-cartao--ativo{% endif %}{% if c.vazio and not c.ativo %} rup-nivel-cartao--vazio{% endif %}"{% if c.ativo %} aria-current="true"{% endif %}
            title="{{ c.rotulo }}: {{ c.apoio }}. Clique para {% if c.ativo %}voltar a mostrar todos{% else %}mostrar só estes{% endif %}.">
@@ -105,7 +109,7 @@
     </div>
 
     <div class="rup-l-rolagem">
-        <div class="rup-l-tabela" role="table" aria-label="Ruptura de estoque">
+        <div class="rup-l-tabela" role="table" aria-label="Previsão de Ruptura de estoque">
             <div class="rup-l-colunas rup-l-cabecalho" role="row">
                 <div role="columnheader" class="rup-l-cab rup-l-cab--nome">{{ lista.coluna_nome }}</div>
                 <div role="columnheader" class="rup-l-cab" title="Estoque considerado no Full (da última consulta salva)">Estoque Full</div>
@@ -113,7 +117,9 @@
                 <div role="columnheader" class="rup-l-cab" title="Média por dia das vendas do Full nos dias completos">Ritmo un/dia</div>
                 <div role="columnheader" class="rup-l-cab" title="Quantos dias o estoque dura neste ritmo (estoque ÷ ritmo)">Cobertura dias</div>
                 <div role="columnheader" class="rup-l-cab" title="Dia em que o estoque acaba neste ritmo">Ruptura em</div>
-                <div role="columnheader" class="rup-l-cab" title="Data limite para preparar o envio (ruptura − lead time)">Enviar até</div>
+                <div role="columnheader" class="rup-l-cab" title="Data recomendada para preparar o envio (ruptura − lead time − margem de segurança)">Enviar até</div>
+                <div role="columnheader" class="rup-l-cab rup-l-cab--esq" title="Urgência de envio da referência escolhida (Mercado Livre ou Sistema); a outra aparece pequena embaixo. O selo é o mesmo da tela de Planejamento de envios.">Urgência</div>
+                <div role="columnheader" class="rup-l-cab" title="Quanto enviar, da referência escolhida (Do Mercado Livre ou Do Sistema); a outra aparece pequena embaixo. A do Sistema deixa, na chegada, a margem de segurança + os dias que cada remessa cobre">Enviar (un)</div>
                 <div role="columnheader" class="rup-l-cab rup-l-cab--centro" title="Nível do estoque (regra provisória)">Nível</div>
                 <div role="columnheader" class="rup-l-cab rup-l-cab--acao"></div>
             </div>
@@ -168,9 +174,21 @@
                             <strong>{{ l.ruptura_txt }}</strong>
                             <small class="rup-sub">{{ l.ruptura_sub }}</small>
                         </div>
-                        <div class="rup-num">
+                        <div class="rup-num"{% if l.enviar_dica %} title="{{ l.enviar_dica }}"{% endif %}>
                             <strong class="rup-forte{% if l.enviar_classe %} rup-forte--{{ l.enviar_classe }}{% endif %}">{{ l.enviar_txt }}</strong>
                             <small class="rup-sub{% if l.enviar_classe %} rup-sub--{{ l.enviar_classe }}{% endif %}">{{ l.enviar_sub }}</small>
+                        </div>
+                        <div class="rup-urg" title="{{ l.urg_dica }}">
+                            {% if l.urg_selo %}
+                                <span class="badge-tabela {{ l.urg_selo.classe }}">{% if l.urg_selo.icone %}<i class="fas {{ l.urg_selo.icone }}" aria-hidden="true"></i>{% endif %}<span class="rup-urg-texto">{{ l.urg_selo.label }}</span></span>
+                            {% else %}
+                                <span class="rup-urg-vazio">{{ l.urg_vazio }}</span>
+                            {% endif %}
+                            <small class="rup-sub{% if l.urg_sub_classe %} rup-sub--{{ l.urg_sub_classe }}{% endif %}">{{ l.urg_sub }}</small>
+                        </div>
+                        <div class="rup-num" title="{{ l.qtd_dica }}">
+                            <strong class="rup-forte{% if l.qtd_deposito %} rup-forte--deposito{% elif l.qtd_classe %} rup-forte--{{ l.qtd_classe }}{% endif %}">{% if l.qtd_deposito %}<i class="fas fa-triangle-exclamation rup-aviso-deposito" aria-label="{{ l.qtd_deposito }}"></i> {% endif %}{{ l.qtd_txt }}</strong>
+                            <small class="rup-sub">{{ l.qtd_sub }}</small>
                         </div>
                         <div class="rup-l-nivel">
                             {% if l.nivel_rotulo %}<span class="rup-nivel rup-nivel--{{ l.nivel_classe }}" title="{{ l.nivel_dica }}">{{ l.nivel_rotulo }}</span>{% endif %}

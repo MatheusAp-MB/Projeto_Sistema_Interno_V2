@@ -1,0 +1,29 @@
+{% comment %}
+    * [RESUMO] → A linha "REFERÊNCIAS" do formulário — a mesma na lista e no detalhe. Recebe "pagina". Tem os dois seletores que decidem DE QUEM é a informação que manda na tela (decisão do Matheus, 12/10/2026):
+        1) REFERÊNCIA DE URGÊNCIA: Mercado Livre (a urgência que o ML calcula, lida da consulta de reposição salva) ou Sistema (a regra desta tela, pela data de "Enviar até"). A escolhida manda na ordem
+           "Mais urgentes primeiro" e aparece grande; a outra aparece pequena na mesma célula.
+        2) QUANTO ENVIAR: Do Mercado Livre (a sugestão dele), Do Sistema (a da regra da tela) ou, só no detalhe de um item, Minha quantidade (a pessoa digita; ver estrutura_parcial_campo_quanto.html).
+    * [EXPLICAÇÃO] → Trocar uma referência refaz o cálculo na hora (script_ruptura.js). Tudo é GET e só lê o banco (a recomendação do ML vem da consulta de reposição já salva: nenhuma chamada ao Mercado Livre).
+{% endcomment %}<div class="rup-linha rup-linha--referencia">
+    <div class="rup-campo">
+        <span class="rup-rotulo" id="rup-urg-rotulo">Referência de urgência</span>
+        <div class="lista-chips" role="radiogroup" aria-labelledby="rup-urg-rotulo">
+            {% for o in pagina.urg_opcoes %}
+                <label class="lista-chip rup-chip{% if o.ativo %} lista-chip--ativo{% endif %}" title="{{ o.dica }}">
+                    <input type="radio" name="ref_urg" value="{{ o.chave }}" class="rup-radio"{% if o.ativo %} checked{% endif %}>{{ o.rotulo }}
+                </label>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="rup-campo">
+        <span class="rup-rotulo" id="rup-qtd-rotulo">Quanto enviar</span>
+        <div class="lista-chips" role="radiogroup" aria-labelledby="rup-qtd-rotulo">
+            {% for o in pagina.qtd_opcoes %}
+                <label class="lista-chip rup-chip{% if o.ativo %} lista-chip--ativo{% endif %}" title="{{ o.dica }}">
+                    <input type="radio" name="ref_qtd" value="{{ o.chave }}" class="rup-radio"{% if o.ativo %} checked{% endif %}>{{ o.rotulo }}
+                </label>
+            {% endfor %}
+        </div>
+    </div>
+    <span class="rup-opcao-ajuda" title="{{ pagina.referencia_ajuda }}">{{ pagina.referencia_ajuda }}</span>
+</div>

@@ -1,13 +1,16 @@
 /* gestao_ruptura/static/gestao_ruptura/js/script_ruptura.js
  *
- * [RESUMO] → Pequenos atalhos da tela "Ruptura de estoque". Nenhum deles é obrigatório: sem JavaScript a tela continua funcionando (é só preencher e clicar em
- *            "Calcular" / clicar nos links). Nada aqui chama o Mercado Livre nem o ERP: tudo é GET comum que só lê o banco.
+ * [RESUMO] → Pequenos atalhos da tela "Previsão de Ruptura de estoque". Nenhum deles é obrigatório: sem JavaScript a tela continua funcionando (é só preencher e clicar em
+ *            "Calcular" / clicar nos links). Só o item 5 (botão "Consultar no Mercado Livre", só por clique) chama o Mercado Livre; tudo o mais é GET comum que só lê o banco.
  *
- *            1) Os atalhos de dias (7, 15, 30...), o seletor "Ver" (No Full / Fora do Full / Produto) e o checkbox "Considerar as unidades a caminho" refazem o cálculo na hora.
+ *            1) Os atalhos de dias (7, 15, 30...), o seletor "Ver" (No Full / Fora do Full / Produto), o checkbox "Considerar as unidades a caminho", o seletor "Referência de urgência" (Mercado Livre /
+ *               Sistema) e o seletor "Quanto enviar" (Do Mercado Livre / Do Sistema / Minha quantidade) refazem o cálculo na hora. Digitar uma quantidade marca "Minha quantidade" sozinho; escolher outra
+ *               referência de quantidade limpa o campo.
  *            2) Os seletores "Ordenar por" e "Por página" da lista (marcados com data-rup-ir) levam para o endereço que está no value da opção escolhida.
  *            3) Foto que não carrega (anúncio sem foto, link vencido) vira o quadradinho "sem foto", para a linha não ficar com o ícone de imagem quebrada.
  *            4) O gráfico da curva de estoque (detalhe): ligar/desligar a curva de cada ritmo, passar o mouse (estoque projetado de cada ritmo naquele dia), zoom (botões ou scroll do mouse), mover e arrastar.
  *               Tudo é conta local sobre os dados que o servidor deixou na página; sem este script o gráfico continua inteiro, só não responde ao mouse.
+ *            5) Os botões "Consultar no Mercado Livre" da tabela de estoque (um Código ML, ou todos em fila): chamam o servidor só por clique e recarregam a tela no fim.
  */
 (function () {
     'use strict';
@@ -34,10 +37,35 @@
         form.querySelectorAll('input[name="visao"]').forEach(function (opcao) {
             opcao.addEventListener('change', enviar);
         });
-        // O checkbox "Considerar as unidades a caminho" também refaz o cálculo na hora.
-        form.querySelectorAll('input[name="caminho"]').forEach(function (caixa) {
+        // O checkbox "Considerar as unidades a caminho" e o seletor "Referência de urgência" também refazem o cálculo na hora.
+        form.querySelectorAll('input[name="caminho"], input[name="ref_urg"]').forEach(function (caixa) {
             caixa.addEventListener('change', enviar);
         });
+        // "Quanto enviar" (só no detalhe): trocar a referência refaz o cálculo; "Minha quantidade" sem número ainda só leva o cursor ao campo (não há o que calcular); digitar marca "Minha quantidade".
+        var campoQtd = document.getElementById('rup-qtd');
+        var opcoesQtd = form.querySelectorAll('input[name="ref_qtd"]');
+        function marcarReferencia(valor) {
+            opcoesQtd.forEach(function (opcao) {
+                opcao.checked = opcao.value === valor;
+                var chip = opcao.closest ? opcao.closest('.lista-chip') : null;
+                if (chip) { chip.classList.toggle('lista-chip--ativo', opcao.checked); }
+            });
+        }
+        opcoesQtd.forEach(function (opcao) {
+            opcao.addEventListener('change', function () {
+                if (!campoQtd) { enviar(); return; }
+                if (opcao.value === 'manual') {
+                    marcarReferencia('manual');
+                    if (campoQtd.value === '') { campoQtd.focus(); return; }
+                } else {
+                    campoQtd.value = '';
+                }
+                enviar();
+            });
+        });
+        if (campoQtd) {
+            campoQtd.addEventListener('input', function () { if (campoQtd.value !== '') { marcarReferencia('manual'); } });
+        }
     }
 
     // [2] Seletores que trocam de página: o value da opção já é o endereço pronto (montado no servidor, mantendo busca, filtro, ritmo e lead).
@@ -107,6 +135,10 @@
         var escala = { min: 0, max: dados.yMax };   // o trecho visível, em unidades de estoque
         var visiveis = {};
         dados.series.forEach(function (s) { visiveis[s.id] = true; });
+        // A COBERTURA DA REMESSA (linha verde, só havendo quantidade para enviar): antes da chegada ela é igual à curva do ritmo em destaque; no dia da chegada (`chega`) o estoque SOBE para `depois` e volta a
+        // cair no mesmo ritmo até zerar em `tZero` (a nova ruptura). Medida em dias, como as outras linhas.
+        var sug = dados.sug || null;
+        if (sug) { visiveis[sug.id] = true; }
 
         function arredondar(n) { return Math.round(n * 10000) / 10000; }
         function tamanho() { return janela.b - janela.a; }
@@ -115,6 +147,7 @@
         function dentro(t) { return t >= janela.a - FOLGA && t <= janela.b + FOLGA; }
         function yPct(valor) { return 100 - (valor - escala.min) / (escala.max - escala.min) * 100; }
         function valorEm(s, t) { return Math.max(0, dados.estoque - s.media * t); }
+        function valorSug(t) { return Math.max(0, sug.depois - sug.media * (t - sug.chega)); }   // o estoque COM a remessa (vale a partir do dia da chegada)
         function ocultar(elemento, sim) {   // serve para SVG também (o atributo hidden é escondido pelo CSS da tela)
             if (sim) { elemento.setAttribute('hidden', ''); } else { elemento.removeAttribute('hidden'); }
         }
@@ -143,6 +176,12 @@
                 alto = Math.max(alto, valorEm(s, janela.a));
                 baixo = Math.min(baixo, valorEm(s, janela.b));
             });
+            if (sug && visiveis[sug.id] && janela.b > sug.chega + FOLGA) {   // a remessa também conta: o topo é o estoque logo depois da chegada
+                var inicioSug = Math.max(janela.a, sug.chega);
+                alto = Math.max(alto, valorSug(inicioSug));
+                baixo = Math.min(baixo, valorSug(janela.b));
+                if (sug.chega >= janela.a) { baixo = Math.min(baixo, sug.antes); }
+            }
             if (baixo === Infinity) { baixo = 0; }
             var faixa = Math.max(alto - baixo, FAIXA_MINIMA);
             var folga = faixa * 0.1;
@@ -218,6 +257,20 @@
                 pontos.push([janela.b, valorEm(s, janela.b)]);
                 curva.setAttribute('points', pontos.map(function (p) { return arredondar(p[0]) + ',' + arredondar(yPct(p[1])); }).join(' '));
             });
+            var curvaSug = sug ? svg.querySelector('polyline[data-serie="' + sug.id + '"]') : null;
+            if (curvaSug) {
+                var aindaNaoChegou = sug.chega > janela.b + FOLGA;   // a janela termina antes da chegada: não há o que desenhar
+                ocultar(curvaSug, aindaNaoChegou);
+                if (!aindaNaoChegou) {
+                    var inicio = Math.max(sug.chega, janela.a);
+                    var trecho = [];
+                    if (sug.chega >= janela.a - FOLGA) { trecho.push([sug.chega, sug.antes]); }   // o salto da chegada (a linha sobe na vertical)
+                    trecho.push([inicio, valorSug(inicio)]);
+                    if (sug.tZero > inicio + FOLGA && sug.tZero < janela.b - FOLGA) { trecho.push([sug.tZero, 0]); }
+                    trecho.push([janela.b, valorSug(janela.b)]);
+                    curvaSug.setAttribute('points', trecho.map(function (p) { return arredondar(p[0]) + ',' + arredondar(yPct(p[1])); }).join(' '));
+                }
+            }
         }
 
         // ---- textos, pontinhos e a linha do ponto de pedido: acompanham o zoom dos dois eixos e somem quando saem do trecho visível ----
@@ -358,7 +411,7 @@
         dica.className = 'rup-dica-grafico';
         dica.hidden = true;
         var pontos = {};
-        dados.series.forEach(function (s) {
+        dados.series.concat(sug ? [sug] : []).forEach(function (s) {
             var ponto = document.createElement('span');
             ponto.className = 'rup-ponto-hover rup-cor--' + s.cor;
             ponto.hidden = true;
@@ -418,6 +471,32 @@
                 ponto.style.left = pEsq + '%';
                 ponto.style.top = y + '%';
             });
+            if (sug) {   // a linha da remessa: só a partir do dia da chegada (antes dele ela é igual à curva do ritmo em destaque)
+                var pontoSug = pontos[sug.id];
+                if (!visiveis[sug.id] || dia < sug.chega) {
+                    pontoSug.hidden = true;
+                } else {
+                    var valorS = valorSug(dia);
+                    var acabaS = dia === sug.diaZero;
+                    var zeradoS = !acabaS && dia > sug.diaZero;
+                    var linhaS = document.createElement('div');
+                    linhaS.className = 'rup-dica-linha rup-cor--' + sug.cor + (zeradoS || acabaS ? ' rup-dica-linha--zerado' : '');
+                    var corS = document.createElement('i');
+                    corS.className = 'rup-dica-cor';
+                    var nomeS = document.createElement('span');
+                    nomeS.textContent = sug.rotulo + (dia === sug.chega ? ' (chega)' : '');
+                    var numeroS = document.createElement('strong');
+                    numeroS.textContent = acabaS ? 'acaba neste dia' : (zeradoS ? 'zerado' : textoUnidades(valorS));
+                    linhaS.appendChild(corS);
+                    linhaS.appendChild(nomeS);
+                    linhaS.appendChild(numeroS);
+                    dica.appendChild(linhaS);
+                    var yS = yPct(valorS);
+                    pontoSug.hidden = pEsq < -0.01 || yS < -1 || yS > 101;
+                    pontoSug.style.left = pEsq + '%';
+                    pontoSug.style.top = yS + '%';
+                }
+            }
             dica.hidden = false;
             dica.classList.toggle('rup-dica-grafico--esq', esquerda);
             dica.style.left = Math.max(0, Math.min(100, esquerda ? pEsq : pDir)) + '%';
@@ -480,4 +559,113 @@
         aplicarJanela();
     }
     iniciarGrafico();
+
+    // [5] Botões "Consultar no Mercado Livre" da tabela de estoque (detalhe): o ÚNICO lugar desta tela que chama o Mercado Livre, e só por clique. Um Código ML por chamada ao servidor (data-rup-url);
+    //     "Consultar todos" faz os Códigos da tabela UM POR VEZ (em fila). Acesso recusado ou varredura rodando (o servidor responde "interromper") para a fila. Ao terminar, se algum Código foi atualizado,
+    //     a tela recarrega (o endereço guarda o ritmo, o lead time e as referências) e volta a ler só do banco; o resultado fica numa linha de apoio que sobrevive ao recarregamento.
+    var secaoConsulta = document.querySelector('[data-rup-consulta]');
+    if (secaoConsulta) {
+        var urlConsulta = secaoConsulta.getAttribute('data-rup-url');
+        var statusConsulta = secaoConsulta.querySelector('[data-rup-status]');
+        var botoesConsulta = secaoConsulta.querySelectorAll('[data-rup-consultar]');
+        var CHAVE_RESULTADO = 'rup_resultado_da_consulta';
+        var ocupado = false;
+
+        function csrfConsulta() {
+            var campo = document.querySelector('#rup-csrf input[name="csrfmiddlewaretoken"]');
+            return campo ? campo.value : '';
+        }
+
+        function dizer(texto, tom) {
+            if (!statusConsulta) { return; }
+            statusConsulta.textContent = texto;
+            statusConsulta.title = texto;
+            statusConsulta.classList.remove('rup-consulta-status--erro', 'rup-consulta-status--ok');
+            if (tom) { statusConsulta.classList.add('rup-consulta-status--' + tom); }
+        }
+
+        function travar(travado, botaoClicado) {
+            ocupado = travado;
+            botoesConsulta.forEach(function (botao) {
+                botao.disabled = travado;
+                botao.classList.toggle('rup-consulta-btn--girando', travado && botao === botaoClicado);
+            });
+        }
+
+        // O resultado da consulta anterior (a tela recarregou depois dela): aparece na linha de apoio e vale só para esta visita.
+        try {
+            var guardado = window.sessionStorage.getItem(CHAVE_RESULTADO);
+            if (guardado) {
+                window.sessionStorage.removeItem(CHAVE_RESULTADO);
+                var resultado = JSON.parse(guardado);
+                dizer(resultado.texto, resultado.tom);
+            }
+        } catch (erro) { /* sem sessionStorage a tela funciona igual: só não repete o resultado */ }
+
+        function consultar(codigos, botaoClicado) {
+            if (ocupado || !codigos.length) { return; }
+            travar(true, botaoClicado);
+            var posicao = 0, atualizados = 0, problemas = [], parar = false;
+
+            function terminar() {
+                var texto, tom;
+                if (!problemas.length) {
+                    texto = atualizados === 1 ? 'Código atualizado no Mercado Livre.' : atualizados + ' Códigos atualizados no Mercado Livre.';
+                    tom = 'ok';
+                } else {
+                    texto = (atualizados ? atualizados + ' de ' + codigos.length + ' atualizados. ' : 'Nada foi atualizado. ') + problemas[0] + (problemas.length > 1 ? ' (+' + (problemas.length - 1) + ' erro' + (problemas.length > 2 ? 's' : '') + ')' : '');
+                    tom = 'erro';
+                }
+                if (atualizados > 0) {
+                    try { window.sessionStorage.setItem(CHAVE_RESULTADO, JSON.stringify({ texto: texto, tom: tom })); } catch (erro) { /* tudo bem */ }
+                    dizer('Atualizado. Recarregando…', 'ok');
+                    window.location.reload();
+                    return;
+                }
+                dizer(texto, tom);
+                travar(false, null);
+            }
+
+            function proximo() {
+                if (parar || posicao >= codigos.length) { terminar(); return; }
+                var codigo = codigos[posicao];
+                posicao += 1;
+                dizer('Consultando ' + codigo + ' (' + posicao + ' de ' + codigos.length + ')… pode levar alguns segundos.');
+                fetch(urlConsulta, {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: { 'X-CSRFToken': csrfConsulta(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo: codigo })
+                }).then(function (resposta) {
+                    return resposta.json().catch(function () { return { ok: false, mensagem: 'Resposta inesperada do servidor.' }; });
+                }).then(function (dados) {
+                    if (dados && dados.ok) { atualizados += 1; } else {
+                        problemas.push(codigo + ': ' + ((dados && dados.mensagem) || 'a consulta falhou.'));
+                        if (dados && dados.interromper) { parar = true; }
+                    }
+                    proximo();
+                }).catch(function () {
+                    problemas.push(codigo + ': não consegui falar com o servidor.');
+                    parar = true;
+                    proximo();
+                });
+            }
+            proximo();
+        }
+
+        botoesConsulta.forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                var alvo = botao.getAttribute('data-rup-consultar');
+                if (alvo === 'todos') {
+                    var codigos = [];
+                    botoesConsulta.forEach(function (outro) {
+                        var codigo = outro.getAttribute('data-rup-consultar');
+                        if (codigo !== 'todos') { codigos.push(codigo); }
+                    });
+                    consultar(codigos, botao);
+                } else {
+                    consultar([alvo], botao);
+                }
+            });
+        });
+    }
 })();
