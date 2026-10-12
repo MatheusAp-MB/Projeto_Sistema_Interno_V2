@@ -1,0 +1,420 @@
+/* mercado_livre/static/mercado_livre/css/layout_filtros_menus.css
+ *
+ * [RESUMO] → O painel "Filtros" em MENUS (parcial mercado_livre/parciais/estrutura_parcial_filtros_menus.html; decisão do Matheus, 12/10/2026, a partir do mockup de filtros). Hoje é só da Previsão de Ruptura de estoque;
+ *            o painel antigo (layout_filtros_hub.css) continua no Hub de Anúncios. Prefixo fm- em tudo, para não esbarrar em nenhuma outra tela.
+ *
+ * [EXPLICAÇÃO] → Só usa o que é do sistema: as cores (--cor-*), o botão (.btn-acao) e os selos (.badge-tabela, do registro único). As cores novas que aparecem aqui são só a do "pendente" (a mesma laranja do botão "Recalcular" da Previsão).
+ *                Regra de layout do Matheus ("fluido na horizontal, rígido na vertical"): a disposição só muda pela largura da JANELA (@media no fim), nunca pelo espaço ao lado da barra lateral; os chips não quebram de linha
+ *                sozinhos: o que não cabe é cortado com "…" (o clique em "+ N outros" faz os chips quebrarem de linha). Janela larga (mais de 1700px): título, resumo e ações na mesma linha; janela menor: o resumo desce para a segunda linha;
+ *                janela estreita (860px ou menos): os chips passam a quebrar de linha, porque cortá-los deixaria o valor ilegível.
+ */
+
+.fm [hidden] { display: none !important; }
+
+/* ================================================
+   FAIXA AZUL DE AVISOS (as notas da tela, acima do painel)
+   ================================================ */
+.fm-avisos {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    background: rgba(46, 123, 181, 0.08);
+    border: 1px solid rgba(46, 123, 181, 0.2);
+    border-radius: 8px;
+}
+
+.fm-aviso {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.8rem;
+    color: #3a546e;
+}
+
+.fm-aviso i { flex: none; margin-top: 2px; color: var(--cor-primaria-clara); }
+
+/* ================================================
+   O PAINEL
+   ================================================ */
+.fm {
+    --fm-fundo: #f8fafc;
+    --fm-pendente: #e07a1f;
+    padding: 0 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    color: #243247;
+    font-size: 0.85rem;
+}
+
+.fm button { font-family: inherit; }
+.fm button:focus-visible,
+.fm input:focus-visible,
+.fm .fm-limpar:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* ================================================
+   A LINHA DE CIMA (sempre visível): título | resumo | ações
+   ================================================ */
+.fm-linha {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 14px;
+    min-height: 50px;
+    padding: 8px 0;
+}
+
+.fm-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    white-space: nowrap;
+}
+
+.fm-ponto { width: 8px; height: 8px; border-radius: 50%; background: #1d6b5a; }
+
+.fm-resumo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.fm-resumo-rotulo {
+    flex: none;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--cor-texto-muted);
+}
+
+.fm-chips { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fm-chips--expandido { flex-wrap: wrap; }
+.fm-resumo-vazio { font-size: 0.8rem; color: var(--cor-texto-muted); }
+
+.fm-chip {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 1 auto;
+    gap: 6px;
+    min-width: 0;
+    max-width: 260px;
+    padding: 3px 4px 3px 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 999px;
+    background: #f4f7fb;
+    font-size: 0.78rem;
+    color: #243247;
+}
+
+/* quando o chip aperta, o NOME do campo encolhe primeiro (com "…"); o valor (e o selo, que nunca é cortado) fica */
+.fm-chip-campo { flex: 0 4 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cor-texto-muted); }
+
+.fm-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-texto:has(.badge-tabela) { flex: none; overflow: visible; }
+
+/* o × (tirar uma escolha): o mesmo nos chips e nas etiquetas dos menus */
+.fm-x {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--cor-texto-muted);
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.fm-x:hover { background: rgba(26, 58, 92, 0.12); color: var(--cor-primaria); }
+
+.fm-mais-chips {
+    flex: none;
+    padding: 3px 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--cor-primaria-clara);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.fm-mais-chips:hover { background: #f4f7fb; }
+
+.fm-acoes { display: flex; align-items: center; gap: 10px; }
+
+.fm-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}
+
+.fm-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #a9b5c2; }
+.fm--pendente .fm-status { color: #98631f; }
+.fm--pendente .fm-status::before { background: var(--fm-pendente); }
+
+/* botões de contorno (Editar filtros, Limpar filtros): o botão cheio é o .btn-acao do sistema */
+.fm-editar,
+.fm-limpar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--cor-primaria);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.fm-editar:hover,
+.fm-limpar:hover { border-color: var(--cor-primaria-clara); background: #f4f7fb; color: var(--cor-primaria); }
+.fm--aberto .fm-editar { border-color: var(--cor-primaria-clara); background: #edf2f8; }
+.fm-limpar { color: #4a5a6e; }
+
+.fm-aplicar {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 16px;
+    white-space: nowrap;
+}
+
+/* "alterações pendentes": o mesmo aviso do botão "Recalcular" (anel e bolinha laranja), sem mudar o tamanho do botão */
+.fm-aplicar--pendente { box-shadow: 0 0 0 3px rgba(224, 122, 31, 0.4); }
+.fm-aplicar--pendente::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--fm-pendente);
+    border: 2px solid #ffffff;
+}
+
+/* ================================================
+   O CORPO (fechado ao abrir a tela): 3 grupos de menus e o rodapé
+   ================================================ */
+.fm-corpo { display: none; padding: 12px 0 12px; border-top: 1px solid var(--cor-borda); }
+.fm--aberto .fm-corpo { display: block; }
+
+.fm-grupos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+
+.fm-grupo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px 14px 14px;
+    background: var(--fm-fundo);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.fm-grupo--aberto { z-index: 20; }   /* o menu aberto passa por cima do grupo de baixo */
+
+.fm-grupo-titulo { margin: 0; font-size: 0.95rem; font-weight: 700; line-height: 1.2; color: var(--cor-primaria); }
+.fm-grupo-legenda { margin: 2px 0 0; font-size: 0.74rem; color: var(--cor-texto-muted); }
+.fm-grupo-campos { display: flex; flex-direction: column; gap: 12px; }
+
+.fm-campo { position: relative; min-width: 0; }
+.fm-campo--aberto { z-index: 25; }
+
+.fm-campo-rotulo { display: block; margin: 0 0 5px; font-size: 0.78rem; font-weight: 700; color: #243247; }
+
+/* o campo fechado: a primeira escolha como etiqueta com ×, e o resto ("+N", "N selecionados") dentro do botão que abre o menu */
+.fm-controle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 8px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fm-controle:hover { border-color: var(--cor-primaria-clara); }
+.fm-campo--aberto .fm-controle { border-color: var(--cor-primaria-clara); box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.18); }
+
+.fm-escolhida { display: flex; flex: 0 1 auto; min-width: 0; max-width: 62%; }
+.fm-escolhida:empty { display: none; }
+
+.fm-etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 2px 3px 2px 4px;
+    border: 1px solid #d9e2ee;
+    border-radius: 6px;
+    background: #eef2f7;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.fm-abrir {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+    text-align: left;
+    cursor: pointer;
+}
+
+.fm-resto { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; }
+.fm-vazio { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #8594a8; }
+.fm-mais { flex: none; font-weight: 700; color: var(--cor-primaria-clara); }
+.fm-contagem { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-abrir i { flex: none; font-size: 0.7rem; color: var(--cor-primaria); transition: transform 0.15s ease; }
+.fm-campo--aberto .fm-abrir i { transform: rotate(180deg); }
+
+/* o menu suspenso */
+.fm-menu {
+    display: none;
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    padding: 8px;
+    background: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(15, 39, 68, 0.16);
+}
+
+.fm-campo--aberto .fm-menu { display: block; }
+.fm-menu--acima { top: auto; bottom: calc(100% + 4px); }
+
+.fm-busca {
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    background: #ffffff;
+    font-size: 0.8rem;
+}
+
+.fm-busca:focus { border-color: var(--cor-primaria-clara); outline: none; box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.18); }
+
+.fm-menu-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 2px 6px;
+    font-size: 0.72rem;
+    color: var(--cor-texto-muted);
+}
+
+.fm-menu-acoes { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.fm-mini {
+    padding: 2px;
+    border: 0;
+    background: transparent;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+}
+
+.fm-mini:hover { text-decoration: underline; }
+.fm-mini:disabled { opacity: 0.35; text-decoration: none; cursor: default; }
+
+.fm-opcoes { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; scrollbar-width: thin; }
+
+.fm-opcao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    margin: 0;
+    padding: 4px 6px;
+    border-radius: 5px;
+    font-size: 0.82rem;
+    color: #243247;
+    cursor: pointer;
+}
+
+.fm-opcao:hover { background: #f1f5fa; }
+.fm-opcao:has(input:checked) { background: rgba(46, 123, 181, 0.1); }
+.fm-opcao input { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--cor-primaria-clara); cursor: pointer; }
+.fm-opcao-texto { min-width: 0; }
+
+.fm-sem-resultado { margin: 0; padding: 14px 6px; text-align: center; font-size: 0.78rem; color: var(--cor-texto-muted); }
+
+/* ================================================
+   O RODAPÉ do corpo: a nota e os botões
+   ================================================ */
+.fm-rodape {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.fm-rodape-nota { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--cor-texto-muted); }
+.fm-rodape-acoes { display: flex; align-items: center; gap: 10px; }
+
+/* ================================================
+   LARGURA DA JANELA (nunca o espaço ao lado da barra lateral)
+   ================================================ */
+@media (max-width: 1700px) {
+    /* a janela não tem largura para os chips caberem ao lado do título e das ações: título e ações na primeira linha, o resumo inteiro na segunda */
+    .fm-linha { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; }
+    .fm-resumo { grid-column: 1 / -1; grid-row: 2; }
+}
+
+@media (max-width: 860px) {
+    .fm-grupos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* sem largura para os chips em uma linha só: aqui eles quebram (cortar com "…" deixaria só "A..") */
+    .fm-chips { flex-wrap: wrap; }
+    .fm-resumo { flex-direction: column; align-items: flex-start; gap: 6px; }
+}
+
+@media (max-width: 590px) {
+    .fm-linha { grid-template-columns: minmax(0, 1fr); }
+    .fm-acoes { flex-wrap: wrap; }
+    .fm-grupos { grid-template-columns: minmax(0, 1fr); }
+    .fm-rodape { flex-direction: column; align-items: stretch; }
+    .fm-rodape-acoes { justify-content: flex-end; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fm-controle, .fm-abrir i { transition: none; }
+}

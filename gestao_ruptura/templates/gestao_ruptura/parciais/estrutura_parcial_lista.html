@@ -7,9 +7,9 @@
     * [EXPLICAÇÃO] → O cartão de identidade de cada linha usa o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e os
       selos do anúncio (.badge-tabela) vêm do registro único (layout_badges.css). Aqui a linha tem altura FIXA (o CSS corta o que não cabe: título em 1 linha, selos e IDs somem inteiros de trás para a
       frente), para nada mudar de altura quando a barra lateral abre ou fecha.
-    * [EXPLICAÇÃO] → Os FILTROS do Hub de Anúncios (Marca, Situação do anúncio, Tipo, Flex, Situação do catálogo, Desconto, Faixa de score, Competição e Conexão com ERP) são o MESMO painel da tela de Anúncios — Mercado Livre
-      (parciais de mercado_livre/), dentro deste formulário: "Aplicar filtros" e "Recalcular" mandam tudo junto. Quem decide QUEM PASSA é o Hub (classificacao_catalogo.mlbs_visiveis_com_filtros), nunca esta tela
-      (ruptura_filtros.py só pergunta). Os filtros decidem quais LINHAS aparecem; os números da linha continuam sendo os do item inteiro (a nota sob os chips explica). O filtro de Logística só vale no Fora do Full
+    * [EXPLICAÇÃO] → Os FILTROS do Hub de Anúncios (Marca, Situação do anúncio, Tipo, Flex, Situação do catálogo, Desconto, Faixa de score, Competição e Conexão com ERP) têm os MESMOS parâmetros e as MESMAS opções da tela de Anúncios — Mercado Livre, mas aqui o painel é o em MENUS
+      (mercado_livre/parciais/estrutura_parcial_filtros_menus.html, sempre fechado ao abrir a tela; o Hub ainda usa o painel antigo), dentro deste formulário: "Aplicar filtros" e "Recalcular" mandam tudo junto. Quem decide QUEM PASSA é o Hub (classificacao_catalogo.mlbs_visiveis_com_filtros), nunca esta tela
+      (ruptura_filtros.py só pergunta). Os filtros decidem quais LINHAS aparecem; os números da linha continuam sendo os do item inteiro (a faixa azul de notas acima do painel explica). O filtro de Logística só vale no Fora do Full
       (aqui todo anúncio já é FULL): ele fica guardado na URL e volta a valer ao trocar de mundo.
 {% endcomment %}{% with lista=pagina.lista %}
 <form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-controles" role="search">
@@ -42,10 +42,8 @@
                 <i class="fas fa-calculator" aria-hidden="true"></i> Recalcular
             </button>
         </div>
-        {# Os filtros do Hub de Anúncios: o MESMO painel da tela de Anúncios (mercado_livre/parciais), dentro deste formulário; "Aplicar filtros" e "Recalcular" mandam tudo junto. #}
-        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_chips.html' with painel=lista.painel %}
-        {% for nota in lista.notas_filtros %}<p class="rup-filtros-nota"><i class="fas fa-circle-info" aria-hidden="true"></i><span>{{ nota }}</span></p>{% endfor %}
-        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_painel.html' with painel=lista.painel %}
+        {# Os filtros do Hub de Anúncios em MENUS (mercado_livre/parciais/estrutura_parcial_filtros_menus.html), dentro deste formulário: "Aplicar filtros" e "Recalcular" mandam tudo junto. As notas vão na faixa azul acima do painel. #}
+        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_menus.html' with painel=lista.painel notas=lista.notas_filtros %}
     </div>
     {% include 'gestao_ruptura/parciais/estrutura_parcial_controles.html' %}
 </form>

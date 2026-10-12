@@ -11,7 +11,7 @@
 {% block body_class %}rup-tela{% if pagina.modo == 'lista' %} rup-tela--lista{% endif %}{% endblock %}
 {% block head_extra %}
     <link rel="stylesheet"
-          href="{% static 'mercado_livre/css/layout_filtros_hub.css' %}">
+          href="{% static 'mercado_livre/css/layout_filtros_menus.css' %}">
     <link rel="stylesheet"
           href="{% static 'gestao_ruptura/css/layout_ruptura.css' %}">
 {% endblock %}
@@ -47,5 +47,5 @@
 {% endblock %}
 {% block scripts %}
     <script src="{% static 'gestao_ruptura/js/script_ruptura.js' %}"></script>
-    <script src="{% static 'mercado_livre/js/script_filtros_hub.js' %}"></script>
+    <script src="{% static 'mercado_livre/js/script_filtros_menus.js' %}"></script>
 {% endblock %}

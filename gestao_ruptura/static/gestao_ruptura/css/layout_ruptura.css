@@ -642,11 +642,7 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
 .rup-controles { display: flex; flex-direction: column; gap: 12px; }
 .rup-controles .rup-caixa { padding: 8px 12px; }
 
-/* os FILTROS DO HUB na caixa de cima da lista: o painel e os chips são os do Hub (mercado_livre/css/layout_filtros_hub.css, carregado antes deste arquivo); aqui só o encaixe (sem a margem de cima deles, a caixa já tem o espaço entre as partes) e as notas */
-.rup-caixa .hub-chips-filtros,
-.rup-caixa .hub-filtros { margin-top: 0; }
-.rup-filtros-nota { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.8rem; color: var(--cor-texto-muted); }
-.rup-filtros-nota i { flex: none; margin-top: 2px; }
+/* os FILTROS DO HUB na caixa de cima da lista: o painel em menus e a faixa azul de notas são do app mercado_livre (mercado_livre/css/layout_filtros_menus.css, carregado antes deste arquivo); a caixa já dá o espaço entre as partes, então não há regra aqui */
 
 /* "mudança não aplicada": campo de número ou busca digitado e ainda não aplicado (o script marca o formulário); o botão acende com uma bolinha laranja, sem mudar de tamanho */
 .rup-controles--pendente .rup-calcular { box-shadow: 0 0 0 3px rgba(224, 122, 31, 0.4); }

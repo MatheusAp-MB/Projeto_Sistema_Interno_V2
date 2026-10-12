@@ -5,7 +5,7 @@
     * [EXPLICAÇÃO] → Recebe "pagina" (ruptura_pagina.montar_pagina) e usa "pagina.lista" (ruptura_lista_fora.montar_lista_fora). Mesmo formulário (id "rup-form") e mesmos 2 cartões de regras do Fora do Full (sem o cartão "3 Quem recomenda":
       o Mercado Livre só recomenda para o Full). Os campos do outro mundo viajam escondidos (lista.ocultos): aplicar as regras daqui não apaga o que foi digitado nas regras do Full. A identidade da linha e a paginação são as mesmas
       do Full (parciais identidade e paginacao). Sem estoque, não há cartões de nível, cobertura, ruptura, urgência nem nível: eles nascem quando a fonte do estoque de fora do Full for ligada.
-    * [EXPLICAÇÃO] → Os FILTROS do Hub de Anúncios são o MESMO painel da tela de Anúncios — Mercado Livre (parciais de mercado_livre/), dentro deste formulário, com a Logística SEM a opção Full (aqui o anúncio já
+    * [EXPLICAÇÃO] → Os FILTROS do Hub de Anúncios têm os MESMOS parâmetros e as MESMAS opções da tela de Anúncios — Mercado Livre, no painel em MENUS (mercado_livre/parciais/estrutura_parcial_filtros_menus.html), dentro deste formulário, com a Logística SEM a opção Full (aqui o anúncio já
       é de fora do Full; as opções são as da lista do Hub que a regra de logistica_do_anuncio.py aprova como "de fora do Full"). Quem decide QUEM PASSA é o Hub (classificacao_catalogo.mlbs_visiveis_com_filtros); esta tela só
       pergunta (ruptura_filtros.py). Os filtros decidem quais LINHAS aparecem; os números da linha continuam sendo os do item inteiro.
 {% endcomment %}{% with lista=pagina.lista %}
@@ -39,10 +39,8 @@
                 <i class="fas fa-calculator" aria-hidden="true"></i> Recalcular
             </button>
         </div>
-        {# Os filtros do Hub de Anúncios: o MESMO painel da tela de Anúncios (mercado_livre/parciais), dentro deste formulário; "Aplicar filtros" e "Recalcular" mandam tudo junto. #}
-        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_chips.html' with painel=lista.painel %}
-        {% for nota in lista.notas_filtros %}<p class="rup-filtros-nota"><i class="fas fa-circle-info" aria-hidden="true"></i><span>{{ nota }}</span></p>{% endfor %}
-        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_painel.html' with painel=lista.painel %}
+        {# Os filtros do Hub de Anúncios em MENUS (mercado_livre/parciais/estrutura_parcial_filtros_menus.html), dentro deste formulário: "Aplicar filtros" e "Recalcular" mandam tudo junto. As notas vão na faixa azul acima do painel. #}
+        {% include 'mercado_livre/parciais/estrutura_parcial_filtros_menus.html' with painel=lista.painel notas=lista.notas_filtros %}
     </div>
     {% include 'gestao_ruptura/parciais/estrutura_parcial_controles.html' %}
 </form>

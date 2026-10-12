@@ -6,7 +6,7 @@
 #
 # REGRAS DO MATHEUS que moram aqui:
 #   - O filtro decide QUAIS LINHAS aparecem; os NÚMEROS de cada linha continuam sendo os do item inteiro. Num Produto (SKU) com 5 anúncios em que só 2 passam no filtro, a linha aparece (tem anúncio que passa) e o estoque, as vendas e o
-#     ritmo dela continuam sendo os do produto todo: o estoque do Full mora no Código ML, e cortar as vendas por anúncio sem cortar o estoque daria uma cobertura que não existe. Uma nota logo abaixo dos chips dos filtros ativos (notas_dos_filtros) diz isso.
+#     ritmo dela continuam sendo os do produto todo: o estoque do Full mora no Código ML, e cortar as vendas por anúncio sem cortar o estoque daria uma cobertura que não existe. Uma nota na faixa azul acima do painel de filtros (notas_dos_filtros) diz isso.
 #   - "Passa" = o mesmo que o Hub mostraria (Base puxada por catálogo filho que passou, catálogo órfão, simples; fósseis nunca). Nunca uma regra copiada para cá.
 #
 # * [EXPLICAÇÃO] → COMO FICA RÁPIDA: sem filtro ativo nada é lido do Hub (mlbs_permitidos devolve None = tudo passa). Com filtro ativo, o Hub monta a árvore dos SKUs candidatos sem os cards (a mesma conta do filtro dele), uma vez por abertura da lista.
@@ -29,10 +29,10 @@ def passa_no_filtro(mlbs, permitidos):
     return permitidos is None or any(m in permitidos for m in mlbs)
 
 
-# Função Objetivo: O que o painel "Filtros" precisa no mundo da tela: os marcados, as opções (no Fora do Full, só as logísticas de fora do Full), os chips e os filtros escondidos (estoque; no Envios Full, logística).
+# Função Objetivo: O que o painel "Filtros" (em MENUS, 12/10/2026) precisa no mundo da tela: os marcados, os grupos com as opções (no Fora do Full, só as logísticas de fora do Full) e os filtros escondidos (estoque; no Envios Full, logística).
 # `url_limpar` é o endereço do botão "Limpar filtros".
 def painel_do_mundo(comuns, url_limpar):
-    return contexto_do_painel(comuns['filtros_do_mundo'], url_limpar, escondidos=filtros_escondidos(comuns['mundo']), so_logisticas_de_fora_do_full=True)
+    return contexto_do_painel(comuns['filtros_do_mundo'], url_limpar, escondidos=filtros_escondidos(comuns['mundo']), so_logisticas_de_fora_do_full=True, em_menus=True)
 
 
 # Função Objetivo: Tira os filtros dos parâmetros de um endereço (para o "Limpar filtros"): os parâmetros dos filtros ficam None (fora do endereço).
@@ -47,7 +47,7 @@ def complemento_do_total(tem_busca, tem_filtros):
     return ' com essa busca' if tem_busca else (' com esses filtros' if tem_filtros else '')
 
 
-# Função Objetivo: As NOTAS dos filtros do Hub (frases curtas que a lista mostra logo abaixo dos chips dos filtros ativos, e não na caixa de avisos sobre os dados): o que os filtros mudam na lista (só as linhas, não os
+# Função Objetivo: As NOTAS dos filtros do Hub (frases curtas que a lista mostra na faixa azul logo acima do painel de filtros, e não na caixa de avisos sobre os dados): o que os filtros mudam na lista (só as linhas, não os
 # números), que a caixa de avisos conta a mesma base e, no Envios Full, que a logística escolhida no Fora do Full não vale ali. `gran` = sku | mlb | codigo; `unidade_plural` = o que a linha é ("produtos", "anúncios", "Códigos ML").
 def notas_dos_filtros(comuns, gran, unidade_plural):
     notas = []

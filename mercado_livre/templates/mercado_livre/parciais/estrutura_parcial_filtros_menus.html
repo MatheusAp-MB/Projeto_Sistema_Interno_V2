@@ -1,0 +1,76 @@
+{% comment %}
+    * [RESUMO] → O painel "Filtros" em MENUS (decisão do Matheus, 12/10/2026, a partir do mockup de filtros): uma faixa SEMPRE FECHADA ao abrir a tela, com o resumo dos filtros aplicados (chips "Campo: valor" com ×, os 3 primeiros e "+ N outros"), o
+      aviso de "alterações pendentes" e o botão "Editar filtros"; ao abrir, 3 grupos de menus suspensos de multisseleção (Identificação e anúncio; Comercial e catálogo; Desempenho e integração) e o rodapé com "Limpar filtros" e "Aplicar filtros".
+      Hoje é só da Previsão de Ruptura de estoque; o Hub de Anúncios ainda usa o painel antigo (estrutura_parcial_filtros_painel.html). Os dois escrevem os MESMOS parâmetros no endereço.
+    * [EXPLICAÇÃO] → Recebe "painel" (mercado_livre/funcoes_auxiliares/filtros_do_hub.contexto_do_painel com em_menus=True) e, opcional, "notas" (frases que a tela quer mostrar na faixa azul acima do painel). DEVE ficar dentro de um <form method="get">:
+      cada opção é um checkbox de verdade (mesmo nome e valor de sempre), então "Aplicar filtros" (ou qualquer outro botão de envio do formulário) manda tudo, como antes. O resumo, as etiquetas dos menus, os chips e o aviso de pendência são desenhados
+      pelo script (static/mercado_livre/js/script_filtros_menus.js) a partir dos checkboxes: nenhuma lista de opções é repetida no JavaScript. "Pendente" = o checkbox está diferente do que veio do servidor (o atributo checked).
+    * [EXPLICAÇÃO] → Selos (Situação, Tipo, Logística, Flex, Catálogo) vêm do registro único (badges.py) e as cores são as do sistema (layout_badges.css); os outros filtros são texto. Sem JavaScript, o <noscript> no fim abre tudo como uma lista simples e o formulário continua funcionando.
+      Estilo: static/mercado_livre/css/layout_filtros_menus.css.
+{% endcomment %}{% if notas %}<div class="fm-avisos" role="note">
+    {% for nota in notas %}<p class="fm-aviso"><i class="fas fa-circle-info" aria-hidden="true"></i><span>{{ nota }}</span></p>{% endfor %}
+</div>
+{% endif %}<section class="fm" data-fm aria-label="Filtros dos anúncios">
+    <div class="fm-linha">
+        <span class="fm-titulo"><i class="fas fa-filter" aria-hidden="true"></i> Filtros{% if painel.tem_filtro_ativo %}<span class="fm-ponto" role="img" aria-label="Há filtros aplicados"></span>{% endif %}</span>
+        <div class="fm-resumo">
+            <span class="fm-resumo-rotulo" data-fm-rotulo>Filtros aplicados:</span>
+            <div class="fm-chips" data-fm-chips></div>
+        </div>
+        <div class="fm-acoes">
+            <span class="fm-status" data-fm-status role="status">Seleções aplicadas</span>
+            <button type="submit" class="btn-acao fm-aplicar" data-fm-aplicar-resumo hidden><i class="fas fa-filter" aria-hidden="true"></i> Aplicar filtros</button>
+            <button type="button" class="fm-editar" data-fm-editar aria-expanded="false" aria-controls="fm-corpo"><i class="fas fa-sliders" aria-hidden="true"></i> <span data-fm-editar-texto>Editar filtros</span></button>
+        </div>
+    </div>
+    <div class="fm-corpo" id="fm-corpo" data-fm-corpo>
+        <div class="fm-grupos">
+            {% for g in painel.grupos %}
+            <div class="fm-grupo">
+                <div class="fm-grupo-cabeca">
+                    <h3 class="fm-grupo-titulo">{{ g.titulo }}</h3>
+                    <p class="fm-grupo-legenda">{{ g.legenda }}</p>
+                </div>
+                <div class="fm-grupo-campos">
+                    {% for c in g.campos %}
+                    <div class="fm-campo" data-fm-campo data-rotulo="{{ c.rotulo }}" data-genero="{{ c.genero }}" data-vazio="{{ c.vazio }}">
+                        <span class="fm-campo-rotulo" id="fm-rotulo-{{ c.parametro }}">{{ c.rotulo }}</span>
+                        <div class="fm-controle">
+                            <span class="fm-escolhida" data-fm-escolhida></span>
+                            <button type="button" class="fm-abrir" data-fm-abrir aria-haspopup="true" aria-expanded="false" aria-controls="fm-menu-{{ c.parametro }}" aria-labelledby="fm-rotulo-{{ c.parametro }}">
+                                <span class="fm-resto" data-fm-resto></span>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="fm-menu" id="fm-menu-{{ c.parametro }}">
+                            {% if c.com_busca %}<input type="text" class="fm-busca" data-fm-busca placeholder="Buscar..." autocomplete="off" spellcheck="false" aria-label="Buscar em {{ c.rotulo }}">{% endif %}
+                            <div class="fm-menu-meta">
+                                <span data-fm-contagem></span>
+                                <span class="fm-menu-acoes">
+                                    <button type="button" class="fm-mini" data-fm-todas>Selecionar visíveis</button>
+                                    <span aria-hidden="true">·</span>
+                                    <button type="button" class="fm-mini" data-fm-limpar>Limpar</button>
+                                </span>
+                            </div>
+                            <div class="fm-opcoes">
+                                {% for o in c.opcoes %}<label class="fm-opcao"><input type="checkbox" data-label="{{ o.texto }}" name="{{ c.parametro }}" value="{{ o.valor }}"{% if o.marcada %} checked{% endif %}><span class="fm-opcao-texto">{% if o.selo %}{% include 'mercado_livre/parciais/estrutura_parcial_badge.html' with badge=o.selo %}{% else %}{{ o.texto }}{% endif %}</span></label>
+                                {% endfor %}
+                                <p class="fm-sem-resultado" data-fm-sem-resultado hidden>Nenhuma opção encontrada.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="fm-rodape">
+            <span class="fm-rodape-nota"><i class="fas fa-circle-info" aria-hidden="true"></i> <span data-fm-nota>Marque as opções e clique em Aplicar filtros (ou em Recalcular).</span></span>
+            <div class="fm-rodape-acoes">
+                <a href="{{ painel.url_limpar }}" class="fm-limpar"><i class="fas fa-trash-can" aria-hidden="true"></i> Limpar filtros</a>
+                <button type="submit" class="btn-acao fm-aplicar" data-fm-aplicar><i class="fas fa-filter" aria-hidden="true"></i> Aplicar filtros</button>
+            </div>
+        </div>
+    </div>
+    <noscript><style>.fm-corpo{display:block!important}.fm-controle,.fm-editar,.fm-menu-meta{display:none!important}.fm-menu{display:block!important;position:static!important;border:0!important;box-shadow:none!important;padding:0!important}</style></noscript>
+</section>
