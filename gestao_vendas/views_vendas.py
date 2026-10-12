@@ -9,6 +9,10 @@
 #   - "Atualizar dia" (1 dia da conta toda, o ícone dentro de cada dia do calendário)                              → view_vendas_atualizar_dia
 #   - "Coletar período da conta" (um período por calendário da conta toda, em segundo plano) → view_vendas_periodo_iniciar (com _status para a barra e _parar)
 # Depois de uma atualização que deu certo a tela recarrega e lê o banco de novo.
+#
+# O total de chamadas que cada clique custou fica GUARDADO no banco (ExecucaoColetaVendasMercadoLivre, 1 linha por clique): "Atualizar dia" e "Coletar período da
+# conta" o servidor mesmo grava; "Atualizar" (MLB ou produto), que a tela monta em vários trechos, manda o total no fim para view_vendas_execucao_registrar
+# (essa view NÃO chama o Mercado Livre, só grava no banco).
 
 import traceback
 from datetime import date, datetime
@@ -69,6 +73,7 @@ def view_vendas(request):
         'url_periodo_iniciar': reverse('gestao_vendas_periodo_iniciar'),
         'url_periodo_status': reverse('gestao_vendas_periodo_status'),
         'url_periodo_parar': reverse('gestao_vendas_periodo_parar'),
+        'url_execucao_registrar': reverse('gestao_vendas_execucao_registrar'),
         # Painel do dia: o bloco "Pedidos e cancelamentos" busca aqui os pedidos do dia (só LÊ o banco), e só quando a pessoa abre o bloco.
         'url_pedidos_dia': reverse('gestao_vendas_pedidos_dia'),
     })
@@ -97,6 +102,8 @@ def view_vendas_pedidos_dia(request):
 
 # Função Objetivo: Executa uma coleta síncrona e traduz as exceções para a resposta que a tela entende. O acesso recusado (502) e a coleta de
 # período rodando (409) vêm com "interromper": a tela para a fila do "Atualizar produto".
+# * [EXPLICAÇÃO] → TODA resposta de coleta leva `chamadas` = requisições reais que o clique gastou neste trecho (0 quando nem chegou a chamar; None quando
+#                  não se sabe, ex.: erro inesperado): a tela soma os trechos e mostra o total EXATO do "Atualizar produto" e do "Reler tudo".
 def _responder_coleta(coletar):
     from integracao_mercado_livre.servicos.coletar_vendas_ml import ColetaOcupada, ErroColetaVendas, JanelaGrande
 
@@ -104,23 +111,24 @@ def _responder_coleta(coletar):
         relatorio = coletar()
     except JanelaGrande as grande:
         # Não é erro: a janela tem pedidos demais para 1 requisição. Nada foi gravado; a tela refaz com os pedaços.
-        return JsonResponse({'ok': False, 'dividir': True, 'total': grande.total,
+        return JsonResponse({'ok': False, 'dividir': True, 'total': grande.total, 'chamadas': grande.chamadas,
                              'partes': [{'de': de.isoformat(), 'ate': ate.isoformat()} for de, ate in grande.partes]})
     except ColetaOcupada as erro:
         if erro.args and erro.args[0] == 'periodo':
-            return JsonResponse({'ok': False, 'mensagem': MSG_PERIODO_RODANDO, 'interromper': True}, status=409)
-        return JsonResponse({'ok': False, 'mensagem': 'Essa coleta já está rodando (em outra aba?). Espere um instante.'}, status=409)
+            return JsonResponse({'ok': False, 'mensagem': MSG_PERIODO_RODANDO, 'interromper': True, 'chamadas': 0}, status=409)
+        return JsonResponse({'ok': False, 'mensagem': 'Essa coleta já está rodando (em outra aba?). Espere um instante.', 'chamadas': 0}, status=409)
     except ErroColetaVendas as erro:
-        return JsonResponse({'ok': False, 'mensagem': str(erro)}, status=422)
-    except ErroAutenticacaoAPI:
+        return JsonResponse({'ok': False, 'mensagem': str(erro), 'chamadas': 0}, status=422)
+    except ErroAutenticacaoAPI as erro:
         traceback.print_exc()
-        return JsonResponse({'ok': False, 'interromper': True, 'mensagem': MSG_TOKEN}, status=502)
+        return JsonResponse({'ok': False, 'interromper': True, 'mensagem': MSG_TOKEN, 'chamadas': getattr(erro, 'chamadas_feitas', None)}, status=502)
     except Exception:
         traceback.print_exc()
         return JsonResponse({'ok': False, 'mensagem': MSG_INESPERADA}, status=500)
 
     if relatorio.status == ColetaVendasMercadoLivre.Status.FALHA:
-        return JsonResponse({'ok': False, 'mensagem': relatorio.mensagem or 'A coleta falhou.', 'erros_429': relatorio.erros_429}, status=422)
+        return JsonResponse({'ok': False, 'mensagem': relatorio.mensagem or 'A coleta falhou.', 'erros_429': relatorio.erros_429,
+                             'chamadas': relatorio.chamadas}, status=422)
     return JsonResponse({'ok': True, 'mensagem': relatorio.mensagem, 'avisos': len(relatorio.avisos), 'pedidos': relatorio.pedidos_lidos,
                          'chamadas': relatorio.chamadas, 'erros_429': relatorio.erros_429})
 
@@ -174,7 +182,7 @@ def view_vendas_planejar(request):
         plano = planejar_trechos(mlbs, dias, reler_tudo=_verdadeiro(request.GET.get('tudo')))
     except ErroColetaVendas as erro:
         return JsonResponse({'ok': False, 'mensagem': str(erro)}, status=422)
-    return JsonResponse({'ok': True, 'max_pedidos': MAX_PEDIDOS_POR_REQUISICAO, **plano})
+    return JsonResponse({'ok': True, 'max_pedidos': MAX_PEDIDOS_POR_REQUISICAO, 'mlbs': len(mlbs), **plano})
 
 
 # Função Objetivo: Botão "Atualizar dia" (o ícone dentro de cada dia do calendário): coleta 1 dia INTEIRO da conta toda (todos os SKUs).
@@ -223,3 +231,30 @@ def view_vendas_periodo_parar(request):
     if estado is None:
         return JsonResponse({'status': 'ocioso', 'mensagem': 'Não há coleta de período em andamento.'})
     return JsonResponse(estado)
+
+
+# Função Objetivo: GUARDA no banco o resultado de UM clique em "Atualizar" de um MLB ou do produto (com ou sem "Reler tudo"): o total EXATO de chamadas ao Mercado
+# Livre, os trechos, os pedidos, o tempo... (1 linha em ExecucaoColetaVendasMercadoLivre). NÃO chama o Mercado Livre: a tela monta o clique em vários trechos e,
+# quando o último termina, soma e manda o total para cá. ("Atualizar dia" e "Coletar período" não passam por aqui: o servidor mesmo registra.)
+CAMPOS_NUMERICOS_DA_EXECUCAO = ('dias', 'mlbs', 'dias_total', 'dias_a_coletar', 'trechos', 'trechos_com_falha', 'trechos_sem_contagem', 'pedidos',
+                                'chamadas', 'erros_429', 'segundos')
+
+
+@require_POST
+def view_vendas_execucao_registrar(request):
+    from integracao_mercado_livre.servicos.coletar_vendas_ml import ErroColetaVendas, registrar_execucao_do_clique
+
+    corpo = _ler_json(request) or {}
+    numeros = {campo: _inteiro(corpo.get(campo), 0) for campo in CAMPOS_NUMERICOS_DA_EXECUCAO}
+    try:
+        execucao = registrar_execucao_do_clique(
+            tipo=str(corpo.get('tipo') or ''), usuario=_nome_usuario(request),
+            sku=str(corpo.get('sku') or '').strip(), mlb=str(corpo.get('mlb') or '').strip().upper(),
+            reler_tudo=_verdadeiro(corpo.get('reler_tudo')), parou=_verdadeiro(corpo.get('parou')), mensagem=str(corpo.get('mensagem') or ''),
+            **numeros)
+    except ErroColetaVendas as erro:
+        return JsonResponse({'ok': False, 'mensagem': str(erro)}, status=422)
+    except Exception:
+        traceback.print_exc()
+        return JsonResponse({'ok': False, 'mensagem': 'Não consegui guardar a execução no banco. O detalhe está no terminal do servidor.'}, status=500)
+    return JsonResponse({'ok': True, 'id': execucao.pk})

@@ -40,6 +40,7 @@ class ColetaVendasMercadoLivre(models.Model):
     itens_gravados = models.PositiveIntegerField(default=0)
     chamadas       = models.PositiveIntegerField(default=0)
     erros_429      = models.PositiveIntegerField(default=0)
+    # * [EXPLICAÇÃO] → O texto da coleta + a lista COMPLETA dos avisos (título "Avisos desta coleta", um por linha; até 20). A tela mostra só o 1º aviso.
     mensagem       = models.TextField(blank=True)
     usuario        = models.CharField(max_length=150, blank=True)
 

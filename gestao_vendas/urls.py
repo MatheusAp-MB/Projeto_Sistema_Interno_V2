@@ -23,4 +23,8 @@ urlpatterns = [
     path('periodo/iniciar/', views_vendas.view_vendas_periodo_iniciar, name='gestao_vendas_periodo_iniciar'),
     path('periodo/status/', views_vendas.view_vendas_periodo_status, name='gestao_vendas_periodo_status'),
     path('periodo/parar/', views_vendas.view_vendas_periodo_parar, name='gestao_vendas_periodo_parar'),
+
+    # * [EXPLICAÇÃO] → Guarda no banco o total de chamadas de UM clique em "Atualizar" (MLB ou produto): a tela soma os trechos e manda no fim. NÃO chama o
+    #                  Mercado Livre. ("Atualizar dia" e "Coletar período" o servidor mesmo registra.) Tabela: ExecucaoColetaVendasMercadoLivre.
+    path('execucao/registrar/', views_vendas.view_vendas_execucao_registrar, name='gestao_vendas_execucao_registrar'),
 ]

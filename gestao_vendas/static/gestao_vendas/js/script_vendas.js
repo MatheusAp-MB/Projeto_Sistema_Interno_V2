@@ -27,7 +27,8 @@
         dia: pagina.dataset.urlDia,
         iniciar: pagina.dataset.urlPeriodoIniciar,
         status: pagina.dataset.urlPeriodoStatus,
-        parar: pagina.dataset.urlPeriodoParar
+        parar: pagina.dataset.urlPeriodoParar,
+        execucao: pagina.dataset.urlExecucaoRegistrar
     };
     const sku = pagina.dataset.sku || '';
     const dias = parseInt(pagina.dataset.dias, 10) || 90;
@@ -191,27 +192,29 @@
         }
         return chamar(enderecos.mlb, 'POST', corpo).then(function (resposta) {
             const dados = resposta.dados || {};
+            // [EXPLICAÇÃO] → `chamadas` = requisições reais que o servidor gastou NESTE trecho; null = o servidor não informou (erro inesperado, rede caída).
+            const chamadas = typeof dados.chamadas === 'number' ? dados.chamadas : null;
             if (dados.dividir && dados.partes && dados.partes.length > 1) {
-                return { tipo: 'dividir', partes: dados.partes };
+                return { tipo: 'dividir', partes: dados.partes, chamadas: chamadas };
             }
             if (!resposta.ok || !dados.ok) {
                 return {
-                    tipo: 'erro', erros429: dados.erros_429 || 0, interromper: Boolean(dados.interromper),
+                    tipo: 'erro', erros429: dados.erros_429 || 0, interromper: Boolean(dados.interromper), chamadas: chamadas,
                     mensagem: dados.mensagem || 'Não consegui consultar o Mercado Livre. Tente de novo.'
                 };
             }
-            return { tipo: 'ok', pedidos: dados.pedidos || 0, avisos: dados.avisos || 0, erros429: dados.erros_429 || 0 };
+            return { tipo: 'ok', pedidos: dados.pedidos || 0, avisos: dados.avisos || 0, erros429: dados.erros_429 || 0, chamadas: chamadas };
         }).catch(function () {
-            return { tipo: 'erro', erros429: 0, interromper: true, mensagem: 'Não consegui falar com o servidor. Confira a conexão e tente de novo.' };
+            return { tipo: 'erro', erros429: 0, chamadas: null, interromper: true, mensagem: 'Não consegui falar com o servidor. Confira a conexão e tente de novo.' };
         });
     }
 
-    // Função Objetivo: Lê os trechos do plano, CONCORRENCIA por vez. Devolve (sem rejeitar) o balanço: {pedidos, trechos, diasFeitos, erros429, comAviso,
+    // Função Objetivo: Lê os trechos do plano, CONCORRENCIA por vez. Devolve (sem rejeitar) o balanço: {pedidos, trechos, diasFeitos, erros429, chamadas (total exato), semContagem (trechos que não informaram), comAviso,
     //                  falhas: [{mlb, de, ate, mensagem}], parou: o MLB onde o acesso foi recusado ou a rede caiu (''), se tudo andou}.
     //                  `aoAndar(balanco)` é chamada a cada trecho que termina (a tela usa para o percentual no botão).
     function executarFila(trechos, maxPedidos, aoAndar) {
         const fila = trechos.slice();
-        const balanco = { pedidos: 0, trechos: 0, diasFeitos: 0, erros429: 0, comAviso: 0, falhas: [], parou: '' };
+        const balanco = { pedidos: 0, trechos: 0, diasFeitos: 0, erros429: 0, chamadas: 0, semContagem: 0, comAviso: 0, falhas: [], parou: '' };
         let ativos = 0;
         let interrompido = false;
 
@@ -228,6 +231,11 @@
             return coletarTrecho(trecho, trecho.dias > 1 ? maxPedidos : 0).then(function (r) {
                 ativos -= 1;
                 balanco.erros429 += r.erros429 || 0;
+                if (r.chamadas === null) {
+                    balanco.semContagem += 1;
+                } else {
+                    balanco.chamadas += r.chamadas;
+                }
                 if (r.tipo === 'dividir') {
                     const pedacos = r.partes.map(function (p) { return { mlb: trecho.mlb, de: p.de, ate: p.ate, dias: diasEntre(p.de, p.ate) }; });
                     Array.prototype.unshift.apply(fila, pedacos);
@@ -259,8 +267,35 @@
         return iso.slice(8, 10) + '/' + iso.slice(5, 7);
     }
 
-    // Função Objetivo: Monta a mensagem final e, se pelo menos um trecho foi lido, recarrega a tela para ler o banco de novo.
-    function finalizarAtualizacao(mlb, plano, balanco) {
+    // Função Objetivo: O pedaço da mensagem final com o total EXATO de requisições que o clique gastou no Mercado Livre (a soma dos trechos, inclusive
+    //                  os que voltaram partidos ou falharam). Se algum trecho não informou o número, diz que a contagem está incompleta.
+    function textoDeChamadas(balanco) {
+        const total = formatarNumero(balanco.chamadas) + ' ' + plural(balanco.chamadas, 'chamada', 'chamadas') + ' ao Mercado Livre';
+        const incompleta = balanco.semContagem
+            ? ' (contagem incompleta: ' + balanco.semContagem + ' ' + plural(balanco.semContagem, 'trecho', 'trechos') + ' sem informar)' : '';
+        return total + incompleta;
+    }
+
+    // Função Objetivo: GUARDA no banco o resultado deste clique (o total EXATO de chamadas ao Mercado Livre, trechos, pedidos, tempo...) para consultas futuras
+    //                  (tabela ExecucaoColetaVendasMercadoLivre). Devolve (sempre, sem rejeitar) '' se guardou, ou uma frase de atenção para somar à mensagem
+    //                  quando NÃO conseguiu guardar.
+    function registrarExecucao(mlb, tudo, plano, balanco, segundos, mensagem) {
+        const naoGuardou = ' Atenção: não consegui guardar este total de chamadas no banco.';
+        return chamar(enderecos.execucao, 'POST', {
+            tipo: mlb ? 'mlb' : 'produto', sku: sku, mlb: mlb || '', dias: dias, reler_tudo: Boolean(tudo),
+            mlbs: plano.mlbs || (mlb ? 1 : 0), dias_total: plano.dias_total, dias_a_coletar: plano.dias_a_coletar,
+            trechos: balanco.trechos, trechos_com_falha: balanco.falhas.length, trechos_sem_contagem: balanco.semContagem, parou: Boolean(balanco.parou),
+            pedidos: balanco.pedidos, chamadas: balanco.chamadas, erros_429: balanco.erros429, segundos: segundos, mensagem: mensagem
+        }).then(function (resposta) {
+            return resposta.ok && resposta.dados && resposta.dados.ok ? '' : naoGuardou;
+        }).catch(function () {
+            return naoGuardou;
+        });
+    }
+
+    // Função Objetivo: Monta a mensagem final, GUARDA o resultado do clique no banco (se algum trecho foi tentado) e, se pelo menos um trecho foi lido, recarrega
+    //                  a tela para ler o banco de novo.
+    function finalizarAtualizacao(mlb, tudo, plano, balanco, segundos) {
         const nTrechos = balanco.trechos + ' ' + plural(balanco.trechos, 'trecho', 'trechos');
         const pulados = plano.dias_total - plano.dias_a_coletar;
         const pulou = pulados > 0 && plano.dias_total
@@ -272,7 +307,7 @@
         let tipo = 'ok';
         if (balanco.parou) {
             const ultima = balanco.falhas[balanco.falhas.length - 1];
-            texto = 'Parei no ' + balanco.parou + ' (' + nTrechos + ' lidos antes). ' + ultima.mensagem;
+            texto = 'Parei no ' + balanco.parou + ' (' + nTrechos + ' lidos antes). ' + ultima.mensagem + ' Ao todo: ' + textoDeChamadas(balanco) + '.';
             tipo = 'erro';
         } else if (balanco.falhas.length) {
             const lista = balanco.falhas.slice(0, 2).map(function (f) {
@@ -280,28 +315,38 @@
             }).join(' | ');
             texto = (mlb || 'Produto') + ' atualizado em parte: ' + nTrechos + ' lidos, ' + balanco.falhas.length + ' ' +
                 plural(balanco.falhas.length, 'falhou', 'falharam') + '. ' + lista +
-                (balanco.falhas.length > 2 ? ' (e mais ' + (balanco.falhas.length - 2) + ')' : '') + recusas;
+                (balanco.falhas.length > 2 ? ' (e mais ' + (balanco.falhas.length - 2) + ')' : '') + recusas +
+                ' Ao todo: ' + textoDeChamadas(balanco) + '.';
             tipo = 'aviso';
         } else {
             texto = (mlb || 'Produto') + ' atualizado: ' + formatarNumero(balanco.pedidos) + ' ' + plural(balanco.pedidos, 'pedido', 'pedidos') +
-                ' em ' + nTrechos + '.' + pulou + recusas;
+                ' em ' + nTrechos + ', com ' + textoDeChamadas(balanco) + '.' + pulou + recusas;
             if (balanco.comAviso || balanco.erros429) {
                 tipo = 'aviso';
                 if (balanco.comAviso) {
-                    texto += ' Em ' + balanco.comAviso + ' ' + plural(balanco.comAviso, 'trecho', 'trechos') + ' o coletor deixou aviso (veja o terminal do servidor).';
+                    texto += ' Em ' + balanco.comAviso + ' ' + plural(balanco.comAviso, 'trecho', 'trechos') + ' o coletor deixou aviso (os textos ficam guardados na coleta, no banco).';
                 }
             }
         }
-        if (balanco.trechos) {
-            guardarAvisoERecarregar(texto, tipo);
-            return;
-        }
-        aplicarTrava();
-        avisar(texto, tipo);
+        // [EXPLICAÇÃO] → Plano sem trechos (tudo já coletado) não gastou chamada nenhuma: nada a guardar.
+        const guardar = plano.trechos.length ? registrarExecucao(mlb, tudo, plano, balanco, segundos, texto) : Promise.resolve('');
+        guardar.then(function (aviso) {
+            if (aviso) {
+                texto += aviso;
+                tipo = tipo === 'ok' ? 'aviso' : tipo;
+            }
+            if (balanco.trechos) {
+                guardarAvisoERecarregar(texto, tipo);
+                return;
+            }
+            aplicarTrava();
+            avisar(texto, tipo);
+        });
     }
 
     // Função Objetivo: O "Atualizar" de um MLB (`mlb` preenchido) ou do produto (`mlb` vazio): plano → fila de trechos → resumo.
     function atualizar(botao, mlb, tudo) {
+        const inicio = Date.now();
         operacao = true;
         aplicarTrava(botao, mlb ? '…' : 'Planejando…');
         pedirPlano(mlb, tudo).then(function (resposta) {
@@ -320,7 +365,7 @@
             aplicarTrava(botao, texto({ diasFeitos: 0 }));
             return executarFila(trechos, plano.max_pedidos, function (balanco) { aplicarTrava(botao, texto(balanco)); }).then(function (balanco) {
                 operacao = false;
-                finalizarAtualizacao(mlb, plano, balanco);
+                finalizarAtualizacao(mlb, tudo, plano, balanco, Math.round((Date.now() - inicio) / 1000));
             });
         });
     }

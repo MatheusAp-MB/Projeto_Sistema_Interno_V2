@@ -19,6 +19,14 @@
 #                  10000 pedidos é partida ao meio (por hora, no mínimo) antes de paginar; (2) a espera entre chamadas é curta
 #                  (PAUSA_ENTRE_CHAMADAS_S) e configurável aqui em cima; (3) 429 continua tratado (o cliente compartilhado já tenta 5 vezes
 #                  com espera; aqui há mais 1 tentativa depois de uma pausa maior).
+# * [EXPLICAÇÃO] → A HORA DO FILTRO (medido em 12/10/2026, dia 24/11/2025): o ML ignora minutos e lê a HORA INTEIRA no "order.date_created.to". Pedir to = D+1 00:00 lê até
+#                  D+1 00:59:59 (477 pedidos em vez de 465): a hora 0 do dia seguinte era lida 2 vezes (~1,3% de leituras a mais: 1.074 pedidos no ano). Por isso `_buscar_pagina`
+#                  manda `fim − 1 hora` ao ML (to = D 23:00 lê o dia D inteiro: 465, igual ao banco). Toda janela daqui é [inicio, fim) em HORAS CHEIAS (há uma trava para isso).
+# * [EXPLICAÇÃO] → A ORDEM da lista (medido em 12/10/2026 e escrito na doc de Orders: "Sellers por date_closed"): o sort=date_desc ordena pela data de FECHAMENTO do pedido, não pela
+#                  de criação. Dois pedidos fechados no mesmo segundo não têm ordem definida entre si: se o par cair na fronteira de uma página (posição 50, 100...), o ML pode mandar
+#                  um pedido 2 vezes e outro nenhuma (o "anunciou 202, vieram 201" de 08/07/2026). A causa ainda está em teste (scripts_exploracao_ML/
+#                  investigar_empates_de_fechamento_nas_paginas_so_no_banco.py). A PROTEÇÃO é a RELEITURA: se o total não fecha, a janela é lida de novo com página de OUTRO
+#                  tamanho (a fronteira cai em outro ponto) e os pedidos que faltavam são somados (LIMITES_DAS_RELEITURAS). Funciona qualquer que seja a causa.
 # * [EXPLICAÇÃO] → A gravação é por "upsert" (order_id + posição do item): puxar o mesmo período de novo NÃO duplica, só atualiza a linha.
 #                  É assim que um cancelamento feito depois chega ao banco: basta atualizar o período de novo.
 # * [EXPLICAÇÃO] → O seller_id nunca é gravado (nem no banco, nem na mensagem). Nenhum dado de comprador é lido além do que o ML manda no
@@ -39,20 +47,21 @@ from django.db.utils import OperationalError
 from django.utils import timezone
 
 from api_mercado_livre import ApiMercadoLivre
+from api_mercado_livre.core.estrutura_api.cliente_api import requisicoes_enviadas_nesta_thread
 from api_mercado_livre.core.estrutura_api.excecoes import ErroAutenticacaoAPI
 from core.empresa import definir_empresa_ativa
 from integracao_mercado_livre.servicos.buscar_detalhes import _caminho_pasta_logs
 from integracao_mercado_livre.servicos.cobertura_vendas_ml import (
     DIAS_DE_REVISAO, PERIODO_PADRAO, carregar_coletas, dias_para_tras, dias_pendentes, dica_de_borda, dividir_janela, faixas_de_dias,
     primeiro_dia_do_ml)
-from mercado_livre.models import ColetaVendasMercadoLivre, VendaItemMercadoLivre
+from mercado_livre.models import ColetaVendasMercadoLivre, ExecucaoColetaVendasMercadoLivre, VendaItemMercadoLivre
 
 FUSO = ZoneInfo('America/Sao_Paulo')
 
 LIMITE_POR_PAGINA = 50
 TETO_OFFSET_MAIS_LIMITE = 10000         # medido em 10/10/2026: offset 9950 + limit 50 passou; offset 82100 deu 400
 # * [EXPLICAÇÃO] → O limite de quão para trás se coleta NÃO é mais um número fixo de dias: é o primeiro dia que o ML guarda (cobertura_vendas_ml.
-#                  primeiro_dia_do_ml). 360 dias foi lido com 200 OK (82106 pedidos) em 10/10/2026; o dia exato de 12 meses atrás (11/10/2025) foi lido com sucesso em 11/10/2026.
+#                  primeiro_dia_do_ml). 360 dias foi lido com 200 OK (82106 pedidos) em 10/10/2026; o dia exato de 12 meses atrás (11/10/2025) foi lido em 11/10/2026, mas em 12/10/2026 se viu que ele vem PARCIAL (o ML corta o começo do dia mais antigo); por isso FOLGA_DO_LIMITE_ML_DIAS = 1 (ver cobertura_vendas_ml.py).
 
 # * [EXPLICAÇÃO] → 0,3 s ≈ o tempo de 1 chamada medida (0,27 s): 1 chamada por vez, sem paralelismo. Para 90 dias da conta toda
 #                  (~360 chamadas) dá poucos minutos. Subir/baixar aqui se o ML começar a devolver 429.
@@ -69,6 +78,7 @@ TENTATIVAS_DE_GRAVACAO = 3
 CODIGOS_MYSQL_PARA_REPETIR = (1213, 1205)   # 1213 = deadlock detectado, 1205 = tempo de espera por trava: o MySQL manda repetir a transação
 ESPERA_ANTES_DE_REPETIR_S = 20
 MAX_TENTATIVAS_POR_PAGINA = 2
+LIMITES_DAS_RELEITURAS = (45, 40)           # tamanho da página em cada RELEITURA de uma janela que não fechou (no máx. 2 releituras; ver _ler_intervalo). Menor que 50 de propósito
 TEXTO_429_ESGOTADO = 'Número máximo de tentativas'   # o erro do chamar_api quando as tentativas por 429 acabam
 
 CHAVE_CACHE_PERIODO = 'vendas_periodo_{empresa}'
@@ -80,6 +90,7 @@ TIMEOUT_TRAVA_SEGUNDOS = 900
 SEGUNDOS_SEM_PROGRESSO_PARA_CONSIDERAR_PARADA = 300
 INTERVALO_GRAVACAO_PROGRESSO = 1.0
 MAX_AVISOS = 20
+MAX_MENSAGEM_REGISTRADA = 8000   # teto do texto gravado no banco (mensagem + até MAX_AVISOS avisos de até 300 caracteres cada)
 
 CAMPOS_ATUALIZADOS_NO_UPSERT = [
     'mlb', 'seller_sku', 'variation_id', 'quantidade', 'preco_unitario', 'taxa_venda', 'tipo_anuncio', 'status', 'criado_em_ml',
@@ -93,11 +104,12 @@ class ErroColetaVendas(Exception):
 
 class JanelaGrande(Exception):
     """A janela pedida tem mais pedidos que o limite desta requisição: NADA foi gravado. `total` = pedidos que o ML anunciou; `partes` = a
-    janela partida em pedaços [(inicio, fim), ...] que cabem no limite."""
+    janela partida em pedaços [(inicio, fim), ...] que cabem no limite. `chamadas` = as requisições que esta tentativa já gastou (a 1ª página, que só
+    serviu para descobrir o total): a tela soma para o total EXATO do clique."""
 
-    def __init__(self, total, partes):
+    def __init__(self, total, partes, chamadas=0):
         super().__init__(total)
-        self.total, self.partes = total, partes
+        self.total, self.partes, self.chamadas = total, partes, chamadas
 
 
 class ColetaOcupada(Exception):
@@ -118,12 +130,15 @@ class RelatorioColetaVendas:
     itens_ignorados: int = 0
     dias_pulados: int = 0
     avisos: list = field(default_factory=list)
+    avisos_a_mais: int = 0   # avisos que passaram do limite MAX_AVISOS: só contados, sem texto
     mensagem: str = ''
     iniciado_em: datetime | None = None
 
     def avisar(self, texto):
         if len(self.avisos) < MAX_AVISOS:
             self.avisos.append(str(texto)[:300])
+        else:
+            self.avisos_a_mais += 1
 
 
 # ==================================================== datas e limpeza (funções puras) ====================================================
@@ -246,14 +261,33 @@ def _vale_repetir(texto):
     return TEXTO_429_ESGOTADO in texto or 'Timeout' in texto or 'Erro 5' in texto
 
 
+# Função Objetivo: A janela [inicio, fim) tem de ser em HORAS CHEIAS e de pelo menos 1 hora: o ML lê a hora inteira em from/to (ver o cabeçalho), então um minuto "quebrado" seria lido
+# errado em silêncio. Quem chama monta janelas em horas cheias (dias inteiros ou o meio arredondado por hora de _ler_intervalo); isto só garante que ninguém quebre essa regra depois.
+def _exigir_janela_em_horas_cheias(inicio, fim):
+    if any(instante.minute or instante.second or instante.microsecond for instante in (inicio, fim)):
+        raise ErroColetaVendas(f'Janela fora de hora cheia ({inicio:%d/%m %H:%M:%S} a {fim:%d/%m %H:%M:%S}): o filtro do ML lê a hora inteira. Nada foi lido.')
+    if fim - inicio < timedelta(hours=1):
+        raise ErroColetaVendas(f'Janela com menos de 1 hora ({inicio:%d/%m %H:%M} a {fim:%d/%m %H:%M}). Nada foi lido.')
+
+
 # Função Objetivo: 1 página, com 1 nova tentativa depois de uma pausa maior se o ML recusou por excesso de chamadas (429), deu timeout ou 5xx.
 # Levanta ErroColetaVendas se a página não veio; ErroAutenticacaoAPI sobe como veio.
-def _buscar_pagina(api_ml, relatorio, inicio, fim, offset, mlb):
+# * [EXPLICAÇÃO] → O `to` mandado ao ML é `fim − 1 hora`, não `fim`: o ML lê até o FIM da hora do `to` (12/10/2026), então `fim` exclusivo vira `fim − 1 hora` inclusivo (ver o cabeçalho).
+#                  O `from` vai como está (from = 00:00 já inclui a hora 0). `limite` é o tamanho da página: 50 na leitura normal, menor nas releituras.
+# * [EXPLICAÇÃO] → `relatorio.chamadas` = REQUISIÇÕES HTTP reais (12/10/2026): é a diferença do contador do cliente da API (cliente_api.
+#                  requisicoes_enviadas_nesta_thread) antes e depois de pedir a página, então a retentativa interna por 429, timeout ou 206 também
+#                  entra. O `max(1, ...)` mantém "pelo menos 1 por página" se o cliente for trocado por um falso (teste) que não conta.
+def _buscar_pagina(api_ml, relatorio, inicio, fim, offset, mlb, limite=LIMITE_POR_PAGINA):
+    _exigir_janela_em_horas_cheias(inicio, fim)
+    fim_do_filtro = fim - timedelta(hours=1)
     for tentativa in range(1, MAX_TENTATIVAS_POR_PAGINA + 1):
         if relatorio.chamadas:
             time.sleep(PAUSA_ENTRE_CHAMADAS_S)
-        relatorio.chamadas += 1
-        pacote = api_ml.buscar_pedidos(inicio, fim, offset=offset, limite=LIMITE_POR_PAGINA, mlb=mlb)
+        antes = requisicoes_enviadas_nesta_thread()
+        try:
+            pacote = api_ml.buscar_pedidos(inicio, fim_do_filtro, offset=offset, limite=limite, mlb=mlb)
+        finally:
+            relatorio.chamadas += max(1, requisicoes_enviadas_nesta_thread() - antes)
         if pacote.erro is None and pacote.http == 200 and isinstance(pacote.dados, dict):
             return pacote.dados
         texto = pacote.erro or f'HTTP {pacote.http}'
@@ -277,10 +311,28 @@ class _JanelaGrande(Exception):
     """Interno: o ML anunciou mais pedidos que `max_pedidos`; ainda nada foi paginado nem gravado. args[0] = o total anunciado."""
 
 
+# Função Objetivo: Pagina [inicio, fim) a partir de `offset`, até `total`, com páginas de `limite` pedidos, e soma o que veio em `por_id` (por número do pedido: o repetido não duplica).
+# `parar` (opcional) é chamado antes de cada página. A última página é encurtada para offset + tamanho nunca passar de 10000 (teto do ML), mesmo com `limite` fora de 50.
+def _paginar(api_ml, relatorio, inicio, fim, mlb, parar, total, por_id, limite, offset=0):
+    while offset < total:
+        if parar and parar():
+            raise _Interrompida()
+        tamanho = min(limite, TETO_OFFSET_MAIS_LIMITE - offset)
+        if tamanho <= 0:
+            break
+        pagina = _buscar_pagina(api_ml, relatorio, inicio, fim, offset, mlb, tamanho).get('results') or []
+        if not pagina:
+            break
+        por_id.update({p['id']: p for p in pagina})
+        offset += tamanho
+
+
 # Função Objetivo: Todos os pedidos de [inicio, fim) — da conta toda ou, com `mlb`, só dos que têm esse item. Se o ML anuncia mais de 10000
 # pedidos para o intervalo, parte ao meio (por hora, no mínimo) ANTES de paginar, porque offset + limit não passa de 10000. Devolve a lista
 # de pedidos crus, sem repetição. `parar` (opcional) é chamado entre as páginas: se devolver True, levanta _Interrompida. `max_pedidos`
 # (opcional): se o ML anunciar mais que isso, levanta _JanelaGrande logo depois da 1ª página, antes de paginar.
+# RELEITURA: se, depois de paginar, vieram MENOS pedidos que o ML anunciou, a janela é lida de novo (até 2 vezes, com páginas de OUTRO tamanho, ver LIMITES_DAS_RELEITURAS) e os pedidos
+# que faltavam são somados; para assim que fecha. Custa umas 5 chamadas por janela que não fechou (2 janelas em 366 dias na coleta do ano de 11/10/2026). Se ainda não fechar, vira aviso.
 def _ler_intervalo(api_ml, relatorio, inicio, fim, mlb=None, parar=None, max_pedidos=None):
     dados = _buscar_pagina(api_ml, relatorio, inicio, fim, 0, mlb)
     total = (dados.get('paging') or {}).get('total') or 0
@@ -300,19 +352,21 @@ def _ler_intervalo(api_ml, relatorio, inicio, fim, mlb=None, parar=None, max_ped
         return list(por_id.values())
 
     por_id = {p['id']: p for p in primeira}
-    offset = LIMITE_POR_PAGINA
-    while offset < total:
-        if parar and parar():
-            raise _Interrompida()
-        pagina = _buscar_pagina(api_ml, relatorio, inicio, fim, offset, mlb).get('results') or []
-        if not pagina:
+    _paginar(api_ml, relatorio, inicio, fim, mlb, parar, total, por_id, LIMITE_POR_PAGINA, offset=LIMITE_POR_PAGINA)
+    releituras = 0
+    for limite in LIMITES_DAS_RELEITURAS:
+        if len(por_id) >= total:
             break
-        por_id.update({p['id']: p for p in pagina})
-        offset += LIMITE_POR_PAGINA
-    if len(por_id) != total:
+        _paginar(api_ml, relatorio, inicio, fim, mlb, parar, total, por_id, limite)
+        releituras += 1
+    if len(por_id) < total:
+        depois = f', mesmo depois de {releituras} {"releitura" if releituras == 1 else "releituras"}' if releituras else ''
         relatorio.avisar(
-            f'De {inicio:%d/%m %H:%M} a {fim:%d/%m %H:%M} o ML anunciou {total} pedidos e vieram {len(por_id)} (a ordem da lista pode mudar '
+            f'De {inicio:%d/%m %H:%M} a {fim:%d/%m %H:%M} o ML anunciou {total} pedidos e vieram {len(por_id)}{depois} (a ordem da lista pode mudar '
             f'enquanto se pagina; atualizar de novo completa).')
+    elif len(por_id) > total:
+        relatorio.avisar(
+            f'De {inicio:%d/%m %H:%M} a {fim:%d/%m %H:%M} o ML anunciou {total} pedidos e vieram {len(por_id)} (mais que o anunciado: a janela mudou durante a leitura).')
     return list(por_id.values())
 
 
@@ -334,14 +388,91 @@ def _garantir_sem_periodo(empresa):
         raise ColetaOcupada('periodo')
 
 
+# Função Objetivo: O texto que vai para o BANCO (coluna `mensagem` de ColetaVendasMercadoLivre e de ExecucaoColetaVendasMercadoLivre): a mensagem que a tela
+#                  mostrou + TODOS os avisos da coleta, um por linha. A tela mostra só o 1º aviso e a contagem (cabe no aviso flutuante); o resto ficava só na
+#                  memória do servidor e se perdia (aconteceu em 12/10/2026: a coleta do ano deu "2 avisos" e só um tinha texto).
+# * [EXPLICAÇÃO] → MAX_AVISOS (20) limita quantos textos a coleta guarda; o que passar disso é só contado (avisos_a_mais) e o texto diz quantos ficaram de fora.
+# * [EXPLICAÇÃO] → O título "Avisos desta coleta" é o marcador que o script conferir_coleta_da_conta_toda_contra_coleta_por_produto.py procura: se mudar aqui, mude lá.
+def _mensagem_para_registro(relatorio):
+    texto = relatorio.mensagem or ''
+    if relatorio.avisos:
+        texto += f'\n\nAvisos desta coleta ({len(relatorio.avisos) + relatorio.avisos_a_mais}):\n' + '\n'.join(f'- {aviso}' for aviso in relatorio.avisos)
+        if relatorio.avisos_a_mais:
+            texto += f'\n- (e mais {relatorio.avisos_a_mais} sem texto guardado: o limite é {MAX_AVISOS} por coleta)'
+    return texto[:MAX_MENSAGEM_REGISTRADA]
+
+
 def _registrar(relatorio, usuario, sku=''):
     ColetaVendasMercadoLivre.objects.create(
         escopo=relatorio.escopo,
         mlb=relatorio.alvo if relatorio.escopo == ColetaVendasMercadoLivre.Escopo.MLB else '',
         sku=sku, data_de=relatorio.data_de, data_ate=relatorio.data_ate, status=relatorio.status,
         pedidos_lidos=relatorio.pedidos_lidos, itens_gravados=relatorio.itens_gravados, chamadas=relatorio.chamadas,
-        erros_429=relatorio.erros_429, mensagem=relatorio.mensagem[:5000], usuario=usuario[:150],
+        erros_429=relatorio.erros_429, mensagem=_mensagem_para_registro(relatorio), usuario=usuario[:150],
         iniciado_em=relatorio.iniciado_em, concluido_em=timezone.now(),
+    )
+
+
+# ==================================================== execuções: 1 linha por CLIQUE, com o custo em chamadas ====================================================
+
+LIMITE_DE_CONTAGEM = 10_000_000   # teto de qualquer número vindo da tela (só evita estourar o campo; ninguém chega perto)
+
+
+def _natural(valor):
+    try:
+        return max(0, min(int(valor), LIMITE_DE_CONTAGEM))
+    except (TypeError, ValueError):
+        return 0
+
+
+# Função Objetivo: Guarda no banco a execução de UM clique (1 linha em ExecucaoColetaVendasMercadoLivre) com o total EXATO de chamadas ao Mercado Livre que ele
+#                  custou. É o que o servidor faz sozinho nos botões que ele executa inteiros: "Atualizar dia" e "Coletar período da conta".
+# * [EXPLICAÇÃO] → NUNCA derruba a coleta: se não conseguir gravar, só escreve o erro no terminal do servidor (a coleta em si já está salva).
+def _registrar_execucao(relatorio, tipo, usuario, data_de, data_ate, trechos, trechos_com_falha, dias_total=0, dias_a_coletar=0, segundos=None):
+    import traceback
+
+    try:
+        agora = timezone.now()
+        if segundos is None:
+            segundos = (agora - relatorio.iniciado_em).total_seconds()
+        ExecucaoColetaVendasMercadoLivre.objects.create(
+            tipo=tipo, data_de=data_de, data_ate=data_ate, status=relatorio.status,
+            dias_total=dias_total, dias_a_coletar=dias_a_coletar, trechos=trechos, trechos_com_falha=trechos_com_falha,
+            chamadas=relatorio.chamadas, erros_429=relatorio.erros_429, pedidos_lidos=relatorio.pedidos_lidos, segundos=_natural(segundos),
+            mensagem=_mensagem_para_registro(relatorio), usuario=(usuario or '')[:150], iniciado_em=relatorio.iniciado_em, concluido_em=agora,
+        )
+    except Exception:
+        traceback.print_exc()
+
+
+# Função Objetivo: Guarda no banco a execução de UM clique em "Atualizar" de um MLB ou do produto (com ou sem "Reler tudo"). Estes botões a TELA monta em
+#                  vários trechos e, quando o último termina, manda para cá o total que somou. Não chama o Mercado Livre. Devolve a linha criada.
+# * [EXPLICAÇÃO] → O status sai dos trechos: nenhum trecho lido = falha; algum falhou ou a fila parou (acesso recusado, rede caída) = parcial; senão concluída.
+# * [EXPLICAÇÃO] → Os números vêm do navegador: são limitados ao teto (nunca negativos). Quem pode abrir a tela já pode disparar a coleta, então não
+#                  há o que proteger além de dado absurdo.
+def registrar_execucao_do_clique(tipo, usuario, sku='', mlb='', dias=0, reler_tudo=False, mlbs=0, dias_total=0, dias_a_coletar=0, trechos=0,
+                                 trechos_com_falha=0, trechos_sem_contagem=0, parou=False, pedidos=0, chamadas=0, erros_429=0, segundos=0, mensagem=''):
+    Tipo, Status = ExecucaoColetaVendasMercadoLivre.Tipo, ExecucaoColetaVendasMercadoLivre.Status
+    if tipo not in (Tipo.PRODUTO, Tipo.MLB):
+        raise ErroColetaVendas('Tipo de execução inválido.')
+    if tipo == Tipo.MLB and not mlb.startswith('MLB'):
+        raise ErroColetaVendas('MLB inválido para registrar a execução.')
+    trechos, trechos_com_falha = _natural(trechos), _natural(trechos_com_falha)
+    if trechos == 0:
+        status = Status.FALHA
+    elif trechos_com_falha or parou:
+        status = Status.PARCIAL
+    else:
+        status = Status.CONCLUIDA
+    agora, hoje, segundos = timezone.now(), _hoje(), _natural(segundos)
+    return ExecucaoColetaVendasMercadoLivre.objects.create(
+        tipo=tipo, sku=sku[:40], mlb=mlb[:20] if tipo == Tipo.MLB else '', reler_tudo=bool(reler_tudo),
+        data_de=hoje - timedelta(days=min(_natural(dias), 3650)), data_ate=hoje, status=status,
+        mlbs=_natural(mlbs), dias_total=_natural(dias_total), dias_a_coletar=_natural(dias_a_coletar),
+        trechos=trechos, trechos_com_falha=trechos_com_falha, trechos_sem_contagem=_natural(trechos_sem_contagem),
+        chamadas=_natural(chamadas), erros_429=_natural(erros_429), pedidos_lidos=_natural(pedidos), segundos=segundos,
+        mensagem=str(mensagem or '')[:5000], usuario=(usuario or '')[:150],
+        iniciado_em=agora - timedelta(seconds=segundos), concluido_em=agora,
     )
 
 
@@ -362,7 +493,9 @@ def _resumo(relatorio, o_que):
     if relatorio.itens_ignorados:
         partes.append(f'{relatorio.itens_ignorados} {_plural(relatorio.itens_ignorados, "item ignorado", "itens ignorados")} por falta de dado')
     if relatorio.avisos and not relatorio.itens_ignorados:
-        partes.append(f'{len(relatorio.avisos)} {_plural(len(relatorio.avisos), "aviso", "avisos")}: {relatorio.avisos[0]}')
+        total_de_avisos = len(relatorio.avisos) + relatorio.avisos_a_mais
+        guardados = ' (a lista completa fica guardada na coleta, no banco)' if total_de_avisos > 1 else ''
+        partes.append(f'{total_de_avisos} {_plural(total_de_avisos, "aviso", "avisos")}{guardados}: {relatorio.avisos[0]}')
     return '; '.join(partes) + '.'
 
 
@@ -415,11 +548,12 @@ def coletar_mlb(empresa, mlb, dias=None, usuario='', sku='', api_ml=None, de=Non
             relatorio.mensagem = _resumo(relatorio, f'{mlb} atualizado')
         except _JanelaGrande as grande:
             total = grande.args[0]
-            raise JanelaGrande(total, dividir_janela(de, ate, max(2, ceil(total / (limite * FOLGA_DA_DIVISAO))))) from None
-        except ErroAutenticacaoAPI:
+            raise JanelaGrande(total, dividir_janela(de, ate, max(2, ceil(total / (limite * FOLGA_DA_DIVISAO)))), relatorio.chamadas) from None
+        except ErroAutenticacaoAPI as erro:
             relatorio.status = ColetaVendasMercadoLivre.Status.FALHA
             relatorio.mensagem = 'O Mercado Livre recusou o acesso (token inválido ou vencido). Nada foi gravado.'
             _registrar(relatorio, usuario, sku)
+            erro.chamadas_feitas = relatorio.chamadas   # a view devolve para a tela somar no total do clique
             raise
         except ErroColetaVendas as erro:
             relatorio.status = ColetaVendasMercadoLivre.Status.FALHA
@@ -461,15 +595,21 @@ def coletar_dia(empresa, dia: date, usuario='', api_ml=None):
             pedidos = _ler_intervalo(api_ml, relatorio, _inicio_do_dia(dia), _inicio_do_dia(dia + timedelta(days=1)))
             _gravar_pedidos(relatorio, pedidos)
             relatorio.mensagem = _resumo(relatorio, f'Dia {dia:%d/%m/%Y} atualizado')
-        except ErroAutenticacaoAPI:
+        except ErroAutenticacaoAPI as erro:
             relatorio.status = ColetaVendasMercadoLivre.Status.FALHA
             relatorio.mensagem = 'O Mercado Livre recusou o acesso (token inválido ou vencido). Nada foi gravado.'
             _registrar(relatorio, usuario)
+            _registrar_execucao(relatorio, ExecucaoColetaVendasMercadoLivre.Tipo.DIA, usuario, dia, dia, trechos=0, trechos_com_falha=1,
+                                dias_total=1, dias_a_coletar=1)
+            erro.chamadas_feitas = relatorio.chamadas   # a view devolve para a tela somar no total do clique
             raise
         except ErroColetaVendas as erro:
             relatorio.status = ColetaVendasMercadoLivre.Status.FALHA
             relatorio.mensagem = f'Dia {dia:%d/%m/%Y}: {erro}{dica_de_borda(dia, hoje)}'
         _registrar(relatorio, usuario)
+        _registrar_execucao(relatorio, ExecucaoColetaVendasMercadoLivre.Tipo.DIA, usuario, dia, dia, dias_total=1, dias_a_coletar=1,
+                            trechos=int(relatorio.status != ColetaVendasMercadoLivre.Status.FALHA),
+                            trechos_com_falha=int(relatorio.status == ColetaVendasMercadoLivre.Status.FALHA))
     return relatorio
 
 
@@ -625,6 +765,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
         return bool(cache.get(chave_parar))
 
     ultimo_dia_completo = None
+    trechos_lidos = 0   # dias que terminaram por completo (vira `trechos` na execução registrada ao final)
     try:
         api_ml = _api(empresa)
         gravar_andamento(forcar=True)
@@ -652,6 +793,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
                 break
             _gravar_pedidos(relatorio, pedidos)
             ultimo_dia_completo = dia
+            trechos_lidos += 1
             gravar_andamento()
         gravar_andamento(forcar=True)
     except ErroAutenticacaoAPI:
@@ -678,6 +820,8 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
             abertura = 'Coleta concluída' if completa else ('Coleta interrompida a pedido' if interrompida else 'Coleta parou')
             relatorio.mensagem = f'{abertura} em {tempo}. ' + _resumo(relatorio, 'Conta toda') + (f' {erro_texto}' if erro_texto else '')
         _registrar(relatorio, usuario)
+        _registrar_execucao(relatorio, ExecucaoColetaVendasMercadoLivre.Tipo.PERIODO, usuario, hoje - timedelta(days=dias), hoje, trechos=trechos_lidos,
+                            trechos_com_falha=1 if erro_texto else 0, dias_total=dias + 1, dias_a_coletar=len(pendentes), segundos=duracao)
         gravar({
             'status': 'erro' if (erro_texto and ultimo_dia_completo is None) else 'concluido', 'mensagem': relatorio.mensagem,
             'interrompida': interrompida, 'completa': completa, 'com_aviso': bool(erro_texto or relatorio.avisos),

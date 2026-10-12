@@ -30,10 +30,15 @@ RANGE_MIN = datetime(2000, 1, 1, tzinfo=FUSO)
 DIAS_DE_REVISAO = 30
 
 # O Mercado Livre guarda ~12 meses de pedidos. `FOLGA_DO_LIMITE_ML_DIAS` = quantos dias a MAIS (depois do dia exato de 12 meses atrás) o primeiro
-# dia disponível fica. 0 = tenta o dia exato (11/10/2025 em 11/10/2026). Se o ML recusar o dia da borda, suba para 1 (12/10/2025): a tela passa a
-# mostrar sozinha o aviso "limite do ML" e o coletor para de pedir o dia recusado. MEDIDO em 11/10/2026: o ML devolveu o dia exato de 12 meses atrás (11/10/2025: 39 un num produto), então 0 funciona; só mude se o ML passar a recusar.
+# dia disponível fica. 0 = tenta o dia exato; 1 = começa 1 dia depois (12/10/2025 em 12/10/2026). Com folga, a tela mostra sozinha o aviso "limite do ML"
+# (período recortado) e o coletor não pede mais o dia da borda.
+# * [EXPLICAÇÃO] → POR QUE 1 (pedido do Matheus, 12/10/2026): MEDIDO em 12/10/2026 01:14 (scripts_exploracao_ML/conferir_borda_de_12_meses_do_orders_search.py):
+#                  o ML não recusa o dia mais antigo (11/10/2025), mas o devolve PARCIAL: ML 196 × banco 197 (o pedido das 03:45:38 é cortado e o 1º que vem
+#                  é o das 06:05:04). O dia seguinte (12/10/2025) veio inteiro (203 = 203), e o de controle (13/10/2025) também (332 = 332). Em 11/10/2026 isso
+#                  passou despercebido: o dia "funcionou" (39 un num produto) sem ninguém ver que faltava o começo dele. Com 1 dia de folga o primeiro dia
+#                  da tela vem inteiro. AINDA NÃO SE SABE a hora exata do corte nem se ele anda ao longo do dia: se o primeiro dia voltar a vir parcial, suba a folga.
 MESES_DO_HISTORICO_ML = 12
-FOLGA_DO_LIMITE_ML_DIAS = 0
+FOLGA_DO_LIMITE_ML_DIAS = 1
 
 
 def carregar_coletas(de, ate):

@@ -25,6 +25,7 @@ import re
 import time
 import json
 import logging
+import threading
 from pathlib import Path
 from rich.logging import RichHandler
 
@@ -57,6 +58,26 @@ DADOS_SENSIVEIS = {"access_token", "refresh_token",
 _sessao = requests.Session()
 _sessao.mount("https://", HTTPAdapter(pool_connections=10, pool_maxsize=TAMANHO_POOL_CONEXOES))
 
+# * [EXPLICAÇÃO] → CONTADOR de requisições HTTP REAIS enviadas ao Mercado Livre, POR THREAD (12/10/2026, pedido do Matheus: saber EXATAMENTE
+#                  quantas chamadas um clique gasta). Conta aqui, no ponto único, porque este é o único lugar que enxerga TODA requisição: a
+#                  retentativa por 429, a por timeout e a do 206 também são requisições e só aparecem aqui. Quem quer medir um trabalho lê o
+#                  contador antes e depois, NA MESMA thread (requisicoes_enviadas_nesta_thread), e subtrai. Não muda nada do comportamento da chamada.
+_contagem_da_thread = threading.local()
+
+
+def requisicoes_enviadas_nesta_thread() -> int:
+    return getattr(_contagem_da_thread, "total", 0)
+
+
+def _contar_requisicao():
+    _contagem_da_thread.total = requisicoes_enviadas_nesta_thread() + 1
+
+
+# * [EXPLICAÇÃO] → TRAVA da criação do logger (12/10/2026). Sem ela, 2 ou 3 threads que chamam pela 1ª vez ao mesmo tempo (o "Atualizar produto" lê
+#                  3 trechos simultâneos) passavam todas pelo "if not logger.handlers" antes de QUALQUER uma adicionar o handler, e o logger ficava
+#                  com 2 ou 3 handlers para sempre: cada linha saía repetida no arquivo de log (observado em pedidos_ml.log, linhas em dobro e em triplo).
+_TRAVA_DO_LOGGER = threading.Lock()
+
 
 def _mascarar_endpoint(endpoint: str) -> str:
     """Mascara qualquer ID numérico de usuário dentro da URL, antes de logar."""
@@ -68,25 +89,27 @@ def _configurar_logger(pasta_logs: Path, nome_log: str = "api"):
     pasta_logs.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(f"cliente_api.{pasta_logs}.{nome_log}")
     if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        logger.propagate = False  # não deixa vazar pro logger raiz do Django (settings.py LOGGING)
+        with _TRAVA_DO_LOGGER:
+            if not logger.handlers:  # outra thread pode ter configurado enquanto esta esperava a trava
+                logger.setLevel(logging.INFO)
+                logger.propagate = False  # não deixa vazar pro logger raiz do Django (settings.py LOGGING)
 
-        # Arquivo recebe tudo (INFO) — histórico completo de cada chamada,
-        # útil pra depurar depois. Console só mostra WARNING+ (429, timeout,
-        # erro real) — silêncio em requisição OK, que colidia com o redraw
-        # ao vivo da barra de progresso (rich.Progress) e criava a enxurrada
-        # de texto repetido.
-        handler_arquivo = logging.FileHandler(
-            pasta_logs / f"{nome_log}.log", encoding="utf-8")
-        handler_arquivo.setLevel(logging.INFO)
-        handler_arquivo.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(message)s"))
+                # Arquivo recebe tudo (INFO) — histórico completo de cada chamada,
+                # útil pra depurar depois. Console só mostra WARNING+ (429, timeout,
+                # erro real) — silêncio em requisição OK, que colidia com o redraw
+                # ao vivo da barra de progresso (rich.Progress) e criava a enxurrada
+                # de texto repetido.
+                handler_arquivo = logging.FileHandler(
+                    pasta_logs / f"{nome_log}.log", encoding="utf-8")
+                handler_arquivo.setLevel(logging.INFO)
+                handler_arquivo.setFormatter(logging.Formatter(
+                    "%(asctime)s [%(levelname)s] %(message)s"))
 
-        handler_console = RichHandler(rich_tracebacks=True, show_path=False)
-        handler_console.setLevel(logging.WARNING)
+                handler_console = RichHandler(rich_tracebacks=True, show_path=False)
+                handler_console.setLevel(logging.WARNING)
 
-        logger.addHandler(handler_arquivo)
-        logger.addHandler(handler_console)
+                logger.addHandler(handler_arquivo)
+                logger.addHandler(handler_console)
     return logger
 
 
@@ -127,6 +150,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
                     "params": params, "headers_extra": headers_extra, "tentativa": tentativa + 1})
 
         try:
+            _contar_requisicao()
             resposta = _sessao.request(
                 metodo, url, headers=headers, params=params, json=json_body,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
@@ -151,6 +175,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             headers = {"Authorization": f"Bearer {token}"}
             if headers_extra:
                 headers.update(headers_extra)
+            _contar_requisicao()
             resposta_retry = _sessao.request(
                 metodo, url, headers=headers, params=params, json=json_body,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),

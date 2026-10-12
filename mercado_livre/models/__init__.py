@@ -19,3 +19,4 @@ from .full_ml import ConsultaFullMercadoLivre, CampoFullMercadoLivre
 from .operacao_full import OperacaoFullMercadoLivre, CoberturaOperacaoFullMercadoLivre
 from .venda_item import VendaItemMercadoLivre
 from .coleta_vendas import ColetaVendasMercadoLivre
+from .execucao_coleta_vendas import ExecucaoColetaVendasMercadoLivre
