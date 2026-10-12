@@ -9,7 +9,7 @@
 {% endblock %}
 {% block conteudo %}
     {% comment %}
-    * [RESUMO] → Tela "Vendas — Histórico de vendas": o ritmo de vendas de UM produto (SKU) no Mercado Livre, lido do banco. Cartões-resumo no topo
+    * [RESUMO] → Tela "Vendas — Histórico de vendas". SEM produto aberto ela mostra a LISTA de vendas (por Produto/SKU, Anúncio/MLB ou Código ML, no período escolhido: parcial estrutura_parcial_lista.html, script_vendas_lista.js). COM um produto aberto (clique numa linha da lista) ela mostra o ritmo de vendas de UM produto (SKU) no Mercado Livre, lido do banco. Cartões-resumo no topo
       e, embaixo, o calendário em SEMANAS ou em MESES (cada dia mostra as unidades vendidas; dia que nunca foi coletado aparece como "sem dado",
       NUNCA como zero; dia sem venda confirmado é tracejado), o navegador de semanas/meses, a leitura do ritmo, o mapa de calor e a origem. Cinco níveis: Produto (o SKU todo), No Full, Fora do Full, Por MLB e Por Código ML. Venda cancelada não conta (nem no dia da
       venda original). A tela NUNCA chama o Mercado Livre sozinha: o ML só é consultado por CLIQUE, em botões granulares: "Atualizar" (um MLB),
@@ -17,7 +17,7 @@
       (um período por calendário da conta toda, em segundo plano, com barra de andamento e botão Parar). Quem faz tudo funcionar é script_vendas.js (atualizar e coletar) script_vendas_calendario.js (o calendário como componente: rolagem própria) e script_vendas_dia.js (o card de detalhe de cada dia, que lê o JSON "vnd-dias-dados" desta página).
     {% endcomment %}
     {% with produto=pagina.produto %}
-    <div class="vnd-pagina"
+    <div class="vnd-pagina{% if not pagina.sku %} vnd-pagina--lista{% endif %}"
          data-url-planejar="{{ url_planejar }}"
          data-url-mlb="{{ url_atualizar_mlb }}"
          data-url-dia="{{ url_atualizar_dia }}"
@@ -42,7 +42,7 @@
                        autocomplete="off"
                        spellcheck="false">
             </div>
-            {% if not pagina.periodo_e_padrao %}<input type="hidden" name="periodo" value="{{ pagina.periodo }}">{% endif %}
+            {% for o in pagina.busca_ocultos %}<input type="hidden" name="{{ o.nome }}" value="{{ o.valor }}">{% endfor %}
             <button type="submit" class="btn-acao">Buscar</button>
             {% if pagina.sku or pagina.texto %}
                 <a href="{{ pagina.url_limpar }}" class="lista-link"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar</a>
@@ -79,55 +79,8 @@
         </section>
 
         {% if not pagina.sku %}
-            {% if pagina.texto %}
-                {% if pagina.resultados %}
-                    <section class="vnd-bloco" aria-label="Produtos encontrados">
-                        <h2 class="vnd-bloco-titulo">Produtos encontrados</h2>
-                        <ul class="vnd-achados">
-                            {% for r in pagina.resultados %}
-                                <li>
-                                    <a href="{{ r.url }}" class="vnd-achado">
-                                        <strong class="vnd-achado-sku">{{ r.sku }}</strong>
-                                        <span class="vnd-achado-titulo">{{ r.titulo }}</span>
-                                        {% if r.marca %}<span class="vnd-achado-marca">{{ r.marca }}</span>{% endif %}
-                                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                                    </a>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    </section>
-                {% else %}
-                    <section class="lista-painel lista-painel--aviso" aria-label="Nada encontrado">
-                        <div class="lista-painel-icone" aria-hidden="true"><i class="fas fa-magnifying-glass"></i></div>
-                        <div class="lista-painel-texto">
-                            <h2 class="lista-painel-titulo">Nenhum produto com anúncio do Mercado Livre encontrado</h2>
-                            <p>Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML.</p>
-                        </div>
-                    </section>
-                {% endif %}
-            {% else %}
-                <section class="lista-painel" aria-label="Como usar">
-                    <div class="lista-painel-icone" aria-hidden="true"><i class="fas fa-chart-line"></i></div>
-                    <div class="lista-painel-texto">
-                        <h2 class="lista-painel-titulo">Escolha um produto para ver o ritmo de vendas</h2>
-                        <p>
-                            Busque pelo SKU, título, EAN, MLB ou Código ML. Depois de abrir o produto, clique em <strong>Atualizar produto</strong>
-                            para trazer as vendas dele do Mercado Livre. A tela só consulta o Mercado Livre quando você clica; abrir, trocar o
-                            período ou o nível só lê o que já está no banco.
-                        </p>
-                    </div>
-                </section>
-            {% endif %}
-            {% if pagina.atalhos %}
-                <section class="vnd-bloco" aria-label="Mais vendidos">
-                    <h2 class="vnd-bloco-titulo">Mais vendidos nos últimos 30 dias <span class="vnd-bloco-nota">(do que já está no banco)</span></h2>
-                    <ul class="lista-chips">
-                        {% for a in pagina.atalhos %}
-                            <li><a href="{{ a.url }}" class="lista-chip">{{ a.sku }} <span class="lista-chip-contagem">{{ a.unidades }}</span></a></li>
-                        {% endfor %}
-                    </ul>
-                </section>
-            {% endif %}
+            {# Nenhum produto aberto: a LISTA de vendas (por SKU, MLB ou Código ML). Ver estrutura_parcial_lista.html. #}
+            {% include 'gestao_vendas/parciais/estrutura_parcial_lista.html' with lista=pagina.lista %}
         {% else %}
 
             <div class="vnd-controles">
@@ -568,4 +521,5 @@
     <script src="{% static 'gestao_vendas/js/script_vendas.js' %}"></script>
     <script src="{% static 'gestao_vendas/js/script_vendas_calendario.js' %}"></script>
     <script src="{% static 'gestao_vendas/js/script_vendas_dia.js' %}"></script>
+    <script src="{% static 'gestao_vendas/js/script_vendas_lista.js' %}"></script>
 {% endblock %}

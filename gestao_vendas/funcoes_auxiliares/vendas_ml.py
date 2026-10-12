@@ -1,6 +1,7 @@
 # gestao_vendas/funcoes_auxiliares/vendas_ml.py
 #
-# Função Objetivo: Monta tudo o que a tela "Histórico de vendas" mostra, LENDO SÓ DO BANCO (VendaItemMercadoLivre, ColetaVendasMercadoLivre,
+# Função Objetivo: Monta tudo o que a tela "Histórico de vendas" mostra QUANDO UM PRODUTO (SKU) ESTÁ ABERTO (sem SKU, a tela mostra a LISTA, que mora em
+# lista_vendas_ml.py e reaproveita as regras deste arquivo), LENDO SÓ DO BANCO (VendaItemMercadoLivre, ColetaVendasMercadoLivre,
 # Produto e as variações de anúncio): cartões-resumo, calendário em semanas ou meses (com navegador e leitura do ritmo), mapa de calor hora × dia da semana, quebra por
 # origem (Full / fora do Full), por MLB e por Código ML. Nada aqui chama a API do Mercado Livre: quem chama é o coletor, por clique.
 #
@@ -26,7 +27,7 @@ from functools import lru_cache
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Q
 from django.utils import timezone
 from dotenv import load_dotenv
 
@@ -34,7 +35,6 @@ from core.empresa import PREFIXO_ENV_POR_EMPRESA, EmpresaNaoDefinidaError, obter
 from integracao_mercado_livre.servicos.cobertura_vendas_ml import (  # noqa: F401
     PERIODO_PADRAO, carregar_coletas, cobertura, dia_completo, dias_para_tras, frase_frente_ao_anterior, frase_no_anterior, inicio_do_periodo,
     normalizar_periodo, periodo_anterior, periodos_de_hoje, primeiro_dia_do_ml, rotulo_do_periodo, voltar_unidade)
-from integracao_mercado_livre.servicos.cobertura_vendas_ml import mapa_de_dias as _mapa_de_dias
 from mercado_livre.funcoes_auxiliares.badges import (
     BADGE_PADRAO, BADGES_CATALOGO, BADGES_LOGISTICA, BADGES_STATUS, BADGES_TIPO_ANUNCIO, badge_de, badge_flex,
 )
@@ -144,26 +144,6 @@ def url_da_tela(base, **parametros):
 
 
 # ==================================================== produto, MLBs e Códigos ML ====================================================
-
-# Função Objetivo: Busca de produtos para escolher o SKU: pelo SKU, título, EAN, MLB ou Código ML. Só produtos que têm anúncio do Mercado Livre.
-def buscar_produtos(texto, limite=20):
-    texto = (texto or '').strip()
-    if not texto:
-        return []
-    filtro = (Q(sku__icontains=texto) | Q(titulo__icontains=texto) | Q(ean__icontains=texto)
-              | Q(variacoes_mercado_livre__anuncio__mlb__icontains=texto) | Q(variacoes_mercado_livre__inventory_id__iexact=texto))
-    produtos = (Produto.objects.filter(filtro, variacoes_mercado_livre__isnull=False).exclude(sku__isnull=True).exclude(sku='')
-                .distinct().order_by('titulo')[:limite])
-    return [{'sku': p.sku, 'titulo': p.titulo, 'marca': p.marca or ''} for p in produtos]
-
-
-# Função Objetivo: Os SKUs que mais venderam nos últimos 30 dias (do que já está no banco): atalho para abrir sem digitar.
-def skus_com_vendas(limite=12):
-    desde = datetime.now(FUSO).date() - timedelta(days=30)
-    linhas = (VendaItemMercadoLivre.objects.filter(dia_venda__gte=desde).exclude(status=STATUS_CANCELADO).exclude(seller_sku='')
-              .values('seller_sku').annotate(un=Sum('quantidade')).order_by('-un')[:limite])
-    return [{'sku': l['seller_sku'], 'unidades': numero(l['un'])} for l in linhas]
-
 
 # Função Objetivo: Devolve o endereço só se for seguro para a tela abrir (https). O Mercado Livre serve a mesma imagem por https, então um "http://" vira
 # "https://" (senão o navegador bloquearia a foto numa página https). Qualquer outra coisa (vazio, "javascript:", etc.) vira vazio.
@@ -375,7 +355,8 @@ def _s(n, singular, plural):
 
 # ==================================================== a página ====================================================
 
-# Função Objetivo: Tudo da tela a partir da query string (sku, q, periodo, nivel, item, visao; o antigo ?dias=7/30/90/180/365 ainda vale). Sem sku: busca + atalhos. Com sku: o histórico do produto.
+# Função Objetivo: Tudo da tela a partir da query string. SEM sku: a LISTA de vendas (lista_vendas_ml.montar_lista: gran, periodo, q, marca, sit, tend, ori, ord, dir, por,
+# pag). COM sku: o histórico do produto (sku, periodo, nivel, item, visao; o antigo ?dias=7/30/90/180/365 ainda vale).
 def montar_pagina(parametros, base_url, hoje=None):
     hoje = hoje or datetime.now(FUSO).date()
     texto = (parametros.get('q') or '').strip()
@@ -396,11 +377,17 @@ def montar_pagina(parametros, base_url, hoje=None):
     pagina = {
         'texto': texto, 'sku': sku, 'periodo': periodo, 'periodo_e_padrao': periodo == PERIODO_PADRAO, 'dias_para_tras': dias_para_tras(periodo, hoje), 'nivel': nivel, 'hoje': hoje, 'url_limpar': base_url,
         'periodos': [{**p, 'ativo': p['chave'] == periodo, 'url': url(periodo=periodo_na_url(p['chave']))} for p in periodos_de_hoje(hoje)],
-        'resultados': [], 'atalhos': [], 'produto': None,
+        # Campos escondidos do formulário de busca (para a busca não perder o período e, na lista, os filtros).
+        'busca_ocultos': [{'nome': 'periodo', 'valor': periodo}] if periodo != PERIODO_PADRAO else [],
+        'lista': None, 'produto': None,
     }
     if not sku:
-        pagina['resultados'] = [{**r, 'url': url_da_tela(base_url, sku=r['sku'], periodo=periodo_na_url(periodo))} for r in buscar_produtos(texto)]
-        pagina['atalhos'] = [{**a, 'url': url_da_tela(base_url, sku=a['sku'], periodo=periodo_na_url(periodo))} for a in skus_com_vendas()]
+        # * [EXPLICAÇÃO] → Sem SKU escolhido a tela mostra a LISTA (decisão do Matheus, 12/10/2026: ela SUBSTITUIU a busca simples e os "Mais vendidos"). Importado aqui
+        #                  dentro porque lista_vendas_ml importa este arquivo (as regras de origem, Código ML, etc. moram aqui e a lista só as reaproveita).
+        from gestao_vendas.funcoes_auxiliares.lista_vendas_ml import montar_lista
+
+        lista = montar_lista(parametros, base_url, hoje)
+        pagina.update(lista=lista, periodos=lista['periodos'], url_limpar=lista['url_limpar_busca'], busca_ocultos=lista['busca_ocultos'])
         return pagina
 
     pagina['produto'] = montar_vendas(sku, periodo, nivel, item, hoje, url, visao)

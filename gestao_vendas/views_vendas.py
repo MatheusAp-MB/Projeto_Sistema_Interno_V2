@@ -1,6 +1,7 @@
 # gestao_vendas/views_vendas.py
 #
-# Views da tela "Vendas — Histórico de vendas" (Mercado Livre → Vendas → Histórico de vendas): o ritmo de vendas de UM produto (SKU), lido do banco.
+# Views da tela "Vendas — Histórico de vendas" (Mercado Livre → Vendas → Histórico de vendas): sem produto aberto, a LISTA de vendas (por SKU, MLB ou Código ML,
+# decisão de 12/10/2026); com um produto (SKU) aberto, o ritmo de vendas dele. Tudo lido do banco.
 #
 # REGRA DO MATHEUS: esta tela NUNCA chama a API do ML SOZINHA. Abrir, trocar o período, o nível ou o produto só LÊ o banco. A API só é chamada por
 # CLIQUE, em 3 botões, todos granulares (nem sempre a varredura completa de todos os SKUs):

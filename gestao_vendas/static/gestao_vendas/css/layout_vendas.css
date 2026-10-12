@@ -1,4 +1,5 @@
 /* * [RESUMO] → CSS da tela "Vendas — Histórico de vendas" (Mercado Livre). Prefixo vnd- em tudo, para não esbarrar em nenhuma outra tela.
+ *              A LISTA de vendas (tela sem produto aberto) tem a sua própria seção no FIM deste arquivo, com o prefixo vnd-l-.
  *              AQUI ficam só as peças INDIVIDUAIS desta tela: os chips de controle, o produto (com a etiqueta de dias coletados e o aviso ⚠), a faixa
  *              de cobertura, os 7 cartões-resumo, o calendário (visão por Semanas ou por Meses, com a escala de cores por percentil), o navegador
  *              de semanas/meses, a leitura do ritmo, o mapa de calor hora × dia, a origem e as tabelas. Clicar num dia abre o card de detalhe dele (script_vendas_dia.js). Dia sem venda = tracejado verde (sem âmbar). O calendário, o card do dia e o mapa de calor usam a paleta VERDE (ver "PALETA VERDE DO CALENDÁRIO"). A busca, os chips, os avisos e os painéis são COMPARTILHADOS
@@ -242,24 +243,6 @@
 
 .vnd-bloco-nota { font-size: 0.76rem; font-weight: 400; color: var(--cor-texto-muted); }
 .vnd-bloco-aviso { font-size: 0.85rem; color: var(--cor-texto-muted); }
-
-.vnd-achados { display: flex; flex-direction: column; list-style: none; }
-
-.vnd-achado {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 8px 6px;
-    border-top: 1px solid var(--cor-borda);
-    color: inherit;
-    text-decoration: none;
-}
-
-.vnd-achados li:first-child .vnd-achado { border-top: 0; }
-.vnd-achado:hover { background: #f1f6fb; color: var(--cor-primaria); }
-.vnd-achado-sku { flex: 0 0 auto; min-width: 150px; font-family: 'SF Mono', Consolas, monospace; font-size: 0.85rem; color: var(--cor-primaria); }
-.vnd-achado-titulo { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vnd-achado-marca { flex: 0 0 auto; font-size: 0.78rem; color: var(--cor-texto-muted); }
 
 /* ================================================
    O PRODUTO, OS CONTROLES E A COBERTURA
@@ -1249,4 +1232,410 @@
 
 @media (prefers-reduced-motion: reduce) {
     .vnd-barra::-webkit-progress-value { transition: none; }
+}
+
+
+/* ================================================================================================================================================
+   LISTA DE VENDAS (a tela sem produto aberto): por Produto (SKU), Anúncio (MLB) ou Código ML. Prefixo vnd-l-. Decisão do Matheus, 12/10/2026: ela
+   SUBSTITUIU a busca simples + "Mais vendidos". Reaproveita os chips, selects, paginação e painéis compartilhados (.lista-*) e os .vnd-btn / .vnd-status /
+   .vnd-alerta desta tela. A cor da tendência da lista é verde/vermelho/cinza (a da tela do produto, .vnd-variacao, é azul/cinza: outro uso).
+   ================================================================================================================================================ */
+
+/* ---- caixas de controle (Ver por / Período / Filtros) ---- */
+.vnd-l-caixa {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+}
+
+.vnd-l-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; }
+.vnd-l-grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.vnd-l-rotulo { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cor-texto-muted); }
+
+.vnd-l-segmentado {
+    display: inline-flex;
+    flex-wrap: wrap;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.vnd-l-segmento {
+    padding: 6px 15px;
+    background: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.vnd-l-segmento + .vnd-l-segmento { border-left: 1px solid var(--cor-primaria-clara); }
+a.vnd-l-segmento:hover { background: #e8f1fa; color: var(--cor-primaria); }
+.vnd-l-segmento--ativo,
+a.vnd-l-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-texto-claro); }
+.vnd-l-segmento:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }
+
+.vnd-l-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding-top: 10px;
+    border-top: 1px solid #edf0f5;
+}
+
+.vnd-l-ajuda { flex: 1 1 320px; min-width: 0; font-size: 0.8rem; color: var(--cor-texto-muted); }
+.vnd-l-status { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* ---- filtros ---- */
+.vnd-l-selects { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
+.vnd-l-campo { display: flex; flex-direction: column; gap: 3px; }
+.vnd-l-campo .lista-select { min-width: 190px; max-width: 300px; }
+.vnd-l-limpar { align-self: center; margin-left: auto; font-size: 0.82rem; }
+.vnd-l-chips { display: flex; flex-wrap: wrap; gap: 8px 26px; padding-top: 10px; border-top: 1px solid #edf0f5; }
+.vnd-l-chips-rotulo { white-space: nowrap; }
+
+/* ---- resumo do período (cartões): 5 cartões que se acomodam pela largura; o primeiro (Unidades) tem fundo azulado ---- */
+.vnd-l-resumo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+}
+
+.vnd-l-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 14px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(20, 41, 67, 0.06);
+}
+
+.vnd-l-card--destaque { background: #e1edf8; border-color: #b9cde2; }
+.vnd-l-card-rotulo { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cor-texto-muted); }
+.vnd-l-card--destaque .vnd-l-card-rotulo { color: var(--cor-primaria); }
+.vnd-l-card-valor { font-size: 1.9rem; font-weight: 600; line-height: 1.15; color: #0b2038; font-variant-numeric: tabular-nums; }
+.vnd-l-card--destaque .vnd-l-card-valor { color: var(--cor-primaria-escura); }
+.vnd-l-card-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.8rem; color: #4b5a6b; }
+.vnd-l-card--destaque .vnd-l-card-sub { color: #2f4259; }
+.vnd-l-card-nota { font-size: 0.78rem; color: #2f4259; }
+
+.vnd-l-amostra { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 2px; }
+.vnd-l-amostra--full { background: var(--cor-primaria-clara); }
+.vnd-l-amostra--fora { background: #6c7a8c; }
+.vnd-l-amostra--sem { background: repeating-linear-gradient(45deg, #c5ccd6, #c5ccd6 2px, #eef1f6 2px, #eef1f6 4px); }
+
+/* ---- tendência ("vs. anterior"): verde sobe, vermelho cai, cinza estável; "—" (sem comparação) fica só como texto apagado ---- */
+.vnd-l-tend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #eef1f6;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: #4b5a6b;
+}
+
+.vnd-l-tend--sobe { background: #e6f4ec; color: var(--cor-positivo); }
+.vnd-l-tend--desce { background: #fdecee; color: #b02a37; }
+.vnd-l-tend--nenhuma { background: transparent; color: var(--cor-texto-muted); font-weight: 600; padding-left: 0; padding-right: 0; }
+.vnd-l-tend i { font-size: 0.68rem; }
+
+/* ---- a lista: topo (total + abrir/fechar todos) e a tabela ---- */
+.vnd-l-lista-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
+.vnd-l-total { font-size: 0.9rem; font-weight: 600; color: #243247; }
+.vnd-l-abrir { display: flex; gap: 8px; }
+.vnd-l-rolagem { overflow-x: auto; }
+.vnd-l-tabela { min-width: 1100px; }
+
+/* As 11 colunas: seta | nome | un | pedidos | faturamento | Full | fora | média | vs. anterior | última venda | calendário. Linha principal e linhas de dentro usam a mesma grade. */
+.vnd-l-colunas {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 88px 70px 100px 64px 72px 64px 84px 96px 44px;
+    gap: 8px;
+    align-items: center;
+}
+
+.vnd-l-cabecalho {
+    margin-bottom: 8px;
+    padding: 8px 16px;
+    background: #dbe7f3;
+    border: 1px solid #b9cde2;
+    border-radius: 10px;
+}
+
+.vnd-l-cab { text-align: right; }
+.vnd-l-cab--nome { text-align: left; }
+
+.vnd-l-ord {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    width: 100%;
+    padding: 4px 0;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--cor-primaria);
+}
+
+.vnd-l-cab--nome .vnd-l-ord { justify-content: flex-start; }
+.vnd-l-ord:hover { color: var(--cor-primaria-escura); text-decoration: underline; }
+.vnd-l-ord--ativa { color: var(--cor-primaria-escura); }
+.vnd-l-ord:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 4px; }
+.vnd-l-ord i { font-size: 0.68rem; }
+
+/* ---- cada item (um "bloco": a linha principal + os anúncios de dentro) ---- */
+.vnd-l-bloco {
+    margin-bottom: 8px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(20, 41, 67, 0.06);
+    overflow: hidden;
+}
+
+.vnd-l-bloco--alerta { border-color: #f0c36d; }
+.vnd-l-bloco--aberto { border-color: var(--cor-primaria-clara); }
+.vnd-l-bloco--aberto > .vnd-l-linha { background: #e8f1fa; }
+.vnd-l-linha { padding: 10px 16px; }
+.vnd-l-seta { display: flex; align-items: center; justify-content: center; }
+
+.vnd-l-seta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #b9cde2;
+    border-radius: 50%;
+    background: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    cursor: pointer;
+}
+
+.vnd-l-seta-btn:hover { background: #e8f1fa; }
+.vnd-l-seta-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.vnd-l-seta-btn i { font-size: 0.72rem; transition: transform 0.15s ease; }
+.vnd-l-seta-btn[aria-expanded="true"] i { transform: rotate(90deg); }
+
+.vnd-l-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.vnd-l-id-texto { min-width: 0; }
+
+.vnd-l-foto {
+    display: flex;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: #e8f1fa;
+    color: var(--cor-primaria-clara);
+    font-size: 1.15rem;
+    overflow: hidden;
+}
+
+.vnd-l-foto img { width: 100%; height: 100%; object-fit: cover; }
+.vnd-l-foto--alerta { background: #fff4dd; color: #b45309; }
+
+.vnd-l-titulo-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.vnd-l-titulo { font-size: 1.05rem; font-weight: 600; line-height: 1.3; color: #0b2038; text-decoration: none; overflow-wrap: anywhere; }
+a.vnd-l-titulo:hover { color: var(--cor-primaria); text-decoration: underline; }
+a.vnd-l-titulo:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 3px; }
+.vnd-l-titulo--parado { cursor: default; }
+.vnd-l-titulo--codigo { letter-spacing: 0.05em; }
+
+.vnd-l-selo,
+.vnd-l-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border: 1px solid #f0c36d;
+    border-radius: 6px;
+    background: #fff4dd;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #b45309;
+    white-space: nowrap;
+}
+
+.vnd-l-meta { margin-top: 2px; font-size: 0.8rem; color: var(--cor-texto-muted); overflow-wrap: anywhere; }
+
+/* ---- as 8 colunas de números ---- */
+.vnd-l-num { text-align: right; font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; color: #243247; }
+.vnd-l-num strong { display: block; font-size: 1rem; font-weight: 700; color: #0b2038; }
+.vnd-l-num small { display: block; font-size: 0.72rem; font-weight: 400; color: var(--cor-texto-muted); }
+.vnd-l-num--full { color: var(--cor-primaria); }
+.vnd-l-num--fora { color: #4b5a6b; }
+.vnd-l-num--leve { font-size: 0.9rem; font-weight: 400; }
+.vnd-l-num--ult { font-size: 0.85rem; color: #4b5a6b; }
+
+.vnd-l-barra {
+    display: flex;
+    width: 64px;
+    height: 4px;
+    margin: 5px 0 0 auto;
+    border-radius: 2px;
+    background: #e5e9f0;
+    overflow: hidden;
+}
+
+.vnd-l-barra-full { display: block; background: var(--cor-primaria-clara); }
+.vnd-l-barra-fora { display: block; background: #6c7a8c; }
+
+.vnd-l-cal { display: flex; justify-content: center; }
+
+.vnd-l-cal-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #b9cde2;
+    border-radius: 8px;
+    background: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    text-decoration: none;
+}
+
+a.vnd-l-cal-btn:hover { background: #e8f1fa; color: var(--cor-primaria); }
+a.vnd-l-cal-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.vnd-l-cal-btn--parado { border: 1px dashed #c4ccd6; background: #f5f7fa; color: #9aa6b4; cursor: not-allowed; }
+
+/* ---- dentro de uma linha aberta: os anúncios (MLB) ---- */
+.vnd-l-filhos { padding: 8px 8px 4px; background: #eef1f6; border-top: 1px solid var(--cor-borda); }
+
+.vnd-l-filho {
+    margin-bottom: 4px;
+    padding: 8px 7px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.vnd-l-filho .vnd-l-num { font-size: 0.88rem; font-weight: 400; }
+.vnd-l-filho .vnd-l-num strong { font-size: 0.9rem; }
+.vnd-l-filho .vnd-l-num--leve { font-size: 0.85rem; }
+.vnd-l-filho .vnd-l-num--ult { font-size: 0.82rem; }
+.vnd-l-filho .vnd-l-tend { padding: 2px 7px; font-size: 0.76rem; }
+.vnd-l-filhos-vazio,
+.vnd-l-filhos-nota { padding: 4px 8px 8px; font-size: 0.8rem; color: var(--cor-texto-muted); }
+
+/* ---- lista vazia ---- */
+.vnd-l-vazio {
+    padding: 36px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px dashed #b9cde2;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 0.95rem;
+    color: #4b5a6b;
+}
+
+/* ---- paginação (reaproveita .lista-paginacao*; aqui só o jeito dos números de página) ---- */
+.vnd-l-paginacao { margin-top: 12px; }
+.vnd-l-paginacao .lista-paginacao-botoes { flex-wrap: wrap; align-items: center; gap: 6px; }
+.vnd-l-paginacao .lista-paginacao-botao { border-color: #b9cde2; border-radius: 8px; font-size: 0.85rem; }
+.vnd-l-pag { min-width: 36px; padding: 6px 10px; text-align: center; }
+.vnd-pagina span.lista-paginacao-botao.vnd-l-pag--atual { background: var(--cor-primaria); border-color: var(--cor-primaria); color: var(--cor-texto-claro); opacity: 1; }
+.vnd-l-reticencias { padding: 0 4px; color: var(--cor-texto-muted); }
+
+/* ---- legenda ---- */
+.vnd-l-legenda {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px 28px;
+    padding: 16px 20px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    font-size: 0.84rem;
+    color: #4b5a6b;
+}
+
+.vnd-l-legenda > div { display: flex; flex-direction: column; gap: 6px; }
+.vnd-l-legenda-titulo { margin: 0; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--cor-texto-muted); }
+.vnd-l-legenda .vnd-l-amostra { width: 22px; height: 6px; margin-right: 8px; border-radius: 3px; vertical-align: middle; }
+
+@media (prefers-reduced-motion: reduce) {
+    .vnd-l-seta-btn i { transition: none; }
+}
+
+/* ---- o cartão de anúncio (MLB) dentro da lista ----
+ * O desenho (foto, selos, título, MLB, SKU, copiar) é o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css), o mesmo da tela
+ * "Estoque no Full"; os selos (.badge-tabela) vêm do registro único (layout_badges.css). Aqui só se encaixa a peça na linha da lista (que já tem as colunas de números). */
+.vnd-l-id--anuncio { align-items: center; }
+.vnd-l-id--anuncio .cartao-anuncio-imagem { flex: 0 0 64px; }
+.vnd-l-id--anuncio .cartao-anuncio-corpo { flex: 1 1 auto; }
+.vnd-l-id--anuncio .cartao-anuncio-badges .vnd-l-chip { align-self: center; }
+.vnd-l-anu-link { color: inherit; text-decoration: none; }
+.vnd-l-anu-link:hover { color: var(--cor-primaria); text-decoration: underline; }
+.vnd-l-anu-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 3px; }
+.vnd-l-anu-sem-titulo { font-style: italic; color: var(--cor-texto-muted); }
+a.cartao-anuncio-copiar { display: inline-flex; text-decoration: none; }
+
+/* ---- LAYOUT ESTÁVEL (12/10/2026): nada muda de lugar, some ou fica cortado só porque a barra lateral abriu ou fechou ----
+ * REGRA DESTA TELA: a lista de vendas tem SEMPRE a largura que teria com a barra lateral ABERTA (a janela menos a barra de 260px e as margens). Com a barra fechada o conteúdo
+ * NÃO estica: sobra uma faixa vazia à direita. Assim a tela é idêntica com a barra aberta ou fechada: nada muda de linha, nenhuma coluna fica cortada e a tabela nunca precisa
+ * rolar para o lado por causa da barra. Os 68px são as margens da área de conteúdo (24px de cada lado) mais 20px de folga para a barra de rolagem da página.
+ * A disposição (quem fica em qual linha e em qual coluna) depende só da largura da JANELA (@media). Cuidado ao mexer: não usar tamanho em % nem vw que não seja este. */
+.vnd-pagina--lista { max-width: calc(100vw - var(--sidebar-largura) - 68px); }
+
+/* filtros em chips: um grupo por linha (Situação, Tendência, Origem), com o rótulo numa coluna de largura fixa */
+.vnd-l-chips { display: grid; gap: 8px; }
+.vnd-l-chips .lista-chips-grupo { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 6px 12px; }
+
+/* "Limpar busca e filtros" fica logo depois dos filtros (antes ia para a ponta direita) */
+.vnd-l-limpar { margin-left: 0; }
+
+/* cartões de resumo: 5 colunas (janela larga) ou 3 (janela menor), nunca "o que couber" */
+.vnd-l-resumo { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+/* legenda: sempre 3 colunas */
+.vnd-l-legenda { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* janela larga: "Ver por" e "Período" lado a lado; a ajuda e o status de coleta lado a lado, colados à esquerda */
+@media (min-width: 1500px) {
+    .vnd-l-topo,
+    .vnd-l-grupo { flex-wrap: nowrap; }
+    .vnd-l-rodape { flex-wrap: nowrap; justify-content: flex-start; gap: 8px 32px; }
+    .vnd-l-ajuda { flex: 0 1 560px; }
+    .vnd-l-status { flex: none; }
+}
+
+/* janela média ou pequena: "Ver por"/"Período" e a ajuda/status ficam um embaixo do outro, e os cartões de resumo passam para 3 colunas */
+@media (max-width: 1499px) {
+    .vnd-l-topo,
+    .vnd-l-rodape { flex-direction: column; align-items: flex-start; }
+    .vnd-l-ajuda { flex: 0 1 auto; max-width: 760px; }
+    .vnd-l-resumo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1699px) {
+    .vnd-l-card-valor { font-size: 1.6rem; }
+}
+
+/* janela bem pequena (menos de 1100px, sem uso real com a barra lateral): volta a acomodar pela largura */
+@media (max-width: 1099px) {
+    .vnd-pagina--lista { max-width: none; }
+    .vnd-l-resumo { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+    .vnd-l-legenda { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 }

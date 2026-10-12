@@ -6,6 +6,8 @@ from . import views_vendas
 urlpatterns = [
     # * [EXPLICAÇÃO] → Tela "Vendas — Histórico de vendas" (11/10/2026): o ritmo de vendas de um produto (SKU), do Mercado Livre, em calendário
     #                  semana × dia da semana, com cartões-resumo e os 5 níveis (Produto, No Full, Fora do Full, Por MLB, Por Código ML).
+    #                  Sem ?sku= ela mostra a LISTA de vendas (12/10/2026): uma linha por Produto (SKU), Anúncio (MLB) ou Código ML, com Full × fora, "vs. anterior"
+    #                  e o link de cada linha para o calendário. A lista nasceu como substituta da busca simples + "Mais vendidos".
     #                  Só lê o banco. É a base da futura previsão de ruptura e da ordem de compra.
     path('', views_vendas.view_vendas, name='gestao_vendas_principal'),
 

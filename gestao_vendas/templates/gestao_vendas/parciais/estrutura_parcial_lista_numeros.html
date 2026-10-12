@@ -1,0 +1,15 @@
+{% comment %}
+    * [RESUMO] → As 8 colunas de NÚMEROS de uma linha da lista de vendas (unidades, pedidos, faturamento, Full, Fora do Full, média por dia, "vs. anterior" e última
+      venda). É a mesma peça na linha principal e nas linhas de dentro (os MLBs); só o tamanho da letra muda (o CSS troca por .vnd-l-filho).
+    * [EXPLICAÇÃO] → Recebe "v" (os textos já formatados em lista_vendas_ml._visual). A barra sob as unidades mostra a divisão Full | Fora do Full | sem origem.
+{% endcomment %}<div class="vnd-l-num vnd-l-num--un">
+    <strong>{{ v.un }}</strong>
+    <span class="vnd-l-barra" title="Full {{ v.p_fu }} · Fora do Full {{ v.p_fo }}{% if v.sem_origem %} · sem origem informada: {{ v.sem_origem }} un{% endif %}"><span class="vnd-l-barra-full" style="width: {{ v.l_fu|stringformat:'.1f' }}%"></span><span class="vnd-l-barra-fora" style="width: {{ v.l_fo|stringformat:'.1f' }}%"></span></span>
+</div>
+<div class="vnd-l-num">{{ v.ped }}</div>
+<div class="vnd-l-num" title="{{ v.fat_titulo }}">{{ v.fat }}</div>
+<div class="vnd-l-num vnd-l-num--full">{{ v.fu }}<small>{{ v.p_fu }}</small></div>
+<div class="vnd-l-num vnd-l-num--fora">{{ v.fo }}<small>{{ v.p_fo }}</small></div>
+<div class="vnd-l-num vnd-l-num--leve">{{ v.media }}</div>
+<div class="vnd-l-num"><span class="vnd-l-tend vnd-l-tend--{{ v.t_classe }}" title="{{ v.t_titulo }}">{% if v.t_classe == 'sobe' %}<i class="fas fa-arrow-up" aria-hidden="true"></i>{% elif v.t_classe == 'desce' %}<i class="fas fa-arrow-down" aria-hidden="true"></i>{% endif %}{{ v.t_texto }}</span></div>
+<div class="vnd-l-num vnd-l-num--leve vnd-l-num--ult">{{ v.ult }}</div>
