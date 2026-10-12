@@ -80,36 +80,69 @@
             {% endfor %}
         </section>
         <section class="rup-painel" aria-label="Curva de estoque e diagnóstico">
-            <div class="rup-caixa-painel rup-caixa-painel--grafico">
+            <div class="rup-caixa-painel rup-caixa-painel--grafico" id="rup-grafico">
+                {% comment %}
+                    * [EXPLICAÇÃO] → O gráfico tem 4 partes de ALTURA FIXA: o cabeçalho (título + botões de zoom), o desenho, o rodapé (legenda das zonas) e a fileira com um cartão por ritmo
+                      (3, 7, 15, 30 dias; ou mais um, se o período digitado for outro). O desenho é SVG em DIAS (viewBox "0 0 {horizonte} 100"): o zoom só troca o viewBox. Os textos ficam em HTML por cima.
+                      Os botões de zoom nascem escondidos e o script_ruptura.js os mostra: sem JavaScript o gráfico continua inteiro, só sem zoom, sem passar o mouse e sem ligar/desligar curvas.
+                      CADA DATA É UMA COLUNA (da meia-noite dela até a seguinte): o "Enviar até" e a "Ruptura" são faixas dessa coluna (verde e vermelha) e o nome da data fica centrado nela; a linha do
+                      estoque cruza o zero dentro da faixa vermelha. As linhas verticais da grade são as divisas entre os dias.
+                {% endcomment %}
                 <header class="rup-painel-cab">
                     <h2 class="rup-painel-titulo">Curva de estoque</h2>
                     {% if g %}
-                        <ul class="rup-legenda">
-                            {% for l in g.legenda %}
-                                <li><span class="rup-amostra rup-amostra--{{ l.tipo }}" aria-hidden="true"></span>{{ l.rotulo }}</li>
-                            {% endfor %}
-                        </ul>
+                        <div class="rup-zoom" data-rup-zoom role="group" aria-label="Zoom do gráfico" hidden>
+                            <button type="button" class="rup-zoom-botao" data-rup-zoom-acao="menos" title="Afastar: ver mais dias (ou role o scroll do mouse para baixo sobre o gráfico)" aria-label="Afastar"><i class="fas fa-magnifying-glass-minus" aria-hidden="true"></i></button>
+                            <button type="button" class="rup-zoom-botao" data-rup-zoom-acao="mais" title="Aproximar: ver menos dias (ou role o scroll do mouse para cima sobre o gráfico)" aria-label="Aproximar"><i class="fas fa-magnifying-glass-plus" aria-hidden="true"></i></button>
+                            <button type="button" class="rup-zoom-botao" data-rup-zoom-acao="esq" title="Voltar no tempo" aria-label="Voltar no tempo"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                            <button type="button" class="rup-zoom-botao" data-rup-zoom-acao="dir" title="Avançar no tempo" aria-label="Avançar no tempo"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                            <button type="button" class="rup-zoom-botao rup-zoom-botao--texto" data-rup-zoom-acao="ruptura" title="Aproximar da região do envio e da ruptura do ritmo em destaque"><i class="fas fa-crosshairs" aria-hidden="true"></i> Ver ruptura</button>
+                            <button type="button" class="rup-zoom-botao rup-zoom-botao--texto" data-rup-zoom-acao="tudo" title="Voltar à visão inteira do gráfico"><i class="fas fa-expand" aria-hidden="true"></i> Ajustar tudo</button>
+                        </div>
                     {% endif %}
                 </header>
                 {% if g %}
                     <div class="rup-grafico" role="img" aria-label="{{ g.descricao }}">
-                        <div class="rup-grafico-area">
-                            <svg class="rup-grafico-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                                {% for t in g.grades_y %}<line class="rup-grade" x1="0" x2="100" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}
-                                {% if g.faixa %}<rect class="rup-faixa{% if g.faixa.atrasada %} rup-faixa--atrasada{% endif %}" x="{{ g.faixa.x }}" y="0" width="{{ g.faixa.largura }}" height="100"/>{% endif %}
-                                {% for l in g.linhas %}{% if l.area %}<polygon class="rup-area" points="{{ l.area }}"/>{% endif %}{% endfor %}
-                                {% if g.ponto_de_pedido %}<line class="rup-pedido-linha" x1="0" x2="100" y1="{{ g.ponto_de_pedido.y }}" y2="{{ g.ponto_de_pedido.y }}"/>{% endif %}
-                                {% for m in g.marcadores %}<line class="rup-marcador rup-marcador--{{ m.classe }}" x1="{{ m.x }}" x2="{{ m.x }}" y1="0" y2="100"/>{% endfor %}
-                                {% for l in g.linhas %}<polyline class="rup-curva rup-curva--{{ l.classe }}" points="{{ l.pontos }}"/>{% endfor %}
+                        <div class="rup-grafico-area" data-rup-area>
+                            <svg class="rup-grafico-svg" viewBox="{{ g.viewbox }}" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                {% for z in g.zonas %}<rect class="rup-zona rup-zona--{{ z.classe }}{% if z.atrasada %} rup-zona--atrasada{% endif %}" x="{{ z.inicio }}" y="0" width="{{ z.largura }}" height="100"/>{% endfor %}
+                                {% for t in g.ticks_x %}<line class="rup-grade rup-grade--x" x1="{{ t.t }}" x2="{{ t.t }}" y1="0" y2="100"/>{% endfor %}
+                                {% for t in g.grades_y %}<line class="rup-grade rup-grade--y" x1="0" x2="{{ g.horizonte }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}
+                                {% if g.ponto_de_pedido %}<line class="rup-pedido-linha" x1="0" x2="{{ g.horizonte }}" y1="{{ g.ponto_de_pedido.y }}" y2="{{ g.ponto_de_pedido.y }}"/>{% endif %}
+                                {% for m in g.marcadores %}<rect class="rup-dia rup-dia--{{ m.classe }}" x="{{ m.dia }}" y="0" width="1" height="100"/>{% endfor %}
+                                {% for l in g.linhas %}<polyline class="rup-curva rup-cor--{{ l.cor }}{% if l.foco %} rup-curva--foco{% endif %}" data-serie="{{ l.id }}" points="{{ l.pontos }}"/>{% endfor %}
                             </svg>
                             {% for t in g.grades_y %}<span class="rup-rotulo-y" style="top: {{ t.y }}%">{{ t.rotulo }}</span>{% endfor %}
-                            {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.hoje %} rup-rotulo-x--hoje{% endif %}" style="left: {{ t.x }}%">{{ t.rotulo }}</span>{% endfor %}
-                            {% if g.faixa %}<span class="rup-etiqueta rup-etiqueta--faixa" style="left: {{ g.faixa.centro }}%">{{ g.faixa.rotulo }}</span>{% endif %}
-                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}" style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
+                            {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.hoje %} rup-rotulo-x--hoje{% endif %}" style="left: {{ t.x_meio }}%">{{ t.rotulo }}</span>{% endfor %}
+                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}" data-rup-dia="{{ m.dia }}" data-rup-lado style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
+                            {% for p in g.pontos_de_ruptura %}<span class="rup-ponto-ruptura rup-cor--{{ p.cor }}" data-serie="{{ p.id }}" data-rup-t="{{ p.t }}" style="left: {{ p.x }}%" title="{{ p.rotulo }}"></span>{% endfor %}
                             {% if g.ponto_de_pedido %}<span class="rup-etiqueta rup-etiqueta--pedido{% if g.ponto_de_pedido.abaixo %} rup-etiqueta--abaixo{% endif %}" style="top: {{ g.ponto_de_pedido.y }}%">{{ g.ponto_de_pedido.rotulo }}</span>{% endif %}
                         </div>
                     </div>
-                    {% if g.truncado %}<p class="rup-grafico-nota">A ruptura fica além do que o gráfico mostra ({{ g.horizonte }} dias).</p>{% endif %}
+                    <div class="rup-grafico-rodape">
+                        <ul class="rup-legenda" aria-label="Zonas do ritmo em destaque">
+                            {% for l in g.zonas_legenda %}<li><span class="rup-amostra rup-amostra--{{ l.classe }}" aria-hidden="true"></span>{{ l.rotulo }}</li>{% endfor %}
+                        </ul>
+                        {% if g.nota %}<p class="rup-grafico-nota" title="{{ g.nota }}">{{ g.nota }}</p>{% endif %}
+                    </div>
+                    <ul class="rup-periodos{% if g.periodos|length > 4 %} rup-periodos--cinco{% endif %}" style="--rup-n: {{ g.periodos|length }}" aria-label="Ritmos de venda comparados no gráfico">
+                        {% for p in g.periodos %}
+                            <li class="rup-periodo rup-cor--{{ p.cor }}{% if p.foco %} rup-periodo--foco{% endif %}{% if p.sem_dados %} rup-periodo--sem-dados{% endif %}"{% if p.foco %} aria-current="true"{% endif %} title="{% if p.foco %}Ritmo em destaque. {% endif %}{{ p.dica }}">
+                                <div class="rup-periodo-topo">
+                                    <input type="checkbox" class="rup-periodo-marca" data-rup-curva="{{ p.id }}" aria-label="Mostrar no gráfico a curva do ritmo de {{ p.curto }}"{% if not p.sem_dados %} checked{% endif %}{% if p.foco or p.sem_dados %} disabled{% endif %}>
+                                    {% if p.foco or p.sem_dados %}
+                                        <span class="rup-periodo-nome">{{ p.curto }}</span>
+                                    {% else %}
+                                        <a class="rup-periodo-nome rup-periodo-link" href="{{ p.url }}" title="Destacar o ritmo de {{ p.curto }}">{{ p.curto }}</a>
+                                    {% endif %}
+                                    <span class="rup-periodo-ritmo">{% if p.sem_dados %}sem dados{% else %}{{ p.ritmo_numero }}<span class="rup-periodo-un"> un</span>/dia{% endif %}</span>
+                                </div>
+                                <span class="rup-periodo-linha">Ponto de pedido: {{ p.pedido_numero }}{% if p.pedido_numero != '—' %}<span class="rup-periodo-un"> un</span>{% endif %}</span>
+                                <span class="rup-periodo-linha rup-periodo-linha--{{ p.envio_classe }}">{{ p.envio }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {{ g.dados|json_script:"rup-grafico-dados" }}
                 {% else %}
                     <p class="rup-vazio">Informe o estoque atual para desenhar a curva.</p>
                 {% endif %}
@@ -119,13 +152,36 @@
                     <h2 class="rup-painel-titulo">Diagnóstico</h2>
                     {% if d.nivel %}<span class="rup-nivel rup-nivel--{{ d.nivel }}">{{ d.nivel_rotulo }}</span>{% endif %}
                 </header>
+                {% comment %}
+                    * [EXPLICAÇÃO] → O diagnóstico é uma lista de CARTÕES EXPANSÍVEIS (<details>, sem JavaScript): o rótulo, o valor em destaque e um apoio curto ficam sempre à vista; a frase explicativa
+                      só aparece ao abrir. O atributo name faz os cartões abrirem um de cada vez (o painel tem altura fixa). A cor (tom) segue o gráfico: vermelho = ruptura, verde = dá tempo de enviar.
+                      Sem ritmo ou sem estoque não há cartões: só a frase em d.resumo.
+                {% endcomment %}
                 <div class="rup-diag-corpo">
-                    <p class="rup-diag-resumo">{{ d.resumo }}</p>
-                    <ul class="rup-diag-itens">
-                        {% for i in d.itens %}
-                            <li class="rup-diag-item rup-diag-item--{{ i.classe }}"><i class="fas {{ i.icone }}" aria-hidden="true"></i><span>{{ i.texto }}</span></li>
-                        {% endfor %}
-                    </ul>
+                    {% if d.cartoes %}
+                        <ul class="rup-diag-cartoes">
+                            {% for c in d.cartoes %}
+                                <li>
+                                    <details class="rup-diag-cartao rup-diag-cartao--{{ c.tom }}" name="rup-diagnostico">
+                                        <summary>
+                                            <span class="rup-diag-icone" aria-hidden="true"><i class="fas {{ c.icone }}"></i></span>
+                                            <span class="rup-diag-textos">
+                                                <span class="rup-diag-rotulo">{{ c.rotulo }}</span>
+                                                <span class="rup-diag-linha">
+                                                    <strong class="rup-diag-valor">{{ c.valor }}</strong>
+                                                    {% if c.apoio %}<span class="rup-diag-apoio" title="{{ c.apoio }}">{{ c.apoio }}</span>{% endif %}
+                                                </span>
+                                            </span>
+                                            <i class="fas fa-chevron-down rup-diag-seta" aria-hidden="true"></i>
+                                        </summary>
+                                        <p class="rup-diag-detalhe">{{ c.detalhe }}</p>
+                                    </details>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="rup-diag-resumo">{{ d.resumo }}</p>
+                    {% endif %}
                 </div>
             </aside>
         </section>

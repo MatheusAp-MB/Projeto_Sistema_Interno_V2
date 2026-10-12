@@ -25,6 +25,9 @@ from math import ceil, floor
 DIAS_PADRAO = 30
 LEAD_TIME_PADRAO = 7
 DIAS_DO_RITMO_RECENTE = 7
+# * [EXPLICAÇÃO] → Os ritmos que o gráfico do detalhe desenha SEMPRE, lado a lado (cada um com a sua cor fixa): 3, 7, 15 e 30 dias. Se a pessoa escolher outro período (ex.: 10 dias), ele entra como mais uma
+#                  curva, já em destaque. O ritmo em destaque é o período escolhido na tela: é ele que manda nas zonas, nos marcadores e no diagnóstico.
+DIAS_DOS_RITMOS_DO_GRAFICO = (3, 7, 15, 30)
 FATOR_DO_NIVEL_BAIXO = 2
 LIMITE_DE_ACELERACAO_PCT = 15
 DIAS_MAXIMOS_DA_PROJECAO = 3650   # acima disso (10 anos) a data nem faz sentido: a tela diz "sem previsão"

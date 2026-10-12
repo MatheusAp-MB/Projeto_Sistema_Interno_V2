@@ -14,10 +14,17 @@
     max-width: 2400px;
     color: #243247;
     font-size: 0.9rem;
-    --rup-periodo: #2e7bb5;
-    --rup-recente: #e07a1f;
-    --rup-faixa: rgba(46, 123, 181, 0.14);
-    --rup-faixa-atrasada: rgba(220, 53, 69, 0.14);
+    /* cores FIXAS dos ritmos do gráfico (mesma cor em qualquer produto; sem verde, laranja e vermelho, que já significam "enviar" e "ruptura") */
+    --rup-c3: #7655ae;
+    --rup-c7: #19829c;
+    --rup-c15: #b0508a;
+    --rup-c30: #2e6cc4;
+    --rup-extra: #5b6675;
+    /* zonas do fundo do gráfico (ritmo em destaque): antes do envio / tempo de envio / depois da ruptura */
+    --rup-zona-antes: rgba(31, 106, 66, 0.09);
+    --rup-zona-envio: rgba(224, 122, 31, 0.16);
+    --rup-zona-envio-atrasada: rgba(224, 122, 31, 0.3);
+    --rup-zona-pos: rgba(180, 35, 24, 0.09);
 }
 
 .rup-pagina [hidden] { display: none !important; }
@@ -279,7 +286,7 @@
     border-radius: 10px;
 }
 
-.rup-caixa-painel--grafico { height: 440px; }
+.rup-caixa-painel--grafico { height: 548px; scroll-margin-top: calc(var(--toolbar-altura, 0px) + 12px); }
 .rup-caixa-painel--diag { height: 300px; }
 
 .rup-painel-cab {
@@ -295,30 +302,71 @@
 
 .rup-painel-titulo { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--cor-primaria); }
 
-.rup-legenda { display: flex; align-items: center; gap: 4px 16px; min-width: 0; overflow: hidden; white-space: nowrap; font-size: 0.76rem; color: #4b5a6b; }
+/* ---- rodapé do gráfico: a legenda das zonas (do ritmo em destaque) e, quando precisa, a nota ---- */
+.rup-grafico-rodape { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; height: 26px; padding: 0 16px; }
+.rup-legenda { display: flex; flex: none; align-items: center; gap: 4px 16px; white-space: nowrap; font-size: 0.74rem; color: #4b5a6b; }
 .rup-legenda li { display: inline-flex; align-items: center; gap: 6px; }
-.rup-amostra { display: inline-block; flex: none; width: 18px; height: 0; border-top: 3px solid var(--rup-periodo); }
-.rup-amostra--recente { border-top: 3px dashed var(--rup-recente); }
-.rup-amostra--faixa { height: 10px; border: 0; background: var(--rup-faixa); outline: 1px solid rgba(46, 123, 181, 0.35); }
-.rup-amostra--pedido { border-top: 2px dotted #6c757d; }
+.rup-amostra { display: inline-block; flex: none; width: 16px; height: 10px; border: 1px solid transparent; border-radius: 2px; }
+.rup-amostra--antes { background: rgba(31, 106, 66, 0.22); border-color: rgba(31, 106, 66, 0.45); }
+.rup-amostra--envio { background: rgba(224, 122, 31, 0.3); border-color: rgba(224, 122, 31, 0.6); }
+.rup-amostra--pos { background: rgba(180, 35, 24, 0.2); border-color: rgba(180, 35, 24, 0.45); }
+.rup-grafico-nota { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.74rem; color: var(--cor-texto-muted); }
 
-/* ---- o gráfico: SVG esticado (as linhas) + textos em HTML por cima, tudo posicionado em % da área ---- */
+/* ---- botões do zoom (no cabeçalho do gráfico; o script os mostra) ---- */
+.rup-zoom { display: flex; flex: none; align-items: center; gap: 4px; }
+.rup-zoom-botao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--cor-primaria);
+    font-size: 0.74rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.rup-zoom-botao:hover:not(:disabled) { background: #eef3f9; }
+.rup-zoom-botao:disabled { color: #a3adb9; cursor: default; }
+.rup-zoom-botao--texto { margin-left: 4px; }
+.rup-zoom-botao:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
+
+/* ---- o gráfico: SVG esticado (linhas e zonas, medidas em DIAS) + textos em HTML por cima, tudo posicionado em % da área ---- */
 .rup-grafico { position: relative; flex: 1 1 auto; min-height: 0; }
-.rup-grafico-area { position: absolute; inset: 16px 30px 38px 68px; }
-.rup-grafico-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.rup-grafico-area { position: absolute; inset: 16px 30px 38px 68px; user-select: none; touch-action: pan-y; }
+.rup-grafico-area--zoom { cursor: grab; }
+.rup-grafico-area--arrastando { cursor: grabbing; }
+/* o zoom põe linhas fora da janela: elas são cortadas na esquerda e na direita da área (em cima e embaixo sobra folga para a espessura da linha) */
+.rup-grafico-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; clip-path: inset(-8px 0 -8px 0); }
 
 .rup-grade { stroke: #e3e8ef; stroke-width: 1; vector-effect: non-scaling-stroke; }
-.rup-area { fill: rgba(46, 123, 181, 0.1); stroke: none; }
-.rup-faixa { fill: var(--rup-faixa); }
-.rup-faixa--atrasada { fill: var(--rup-faixa-atrasada); }
+.rup-grade--x { stroke: #eef1f6; }
+.rup-zona--antes { fill: var(--rup-zona-antes); }
+.rup-zona--envio { fill: var(--rup-zona-envio); }
+.rup-zona--envio.rup-zona--atrasada { fill: var(--rup-zona-envio-atrasada); }
+.rup-zona--pos { fill: var(--rup-zona-pos); }
 .rup-pedido-linha { stroke: #6c757d; stroke-width: 1.5; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
-.rup-marcador { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.rup-marcador--enviar { stroke: #1f6a42; }
-.rup-marcador--ruptura { stroke: #b42318; }
-.rup-marcador--recente { stroke: var(--rup-recente); stroke-dasharray: 4 3; }
-.rup-curva { fill: none; stroke-width: 2.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.rup-curva--periodo { stroke: var(--rup-periodo); }
-.rup-curva--recente { stroke: var(--rup-recente); stroke-dasharray: 7 5; }
+/* o DIA do "Enviar até" e o DIA da ruptura: faixas da coluna da data (a linha do estoque cruza o zero dentro da faixa vermelha) */
+.rup-dia { stroke: none; }
+.rup-dia--enviar { fill: rgba(31, 106, 66, 0.34); }
+.rup-dia--ruptura { fill: rgba(180, 35, 24, 0.38); }
+
+/* a COR de cada ritmo é fixa (variáveis no topo): o cartão, a curva, o pontinho e a caixa do mouse leem a mesma --rup-cor */
+.rup-cor--c3 { --rup-cor: var(--rup-c3); }
+.rup-cor--c7 { --rup-cor: var(--rup-c7); }
+.rup-cor--c15 { --rup-cor: var(--rup-c15); }
+.rup-cor--c30 { --rup-cor: var(--rup-c30); }
+.rup-cor--extra { --rup-cor: var(--rup-extra); }
+
+/* os ritmos que NÃO estão em destaque ficam finos, tracejados e mais claros; o em destaque é grosso e inteiro */
+.rup-curva { fill: none; stroke: var(--rup-cor); stroke-width: 1.6; stroke-dasharray: 6 4; stroke-linejoin: round; opacity: 0.6; vector-effect: non-scaling-stroke; }
+.rup-curva--foco { stroke-width: 3; stroke-dasharray: none; opacity: 1; }
+.rup-pagina .rup-oculto { display: none; }
 
 .rup-rotulo-y {
     position: absolute;
@@ -349,23 +397,109 @@
 .rup-etiqueta--dir { margin-left: 6px; }
 .rup-etiqueta--enviar { color: #1f6a42; border-color: #bfe3cf; }
 .rup-etiqueta--ruptura { color: #b42318; border-color: #f3b8b8; }
-.rup-etiqueta--recente { color: #b45309; border-color: #f3d9a0; }
-.rup-etiqueta--faixa { bottom: 8px; transform: translateX(-50%); color: var(--cor-primaria); background: rgba(255, 255, 255, 0.8); }
 .rup-etiqueta--pedido { right: 8px; transform: translateY(-115%); color: #4b5a6b; background: rgba(255, 255, 255, 0.85); }   /* canto direito: o esquerdo é dos marcadores */
 .rup-etiqueta--pedido.rup-etiqueta--abaixo { transform: translateY(15%); }                                                   /* linha no topo do gráfico: o rótulo vai embaixo dela */
 
-.rup-grafico-nota { flex: none; padding: 0 16px 8px; font-size: 0.78rem; color: var(--cor-texto-muted); }
+/* onde a linha de um ritmo que não está em destaque encosta no zero */
+.rup-ponto-ruptura { position: absolute; top: 100%; width: 10px; height: 10px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: var(--rup-cor); box-shadow: 0 0 0 1px var(--rup-cor); }
+
+/* passar o mouse: a coluna do DIA inteiro fica destacada (o script põe left e width em %), pontinho em cada curva visível e a caixa com o estoque projetado no começo do dia */
+.rup-guia { position: absolute; top: 0; bottom: 0; box-sizing: border-box; border-left: 1px dashed #6c7a8d; border-right: 1px dashed #6c7a8d; background: rgba(36, 50, 71, 0.08); pointer-events: none; }
+.rup-ponto-hover { position: absolute; width: 9px; height: 9px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: var(--rup-cor); box-shadow: 0 0 0 1px var(--rup-cor); pointer-events: none; }
+.rup-dica-grafico {
+    position: absolute;
+    z-index: 3;
+    min-width: 168px;
+    margin-left: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 6px 18px rgba(11, 32, 56, 0.16);
+    font-size: 0.74rem;
+    color: #243247;
+    pointer-events: none;
+}
+.rup-dica-grafico--esq { margin-left: 0; transform: translateX(calc(-100% - 12px)); }
+.rup-dica-titulo { font-weight: 700; color: var(--cor-primaria); white-space: nowrap; }
+.rup-dica-sub { margin-bottom: 4px; font-size: 0.68rem; color: #6b7889; white-space: nowrap; }
+.rup-dica-linha { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 1px 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rup-dica-cor { width: 10px; height: 3px; border-radius: 2px; background: var(--rup-cor); }
+.rup-dica-linha--foco { font-weight: 700; }
+.rup-dica-linha--zerado strong { color: #b42318; }
+
+/* ---- a fileira de cartões, um por ritmo: liga/desliga a curva (caixinha) e põe o ritmo em destaque (clique no nome) ---- */
+.rup-pagina .rup-periodos { display: grid; flex: none; grid-template-columns: repeat(var(--rup-n, 4), minmax(0, 1fr)); gap: 8px; padding: 8px 12px 10px; border-top: 1px solid var(--cor-borda); }
+.rup-periodo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    min-width: 0;
+    height: 68px;
+    padding: 4px 10px 6px;
+    border: 1px solid var(--cor-borda);
+    border-top: 3px solid var(--rup-cor);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 0.74rem;
+    color: #4b5a6b;
+}
+.rup-periodo--foco { border-color: var(--rup-cor); border-top-color: var(--rup-cor); background: #f4f8fd; box-shadow: 0 0 0 1px var(--rup-cor); }
+.rup-periodo--sem-dados { background: #f7f8fa; color: #8793a1; }
+.rup-periodo-topo { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; }
+.rup-periodo-marca { flex: none; width: 14px; height: 14px; margin: 0; accent-color: var(--rup-cor); cursor: pointer; position: relative; z-index: 1; }
+.rup-periodo-marca:disabled { cursor: default; }
+.rup-periodo-nome { flex: none; font-size: 0.82rem; font-weight: 700; color: #0b2038; white-space: nowrap; }
+.rup-periodo-link { text-decoration: none; }
+.rup-periodo-link:hover { color: var(--cor-primaria); text-decoration: underline; }
+.rup-periodo-link::after { content: ''; position: absolute; inset: 0; border-radius: 8px; }   /* o cartão todo é clicável (a caixinha fica por cima, com z-index) */
+.rup-periodo-link:focus-visible { outline: none; }
+.rup-periodo-link:focus-visible::after { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
+.rup-periodo-ritmo { min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* com 5 ritmos (o período digitado não é um dos 4 fixos) os cartões ficam mais estreitos: recuo menor e o "un" do ritmo sai ("1,3/dia"; o "title" do cartão diz "1,3 un/dia") */
+.rup-pagina .rup-periodos--cinco { gap: 6px; padding-left: 8px; padding-right: 8px; }
+.rup-periodos--cinco .rup-periodo { padding-left: 8px; padding-right: 8px; }
+.rup-periodos--cinco .rup-periodo-linha { font-size: 0.7rem; }
+.rup-periodos--cinco .rup-periodo-un { display: none; }
+.rup-periodo-linha { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 16px; }
+.rup-periodo-linha--ok { color: #1f6a42; font-weight: 600; }
+.rup-periodo-linha--vencido { color: #b42318; font-weight: 700; }
 .rup-vazio { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--cor-texto-muted); }
 
 /* ---- diagnóstico ---- */
 .rup-diag-corpo { display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; min-height: 0; padding: 14px 16px; overflow-y: auto; }
 .rup-diag-resumo { font-size: 0.92rem; line-height: 1.45; color: #0b2038; }
-.rup-diag-itens { display: flex; flex-direction: column; gap: 10px; }
-.rup-diag-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; font-size: 0.86rem; line-height: 1.4; }
-.rup-diag-item i { margin-top: 3px; text-align: center; }
-.rup-diag-item--info i { color: var(--cor-primaria-clara); }
-.rup-diag-item--ok i { color: #1f6a42; }
-.rup-diag-item--alerta i { color: #b34100; }
+/* diagnóstico em CARTÕES EXPANSÍVEIS: o rótulo, o valor e o apoio ficam à vista; a frase explicativa só aparece ao abrir. A cor (tom) segue o gráfico: vermelho = ruptura / prazo vencido,
+   verde = dá tempo de enviar, laranja = atenção, azul = informação, cinza = sem dado ou sem previsão (a cor nunca é a única pista: o rótulo está escrito). */
+.rup-diag-cartoes { display: flex; flex-direction: column; gap: 8px; }
+.rup-diag-cartao {
+    --tom-cor: #5b6675;
+    --tom-fundo: #f5f7fa;
+    --tom-borda: #dde3ea;
+    --tom-icone: #e6eaf0;
+    border: 1px solid var(--tom-borda);
+    border-radius: 10px;
+    background: var(--tom-fundo);
+}
+.rup-diag-cartao--vermelho { --tom-cor: #b42318; --tom-fundo: #fdf1f0; --tom-borda: #f3c9c5; --tom-icone: #f9d9d6; }
+.rup-diag-cartao--verde { --tom-cor: #1f6a42; --tom-fundo: #eff8f2; --tom-borda: #c5e4d1; --tom-icone: #d6eedf; }
+.rup-diag-cartao--laranja { --tom-cor: #b34100; --tom-fundo: #fff5ec; --tom-borda: #f6d3b4; --tom-icone: #fde4cc; }
+.rup-diag-cartao--azul { --tom-cor: #2a6099; --tom-fundo: #f1f6fc; --tom-borda: #cfdff0; --tom-icone: #dce9f6; }
+.rup-diag-cartao[open] { box-shadow: 0 0 0 1px var(--tom-borda); }
+.rup-diag-cartao summary { display: grid; grid-template-columns: 34px minmax(0, 1fr) 14px; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; list-style: none; cursor: pointer; }
+.rup-diag-cartao summary::-webkit-details-marker { display: none; }
+.rup-diag-cartao summary:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
+.rup-diag-icone { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--tom-icone); color: var(--tom-cor); font-size: 0.95rem; }
+.rup-diag-textos { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.rup-diag-rotulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tom-cor); }
+.rup-diag-linha { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.rup-diag-valor { flex: none; font-size: 1.12rem; font-weight: 700; line-height: 1.25; color: #0b2038; font-variant-numeric: tabular-nums; }
+.rup-diag-apoio { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; font-weight: 600; color: var(--tom-cor); }
+.rup-diag-seta { font-size: 0.7rem; color: var(--tom-cor); transition: transform 0.15s; }
+.rup-diag-cartao[open] .rup-diag-seta { transform: rotate(180deg); }
+.rup-diag-detalhe { padding: 0 14px 12px 56px; font-size: 0.84rem; line-height: 1.45; color: #2f4259; }
 
 /* ================================================
    DISPOSIÇÃO PELA LARGURA DA JANELA (nunca pelo espaço ao lado da barra lateral)
@@ -387,10 +521,18 @@
     .rup-cartoes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* janela de menos de 1400px: o diagnóstico fica embaixo da curva, com a largura toda; os cartões ficam em colunas (3, ou 2 nas janelas bem pequenas) para caber na altura fixa */
+@media (max-width: 1399px) {
+    .rup-diag-cartoes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 1099px) {
+    .rup-diag-cartoes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* janela larga (1400px ou mais): a curva e o diagnóstico lado a lado, com a mesma altura fixa */
 @media (min-width: 1400px) {
     .rup-painel { grid-template-columns: minmax(0, 1fr) 380px; }
-    .rup-caixa-painel--diag { height: 440px; }
+    .rup-caixa-painel--diag { height: auto; }   /* acompanha a altura fixa do gráfico (a grade estica) */
 }
 
 /* janela bem pequena (menos de 1100px, sem uso real com a barra lateral): volta a acomodar pela largura */

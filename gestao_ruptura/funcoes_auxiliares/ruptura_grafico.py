@@ -1,24 +1,42 @@
 # gestao_ruptura/funcoes_auxiliares/ruptura_grafico.py
 #
-# Função Objetivo: Calcula a CURVA DE ESTOQUE da tela "Ruptura de estoque": a linha do estoque caindo de hoje até zerar, a faixa do lead time, os marcadores
-# ("Enviar até", "Ruptura") e o ponto de pedido. Aqui só se calcula a POSIÇÃO de cada peça (em % da área do gráfico); quem desenha é o template (SVG para as linhas
-# e HTML para os textos).
+# Função Objetivo: Calcula a CURVA DE ESTOQUE da tela "Ruptura de estoque": uma linha do estoque caindo para CADA ritmo de vendas (3, 7, 15 e 30 dias, mais o período digitado quando
+# for outro), as zonas coloridas do fundo (antes do envio / tempo de envio / depois da ruptura) do ritmo EM DESTAQUE, os marcadores "Enviar até" e "Ruptura", o ponto de pedido e os
+# cartões de cada ritmo (ponto de pedido, "enviar até" ou "prazo vencido"). Aqui só se calcula a POSIÇÃO de cada peça e se escrevem os textos; quem desenha é o template (SVG para as
+# linhas e as zonas, HTML para os textos) e quem dá vida (ligar/desligar curvas, passar o mouse, zoom) é o script_ruptura.js.
 #
-# * [EXPLICAÇÃO] → POR QUE em porcentagem e com SVG "esticado" (preserveAspectRatio="none"): o layout da tela é "fluido na horizontal, rígido na vertical" (regra do
-#                  Matheus, 12/10/2026): o gráfico tem ALTURA FIXA e usa a largura toda, abrindo ou fechando a barra lateral. Em % as linhas acompanham a largura; os
-#                  textos ficam em HTML por cima (se fossem SVG esticado, as letras sairiam deformadas).
-# * [EXPLICAÇÃO] → TODOS os números saem daqui já como TEXTO ("12.34"): o Django formata número decimal com vírgula (pt-BR), e "x=12,34" quebraria o SVG.
-# * [EXPLICAÇÃO] → A linha é reta (o ritmo é uma média por dia, então o estoque cai em linha reta). A linha do período escolhido manda na faixa do lead time, nos
-#                  marcadores e no ponto de pedido; a do ritmo recente (tracejada) só mostra onde a ruptura cairia se o ritmo recente continuasse.
+# * [EXPLICAÇÃO] → POR QUE SVG "esticado" (preserveAspectRatio="none"): o layout da tela é "fluido na horizontal, rígido na vertical" (regra do Matheus, 12/10/2026): o gráfico tem ALTURA
+#                  FIXA e usa a largura toda, abrindo ou fechando a barra lateral. As linhas acompanham a largura; os textos ficam em HTML por cima (se fossem SVG esticado, as letras
+#                  sairiam deformadas).
+# * [EXPLICAÇÃO] → O eixo horizontal do SVG é medido em DIAS a partir de hoje (viewBox "0 0 {horizonte} 100"): o zoom e o arrastar do script só trocam o viewBox, sem recalcular nenhuma linha.
+#                  O eixo vertical é em % da altura e é FIXO: não muda ao ocultar curvas, trocar o destaque ou dar zoom (a escala olha para o estoque e para os pontos de pedido de TODOS
+#                  os ritmos, não só do que está em destaque).
+# * [EXPLICAÇÃO] → Os números dos textos saem daqui já como TEXTO ("12.34"): o Django formata número decimal com vírgula (pt-BR), e "x=12,34" quebraria o SVG. Os dados que o script usa vão
+#                  em JSON (json_script), que sempre usa o ponto.
+# * [EXPLICAÇÃO] → A linha é reta (o ritmo é uma média por dia, então o estoque cai em linha reta). As contas de ruptura, envio e ponto de pedido são as de ruptura_calculo.py, as mesmas
+#                  dos cartões da tela: o gráfico não tem regra própria.
+# * [EXPLICAÇÃO] → O DIA É UMA COLUNA (regra visual do Matheus, 12/10/2026: "o usuário olha e entende perfeitamente: vai acabar dia X"). O eixo horizontal é contínuo (a linha cruza o zero no meio
+#                  de um dia, ex.: 10,8 dias), mas cada DATA ocupa a coluna que vai da meia-noite dela (número inteiro) até a meia-noite seguinte. O dia da ruptura é hoje + floor(dias de estoque) (a regra
+#                  de ruptura_calculo.py), então a linha SEMPRE cruza o zero dentro da coluna da data da ruptura. Por isso o "Enviar até" e a "Ruptura" são FAIXAS da coluna do dia (e não um traço
+#                  solto na posição exata), as divisas das zonas caem na meia-noite, e o nome de cada data do eixo fica CENTRADO na coluna dela.
 
 from datetime import timedelta
 from math import ceil, floor, log10
+
+from gestao_ruptura.funcoes_auxiliares import ruptura_calculo as calc
+from gestao_ruptura.funcoes_auxiliares.ruptura_texto import data as _data_completa, em_dias as _em_dias, plural as _plural, un_dia as _un_dia
 
 HORIZONTE_MINIMO = 14
 HORIZONTE_MAXIMO = 730
 MARGEM_DO_TOPO = 1.1
 PASSOS_DO_EIXO_X = (1, 2, 5, 7, 10, 14, 15, 20, 30, 45, 60, 90, 120, 180, 365)
 LINHA_DOS_MARCADORES_PX = 24   # cada marcador ocupa uma "linha" de texto no topo do gráfico (não se sobrepõem)
+ZOOM_MINIMO_EM_DIAS = 4        # a menor janela que o zoom aceita
+# * [EXPLICAÇÃO] → A COR de cada ritmo é FIXA (a mesma em qualquer produto e a cada visita) e evita verde, laranja e vermelho, que já significam "enviar" e "ruptura". O período digitado que
+#                  não é um dos quatro usa a cor neutra "extra". As cores em si moram no CSS (--rup-c3, --rup-c7...).
+COR_DO_RITMO = {3: 'c3', 7: 'c7', 15: 'c15', 30: 'c30'}
+COR_DO_RITMO_AVULSO = 'extra'
+ROTULO_DAS_ZONAS = {'antes': 'Antes do envio', 'envio': 'Tempo de envio', 'pos': 'Depois da ruptura'}
 
 
 def _c(valor):
@@ -33,6 +51,10 @@ def _data_curta(dia, hoje):
     return dia.strftime('%d/%m' if dia.year == hoje.year else '%d/%m/%Y')
 
 
+def _cor(dias):
+    return COR_DO_RITMO.get(dias, COR_DO_RITMO_AVULSO)
+
+
 def _passo_do_eixo_y(maximo):
     bruto = maximo / 4
     base = 10 ** floor(log10(bruto))
@@ -42,22 +64,84 @@ def _passo_do_eixo_y(maximo):
     return 10 * base
 
 
-# Função Objetivo: O gráfico pronto para o template, ou None quando não há o que desenhar (sem estoque ou sem ritmo). `series` = lista de
-# {'classe': 'periodo'|'recente', 'media': un/dia ou None, 'rotulo': texto da legenda}; a PRIMEIRA é a do período escolhido.
-def montar_grafico(estoque, lead, series, hoje):
-    series = [s for s in series if s['media'] is not None]
-    if estoque is None or not series or series[0]['classe'] != 'periodo':
-        return None
-    principal = series[0]['media']
+# Função Objetivo: As zonas do fundo, em dias a partir de hoje, para o ritmo em destaque: [(classe, inicio, fim, atrasada)]. Todas as divisas caem na meia-noite de um dia (número inteiro), porque
+# ruptura e "enviar até" são DIAS. "antes" = ainda dá tempo de enviar; "envio" = os dias do lead time, do dia do "enviar até" até a véspera da ruptura (com o prazo já vencido começa em hoje);
+# o DIA da ruptura fica de fora das zonas: ele ganha a faixa vermelha própria (marcador); "pos" = os dias depois da ruptura. Estoque zerado = tudo "pos"; sem ruptura prevista (sem vendas) = tudo "antes".
+def _zonas(estoque, lead, t_ruptura, horizonte):
+    if estoque <= 0:
+        return [('pos', 0.0, float(horizonte), False)]
+    if t_ruptura is None:
+        return [('antes', 0.0, float(horizonte), False)]
+    dia_ruptura = floor(t_ruptura)
+    dia_envio = floor(t_ruptura - lead) if lead else dia_ruptura
+    zonas = []
+    if dia_envio > 0:
+        zonas.append(('antes', 0.0, float(min(dia_envio, horizonte)), False))
+    if lead and dia_envio < horizonte:
+        zonas.append(('envio', float(max(0, dia_envio)), float(min(dia_ruptura, horizonte)), dia_envio < 0))
+    if dia_ruptura + 1 < horizonte:
+        zonas.append(('pos', float(dia_ruptura + 1), float(horizonte), False))
+    return [z for z in zonas if z[2] - z[1] > 0]
 
-    quedas = [estoque / s['media'] for s in series if estoque > 0 and s['media'] > 0]
+
+# Função Objetivo: O cartão de UM ritmo (a linha da legenda que também liga/desliga a curva): nome, ritmo, ponto de pedido e "enviar até" / "prazo vencido", mais o texto completo para o
+# "title". Sem dados (nenhum dia completo coletado nessa janela) o cartão fica no mesmo tamanho, dizendo isso.
+def _periodo(s, estoque, lead, hoje, foco):
+    dias, media = s['dias'], s['media']
+    base = {'id': f's{dias}', 'dias': dias, 'curto': _plural(dias, 'dia', 'dias'), 'cor': _cor(dias), 'foco': foco, 'url': s['url'], 'sem_dados': media is None}
+    if media is None:
+        return {**base, 'ritmo': 'sem dados', 'ritmo_numero': '', 'pedido_numero': '—', 'envio': 'Sem dados do período', 'envio_classe': 'neutro',
+                'dica': f'Nenhum dia completo {"do último dia" if dias == 1 else f"dos últimos {dias} dias"} foi coletado: não dá para calcular este ritmo.'}
+    pedido = calc.ponto_de_pedido(media, lead)
+    projecao = calc.projetar(estoque, media, hoje)
+    envio = calc.envio(projecao, lead, hoje)
+    dica = [f'Ritmo {"do último dia" if dias == 1 else f"dos últimos {dias} dias"}: {_un_dia(media)} un/dia.']
+    if pedido is not None:
+        dica.append(f'Ponto de pedido (ritmo × lead time): {_numero(pedido)} un.')
+    texto, classe = 'Informe o estoque', 'neutro'
+    if projecao is not None:
+        if projecao['situacao'] == 'zerado':
+            texto, classe = 'Estoque zerado', 'vencido'
+            dica.append('O estoque está zerado.')
+        elif projecao['situacao'] == 'sem_vendas':
+            texto = 'Sem vendas: não acaba'
+            dica.append('Sem vendas nos dias completos desse período: nesse ritmo o estoque não acaba.')
+        elif projecao['situacao'] == 'longe':
+            texto, classe = 'Ruptura muito distante', 'ok'
+            dica.append('Nesse ritmo o estoque dura mais de 10 anos.')
+        else:
+            dica.append(f'O estoque de {_numero(estoque)} un dura {_plural(projecao["dias"], "dia", "dias")}: ruptura em {_data_completa(projecao["data"])}.')
+            if envio is None:
+                texto = f'Ruptura {_data_curta(projecao["data"], hoje)}'
+            elif envio['atrasado']:
+                texto, classe = 'Prazo vencido', 'vencido'
+                dica.append(f'O prazo para enviar acabou em {_data_completa(envio["enviar_ate"])}. Enviando hoje, o produto só fica disponível em {_data_completa(envio["chegada"])}'
+                            f' e vão faltar {_plural(envio["faltam_dias"], "dia", "dias")} de estoque.')
+            else:
+                texto = 'Enviar até hoje' if envio['em_dias'] == 0 else f'Enviar até {_data_curta(envio["enviar_ate"], hoje)}'
+                classe = 'ok'
+                dica.append(f'Enviar até {_data_completa(envio["enviar_ate"])} ({_em_dias(envio["em_dias"])}).')
+    return {**base, 'ritmo': f'{_un_dia(media)} un/dia', 'ritmo_numero': _un_dia(media), 'pedido_numero': _numero(pedido) if pedido is not None else '—',
+            'envio': texto, 'envio_classe': classe, 'dica': ' '.join(dica)}
+
+
+# Função Objetivo: O gráfico pronto para o template, ou None quando não há o que desenhar (sem estoque, ou o ritmo em destaque sem dados). `series` = lista de
+# {'dias': N, 'media': un/dia ou None, 'url': endereço que põe esse ritmo em destaque}; `destaque` = os dias do ritmo em destaque (o período escolhido na tela).
+def montar_grafico(estoque, lead, series, destaque, hoje):
+    series = sorted(series, key=lambda s: s['dias'])
+    foco = next((s for s in series if s['dias'] == destaque), None)
+    if estoque is None or foco is None or foco['media'] is None:
+        return None
+    com_ritmo = [s for s in series if s['media'] is not None]
+
+    quedas = [estoque / s['media'] for s in com_ritmo if estoque > 0 and s['media'] > 0]
     base = max(quedas) if quedas else 30
     if lead:
         base = max(base, lead * 1.3)
     horizonte = min(HORIZONTE_MAXIMO, max(HORIZONTE_MINIMO, ceil(base * 1.12)))
 
-    pedido = ceil(principal * lead) if lead is not None and principal > 0 else None
-    y_max = max(estoque, pedido or 0, 10) * MARGEM_DO_TOPO
+    pedidos = {s['dias']: calc.ponto_de_pedido(s['media'], lead) for s in com_ritmo}
+    y_max = max(estoque, max((p for p in pedidos.values() if p), default=0), 10) * MARGEM_DO_TOPO
 
     def x(t):
         return t / horizonte * 100
@@ -65,43 +149,54 @@ def montar_grafico(estoque, lead, series, hoje):
     def y(valor):
         return 100 - valor / y_max * 100
 
-    # ---- as linhas do estoque (uma por ritmo) ----
+    # ---- as linhas do estoque (uma por ritmo; a do destaque por último, para ficar por cima das outras) ----
     linhas = []
-    for s in series:
+    for s in com_ritmo:
         media = s['media']
-        pontos = [(0, estoque)]
+        pontos = [(0.0, estoque)]
         if estoque > 0 and media > 0:
             t0 = estoque / media
-            pontos += [(t0, 0), (horizonte, 0)] if t0 < horizonte else [(horizonte, estoque - media * horizonte)]
+            pontos += [(t0, 0), (float(horizonte), 0)] if t0 < horizonte else [(float(horizonte), estoque - media * horizonte)]
         else:
-            pontos.append((horizonte, estoque))
-        texto = ' '.join(f'{_c(x(t))},{_c(y(v))}' for t, v in pontos)
-        linhas.append({'classe': s['classe'], 'pontos': texto, 'area': f'{texto} 100.00,100.00 0.00,100.00' if s['classe'] == 'periodo' else ''})
+            pontos.append((float(horizonte), max(estoque, 0)))
+        linhas.append({'id': f's{s["dias"]}', 'cor': _cor(s['dias']), 'foco': s['dias'] == destaque, 'pontos': ' '.join(f'{_c(t)},{_c(y(v))}' for t, v in pontos)})
+    linhas.sort(key=lambda linha: linha['foco'])
 
-    # ---- a faixa do lead time e os marcadores (todos pelo ritmo do período) ----
-    faixa, marcadores, truncado = None, [], False
+    # ---- o ritmo em destaque: zonas, "Enviar até" e "Ruptura" ----
+    media_foco = foco['media']
+    t_ruptura = estoque / media_foco if estoque > 0 and media_foco > 0 else None
+    t_envio = t_ruptura - lead if (t_ruptura is not None and lead) else None
+    zonas = [{'classe': c, 'inicio': _c(i), 'largura': _c(f - i), 'atrasada': atrasada} for c, i, f, atrasada in _zonas(estoque, lead, t_ruptura, horizonte)]
+    zonas_legenda = [{'classe': z['classe'], 'rotulo': ROTULO_DAS_ZONAS[z['classe']] + (f' ({_plural(lead, "dia", "dias")})' if z['classe'] == 'envio' and lead else '')} for z in zonas]
 
-    def marcador(t, classe, rotulo, linha):
-        marcadores.append({'x': _c(x(t)), 'classe': classe, 'rotulo': rotulo, 'topo': linha * LINHA_DOS_MARCADORES_PX + 6, 'lado': 'esq' if x(t) > 55 else 'dir'})
+    marcadores = []
 
-    if estoque > 0 and principal > 0:
-        t_ruptura = estoque / principal
-        if t_ruptura >= horizonte:
-            truncado = True
-        else:
-            if lead:
-                inicio = max(0.0, t_ruptura - lead)
-                faixa = {'x': _c(x(inicio)), 'largura': _c(x(t_ruptura) - x(inicio)), 'centro': _c((x(inicio) + x(t_ruptura)) / 2),
-                         'atrasada': t_ruptura - lead < 0, 'rotulo': f'Lead time: {lead} dias'}
-                if t_ruptura - lead >= 0:
-                    marcador(t_ruptura - lead, 'enviar', f'Enviar até {_data_curta(hoje + timedelta(days=floor(t_ruptura - lead)), hoje)}', 0)
-            marcador(t_ruptura, 'ruptura', f'Ruptura {_data_curta(hoje + timedelta(days=floor(t_ruptura)), hoje)}', 1)
-        for s in series[1:]:
-            if s['media'] > 0 and estoque / s['media'] < horizonte:
-                t_recente = estoque / s['media']
-                marcador(t_recente, 'recente', f'Ruptura pelo ritmo recente {_data_curta(hoje + timedelta(days=floor(t_recente)), hoje)}', 2)
+    def marcador(dia, classe, rotulo, linha):
+        # * [EXPLICAÇÃO] → O marcador é a FAIXA da coluna do dia (de `dia` até `dia + 1`); o texto fica ao lado da faixa, do lado onde há espaço (esq = termina na borda esquerda da faixa; dir = começa na direita).
+        lado = 'esq' if x(dia) > 55 else 'dir'
+        marcadores.append({'dia': dia, 'classe': classe, 'rotulo': rotulo, 'topo': linha * LINHA_DOS_MARCADORES_PX + 6, 'lado': lado, 'x': _c(x(dia if lado == 'esq' else dia + 1))})
+
+    dia_envio = dia_ruptura = None
+    if t_envio is not None and 0 <= t_envio < horizonte:
+        dia_envio = floor(t_envio)
+        marcador(dia_envio, 'enviar', f'Enviar até {_data_curta(hoje + timedelta(days=dia_envio), hoje)}', 0)
+    if t_ruptura is not None and t_ruptura < horizonte:
+        dia_ruptura = floor(t_ruptura)
+        marcador(dia_ruptura, 'ruptura', f'Ruptura {_data_curta(hoje + timedelta(days=dia_ruptura), hoje)}', 1)
+    truncado = t_ruptura is not None and t_ruptura >= horizonte
+
+    # ---- os outros ritmos: só um pontinho onde a linha encosta no zero (o detalhe vem no passar do mouse e no cartão do ritmo) ----
+    pontos_de_ruptura = []
+    for s in com_ritmo:
+        if s['dias'] == destaque or not (estoque > 0 and s['media'] > 0):
+            continue
+        t = estoque / s['media']
+        if t < horizonte:
+            pontos_de_ruptura.append({'id': f's{s["dias"]}', 'cor': _cor(s['dias']), 't': _c(t), 'x': _c(x(t)),
+                                      'rotulo': f'Ruptura {_data_curta(hoje + timedelta(days=floor(t)), hoje)} no ritmo de {_plural(s["dias"], "dia", "dias")}'})
 
     ponto_de_pedido = None
+    pedido = pedidos.get(destaque)
     if pedido and 0 < pedido <= y_max:
         # * [EXPLICAÇÃO] → O rótulo fica no canto DIREITO (o esquerdo é onde caem os marcadores "Enviar até"/"Ruptura"); em cima da linha, ou embaixo dela quando a linha está no topo do gráfico.
         ponto_de_pedido = {'y': _c(y(pedido)), 'rotulo': f'Ponto de pedido: {_numero(pedido)} un', 'abaixo': y(pedido) < 30}
@@ -113,13 +208,19 @@ def montar_grafico(estoque, lead, series, hoje):
         grades_y.append({'y': _c(y(valor)), 'rotulo': _numero(valor)})
         valor += passo_y
     passo_x = next((p for p in PASSOS_DO_EIXO_X if horizonte / p <= 8), 365)
-    ticks_x = [{'x': _c(x(t)), 'hoje': t == 0, 'rotulo': 'HOJE' if t == 0 else _data_curta(hoje + timedelta(days=t), hoje)} for t in range(0, horizonte + 1, passo_x)]
+    ticks_x = [{'t': t, 'x_meio': _c(x(t + 0.5)), 'hoje': t == 0, 'rotulo': 'HOJE' if t == 0 else _data_curta(hoje + timedelta(days=t), hoje)} for t in range(0, horizonte, passo_x)]
 
-    legenda = [{'tipo': s['classe'], 'rotulo': s['rotulo']} for s in series]
-    if faixa:
-        legenda.append({'tipo': 'faixa', 'rotulo': 'Lead time'})
-    if ponto_de_pedido:
-        legenda.append({'tipo': 'pedido', 'rotulo': 'Ponto de pedido'})
-    descricao = f'Curva do estoque de {_numero(estoque)} unidades nos próximos {horizonte} dias, caindo no ritmo de vendas escolhido.'
-    return {'linhas': linhas, 'faixa': faixa, 'marcadores': marcadores, 'ponto_de_pedido': ponto_de_pedido, 'grades_y': grades_y, 'ticks_x': ticks_x,
-            'legenda': legenda, 'descricao': descricao, 'horizonte': horizonte, 'truncado': truncado}
+    periodos = [_periodo(s, estoque, lead, hoje, s['dias'] == destaque) for s in series]
+    dados = {
+        'hoje': hoje.isoformat(), 'horizonte': horizonte, 'estoque': estoque, 'yMax': round(y_max, 4), 'zoomMinimo': ZOOM_MINIMO_EM_DIAS, 'lead': lead, 'foco': f's{destaque}',
+        'ruptura': None if t_ruptura is None else round(t_ruptura, 4), 'enviar': None if (t_envio is None or t_envio < 0) else round(t_envio, 4), 'pedido': pedido if pedido else None,
+        'rupturaDia': dia_ruptura, 'enviarDia': dia_envio,
+        'series': [{'id': f's{s["dias"]}', 'dias': s['dias'], 'rotulo': _plural(s['dias'], 'dia', 'dias'), 'media': round(s['media'], 6), 'cor': _cor(s['dias']),
+                    'diaRuptura': floor(estoque / s['media']) if estoque > 0 and s['media'] > 0 else None} for s in com_ritmo],
+    }
+    descricao = (f'Curvas do estoque de {_numero(estoque)} unidades nos próximos {horizonte} dias, uma para cada ritmo de vendas ({", ".join(str(s["dias"]) for s in com_ritmo)} dias); '
+                 f'em destaque, o ritmo de {_plural(destaque, "dia", "dias")}.')
+    nota = f'A ruptura no ritmo de {_plural(destaque, "dia", "dias")} fica além do que o gráfico mostra ({horizonte} dias).' if truncado else ''
+    return {'linhas': linhas, 'zonas': zonas, 'zonas_legenda': zonas_legenda, 'marcadores': marcadores, 'pontos_de_ruptura': pontos_de_ruptura, 'ponto_de_pedido': ponto_de_pedido,
+            'grades_y': grades_y, 'ticks_x': ticks_x, 'periodos': periodos, 'dados': dados, 'descricao': descricao, 'horizonte': horizonte, 'viewbox': f'0 0 {horizonte} 100',
+            'truncado': truncado, 'nota': nota}

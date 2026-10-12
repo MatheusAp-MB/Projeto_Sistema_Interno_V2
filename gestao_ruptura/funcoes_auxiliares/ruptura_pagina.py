@@ -85,15 +85,19 @@ def _cartao_de_ruptura(rotulo, explicacao, ritmo, estoque, lead, hoje, destaque=
 
 # ==================================================== diagnóstico ====================================================
 
-def _item(classe, icone, texto):
-    return {'classe': classe, 'icone': icone, 'texto': texto}
+# * [EXPLICAÇÃO] → O diagnóstico é uma lista de CARTÕES EXPANSÍVEIS (pedido do Matheus, 12/10/2026: "muito texto; algo que mostre de forma chamativa o que o usuário precisa ver rápido, e se quiser
+#                  ele abre e vê os detalhes"). Cada cartão tem o RÓTULO ("Data de ruptura"), o VALOR em destaque ("13/12/2026"), um APOIO curto ("em 62 dias") e o DETALHE (a frase explicativa),
+#                  que só aparece ao abrir. A COR (`tom`) segue o mesmo significado do gráfico: vermelho = ruptura / prazo vencido / estoque zerado; verde = dá tempo (enviar até); laranja = atenção
+#                  (último dia de envio, abaixo do ponto de pedido, ritmo acelerou); azul = informação; cinza = sem dado ou sem previsão. A cor nunca é a única pista: o rótulo está escrito.
+def _cartao(tom, icone, rotulo, valor, apoio, detalhe):
+    return {'tom': tom, 'icone': icone, 'rotulo': rotulo, 'valor': valor, 'apoio': apoio, 'detalhe': detalhe}
 
 
-# Função Objetivo: O texto do diagnóstico, em português simples: o que o estoque faz no ritmo do período, quando preparar o envio, o ponto de pedido e se o ritmo
-# acelerou ou caiu nos últimos dias. O nível mostrado é o do ritmo do período escolhido.
+# Função Objetivo: O diagnóstico em cartões: a data de ruptura, até quando enviar, o ponto de pedido, o ritmo recente contra o do período e, se a opção estiver marcada, o "a caminho" que já
+# está na conta. O nível mostrado é o do ritmo do período escolhido. Sem ritmo ou sem estoque não há cartões: só o `resumo` (uma frase dizendo o que falta).
 def _diagnostico(estoque, lead, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, hoje, a_caminho_somado=0):
     media = ritmo_p['media']
-    sem = {'nivel': None, 'nivel_rotulo': '', 'itens': []}
+    sem = {'nivel': None, 'nivel_rotulo': '', 'cartoes': []}
     if media is None:
         return {**sem, 'resumo': f'Nenhum dia completo dos últimos {dias} foi coletado para este recorte: sem isso não dá para calcular o ritmo de vendas.'}
     ritmo_texto = f'{_un_dia(media)} un/dia'
@@ -103,42 +107,49 @@ def _diagnostico(estoque, lead, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, ho
     projecao = calc.projetar(estoque, media, hoje)
     situacao = projecao['situacao']
     nivel = calc.nivel_do_estoque(projecao, lead)
-    itens = []
+    cartoes = []
+
+    # ---- 1) a ruptura: sempre VERMELHA quando há data (a mesma cor do "Ruptura" do gráfico) ----
     if situacao == 'zerado':
         resumo = 'O estoque está zerado: o produto já está em ruptura.'
+        cartoes.append(_cartao('vermelho', 'fa-circle-exclamation', 'Situação atual', 'Estoque zerado', 'em ruptura agora', resumo))
     elif situacao == 'sem_vendas':
         resumo = f'Nos últimos {dias} dias completos não houve nenhuma venda: com {numero(estoque)} un em estoque não há ruptura prevista neste ritmo.'
+        cartoes.append(_cartao('cinza', 'fa-calendar-xmark', 'Data de ruptura', 'Sem previsão', 'sem vendas no período', resumo))
     elif situacao == 'longe':
         resumo = f'Com {ritmo_texto}, o estoque de {numero(estoque)} un dura mais de {numero(calc.DIAS_MAXIMOS_DA_PROJECAO)} dias.'
+        cartoes.append(_cartao('cinza', 'fa-calendar-xmark', 'Data de ruptura', 'Sem previsão', f'dura mais de {numero(calc.DIAS_MAXIMOS_DA_PROJECAO)} dias', resumo))
     else:
         resumo = f'Com {ritmo_texto} (ritmo dos últimos {dias} dias), o estoque de {numero(estoque)} un dura cerca de {_plural(projecao["dias"], "dia", "dias")}.'
-        itens.append(_item('alerta' if nivel in ('critico', 'ruptura') else 'info', 'fa-calendar-xmark', f'Ruptura prevista em {_data(projecao["data"])} ({_em_dias(projecao["dias"])}).'))
-    if a_caminho_somado:
-        itens.append(_item('info', 'fa-truck', f'O estoque de {numero(estoque)} un inclui {numero(a_caminho_somado)} un a caminho (enviadas ao Full e ainda não recebidas): a conta trata essas unidades como se já estivessem lá hoje.'))
+        cartoes.append(_cartao('vermelho', 'fa-calendar-xmark', 'Data de ruptura', _data(projecao['data']), _em_dias(projecao['dias']), resumo))
 
-    # ---- o envio e o ponto de pedido (dependem do lead time) ----
+    # ---- 2) o envio e 3) o ponto de pedido (dependem do lead time) ----
     if lead is None:
-        itens.append(_item('info', 'fa-circle-info', 'Informe o lead time para ver a data limite do envio e o nível do estoque.'))
+        cartoes.append(_cartao('cinza', 'fa-truck-fast', 'Enviar até', 'Informe o lead time', '', 'Informe o lead time para ver a data limite do envio e o nível do estoque.'))
     elif situacao == 'zerado':
         quando = 'assim que for enviado' if lead == 0 else f'{_plural(lead, "dia", "dias")} depois do envio'
-        itens.append(_item('alerta', 'fa-truck-fast', f'Com lead time de {_plural(lead, "dia", "dias")}, o produto só volta a ficar disponível {quando}: envie o quanto antes.'))
+        cartoes.append(_cartao('vermelho', 'fa-truck-fast', 'Enviar', 'O quanto antes', 'sem espera' if lead == 0 else f'demora {_plural(lead, "dia", "dias")}',
+                               f'Com lead time de {_plural(lead, "dia", "dias")}, o produto só volta a ficar disponível {quando}: envie o quanto antes.'))
     elif situacao == 'normal':
         envio = calc.envio(projecao, lead, hoje)
         if envio['atrasado']:
-            itens.append(_item('alerta', 'fa-triangle-exclamation',
-                               f'O prazo de envio já passou: com lead time de {_plural(lead, "dia", "dias")}, mesmo enviando hoje o produto só fica disponível em {_data(envio["chegada"])} '
-                               f'e vão faltar cerca de {_plural(envio["faltam_dias"], "dia", "dias")} de estoque.'))
+            cartoes.append(_cartao('vermelho', 'fa-triangle-exclamation', 'Enviar até', 'Prazo vencido', f'vai faltar {_plural(envio["faltam_dias"], "dia", "dias")}',
+                                   f'O prazo de envio acabou em {_data(envio["enviar_ate"])}: com lead time de {_plural(lead, "dia", "dias")}, mesmo enviando hoje o produto só fica disponível em '
+                                   f'{_data(envio["chegada"])} e vão faltar cerca de {_plural(envio["faltam_dias"], "dia", "dias")} de estoque.'))
         else:
-            quando = 'hoje' if envio['em_dias'] == 0 else f'daqui a {_plural(envio["em_dias"], "dia", "dias")}'
-            itens.append(_item('ok', 'fa-truck-fast', f'Prepare o envio até {_data(envio["enviar_ate"])} ({quando}). Com lead time de {_plural(lead, "dia", "dias")}, '
-                                                      f'o produto fica disponível quando o estoque acabar.'))
+            ultimo_dia = envio['em_dias'] == 0
+            cartoes.append(_cartao('laranja' if ultimo_dia else 'verde', 'fa-truck-fast', 'Enviar até', _data(envio['enviar_ate']),
+                                   'hoje, último dia' if ultimo_dia else f'daqui a {_plural(envio["em_dias"], "dia", "dias")}',
+                                   f'Prepare o envio até essa data. Com lead time de {_plural(lead, "dia", "dias")}, o produto fica disponível quando o estoque acabar.'))
         pedido = calc.ponto_de_pedido(media, lead)
-        abaixo = estoque < media * lead
-        itens.append(_item('info', 'fa-gauge-high', f'Ponto de pedido: {numero(pedido)} un (ritmo × lead time). O estoque atual {"já está abaixo" if abaixo else "ainda está acima"} dele.'))
+        if pedido is not None:
+            abaixo = estoque < media * lead
+            cartoes.append(_cartao('laranja' if abaixo else 'azul', 'fa-gauge-high', 'Ponto de pedido', f'{numero(pedido)} un', 'estoque abaixo dele' if abaixo else 'estoque acima dele',
+                                   f'É o ritmo × lead time: quanto se vende durante o lead time. O estoque atual {"já está abaixo" if abaixo else "ainda está acima"} dele.'))
     else:
-        itens.append(_item('info', 'fa-circle-info', 'Sem ruptura prevista neste ritmo: não há data limite de envio.'))
+        cartoes.append(_cartao('cinza', 'fa-truck-fast', 'Enviar até', 'Sem data limite', '', 'Sem ruptura prevista neste ritmo: não há data limite de envio.'))
 
-    # ---- o ritmo recente contra o do período ----
+    # ---- 4) o ritmo recente contra o do período ----
     comparacao = None if mesmo_ritmo or estoque <= 0 else calc.comparar_ritmos(ritmo_r['media'], media)
     if comparacao and media <= 0 and not ritmo_r['media']:
         comparacao = None   # nenhuma venda nos dois ritmos: não há o que comparar
@@ -146,6 +157,7 @@ def _diagnostico(estoque, lead, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, ho
         mr = ritmo_r['media']
         proj_r = calc.projetar(estoque, mr, hoje)
         pct = comparacao['pct']
+        rotulo = f'Ritmo dos últimos {_plural(recente, "dia", "dias")}' if recente != 1 else 'Ritmo do último dia'
         recente_texto = f'nos últimos {recente} dias foram {_un_dia(mr)} un/dia, contra {ritmo_texto} no período'
         if comparacao['sentido'] == 'acelerou':
             texto = f'O ritmo acelerou: {recente_texto}{f" ({_pct(pct)})" if pct is not None else ""}.'
@@ -153,15 +165,20 @@ def _diagnostico(estoque, lead, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, ho
                 antes = projecao['dias'] - proj_r['dias'] if situacao == 'normal' else 0
                 complemento = f', {_plural(antes, "dia", "dias")} antes' if antes > 0 else ''
                 texto += f' Nesse ritmo a ruptura vem em {_data(proj_r["data"])} ({_em_dias(proj_r["dias"])}){complemento}.'
-            itens.append(_item('alerta', 'fa-gauge-simple-high', texto))
+            cartoes.append(_cartao('laranja', 'fa-gauge-simple-high', rotulo, f'{_un_dia(mr)} un/dia', f'acelerou {_pct(pct)}' if pct is not None else 'acelerou', texto))
         elif comparacao['sentido'] == 'caiu':
             texto = f'O ritmo caiu: {recente_texto} ({_pct(pct)}).'
             if proj_r['situacao'] == 'normal':
                 texto += f' Nesse ritmo o estoque dura até {_data(proj_r["data"])}.'
-            itens.append(_item('info', 'fa-gauge-simple', texto))
+            cartoes.append(_cartao('azul', 'fa-gauge-simple', rotulo, f'{_un_dia(mr)} un/dia', f'caiu {_pct(pct)}', texto))
         else:
-            itens.append(_item('ok', 'fa-circle-check', f'Ritmo estável: {recente_texto}.'))
-    return {'nivel': nivel, 'nivel_rotulo': calc.NIVEIS.get(nivel, ''), 'resumo': resumo, 'itens': itens}
+            cartoes.append(_cartao('verde', 'fa-circle-check', rotulo, f'{_un_dia(mr)} un/dia', 'estável', f'Ritmo estável: {recente_texto}.'))
+
+    # ---- 5) o "a caminho" que já está na conta (opção marcada) ----
+    if a_caminho_somado:
+        cartoes.append(_cartao('azul', 'fa-truck', 'A caminho (já incluído)', f'{numero(a_caminho_somado)} un', 'somadas ao estoque',
+                               f'O estoque de {numero(estoque)} un inclui {numero(a_caminho_somado)} un a caminho (enviadas ao Full e ainda não recebidas): a conta trata essas unidades como se já estivessem lá hoje.'))
+    return {'nivel': nivel, 'nivel_rotulo': calc.NIVEIS.get(nivel, ''), 'resumo': resumo, 'cartoes': cartoes}
 
 
 # ==================================================== o detalhe de um item ====================================================
@@ -237,7 +254,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
         'cartoes': [], 'grafico': None, 'diagnostico': None, 'alvo': None, 'tabela_de_codigos': None, 'dica_do_estoque': {'texto': '', 'classe': ''},
     })
 
-    de = hoje - timedelta(days=max(dias, recente))
+    de = hoje - timedelta(days=max(dias, recente, max(calc.DIAS_DOS_RITMOS_DO_GRAFICO)))   # o gráfico compara 3, 7, 15 e 30 dias: as vendas desses dias já estão no banco (nada de API)
     dados = unidades_por_dia(sku, nivel, de, hoje, '' if gran == 'sku' else item, origem)
     cadastro = dados['cadastro']
     if cadastro is None:
@@ -326,10 +343,22 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
     ]
 
     # ---- a curva e o diagnóstico ----
-    series = [{'classe': 'periodo', 'media': media, 'rotulo': f'Ritmo de {dias} dias'}]
-    if not mesmo_ritmo and ritmo_r['media'] is not None and media is not None and abs(ritmo_r['media'] - media) > 1e-9:
-        series.append({'classe': 'recente', 'media': ritmo_r['media'], 'rotulo': f'Ritmo de {recente} dias'})
-    pagina['grafico'] = montar_grafico(estoque, lead, series, hoje)
+    # * [EXPLICAÇÃO] → O gráfico mostra os ritmos de 3, 7, 15 e 30 dias (+ o período digitado, se for outro). Clicar num deles RECARREGA a tela com aquele período (dias=N): assim o ritmo em destaque
+    #                  do gráfico e todo o resto da tela (cartões, diagnóstico, ritmo do formulário) nunca divergem. O "#rup-grafico" faz o navegador voltar para o gráfico, em vez do topo da página.
+    def endereco_do_ritmo(n):
+        return url_da_tela(base_url, sku=sku, gran=gran if gran != 'sku' else None, item=item if gran != 'sku' else None, visao=visao if visao != 'full' else None, estoque=estoque_digitado,
+                           dias=n if n != calc.DIAS_PADRAO else None, lead=lead if lead != calc.LEAD_TIME_PADRAO else None, caminho=1 if caminho else None) + '#rup-grafico'
+
+    def ritmo_de(n):
+        if n == dias:
+            return ritmo_p
+        if n == recente:
+            return ritmo_r
+        return calc.ritmo_da_janela(janela(n), dados['por_dia'], dados['estados'])
+
+    dias_do_grafico = sorted({n for n in calc.DIAS_DOS_RITMOS_DO_GRAFICO if n <= comuns['maximo']} | {dias})
+    series = [{'dias': n, 'media': ritmo_de(n)['media'], 'url': endereco_do_ritmo(n)} for n in dias_do_grafico]
+    pagina['grafico'] = montar_grafico(estoque, lead, series, dias, hoje)
     pagina['diagnostico'] = _diagnostico(estoque, lead, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, hoje, a_caminho_somado)
 
 
