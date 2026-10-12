@@ -1,0 +1,32 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Ruptura de estoque — Mercado Livre{% endblock %}
+{% block toolbar_titulo %}Estoque — Ruptura de estoque{% endblock %}
+{% block body_class %}rup-tela{% if pagina.modo == 'lista' %} rup-tela--lista{% endif %}{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet"
+          href="{% static 'gestao_ruptura/css/layout_ruptura.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Estoque — Ruptura de estoque" (PROVA DE CONCEITO, 12/10/2026). Responde: com o ritmo de vendas dos últimos N dias, quantos dias dura o estoque (a COBERTURA), em que dia ele
+      acaba, até quando preparar o envio (ruptura − lead time) e em que NÍVEL ele está (alto, baixo, crítico ou ruptura; regra provisória). Tem DUAS visões:
+        1) a LISTA (sem SKU na URL): uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML, por ordem de urgência — parciais/estrutura_parcial_lista.html;
+        2) o DETALHE de um item (com SKU na URL; no MLB e no Código ML, também gran e item): a curva de estoque, os 4 cartões, o diagnóstico e o estoque do Full por Código ML —
+           parciais/estrutura_parcial_detalhe.html.
+      O ritmo vem das vendas reais já coletadas (a mesma regra da tela de Vendas). O ESTOQUE do Full vem da última consulta salva de cada Código ML (a mesma da tela "Estoque no Full"); fora do
+      Full o estoque é DIGITADO por enquanto (a API de estoque do ERP ainda será corrigida). Só lê o banco: nada é guardado e o ML nunca é chamado.
+    * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical" (regra do Matheus): a disposição só muda pela largura da JANELA (@media), nunca pelo espaço que sobra ao lado da barra lateral;
+      todas as alturas são fixas (1 linha de valor e 1 de apoio nos cartões; linhas da lista com altura igual; gráfico e diagnóstico com altura fixa).
+    {% endcomment %}
+    <div class="rup-pagina{% if pagina.modo == 'lista' %} rup-pagina--lista{% endif %}">
+        {% if pagina.modo == 'lista' %}
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_lista.html' %}
+        {% else %}
+            {% include 'gestao_ruptura/parciais/estrutura_parcial_detalhe.html' %}
+        {% endif %}
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'gestao_ruptura/js/script_ruptura.js' %}"></script>
+{% endblock %}

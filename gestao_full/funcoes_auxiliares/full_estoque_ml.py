@@ -438,6 +438,39 @@ def codigos_ml_do_produto(sku):
     return sorted(info['codigo'] for info in codigos.values())
 
 
+# Função Objetivo: O estoque no Full de VÁRIOS Códigos ML de uma vez, da última consulta SALVA de cada um (esta função NUNCA chama o Mercado Livre). Devolve {CÓDIGO_MAIÚSCULO: cartão}, o mesmo
+# cartão da tela "Estoque no Full" (_numeros_do_codigo: estado ok/erro/sem_consulta, total, disponível, indisponível, motivos, idade, desatualizado...) mais 'consulta_id' (o id da consulta
+# lida, para a_caminho_dos_codigos). É a porta PÚBLICA para quem precisa do estoque do Full de muitos Códigos (hoje: a tela "Ruptura de estoque", app gestao_ruptura): lê o MESMO que esta tela lê.
+# * [EXPLICAÇÃO] → Custo fixo de 2 consultas ao banco (o id da última consulta de cada Código e essas consultas, só com a coluna do estoque), seja 1 ou 1.500 Códigos.
+def estoque_full_dos_codigos(codigos, agora=None):
+    agora = agora or timezone.now()
+    ultimas = _ler_ultimas_consultas({str(c).upper() for c in codigos if c})
+    cartoes = {}
+    for codigo in codigos:
+        if not codigo:
+            continue
+        consulta = ultimas.get(str(codigo).upper())
+        cartao = _numeros_do_codigo(str(codigo), consulta, agora)
+        cartao['consulta_id'] = consulta.pk if consulta else None
+        cartoes[str(codigo).upper()] = cartao
+    return cartoes
+
+
+# Função Objetivo: Preenche o "A caminho" (e a "Soma geral") nos cartões de estoque_full_dos_codigos que forem passados, lendo a consulta de REPOSIÇÃO salva deles (a parte pesada: por isso quem
+# chama passa só os Códigos que vai mostrar, por exemplo os da página). O cálculo é o de _aptas_do_codigo, o MESMO da tela "Estoque no Full": 'a_caminho' fica None quando não dá para saber.
+def a_caminho_dos_codigos(cartoes):
+    from mercado_livre.models import ConsultaFullMercadoLivre
+
+    ids = {c['consulta_id'] for c in cartoes.values() if c['estado'] == 'ok' and c.get('consulta_id')}
+    consultas = {c.pk: c for c in ConsultaFullMercadoLivre.objects.filter(pk__in=ids).only('id', 'reposicao')} if ids else {}
+    for cartao in cartoes.values():
+        if cartao['estado'] != 'ok':
+            continue
+        consulta = consultas.get(cartao.get('consulta_id'))
+        cartao.update(_aptas_do_codigo(consulta.reposicao if consulta else None, cartao['total'],
+                                       _quantidade_do_motivo(cartao['motivos'], STATUS_PERDIDA), _quantidade_do_motivo(cartao['motivos'], STATUS_NAO_SUPORTADA)))
+
+
 def _ler_cadastro(skus):
     from produtos.models import Produto
 

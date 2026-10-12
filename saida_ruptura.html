@@ -1,0 +1,753 @@
+<!--
+* [RESUMO] → Template base global do sistema.
+* Todas as páginas do sistema herdam deste arquivo usando { % extends % }.
+* Define a estrutura visual completa: sidebar, toolbar e área de conteúdo.
+* Blocks disponíveis para páginas filhas:
+*   - titulo          → título da aba do navegador
+*   - head_extra      → CSS e imports específicos da página
+*   - toolbar_titulo  → título exibido na toolbar
+*   - toolbar_acoes   → botões de ação na toolbar (opcional)
+*   - conteudo        → conteúdo principal da página
+*   - scripts         → JS específico da página
+-->
+
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <!-- * [EXPLICAÇÃO] → Título da aba do navegador.
+         * Páginas filhas substituem o block titulo. -->
+        <title>Ruptura de estoque — Mercado Livre</title>
+        <link rel="icon" type="image/jpeg" href="/static/base_compartilhada/img/logo.jpg">
+        <!-- Google Fonts -->
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap"
+              rel="stylesheet">
+        <!-- Bootstrap 5 -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+              rel="stylesheet">
+        <!-- Font Awesome -->
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+              rel="stylesheet">
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+        <!-- DataTables CSS -->
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+        <!-- DataTables JS -->
+        <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+        <!-- SearchPanes -->
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/searchpanes/2.2.0/css/searchPanes.dataTables.min.css">
+        <script src="https://cdn.datatables.net/searchpanes/2.2.0/js/dataTables.searchPanes.min.js"></script>
+        <!-- Select -->
+        <link rel="stylesheet"
+              href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
+        <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
+        <!-- Layout global do sistema -->
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_global.css">
+        <!-- DataTables — estilos compartilhados -->
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_datatables.css">
+        <!-- Tipos de anúncio — badges e cores de linha compartilhados -->
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_tipos_anuncio.css">
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_badges.css">
+        <!-- Telas de lista — tabela de dados, busca, chips de filtro e paginação compartilhados -->
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_tabela_dados.css">
+        <!-- Cartão de anúncio (1 MLB numa linha) compartilhado -->
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_cartao_anuncio.css">
+        <!-- Modal — estilos compartilhados -->
+        <link rel="stylesheet"
+              href="/static/base_compartilhada/css/layout_modal.css">
+        <!--
+    * [EXPLICAÇÃO] → Block para CSS específico de cada página.
+    * Páginas filhas adicionam seus próprios arquivos CSS aqui.
+    -->
+        
+    <link rel="stylesheet"
+          href="/static/gestao_ruptura/css/layout_ruptura.css">
+
+    </head>
+    <body class="rup-tela">
+        <script>
+            // * [EXPLICAÇÃO] → Roda ANTES do resto da página renderizar, de
+            //                  propósito — evita o "flash" de sidebar aberta
+            //                  fechando 1 fração de segundo depois, que
+            //                  aconteceria se essa leitura ficasse só no
+            //                  script_global.js (que carrega no fim da página).
+            if (localStorage.getItem('sidebar_oculta') === 'true') {
+                document.body.classList.add('sidebar-oculta');
+            }
+        </script>
+        <!--
+    * [EXPLICAÇÃO] → Container principal do layout.
+    * Usa flexbox para colocar sidebar e conteúdo lado a lado.
+    -->
+        <div class="layout-container">
+            <!-- ================================================
+             SIDEBAR — navegação lateral fixa
+             ================================================ -->
+            <aside class="sidebar" id="sidebar">
+                <!-- Logo -->
+                <a href="/" class="text-decoration-none">
+                    <div class="sidebar-logo">
+                        <img src="/static/base_compartilhada/img/logo.jpg" alt="Logo MB/SV">
+                        <span>Sistema MB/SV</span>
+                    </div>
+                </a>
+                <!-- Navegação -->
+                <nav class="sidebar-nav">
+                    <!-- ATENÇÃO: os módulos deste menu espelham os cards de pagina_home/estrutura_home.html (mesma ordem, nome e ícone) — mudou um, muda o outro. -->
+                    <!-- Produtos -->
+                    <a href="/produtos/" class="sidebar-item">
+                        <i class="fas fa-box"></i>
+                        <span>Produtos</span>
+                    </a>
+                    <!-- Impostos -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-landmark"></i>
+                            <span>Impostos</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="/impostos/visao-geral/" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
+                            <a href="/impostos/" class="sidebar-subitem">
+                                <i class="fas fa-file-invoice-dollar"></i> Impostos de Entrada
+                            </a>
+                            <a href="/impostos/icms-por-ncm/" class="sidebar-subitem">
+                                <i class="fas fa-map-marked-alt"></i> ICMS por NCM
+                            </a>
+                            <a href="/impostos/pis-cofins-por-ncm-cst/" class="sidebar-subitem">
+                                <i class="fas fa-percentage"></i> PIS/COFINS por NCM
+                            </a>
+                            <a href="/impostos/auditoria-fiscal/" class="sidebar-subitem">
+                                <i class="fas fa-magnifying-glass-chart"></i> Auditoria Fiscal
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Precificação -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-calculator"></i>
+                            <span>Precificação</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="/precificacao/" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
+                            <a href="/precificacao/resumo-marketplaces/" class="sidebar-subitem">
+                                <i class="fas fa-table"></i> Resumo por Marketplace
+                            </a>
+                            <a href="/precificacao/grade-mercado-livre/" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Mercado Livre
+                            </a>
+                            <a href="/precificacao/grade-magalu/" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Magalu
+                            </a>
+                            <a href="/precificacao/grade-raia/" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Raia
+                            </a>
+                            <a href="/precificacao/grade-shopee/" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Shopee
+                            </a>
+                            <a href="/precificacao/grade-tiktok/" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade TikTok Shop
+                            </a>
+                            <a href="/precificacao/grade-amazon/" class="sidebar-subitem">
+                                <i class="fas fa-store"></i> Grade Amazon
+                            </a>
+                            <a href="/precificacao/exportar-precos/" class="sidebar-subitem">
+                                <i class="fas fa-file-export"></i> Exportar Precificação
+                            </a>
+                            <a href="/precificacao/configuracoes-operacionais/" class="sidebar-subitem">
+                                <i class="fas fa-truck-loading"></i> Configuração Operacional
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Mercado Livre -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-store"></i>
+                            <span>Mercado Livre</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="/mercado-livre/" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-rectangle-list"></i>
+                                    <span>Anúncios</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/mercado-livre/anuncios/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-store"></i> Hub de Anúncios
+                                    </a>
+                                    <a href="/mercado-livre/fotos/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-images"></i> Hub de Fotos
+                                    </a>
+                                    <a href="/mercado-livre/categorias/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sitemap"></i> Categorias
+                                    </a>
+                                    <a href="/mercado-livre/caracteristicas/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-list-check"></i> Características
+                                    </a>
+                                    <a href="/mercado-livre/precificar/hub-promocoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-percentage"></i> Hub de Promoções
+                                    </a>
+                                    <a href="/mercado-livre/resumo-criterios/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-table"></i> Resumo de Critérios
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-warehouse"></i>
+                                    <span>Full</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/gestao-full/estoque/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-boxes-stacked"></i> Estoque no Full
+                                    </a>
+                                    <a href="/gestao-full/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-boxes-packing"></i> Planejamento de envios
+                                    </a>
+                                    <a href="/gestao-full/debug/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-screwdriver-wrench"></i> Ficha do código (debug)
+                                    </a>
+                                    <a href="/gestao-full/comparativo-estoque/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-scale-balanced"></i> Comparativo de estoque (debug)
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-chart-line"></i>
+                                    <span>Vendas</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/gestao-vendas/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-calendar-days"></i> Histórico de vendas
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-boxes-stacked"></i>
+                                    <span>Estoque</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/gestao-ruptura/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-triangle-exclamation"></i> Ruptura de estoque
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-video"></i>
+                                    <span>Vídeos</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/agenda-videos/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-calendar-check"></i> Agenda
+                                    </a>
+                                    <a href="/agenda-videos/historico/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-history"></i> Histórico
+                                    </a>
+                                    <a href="/agenda-videos/portal-drive/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-cloud-arrow-up"></i> Portal do Drive
+                                    </a>
+                                    <a href="/agenda-videos/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-dollar-sign"></i>
+                                    <span>Preço e frete</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/mercado-livre/precificar/tabela-de-frete/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="/mercado-livre/precificar/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Outros marketplaces -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-tags"></i>
+                            <span>Outros marketplaces</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="/marketplaces/" class="sidebar-subitem">
+                                <i class="fas fa-th-large"></i> Visão geral
+                            </a>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Magalu</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/magalu/tabela-frete/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="/magalu/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Raia</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/raia/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Shopee</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/shopee/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                    <a href="/shopee/promocao/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-percentage"></i> Gerar Promoção
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>TikTok Shop</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/tiktok/tabela-frete/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="/tiktok/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                    <a href="/tiktok/promocao/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-percentage"></i> Gerar Promoção
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="sidebar-dropdown sidebar-dropdown-nivel2">
+                                <a href="#" class="sidebar-subitem sidebar-dropdown-toggle">
+                                    <i class="fas fa-store"></i>
+                                    <span>Amazon</span>
+                                    <i class="fas fa-chevron-down sidebar-chevron"></i>
+                                </a>
+                                <div class="sidebar-dropdown-menu">
+                                    <a href="/amazon/tabela-frete/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-truck"></i> Tabela de Frete
+                                    </a>
+                                    <a href="/amazon/configuracoes/"
+                                       class="sidebar-subitem sidebar-subitem-nivel2">
+                                        <i class="fas fa-sliders-h"></i> Configurações
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Configurações -->
+                    <div class="sidebar-dropdown">
+                        <a href="#" class="sidebar-item sidebar-dropdown-toggle">
+                            <i class="fas fa-sliders-h"></i>
+                            <span>Configurações</span>
+                            <i class="fas fa-chevron-down sidebar-chevron"></i>
+                        </a>
+                        <div class="sidebar-dropdown-menu">
+                            <a href="#" class="sidebar-subitem">
+                                <i class="fas fa-users"></i> Controle de Usuários
+                            </a>
+                        </div>
+                    </div>
+                </nav>
+            </aside>
+            <!-- Fim sidebar -->
+            <!-- ================================================
+             ÁREA PRINCIPAL — toolbar + conteúdo
+             ================================================ -->
+            <div class="main-wrapper">
+                <!-- TOOLBAR -->
+                <header class="toolbar">
+                    <!-- Botão para ocultar/exibir a sidebar -->
+                    <button class="toolbar-toggle" id="btn-toggle-sidebar">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <!-- Título da página -->
+                    <h1 class="toolbar-titulo">
+                        Estoque — Ruptura de estoque
+                    </h1>
+                    <!--
+                * [EXPLICAÇÃO] → Block para botões de ação na toolbar.
+                * Algumas páginas colocam botões aqui (ex: Salvar, Recalcular).
+                -->
+                    <div class="toolbar-acoes">
+                        
+                    </div>
+                    <!-- Empresa ativa — sempre visível, também é o link pra trocar -->
+                    <a href="/empresa/" class="badge-empresa badge-empresa-magazine">
+                        <i class="fas fa-building"></i>
+                        <span>MAGAZINE BRASILEIRO</span>
+                    </a>
+                    <!-- Perfil do usuário -->
+                    <div class="toolbar-perfil dropdown">
+                        <button class="btn-perfil dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle"></i>
+                            <!--
+                        * [EXPLICAÇÃO] → request.user.username exibe o nome
+                        * do usuário logado. Vem automaticamente do sistema
+                        * de autenticação do Django.
+                        -->
+                            <span></span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="/logout/">
+                                    <i class="fas fa-sign-out-alt"></i> Sair
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </header>
+                <!-- Fim toolbar -->
+                <!-- CONTEÚDO PRINCIPAL -->
+                <main class="conteudo-principal">
+                    <!--
+                * [EXPLICAÇÃO] → Avisos globais (Django messages) — qualquer
+                * view do sistema pode chamar messages.success/warning/error,
+                * e aparece aqui, no topo do conteúdo, em QUALQUER página.
+                * O Django consome e descarta a mensagem sozinho depois de
+                * exibida (não reaparece se der F5 na página).
+                -->
+                    
+                    <!--
+                * [EXPLICAÇÃO] → Block principal onde cada página
+                * insere seu conteúdo específico.
+                -->
+                    
+    
+    <div class="rup-pagina">
+        <form method="get" action="/gestao-ruptura/" id="rup-form" class="rup-caixa" role="search">
+            <div class="rup-linha">
+                <div class="rup-campo rup-campo--sku">
+                    <label class="rup-rotulo" for="rup-sku">SKU</label>
+                    <input type="text"
+                           id="rup-sku"
+                           name="sku"
+                           value="A1"
+                           class="rup-input"
+                           placeholder="Código do produto (SKU)"
+                           autocomplete="off"
+                           spellcheck="false"
+                           >
+                </div>
+                <div class="rup-campo">
+                    <span class="rup-rotulo" id="rup-visao-rotulo">Ver</span>
+                    <div class="lista-chips" role="radiogroup" aria-labelledby="rup-visao-rotulo">
+                        
+                            <label class="lista-chip rup-chip lista-chip--ativo" title="Só as vendas cujo estoque saiu de um centro do Full. O estoque digitado é o que está no Full.">
+                                <input type="radio" name="visao" value="full" class="rup-radio" checked>No Full
+                            </label>
+                        
+                            <label class="lista-chip rup-chip" title="Só as vendas do estoque próprio (coleta, agência, Flex). O estoque digitado é o do seu estoque.">
+                                <input type="radio" name="visao" value="fora" class="rup-radio">Fora do Full
+                            </label>
+                        
+                            <label class="lista-chip rup-chip" title="Todas as vendas do SKU, Full e fora do Full. O estoque digitado é a soma dos dois.">
+                                <input type="radio" name="visao" value="produto" class="rup-radio">Produto (tudo)
+                            </label>
+                        
+                    </div>
+                </div>
+                <button type="submit" class="btn-acao rup-calcular">
+                    <i class="fas fa-calculator" aria-hidden="true"></i> Calcular
+                </button>
+            </div>
+            <div class="rup-linha rup-linha--valores">
+                <div class="rup-campo rup-campo--ritmo">
+                    <label class="rup-rotulo" for="rup-dias">Ritmo dos últimos</label>
+                    <input type="number"
+                           id="rup-dias"
+                           name="dias"
+                           value="30"
+                           min="1"
+                           step="1"
+                           inputmode="numeric"
+                           class="rup-input rup-input--num">
+                    <span class="rup-unidade">dias</span>
+                    <div class="lista-chips" aria-label="Atalhos de período">
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho"
+                                    data-dias="7">7</button>
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho"
+                                    data-dias="15">15</button>
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho lista-chip--ativo"
+                                    data-dias="30">30</button>
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho"
+                                    data-dias="60">60</button>
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho"
+                                    data-dias="90">90</button>
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho"
+                                    data-dias="120">120</button>
+                        
+                            <button type="button"
+                                    class="lista-chip rup-atalho"
+                                    data-dias="364">1 ano</button>
+                        
+                    </div>
+                </div>
+                <div class="rup-campo">
+                    <label class="rup-rotulo" for="rup-estoque">Estoque no Full</label>
+                    <input type="number"
+                           id="rup-estoque"
+                           name="estoque"
+                           value="100"
+                           min="0"
+                           step="1"
+                           inputmode="numeric"
+                           placeholder="unidades"
+                           class="rup-input rup-input--num">
+                </div>
+                <div class="rup-campo">
+                    <label class="rup-rotulo" for="rup-lead">Lead time</label>
+                    <input type="number"
+                           id="rup-lead"
+                           name="lead"
+                           value="20"
+                           min="0"
+                           max="365"
+                           step="1"
+                           inputmode="numeric"
+                           placeholder="dias"
+                           class="rup-input rup-input--num">
+                    <span class="rup-unidade">dias</span>
+                </div>
+            </div>
+        </form>
+        
+        
+        
+            
+                <section class="rup-produto" aria-label="Produto">
+                    
+                        <span class="rup-produto-imagem rup-produto-imagem--vazia" aria-hidden="true"><i class="fas fa-box"></i></span>
+                    
+                    <div class="rup-produto-texto">
+                        <h2 class="rup-produto-titulo" title="Cadeira Gamer Preta">Cadeira Gamer Preta</h2>
+                        <p class="rup-produto-meta">
+                            <span>SKU <strong>A1</strong></span>
+                            <span>Marca <strong>Alfa</strong></span>
+                            <span><strong>2 anúncios (MLB)</strong></span>
+                            <span>vendas atualizadas em <strong>12/10 12:00</strong></span>
+                        </p>
+                    </div>
+                    <a href="/gestao-vendas/?sku=A1&amp;nivel=full" class="rup-link"><i class="fas fa-calendar-days" aria-hidden="true"></i> Ver calendário de vendas</a>
+                </section>
+                <section class="rup-cartoes" aria-label="Resumo da projeção">
+                    
+                        <article class="rup-cartao" title="Média dos últimos 7 dias completos: mostra se o ritmo mudou há pouco tempo. em 175 dias · 0,57 un/dia.">
+                            <span class="rup-cartao-rotulo">Ruptura · ritmo de 7 dias</span>
+                            <div class="rup-cartao-linha">
+                                <span class="rup-cartao-valor">05/04/2027</span>
+                                <span class="rup-nivel rup-nivel--alto" title="Estoque alto">Alto</span>
+                            </div>
+                            <span class="rup-cartao-sub">em 175 dias · 0,57 un/dia</span>
+                        </article>
+                    
+                        <article class="rup-cartao rup-cartao--destaque" title="Média dos últimos 30 dias (de 12/09/2026 até ontem). Só dias completos entram: hoje (parcial) e dias sem coleta ficam de fora; venda cancelada não conta. em 150 dias · 0,67 un/dia.">
+                            <span class="rup-cartao-rotulo">Ruptura · ritmo de 30 dias</span>
+                            <div class="rup-cartao-linha">
+                                <span class="rup-cartao-valor">11/03/2027</span>
+                                <span class="rup-nivel rup-nivel--alto" title="Estoque alto">Alto</span>
+                            </div>
+                            <span class="rup-cartao-sub">em 150 dias · 0,67 un/dia</span>
+                        </article>
+                    
+                        <article class="rup-cartao" title="Média dos últimos 30 dias (de 12/09/2026 até ontem). Só dias completos entram: hoje (parcial) e dias sem coleta ficam de fora; venda cancelada não conta. Entraram 30 dos 30 dias; média 0,67 un/dia · 30/30 dias.">
+                            <span class="rup-cartao-rotulo">Vendas nos últimos 30 dias</span>
+                            <div class="rup-cartao-linha">
+                                <span class="rup-cartao-valor">20 un</span>
+                                
+                            </div>
+                            <span class="rup-cartao-sub">média 0,67 un/dia · 30/30 dias</span>
+                        </article>
+                    
+                        <article class="rup-cartao" title="Estoque no Full e lead time (dias até o produto ficar disponível para venda), digitados nesta tela. lead time de 20 dias.">
+                            <span class="rup-cartao-rotulo">Estoque e lead time</span>
+                            <div class="rup-cartao-linha">
+                                <span class="rup-cartao-valor">100 un</span>
+                                
+                            </div>
+                            <span class="rup-cartao-sub">lead time de 20 dias</span>
+                        </article>
+                    
+                </section>
+                <section class="rup-painel" aria-label="Curva de estoque e diagnóstico">
+                    <div class="rup-caixa-painel rup-caixa-painel--grafico">
+                        <header class="rup-painel-cab">
+                            <h2 class="rup-painel-titulo">Curva de estoque</h2>
+                            
+                                <ul class="rup-legenda">
+                                    
+                                        <li><span class="rup-amostra rup-amostra--periodo" aria-hidden="true"></span>Ritmo de 30 dias</li>
+                                    
+                                        <li><span class="rup-amostra rup-amostra--recente" aria-hidden="true"></span>Ritmo de 7 dias</li>
+                                    
+                                        <li><span class="rup-amostra rup-amostra--faixa" aria-hidden="true"></span>Lead time</li>
+                                    
+                                        <li><span class="rup-amostra rup-amostra--pedido" aria-hidden="true"></span>Ponto de pedido</li>
+                                    
+                                </ul>
+                            
+                        </header>
+                        
+                            <div class="rup-grafico" role="img" aria-label="Curva do estoque de 100 unidades nos próximos 197 dias, caindo no ritmo de vendas escolhido.">
+                                <div class="rup-grafico-area">
+                                    <svg class="rup-grafico-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                        <line class="rup-grade" x1="0" x2="100" y1="100.00" y2="100.00"/><line class="rup-grade" x1="0" x2="100" y1="54.55" y2="54.55"/><line class="rup-grade" x1="0" x2="100" y1="9.09" y2="9.09"/>
+                                        <rect class="rup-faixa" x="65.99" y="0" width="10.15" height="100"/>
+                                        <polygon class="rup-area" points="0.00,9.09 76.14,100.00 100.00,100.00 100.00,100.00 0.00,100.00"/>
+                                        <line class="rup-pedido-linha" x1="0" x2="100" y1="87.27" y2="87.27"/>
+                                        <line class="rup-marcador rup-marcador--enviar" x1="65.99" x2="65.99" y1="0" y2="100"/><line class="rup-marcador rup-marcador--ruptura" x1="76.14" x2="76.14" y1="0" y2="100"/><line class="rup-marcador rup-marcador--recente" x1="88.83" x2="88.83" y1="0" y2="100"/>
+                                        <polyline class="rup-curva rup-curva--periodo" points="0.00,9.09 76.14,100.00 100.00,100.00"/><polyline class="rup-curva rup-curva--recente" points="0.00,9.09 88.83,100.00 100.00,100.00"/>
+                                    </svg>
+                                    <span class="rup-rotulo-y" style="top: 100.00%">0</span><span class="rup-rotulo-y" style="top: 54.55%">50</span><span class="rup-rotulo-y" style="top: 9.09%">100</span>
+                                    <span class="rup-rotulo-x rup-rotulo-x--hoje" style="left: 0.00%">HOJE</span><span class="rup-rotulo-x" style="left: 15.23%">11/11</span><span class="rup-rotulo-x" style="left: 30.46%">11/12</span><span class="rup-rotulo-x" style="left: 45.69%">10/01/2027</span><span class="rup-rotulo-x" style="left: 60.91%">09/02/2027</span><span class="rup-rotulo-x" style="left: 76.14%">11/03/2027</span><span class="rup-rotulo-x" style="left: 91.37%">10/04/2027</span>
+                                    <span class="rup-etiqueta rup-etiqueta--faixa" style="left: 71.07%">Lead time: 20 dias</span>
+                                    <span class="rup-etiqueta rup-etiqueta--enviar rup-etiqueta--esq" style="left: 65.99%; top: 6px">Enviar até 19/02/2027</span><span class="rup-etiqueta rup-etiqueta--ruptura rup-etiqueta--esq" style="left: 76.14%; top: 30px">Ruptura 11/03/2027</span><span class="rup-etiqueta rup-etiqueta--recente rup-etiqueta--esq" style="left: 88.83%; top: 54px">Ruptura pelo ritmo recente 05/04/2027</span>
+                                    <span class="rup-etiqueta rup-etiqueta--pedido" style="top: 87.27%">Ponto de pedido: 14 un</span>
+                                </div>
+                            </div>
+                            
+                        
+                    </div>
+                    <aside class="rup-caixa-painel rup-caixa-painel--diag" aria-label="Diagnóstico">
+                        <header class="rup-painel-cab">
+                            <h2 class="rup-painel-titulo">Diagnóstico</h2>
+                            <span class="rup-nivel rup-nivel--alto">Estoque alto</span>
+                        </header>
+                        <div class="rup-diag-corpo">
+                            <p class="rup-diag-resumo">Com 0,67 un/dia (ritmo dos últimos 30 dias), o estoque de 100 un dura cerca de 150 dias.</p>
+                            <ul class="rup-diag-itens">
+                                
+                                    <li class="rup-diag-item rup-diag-item--info"><i class="fas fa-calendar-xmark" aria-hidden="true"></i><span>Ruptura prevista em 11/03/2027 (em 150 dias).</span></li>
+                                
+                                    <li class="rup-diag-item rup-diag-item--ok"><i class="fas fa-truck-fast" aria-hidden="true"></i><span>Prepare o envio até 19/02/2027 (daqui a 130 dias). Com lead time de 20 dias, o produto fica disponível quando o estoque acabar.</span></li>
+                                
+                                    <li class="rup-diag-item rup-diag-item--info"><i class="fas fa-gauge-high" aria-hidden="true"></i><span>Ponto de pedido: 14 un (ritmo × lead time). O estoque atual ainda está acima dele.</span></li>
+                                
+                                    <li class="rup-diag-item rup-diag-item--ok"><i class="fas fa-circle-check" aria-hidden="true"></i><span>Ritmo estável: nos últimos 7 dias foram 0,57 un/dia, contra 0,67 un/dia no período.</span></li>
+                                
+                            </ul>
+                        </div>
+                    </aside>
+                </section>
+            
+        
+    </div>
+
+                </main>
+            </div>
+            <!-- Fim área principal -->
+        </div>
+        <!-- Fim layout-container -->
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- HTMX -->
+        <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+        <!--
+    * [EXPLICAÇÃO] → Injeta o CSRF token do Django em todas as
+    * requisições POST feitas pelo HTMX. Obrigatório para segurança.
+    -->
+        <script>
+        document.body.addEventListener('htmx:configRequest', function (evt) {
+            evt.detail.headers['X-CSRFToken'] = 'wFZjQiVQaEGFCIvZ5SM9hecKc4zL0ZaHkKzxjLoywVH6JuMuS68BVs78IZ1TMLau';
+        });
+        </script>
+        <!-- Script global do sistema -->
+        <script src="/static/base_compartilhada/js/script_global.js"></script>
+        <!-- DataTables — funções compartilhadas -->
+        <script src="/static/base_compartilhada/js/script_datatables.js"></script>
+        <!--
+    * [EXPLICAÇÃO] → Block para JS específico de cada página.
+    * Páginas filhas adicionam seus próprios scripts aqui.
+    -->
+        
+    <script src="/static/gestao_ruptura/js/script_ruptura.js"></script>
+
+    </body>
+</html>

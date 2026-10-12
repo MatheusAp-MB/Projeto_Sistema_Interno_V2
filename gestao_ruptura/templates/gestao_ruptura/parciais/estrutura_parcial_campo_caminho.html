@@ -1,0 +1,18 @@
+{% comment %}
+    * [RESUMO] → A linha de opções com o checkbox "Considerar as unidades a caminho" — a mesma na lista e no detalhe. Recebe "pagina". Marcado (caminho=1), o "a caminho" (unidades enviadas ao
+      Full e ainda não recebidas) é SOMADO ao estoque lido do Full, como se já estivesse lá hoje; desmarcado (padrão), ele só aparece como informação. Marcar ou desmarcar refaz o cálculo na hora
+      (script_ruptura.js).
+    * [EXPLICAÇÃO] → O checkbox mora numa linha PRÓPRIA (e não ao lado do lead time) para que a disposição do formulário não dependa do espaço que sobra: nenhuma linha fica apertada em janela alguma.
+{% endcomment %}<div class="rup-linha rup-linha--opcoes">
+    <label class="rup-campo rup-campo--caminho"
+           for="rup-caminho"
+           title="Soma ao estoque as unidades que já foram enviadas ao Full e ainda não chegaram (o &quot;a caminho&quot;), como se já estivessem lá hoje. É uma hipótese: não se sabe quando elas chegam. Desmarcado, o a caminho fica só como informação.">
+        <input type="checkbox"
+               id="rup-caminho"
+               name="caminho"
+               value="1"
+               class="rup-marcar"{% if pagina.caminho %} checked{% endif %}>
+        <span class="rup-marcar-texto">Considerar as unidades a caminho</span>
+    </label>
+    <span class="rup-opcao-ajuda">Soma ao estoque o que já foi enviado ao Full e ainda não chegou, como se já estivesse lá hoje (é uma hipótese).</span>
+</div>

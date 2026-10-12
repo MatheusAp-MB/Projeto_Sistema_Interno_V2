@@ -1,0 +1,214 @@
+{% comment %}
+    * [RESUMO] → A LISTA da tela "Ruptura de estoque": uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
+      ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar e o nível. Os 6 cartões de nível são também o filtro. O nome da linha e o botão do gráfico abrem o detalhe
+      (a curva) do item. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco.
+    * [EXPLICAÇÃO] → Recebe "pagina" (ruptura_pagina.montar_pagina) e usa "pagina.lista" (ruptura_lista.montar_lista); os números já vêm formatados de lá.
+    * [EXPLICAÇÃO] → O cartão de identidade de cada linha usa o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e os
+      selos do anúncio (.badge-tabela) vêm do registro único (layout_badges.css). Aqui a linha tem altura FIXA (o CSS corta o que não cabe: título em 1 linha, selos e IDs somem inteiros de trás para a
+      frente), para nada mudar de altura quando a barra lateral abre ou fecha.
+{% endcomment %}{% with lista=pagina.lista %}
+<form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-caixa" role="search">
+    {% for o in lista.ocultos %}<input type="hidden" name="{{ o.nome }}" value="{{ o.valor }}">{% endfor %}
+    <div class="rup-linha">
+        <div class="rup-campo">
+            <span class="rup-rotulo">Ver por</span>
+            <div class="rup-segmentado" role="group" aria-label="Nível de detalhe">
+                {% for g in lista.granularidades %}<a href="{{ g.url }}" class="rup-segmento{% if g.ativo %} rup-segmento--ativo{% endif %}"{% if g.ativo %} aria-current="true"{% endif %}>{{ g.rotulo }}</a>{% endfor %}
+            </div>
+        </div>
+        <div class="rup-campo rup-campo--busca">
+            <label class="rup-rotulo" for="rup-busca">Buscar</label>
+            <span class="rup-busca">
+                <i class="fas fa-magnifying-glass rup-busca-icone" aria-hidden="true"></i>
+                <input type="search"
+                       id="rup-busca"
+                       name="q"
+                       value="{{ lista.texto }}"
+                       class="rup-input rup-busca-input"
+                       placeholder="SKU, título, EAN, MLB ou Código ML"
+                       autocomplete="off"
+                       spellcheck="false">
+            </span>
+        </div>
+        <button type="submit" class="btn-acao rup-calcular">
+            <i class="fas fa-calculator" aria-hidden="true"></i> Calcular
+        </button>
+    </div>
+    <div class="rup-linha rup-linha--valores">
+        {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
+        {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
+    </div>
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}
+</form>
+
+{% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with avisos=pagina.avisos_todos agrupar=pagina.avisos_agrupar atencao=pagina.avisos_tem_atencao %}
+
+{# Linha de contexto: o ritmo usado à esquerda; a cobertura da coleta e a ajuda ("?") à direita. #}
+<div class="rup-contexto">
+    <span class="rup-contexto-texto" title="{{ lista.contexto }}">{{ lista.contexto }}</span>
+    <span class="rup-status-grupo">
+        {% if lista.cobertura.nada_coletado %}
+            <span class="rup-status rup-status--vazio" title="Nenhum dia do período foi coletado da conta toda.">
+                <i class="fas fa-database" aria-hidden="true"></i> Nada coletado neste período
+            </span>
+        {% else %}
+            <span class="rup-status{% if not lista.cobertura.tudo_completo %} rup-status--parcial{% endif %}"
+                  title="O ritmo usa a coleta da CONTA TODA: {{ lista.cobertura.n_completos }} de {{ lista.cobertura.n_dias }} dias completos (coletados depois que o dia acabou; hoje nunca é completo). Hoje e dias parciais não entram na média por dia.">
+                <i class="fas {% if lista.cobertura.tudo_completo %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}" aria-hidden="true"></i>
+                {{ lista.cobertura.n_completos }}/{{ lista.cobertura.n_dias }} dias completos · vendas atualizadas {{ lista.cobertura.ultima }}
+            </span>
+        {% endif %}
+        <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler esta lista">
+            <i class="fas fa-circle-question" aria-hidden="true"></i>
+            <span class="rup-ajuda-balao">
+                <strong>Como ler esta lista</strong>
+                <span>{{ lista.ajuda }}</span>
+                <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Considerar as unidades a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
+                <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o lead time.</span>
+                <span><b>Níveis</b> (provisórios): ruptura = estoque zerado; crítico = dura menos que o lead time; baixo = até 2× o lead time; alto = mais que isso. <b>Enviar até</b> = data da ruptura − lead time.</span>
+            </span>
+        </span>
+    </span>
+</div>
+
+<section class="rup-niveis" aria-label="Filtrar por nível">
+    {% for c in lista.cartoes_de_nivel %}
+        <a href="{{ c.url }}" class="rup-nivel-cartao rup-nivel-cartao--{{ c.chave }}{% if c.ativo %} rup-nivel-cartao--ativo{% endif %}{% if c.vazio and not c.ativo %} rup-nivel-cartao--vazio{% endif %}"{% if c.ativo %} aria-current="true"{% endif %}
+           title="{{ c.rotulo }}: {{ c.apoio }}. Clique para {% if c.ativo %}voltar a mostrar todos{% else %}mostrar só estes{% endif %}.">
+            <span class="rup-nivel-cartao-rotulo">{{ c.rotulo }}</span>
+            <span class="rup-nivel-cartao-valor">{{ c.n }}</span>
+            <span class="rup-nivel-cartao-apoio">{{ c.apoio }}</span>
+        </a>
+    {% endfor %}
+</section>
+
+<section class="rup-l-lista" aria-label="Lista de ruptura">
+    <div class="rup-l-lista-topo">
+        <div class="rup-l-total-grupo">
+            <span class="rup-l-total">{{ lista.total_texto }}</span>
+            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e filtro</a>{% endif %}
+        </div>
+        <div class="rup-l-selects">
+            <div class="rup-l-campo">
+                <label for="rup-ordem" class="rup-rotulo">Ordenar por</label>
+                <select id="rup-ordem" class="lista-select" data-rup-ir>
+                    {% for o in lista.ordens %}<option value="{{ o.url }}"{% if o.ativo %} selected{% endif %}>{{ o.rotulo }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="rup-l-campo">
+                <label for="rup-por" class="rup-rotulo">Por página</label>
+                <select id="rup-por" class="lista-select" data-rup-ir>
+                    {% for p in lista.por_pagina %}<option value="{{ p.url }}"{% if p.ativo %} selected{% endif %}>{{ p.rotulo }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="rup-l-rolagem">
+        <div class="rup-l-tabela" role="table" aria-label="Ruptura de estoque">
+            <div class="rup-l-colunas rup-l-cabecalho" role="row">
+                <div role="columnheader" class="rup-l-cab rup-l-cab--nome">{{ lista.coluna_nome }}</div>
+                <div role="columnheader" class="rup-l-cab" title="Estoque considerado no Full (da última consulta salva)">Estoque Full</div>
+                <div role="columnheader" class="rup-l-cab" title="Unidades que saíram do Full no período e o faturamento delas">Vendas Full</div>
+                <div role="columnheader" class="rup-l-cab" title="Média por dia das vendas do Full nos dias completos">Ritmo un/dia</div>
+                <div role="columnheader" class="rup-l-cab" title="Quantos dias o estoque dura neste ritmo (estoque ÷ ritmo)">Cobertura dias</div>
+                <div role="columnheader" class="rup-l-cab" title="Dia em que o estoque acaba neste ritmo">Ruptura em</div>
+                <div role="columnheader" class="rup-l-cab" title="Data limite para preparar o envio (ruptura − lead time)">Enviar até</div>
+                <div role="columnheader" class="rup-l-cab rup-l-cab--centro" title="Nível do estoque (regra provisória)">Nível</div>
+                <div role="columnheader" class="rup-l-cab rup-l-cab--acao"></div>
+            </div>
+
+            {% if lista.vazio %}
+                <div class="rup-l-vazio">
+                    Nenhum item com esses filtros. Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML — ou
+                    <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca e o filtro</a>.
+                </div>
+            {% endif %}
+
+            {% for l in lista.linhas %}
+                <div class="rup-l-bloco rup-l-bloco--{{ l.cat }}" role="rowgroup">
+                    <div class="rup-l-colunas rup-l-linha" role="row">
+                        <div class="rup-id">
+                            {% if l.foto %}<img src="{{ l.foto }}" class="cartao-anuncio-imagem" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">{% else %}<div class="cartao-anuncio-imagem cartao-anuncio-imagem--vazia" role="img" aria-label="Sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>{% endif %}
+                            <div class="cartao-anuncio-corpo">
+                                <div class="cartao-anuncio-badges">
+                                    {% for a in l.avisos %}<span class="rup-selo rup-selo--{{ a.classe }}" title="{{ a.dica }}">{{ a.texto }}</span>{% endfor %}
+                                    {% for s in l.selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i>{% endif %} {{ s.rotulo }}</span>{% endfor %}
+                                </div>
+                                <div class="cartao-anuncio-titulo">
+                                    {% if l.url_detalhe %}<a href="{{ l.url_detalhe }}" class="rup-id-link{% if l.codigo %} rup-id-link--codigo{% endif %}" title="{{ l.titulo }}{% if l.subtitulo %} — {{ l.subtitulo }}{% endif %} · abrir a curva de estoque">{{ l.titulo }}{% if l.subtitulo %} <span class="rup-id-sub">{{ l.subtitulo }}</span>{% endif %}</a>
+                                    {% else %}<span class="rup-id-link rup-id-link--parado" title="{{ l.motivo }}">{{ l.titulo }}</span>{% endif %}
+                                </div>
+                                <div class="cartao-anuncio-ids">
+                                    {% for i in l.ids %}<span class="{% if forloop.first and lista.gran == 'mlb' %}cartao-anuncio-mlb{% else %}cartao-anuncio-sku{% endif %}">{{ i }}</span>{% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rup-num" title="{{ l.estoque_dica }}">
+                            <strong>{{ l.estoque_txt }}</strong>
+                            <small class="rup-sub{% if l.estoque_classe %} rup-sub--{{ l.estoque_classe }}{% endif %}">{{ l.estoque_sub }}</small>
+                        </div>
+                        <div class="rup-num" title="{{ l.vendas_dica }}">
+                            <strong>{{ l.vendas_txt }}</strong>
+                            <small class="rup-sub">{{ l.vendas_sub }}</small>
+                        </div>
+                        <div class="rup-num" title="{{ l.ritmo_dica }}">
+                            <strong>{{ l.ritmo_txt }}</strong>
+                            <small class="rup-sub{% if l.ritmo_sub_classe %} rup-sub--{{ l.ritmo_sub_classe }}{% endif %}">{{ l.ritmo_sub }}</small>
+                        </div>
+                        <div class="rup-num rup-num--cobertura" title="{{ l.cob_dica }}">
+                            <strong>{{ l.cob_txt }}</strong>
+                            {% if l.barra_pct is not None %}
+                                <span class="rup-barra" aria-hidden="true"><span class="rup-barra-preenchimento rup-barra-preenchimento--{{ l.barra_classe }}" style="width: {{ l.barra_pct }}%"></span></span>
+                            {% else %}
+                                <small class="rup-sub">{{ l.cob_sub }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="rup-num">
+                            <strong>{{ l.ruptura_txt }}</strong>
+                            <small class="rup-sub">{{ l.ruptura_sub }}</small>
+                        </div>
+                        <div class="rup-num">
+                            <strong class="rup-forte{% if l.enviar_classe %} rup-forte--{{ l.enviar_classe }}{% endif %}">{{ l.enviar_txt }}</strong>
+                            <small class="rup-sub{% if l.enviar_classe %} rup-sub--{{ l.enviar_classe }}{% endif %}">{{ l.enviar_sub }}</small>
+                        </div>
+                        <div class="rup-l-nivel">
+                            {% if l.nivel_rotulo %}<span class="rup-nivel rup-nivel--{{ l.nivel_classe }}" title="{{ l.nivel_dica }}">{{ l.nivel_rotulo }}</span>{% endif %}
+                        </div>
+                        <div class="rup-l-acao">
+                            {% if l.url_detalhe %}
+                                <a href="{{ l.url_detalhe }}" class="rup-l-acao-btn" aria-label="Abrir a curva de estoque de {{ l.titulo }}" title="Abrir a curva de estoque deste item"><i class="fas fa-chart-line" aria-hidden="true"></i></a>
+                            {% else %}
+                                <span class="rup-l-acao-btn rup-l-acao-btn--parado" role="img" aria-label="Indisponível: {{ l.motivo }}" title="{{ l.motivo }}"><i class="fas fa-chart-line" aria-hidden="true"></i></span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <nav class="lista-paginacao rup-l-paginacao" aria-label="Páginas">
+        <span>{{ lista.paginacao.texto }}</span>
+        {% if lista.paginacao.total_paginas > 1 %}
+            <div class="lista-paginacao-botoes">
+                {% if lista.paginacao.url_anterior %}
+                    <a href="{{ lista.paginacao.url_anterior }}" class="lista-paginacao-botao" rel="prev"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</a>
+                {% else %}
+                    <span class="lista-paginacao-botao" aria-disabled="true"><i class="fas fa-chevron-left" aria-hidden="true"></i> Anterior</span>
+                {% endif %}
+                {% for j in lista.paginacao.janela %}
+                    {% if j.reticencias %}<span class="rup-l-reticencias" aria-hidden="true">…</span>
+                    {% elif j.atual %}<span class="lista-paginacao-botao rup-l-pag rup-l-pag--atual" aria-current="page">{{ j.numero }}</span>
+                    {% else %}<a href="{{ j.url }}" class="lista-paginacao-botao rup-l-pag" aria-label="Página {{ j.numero }}">{{ j.numero }}</a>{% endif %}
+                {% endfor %}
+                {% if lista.paginacao.url_proxima %}
+                    <a href="{{ lista.paginacao.url_proxima }}" class="lista-paginacao-botao" rel="next">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></a>
+                {% else %}
+                    <span class="lista-paginacao-botao" aria-disabled="true">Próxima <i class="fas fa-chevron-right" aria-hidden="true"></i></span>
+                {% endif %}
+            </div>
+        {% endif %}
+    </nav>
+</section>
+{% endwith %}

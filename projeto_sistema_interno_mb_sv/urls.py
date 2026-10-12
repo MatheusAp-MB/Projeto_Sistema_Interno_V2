@@ -18,5 +18,6 @@ urlpatterns = [
     path('agenda-videos/', include('agenda_videos.urls')),
     path('gestao-full/', include('gestao_full.urls')),
     path('gestao-vendas/', include('gestao_vendas.urls')),
+    path('gestao-ruptura/', include('gestao_ruptura.urls')),
     path('api/', include('api.urls')),
 ]

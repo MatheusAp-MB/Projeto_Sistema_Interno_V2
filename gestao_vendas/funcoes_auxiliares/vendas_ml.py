@@ -353,6 +353,29 @@ def _s(n, singular, plural):
     return singular if n == 1 else plural
 
 
+# Função Objetivo: As unidades vendidas POR DIA de um produto (SKU) num recorte entre duas datas, mais o estado de cada dia, para quem precisa do RITMO de vendas sem montar a
+# tela de histórico (hoje: a tela "Ruptura de estoque", app gestao_ruptura). LÊ SÓ DO BANCO; nunca chama o Mercado Livre.
+# O recorte é o `nivel` ('produto' = tudo, 'full', 'fora', 'mlb' ou 'codigo'; nestes dois últimos `item` é o MLB ou o Código ML, como em _selecionar) e, opcionalmente, a
+# `origem` ('full' ou 'fora') aplicada por cima dele (ex.: nivel 'mlb' + origem 'full' = só o que aquele anúncio vendeu saindo do Full). Sem `item` e `origem` é o de sempre.
+# Devolve: `cadastro` (carregar_produto; None se o SKU não está em Produto), `por_dia` ({dia: unidades}, só dias com venda), `estados` ({dia: 'ok' (dia completo) |
+# 'parcial' (hoje, ou coletado antes do dia acabar) | 'sem_dado' (nunca coletado)}) e `coletado_em` (a coleta mais recente que cobre o período; None se nada foi coletado).
+# * [EXPLICAÇÃO] → Mesmas regras da tela de histórico: venda cancelada não conta, a origem vem de classificar_origem (única regra) e "ausente não é zero": dia sem coleta é
+#                  'sem_dado', nunca 0. Quem calcula uma média por dia deve usar só os dias 'ok' (hoje e dia parcial distorcem).
+def unidades_por_dia(sku, nivel, de, ate, item='', origem=''):
+    cadastro = carregar_produto(sku)
+    mlbs = cadastro['mlbs'] if cadastro else {}
+    linhas = _anotar(_carregar_linhas(sku, mlbs, de, ate), mlbs)
+    recorte = _selecionar([l for l in linhas if not l['cancelado']], nivel, item)
+    if origem:
+        recorte = [l for l in recorte if l['origem'] == origem]
+    por_dia = defaultdict(int)
+    for l in recorte:
+        por_dia[l['dia']] += l['qtd']
+    cob = cobertura(carregar_coletas(de, ate), list(mlbs), de, ate)
+    dias = [de + timedelta(days=i) for i in range((ate - de).days + 1)]
+    return {'cadastro': cadastro, 'por_dia': dict(por_dia), 'estados': {d: _estado_do_dia(d, cob) for d in dias}, 'coletado_em': max(cob.values()) if cob else None}
+
+
 # ==================================================== a página ====================================================
 
 # Função Objetivo: Tudo da tela a partir da query string. SEM sku: a LISTA de vendas (lista_vendas_ml.montar_lista: gran, periodo, q, marca, sit, tend, ori, ord, dir, por,

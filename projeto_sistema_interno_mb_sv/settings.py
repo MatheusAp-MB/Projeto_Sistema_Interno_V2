@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'agenda_videos',
     'gestao_full',
     'gestao_vendas',
+    'gestao_ruptura',
     'api',
     'integracao_sysemp',
     'impostos',

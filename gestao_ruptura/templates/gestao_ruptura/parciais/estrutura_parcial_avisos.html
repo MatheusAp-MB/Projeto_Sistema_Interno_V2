@@ -1,0 +1,28 @@
+{% comment %}
+    * [RESUMO] → Os avisos da tela "Ruptura de estoque" (informação, atenção ou erro), com um link opcional. Recebe "avisos" (lista de {classe, texto, link, link_texto}), "agrupar" (verdadeiro quando são 2 ou mais e
+      nenhum é erro) e "atencao" (verdadeiro quando algum é de atenção; só colore a caixa agrupada).
+    * [EXPLICAÇÃO] → Agrupados: UMA caixa recolhida de uma linha só ("N avisos sobre os dados" + o primeiro aviso), que abre para mostrar todos. Assim os avisos não empurram os cartões e a tabela para
+      baixo, e o erro nunca fica escondido (com erro, cada aviso é uma faixa). Quem muda é o conteúdo da tela (dados), nunca a largura da janela.
+{% endcomment %}{% if agrupar %}
+    <details class="rup-avisos{% if atencao %} rup-avisos--atencao{% endif %}">
+        <summary class="rup-avisos-topo">
+            <i class="fas {% if atencao %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+            <strong>{{ avisos|length }} avisos sobre os dados</strong>
+            <span class="rup-avisos-resumo">{{ avisos.0.texto }}</span>
+            <i class="fas fa-chevron-down rup-avisos-seta" aria-hidden="true"></i>
+        </summary>
+        <ul class="rup-avisos-lista">
+            {% for a in avisos %}
+                <li class="rup-avisos-item rup-avisos-item--{{ a.classe }}">
+                    <i class="fas {% if a.classe == 'aviso' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+                    <span>{{ a.texto }}{% if a.link %} <a href="{{ a.link }}">{{ a.link_texto }}</a>{% endif %}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    </details>
+{% else %}{% for a in avisos %}
+    <div class="rup-aviso rup-aviso--{{ a.classe }}" role="status">
+        <i class="fas {% if a.classe == 'erro' %}fa-circle-xmark{% elif a.classe == 'aviso' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+        <span>{{ a.texto }}{% if a.link %} <a href="{{ a.link }}">{{ a.link_texto }}</a>{% endif %}</span>
+    </div>
+{% endfor %}{% endif %}

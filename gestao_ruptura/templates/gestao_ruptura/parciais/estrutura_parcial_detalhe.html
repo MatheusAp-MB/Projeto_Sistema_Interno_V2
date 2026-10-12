@@ -1,0 +1,188 @@
+{% comment %}
+    * [RESUMO] → O DETALHE de um item da tela "Ruptura de estoque" (o SKU, ou um MLB / Código ML dele): quem é o item, o formulário (ritmo, estoque e lead time), os 4 cartões, a curva de estoque, o
+      diagnóstico e a tabela "Estoque no Full por Código ML". Abre ao clicar numa linha da lista (o endereço leva o sku e, no MLB e no Código ML, gran e item). Recebe "pagina".
+    * [EXPLICAÇÃO] → O ESTOQUE usado é o LIDO do Full (última consulta salva dos Códigos ML do item) enquanto o campo "Estoque" estiver vazio; digitar um valor SIMULA outro estoque (a linha de baixo
+      do formulário diz qual dos dois está valendo). Nas visões "Fora do Full" e "Produto (tudo)" nada é lido: o estoque é digitado (a API de estoque do ERP ainda será corrigida).
+{% endcomment %}
+<form method="get" action="{{ pagina.url_ruptura }}" id="rup-form" class="rup-caixa" role="search">
+    {% for o in pagina.ocultos %}<input type="hidden" name="{{ o.nome }}" value="{{ o.valor }}">{% endfor %}
+    <div class="rup-linha">
+        <a href="{{ pagina.url_lista }}" class="rup-voltar"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar à lista</a>
+        {% if pagina.mostra_visoes %}
+            <div class="rup-campo">
+                <span class="rup-rotulo" id="rup-visao-rotulo">Ver</span>
+                <div class="lista-chips" role="radiogroup" aria-labelledby="rup-visao-rotulo">
+                    {% for v in pagina.visoes %}
+                        <label class="lista-chip rup-chip{% if v.ativo %} lista-chip--ativo{% endif %}" title="{{ v.dica }}">
+                            <input type="radio" name="visao" value="{{ v.chave }}" class="rup-radio"{% if v.ativo %} checked{% endif %}>{{ v.rotulo }}
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endif %}
+        <button type="submit" class="btn-acao rup-calcular">
+            <i class="fas fa-calculator" aria-hidden="true"></i> Calcular
+        </button>
+    </div>
+    <div class="rup-linha rup-linha--valores">
+        {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
+        <div class="rup-campo">
+            <label class="rup-rotulo" for="rup-estoque">{{ pagina.rotulo_do_estoque }}</label>
+            <input type="number"
+                   id="rup-estoque"
+                   name="estoque"
+                   value="{{ pagina.estoque_valor }}"
+                   min="0"
+                   step="1"
+                   inputmode="numeric"
+                   placeholder="{{ pagina.estoque_placeholder }}"
+                   class="rup-input rup-input--num">
+        </div>
+        {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
+    </div>
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}
+    {% if pagina.dica_do_estoque.texto %}
+        <p class="rup-dica-estoque{% if pagina.dica_do_estoque.classe %} rup-dica-estoque--{{ pagina.dica_do_estoque.classe }}{% endif %}" title="{{ pagina.dica_do_estoque.texto }}">
+            <i class="fas fa-warehouse" aria-hidden="true"></i> {{ pagina.dica_do_estoque.texto }}
+        </p>
+    {% endif %}
+</form>
+
+{% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with avisos=pagina.avisos_todos agrupar=pagina.avisos_agrupar atencao=pagina.avisos_tem_atencao %}
+
+{% if pagina.estado == 'ok' %}
+    {% with p=pagina.alvo g=pagina.grafico d=pagina.diagnostico t=pagina.tabela_de_codigos %}
+        <section class="rup-produto" aria-label="Item analisado">
+            {% if p.imagem %}
+                <img src="{{ p.imagem }}" alt="" class="rup-produto-imagem" loading="lazy" referrerpolicy="no-referrer">
+            {% else %}
+                <span class="rup-produto-imagem rup-produto-imagem--vazia" aria-hidden="true"><i class="fas fa-box"></i></span>
+            {% endif %}
+            <div class="rup-produto-texto">
+                <h2 class="rup-produto-titulo" title="{{ p.titulo }}"><span class="rup-produto-tipo">{{ p.tipo }}</span> {{ p.titulo }}</h2>
+                <p class="rup-produto-meta">
+                    {% for m in p.meta %}<span>{% if m.rotulo %}{{ m.rotulo }} <strong>{{ m.valor }}</strong>{% else %}<strong>{{ m.valor }}</strong>{% endif %}</span>{% endfor %}
+                    {% if p.atualizado %}<span>vendas atualizadas em <strong>{{ p.atualizado }}</strong></span>{% endif %}
+                </p>
+            </div>
+            <a href="{{ p.url_vendas }}" class="rup-link"><i class="fas fa-calendar-days" aria-hidden="true"></i> Ver calendário de vendas</a>
+        </section>
+        <section class="rup-cartoes" aria-label="Resumo da projeção">
+            {% for c in pagina.cartoes %}
+                <article class="rup-cartao{% if c.destaque %} rup-cartao--destaque{% endif %}" title="{{ c.dica }}">
+                    <span class="rup-cartao-rotulo">{{ c.rotulo }}</span>
+                    <div class="rup-cartao-linha">
+                        <span class="rup-cartao-valor">{{ c.valor }}</span>
+                        {% if c.nivel %}<span class="rup-nivel rup-nivel--{{ c.nivel }}" title="{{ c.nivel_titulo }}">{{ c.nivel_rotulo }}</span>{% endif %}
+                    </div>
+                    <span class="rup-cartao-sub">{{ c.sub }}</span>
+                </article>
+            {% endfor %}
+        </section>
+        <section class="rup-painel" aria-label="Curva de estoque e diagnóstico">
+            <div class="rup-caixa-painel rup-caixa-painel--grafico">
+                <header class="rup-painel-cab">
+                    <h2 class="rup-painel-titulo">Curva de estoque</h2>
+                    {% if g %}
+                        <ul class="rup-legenda">
+                            {% for l in g.legenda %}
+                                <li><span class="rup-amostra rup-amostra--{{ l.tipo }}" aria-hidden="true"></span>{{ l.rotulo }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </header>
+                {% if g %}
+                    <div class="rup-grafico" role="img" aria-label="{{ g.descricao }}">
+                        <div class="rup-grafico-area">
+                            <svg class="rup-grafico-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                {% for t in g.grades_y %}<line class="rup-grade" x1="0" x2="100" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}
+                                {% if g.faixa %}<rect class="rup-faixa{% if g.faixa.atrasada %} rup-faixa--atrasada{% endif %}" x="{{ g.faixa.x }}" y="0" width="{{ g.faixa.largura }}" height="100"/>{% endif %}
+                                {% for l in g.linhas %}{% if l.area %}<polygon class="rup-area" points="{{ l.area }}"/>{% endif %}{% endfor %}
+                                {% if g.ponto_de_pedido %}<line class="rup-pedido-linha" x1="0" x2="100" y1="{{ g.ponto_de_pedido.y }}" y2="{{ g.ponto_de_pedido.y }}"/>{% endif %}
+                                {% for m in g.marcadores %}<line class="rup-marcador rup-marcador--{{ m.classe }}" x1="{{ m.x }}" x2="{{ m.x }}" y1="0" y2="100"/>{% endfor %}
+                                {% for l in g.linhas %}<polyline class="rup-curva rup-curva--{{ l.classe }}" points="{{ l.pontos }}"/>{% endfor %}
+                            </svg>
+                            {% for t in g.grades_y %}<span class="rup-rotulo-y" style="top: {{ t.y }}%">{{ t.rotulo }}</span>{% endfor %}
+                            {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.hoje %} rup-rotulo-x--hoje{% endif %}" style="left: {{ t.x }}%">{{ t.rotulo }}</span>{% endfor %}
+                            {% if g.faixa %}<span class="rup-etiqueta rup-etiqueta--faixa" style="left: {{ g.faixa.centro }}%">{{ g.faixa.rotulo }}</span>{% endif %}
+                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}" style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
+                            {% if g.ponto_de_pedido %}<span class="rup-etiqueta rup-etiqueta--pedido{% if g.ponto_de_pedido.abaixo %} rup-etiqueta--abaixo{% endif %}" style="top: {{ g.ponto_de_pedido.y }}%">{{ g.ponto_de_pedido.rotulo }}</span>{% endif %}
+                        </div>
+                    </div>
+                    {% if g.truncado %}<p class="rup-grafico-nota">A ruptura fica além do que o gráfico mostra ({{ g.horizonte }} dias).</p>{% endif %}
+                {% else %}
+                    <p class="rup-vazio">Informe o estoque atual para desenhar a curva.</p>
+                {% endif %}
+            </div>
+            <aside class="rup-caixa-painel rup-caixa-painel--diag" aria-label="Diagnóstico">
+                <header class="rup-painel-cab">
+                    <h2 class="rup-painel-titulo">Diagnóstico</h2>
+                    {% if d.nivel %}<span class="rup-nivel rup-nivel--{{ d.nivel }}">{{ d.nivel_rotulo }}</span>{% endif %}
+                </header>
+                <div class="rup-diag-corpo">
+                    <p class="rup-diag-resumo">{{ d.resumo }}</p>
+                    <ul class="rup-diag-itens">
+                        {% for i in d.itens %}
+                            <li class="rup-diag-item rup-diag-item--{{ i.classe }}"><i class="fas {{ i.icone }}" aria-hidden="true"></i><span>{{ i.texto }}</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </aside>
+        </section>
+        {% if t %}
+            <section class="rup-estoque" aria-label="Estoque no Full por Código ML">
+                <header class="rup-painel-cab">
+                    <h2 class="rup-painel-titulo">Estoque no Full por Código ML</h2>
+                    <span class="rup-estoque-nota" title="{{ t.conta }}">Estoque considerado = disponível + em transferência + em processo interno{% if pagina.caminho %} (+ a caminho, opção marcada){% else %} (regra provisória){% endif %}</span>
+                </header>
+                <div class="rup-estoque-rolagem">
+                    <table class="rup-tabela-codigos">
+                        <thead>
+                            <tr>
+                                <th class="rup-col-codigo">Código ML</th>
+                                <th class="rup-col-mlbs" title="Anúncios (MLB) que usam este Código ML">Anúncios</th>
+                                <th title="Total do Código ML no Full">Total Full</th>
+                                <th title="Disponível para venda">Disponível</th>
+                                <th title="Em transferência (conta como estoque)">Em transf.</th>
+                                <th title="Em processo interno (conta como estoque)">Proc. interno</th>
+                                <th title="Indisponível por outro motivo (retirada, danificadas, perdidas...): não entra na cobertura">Fora da conta</th>
+                                <th title="Estoque considerado = disponível + em transferência + em processo interno">Considerado</th>
+                                <th title="Enviado e ainda não recebido (só hipótese): não entra na cobertura">A caminho</th>
+                                <th class="rup-col-consulta">Consulta</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in t.linhas %}
+                                <tr{% if c.atencao %} class="rup-linha-atencao"{% endif %}>
+                                    <td class="rup-col-codigo">{{ c.codigo }}</td>
+                                    <td class="rup-col-mlbs" title="{{ c.mlbs }}">{{ c.mlbs }}</td>
+                                    <td>{{ c.total }}</td>
+                                    <td>{{ c.disponivel }}</td>
+                                    <td>{{ c.transferencia }}</td>
+                                    <td>{{ c.processo }}</td>
+                                    <td>{{ c.nao_conta }}</td>
+                                    <td><strong>{{ c.considerado }}</strong></td>
+                                    <td>{{ c.a_caminho }}</td>
+                                    <td class="rup-col-consulta">{{ c.consulta }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th class="rup-col-codigo" colspan="2" title="{{ t.conta }}">Soma{% if t.soma_parcial %} (parcial){% endif %}</th>
+                                <th>{{ t.soma.total }}</th>
+                                <th>{{ t.soma.disponivel }}</th>
+                                <th>{{ t.soma.transferencia }}</th>
+                                <th>{{ t.soma.processo }}</th>
+                                <th>{{ t.soma.nao_conta }}</th>
+                                <th>{{ t.soma.considerado }}</th>
+                                <th>{{ t.soma.a_caminho }}</th>
+                                <th class="rup-col-consulta"></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+        {% endif %}
+    {% endwith %}
+{% endif %}
