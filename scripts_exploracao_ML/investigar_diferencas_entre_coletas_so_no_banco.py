@@ -76,7 +76,7 @@ SKU = "F7908050719121.001"                         # o SKU que foi coletado pelo
 PEDIDOS_DA_COLETA_POR_PRODUTO = 16876              # o que a mensagem da tela disse na coleta por produto (11/10/2026, 364 chamadas)
 MINUTOS_DO_LOTE_POR_PRODUTO = 20                   # os trechos de 1 clique de "Atualizar produto" começam todos dentro desta janela, a contar do mais novo
 LINHAS_NA_LISTA = 15                               # linhas de exemplo na tela
-CORRECAO_DA_HORA_0_APLICADA_EM = None              # None = a correção `fim − 1 hora` ainda NÃO subiu no servidor. Quando subir: (2026, 10, 12, 14, 30) = ano, mês, dia, hora, minuto (Brasília)
+CORRECAO_DA_HORA_0_APLICADA_EM = (2026, 10, 12, 1, 40)    # (ano, mês, dia, hora, minuto) em Brasília: a correção `fim − 1 hora` subiu em 12/10/2026 às 01:40 (runserver reiniciado às 01:39:46). None = ainda NÃO subiu
 # ========================================
 
 definir_empresa_ativa({"MB": EMPRESA_MAGAZINE, "SV": EMPRESA_SAMVALE}[CONTA])

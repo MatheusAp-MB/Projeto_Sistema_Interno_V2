@@ -17,7 +17,10 @@ Comportamento:
 - Token válido (mais de 30min para expirar) -> devolve direto, sem tocar na API
 - Token perto de expirar -> tenta renovar (com lock por conta, contra concorrência)
 - Lock encontrado com mais de 15s -> considerado órfão, descartado
-- Renovação falha de verdade -> levanta erro claro, sem retry automático em loop
+- Renovação falha de verdade (ML recusou o refresh_token: 400/401...) -> levanta erro claro, sem retry
+- Renovação falha por instabilidade do ML ou da rede (5xx, 408, 429, timeout) -> retry LIMITADO
+  (nunca em loop), com espera crescente e a hora do lock renovada durante a espera; se todas as
+  tentativas falharem, levanta FalhaAutenticacaoTemporaria (NÃO significa refresh_token inválido)
 """
 
 import os
@@ -40,9 +43,28 @@ ESPERA_LOCK_SEGUNDOS = 3              # quanto esperar entre tentativas de reler
 TIMEOUT_ESPERA_LOCK_SEGUNDOS = 60     # tempo máximo esperando outro processo renovar
 LOCK_MAX_IDADE_SEGUNDOS = 15          # acima disso, lock é considerado órfão
 
+# Retry da renovação quando o ML está instável (5xx, 408, 429, timeout, erro de rede).
+# Cada número é a espera, em segundos, ANTES da tentativa seguinte; a quantidade de números
+# + 1 = total de tentativas. (10, 20) -> 3 tentativas e 30 s de espera no pior caso, abaixo
+# dos 60 s que um processo que está só aguardando (TIMEOUT_ESPERA_LOCK_SEGUNDOS) tolera.
+# Origem (12/10/2026): um 503 do ML na renovação do token da MB derrubou a tela com a mensagem
+# "refresh_token revogado", que não era a causa.
+ESPERAS_ENTRE_TENTATIVAS_RENOVACAO_SEGUNDOS = (10, 20)
+STATUS_HTTP_PASSAGEIROS = (408, 429)  # além de qualquer 5xx
+PASSO_DO_CARIMBO_DO_LOCK_SEGUNDOS = 5  # de quanto em quanto tempo renovar a hora do lock durante a espera
+
 
 class FalhaAutenticacao(Exception):
     """Erro claro quando a renovação falha de verdade (refresh_token inválido/revogado)."""
+    pass
+
+
+class FalhaAutenticacaoTemporaria(FalhaAutenticacao):
+    """
+    A renovação não foi concluída porque o ML (ou a rede) falhou — 5xx, 408, 429,
+    timeout. NÃO indica refresh_token inválido: basta tentar de novo mais tarde.
+    É subclasse de FalhaAutenticacao para quem já captura o erro continuar funcionando.
+    """
     pass
 
 
@@ -81,8 +103,54 @@ def _token_ainda_valido(estado):
     return segundos_restantes > RENOVAR_ANTES_SEGUNDOS
 
 
+def _status_e_passageiro(status_code: int) -> bool:
+    """5xx, 408 e 429 são falhas do lado do ML ou da rede: vale tentar de novo."""
+    return status_code >= 500 or status_code in STATUS_HTTP_PASSAGEIROS
+
+
+def _renovar_carimbo_do_lock(lock_path: Path):
+    """
+    Reescreve, dentro do lock, a hora atual. Sem isso, uma renovação que demora (retry com
+    espera) passaria dos LOCK_MAX_IDADE_SEGUNDOS, outro processo trataria o lock como órfão e
+    renovaria ao mesmo tempo — e o refresh_token do ML só vale uma vez.
+    Escrita atômica (arquivo temporário + replace) para ninguém ler o lock pela metade.
+    Se falhar, segue sem erro: no pior caso o carimbo fica um passo mais velho.
+    """
+    if not lock_path.exists():
+        return  # sem lock nosso, não cria um
+
+    try:
+        temporario = lock_path.with_name(lock_path.stem + "_novo.lock")
+        temporario.write_text(str(int(time.time())), encoding="utf-8")
+        os.replace(temporario, lock_path)
+    except OSError:
+        pass
+
+
+def _esperar_mantendo_o_lock(segundos: int, lock_path: Path):
+    """Espera `segundos` em passos curtos, renovando a hora do lock a cada passo."""
+    restante = segundos
+    while restante > 0:
+        passo = min(PASSO_DO_CARIMBO_DO_LOCK_SEGUNDOS, restante)
+        time.sleep(passo)
+        restante -= passo
+        _renovar_carimbo_do_lock(lock_path)
+
+
 def _renovar_token(estado, conta: str):
-    """Chama a API do ML para trocar o refresh_token atual (da conta) por um par novo."""
+    """
+    Chama a API do ML para trocar o refresh_token atual (da conta) por um par novo.
+
+    - 200 -> devolve o par novo.
+    - 5xx, 408, 429, timeout ou erro de rede (ML/rede instável) -> tenta de novo, com as
+      esperas de ESPERAS_ENTRE_TENTATIVAS_RENOVACAO_SEGUNDOS; se todas falharem, levanta
+      FalhaAutenticacaoTemporaria.
+    - Qualquer outra resposta (400 invalid_grant, 401...) -> FalhaAutenticacao na hora, sem
+      retry: o ML recusou o refresh_token.
+
+    O mesmo refresh_token é reenviado em cada tentativa. O par novo só é gravado no .env por
+    quem chama (obter_token_valido), depois de um 200 — então uma falha aqui nunca altera o .env.
+    """
     payload = {
         "grant_type": "refresh_token",
         "client_id": estado["client_id"],
@@ -90,17 +158,60 @@ def _renovar_token(estado, conta: str):
         "refresh_token": estado["refresh_token"],
     }
 
-    resposta = requests.post(TOKEN_URL, data=payload, timeout=30)
+    lock_path = _caminho_lock(conta)
+    total_de_tentativas = len(ESPERAS_ENTRE_TENTATIVAS_RENOVACAO_SEGUNDOS) + 1
+    ultima_falha = ""  # vazio = nenhuma falha passageira até agora
 
-    if resposta.status_code != 200:
-        raise FalhaAutenticacao(
-            f"[FALHA AUTENTICAÇÃO] Renovação da conta {conta} rejeitada pelo ML "
-            f"(status {resposta.status_code}). Provável refresh_token "
-            f"revogado/expirado. É necessário rodar autorizacao_inicial.py "
-            f"novamente para a conta {conta}. Resposta: {resposta.text}"
-        )
+    for numero in range(1, total_de_tentativas + 1):
+        _renovar_carimbo_do_lock(lock_path)
 
-    return resposta.json()
+        try:
+            resposta = requests.post(TOKEN_URL, data=payload, timeout=30)
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+        ) as erro:
+            ultima_falha = f"erro de conexão ({type(erro).__name__})"
+        else:
+            if resposta.status_code == 200:
+                return resposta.json()
+
+            if not _status_e_passageiro(resposta.status_code):
+                nota_de_falha_anterior = ""
+                if ultima_falha:
+                    nota_de_falha_anterior = (
+                        f" Observação: antes desta resposta houve uma falha passageira "
+                        f"({ultima_falha}) nesta mesma renovação; é possível que o ML tenha "
+                        f"processado a tentativa anterior e a resposta tenha se perdido "
+                        f"(o refresh_token do ML só vale uma vez)."
+                    )
+                raise FalhaAutenticacao(
+                    f"[FALHA AUTENTICAÇÃO] Renovação da conta {conta} rejeitada pelo ML "
+                    f"(status {resposta.status_code}). Provável refresh_token "
+                    f"revogado/expirado. É necessário rodar autorizacao_inicial.py "
+                    f"novamente para a conta {conta}. Resposta: {resposta.text}"
+                    f"{nota_de_falha_anterior}"
+                )
+
+            ultima_falha = f"status {resposta.status_code}"
+
+        if numero < total_de_tentativas:
+            espera = ESPERAS_ENTRE_TENTATIVAS_RENOVACAO_SEGUNDOS[numero - 1]
+            console.print(
+                f"[bold yellow][AUTH][/bold yellow] Renovação da conta {conta} falhou "
+                f"({ultima_falha}). Nova tentativa em {espera}s "
+                f"(tentativa {numero + 1} de {total_de_tentativas})..."
+            )
+            _esperar_mantendo_o_lock(espera, lock_path)
+
+    raise FalhaAutenticacaoTemporaria(
+        f"[FALHA AUTENTICAÇÃO TEMPORÁRIA] O ML não concluiu a renovação do token da conta "
+        f"{conta} em {total_de_tentativas} tentativas (última falha: {ultima_falha}). "
+        f"Isso NÃO indica refresh_token inválido: é instabilidade do ML ou da rede. "
+        f"Tente novamente em alguns minutos. NÃO rode autorizacao_inicial.py por causa "
+        f"deste erro (o .env não foi alterado)."
+    )
 
 
 def _salvar_token_atomico(dados_novos, conta: str):
