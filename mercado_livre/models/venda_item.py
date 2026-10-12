@@ -55,10 +55,11 @@ class VendaItemMercadoLivre(models.Model):
     dia_venda  = models.DateField()
     hora_venda = models.PositiveSmallIntegerField()
 
-    # * [EXPLICAÇÃO] → De onde o estoque saiu (order_items[].stock): node_id é o nó (BRSP11 = centro do Full; o nó BRP... é o estoque
-    #                  próprio, fora do Full) e store_id só vem preenchido no estoque próprio. Medido em 10/10/2026: 19 nodes do Full
-    #                  = fulfillment em 19 de 19 envios; o nó próprio = cross_docking (1 caso) e só ele tinha store_id. Quem separa
-    #                  Full de fora do Full é a função classificar_origem (em gestao_vendas), em 1 lugar só.
+    # * [EXPLICAÇÃO] → De onde o estoque saiu (order_items[].stock): node_id é o nó (BRSP11, BRPE01... = centro do Full; "BRP" + código do vendedor
+    #                  + "1" = o estoque próprio, fora do Full) e store_id só vem preenchido no estoque próprio (a partir de ~25/03/2026). Antes de
+    #                  26/03/2026 o ML mandava o pedido de Coleta SEM stock (node_id e store_id vazios; o envio também não tem origin.node). Medido
+    #                  em 10 e 11/10/2026 com 80 envios: nó de centro = fulfillment; nó próprio, loja e Coleta sem origem = cross_docking. Quem
+    #                  separa Full de fora do Full é a função classificar_origem (em gestao_vendas), em 1 lugar só.
     node_id  = models.CharField(max_length=30, blank=True)
     store_id = models.CharField(max_length=30, blank=True)
 

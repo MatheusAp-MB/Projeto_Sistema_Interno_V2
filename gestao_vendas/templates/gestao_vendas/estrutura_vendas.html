@@ -274,7 +274,7 @@
                               fixa ao lado do calendário (modo "fixado": o script_vendas_dia.js põe data-vnd-fixar na área); quando não há, ele continua flutuando junto do dia clicado.
                               O card NÃO pode ficar dentro de .vnd-cal-corpo: aquele é um "container" de CSS e prenderia o card flutuante (position: fixed) dentro dele.
                         {% endcomment %}
-                        <div class="vnd-cal-area vnd-cal-area--{{ produto.visao }}" data-vnd-area>
+                        <div class="vnd-cal-area vnd-cal-area--{{ produto.visao }}" data-vnd-area data-vnd-sku="{{ produto.sku }}" data-vnd-nivel="{{ produto.nivel }}" data-vnd-item="{{ produto.item }}" data-vnd-url-pedidos="{{ url_pedidos_dia }}">
                             <div class="vnd-cal-corpo vnd-cal-corpo--{{ produto.visao }}">
                                 <div class="vnd-cal-rolagem vnd-cal-rolagem--{{ produto.visao }}" tabindex="0" role="region" aria-label="Calendário de vendas: role aqui dentro para ver {% if produto.visao == 'meses' %}os outros meses{% else %}as outras semanas{% endif %}">
                                     {% if produto.visao == 'meses' %}
@@ -454,7 +454,7 @@
                             </table>
                         </div>
                         <p class="vnd-legenda">Faturamento bruto: preço × unidades, sem cancelados.</p>
-                        <p class="vnd-legenda">Regra provisória: nó do pedido com store_id ou começando por BRP = fora do Full; outro nó = Full; sem nó = sem origem informada.</p>
+                        <p class="vnd-legenda">Origem: loja (store_id) ou nó de estoque próprio = fora do Full; qualquer outro nó = Full. Sem nó nem loja: fora do Full se o anúncio hoje não é Full e nunca vendeu por centro do Full; senão, sem origem informada.</p>
                     </section>
                 </div>
 
@@ -548,9 +548,10 @@
             </div>
         </div>
 
-        {# Dados do detalhe do dia: o card/painel (#vnd-dia-card, dentro de .vnd-cal-area, ao lado do calendário) é montado por script_vendas_dia.js a partir deste JSON (textos já formatados pelo Python). #}
+        {# Dados do detalhe do dia: o card/painel (#vnd-dia-card, dentro de .vnd-cal-area, ao lado do calendário) é montado por script_vendas_dia.js a partir deste JSON (textos já formatados pelo Python). O 2º JSON traz o título de cada MLB uma vez só (em vez de repetir em todos os dias). Os pedidos do dia NÃO vão aqui: o painel os busca em data-vnd-url-pedidos quando a pessoa abre o bloco. #}
         {% if produto.dias_json %}
             {{ produto.dias_json|json_script:"vnd-dias-dados" }}
+            {{ produto.anuncios_json|json_script:"vnd-anuncios-dados" }}
         {% endif %}
 
         {# Aviso flutuante dos botões de atualizar (sucesso some sozinho; erro fica até a pessoa fechar). #}

@@ -15,6 +15,9 @@ urlpatterns = [
     #                  "Atualizar dia" de um dia da conta toda (atualizar/dia/) e "Coletar período da conta" (periodo/iniciar/, com o andamento
     #                  em periodo/status/ e o botão Parar em periodo/parar/).
     path('planejar/', views_vendas.view_vendas_planejar, name='gestao_vendas_planejar'),
+
+    # * [EXPLICAÇÃO] → Painel do dia: os pedidos de 1 dia (só lê o banco), buscados quando a pessoa abre o bloco "Pedidos e cancelamentos".
+    path('pedidos-do-dia/', views_vendas.view_vendas_pedidos_dia, name='gestao_vendas_pedidos_dia'),
     path('atualizar/mlb/', views_vendas.view_vendas_atualizar_mlb, name='gestao_vendas_atualizar_mlb'),
     path('atualizar/dia/', views_vendas.view_vendas_atualizar_dia, name='gestao_vendas_atualizar_dia'),
     path('periodo/iniciar/', views_vendas.view_vendas_periodo_iniciar, name='gestao_vendas_periodo_iniciar'),

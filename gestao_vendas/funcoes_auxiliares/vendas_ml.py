@@ -18,20 +18,27 @@
 #                  somas (a venda existe), mas fica de fora da média por dia, dos dias sem venda e da comparação com o período anterior,
 #                  que seriam enganosos.
 
+import os
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from functools import lru_cache
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
+from dotenv import load_dotenv
 
+from core.empresa import PREFIXO_ENV_POR_EMPRESA, EmpresaNaoDefinidaError, obter_empresa_ativa
 from integracao_mercado_livre.servicos.cobertura_vendas_ml import (  # noqa: F401
     PERIODO_PADRAO, carregar_coletas, cobertura, dia_completo, dias_para_tras, frase_frente_ao_anterior, frase_no_anterior, inicio_do_periodo,
     normalizar_periodo, periodo_anterior, periodos_de_hoje, primeiro_dia_do_ml, rotulo_do_periodo, voltar_unidade)
 from integracao_mercado_livre.servicos.cobertura_vendas_ml import mapa_de_dias as _mapa_de_dias
-from mercado_livre.models import VariacaoAnuncioMercadoLivre, VendaItemMercadoLivre
+from mercado_livre.funcoes_auxiliares.badges import (
+    BADGE_PADRAO, BADGES_CATALOGO, BADGES_LOGISTICA, BADGES_STATUS, BADGES_TIPO_ANUNCIO, badge_de, badge_flex,
+)
+from mercado_livre.models import TipoDeAnuncioMercadoLivre, VariacaoAnuncioMercadoLivre, VendaItemMercadoLivre
 from produtos.models import Produto
 
 FUSO = ZoneInfo('America/Sao_Paulo')
@@ -54,22 +61,58 @@ DIAS_VISAO_MESES = 180  # períodos com tantos dias (de calendário) ou mais: a 
 
 # ==================================================== regras pequenas ====================================================
 
-# * [EXPLICAÇÃO] → REGRA PROVISÓRIA (medida em 10/10/2026, conta Magazine, 1 dia, 20 envios consultados): os nós de centros do Full
-#                  (BRSP11, BRBA01...) deram logistic.type = fulfillment em 19 de 19; o nó próprio (começa com BRP e contém o código do vendedor)
-#                  deu cross_docking (1 caso) e só ele tinha store_id preenchido. Por isso: store_id preenchido OU nó BRP... = fora do Full;
-#                  outro nó = Full; sem nó = indefinido. Falta testar mais casos de fora do Full (só 1 foi visto). Esta é a ÚNICA função que
-#                  decide isso: se a regra mudar, muda aqui.
+# Função Objetivo: Decide se UMA venda saiu do Full ('full'), de fora do Full ('fora') ou se a origem não dá para saber ('indefinido'). Esta é a ÚNICA
+# função que decide isso: se a regra mudar, muda aqui.
+#
+# A REGRA, na ordem:
+#   1) tem store_id                                            → fora do Full
+#   2) tem node_id do nó PRÓPRIO ("BRP" + código do vendedor)   → fora do Full
+#   3) tem qualquer outro node_id                              → Full
+#   4) sem node_id e sem store_id                              → fora do Full só quando `fora_pela_logistica` é verdadeiro (ver _mlbs_fora_pela_logistica);
+#                                                                senão 'indefinido' ("Sem origem informada"): sem chute
+#
+# * [EXPLICAÇÃO] → CONFIRMADA com envios reais (conta Magazine, produto de teste): na medição de 10/10/2026 (20 envios de 1 dia de pedidos da conta), os 19 de
+#                  nó de centro deram fulfillment e o 1 de nó próprio deu cross_docking; em 11/10/2026, 60 envios (script confirmar_origem_das_vendas_pelos_envios):
+#                  30 de "Full" = fulfillment em 30 de 30 (inclui BRPE01 e BRPR01) e 30 de "fora" = cross_docking em 30 de 30 (15 com nó próprio/loja e 15 sem origem).
+#                  Nenhum envio de Flex (self_service) apareceu na amostra: se um dia aparecer Flex saindo de um centro do Full, a regra 3 precisa mudar.
+# * [EXPLICAÇÃO] → "BRP" sozinho NÃO é o nó próprio: BRPE01 e BRPR01 são centros do Full (envio = fulfillment). O nó próprio é "BRP" + código do vendedor
+#                  (+ "1"), e o código vem do .env ({MB|SV}_USER_ID, o mesmo da API). Por isso a regra 2 testa "BRP" + código, nunca só "BRP".
+# * [EXPLICAÇÃO] → Regra 4: antes de 26/03/2026 o ML mandava o pedido de Coleta SEM stock (node_id e store_id vazios; o envio também não tem origin.node),
+#                  por isso esses pedidos chegaram sem origem. A regra só os manda para "fora" quando o anúncio HOJE não é Full e o MLB nunca vendeu por
+#                  centro do Full; o que não passa nesse teste continua "Sem origem informada" (10 un de 16.293 no produto de teste).
 PREFIXO_DO_NO_PROPRIO = 'BRP'
 
 
-def classificar_origem(node_id, store_id):
+def classificar_origem(node_id, store_id, no_proprio, fora_pela_logistica=False):
     if store_id:
         return 'fora'
-    if node_id and node_id.upper().startswith(PREFIXO_DO_NO_PROPRIO):
-        return 'fora'
     if node_id:
-        return 'full'
-    return 'indefinido'
+        return 'fora' if node_id.upper().startswith(no_proprio) else 'full'
+    return 'fora' if fora_pela_logistica else 'indefinido'
+
+
+# Função Objetivo: O código do vendedor (user_id) da conta, lido do .env ({MB|SV}_USER_ID, a mesma variável que a API do Mercado Livre usa). Lê uma vez por conta.
+@lru_cache(maxsize=None)
+def _codigo_do_vendedor(conta):
+    load_dotenv()
+    codigo = (os.getenv(f'{conta}_USER_ID') or '').strip()
+    if not codigo:
+        raise RuntimeError(
+            f'{conta}_USER_ID não encontrado no .env da raiz do repo — a tela de vendas precisa dele para reconhecer o nó de estoque próprio '
+            f'(BRP + código do vendedor). Adicione a linha {conta}_USER_ID=seu_user_id_aqui.'
+        )
+    return codigo
+
+
+# Função Objetivo: O começo do node_id do estoque PRÓPRIO da conta ativa ("BRP" + código do vendedor), em maiúsculas: é o que a regra 2 de classificar_origem compara.
+def prefixo_do_no_proprio():
+    empresa = obter_empresa_ativa()
+    if empresa is None:
+        raise EmpresaNaoDefinidaError(
+            'Nenhuma empresa ativa — a regra de origem das vendas precisa saber a conta (MB/SV) para achar o nó de estoque próprio. '
+            'Chame definir_empresa_ativa() antes.'
+        )
+    return (PREFIXO_DO_NO_PROPRIO + _codigo_do_vendedor(PREFIXO_ENV_POR_EMPRESA[empresa])).upper()
 
 
 def _inteiro(valor, padrao):
@@ -122,20 +165,68 @@ def skus_com_vendas(limite=12):
     return [{'sku': l['seller_sku'], 'unidades': numero(l['un'])} for l in linhas]
 
 
-# Função Objetivo: O cadastro do SKU e os MLBs dele (com título e as variações → Código ML). None se o SKU não está em Produto.
+# Função Objetivo: Devolve o endereço só se for seguro para a tela abrir (https). O Mercado Livre serve a mesma imagem por https, então um "http://" vira
+# "https://" (senão o navegador bloquearia a foto numa página https). Qualquer outra coisa (vazio, "javascript:", etc.) vira vazio.
+def _url_segura(url):
+    url = (url or '').strip() if isinstance(url, str) else ''
+    if url.startswith('http://'):
+        url = 'https://' + url[len('http://'):]
+    return url if url.startswith('https://') else ''
+
+
+# Função Objetivo: O que a tela precisa saber de UM anúncio (MLB) além das variações: título, link no ML, foto e o "tipo" (status, tipo, logística, Flex e papel
+# no catálogo). Tudo já está no banco (é o mesmo dado do Hub de Anúncios): nenhuma chamada nova ao Mercado Livre.
+def _dados_do_anuncio(anuncio):
+    tipo = anuncio.tipo_de_anuncio
+    return {'titulo': anuncio.titulo_anuncio or '', 'variacoes': [], 'link': _url_segura(anuncio.permalink), 'imagem': '',
+            'tipo': None if tipo is None else {'status': tipo.status, 'tipo_anuncio': tipo.tipo_anuncio, 'tipo_logistico': tipo.tipo_logistico,
+                                                'classificacao_catalogo': tipo.classificacao_catalogo, 'flex': bool(tipo.flex)}}
+
+
+# Função Objetivo: O cadastro do SKU e os MLBs dele (com título, foto, selos e as variações → Código ML). None se o SKU não está em Produto.
 def carregar_produto(sku):
     produto = Produto.objects.filter(sku=sku).first()
     if produto is None:
         return None
     mlbs = {}
-    variacoes = VariacaoAnuncioMercadoLivre.objects.filter(produto__sku=sku).select_related('anuncio')
+    variacoes = VariacaoAnuncioMercadoLivre.objects.filter(produto__sku=sku).select_related('anuncio', 'anuncio__tipo_de_anuncio')
     for v in variacoes:
         mlb = v.anuncio.mlb
         if not mlb:
             continue
-        item = mlbs.setdefault(mlb, {'titulo': v.anuncio.titulo_anuncio or '', 'variacoes': []})
+        item = mlbs.setdefault(mlb, _dados_do_anuncio(v.anuncio))
         item['variacoes'].append((str(v.variacao_id or ''), (v.inventory_id or '').strip().upper()))
+        # * [EXPLICAÇÃO] → A foto é do anúncio: vale a da primeira variação que tiver (a imagem principal, como no Hub; sem ela, a miniatura).
+        if not item['imagem']:
+            item['imagem'] = _url_segura(v.imagem_principal_url) or _url_segura(v.thumbnail_url)
     return {'titulo': produto.titulo, 'marca': produto.marca or '', 'imagem': produto.imagem_url or '', 'mlbs': mlbs}
+
+
+# Função Objetivo: Os "selos" de um anúncio, na MESMA ordem e com as MESMAS cores do Hub de Anúncios: status, tipo, logística, Flex e papel no catálogo.
+# * [EXPLICAÇÃO] → Rótulo, classe de cor e ícone vêm do registro único (mercado_livre/funcoes_auxiliares/badges.py): se uma cor mudar lá, muda aqui junto.
+#                  Valor que o registro não conhece não vira selo "—" (só poluiria): simplesmente não aparece. Os selos dizem como o anúncio está HOJE
+#                  (última importação do banco), não como estava no dia da venda; por isso o painel avisa isso embaixo da lista.
+def _selos_do_anuncio(tipo):
+    if not tipo:
+        return []
+    candidatos = (('Status', badge_de(BADGES_STATUS, tipo['status'])),
+                  ('Tipo do anúncio', badge_de(BADGES_TIPO_ANUNCIO, tipo['tipo_anuncio'])),
+                  ('Logística', badge_de(BADGES_LOGISTICA, tipo['tipo_logistico'])),
+                  ('Flex', badge_flex(bool(tipo['flex']))),
+                  ('Papel no catálogo', badge_de(BADGES_CATALOGO, tipo['classificacao_catalogo'])))
+    return [{'rotulo': b['label'], 'classe': b['classe'], 'icone': b['icone'] or '', 'dica': f'{categoria}: {b["label"]}'}
+            for categoria, b in candidatos if b is not BADGE_PADRAO]
+
+
+# Função Objetivo: O que o painel do dia precisa de cada MLB, UMA vez só (em vez de repetir nos 365 dias): título, foto, link e selos. Inclui o MLB que
+# vendeu mas não está no cadastro do produto (aí só aparece o que se sabe: sem foto nem selos, e "no_cadastro" falso).
+def _anuncios_para_o_painel(mlbs, mlbs_vendidos):
+    saida = {}
+    for mlb in set(mlbs) | set(mlbs_vendidos):
+        item = mlbs.get(mlb)
+        saida[mlb] = {'titulo': (item or {}).get('titulo') or '', 'no_cadastro': item is not None, 'imagem': (item or {}).get('imagem') or '',
+                      'link': (item or {}).get('link') or '', 'selos': _selos_do_anuncio((item or {}).get('tipo'))}
+    return saida
 
 
 # Função Objetivo: O Código ML (inventory_id) de um item vendido, ligado pelo MLB (e pela variação, se o pedido trouxe). None se o MLB
@@ -174,16 +265,38 @@ def _texto_das_faixas(faixas):
 
 # Função Objetivo: As linhas de venda (1 por item de pedido) do SKU entre duas datas. O SKU vem do seller_sku do pedido; linha sem seller_sku
 # entra só se o MLB é de um anúncio do produto (e, se o pedido traz a variação, só se a variação também é do produto).
-def _carregar_linhas(sku, mlbs, de, ate):
+def _carregar_linhas(sku, mlbs, de, ate, extras=()):
     filtro = Q(seller_sku=sku)
     if mlbs:
         filtro |= Q(seller_sku='', mlb__in=list(mlbs))
+    # * [EXPLICAÇÃO] → `extras` = campos a MAIS, pedidos só por quem precisa deles. O instante exato da venda ('criado_em_ml') é pedido pela lista de pedidos do dia
+    #                  e pela tela inteira (o bloco "Preços do dia" mostra a hora/minuto da primeira e da última venda de cada preço). com_desconto, catalogo e
+    #                  tipo_anuncio alimentam o bloco de preços e sinais do painel do dia.
     return list(VendaItemMercadoLivre.objects.filter(filtro, dia_venda__range=(de, ate)).values(
-        'order_id', 'seller_sku', 'mlb', 'variation_id', 'quantidade', 'preco_unitario', 'status', 'dia_venda', 'hora_venda', 'node_id', 'store_id'))
+        'order_id', 'seller_sku', 'mlb', 'variation_id', 'quantidade', 'preco_unitario', 'status', 'dia_venda', 'hora_venda', 'node_id', 'store_id',
+        'com_desconto', 'catalogo', 'tipo_anuncio', *extras))
+
+
+# Função Objetivo: Os MLBs cujas vendas SEM nó e SEM loja a regra 4 de classificar_origem manda para "fora do Full": anúncio que HOJE não é Full (logística do
+# cadastro, já no banco) E que NUNCA vendeu por centro do Full (qualquer data, sem cancelados). Zero chamada à API; 1 consulta pequena só quando o produto tem
+# algum anúncio que não é Full (produto 100% Full não consulta nada).
+# * [EXPLICAÇÃO] → "Nunca vendeu por centro do Full" olha o histórico inteiro do MLB no banco (não só o período da tela), para o mesmo pedido ter a mesma origem
+#                  em qualquer período. Anúncio sem cadastro ou sem logística não decide (fica "Sem origem informada").
+def _mlbs_fora_pela_logistica(mlbs, no_proprio):
+    full = TipoDeAnuncioMercadoLivre.TipoLogistico.FULL
+    hoje_fora_do_full = {mlb for mlb, d in mlbs.items() if (d.get('tipo') or {}).get('tipo_logistico') and d['tipo']['tipo_logistico'] != full}
+    if not hoje_fora_do_full:
+        return set()
+    ja_venderam_pelo_full = set(
+        VendaItemMercadoLivre.objects.filter(mlb__in=list(hoje_fora_do_full), store_id='').exclude(node_id='').exclude(status=STATUS_CANCELADO)
+        .exclude(node_id__istartswith=no_proprio).values_list('mlb', flat=True).distinct())
+    return hoje_fora_do_full - ja_venderam_pelo_full
 
 
 # Função Objetivo: Acrescenta a cada linha a origem (Full / fora / indefinida) e o Código ML, e troca os nomes dos campos por nomes curtos.
 def _anotar(linhas, mlbs):
+    no_proprio = prefixo_do_no_proprio()
+    fora_pela_logistica = _mlbs_fora_pela_logistica(mlbs, no_proprio)
     saida = []
     for l in linhas:
         if not l['seller_sku'] and l['variation_id']:
@@ -194,9 +307,21 @@ def _anotar(linhas, mlbs):
             'dia': l['dia_venda'], 'hora': l['hora_venda'], 'qtd': l['quantidade'], 'preco': l['preco_unitario'],
             'cancelado': l['status'] == STATUS_CANCELADO, 'pedido': l['order_id'], 'mlb': l['mlb'],
             'codigo': codigo_do_item(mlbs, l['mlb'], l['variation_id']),
-            'origem': classificar_origem(l['node_id'], l['store_id']),
+            'origem': classificar_origem(l['node_id'], l['store_id'], no_proprio, l['mlb'] in fora_pela_logistica),
+            # Para o painel do dia: variação (preço por variação), as duas tags do pedido, o tipo do anúncio e o instante exato (só vem quando pedido em `extras`).
+            # `seg` = o mesmo instante em segundos desde 00:00 de Brasília (ordenar vendas do mesmo dia com precisão; a tela mostra só hora:minuto).
+            'variacao': l['variation_id'], 'desconto': bool(l['com_desconto']), 'catalogo': bool(l['catalogo']), 'tipo': l['tipo_anuncio'],
+            'quando': l.get('criado_em_ml'), 'seg': _segundos_do_dia(l.get('criado_em_ml')),
         })
     return saida
+
+
+# Função Objetivo: O instante da venda em segundos desde 00:00 do horário de Brasília (None quando a linha veio sem o instante exato).
+def _segundos_do_dia(quando):
+    if quando is None:
+        return None
+    t = timezone.localtime(quando, FUSO)
+    return t.hour * 3600 + t.minute * 60 + t.second
 
 
 # Função Objetivo: Soma de um conjunto de linhas: unidades, pedidos distintos e faturamento (preço × quantidade; linha sem preço fica fora e é contada).
@@ -349,12 +474,37 @@ def _dados_dos_dias(dias_do_periodo, por_dia, estados, cob):
     return info, cortes, legenda
 
 
-# Função Objetivo: O detalhe de CADA dia (o card que abre ao clicar no dia do calendário) e a divisão Full / Fora do Full que aparece dentro da célula.
+# Função Objetivo: O detalhe de CADA dia (o painel que abre ao clicar no dia do calendário) e a divisão Full / Fora do Full que aparece dentro da célula.
 # Acrescenta em info[d] (as células das duas visões usam estes mesmos dicts): un_full, un_fora, un_sem, divisao (a célula mostra a divisão?) e div_txt.
 # Devolve ({data ISO: detalhe com os textos já formatados}, a divisão vale neste nível?). Nos níveis "No Full" e "Fora do Full" a divisão não aparece:
 # ela só repetiria o total. "Não-Full" na tela = "Fora do Full"; venda sem centro de estoque informado (node_id vazio) vira um terceiro item só quando existe.
-LIMITE_ANUNCIOS_NO_CARD = 3
-TAMANHO_DO_TITULO_NO_CARD = 46
+#
+# O PAINEL DO DIA (desenho combinado com o Matheus em 11/10/2026): cada bloco responde uma pergunta de quem clica num dia.
+#   Cabeçalho (posso confiar nesse número?) · Resumo (o que aconteceu?) · Comparação (foi bom ou ruim, comparado a quê?) · Origem (de onde veio?) ·
+#   Anúncios (quais?) · Hora a hora (quando?) · Preços do dia (a que preço, e por que foi diferente?) · Pedidos e cancelamentos (conferência; é buscado só quando a
+#   pessoa abre o bloco: ver pedidos_do_dia, porque a lista de pedidos de um ano inteiro deixaria a página pesada).
+#
+# * [EXPLICAÇÃO] → A comparação é sempre com o MESMO DIA DA SEMANA: um sábado se compara com sábados, não com a média de todos os dias (que misturava
+#                  sábado com terça). A referência são os mesmos-dias-da-semana COMPLETOS DO PERÍODO ESCOLHIDO na tela (a "média dos sábados do período", o melhor
+#                  e o pior sábado do período): trocou o período, trocou a referência. O dia entra na própria média quando é completo (a média é a mesma em todos os
+#                  sábados do período). Menos de MIN_DIAS_DE_REFERENCIA dias = não compara e diz por quê (numa semana cada dia da semana aparece só 1 ou 2 vezes;
+#                  a partir de 1 mês aparece 4 ou 5).
+# * [EXPLICAÇÃO] → Dia PARCIAL: o número vale só até a hora da COLETA (não até "agora"). A comparação então é "até as 14h, este dia vendeu X; as mesmas horas
+#                  dos outros dias da semana venderam Y em média e o dia inteiro fechou com Z". Não há projeção de fechamento: com poucas vendas por dia
+#                  ela seria chute. A hora da própria coleta fica fora dos dois lados (ela ainda estava incompleta), para a conta ser justa.
+# * [EXPLICAÇÃO] → Só aparecem adjetivos ("dia forte", "dia fraco") quando a média de referência tem pelo menos MEDIA_MINIMA_PARA_JULGAR un; com menos que isso
+#                  o texto traz só a diferença em %, porque 1 venda a mais já mudaria o adjetivo.
+MIN_DIAS_DE_REFERENCIA = 3
+MEDIA_MINIMA_PARA_JULGAR = 5
+FAIXA_DO_NORMAL = 0.20
+MIN_DIAS_PARA_POSICAO = 4
+MAX_PRECOS_POR_ANUNCIO = 4
+MAX_ANUNCIOS_COM_TROCA_DE_PRECO = 5
+MAX_LINHAS_DE_PRECO = 8
+LIMITE_PEDIDOS_DO_DIA = 1000
+DIAS_NO_SINGULAR = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo']
+DIAS_NO_PLURAL = ['segundas', 'terças', 'quartas', 'quintas', 'sextas', 'sábados', 'domingos']
+TIPOS_DE_ANUNCIO = {'gold_special': 'Clássico', 'gold_pro': 'Premium'}
 
 
 def _pct_do_dia(parte, total):
@@ -364,12 +514,481 @@ def _pct_do_dia(parte, total):
     return '<1%' if p < 0.5 else f'{p:.0f}%'
 
 
-def _detalhe_dos_dias(info, recorte, canceladas, mlbs, nivel, media, cob):
+def _genero(dsem):
+    # segunda a sexta são femininas ("das quartas", "nas quartas", "uma quarta"); sábado e domingo, masculinos.
+    return ('das', 'nas', 'uma') if dsem < 5 else ('dos', 'nos', 'um')
+
+
+def _com_sinal(pct):
+    return f'{pct:+.0f}%'.replace('-', '−')
+
+
+def _texto_da_unidade(valor):
+    return numero(valor) if isinstance(valor, int) else _decimal_br(valor)
+
+
+# Função Objetivo: {dia: {'un': unidades, 'horas': [unidades de cada hora 0..23], 'fat': faturamento, 'un_preco': unidades que têm preço}} dos dias COMPLETOS
+# recebidos (dia completo sem venda entra com zero: é zero de verdade). É a "base" das comparações: o período da tela mais o período anterior quando ele foi
+# coletado. `fat` e `un_preco` existem para o preço médio dos mesmos dias da semana (faturamento ÷ unidades COM preço; item sem preço fica fora dos dois).
+def _base_de_comparacao(dias_completos, linhas):
+    base = {d: {'un': 0, 'horas': [0] * 24, 'fat': Decimal('0'), 'un_preco': 0} for d in dias_completos}
+    for l in linhas:
+        b = base.get(l['dia'])
+        if b is None:
+            continue
+        b['un'] += l['qtd']
+        if l['preco'] is not None:
+            b['fat'] += l['preco'] * l['qtd']
+            b['un_preco'] += l['qtd']
+        if l['hora'] is not None and 0 <= l['hora'] <= 23:
+            b['horas'][l['hora']] += l['qtd']
+    return base
+
+
+def _dias_por_dia_da_semana(base):
+    por_dsem = defaultdict(list)
+    for dia in sorted(base):
+        por_dsem[dia.weekday()].append(dia)
+    return por_dsem
+
+
+# Função Objetivo: Os dias completos do MESMO dia da semana de `dia` DENTRO DO PERÍODO da tela (em ordem de data). `por_dsem` já vem só com os dias do período.
+# O próprio dia está na lista quando é completo (dia parcial não está: ainda não fechou).
+def _dias_de_referencia(dia, por_dsem):
+    return list(por_dsem.get(dia.weekday(), []))
+
+
+# Função Objetivo: Até que hora (exclusive) um dia PARCIAL tem dado: a hora da coleta, no horário de Brasília. 0 = coletado logo depois da meia-noite.
+def _hora_do_corte(dia, coletado_em):
+    quando = timezone.localtime(coletado_em, FUSO)
+    if quando.date() < dia:
+        return 0
+    if quando.date() > dia:
+        return 24
+    return quando.hour
+
+
+def _horas_do_dia(linhas):
+    horas = [0] * 24
+    for l in linhas:
+        if l['hora'] is not None and 0 <= l['hora'] <= 23:
+            horas[l['hora']] += l['qtd']
+    return horas
+
+
+# Função Objetivo: A frase do veredito: o valor do dia contra a média dos mesmos dias da semana. Devolve (tipo, texto): tipo = alto | normal | baixo | neutro.
+# `corte` (hora) só vem em dia parcial: o texto passa a falar "até as 14h".
+def _veredito(valor, media_ref, dsem, corte=None):
+    de, em, um = _genero(dsem)
+    plural, singular = DIAS_NO_PLURAL[dsem], DIAS_NO_SINGULAR[dsem]
+    ate = f' até as {corte}h' if corte is not None else ''
+    forte, fraco = ('Ritmo forte', 'Ritmo fraco') if corte is not None else ('Dia forte', 'Dia fraco')
+    if media_ref <= 0:
+        if valor > 0:
+            return 'neutro', f'Vendeu {numero(valor)} un{ate}; {em} {plural} do período não houve nenhuma venda{" nesse horário" if corte is not None else ""}.'
+        return 'normal', f'Sem vendas{ate}, como {em} {plural} do período.'
+    dif = valor / media_ref - 1
+    if media_ref < MEDIA_MINIMA_PARA_JULGAR:
+        return 'neutro', f'{_com_sinal(dif * 100)} frente à média {de} {plural} do período{ate}. Poucas vendas por dia: o número varia muito.'
+    if dif >= FAIXA_DO_NORMAL:
+        return 'alto', f'{forte}: {dif * 100:.0f}% acima da média {de} {plural} do período{ate}.'
+    if dif <= -FAIXA_DO_NORMAL:
+        if valor == 0:
+            return 'baixo', f'{fraco}: nenhuma venda{ate} (a média {de} {plural} do período é {_decimal_br(media_ref)} un).'
+        return 'baixo', f'{fraco}: {-dif * 100:.0f}% abaixo da média {de} {plural} do período{ate}.'
+    return 'normal', f'Dentro do normal para {um} {singular}{ate} ({_com_sinal(dif * 100)} frente à média do período).'
+
+
+# Função Objetivo: Em que posição este dia ficou entre TODOS os mesmos dias da semana com dado completo (ex.: "2º melhor dia entre 26 quartas"). Vazio quando
+# há poucos dias, quando o dia não vendeu, ou quando há empate nas pontas ("melhor" e "pior" só valem sem empate).
+def _posicao(dia, un, base, por_dsem):
+    outros = [base[x]['un'] for x in por_dsem.get(dia.weekday(), []) if x != dia]
+    total = len(outros) + 1
+    if total < MIN_DIAS_PARA_POSICAO or un <= 0:
+        return ''
+    acima = sum(1 for o in outros if o > un)
+    abaixo = sum(1 for o in outros if o < un)
+    plural = DIAS_NO_PLURAL[dia.weekday()]
+    if acima == 0 and abaixo == len(outros):
+        return f'Melhor dia entre {total} {plural} do período (com dado completo)'
+    if abaixo == 0 and acima == len(outros):
+        return f'Pior dia entre {total} {plural} do período (com dado completo)'
+    return f'{acima + 1}º melhor dia entre {total} {plural} do período (com dado completo)'
+
+
+# Função Objetivo: O melhor e o pior dia entre TODOS os dias completos do mesmo dia da semana de `dia` (é o mesmo grupo da frase "Nº melhor dia entre X quartas":
+# o próprio dia entra, quando é completo). Com `corte` (dia parcial) cada dia vale só as horas ANTES da hora da coleta. Devolve (melhor, pior) ou (None, None) quando
+# o grupo tem menos de MIN_DIAS_PARA_POSICAO dias. Cada um é {'valor', 'dia' (o mais recente entre os empatados), 'empates' (quantos outros dias deram o mesmo valor)}.
+def _extremos_da_semana(dia, base, por_dsem, corte=None):
+    valores = [(x, sum(base[x]['horas'][:corte]) if corte is not None else base[x]['un']) for x in por_dsem.get(dia.weekday(), [])]
+    if len(valores) < MIN_DIAS_PARA_POSICAO:
+        return None, None
+
+    def _escolher(alvo):
+        dias = sorted(d for d, v in valores if v == alvo)
+        return {'valor': alvo, 'dia': dias[-1], 'empates': len(dias) - 1}
+
+    return _escolher(max(v for _, v in valores)), _escolher(min(v for _, v in valores))
+
+
+# Função Objetivo: O bloco "Comparação" de um dia: uma RÉGUA com os pontos de referência (este dia, a média dos mesmos dias da semana, o melhor e o pior dia deles),
+# uma legenda com os valores, o dia anterior, o veredito e a posição. Devolve (bloco, veredito, média de referência).
+# * [EXPLICAÇÃO] → A régua vai de 0 até o maior valor entre este dia, a média e o melhor dia; `pos` (0 a 100) é onde cada ponto cai nela. Só entram na régua os
+#                  pontos da mesma escala (este dia, média, melhor, pior); "dia anterior" e "dia inteiro" ficam só na legenda. Em dia parcial tudo é "até a hora da
+#                  coleta" (ver a explicação acima), inclusive o melhor e o pior dia.
+def _bloco_comparacao(dia, un, linhas_do_dia, parcial, coletado_em, base, por_dsem):
+    dsem = dia.weekday()
+    plural = DIAS_NO_PLURAL[dsem]
+    singular = DIAS_NO_SINGULAR[dsem]
+    refs = _dias_de_referencia(dia, por_dsem)
+    corte = _hora_do_corte(dia, coletado_em) if parcial else None
+    # cada linha: (chave, rótulo, valor, entra na régua?, detalhe)
+    linhas, veredito, posicao, sem_base, nota, media_ref = [], None, '', '', '', None
+    if parcial:
+        ate_agora = sum(l['qtd'] for l in linhas_do_dia if l['hora'] is not None and l['hora'] < corte)
+        linhas.append(('este', f'Este dia (até as {corte}h)', ate_agora, True, ''))
+        nota = 'A hora da coleta fica de fora da conta, porque ainda estava incompleta.'
+    else:
+        linhas.append(('este', 'Este dia', un, True, ''))
+    if corte == 0:
+        sem_base = 'Coletado logo depois da meia-noite: ainda não dá para comparar.'
+    elif len(refs) < MIN_DIAS_DE_REFERENCIA:
+        quantos = f'só há {len(refs)} {_s(len(refs), singular, plural)}' if refs else f'não há {_genero(dsem)[2].replace("um", "nenhum")} {singular}'
+        sem_base = (f'Neste período {quantos} com dado completo; para comparar são necessários pelo menos {MIN_DIAS_DE_REFERENCIA}. '
+                    f'Escolha um período de 1 mês ou mais, ou colete mais dias.')
+    else:
+        if parcial:
+            media_ref = sum(sum(base[x]['horas'][:corte]) for x in refs) / len(refs)
+            linhas.append(('media', f'Média {_genero(dsem)[0]} {len(refs)} {plural} do período', media_ref, True, ''))
+            veredito = _veredito(ate_agora, media_ref, dsem, corte)
+            # * [EXPLICAÇÃO] → O corte ("até as 15h") é dito UMA vez, na nota, em vez de repetido em cada linha: as linhas ficam curtas e cabem em uma linha só.
+            nota = (f'Média, melhor e pior contam só até as {corte}h, como este dia. A hora da coleta ({corte}h) fica de fora de tudo, '
+                    f'porque ainda estava incompleta.')
+        else:
+            media_ref = sum(base[x]['un'] for x in refs) / len(refs)
+            linhas.append(('media', f'Média {_genero(dsem)[0]} {len(refs)} {plural} do período', media_ref, True, ''))
+            veredito = _veredito(un, media_ref, dsem)
+            posicao = _posicao(dia, un, base, por_dsem)
+        melhor, pior = _extremos_da_semana(dia, base, por_dsem, corte)
+        for chave, rotulo, ponto in (('melhor', 'Melhor', melhor), ('pior', 'Pior', pior)):
+            if ponto is None:
+                continue
+            quando = f'{ponto["dia"]:%d/%m/%y}' if ponto['dia'].year != dia.year else data_curta(ponto['dia'])
+            if ponto['empates']:
+                quando += f' e mais {ponto["empates"]} {_s(ponto["empates"], "dia", "dias")}'
+            linhas.append((chave, f'{rotulo} {singular} do período', ponto['valor'], True, quando))
+        if parcial:
+            linhas.append(('inteiro', 'Média do dia inteiro', sum(base[x]['un'] for x in refs) / len(refs), False, f'{len(refs)} {plural}'))
+    if not parcial:
+        anterior = base.get(dia - timedelta(days=1))
+        if anterior is not None:
+            linhas.append(('anterior', f'Dia anterior ({DIAS_DA_SEMANA[(dsem - 1) % 7]})', anterior['un'], False, ''))
+    # * [EXPLICAÇÃO] → Sem referência (período curto demais) não há régua: uma barra cheia sozinha pareceria "100%" de alguma coisa. Fica só o número na legenda.
+    if sem_base:
+        linhas = [(chave, rotulo, valor, False, detalhe) for chave, rotulo, valor, _, detalhe in linhas]
+    maximo = max((valor for _, _, valor, na_regua, _ in linhas if na_regua), default=0) or 1
+    saida = []
+    for chave, rotulo, valor, na_regua, detalhe in linhas:
+        # * [EXPLICAÇÃO] → O valor sai sempre com "un" (unidades vendidas), para ninguém ler a média como "dias" ou "pedidos".
+        item = {'chave': chave, 'rotulo': rotulo, 'texto': f'{_texto_da_unidade(valor)} un'}
+        if chave == 'media':
+            item['dica'] = (f'Média de unidades vendidas {_genero(dsem)[1]} {len(refs)} {plural} com dado completo do período escolhido na tela'
+                            + (f', contando só até as {corte}h' if parcial else ''))
+        if na_regua:
+            item['pos'] = round(valor / maximo * 100, 1)
+        if detalhe:
+            item['detalhe'] = detalhe
+        saida.append(item)
+    bloco = {'linhas': saida, 'posicao': posicao, 'sem_base': sem_base, 'nota': nota, 'n_ref': len(refs)}
+    return bloco, ({'tipo': veredito[0], 'texto': veredito[1]} if veredito else None), media_ref
+
+
+# Função Objetivo: O bloco "Anúncios" de um dia: TODOS os anúncios (MLB) que venderam, do que mais vendeu para o que menos vendeu, com unidades, faturamento,
+# preço, tipo do anúncio e a divisão Full / Fora do Full de cada um. No nível "Por MLB" a lista seria 1 linha só; aí ela vira "Códigos ML" (uma linha por
+# Código ML do anúncio) e some quando há só um Código. Os títulos não vão aqui (repetiriam em todos os dias): vão uma vez só, em "anuncios_json".
+def _bloco_anuncios(linhas, nivel, com_divisao, un_total):
+    por_codigo = nivel == 'mlb'
+    grupos = _agrupar(linhas, (lambda l: l['codigo'] or '') if por_codigo else (lambda l: l['mlb']))
+    saida = []
+    for chave, ls in grupos.items():
+        soma = _somar(ls)
+        precos = [l['preco'] for l in ls if l['preco'] is not None]
+        linha = {'chave': chave, 'un': numero(soma['un']), 'pct': _pct_do_dia(soma['un'], un_total), 'barra': round(soma['un'] / un_total * 100, 1),
+                 'fat': dinheiro(soma['fat']) if precos else '', '_un': soma['un']}
+        if precos:
+            baixo, alto = min(precos), max(precos)
+            linha['preco'] = dinheiro(baixo) if baixo == alto else f'{dinheiro(baixo)} a {dinheiro(alto)}'
+            # * [EXPLICAÇÃO] → "mais de um preço" só vale se UMA MESMA variação vendeu por preços diferentes no dia (variações diferentes do mesmo MLB podem ter
+            #                  preços diferentes sem que nada tenha mudado). Mesma regra do bloco "Preços do dia".
+            por_variacao = defaultdict(set)
+            for l in ls:
+                if l['preco'] is not None:
+                    por_variacao[l['variacao'] or ''].add(l['preco'])
+            linha['mudou'] = any(len(v) > 1 for v in por_variacao.values())
+        if not por_codigo:
+            por_tipo = defaultdict(int)
+            for l in ls:
+                por_tipo[l['tipo']] += l['qtd']
+            if por_tipo:
+                tipo = max(por_tipo.items(), key=lambda kv: (kv[1], kv[0]))[0]
+                linha['tipo'] = TIPOS_DE_ANUNCIO.get(tipo, tipo)
+        if com_divisao:
+            for rotulo, origem in (('full', 'full'), ('fora', 'fora'), ('sem', 'indefinido')):
+                un_origem = sum(l['qtd'] for l in ls if l['origem'] == origem)
+                if rotulo != 'sem' or un_origem:
+                    linha[rotulo] = numero(un_origem)
+                    linha['barra_' + rotulo] = round(un_origem / soma['un'] * 100, 1)
+        saida.append(linha)
+    saida.sort(key=lambda x: (-x['_un'], x['chave']))
+    for linha in saida:
+        del linha['_un']
+    if por_codigo and len(saida) < 2:
+        return None
+    return {'tipo': 'codigo' if por_codigo else 'mlb', 'linhas': saida}
+
+
+# Função Objetivo: O bloco "Hora a hora": unidades de cada hora (0 a 23), a hora de pico e, quando há dias de referência, a média de cada hora dos mesmos dias
+# da semana (uma marca na curva). Em dia parcial `corte` diz até que hora há dado; as horas depois dele ficam "sem dado" (não são zero).
+def _bloco_horas(linhas, parcial, corte, refs, base, dsem):
+    horas = _horas_do_dia(linhas)
+    # * [EXPLICAÇÃO] → Em dia parcial só valem as horas ANTES da hora da coleta (a própria hora da coleta ainda estava incompleta): o pico sai só delas, para o texto
+    #                  não apontar uma hora que o gráfico mostra como "sem dado".
+    validas = horas[:corte] if parcial and corte is not None else horas
+    if not any(validas):
+        return None
+    pico = max(range(len(validas)), key=lambda h: (validas[h], -h))
+    bloco = {'v': horas, 'pico': f'{pico:02d}h ({numero(horas[pico])} un)'}
+    if parcial:
+        bloco['corte'] = corte
+    if len(refs) >= MIN_DIAS_DE_REFERENCIA:
+        bloco['ref'] = [round(sum(base[x]['horas'][h] for x in refs) / len(refs), 1) for h in range(24)]
+        bloco['nome'] = DIAS_NO_PLURAL[dsem]
+        bloco['art'] = _genero(dsem)[0]
+        bloco['n_ref'] = len(refs)
+    return bloco
+
+
+# Função Objetivo: O bloco "Preços do dia" (mais os sinais do pedido) de UM dia. Responde, em ordem: quais preços o produto vendeu naquele dia (do menor ao maior), quantas
+# unidades vendeu em cada um, de que horas a que horas vendeu com aquele preço, qual foi o preço médio e como ele se compara com os mesmos dias da semana do período.
+# Também aponta os anúncios cujo preço MUDOU durante o dia (e em que intervalo) e quantos pedidos vieram com desconto ou por catálogo (as duas marcas que o Mercado
+# Livre põe no pedido: order_has_discount e catalog; a tela não adivinha o motivo do desconto).
+# * [EXPLICAÇÃO] → O preço é o do item vendido (unit_price no instante da compra). A tela NÃO enxerga o momento em que o preço foi trocado no anúncio: só enxerga as vendas.
+#                  Por isso "das 10:12 às 22:40" é a primeira e a última VENDA com aquele preço, não o tempo em que o preço ficou ativo. O tempo ativo de verdade
+#                  precisaria do histórico de preços do próprio Mercado Livre (a tela avisa isso na nota do bloco).
+# * [EXPLICAÇÃO] → Preços diferentes de anúncios DIFERENTES no mesmo dia são normais (Clássico x Premium, por exemplo); por isso as linhas da lista são por preço E por anúncio
+#                  (MLB), e a troca de preço é conferida por anúncio e por variação (variações do mesmo MLB podem ter preços diferentes sem que nada tenha mudado).
+# * [EXPLICAÇÃO] → "Troca de preço" = o mesmo anúncio/variação vendeu por 2 ou mais preços e cada preço só começou DEPOIS da última venda do anterior (ordenado pelo instante
+#                  exato, com segundos). Se os períodos se cruzam (o preço voltou ao que era, ou dois preços valeram ao mesmo tempo) são "preços misturados": a tela
+#                  não afirma que houve troca. Sem o instante exato (linha antiga sem criado_em_ml) a ordem só vale com 1 hora de diferença (hora cheia).
+
+def _hhmm(segundos):
+    return f'{segundos // 3600:02d}:{segundos % 3600 // 60:02d}'
+
+
+# Função Objetivo: Quando um conjunto de vendas aconteceu: o primeiro e o último instante (em segundos desde 00:00). Com o instante exato vale o minuto ('preciso');
+# sem ele vale a hora cheia (a venda das 10h entra como 10:00 a 10:59, e 'preciso' fica falso). `completo` = todas as linhas têm alguma hora. None = nenhuma tem.
+def _quando_das_vendas(ls):
+    inicios, fins, preciso, completo = [], [], True, True
+    for l in ls:
+        if l['seg'] is not None:
+            inicios.append(l['seg'])
+            fins.append(l['seg'])
+        elif l['hora'] is not None and 0 <= l['hora'] <= 23:
+            inicios.append(l['hora'] * 3600)
+            fins.append(l['hora'] * 3600 + 3599)
+            preciso = False
+        else:
+            completo = False
+    if not inicios:
+        return None
+    return {'ini': min(inicios), 'fim': max(fins), 'preciso': preciso, 'completo': completo}
+
+
+def _instante(segundos, preciso):
+    return _hhmm(segundos) if preciso else f'{segundos // 3600:02d}h'
+
+
+# Função Objetivo: "das 10:12 às 22:40" (ou "às 10:03" quando começou e terminou no mesmo minuto) de um conjunto de vendas; vazio quando nenhuma linha tem hora.
+def _texto_da_janela(q):
+    if q is None:
+        return ''
+    a, b = _instante(q['ini'], q['preciso']), _instante(q['fim'], q['preciso'])
+    return f'às {a}' if a == b else f'das {a} às {b}'
+
+
+# Função Objetivo: A lista de preços do dia: UMA LINHA por (preço, anúncio), do menor preço para o maior. Cada linha traz unidades, % do dia, faturamento, o anúncio (só se o dia
+# teve mais de um) e de que horas a que horas houve venda com aquele preço. Só entra preço que existe (item sem preço no pedido fica fora, e é contado à parte).
+# Com 2 ou mais preços diferentes no dia a linha pode ganhar as marcas MENOR, MAIOR e MAIS VENDIDO (esta só quando uma linha vendeu mais unidades que todas as outras).
+# Passando de MAX_LINHAS_DE_PRECO linhas, ficam as do menor e do maior preço e as de mais unidades; o resto vira "+ N outros preços". Devolve (linhas, sobra).
+def _linhas_de_preco(com_preco, un_total):
+    mostrar_mlb = len({l['mlb'] for l in com_preco}) > 1
+    variacoes_do_mlb = defaultdict(set)
+    for l in com_preco:
+        variacoes_do_mlb[l['mlb']].add(l['variacao'] or '')
+    candidatas = []
+    for (preco, mlb), ls in _agrupar(com_preco, lambda l: (l['preco'], l['mlb'])).items():
+        candidatas.append({'preco': preco, 'mlb': mlb, 'ls': ls, 'un': sum(l['qtd'] for l in ls)})
+    menor, maior = min(c['preco'] for c in candidatas), max(c['preco'] for c in candidatas)
+    com_marcas = menor != maior
+    campeao = None
+    if com_marcas and len(candidatas) >= 2:
+        por_unidades = sorted(candidatas, key=lambda c: -c['un'])
+        if por_unidades[0]['un'] > por_unidades[1]['un']:
+            campeao = por_unidades[0]
+    escolhidas = sorted(candidatas, key=lambda c: (c['preco'] not in (menor, maior), -c['un'], c['preco'], c['mlb']))[:MAX_LINHAS_DE_PRECO]
+    escolhidas.sort(key=lambda c: (c['preco'], -c['un'], c['mlb']))
+    linhas = []
+    for c in escolhidas:
+        texto = _texto_da_janela(_quando_das_vendas(c['ls']))
+        linha = {'preco': dinheiro(c['preco']), 'un': numero(c['un']), 'pct': _pct_do_dia(c['un'], un_total), 'barra': round(c['un'] / un_total * 100, 1),
+                 'fat': dinheiro(c['preco'] * c['un'])}
+        if mostrar_mlb:
+            linha['mlb'] = c['mlb']
+        # * [EXPLICAÇÃO] → A variação só aparece quando o anúncio vendeu variações diferentes no dia E a linha é de uma variação só: é o que explica dois preços do mesmo
+        #                  anúncio sem que nada tenha mudado (uma variação pode custar mais que a outra).
+        variacoes_da_linha = {l['variacao'] or '' for l in c['ls']}
+        if len(variacoes_do_mlb[c['mlb']]) > 1 and len(variacoes_da_linha) == 1 and next(iter(variacoes_da_linha)):
+            linha['var'] = next(iter(variacoes_da_linha))
+        if texto:
+            linha['quando'] = f'{"venda" if len(c["ls"]) == 1 else "vendas"} {texto}'
+        marcas = []
+        if com_marcas and c['preco'] == menor:
+            marcas.append('menor')
+        if com_marcas and c['preco'] == maior:
+            marcas.append('maior')
+        if campeao is c:
+            marcas.append('top')
+        if marcas:
+            linha['marcas'] = marcas
+        linhas.append(linha)
+    mantidas = {id(c) for c in escolhidas}
+    fora = [c for c in candidatas if id(c) not in mantidas]
+    sobra = {'n': len(fora), 'un': numero(sum(c['un'] for c in fora))} if fora else None
+    return linhas, sobra
+
+
+# Função Objetivo: A RÉGUA de preços: do menor ao maior preço do dia, com uma bolinha em cada preço (maior = vendeu mais unidades) e uma marca no preço médio.
+# `pos` e `media` vão de 0 a 100 (0 = menor preço, 100 = maior preço). Só existe com 2 ou mais preços diferentes.
+def _regua_de_precos(com_preco, medio):
+    menor, maior = min(l['preco'] for l in com_preco), max(l['preco'] for l in com_preco)
+    if menor == maior:
+        return None
+    amplitude = maior - menor
+    por_preco = defaultdict(int)
+    for l in com_preco:
+        por_preco[l['preco']] += l['qtd']
+    mais = max(por_preco.values())
+    pontos = [{'pos': round(float((p - menor) / amplitude * 100), 1), 'rel': round(un / mais, 2), 'dica': f'{dinheiro(p)} · {numero(un)} un'}
+              for p, un in sorted(por_preco.items())]
+    return {'min': dinheiro(menor), 'max': dinheiro(maior), 'media': round(float((medio - menor) / amplitude * 100), 1), 'pontos': pontos}
+
+
+# Função Objetivo: O preço médio do dia contra o preço médio dos MESMOS DIAS DA SEMANA do período escolhido (só dias completos, com venda e com preço; o próprio dia conta,
+# como na Comparação). É a mesma regra mínima da Comparação: MIN_DIAS_DE_REFERENCIA dias. Preço médio = faturamento ÷ unidades COM preço, somando todos os dias de referência
+# (não é a média das médias: um dia que vendeu 50 un pesa mais que um que vendeu 2). Dia ainda incompleto não é comparado. Devolve {'sem': motivo} quando não dá.
+def _preco_medio_dos_mesmos_dias(dia, medio, parcial, base, por_dsem):
+    dsem = dia.weekday()
+    plural, singular = DIAS_NO_PLURAL[dsem], DIAS_NO_SINGULAR[dsem]
+    if parcial:
+        return {'sem': f'Dia ainda incompleto: o preço médio só é comparado com {"as outras" if dsem < 5 else "os outros"} {plural} depois que o dia fecha.'}
+    refs = [x for x in _dias_de_referencia(dia, por_dsem) if base[x]['un_preco'] > 0]
+    if len(refs) < MIN_DIAS_DE_REFERENCIA:
+        return {'sem': f'Sem comparação de preço: neste período só há {len(refs)} {_s(len(refs), singular, plural)} com venda e preço; '
+                       f'são necessários pelo menos {MIN_DIAS_DE_REFERENCIA}.'}
+    un = sum(base[x]['un_preco'] for x in refs)
+    ref = sum(base[x]['fat'] for x in refs) / un
+    dif = float(medio / ref - 1) * 100
+    if abs(dif) < 0.5:
+        tipo, texto = 'igual', 'Este dia: praticamente igual (menos de 0,5% de diferença)'
+    elif dif > 0:
+        tipo, texto = 'acima', f'Este dia ficou {_decimal_br(dif)}% acima'
+    else:
+        tipo, texto = 'abaixo', f'Este dia ficou {_decimal_br(-dif)}% abaixo'
+    # * [EXPLICAÇÃO] → Só o essencial vai no JSON (ele é embutido na página para todos os dias do período): a explicação do cálculo é um texto fixo montado na tela,
+    #                  que só precisa de `un` (as unidades da referência).
+    return {'rotulo': f'Preço médio {_genero(dsem)[0]} {len(refs)} {plural} do período', 'valor': dinheiro(ref), 'texto': texto, 'tipo': tipo, 'un': numero(un)}
+
+
+# Função Objetivo: Os anúncios (e variações) que venderam por MAIS DE UM preço no dia, cada um classificado: "em_ordem" = o preço mudou durante o dia (com o intervalo em que a
+# troca aconteceu: da última venda com o preço antigo à primeira com o novo); senão = preços misturados (os períodos de cada preço se cruzam).
+def _trocas_de_preco(com_preco):
+    trocas = []
+    for (mlb, variacao), ls in _agrupar(com_preco, lambda l: (l['mlb'], l['variacao'])).items():
+        por_preco = _agrupar(ls, lambda l: l['preco'])
+        if len(por_preco) < 2:
+            continue
+        passos = [{'preco': preco, 'un': sum(l['qtd'] for l in grupo), 'q': _quando_das_vendas(grupo), 'completo': all(l['seg'] is not None or l['hora'] is not None for l in grupo)}
+                  for preco, grupo in por_preco.items()]
+        passos.sort(key=lambda p: (p['q']['ini'] if p['q'] else 10 ** 6, p['preco']))
+        em_ordem = all(p['q'] and p['completo'] for p in passos) and all(passos[i - 1]['q']['fim'] <= passos[i]['q']['ini'] for i in range(1, len(passos)))
+        saida = []
+        for i, p in enumerate(passos):
+            q = p['q']
+            item = {'preco': dinheiro(p['preco']), 'un': numero(p['un'])}
+            if q:
+                ini, fim = _instante(q['ini'], q['preciso']), _instante(q['fim'], q['preciso'])
+                if em_ordem and i == 0:
+                    item['quando'] = f'até {fim}'
+                elif em_ordem and i == len(passos) - 1:
+                    item['quando'] = f'a partir de {ini}'
+                else:
+                    item['quando'] = _texto_da_janela(q)
+            if em_ordem and i > 0:
+                anterior = passos[i - 1]['q']
+                preciso = anterior['preciso'] and q['preciso']
+                a, b = _instante(anterior['fim'], preciso), _instante(q['ini'], preciso)
+                item['troca'] = f'por volta das {a}' if a == b else f'entre {a} e {b}'
+            saida.append(item)
+        trocas.append({'mlb': mlb, 'variacao': variacao, 'em_ordem': em_ordem, '_un': sum(p['un'] for p in passos),
+                       'passos': saida[:MAX_PRECOS_POR_ANUNCIO], 'extra': max(0, len(saida) - MAX_PRECOS_POR_ANUNCIO)})
+    trocas.sort(key=lambda t: (-t['_un'], t['mlb'], t['variacao'] or ''))
+    for t in trocas:
+        del t['_un']
+    return trocas
+
+
+# Função Objetivo: Junta as peças acima no bloco do dia: lista e régua de preços, preço médio, comparação com os mesmos dias da semana, trocas de preço e sinais do pedido.
+def _bloco_precos(dia, linhas, parcial, base, por_dsem):
+    saida = {}
+    com_preco = [l for l in linhas if l['preco'] is not None]
+    sem_preco = sum(l['qtd'] for l in linhas if l['preco'] is None)
+    if com_preco:
+        un = sum(l['qtd'] for l in com_preco)
+        faturamento = sum(l['preco'] * l['qtd'] for l in com_preco)
+        medio = faturamento / un
+        menor, maior = min(l['preco'] for l in com_preco), max(l['preco'] for l in com_preco)
+        saida['n_precos'] = len({l['preco'] for l in com_preco})
+        saida['linhas'], sobra = _linhas_de_preco(com_preco, un)
+        if sobra:
+            saida['sobra'] = sobra
+        regua = _regua_de_precos(com_preco, medio)
+        if regua:
+            saida['regua'] = regua
+        saida['medio'] = dinheiro(medio)
+        saida['conta'] = f'faturamento {dinheiro(faturamento)} ÷ {numero(un)} un'
+        if menor > 0 and maior != menor:
+            saida['amplitude'] = f'+{_decimal_br((maior / menor - 1) * 100)}%'
+        saida['ref'] = _preco_medio_dos_mesmos_dias(dia, medio, parcial, base, por_dsem)
+        trocas = _trocas_de_preco(com_preco)
+        saida['trocas'] = trocas[:MAX_ANUNCIOS_COM_TROCA_DE_PRECO]
+        saida['trocas_extra'] = max(0, len(trocas) - MAX_ANUNCIOS_COM_TROCA_DE_PRECO)
+    if sem_preco:
+        saida['sem_preco'] = f'{numero(sem_preco)} un sem preço no pedido (fora destas contas)'
+    pedidos = {l['pedido'] for l in linhas}
+    if pedidos:
+        saida['n_pedidos'] = len(pedidos)
+        saida['desconto'] = len({l['pedido'] for l in linhas if l['desconto']})
+        saida['catalogo'] = len({l['pedido'] for l in linhas if l['catalogo']})
+    return saida
+
+
+def _detalhe_dos_dias(info, recorte, canceladas, mlbs, nivel, media, cob, base):
     com_divisao = nivel in ('produto', 'mlb', 'codigo')
     linhas_do_dia = _agrupar(recorte, lambda l: l['dia'])
-    canceladas_do_dia = defaultdict(int)
-    for l in canceladas:
-        canceladas_do_dia[l['dia']] += l['qtd']
+    canceladas_do_dia = _agrupar(canceladas, lambda l: l['dia'])
+    # * [EXPLICAÇÃO] → A referência de cada dia é o PERÍODO ESCOLHIDO na tela: só entram os dias completos do período (as chaves de `info`). O período anterior
+    #                  não entra na média, no melhor nem no pior dia; ele só serve para achar o "dia anterior" do primeiro dia do período.
+    por_dsem = _dias_por_dia_da_semana({d: base[d] for d in info if d in base})
     detalhes = {}
     for d, v in info.items():
         linhas = linhas_do_dia.get(d, [])
@@ -386,6 +1005,7 @@ def _detalhe_dos_dias(info, recorte, canceladas, mlbs, nivel, media, cob):
             detalhe['estado_txt'] = 'Sem dado coletado'
             detalhes[v['iso']] = detalhe
             continue
+        parcial = v['estado'] == 'parcial'
         un_com_preco = sum(l['qtd'] for l in linhas if l['preco'] is not None)
         detalhe.update({
             'estado_txt': 'Dia completo' if v['estado'] == 'ok' else 'Dia ainda incompleto',
@@ -395,41 +1015,75 @@ def _detalhe_dos_dias(info, recorte, canceladas, mlbs, nivel, media, cob):
             'fat': dinheiro(v['fat']),
             'preco_medio': f'{dinheiro(v["fat"] / un_com_preco)}/un' if un_com_preco else '',
         })
+        # ---- bloco Comparação (e o veredito, que o painel mostra junto do resumo) ----
+        comparacao, veredito, media_ref = _bloco_comparacao(d, v['un'], linhas, parcial, cob[d], base, por_dsem)
+        detalhe['comparacao'] = comparacao
+        if veredito:
+            detalhe['veredito'] = veredito
         if v['un'] > 0:
+            # ---- bloco Origem (Full x Fora do Full) ----
             if com_divisao:
                 linhas_origem = [('full', 'Full'), ('fora', 'Fora do Full')] + ([('indefinido', 'Sem origem informada')] if un_sem else [])
                 detalhe['origens'] = [{'chave': chave, 'rotulo': rotulo, 'un': numero(somas[chave]['un']), 'pct': _pct_do_dia(somas[chave]['un'], v['un']),
                                        'barra': round(somas[chave]['un'] / v['un'] * 100, 1), 'pedidos': numero(somas[chave]['pedidos']),
                                        'fat': dinheiro(somas[chave]['fat'])} for chave, rotulo in linhas_origem]
-            if nivel != 'mlb':
-                por_anuncio = sorted(((m, sum(l['qtd'] for l in ls)) for m, ls in _agrupar(linhas, lambda l: l['mlb']).items()), key=lambda x: (-x[1], x[0]))
-                curtos = []
-                for m, un_m in por_anuncio[:LIMITE_ANUNCIOS_NO_CARD]:
-                    nome = (mlbs.get(m) or {}).get('titulo') or ''
-                    if len(nome) > TAMANHO_DO_TITULO_NO_CARD:
-                        nome = nome[:TAMANHO_DO_TITULO_NO_CARD - 1].rstrip() + '…'
-                    curtos.append({'mlb': m, 'un': numero(un_m), 'titulo': nome})
-                detalhe['anuncios'] = curtos
-                detalhe['anuncios_extra'] = max(0, len(por_anuncio) - LIMITE_ANUNCIOS_NO_CARD)
-            por_hora = defaultdict(int)
-            for l in linhas:
-                if l['hora'] is not None and 0 <= l['hora'] <= 23:
-                    por_hora[l['hora']] += l['qtd']
-            if por_hora:
-                hora = max(por_hora, key=lambda h: (por_hora[h], -h))
-                detalhe['pico'] = f'{hora:02d}h ({numero(por_hora[hora])} un)'
-        if canceladas_do_dia.get(d):
-            detalhe['cancelados'] = f'{numero(canceladas_do_dia[d])} un'
-        if v['estado'] == 'ok' and media:
-            detalhe['media'] = f'{v["un"] / media * 100:.0f}% da média de {_decimal_br(media)} un/dia'
-            if media >= 8 and v['un'] < 0.25 * media:
+            # ---- bloco Anúncios (ou Códigos ML, no nível Por MLB) ----
+            anuncios = _bloco_anuncios(linhas, nivel, com_divisao, v['un'])
+            if anuncios:
+                detalhe['anuncios'] = anuncios
+            # ---- bloco Hora a hora ----
+            horas = _bloco_horas(linhas, parcial, _hora_do_corte(d, cob[d]) if parcial else None, _dias_de_referencia(d, por_dsem), base, v['dsem'])
+            if horas:
+                detalhe['horas'] = horas
+            # ---- bloco Preços do dia (e sinais do pedido) ----
+            detalhe['precos'] = _bloco_precos(d, linhas, parcial, base, por_dsem)
+        # ---- cancelados do dia (ficam fora de todas as contas; a lista deles vem junto dos pedidos) ----
+        canc = canceladas_do_dia.get(d, [])
+        if canc:
+            s = _somar(canc)
+            detalhe['cancelados'] = {'un': f'{numero(s["un"])} un', 'pedidos': numero(s['pedidos']), 'fat': dinheiro(s['fat']) if s['fat'] else ''}
+        detalhe['tem_pedidos'] = bool(linhas or canc)
+        # ---- avisos: muito fora do normal (comparando com o mesmo dia da semana quando dá; senão com a média geral) ou dia parcial ----
+        referencia = media_ref if (media_ref is not None and not parcial) else media
+        if v['estado'] == 'ok' and referencia:
+            if referencia >= 8 and v['un'] < 0.25 * referencia:
                 detalhe['aviso'] = {'tipo': 'baixo', 'texto': 'Muito abaixo do normal: vale conferir se este dia foi coletado por inteiro (botão "Atualizar este dia").'}
-            elif media >= 8 and v['un'] > 2.5 * media:
+            elif referencia >= 8 and v['un'] > 2.5 * referencia:
                 detalhe['aviso'] = {'tipo': 'alto', 'texto': 'Muito acima do normal: confira se houve promoção ou campanha neste dia.'}
-        elif v['estado'] == 'parcial':
+        elif parcial:
             detalhe['aviso'] = {'tipo': 'parcial', 'texto': 'Coletado antes do fim do dia: o número ainda pode mudar. Use "Atualizar este dia" depois que ele acabar.'}
         detalhes[v['iso']] = detalhe
     return detalhes, com_divisao
+
+
+# Função Objetivo: Os pedidos de UM dia, para o bloco "Pedidos e cancelamentos" do painel. É buscado só quando a pessoa abre o bloco (não vai no JSON da página:
+# um ano de pedidos de um produto que vende bem deixaria a página pesada). Usa os MESMOS filtros e o mesmo recorte da tela (SKU, nível e item), então a lista bate
+# com os números do painel. Cancelados vêm separados (não entram nas contas). Lê só o banco, nunca o Mercado Livre.
+def pedidos_do_dia(sku, nivel, item, dia):
+    cadastro = carregar_produto(sku)
+    mlbs = cadastro['mlbs'] if cadastro else {}
+    linhas = _anotar(_carregar_linhas(sku, mlbs, dia, dia, extras=('criado_em_ml',)), mlbs)
+    nivel = nivel if nivel in NOMES_DOS_NIVEIS else 'produto'
+    item = str(item or '').strip()
+    if nivel in ('mlb', 'codigo') and not item:
+        nivel = 'produto'
+    selecionadas = _selecionar(linhas, nivel, item)
+    selecionadas.sort(key=lambda l: (l['quando'] is None, l['quando'], l['pedido']))
+
+    def _linha(l):
+        hora = timezone.localtime(l['quando'], FUSO).strftime('%H:%M') if l['quando'] else (f'{l["hora"]:02d}h' if l['hora'] is not None else '')
+        return {'hora': hora, 'pedido': str(l['pedido']), 'mlb': l['mlb'], 'un': l['qtd'], 'preco': dinheiro(l['preco']) if l['preco'] is not None else '',
+                'origem': l['origem']}
+
+    linhas_validas = [l for l in selecionadas if not l['cancelado']]
+    linhas_canceladas = [l for l in selecionadas if l['cancelado']]
+    validas = [_linha(l) for l in linhas_validas]
+    canceladas = [_linha(l) for l in linhas_canceladas]
+    # * [EXPLICAÇÃO] → A lista tem UMA LINHA POR ITEM VENDIDO (um pedido com 2 anúncios aparece 2 vezes). `n_pedidos` conta os pedidos de verdade (o mesmo número do
+    #                  resumo do dia) e `n_itens` conta as linhas; o limite de 1000 vale para as linhas.
+    return {'dia': f'{dia:%Y-%m-%d}', 'pedidos': validas[:LIMITE_PEDIDOS_DO_DIA], 'n_pedidos': len({l['pedido'] for l in linhas_validas}), 'n_itens': len(validas),
+            'truncado': len(validas) > LIMITE_PEDIDOS_DO_DIA,
+            'cancelados': canceladas[:LIMITE_PEDIDOS_DO_DIA], 'n_cancelados': len({l['pedido'] for l in linhas_canceladas}), 'n_itens_cancelados': len(canceladas)}
 
 
 def _lista_em_portugues(partes):
@@ -714,7 +1368,7 @@ def montar_vendas(sku, periodo, nivel, item, hoje, url, visao=''):
     cadastro = carregar_produto(sku)
     mlbs = cadastro['mlbs'] if cadastro else {}
 
-    todas = _anotar(_carregar_linhas(sku, mlbs, inicio_da_carga, hoje), mlbs)
+    todas = _anotar(_carregar_linhas(sku, mlbs, inicio_da_carga, hoje, extras=('criado_em_ml',)), mlbs)
     atuais = [l for l in todas if l['dia'] >= de]
     anteriores = [l for l in todas if l['dia'] <= ate_ant and not l['cancelado']]
     validas = [l for l in atuais if not l['cancelado']]
@@ -812,7 +1466,11 @@ def montar_vendas(sku, periodo, nivel, item, hoje, url, visao=''):
 
     # ---- calendário: os dados de cada dia, a escala de cor e a visão escolhida (semanas OU meses) ----
     dados_dos_dias, _cortes, legenda_niveis = _dados_dos_dias(dias_do_periodo, por_dia, estados, cob)
-    dias_json, divisao_dias = _detalhe_dos_dias(dados_dos_dias, recorte, recorte_canc, mlbs, nivel, media, cob)
+    # * [EXPLICAÇÃO] → A "base" das comparações do painel do dia: os dias COMPLETOS do período da tela + os do período anterior que foram coletados por inteiro
+    #                  (dia a dia: o anterior não precisa estar todo coletado, ao contrário da comparação dos cartões). Mais dias = comparação mais firme em períodos curtos.
+    dias_ant_completos = [d for d in dias_ant if d in cob_ant and dia_completo(d, cob_ant[d])]
+    base_de_comparacao = _base_de_comparacao(completos + dias_ant_completos, recorte + recorte_ant)
+    dias_json, divisao_dias = _detalhe_dos_dias(dados_dos_dias, recorte, recorte_canc, mlbs, nivel, media, cob, base_de_comparacao)
     visao_efetiva = visao if visao in VISOES else ('meses' if dias >= DIAS_VISAO_MESES else 'semanas')
     semanas, medias_semana, nota_semanas, nav_semanas, meses, nav_meses = [], [], '', [], [], []
     if visao_efetiva == 'meses':
@@ -861,6 +1519,8 @@ def montar_vendas(sku, periodo, nivel, item, hoje, url, visao=''):
         'niveis': niveis, 'itens': itens, 'dias': dias, 'periodo': periodo, 'periodo_rotulo': rotulo_do_periodo(periodo), 'aviso_limite_ml': aviso_limite_ml,
         'cobertura': cobertura_info, 'cartoes': cartoes, 'semanas': semanas, 'medias_semana': medias_semana,
         'dias_json': dias_json, 'divisao_dias': divisao_dias,
+        # Título, foto, link e selos de cada MLB, uma vez só (o painel do dia consulta aqui em vez de repetir isso em cada um dos 365 dias).
+        'anuncios_json': _anuncios_para_o_painel(mlbs, un_mlb),
         'divisao_sem_origem': any(c['un_sem'] for c in dados_dos_dias.values() if c['divisao']),
         'visao': visao_efetiva, 'url_visao_meses': url(visao='meses'), 'url_visao_semanas': url(visao='semanas'), 'legenda_niveis': legenda_niveis,
         'nota_semanas': nota_semanas, 'nav_semanas': nav_semanas, 'tem_destaque_semana': any(l['destaque'] for l in nav_semanas), 'meses': meses, 'nav_meses': nav_meses,

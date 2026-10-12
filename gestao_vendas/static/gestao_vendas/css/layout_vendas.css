@@ -970,7 +970,164 @@
 .vnd-card-aviso { margin: 0; padding: 6px 9px; border-left: 3px solid var(--cor-primaria-clara); border-radius: 4px; background: #f2f7fc; font-size: 0.76rem; color: #33506e; }
 .vnd-card-aviso--baixo { border-left-color: var(--cor-alerta); background: #fff8ec; color: #6b4a12; }
 .vnd-card-aviso--parcial { border-left-color: var(--cor-primaria-escura); }
-.vnd-card-rodape { display: flex; justify-content: flex-end; }
+/* ---- PAINEL DO DIA EM BLOCOS ----
+ * [EXPLICAÇÃO] → Cabeçalho (dia, setas, selo do estado do dado, hora da coleta e botão de atualizar) + resumo + blocos que abrem e fecham (<details class="vnd-pn-bloco">):
+ *                Comparação (régua), Origem, Anúncios, Hora a hora, Preços do dia, Pedidos e cancelamentos. Tudo cabe nos 340px do painel (nada de tabela larga).
+ *                Verde = o dia atual; a marca laranja na curva por hora é a média dos mesmos dias da semana (forma diferente da barra, para não depender só da cor). */
+.vnd-card-situacao { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.vnd-card-situacao .vnd-card-estado { align-self: center; }
+
+.vnd-card-veredito { margin: 0; padding: 6px 9px; border-radius: 6px; background: #eef4f0; font-size: 0.78rem; font-weight: 650; color: #35503f; }
+.vnd-card-veredito--alto { background: #e1f3e7; color: #14532d; }
+.vnd-card-veredito--baixo { background: #fff1e0; color: #7a4a0a; }
+.vnd-card-veredito--neutro { background: #f3f5f4; font-weight: 500; color: var(--cor-texto-muted); }
+
+.vnd-card-nota { margin: 0; font-size: 0.7rem; line-height: 1.35; color: var(--cor-texto-muted); }
+.vnd-card-nota--forte { font-size: 0.74rem; font-weight: 700; color: var(--cor-primaria); }
+
+.vnd-pn-bloco { margin: 0; padding-top: 8px; border-top: 1px solid #dcebe1; }
+.vnd-pn-bloco + .vnd-pn-bloco { margin-top: -4px; }
+.vnd-pn-bloco-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; list-style: none; cursor: pointer; }
+.vnd-pn-bloco-cab::-webkit-details-marker { display: none; }
+.vnd-pn-bloco-cab::before { content: ''; flex: none; align-self: center; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--cor-primaria); transition: transform 0.12s ease; }
+.vnd-pn-bloco[open] > .vnd-pn-bloco-cab::before { transform: rotate(90deg); }
+.vnd-pn-bloco-cab:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 4px; }
+.vnd-pn-bloco-titulo { font-size: 0.68rem; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cor-primaria); white-space: nowrap; }
+.vnd-pn-bloco-resumo { margin-left: auto; font-size: 0.7rem; color: var(--cor-texto-muted); text-align: right; font-variant-numeric: tabular-nums; }
+.vnd-pn-bloco-corpo { display: flex; flex-direction: column; gap: 6px; padding: 7px 0 2px; }
+.vnd-pn-bloco-corpo .vnd-card-fatos { font-size: 0.78rem; }
+
+/* Comparação: uma RÉGUA (0 até o maior valor) com os pontos de referência e uma legenda com os números.
+ * Barra verde = este dia · linha pontilhada laranja = média dos mesmos dias da semana · bolinha cheia de verde = melhor dia · bolinha cinza = pior dia ·
+ * tracejado entre as duas bolinhas = a faixa em que esse dia da semana costuma ficar. A forma (linha, bolinha, barra) diz o que é, não só a cor. */
+.vnd-reg { position: relative; height: 28px; margin: 2px 8px 0; }
+.vnd-reg > span { position: absolute; display: block; box-sizing: border-box; }
+.vnd-reg-trilho { top: 12px; right: 0; left: 0; height: 4px; border-radius: 2px; background: #dcebe1; }
+.vnd-reg-faixa { top: 13px; height: 0; border-top: 2px dotted #6b8574; }
+.vnd-reg-este { top: 9px; left: 0; height: 10px; border-radius: 5px; background: var(--vnd-n4); }
+.vnd-reg-ponta { top: 9px; width: 10px; height: 10px; margin-left: -5px; border: 2px solid; border-radius: 50%; background: #fff; }
+.vnd-reg-ponta--melhor { border-color: var(--vnd-n4); }
+.vnd-reg-ponta--pior { border-color: #8d9c93; }
+.vnd-reg-media { top: 1px; height: 26px; margin-left: -1px; border-left: 2px dotted #b45309; }
+
+.vnd-cmp-lista { display: flex; flex-direction: column; gap: 4px; }
+.vnd-cmp { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 0 6px; font-size: 0.76rem; }
+.vnd-cmp-rot { color: var(--cor-texto-muted); }
+.vnd-cmp-det { margin-left: 5px; font-size: 0.68rem; color: var(--cor-texto-muted); opacity: 0.85; }
+.vnd-cmp-val { font-weight: 750; font-variant-numeric: tabular-nums; }
+.vnd-cmp--destaque .vnd-cmp-rot { font-weight: 700; color: var(--cor-primaria); }
+.vnd-cmp-amostra { display: block; box-sizing: border-box; justify-self: center; }
+.vnd-cmp-amostra--este { width: 14px; height: 7px; border-radius: 4px; background: var(--vnd-n4); }
+.vnd-cmp-amostra--media { width: 0; height: 14px; border-left: 2px dotted #b45309; }
+.vnd-cmp-amostra--melhor, .vnd-cmp-amostra--pior { width: 10px; height: 10px; border: 2px solid var(--vnd-n4); border-radius: 50%; background: #fff; }
+.vnd-cmp-amostra--pior { border-color: #8d9c93; }
+
+/* Origem e anúncios: barra empilhada Full / Fora do Full / Sem origem. */
+.vnd-pilha { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: #dcebe1; }
+.vnd-pilha > span { display: block; height: 100%; }
+.vnd-pilha > span + span { box-shadow: -1px 0 0 #fff; }
+.vnd-pilha-full { background: var(--vnd-n4); }
+.vnd-pilha-fora { background: var(--vnd-n2); }
+.vnd-pilha-indefinido { background: #b8c9be; }
+.vnd-pilha--grande { height: 12px; border-radius: 6px; }
+.vnd-ponto { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #b8c9be; }
+.vnd-ponto--full { background: var(--vnd-n4); }
+.vnd-ponto--fora { background: var(--vnd-n2); }
+
+.vnd-pn-etiqueta { display: inline-block; padding: 0 7px; border-radius: 9px; background: #eef4f0; font-size: 0.62rem; font-weight: 700; line-height: 1.5; color: #35503f; white-space: nowrap; }
+.vnd-pn-etiqueta--aviso { background: #fff1e0; color: #7a4a0a; }
+
+/* Anúncios: um cartão por MLB (foto, selos, título e MLB à esquerda; unidades à direita; embaixo a barra Full / Fora e os detalhes). Os selos (.badge-tabela) vêm do
+ * registro único do sistema (layout_badges.css, carregado em todas as telas): aqui só se reduz o tamanho para caber nos 340px do painel. Na lista de Códigos ML
+ * (sem foto nem selos) vale só a linha de cima (.vnd-anu-topo). */
+.vnd-anu-lista { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.vnd-anu { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 9px 0; }
+.vnd-anu:first-child { padding-top: 0; }
+.vnd-anu:last-child { padding-bottom: 0; }
+.vnd-anu + .vnd-anu { border-top: 1px dashed #dcebe1; }
+.vnd-anu-topo { display: flex; align-items: baseline; gap: 6px; }
+.vnd-anu-topo code { font-size: 0.7rem; }
+.vnd-anu-topo strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+.vnd-anu-id { display: grid; grid-template-columns: 52px minmax(0, 1fr); align-items: start; gap: 10px; }
+.vnd-anu-foto { display: block; width: 52px; height: 52px; border-radius: 6px; background: #f1f4f2; object-fit: contain; }
+.vnd-anu-foto--vazia { display: flex; align-items: center; justify-content: center; background: #eef2ef; color: #a9b7ae; font-size: 0.95rem; }
+.vnd-anu-corpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.vnd-anu-selos { display: flex; flex-wrap: wrap; gap: 3px 4px; }
+.vnd-anu-selos .badge-tabela { gap: 3px; padding: 1px 6px; font-size: 0.58rem; line-height: 1.5; }
+.vnd-anu-titulo { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.8rem; line-height: 1.3; color: #334; }
+.vnd-anu-titulo--aviso { font-style: italic; color: var(--cor-texto-muted); }
+.vnd-anu-linha { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.vnd-anu .vnd-anu-mlb { padding: 0; background: none; font-size: 0.74rem; font-weight: 700; color: var(--cor-primaria); user-select: all; }
+.vnd-anu-icone { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 4px; background: none; font-size: 0.68rem; color: #a2aebd; text-decoration: none; cursor: pointer; }
+.vnd-anu-icone:hover { background: #eef4f0; color: var(--cor-primaria); }
+.vnd-anu-icone:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
+.vnd-anu-icone--ok, .vnd-anu-icone--ok:hover { color: #15803d; }
+.vnd-anu-numeros { display: inline-flex; align-items: baseline; gap: 6px; margin-left: auto; padding-left: 6px; }
+.vnd-anu-numeros strong { font-size: 0.92rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.vnd-anu-pct { min-width: 32px; text-align: right; font-size: 0.7rem; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; }
+.vnd-anu .vnd-pilha { height: 4px; }
+.vnd-anu-det { font-size: 0.7rem; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; }
+
+/* Hora a hora: 24 colunas; hachurado = depois da hora da coleta (sem dado, não é zero); a marca laranja é a média dos mesmos dias da semana. */
+.vnd-horas { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; height: 72px; }
+.vnd-hora { position: relative; display: flex; align-items: flex-end; height: 100%; border-radius: 2px 2px 0 0; background: #f1f8f3; }
+.vnd-hora-barra { display: block; width: 100%; border-radius: 2px 2px 0 0; background: var(--vnd-n4); }
+.vnd-hora--sem-dado { background: repeating-linear-gradient(135deg, #f6f8f6, #f6f8f6 3px, #e0e9e3 3px, #e0e9e3 6px); }
+.vnd-hora-ref { position: absolute; right: -1px; left: -1px; height: 0; border-top: 2px solid #b45309; pointer-events: none; }
+.vnd-horas-eixo { position: relative; height: 12px; font-size: 0.6rem; color: var(--cor-texto-muted); }
+.vnd-horas-eixo > span { position: absolute; top: 0; transform: translateX(-50%); }
+.vnd-hora-amostra { display: inline-block; width: 12px; height: 0; border-top: 2px solid #b45309; vertical-align: middle; }
+
+/* Preços do dia: uma RÉGUA (do menor ao maior preço do dia, bolinha maior = mais unidades, traço laranja = preço médio), uma linha por preço (do menor ao maior)
+ * com as marcas MENOR / MAIOR / MAIS VENDIDO, o resumo (preço médio e comparação) e, por último, a troca de preço do anúncio numa caixa de aviso. */
+.vnd-pr-regua { position: relative; height: 40px; margin: 2px 10px 6px; }
+.vnd-pr-regua > span { position: absolute; display: block; box-sizing: border-box; }
+.vnd-pr-trilho { top: 12px; right: 0; left: 0; height: 0; border-top: 2px dotted #b8c9be; }
+.vnd-pr-ponto { top: 13px; border-radius: 50%; background: var(--vnd-n4); transform: translate(-50%, -50%); box-shadow: 0 0 0 2px #fff; }
+.vnd-pr-ponto--maior { background: #d97706; }
+.vnd-pr-media { top: 0; height: 26px; margin-left: -1px; border-left: 2px dotted #b45309; }
+.vnd-pr-eixo { position: absolute; top: 26px; right: 0; left: 0; display: flex; justify-content: space-between; font-size: 0.64rem; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; }
+
+.vnd-pr-lista { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.vnd-pr-linha { display: flex; flex-direction: column; gap: 3px; padding: 8px 0; }
+.vnd-pr-linha:first-child { padding-top: 2px; }
+.vnd-pr-linha + .vnd-pr-linha { border-top: 1px dashed #dcebe1; }
+.vnd-pr-topo { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 5px; }
+.vnd-pr-preco { font-size: 1rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.vnd-pr-sel { display: inline-block; padding: 0 7px; border-radius: 9px; font-size: 0.6rem; font-weight: 700; line-height: 1.55; white-space: nowrap; }
+.vnd-pr-sel--menor { background: #d9f0de; color: #14532d; }
+.vnd-pr-sel--maior { background: #fde68a; color: #78350f; }
+.vnd-pr-sel--top { background: #dbeafe; color: #1d4ed8; }
+.vnd-pr-num { display: inline-flex; align-items: baseline; gap: 6px; margin-left: auto; }
+.vnd-pr-num strong { font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.vnd-pr-num span { min-width: 32px; text-align: right; font-size: 0.7rem; color: var(--cor-texto-muted); }
+.vnd-pr-barra { height: 4px; border-radius: 2px; background: #eaf2ec; overflow: hidden; }
+.vnd-pr-barra > span { display: block; height: 100%; border-radius: 2px; background: var(--vnd-n4); }
+.vnd-pr-det { font-size: 0.7rem; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; }
+.vnd-pr-det .vnd-pr-mlb { padding: 0; background: none; font-size: 0.68rem; font-weight: 700; color: #1a3a5c; }
+
+.vnd-pr-resumo { margin: 2px 0 0; padding-top: 8px; border-top: 1px solid #e3eee7; }
+.vnd-pr-resumo small { display: block; font-size: 0.66rem; font-weight: 400; line-height: 1.35; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; }
+.vnd-pr-resumo dd { font-variant-numeric: tabular-nums; }
+
+/* a troca de preço do anúncio fica numa caixa de aviso */
+.vnd-troca { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border: 1px solid #f1d9b5; border-radius: 6px; background: #fffaf2; }
+.vnd-troca-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; margin: 0; font-size: 0.7rem; }
+.vnd-troca-passo { display: flex; justify-content: space-between; gap: 8px; font-size: 0.74rem; font-variant-numeric: tabular-nums; }
+
+/* Pedidos e cancelamentos: lista com rolagem própria (a do painel continua valendo nas pontas). */
+.vnd-ped-destino { display: flex; flex-direction: column; gap: 6px; }
+.vnd-ped-lista { max-height: 340px; margin: 0; padding: 0; overflow-y: auto; list-style: none; border: 1px solid #e3eee7; border-radius: 6px; }
+.vnd-ped-lista--cancelados { max-height: 170px; }
+.vnd-ped { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 0 8px; padding: 4px 8px; font-size: 0.72rem; }
+.vnd-ped + .vnd-ped { border-top: 1px solid #edf4ef; }
+.vnd-ped-hora { font-weight: 750; font-variant-numeric: tabular-nums; }
+.vnd-ped-id { min-width: 0; padding: 0; overflow: hidden; background: none; font-size: 0.7rem; color: inherit; text-overflow: ellipsis; user-select: all; }
+.vnd-ped-origem { padding: 0 6px; border: 1px solid #cfdcd3; border-radius: 8px; background: #eef2ef; font-size: 0.6rem; font-weight: 700; color: #35503f; white-space: nowrap; }
+.vnd-ped-origem--full { border-color: #b2dfbf; background: #d9f0de; color: #14532d; }
+.vnd-ped-origem--indefinido { border-style: dashed; background: transparent; }
+.vnd-ped-det { grid-column: 1 / -1; color: var(--cor-texto-muted); font-variant-numeric: tabular-nums; }
+.vnd-ped--cancelado .vnd-ped-id, .vnd-ped--cancelado .vnd-ped-det { text-decoration: line-through; opacity: 0.75; }
 
 /* ---- navegador de semanas / meses ---- */
 .vnd-nav-rolagem { max-height: 460px; overflow-y: auto; }

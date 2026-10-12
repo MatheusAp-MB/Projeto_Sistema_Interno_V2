@@ -69,7 +69,30 @@ def view_vendas(request):
         'url_periodo_iniciar': reverse('gestao_vendas_periodo_iniciar'),
         'url_periodo_status': reverse('gestao_vendas_periodo_status'),
         'url_periodo_parar': reverse('gestao_vendas_periodo_parar'),
+        # Painel do dia: o bloco "Pedidos e cancelamentos" busca aqui os pedidos do dia (só LÊ o banco), e só quando a pessoa abre o bloco.
+        'url_pedidos_dia': reverse('gestao_vendas_pedidos_dia'),
     })
+
+
+# Função Objetivo: Os pedidos de UM dia (bloco "Pedidos e cancelamentos" do painel do dia), com o mesmo recorte da tela (sku, nivel, item). LÊ SÓ DO BANCO; nunca
+# chama o Mercado Livre. É buscado só quando a pessoa abre o bloco, porque a lista de pedidos de um período inteiro deixaria a página pesada.
+@require_GET
+def view_vendas_pedidos_dia(request):
+    from gestao_vendas.funcoes_auxiliares.vendas_ml import pedidos_do_dia
+
+    sku = str(request.GET.get('sku') or '').strip()
+    try:
+        dia = _data_iso(request.GET.get('dia'))
+    except ValueError:
+        dia = None
+    if not sku or dia is None:
+        return JsonResponse({'ok': False, 'mensagem': 'Pedido inválido. Recarregue a página e tente de novo.'}, status=400)
+    try:
+        dados = pedidos_do_dia(sku, str(request.GET.get('nivel') or '').strip(), str(request.GET.get('item') or '').strip(), dia)
+    except Exception:
+        traceback.print_exc()
+        return JsonResponse({'ok': False, 'mensagem': 'Falha ao ler os pedidos do dia. O detalhe está no terminal do servidor.'}, status=500)
+    return JsonResponse({'ok': True, **dados})
 
 
 # Função Objetivo: Executa uma coleta síncrona e traduz as exceções para a resposta que a tela entende. O acesso recusado (502) e a coleta de
