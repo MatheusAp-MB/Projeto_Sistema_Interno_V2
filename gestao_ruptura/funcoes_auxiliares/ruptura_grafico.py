@@ -4,8 +4,8 @@
 # for outro), as zonas coloridas do fundo (antes do envio / chegar antes da ruptura / prazo até vender / depois da ruptura) do ritmo EM DESTAQUE, os marcadores "Enviar até" e "Ruptura", o ponto de pedido
 # e os cartões de cada ritmo (ponto de pedido, "enviar até", "enviar já" ou "prazo vencido"). Serve aos dois mundos da tela (Envios Full e Fora do Full): só as palavras mudam (Enviar até x Pedir até, Com o envio
 # x Com o pedido; ruptura_texto.palavras). Havendo uma quantidade para enviar (a do Sistema ou a digitada), desenha também a COBERTURA DA REMESSA:
-# a linha que SOBE na chegada (hoje + lead time) e volta a cair no mesmo ritmo até a NOVA ruptura, com os marcadores "Chega" e "Nova ruptura". Aqui só se calcula a POSIÇÃO de cada peça e se escrevem os textos; quem desenha é o template (SVG para as
-# linhas e as zonas, HTML para os textos) e quem dá vida (ligar/desligar curvas, passar o mouse, zoom) é o script_ruptura.js.
+# a linha que SOBE na chegada (hoje + lead time) e volta a cair no mesmo ritmo até a NOVA ruptura, com os marcadores "Chega" e "Nova ruptura". Aqui só se calcula a POSIÇÃO de cada peça e se escrevem os textos
+# (inclusive a LEGENDA DIDÁTICA "Como ler este gráfico"); quem desenha é o template (SVG para as linhas e as zonas, HTML para os textos) e quem dá vida (ligar/desligar curvas, passar o mouse, zoom) é o script_ruptura.js.
 #
 # * [EXPLICAÇÃO] → POR QUE SVG "esticado" (preserveAspectRatio="none"): o layout da tela é "fluido na horizontal, rígido na vertical" (regra do Matheus, 12/10/2026): o gráfico tem ALTURA
 #                  FIXA e usa a largura toda, abrindo ou fechando a barra lateral. As linhas acompanham a largura; os textos ficam em HTML por cima (se fossem SVG esticado, as letras
@@ -34,11 +34,12 @@ MARGEM_DO_TOPO = 1.1
 PASSOS_DO_EIXO_X = (1, 2, 5, 7, 10, 14, 15, 20, 30, 45, 60, 90, 120, 180, 365)
 LINHA_DOS_MARCADORES_PX = 24   # cada marcador ocupa uma "linha" de texto no topo do gráfico (não se sobrepõem)
 ZOOM_MINIMO_EM_DIAS = 4        # a menor janela que o zoom aceita
-# * [EXPLICAÇÃO] → A COR de cada ritmo é FIXA (a mesma em qualquer produto e a cada visita) e evita verde, laranja e vermelho, que já significam "enviar" e "ruptura". O período digitado que
+# * [EXPLICAÇÃO] → A COR de cada ritmo é FIXA (a mesma em qualquer produto e a cada visita) e evita as cores que já têm dono no gráfico (regra do Matheus, 13/10/2026: "cada elemento representa 1 única coisa"):
+#                  verde = o cenário "enviando hoje" (linha da remessa, "Chega", "Nova ruptura"), vermelho = a ruptura, laranja e amarelo = as zonas do fundo, azul-marinho = o "Enviar até". O período digitado que
 #                  não é um dos quatro usa a cor neutra "extra". As cores em si moram no CSS (--rup-c3, --rup-c7...).
 COR_DO_RITMO = {3: 'c3', 7: 'c7', 15: 'c15', 30: 'c30'}
 COR_DO_RITMO_AVULSO = 'extra'
-COR_DA_REMESSA = 'sug'   # a linha da cobertura da remessa tem cor própria (verde: o estoque que SOBE com o envio)
+COR_DA_REMESSA = 'sug'   # a linha da cobertura da remessa tem cor própria (verde: o cenário "enviando hoje", o estoque que SOBE com o envio)
 ROTULO_DAS_ZONAS = {'antes': 'Antes d{do_envio}', 'ante': 'Chegar antes da ruptura', 'envio': 'Prazo até vender', 'pos': 'Depois da ruptura'}   # "{do_envio}" vira "o envio" ou "o pedido" (ruptura_texto.palavras)
 
 
@@ -70,7 +71,7 @@ def _passo_do_eixo_y(maximo):
 # Função Objetivo: As zonas do fundo, em dias a partir de hoje, para o ritmo em destaque: [(classe, inicio, fim, atrasada)]. Todas as divisas caem na meia-noite de um dia (número inteiro), porque
 # ruptura e "enviar até" são DIAS. Lendo de trás para a frente a partir da ruptura: o DIA da ruptura fica de fora das zonas (ganha a faixa vermelha própria, o marcador); os `lead` dias antes dele são
 # o "prazo até vender" (laranja: enviando nesse trecho já não dá tempo; com o prazo vencido começa em hoje); os `ante` dias antes disso são o "chegar antes da ruptura" (amarelo: ainda dá tempo, mas a
-# remessa chega menos de `ante` dias antes da ruptura: "enviar já"); tudo antes é "antes do envio" (verde: a data recomendada ainda não chegou); "pos" = os dias depois da ruptura.
+# remessa chega menos de `ante` dias antes da ruptura: "enviar já"); tudo antes é "antes do envio" (sem cor: a data recomendada ainda não chegou); "pos" = os dias depois da ruptura (cinza).
 # Estoque zerado = tudo "pos"; sem ruptura prevista (sem vendas) = tudo "antes".
 def _zonas(estoque, lead, ante, t_ruptura, horizonte):
     if estoque <= 0:
@@ -153,6 +154,102 @@ def _cartao_da_remessa(com, lead, folga, hoje, P):
             'classe': classe, 'dica': ' '.join(dica)}
 
 
+# Função Objetivo: O nome de uma zona do fundo, com os dias entre parênteses quando ela tem ("Prazo até vender (15 dias)"). Serve à legenda; "{do_envio}" vira "o envio" ou "o pedido" (ruptura_texto.palavras).
+def _rotulo_da_zona(classe, P, lead, ante):
+    dias = {'envio': lead, 'ante': ante}.get(classe)
+    return ROTULO_DAS_ZONAS[classe].format(do_envio=P['o_envio']) + (f' ({_plural(dias, "dia", "dias")})' if dias else '')
+
+
+# Função Objetivo: A LEGENDA DIDÁTICA do gráfico (o painel "Como ler este gráfico"): para cada peça DESENHADA agora, uma amostra (a mesma cor ou linha do gráfico) e uma explicação em linguagem simples, com os
+# números DESTE produto (datas, dias, quantidades). Só entra o que está no desenho: uma zona sem dias, uma data fora do horizonte ou a linha da remessa sem quantidade não aparecem. Três grupos: o FUNDO (as fases, contadas
+# de trás para a frente a partir da ruptura), as DATAS (uma coluna por dia) e as LINHAS (os ritmos, a remessa e o ponto de pedido). As cores em si moram no CSS (as amostras usam as mesmas variáveis do desenho).
+# * [EXPLICAÇÃO] → Os textos NÃO citam o nome da cor ("o azul", "o verde"): quem mostra a cor é a amostra. Assim, trocar uma cor no CSS não deixa a legenda mentindo.
+def _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zonas, marcadores, outros, ponto_de_pedido, pedido, com, folga):
+    def d(dia):
+        return _data_curta(hoje + timedelta(days=dia), hoje)
+
+    verbo, gerundio, a_remessa = P['verbo'], P['gerundio'], P['a_remessa']
+    ritmo = f'{_un_dia(media_foco)} un/dia'
+    foco_txt = _plural(destaque, 'dia', 'dias')
+    lead_txt, ante_txt = _plural(lead, 'dia', 'dias'), _plural(ante, 'dia', 'dias')
+    classes = {z['classe']: z for z in zonas}
+    marc = {m['classe']: m for m in marcadores}
+    dia_rup = floor(t_ruptura) if t_ruptura is not None else None
+    dia_limite = dia_rup - lead if dia_rup is not None else None      # o último dia possível do envio
+    dia_recomendado = dia_limite - ante if dia_limite is not None else None
+    estoque_txt = _numero(estoque)
+
+    def item(amostra, titulo, texto, cor=''):
+        return {'amostra': amostra, 'titulo': titulo, 'texto': texto, 'cor': cor}
+
+    # ---- o fundo ----
+    fundo = []
+    if 'antes' in classes:
+        fundo.append(item('zona-antes', _rotulo_da_zona('antes', P, lead, ante),
+                          f'Sem cor: ainda não é hora de {verbo}. Todos os dias daqui vêm antes da data recomendada ({P["enviar_ate"]} {d(dia_recomendado)}).' if dia_recomendado is not None
+                          else f'Neste ritmo o estoque não acaba, então não há data para {verbo}: o gráfico inteiro fica sem cor.'))
+    if 'ante' in classes:
+        if dia_recomendado is not None and dia_recomendado < 0:
+            texto = (f'A folga de segurança ({ante_txt} antes da ruptura). A data recomendada ({d(dia_recomendado)}) já passou: {gerundio} hoje, {a_remessa} ainda chega antes da ruptura, mas com menos folga.')
+        else:
+            texto = (f'A folga de segurança: o ideal é {a_remessa} chegar {ante_txt} antes da ruptura. {gerundio.capitalize()} no começo desta faixa ({d(dia_recomendado)}) você garante essa folga; mais tarde ela vai encolhendo.')
+        fundo.append(item('zona-ante', _rotulo_da_zona('ante', P, lead, ante), texto))
+    if 'envio' in classes:
+        if classes['envio']['atrasada']:
+            texto = f'O tempo que o produto leva para chegar ({lead_txt}). Cor mais forte: você já está nela. {gerundio.capitalize()} hoje, {a_remessa} chega depois da ruptura e vai faltar estoque.'
+        else:
+            texto = (f'O tempo que o produto leva para chegar ({lead_txt}). {gerundio.capitalize()} no começo desta faixa ({d(dia_limite)}, o último dia possível), {a_remessa} chega no dia da ruptura; depois disso, chega tarde.')
+        fundo.append(item('zona-envio', _rotulo_da_zona('envio', P, lead, ante), texto))
+    if 'pos' in classes:
+        fundo.append(item('zona-pos', _rotulo_da_zona('pos', P, lead, ante),
+                          'O estoque está zerado: todo o gráfico fica nesta faixa.' if estoque <= 0
+                          else f'O estoque já acabou (no ritmo de {foco_txt}): sem produto para vender, a menos que {a_remessa} chegue antes.'))
+
+    # ---- as datas ----
+    datas = []
+    if 'enviar' in marc:
+        dia = marc['enviar']['dia']
+        partes = ([f'prazo ({lead_txt})'] if lead else []) + ([f'chegar antes ({ante_txt})'] if ante else [])
+        conta = f'ruptura ({d(dia_rup)}) − ' + ' − '.join(partes)
+        chegada = f'{ante_txt} antes de o estoque acabar' if ante else 'a tempo, no dia em que o estoque acabaria'
+        datas.append(item('dia-enviar', f'{P["enviar_ate"]} {d(dia)}' + (' (hoje)' if dia == 0 else ''),
+                          f'A data recomendada para {verbo}: {conta}. {gerundio.capitalize()} até aqui, {a_remessa} chega {chegada}.'))
+    if 'ruptura' in marc:
+        dia = marc['ruptura']['dia']
+        datas.append(item('dia-ruptura', f'Ruptura {d(dia)}',
+                          f'O dia em que o estoque de {estoque_txt} un acaba: a {ritmo} (ritmo de {foco_txt}) ele dura {_plural(dia, "dia inteiro", "dias inteiros")}. A linha do estoque chega a zero nesta coluna.'))
+    if com and 'chega' in marc:
+        datas.append(item('dia-chega', f'Chega {d(marc["chega"]["dia"])}',
+                          f'Se você {verbo} {_numero(com["qtd"])} un HOJE, {a_remessa} chega nesta data (hoje + {lead_txt} de prazo) e o estoque sobe.'))
+    if com and 'nova' in marc:
+        dada = floor(round(com['folga_dada'], 6))
+        datas.append(item('dia-nova', f'Nova ruptura {d(marc["nova"]["dia"])}',
+                          f'{a_remessa.capitalize()} acrescenta {_plural(dada, "dia", "dias")} de estoque, e ele volta a acabar nesta data.' + (f' A folga desejada é de {_plural(folga, "dia", "dias")}.' if folga else '')))
+    sub_datas = 'Cada data é uma coluna inteira (o dia vai da linha da esquerda até a da direita).'
+    if com:
+        sub_datas += f' “Chega” e “Nova ruptura” têm a cor da linha “{P["com"]}”: são o mesmo cenário, o de {verbo} hoje.'
+
+    # ---- as linhas ----
+    linhas = [item('linha', f'Linha grossa · ritmo de {foco_txt}',
+                   f'O estoque de hoje ({estoque_txt} un) caindo {ritmo}: é o ritmo em destaque, o que define o fundo, as datas e o ponto de pedido. Para trocar, clique no cartão de outro ritmo.', _cor(destaque))]
+    if outros:
+        linhas.append(item('linha-fina', 'Linhas finas e tracejadas · outros ritmos',
+                           'Cada um na cor do seu cartão (embaixo do gráfico, onde também se liga e desliga). O ponto marca onde a linha chega a zero.', _cor(outros[0]['dias'])))
+    if com:
+        linhas.append(item('linha', P['com'],
+                           f'O que acontece se você {verbo} {_numero(com["qtd"])} un hoje: o estoque sobe quando {a_remessa} chega e volta a cair até a nova ruptura. Liga e desliga no cartão “{P["com"]}”.', COR_DA_REMESSA))
+    if ponto_de_pedido and pedido:
+        linhas.append(item('pedido', f'Ponto de pedido · {_numero(pedido)} un',
+                           f'O estoque em que chegou a hora de {verbo}: ritmo × (prazo + chegar antes) = {_un_dia(media_foco)} × ({lead} + {ante}). Quando a linha do estoque cai até ele, é a hora.'))
+
+    intro = (f'Leia da esquerda para a direita: HOJE é a primeira coluna e, a cada dia, o estoque cai conforme você vende (cada coluna é um dia). Regra deste gráfico: cada cor e cada linha significa uma única coisa. '
+             f'O fundo, as datas e a linha grossa valem para o ritmo em destaque ({foco_txt}, {ritmo}).')
+    grupos = [{'titulo': 'O fundo: as fases até a ruptura', 'sub': f'Contadas de trás para a frente, a partir do dia da ruptura, no ritmo de {foco_txt}.', 'itens': fundo},
+              {'titulo': 'As datas: uma coluna por dia', 'sub': sub_datas, 'itens': datas},
+              {'titulo': 'As linhas e o ponto de pedido', 'sub': 'A altura é o estoque em unidades (escala à esquerda); a linha cai porque você vende todo dia.', 'itens': linhas}]
+    return {'intro': intro, 'grupos': [g for g in grupos if g['itens']]}
+
+
 # Função Objetivo: O gráfico pronto para o template, ou None quando não há o que desenhar (sem estoque, ou o ritmo em destaque sem dados). `series` = lista de
 # {'dias': N, 'media': un/dia ou None, 'url': endereço que põe esse ritmo em destaque}; `destaque` = os dias do ritmo em destaque (o período escolhido na tela); `com` = o que acontece com o estoque
 # se a quantidade escolhida for enviada hoje (ruptura_calculo.com_envio; None = sem quantidade, sem linha da remessa); `ante` = quantos dias antes da ruptura o envio deve chegar (a zona amarela e o "Enviar até");
@@ -200,8 +297,6 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
     t_ruptura = estoque / media_foco if estoque > 0 and media_foco > 0 else None
     t_envio = t_ruptura - lead - ante if (t_ruptura is not None and (lead or ante)) else None   # a data RECOMENDADA (ruptura − prazo − chegar antes)
     zonas = [{'classe': c, 'inicio': _c(i), 'largura': _c(f - i), 'atrasada': atrasada} for c, i, f, atrasada in _zonas(estoque, lead, ante, t_ruptura, horizonte)]
-    dias_da_zona = {'envio': lead, 'ante': ante}
-    zonas_legenda = [{'classe': z['classe'], 'rotulo': ROTULO_DAS_ZONAS[z['classe']].format(do_envio=P['o_envio']) + (f' ({_plural(dias_da_zona[z["classe"]], "dia", "dias")})' if dias_da_zona.get(z['classe']) else '')} for z in zonas]
 
     marcadores = []
 
@@ -260,6 +355,9 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
     passo_x = next((p for p in PASSOS_DO_EIXO_X if horizonte / p <= 8), 365)
     ticks_x = [{'t': t, 'x_meio': _c(x(t + 0.5)), 'hoje': t == 0, 'rotulo': 'HOJE' if t == 0 else _data_curta(hoje + timedelta(days=t), hoje)} for t in range(0, horizonte, passo_x)]
 
+    # ---- a legenda didática ("Como ler este gráfico"): só o que está desenhado ----
+    legenda = _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zonas, marcadores, [s for s in com_ritmo if s['dias'] != destaque], ponto_de_pedido, pedido, com, folga)
+
     periodos = [_periodo(s, estoque, lead, ante, hoje, s['dias'] == destaque, P) for s in series]
     cartao_da_remessa = _cartao_da_remessa(com, lead, folga, hoje, P) if com else None
     dados = {
@@ -274,6 +372,6 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
     descricao = (f'Curvas do estoque de {_numero(estoque)} unidades nos próximos {horizonte} dias, uma para cada ritmo de vendas ({", ".join(str(s["dias"]) for s in com_ritmo)} dias); '
                  f'em destaque, o ritmo de {_plural(destaque, "dia", "dias")}.')
     nota = f'A ruptura no ritmo de {_plural(destaque, "dia", "dias")} fica além do que o gráfico mostra ({horizonte} dias).' if truncado else ''
-    return {'linhas': linhas, 'zonas': zonas, 'zonas_legenda': zonas_legenda, 'marcadores': marcadores, 'pontos_de_ruptura': pontos_de_ruptura, 'ponto_de_pedido': ponto_de_pedido,
+    return {'linhas': linhas, 'zonas': zonas, 'legenda': legenda, 'marcadores': marcadores, 'pontos_de_ruptura': pontos_de_ruptura, 'ponto_de_pedido': ponto_de_pedido,
             'grades_y': grades_y, 'ticks_x': ticks_x, 'periodos': periodos, 'remessa': remessa, 'cartao_da_remessa': cartao_da_remessa, 'n_cartoes': len(periodos) + (1 if com else 0), 'dados': dados, 'descricao': descricao, 'horizonte': horizonte, 'viewbox': f'0 0 {horizonte} 100',
             'truncado': truncado, 'nota': nota}
