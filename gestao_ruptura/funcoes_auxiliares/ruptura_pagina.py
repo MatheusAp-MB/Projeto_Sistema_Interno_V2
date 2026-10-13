@@ -69,6 +69,7 @@ GRANULARIDADES_DO_DETALHE = ('sku', 'mlb', 'codigo')
 TOM_DA_URGENCIA = {'URGENT': 'vermelho', 'THIS_WEEK': 'laranja', 'NEXT_WEEK': 'laranja', 'IN_TWO_WEEKS': 'azul', 'NO_URGENCY': 'verde', 'EXCEDENT': 'azul'}
 FONTE_DA_QUANTIDADE = {'sistema': 'sugestão do Sistema', 'ml': 'sugestão do Mercado Livre', 'manual': 'quantidade digitada por você'}
 CHAMADAS_POR_CODIGO = 3   # quase sempre 3 chamadas ao Mercado Livre por Código ML: estoque, reposição e depósito/Flex (o mesmo número da tela "Estoque no Full"); só a ESTIMATIVA que o botão mostra antes do clique (o total exato vem do servidor)
+ROTULO_DA_REFERENCIA = {'ml': 'ML', 'sistema': 'Sistema', 'manual': 'digitada'}   # os botões do cartão "Quem recomenda" (Mercado Livre | Sistema | Minha quantidade), em palavras curtas para a linha de resumo do cartão retraído
 ROTULO_DA_RECOMENDACAO = {'REPLENISH': 'repor', 'NO_REPLENISHMENT': 'não repor', 'NO_REPLENISHMENT_BY_RESTRICTION': 'não repor, por restrição'}   # as mesmas palavras da tela de Planejamento
 
 
@@ -139,6 +140,37 @@ def _cartao_do_envio(envio, lead, ante, P):
     return _cartao('laranja', 'fa-truck-fast', rotulo, _data(envio['enviar_ate']),
                    'hoje, último dia' if ultimo else f'daqui a {_plural(envio["em_dias"], "dia", "dias")}',
                    f'Data ideal = {regra}. {chega_txt}')
+
+
+# Função Objetivo: O cartão da AÇÃO do item, para o diagnóstico e para o 1º cartão do topo (um dono só para o texto): o "Enviar até" (no Fora do Full, "Pedir até") quando há ruptura à frente, "O quanto antes" com o estoque
+# zerado, "Sem data limite" sem ruptura prevista e "Informe o prazo" se faltar o prazo. `situacao` e `envio` vêm de ruptura_calculo (projetar e envio; `envio` só existe na situação 'normal'). Devolve o cartão (tom, ícone, rótulo, valor, apoio, detalhe).
+def _cartao_da_acao(situacao, envio, lead, ante, P):
+    if lead is None:
+        return _cartao('cinza', 'fa-truck-fast', P['enviar_ate'], 'Informe o prazo', '', 'Informe o prazo até vender para ver a data limite e o nível do estoque.')
+    if situacao == 'zerado':
+        quando = f'assim que for {P["enviado"]}' if lead == 0 else f'{_plural(lead, "dia", "dias")} depois d{P["o_envio"]}'
+        return _cartao('vermelho', 'fa-truck-fast', P['acao_cartao'], 'O quanto antes', 'sem espera' if lead == 0 else f'demora {_plural(lead, "dia", "dias")}',
+                       f'Com prazo de {_plural(lead, "dia", "dias")}, o produto só volta a ficar disponível {quando}: {P["verbo"]} o quanto antes.')
+    if situacao == 'normal':
+        return _cartao_do_envio(envio, lead, ante, P)
+    return _cartao('cinza', 'fa-truck-fast', P['enviar_ate'], 'Sem data limite', '', f'Sem ruptura prevista neste ritmo: não há data limite {P["do_envio"]}.')
+
+
+# Função Objetivo: O 1º dos 4 cartões do topo do DETALHE: a data da ação ("Enviar até 14/10/2026 · daqui a 1 dia"), com o texto do diagnóstico no balão (title). Antes o topo tinha dois cartões "Ruptura · ritmo de N dias" (o recente e o do período),
+# que saíam IGUAIS quando o período escolhido era o mesmo do recente (7 e 7); a data de ação, que é o que o usuário precisa decidir, só aparecia no diagnóstico. O ritmo recente continua no diagnóstico (cartão "Ritmo dos últimos N dias",
+# quando difere do período). `tom` pinta só o valor, na cor do mesmo elemento do gráfico: laranja = Enviar até; vermelho = prazo vencido / estoque zerado; cinza = sem data (fica na cor normal).
+def _cartao_de_acao_do_topo(estoque, media, lead, ante, hoje, P):
+    cartao = {'rotulo': P['enviar_ate'], 'destaque': False, 'tom': '', 'nivel': None, 'nivel_rotulo': '', 'nivel_titulo': '', 'valor': '—', 'sub': '', 'dica': ''}
+    if media is None:
+        cartao['sub'], cartao['dica'] = 'sem dias completos coletados', f'Sem dias completos coletados neste recorte não há ritmo, e sem ritmo não há data de {P["enviar_ate"].lower()}.'
+    elif estoque is None:
+        cartao['sub'], cartao['dica'] = 'informe o estoque', f'Informe o estoque para ver a data de {P["enviar_ate"].lower()}.'
+    else:
+        projecao = calc.projetar(estoque, media, hoje)
+        envio = calc.envio(projecao, lead, hoje, ante) if (projecao['situacao'] == 'normal' and lead is not None) else None
+        base = _cartao_da_acao(projecao['situacao'], envio, lead, ante, P)
+        cartao.update({'rotulo': base['rotulo'], 'valor': base['valor'], 'sub': base['apoio'], 'dica': base['detalhe'], 'tom': '' if base['tom'] == 'cinza' else base['tom']})
+    return cartao
 
 
 # Função Objetivo: O cartão "Quanto enviar" (no Fora do Full, "Quanto pedir") com a sugestão do SISTEMA (ruptura_calculo.sugestao_do_sistema): ritmo × folga, a quantidade que acrescenta `folga` dias de estoque
@@ -327,16 +359,7 @@ def _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, me
         cartoes.append(_cartao('vermelho', 'fa-calendar-xmark', f'Ruptura {P["sem"]}', _data(projecao['data']), _em_dias(projecao['dias']), resumo))
 
     # ---- 2) o envio, 3) quanto enviar e 4) o ponto de pedido (dependem do prazo, dos dias de antecedência e da folga) ----
-    if lead is None:
-        cartoes.append(_cartao('cinza', 'fa-truck-fast', P['enviar_ate'], 'Informe o prazo', '', 'Informe o prazo até vender para ver a data limite e o nível do estoque.'))
-    elif situacao == 'zerado':
-        quando = f'assim que for {P["enviado"]}' if lead == 0 else f'{_plural(lead, "dia", "dias")} depois d{P["o_envio"]}'
-        cartoes.append(_cartao('vermelho', 'fa-truck-fast', P['acao_cartao'], 'O quanto antes', 'sem espera' if lead == 0 else f'demora {_plural(lead, "dia", "dias")}',
-                               f'Com prazo de {_plural(lead, "dia", "dias")}, o produto só volta a ficar disponível {quando}: {P["verbo"]} o quanto antes.'))
-    elif situacao == 'normal':
-        cartoes.append(_cartao_do_envio(envio_do_item, lead, ante, P))
-    else:
-        cartoes.append(_cartao('cinza', 'fa-truck-fast', P['enviar_ate'], 'Sem data limite', '', f'Sem ruptura prevista neste ritmo: não há data limite {P["do_envio"]}.'))
+    cartoes.append(_cartao_da_acao(situacao, envio_do_item, lead, ante, P))
     if lead is not None:
         if ml is not None or mundo == 'fora':
             cat_do_sistema = 'ruptura' if situacao == 'zerado' else 'normal'
@@ -506,7 +529,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
         'ocultos': [{'nome': 'sku', 'valor': sku}] + ([{'nome': 'gran', 'valor': gran}, {'nome': 'item', 'valor': item}] if gran != 'sku' else []) + campos_escondidos(comuns, detalhe=True),
         'url_lista': url_da_tela(base_url, gran=gran if gran != 'sku' else None, **para_url(comuns)),
         'cartoes': [], 'grafico': None, 'diagnostico': None, 'alvo': None, 'tabela_de_codigos': None, 'dica_do_estoque': {'texto': '', 'classe': ''}, 'deposito': None,
-        'atualizar': None, 'frescor': None,
+        'atualizar': None, 'frescor': None, 'estoque_usado': None, 'qtd_usada': None,
     })
 
     de = hoje - timedelta(days=max(dias, recente, max(calc.DIAS_DOS_RITMOS_DO_GRAFICO)))   # o gráfico compara 3, 7, 15 e 30 dias: as vendas desses dias já estão no banco (nada de API)
@@ -546,6 +569,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
     estoque = estoque_digitado if estoque_digitado is not None else lido
     a_caminho_somado = a_caminho_somado if estoque_digitado is None else 0   # o valor digitado vale como está: o a caminho não é somado a ele
     origem_do_estoque = 'digitado' if estoque_digitado is not None else (('lido do Full' + (' + a caminho' if a_caminho_somado else '')) if lido is not None else '')
+    pagina['estoque_usado'] = estoque
     pagina['estoque_placeholder'] = numero(lido) if lido is not None else 'unidades'
     pagina['dica_do_estoque'] = _dica_do_estoque(mundo, estoque_digitado, lido, resumo, rotulo_do_estoque, caminho)
 
@@ -588,7 +612,6 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
     # ---- os 4 cartões ----
     de_periodo = hoje - timedelta(days=dias)
     explicacao_periodo = (f'Média dos últimos {dias} dias (de {_data(de_periodo)} até ontem), só das vendas {P["vendas_de"]}. Só dias completos entram: hoje (parcial) e dias sem coleta ficam de fora; venda cancelada não conta.')
-    explicacao_recente = f'Média dos últimos {recente} dias completos: mostra se o ritmo mudou há pouco tempo.'
     cartao_vendas = {'rotulo': f'Vendas nos últimos {dias} dias', 'destaque': False, 'nivel': None, 'nivel_rotulo': '', 'nivel_titulo': '', 'valor': f'{numero(ritmo_p["unidades"])} un',
                      'sub': f'média {_un_dia(media)} un/dia · {n_ok}/{dias} dias' if media is not None else 'nenhum dia completo coletado'}
     cartao_vendas['dica'] = f'{explicacao_periodo} Entraram {n_ok} dos {dias} dias; {cartao_vendas["sub"]}.'
@@ -598,7 +621,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
     cartao_estoque['dica'] = (f'{rotulo_do_estoque} ({origem_do_estoque or "não informado"}) e prazo até vender ({_plural(lead, "dia", "dias")}; o envio deve chegar {_plural(ante, "dia", "dias")} antes da ruptura; folga de {_plural(folga, "dia", "dias")}). '
                               f'{"Estoque do Full = " + full.texto_da_conta(resumo, numero, caminho) if lido is not None else ""}')
     pagina['cartoes'] = [
-        _cartao_de_ruptura(f'Ruptura · ritmo de {recente} dias', explicacao_recente, ritmo_r, estoque, lead, folga, hoje),
+        _cartao_de_acao_do_topo(estoque, media, lead, ante, hoje, P),
         _cartao_de_ruptura(f'Ruptura · ritmo de {dias} dias', explicacao_periodo, ritmo_p, estoque, lead, folga, hoje, destaque=True),
         cartao_vendas,
         cartao_estoque,
@@ -626,6 +649,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
     sugestao = calc.sugestao_do_sistema(estoque, media, lead, folga)
     escolha = _quantidade_escolhida(comuns, sugestao, ml)
     qtd_escolhida = escolha['qtd']
+    pagina['qtd_usada'] = qtd_escolhida
     ideal = calc.data_ideal_do_envio(calc.projetar(estoque, media, hoje), lead, hoje, ante)
     com = sem_data = None
     if estoque is not None and media and media > 0 and lead is not None and qtd_escolhida and qtd_escolhida > 0:
@@ -717,6 +741,25 @@ def _regras_em_uso(pagina, comuns):
     return regras
 
 
+# Função Objetivo: A linha de RESUMO de cada cartão de controles quando ele está RETRAÍDO (pedido do Matheus, 13/10/2026: os 3 cartões "Projeção", "Regras de envio" e "Quem recomenda" nascem fechados e abrem ao clicar): os valores
+# que estão VALENDO agora, em uma linha, para o usuário conferir com que regras o gráfico foi calculado sem abrir nada. Só mostra (quem digita são os campos dentro do cartão). `recomenda` só existe no detalhe do Full (o único
+# lugar com o cartão "Quem recomenda"). Os valores são os APLICADOS (os do último "Recalcular"), nunca o que está digitado e ainda pendente.
+def _resumo_dos_cartoes(pagina, comuns):
+    detalhe = pagina['modo'] == 'detalhe'
+    projecao = [f'vendas {comuns["dias"]} d']
+    if detalhe:
+        estoque = pagina.get('estoque_usado')
+        projecao.append(f'estoque {numero(estoque)} un' if estoque is not None else 'sem estoque')
+    if pagina['e_full']:
+        projecao.append('a caminho incluído' if comuns['caminho'] else 'a caminho fora')
+    regras = [f'prazo {comuns["lead"]} d', f'chegar antes {comuns["ante"]} d', f'folga {comuns["folga"]} d']
+    recomenda = ''
+    if pagina['e_full'] and detalhe:
+        qtd = pagina.get('qtd_usada')
+        recomenda = f'urgência: {ROTULO_DA_REFERENCIA[comuns["ref_urg"]]} · quantidade: {ROTULO_DA_REFERENCIA[comuns["ref_qtd"]]}' + (f' ({numero(qtd)} un)' if qtd else '')
+    return {'projecao': ' · '.join(projecao), 'regras': ' · '.join(regras), 'recomenda': recomenda}
+
+
 # Função Objetivo: O endereço de um mundo (para o seletor "Envios Full | Fora do Full"): leva os parâmetros dos DOIS mundos (trocar de mundo não perde o que foi digitado no outro) e o que identifica a tela
 # (o item aberto no detalhe; a busca, a situação, o "Divergem" e a ordem na lista).
 def _endereco_do_mundo(base_url, parametros, comuns, chave, sku, gran, item):
@@ -763,6 +806,7 @@ def montar_pagina(parametros, base_url, hoje=None):
         pagina['regras_em_uso'] = _regras_em_uso(pagina, comuns)
         pagina['regras_tem_provisoria'] = any(r['provisorio'] for r in pagina['regras_em_uso'])   # a legenda "tracejado = regra provisória" só aparece quando há alguma
         pagina['lista'] = montar_lista(parametros, base_url, hoje, comuns) if mundo == 'full' else montar_lista_fora(parametros, base_url, hoje, comuns)
+    pagina['ctl_resumo'] = _resumo_dos_cartoes(pagina, comuns)
     gran, item = pagina.get('gran', ''), pagina.get('item', '')
     pagina['mundos'] = [{'chave': chave, 'rotulo': rotulo, 'dica': dica, 'ativo': chave == mundo,
                          'desativado': bool(sku) and gran == 'codigo' and chave == 'fora',

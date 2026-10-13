@@ -49,7 +49,7 @@
         </section>
         <section class="rup-cartoes" aria-label="Resumo da projeção">
             {% for c in pagina.cartoes %}
-                <article class="rup-cartao{% if c.destaque %} rup-cartao--destaque{% endif %}" title="{{ c.dica }}">
+                <article class="rup-cartao{% if c.destaque %} rup-cartao--destaque{% endif %}{% if c.tom %} rup-cartao--{{ c.tom }}{% endif %}" title="{{ c.dica }}">
                     <span class="rup-cartao-rotulo">{{ c.rotulo }}</span>
                     <div class="rup-cartao-linha">
                         <span class="rup-cartao-valor">{{ c.valor }}</span>
@@ -98,7 +98,6 @@
                                 {% for z in g.zonas %}<rect class="rup-zona rup-zona--{{ z.classe }}{% if z.atrasada %} rup-zona--atrasada{% endif %}" x="{{ z.inicio }}" y="0" width="{{ z.largura }}" height="100"/>{% endfor %}
                                 {% for t in g.ticks_x %}<line class="rup-grade rup-grade--x" x1="{{ t.t }}" x2="{{ t.t }}" y1="0" y2="100"/>{% endfor %}
                                 {% for t in g.grades_y %}<line class="rup-grade rup-grade--y" x1="0" x2="{{ g.horizonte }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}
-                                {% if g.ponto_de_pedido %}<line class="rup-pedido-linha" x1="0" x2="{{ g.horizonte }}" y1="{{ g.ponto_de_pedido.y }}" y2="{{ g.ponto_de_pedido.y }}"/>{% endif %}
                                 {% for m in g.marcadores %}<line class="rup-dia rup-dia--{{ m.classe }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} x1="{{ m.posicao }}" x2="{{ m.posicao }}" y1="0" y2="100"/>{% endfor %}
                                 {% for l in g.linhas %}<polyline class="rup-curva rup-cor--{{ l.cor }}{% if l.foco %} rup-curva--foco{% endif %}" data-serie="{{ l.id }}" points="{{ l.pontos }}"/>{% endfor %}
                                 {% if g.remessa %}<polyline class="rup-curva rup-curva--sug rup-cor--{{ g.remessa.cor }}" data-serie="sug" points="{{ g.remessa.pontos }}"/>{% endif %}
@@ -108,11 +107,10 @@
                             {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.leitura %} rup-rotulo-x--leitura{% endif %}"{% if t.leitura %} title="Dia da leitura do estoque: o começo do gráfico"{% endif %} style="left: {{ t.x_meio }}%">{{ t.rotulo }}</span>{% endfor %}
                             {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} data-rup-x="{{ m.posicao }}" data-rup-lado="{{ m.lado }}" style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
                             {% for p in g.pontos_de_ruptura %}<span class="rup-ponto-ruptura rup-cor--{{ p.cor }}" data-serie="{{ p.id }}" data-rup-t="{{ p.t }}" style="left: {{ p.x }}%" title="{{ p.rotulo }}"></span>{% endfor %}
-                            {% if g.ponto_de_pedido %}<span class="rup-etiqueta rup-etiqueta--pedido{% if g.ponto_de_pedido.abaixo %} rup-etiqueta--abaixo{% endif %}" style="top: {{ g.ponto_de_pedido.y }}%">{{ g.ponto_de_pedido.rotulo }}</span>{% endif %}
                         </div>
                     </div>
                     <div class="rup-grafico-rodape">
-                        {% if g.nota %}<p class="rup-grafico-nota" title="{{ g.nota }}">{{ g.nota }}</p>{% else %}<p class="rup-grafico-nota" title="Cada coluna é um dia. O fundo e a linha grossa são o ritmo em destaque, sem novo envio.{% if g.remessa %} A linha verde simula a reposição na data ideal.{% endif %} Passe o mouse sobre o gráfico para ver o estoque previsto. O que cada cor e cada linha significam está em “Como ler este gráfico”, logo abaixo."><i class="fas fa-circle-info" aria-hidden="true"></i> O fundo e a linha grossa mostram o ritmo em destaque, sem novo envio{% if g.remessa %}; a linha verde simula a reposição na data ideal{% endif %}</p>{% endif %}
+                        {% if g.nota %}<p class="rup-grafico-nota" title="{{ g.nota }}">{{ g.nota }}</p>{% else %}<p class="rup-grafico-nota" title="Cada dia é uma coluna (o eixo marca só algumas datas; com o zoom, uma por dia). O fundo e a linha grossa são o ritmo em destaque, sem novo envio.{% if g.remessa %} A linha verde simula a reposição na data ideal.{% endif %} Passe o mouse sobre o gráfico para ver o estoque previsto. O que cada cor e cada linha significam está em “Como ler este gráfico”, logo abaixo."><i class="fas fa-circle-info" aria-hidden="true"></i> O fundo e a linha grossa mostram o ritmo em destaque, sem novo envio{% if g.remessa %}; a linha verde simula a reposição na data ideal{% endif %}</p>{% endif %}
                     </div>
                     <div class="rup-cenarios{% if g.n_cartoes > 5 %} rup-cenarios--cheio{% endif %}">
                         <section class="rup-cenarios-grupo rup-cenarios-grupo--ritmos" style="--rup-n: {{ g.periodos|length }}" aria-label="Cenários de ritmo de vendas, sem novo envio">

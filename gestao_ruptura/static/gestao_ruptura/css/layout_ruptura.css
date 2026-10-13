@@ -304,6 +304,9 @@
 }
 
 .rup-cartao--destaque { background: #e1edf8; border-color: #b9cde2; }
+/* o cartão "Enviar até" (o 1º do topo): só o VALOR leva a cor do mesmo elemento do gráfico (laranja = Enviar até; vermelho = prazo vencido ou estoque zerado) */
+.rup-cartao--laranja .rup-cartao-valor { color: var(--rup-faixa-critico-texto, #a84f00); }
+.rup-cartao--vermelho .rup-cartao-valor { color: var(--rup-faixa-pos-texto, #b42318); }
 
 .rup-cartao-rotulo {
     overflow: hidden;
@@ -423,7 +426,6 @@
 /* as linhas: a amostra é um traço na cor do ritmo (a mesma --rup-cor do cartão e da curva), igual ao estilo desenhado no gráfico */
 .rup-amostra--linha { height: 0; margin-top: 9px; border: 0; border-top: 3px solid var(--rup-cor); border-radius: 2px; background: none; }
 .rup-amostra--linha-fina { height: 0; margin-top: 9px; border: 0; border-top: 2px dashed var(--rup-cor, #5b6675); background: none; }
-.rup-amostra--pedido { height: 0; margin-top: 9px; border: 0; border-top: 2px dashed #6c757d; background: none; }
 
 /* ---- botões do zoom (no cabeçalho do gráfico; o script os mostra) ---- */
 .rup-zoom { display: flex; flex: none; align-items: center; gap: 4px; }
@@ -496,7 +498,6 @@
 .rup-zona--critico { fill: var(--rup-zona-critico); }
 .rup-zona--critico.rup-zona--atrasada { fill: var(--rup-zona-critico-atrasada); }
 .rup-zona--pos { fill: var(--rup-zona-pos); }
-.rup-pedido-linha { stroke: #6c757d; stroke-width: 1.5; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 /* as LINHAS DE DATA: uma linha fina no meio da coluna do dia (a "Chegada ideal", no começo dela, onde o estoque sobe). A linha do estoque cruza o zero dentro da coluna da "Ruptura" */
 .rup-dia { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .rup-dia--enviar { stroke: var(--rup-dia-enviar); }
@@ -549,8 +550,6 @@
 .rup-etiqueta--ruptura { color: #b42318; border-color: #f3b8b8; }
 .rup-etiqueta--chega { color: #1f6a42; border-color: #bfe3cf; }
 .rup-etiqueta--nova { color: #1f6a42; border-color: var(--rup-dia-nova-borda); border-style: dashed; }
-.rup-etiqueta--pedido { right: 8px; transform: translateY(-115%); color: #4b5a6b; background: rgba(255, 255, 255, 0.85); }   /* canto direito: o esquerdo é dos marcadores */
-.rup-etiqueta--pedido.rup-etiqueta--abaixo { transform: translateY(15%); }                                                   /* linha no topo do gráfico: o rótulo vai embaixo dela */
 
 /* onde a linha de um ritmo que não está em destaque encosta no zero */
 .rup-ponto-ruptura { position: absolute; top: 100%; width: 10px; height: 10px; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 50%; background: var(--rup-cor); box-shadow: 0 0 0 1px var(--rup-cor); }
@@ -774,12 +773,12 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
     border: 2px solid #ffffff;
 }
 
-.rup-ctls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+/* Os cartões são RETRÁTEIS (<details>) e nascem FECHADOS (pedido do Matheus, 13/10/2026). "align-items: start": um cartão aberto não estica os vizinhos fechados (cada um tem a altura do que mostra). */
+.rup-ctls { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 12px; }
 
 .rup-ctl {
     --rup-rot: 150px;   /* largura do rótulo dos campos "rótulo | valor": todos os valores de um cartão começam na mesma coluna */
-    display: flex;
-    flex-direction: column;
+    display: block;
     min-width: 0;
     background: var(--cor-fundo-card);
     border: 1px solid var(--cor-borda);
@@ -800,6 +799,21 @@ a.rup-segmento--ativo:hover { background: var(--cor-primaria); color: var(--cor-
     border-radius: 9px 9px 0 0;
 }
 .rup-ctl--regras .rup-ctl-cab { background: #e9edf2; }
+/* o cabeçalho é o <summary>: clicável (ou Enter/Espaço) para abrir e fechar; sem o triângulo do navegador, no lugar dele a setinha à direita */
+.rup-ctl-cab { cursor: pointer; list-style: none; user-select: none; }
+.rup-ctl-cab::-webkit-details-marker { display: none; }
+.rup-ctl-cab:hover { background: #e3ebf5; }
+.rup-ctl--regras .rup-ctl-cab:hover { background: #dfe5ec; }
+.rup-ctl-cab:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }
+.rup-ctl:not([open]) > .rup-ctl-cab { border-bottom: 0; border-radius: 9px; }   /* fechado: o cabeçalho é o cartão inteiro */
+.rup-ctl-seta { flex: none; font-size: 0.78rem; color: var(--cor-texto-muted); transition: transform 0.15s ease; }
+.rup-ctl[open] > .rup-ctl-cab .rup-ctl-seta { transform: rotate(180deg); }
+/* fechado: no lugar do subtítulo ("Como projeto quando...") vai a linha de RESUMO dos valores que estão valendo; aberto, volta o subtítulo (a mesma altura nos dois estados) */
+.rup-ctl-resumo { font-weight: 600; color: #243247; }
+.rup-ctl[open] .rup-ctl-resumo { display: none; }
+.rup-ctl:not([open]) .rup-ctl-sub--aberto { display: none; }
+.rup-ctl:not([open]) .rup-ctl-tag { display: none; }   /* fechado, a etiqueta "muda pouco" cede o lugar ao resumo (o cartão apagado já diz isso; aberto, ela volta) */
+@media (prefers-reduced-motion: reduce) { .rup-ctl-seta { transition: none; } }
 .rup-ctl-num {
     display: inline-flex;
     flex: none;

@@ -10,13 +10,17 @@
     * [EXPLICAÇÃO] → Quando um valor vale: botões e seletores (atalhos de dias, caixa "a caminho", Mercado Livre | Sistema) refazem o cálculo na hora; os campos de número e a busca só valem ao apertar Enter ou "Recalcular", que ganha uma bolinha laranja
       enquanto houver algo digitado e ainda não aplicado (script_ruptura.js). Os nomes técnicos no endereço: Full = dias, lead, ante, folga, estoque; Fora do Full = os mesmos com _f no fim (dias_f, lead_f, ante_f, folga_f, estoque_f); só do Full: caminho, ref_urg, ref_qtd, qtd.
       A disposição (3 cartões no Full, 2 no Fora do Full; 2 ou 1 por linha em janela menor) depende só da largura da JANELA (layout_ruptura.css), nunca do espaço ao lado da barra lateral. Cada cartão tem o "?" com a explicação longa; cada campo tem a frase de apoio embaixo, numa linha só.
+    * [EXPLICAÇÃO] → Os cartões são RETRÁTEIS e NASCEM FECHADOS (pedido do Matheus, 13/10/2026: "faça esses painéis começarem retraídos e serem expansíveis"; o gráfico é o resultado principal e os campos ocupavam mais da metade da primeira tela). Cada cartão é um <details>:
+      o cabeçalho (<summary>) fica sempre à vista, com o número, o título, a linha de RESUMO dos valores que estão valendo (pagina.ctl_resumo, de ruptura_pagina._resumo_dos_cartoes; troca o subtítulo enquanto o cartão está fechado) e a setinha. Os campos continuam DENTRO do
+      formulário e viajam no "Recalcular" mesmo com o cartão fechado. O estado aberto/fechado não é guardado: toda vez que a tela carrega, os cartões voltam fechados (os atalhos de dias e a caixa "a caminho" recarregam a tela, então o cartão fecha de novo).
 {% endcomment %}<div class="rup-ctls{% if not pagina.e_full or pagina.modo != 'detalhe' %} rup-ctls--2{% endif %}">
-    <section class="rup-ctl rup-ctl--projecao" aria-labelledby="rup-ctl-1">
-        <header class="rup-ctl-cab">
+    <details class="rup-ctl rup-ctl--projecao">
+        <summary class="rup-ctl-cab">
             <span class="rup-ctl-num" aria-hidden="true">1</span>
             <div class="rup-ctl-titulos">
                 <h2 class="rup-ctl-titulo" id="rup-ctl-1">Projeção</h2>
-                <p class="rup-ctl-sub">{% if pagina.e_full %}Como projeto quando o estoque do Full acaba{% else %}Como projeto quando o estoque de fora do Full acaba{% endif %}</p>
+                <p class="rup-ctl-sub rup-ctl-sub--aberto">{% if pagina.e_full %}Como projeto quando o estoque do Full acaba{% else %}Como projeto quando o estoque de fora do Full acaba{% endif %}</p>
+                <p class="rup-ctl-sub rup-ctl-resumo" title="{{ pagina.ctl_resumo.projecao }}">{{ pagina.ctl_resumo.projecao }}</p>
             </div>
             <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler o cartão Projeção">
                 <i class="fas fa-circle-question" aria-hidden="true"></i>
@@ -36,20 +40,22 @@
                     {% endif %}
                 </span>
             </span>
-        </header>
+            <i class="fas fa-chevron-down rup-ctl-seta" aria-hidden="true"></i>
+        </summary>
         <div class="rup-ctl-corpo">
             {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_ritmo.html' %}
             {% if pagina.modo == 'detalhe' %}{% include 'gestao_ruptura/parciais/estrutura_parcial_campo_estoque.html' %}{% endif %}
             {% if pagina.e_full %}{% include 'gestao_ruptura/parciais/estrutura_parcial_campo_caminho.html' %}{% endif %}
         </div>
-    </section>
+    </details>
 
-    <section class="rup-ctl rup-ctl--regras" aria-labelledby="rup-ctl-2">
-        <header class="rup-ctl-cab">
+    <details class="rup-ctl rup-ctl--regras">
+        <summary class="rup-ctl-cab">
             <span class="rup-ctl-num" aria-hidden="true">2</span>
             <div class="rup-ctl-titulos">
                 <h2 class="rup-ctl-titulo" id="rup-ctl-2">{{ pagina.txt.regras_titulo }}</h2>
-                <p class="rup-ctl-sub">{{ pagina.txt.regras_sub }}</p>
+                <p class="rup-ctl-sub rup-ctl-sub--aberto">{{ pagina.txt.regras_sub }}</p>
+                <p class="rup-ctl-sub rup-ctl-resumo" title="{{ pagina.ctl_resumo.regras }}">{{ pagina.ctl_resumo.regras }}</p>
             </div>
             <span class="rup-ctl-tag" title="Estas regras dependem do responsável e mudam pouco.">muda pouco</span>
             <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler o cartão {{ pagina.txt.regras_titulo }}">
@@ -63,7 +69,8 @@
                     <span>Com elas: <b>{{ pagina.palavras.enviar_ate }}</b> = ruptura − prazo − chegar antes; <b>nível</b> crítico = dura menos que o prazo; baixo = até prazo + folga. O número digitado vale ao apertar Enter ou &quot;Recalcular&quot;.</span>
                 </span>
             </span>
-        </header>
+            <i class="fas fa-chevron-down rup-ctl-seta" aria-hidden="true"></i>
+        </summary>
         <div class="rup-ctl-corpo">
             {% include 'gestao_ruptura/parciais/estrutura_parcial_campo_lead.html' %}
             {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_regra.html' %}
@@ -72,15 +79,16 @@
             <span class="rup-regra-linha"><b>{{ pagina.palavras.enviar_ate }}</b> = {{ pagina.txt.regra_enviar_ate }}</span>
             <span class="rup-regra-linha"><b>Quantidade</b> = {{ pagina.txt.regra_quantidade }}</span>
         </div>
-    </section>
+    </details>
 
     {% if pagina.e_full and pagina.modo == 'detalhe' %}
-    <section class="rup-ctl rup-ctl--recomenda" aria-labelledby="rup-ctl-3">
-        <header class="rup-ctl-cab">
+    <details class="rup-ctl rup-ctl--recomenda">
+        <summary class="rup-ctl-cab">
             <span class="rup-ctl-num" aria-hidden="true">3</span>
             <div class="rup-ctl-titulos">
                 <h2 class="rup-ctl-titulo" id="rup-ctl-3">Quem recomenda</h2>
-                <p class="rup-ctl-sub">De quem é a palavra final</p>
+                <p class="rup-ctl-sub rup-ctl-sub--aberto">De quem é a palavra final</p>
+                <p class="rup-ctl-sub rup-ctl-resumo" title="{{ pagina.ctl_resumo.recomenda }}">{{ pagina.ctl_resumo.recomenda }}</p>
             </div>
             <span class="rup-ajuda" tabindex="0" role="note" aria-label="Como ler o cartão Quem recomenda">
                 <i class="fas fa-circle-question" aria-hidden="true"></i>
@@ -91,10 +99,11 @@
                     <span><b>Quantidade segundo</b>: <i>Mercado Livre</i> = a quantidade que ele sugere (numa faixa vale o começo dela); <i>Sistema</i> = ritmo × os dias de folga das Regras de envio (a ruptura vai esses dias para frente){% if pagina.modo == 'detalhe' %}; <i>Minha quantidade</i> = você digita quantas unidades quer enviar e a linha verde do gráfico mostra o estoque subindo{% endif %}.</span>
                 </span>
             </span>
-        </header>
+            <i class="fas fa-chevron-down rup-ctl-seta" aria-hidden="true"></i>
+        </summary>
         <div class="rup-ctl-corpo">
             {% include 'gestao_ruptura/parciais/estrutura_parcial_campos_referencia.html' %}
         </div>
-    </section>
+    </details>
     {% endif %}
 </div>

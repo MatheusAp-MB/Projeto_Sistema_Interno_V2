@@ -1,8 +1,9 @@
 # gestao_ruptura/funcoes_auxiliares/ruptura_grafico.py
 #
 # Função Objetivo: Calcula a CURVA DE ESTOQUE da tela "Previsão de Ruptura de estoque": uma linha do estoque caindo para CADA ritmo de vendas (3, 7, 15 e 30 dias, mais o período digitado quando
-# for outro), as três zonas do fundo (antes do prazo / prazo crítico de reposição / após a ruptura) do ritmo EM DESTAQUE, a RÉGUA de chips que nomeia cada zona, as linhas de data "Enviar até" e "Ruptura", o ponto de
-# pedido e os cartões de cada ritmo (ponto de pedido, "enviar até", "enviar já" ou "prazo vencido"). Serve aos dois mundos da tela (Envios Full e Fora do Full): só as palavras mudam (Enviar até x Pedir até, Com o envio
+# for outro), as três zonas do fundo (antes do prazo / prazo crítico de reposição / após a ruptura) do ritmo EM DESTAQUE, a RÉGUA de chips que nomeia cada zona, as linhas de data "Enviar até" e "Ruptura"
+# e os cartões de cada ritmo (ponto de pedido, "enviar até", "enviar já" ou "prazo vencido"). O ponto de pedido NÃO é desenhado no gráfico (decisão do Matheus, 13/10/2026): a curva cruza esse nível exatamente na linha
+# "Enviar até", que já diz a mesma coisa em data; o valor fica nos cartões de cada ritmo e no diagnóstico. Serve aos dois mundos da tela (Envios Full e Fora do Full): só as palavras mudam (Enviar até x Pedir até, Com o envio
 # x Com o pedido; ruptura_texto.palavras). Havendo uma quantidade para enviar (a do Sistema ou a digitada) E uma DATA IDEAL de envio, desenha também a SIMULAÇÃO DE REPOSIÇÃO: a linha que SOBE na chegada ideal
 # (data ideal + prazo) e volta a cair no mesmo ritmo até a NOVA ruptura, com as linhas "Chegada ideal" e "Nova ruptura". NÃO existe "hoje" no gráfico (regra do Matheus, 13/10/2026: a data real do envio depende de quando o
 # Mercado Livre liberar o agendamento; o que o gráfico mostra é a data IDEAL). Aqui só se calcula a POSIÇÃO de cada peça e se escrevem os textos (inclusive a LEGENDA DIDÁTICA "Como ler este gráfico"); quem desenha
@@ -12,8 +13,7 @@
 #                  FIXA e usa a largura toda, abrindo ou fechando a barra lateral. As linhas acompanham a largura; os textos ficam em HTML por cima (se fossem SVG esticado, as letras
 #                  sairiam deformadas).
 # * [EXPLICAÇÃO] → O eixo horizontal do SVG é medido em DIAS a partir de hoje (viewBox "0 0 {horizonte} 100"): o zoom e o arrastar do script só trocam o viewBox, sem recalcular nenhuma linha.
-#                  O eixo vertical é em % da altura e é FIXO: não muda ao ocultar curvas, trocar o destaque ou dar zoom (a escala olha para o estoque e para os pontos de pedido de TODOS
-#                  os ritmos, não só do que está em destaque).
+#                  O eixo vertical é em % da altura e é FIXO: não muda ao ocultar curvas, trocar o destaque ou dar zoom (a escala olha para o estoque e para o topo da simulação de reposição).
 # * [EXPLICAÇÃO] → Os números dos textos saem daqui já como TEXTO ("12.34"): o Django formata número decimal com vírgula (pt-BR), e "x=12,34" quebraria o SVG. Os dados que o script usa vão
 #                  em JSON (json_script), que sempre usa o ponto.
 # * [EXPLICAÇÃO] → A linha é reta (o ritmo é uma média por dia, então o estoque cai em linha reta). As contas de ruptura, envio e ponto de pedido são as de ruptura_calculo.py, as mesmas
@@ -181,10 +181,10 @@ def _rotulo_da_zona(classe, P):
 
 # Função Objetivo: A LEGENDA DIDÁTICA do gráfico (o painel "Como ler este gráfico", que nasce FECHADO: o gráfico já se explica sozinho pela régua e pelos nomes ao lado de cada linha): para cada peça DESENHADA agora, uma
 # amostra (a mesma cor ou linha do gráfico) e uma explicação curta, com os números DESTE produto (datas, dias, quantidades). Só entra o que está no desenho: uma zona sem dias, uma data fora do horizonte ou a linha da
-# simulação sem quantidade não aparecem. Três grupos: o FUNDO (as faixas), as DATAS (uma linha vertical por data) e as LINHAS (os ritmos, a simulação e o ponto de pedido). As cores em si moram no CSS.
+# simulação sem quantidade não aparecem. Três grupos: o FUNDO (as faixas), as DATAS (uma linha vertical por data) e as LINHAS (os ritmos e a simulação). As cores em si moram no CSS.
 # * [EXPLICAÇÃO] → Os textos NÃO citam o nome da cor ("o azul", "o verde"): quem mostra a cor é a amostra. Assim, trocar uma cor no CSS não deixa a legenda mentindo.
 # * [EXPLICAÇÃO] → Nenhum texto fala em "hoje": o dia 0 do gráfico é o dia da LEITURA do estoque, e a data real do envio só existe quando o Mercado Livre libera o agendamento. O que o gráfico mostra é a DATA IDEAL.
-def _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zonas, marcadores, outros, ponto_de_pedido, pedido, com, folga):
+def _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zonas, marcadores, outros, com, folga):
     def d(dia):
         return _data_curta(hoje + timedelta(days=dia), hoje)
 
@@ -245,22 +245,19 @@ def _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zona
 
     # ---- as linhas ----
     linhas = [item('linha', f'Linha grossa · ritmo de {foco_txt}',
-                   f'O estoque lido ({estoque_txt} un) caindo {ritmo}: é o ritmo em destaque, o que define o fundo, as datas e o ponto de pedido. Para trocar, clique no cartão de outro ritmo.', _cor(destaque))]
+                   f'O estoque lido ({estoque_txt} un) caindo {ritmo}: é o ritmo em destaque, o que define o fundo e as datas. Para trocar, clique no cartão de outro ritmo.', _cor(destaque))]
     if outros:
         linhas.append(item('linha-fina', 'Linhas finas e tracejadas · outros ritmos',
                            'Cada um na cor do seu cartão (embaixo do gráfico, onde também se liga e desliga). O ponto marca onde a linha chega a zero.', _cor(outros[0]['dias'])))
     if com:
         linhas.append(item('linha', f'Simulação de reposição · {P["com"]}',
                            f'O que acontece se você {verbo} {_numero(com["qtd"])} un na data ideal: o estoque sobe quando {a_remessa} chega e volta a cair até a nova ruptura. Liga e desliga no cartão “{P["com"]}”.', COR_DA_REMESSA))
-    if ponto_de_pedido and pedido:
-        linhas.append(item('pedido', f'Ponto de pedido · {_numero(pedido)} un',
-                           f'O estoque em que chegou a hora de {verbo}: ritmo × (prazo + chegar antes) = {_un_dia(media_foco)} × ({lead} + {ante}). Quando a linha do estoque cai até ele, é a hora.'))
 
-    intro = (f'Cada coluna é um dia e o estoque cai conforme você vende. O fundo, as datas e a linha grossa valem para o ritmo em destaque ({foco_txt}, {ritmo}), sem novo envio; a linha verde é a simulação de reposição. '
-             f'Cada cor e cada linha significam uma única coisa.')
+    intro = (f'O estoque cai conforme você vende. Cada dia é uma coluna do desenho; as datas do eixo marcam só algumas delas (com o zoom, chegam a uma por dia) e a distância entre elas é proporcional ao tempo. '
+             f'O fundo, as datas e a linha grossa valem para o ritmo em destaque ({foco_txt}, {ritmo}), sem novo envio; a linha verde é a simulação de reposição. Cada cor e cada linha significam uma única coisa.')
     grupos = [{'titulo': 'O fundo: as faixas', 'sub': f'Do dia da leitura do estoque em diante, no ritmo de {foco_txt}.', 'itens': fundo},
               {'titulo': 'As datas: uma linha por dia', 'sub': sub_datas, 'itens': datas},
-              {'titulo': 'As linhas e o ponto de pedido', 'sub': 'A altura é o estoque em unidades (escala à esquerda).', 'itens': linhas}]
+              {'titulo': 'As linhas', 'sub': 'A altura é o estoque em unidades (escala à esquerda).', 'itens': linhas}]
     return {'intro': intro, 'grupos': [g for g in grupos if g['itens']]}
 
 
@@ -289,8 +286,7 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
         base = max(base, com['t_zero'])   # a nova ruptura (depois da remessa) também precisa caber no gráfico
     horizonte = min(HORIZONTE_MAXIMO, max(HORIZONTE_MINIMO, ceil(base * 1.12)))
 
-    pedidos = {s['dias']: calc.ponto_de_pedido(s['media'], lead, ante) for s in com_ritmo}
-    y_max = max(estoque, max((p for p in pedidos.values() if p), default=0), com['apos'] if com else 0, 10) * MARGEM_DO_TOPO
+    y_max = max(estoque, com['apos'] if com else 0, 10) * MARGEM_DO_TOPO   # a escala cabe o estoque lido e o topo da simulação (a remessa que chega); nada mais é desenhado acima disso
 
     def x(t):
         return t / horizonte * 100
@@ -386,12 +382,6 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
             pontos_de_ruptura.append({'id': f's{s["dias"]}', 'cor': _cor(s['dias']), 't': _c(t), 'x': _c(x(t)),
                                       'rotulo': f'Ruptura {d(floor(t))} no ritmo de {_plural(s["dias"], "dia", "dias")}'})
 
-    ponto_de_pedido = None
-    pedido = pedidos.get(destaque)
-    if pedido and 0 < pedido <= y_max:
-        # * [EXPLICAÇÃO] → O rótulo fica no canto DIREITO (o esquerdo é onde caem os marcadores "Enviar até"/"Ruptura"); em cima da linha, ou embaixo dela quando a linha está no topo do gráfico.
-        ponto_de_pedido = {'y': _c(y(pedido)), 'rotulo': f'Ponto de pedido: {_numero(pedido)} un', 'abaixo': y(pedido) < 30}
-
     # ---- os eixos ----
     passo_y = _passo_do_eixo_y(y_max)
     grades_y, valor = [], 0.0
@@ -402,13 +392,13 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
     ticks_x = [{'t': t, 'x_meio': _c(x(t + 0.5)), 'leitura': t == 0, 'rotulo': d(t)} for t in range(0, horizonte, passo_x)]   # o primeiro é o dia da leitura do estoque (sem "HOJE": a data real do envio vem do Mercado Livre)
 
     # ---- a legenda didática ("Como ler este gráfico"): só o que está desenhado ----
-    legenda = _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zonas, marcadores, [s for s in com_ritmo if s['dias'] != destaque], ponto_de_pedido, pedido, com, folga)
+    legenda = _legenda(P, hoje, estoque, lead, ante, destaque, media_foco, t_ruptura, zonas, marcadores, [s for s in com_ritmo if s['dias'] != destaque], com, folga)
 
     periodos = [_periodo(s, estoque, lead, ante, hoje, s['dias'] == destaque, P) for s in series]
     cartao_da_remessa = _cartao_da_remessa(com, lead, folga, hoje, P) if com else (_cartao_sem_data(sem_data, hoje, P) if sem_data else None)
     dados = {
         'hoje': hoje.isoformat(), 'horizonte': horizonte, 'estoque': estoque, 'yMax': round(y_max, 4), 'zoomMinimo': ZOOM_MINIMO_EM_DIAS, 'lead': lead, 'foco': f's{destaque}',
-        'ruptura': None if t_ruptura is None else round(t_ruptura, 4), 'enviar': None if (t_envio is None or t_envio < 0) else round(t_envio, 4), 'pedido': pedido if pedido else None,
+        'ruptura': None if t_ruptura is None else round(t_ruptura, 4), 'enviar': None if (t_envio is None or t_envio < 0) else round(t_envio, 4),
         'rupturaDia': dia_ruptura, 'enviarDia': dia_envio,
         'sug': None if not com else {'id': 'sug', 'rotulo': P['com'], 'cor': COR_DA_REMESSA, 'media': round(media_foco, 6), 'chega': com['chegada'], 'antes': round(com['antes'], 4), 'depois': round(com['apos'], 4),
                                      'tZero': round(com['t_zero'], 4), 'diaZero': com['dia_nova_ruptura'], 'qtd': com['qtd']},
@@ -418,7 +408,7 @@ def montar_grafico(estoque, lead, ante, series, destaque, hoje, com=None, folga=
     descricao = (f'Curvas do estoque de {_numero(estoque)} unidades nos próximos {horizonte} dias, uma para cada ritmo de vendas ({", ".join(str(s["dias"]) for s in com_ritmo)} dias); '
                  f'em destaque, o ritmo de {_plural(destaque, "dia", "dias")}.')
     nota = f'A ruptura no ritmo de {_plural(destaque, "dia", "dias")} fica além do que o gráfico mostra ({horizonte} dias).' if truncado else ''
-    return {'linhas': linhas, 'zonas': zonas, 'regua': regua, 'legenda': legenda, 'marcadores': marcadores, 'pontos_de_ruptura': pontos_de_ruptura, 'ponto_de_pedido': ponto_de_pedido,
+    return {'linhas': linhas, 'zonas': zonas, 'regua': regua, 'legenda': legenda, 'marcadores': marcadores, 'pontos_de_ruptura': pontos_de_ruptura,
             'grades_y': grades_y, 'ticks_x': ticks_x, 'periodos': periodos, 'remessa': remessa, 'cartao_da_remessa': cartao_da_remessa, 'n_cartoes': len(periodos) + (1 if cartao_da_remessa else 0),
             'envio_ideal': cartao_da_remessa['envio_ideal'] if cartao_da_remessa else '', 'dados': dados, 'descricao': descricao, 'horizonte': horizonte, 'viewbox': f'0 0 {horizonte} 100',
             'truncado': truncado, 'nota': nota}

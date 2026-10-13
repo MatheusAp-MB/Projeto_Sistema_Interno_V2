@@ -17,9 +17,15 @@
  *            7) A tabela da lista: a largura da parte visível da caixa vai para a variável CSS --rup-visivel (o aviso de "nenhum item" fica parado à esquerda com essa largura) e, enquanto há colunas escondidas à direita,
  *               o cartão ganha uma sombra na borda (classe rup-l-cartao--mais). O botão da última coluna é um link comum para o gráfico e o diagnóstico: não precisa de script.
  *            8) A caixa da tabela rola por dentro e tem a altura da janela: o primeiro giro da roda do mouse leva a página até a caixa encostar no topo; depois a roda rola a tabela por dentro (sem este script, a roda rola a tabela direto).
+ *            9) Os cartões de controles do topo são <details> retráteis (nascem fechados); o "?" e a etiqueta "muda pouco" ficam dentro do cabeçalho clicável, então clicar neles só mostra a dica: não abre nem fecha o cartão.
  */
 (function () {
     'use strict';
+
+    // [9] O "?" e a etiqueta "muda pouco" moram DENTRO do cabeçalho (<summary>) dos cartões de controles: o clique neles (ou no balão aberto) só mostra a dica, não abre nem fecha o cartão.
+    document.querySelectorAll('.rup-ctl-cab .rup-ajuda, .rup-ctl-cab .rup-ctl-tag').forEach(function (peca) {
+        peca.addEventListener('click', function (evento) { evento.preventDefault(); });
+    });
 
     // [1] Atalhos do formulário (existem na lista e no detalhe).
     var form = document.getElementById('rup-form');
@@ -301,7 +307,7 @@
             });
         }
 
-        // ---- textos, pontinhos e a linha do ponto de pedido: acompanham o zoom dos dois eixos e somem quando saem do trecho visível ----
+        // ---- textos e pontinhos: acompanham o zoom dos dois eixos e somem quando saem do trecho visível ----
         function posicionarPecas() {
             area.querySelectorAll('[data-rup-t]').forEach(function (peca) {
                 var t = parseFloat(peca.getAttribute('data-rup-t'));
@@ -328,22 +334,6 @@
                 peca.classList.toggle('rup-etiqueta--dir', !esquerda);
             });
             posicionarRegua();
-            var linhaPedido = svg.querySelector('.rup-pedido-linha');
-            var rotuloPedido = area.querySelector('.rup-etiqueta--pedido');
-            if (linhaPedido && rotuloPedido && dados.pedido) {
-                var yp = yPct(dados.pedido);
-                var cabe = yp >= 0 && yp <= 100;
-                ocultar(linhaPedido, !cabe);
-                ocultar(rotuloPedido, !cabe);
-                if (cabe) {
-                    linhaPedido.setAttribute('x1', arredondar(janela.a));
-                    linhaPedido.setAttribute('x2', arredondar(janela.b));
-                    linhaPedido.setAttribute('y1', arredondar(yp));
-                    linhaPedido.setAttribute('y2', arredondar(yp));
-                    rotuloPedido.style.top = yp + '%';
-                    rotuloPedido.classList.toggle('rup-etiqueta--abaixo', yp < 30);   // linha no topo: o rótulo vai embaixo dela
-                }
-            }
         }
 
         // ---- zoom e movimento ----
