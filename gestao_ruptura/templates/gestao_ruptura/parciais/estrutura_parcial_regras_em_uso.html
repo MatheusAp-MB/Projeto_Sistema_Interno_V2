@@ -1,0 +1,15 @@
+{% comment %}
+    * [RESUMO] → A faixa "Regras em uso" logo acima da tabela (decisão do Matheus, mockup de 13/10/2026): em uma leitura só, as regras com que as colunas foram calculadas: o prazo até vender, o chegar antes, a folga, o período das vendas e, no Full, onde
+      começam o nível Crítico e o Baixo (e se o "a caminho" está somado ao estoque). Só MOSTRA (os campos que mudam estas regras moram nos cartões de cima); borda tracejada = "provisório" (ainda vale o número de partida da tela). Recebe "pagina" (pagina.regras_em_uso,
+      de ruptura_pagina._regras_em_uso: cada regra tem rotulo, valor, dica, provisorio e grupo).
+    * [EXPLICAÇÃO] → As regras vêm em 2 grupos ('conta' e 'niveis'): numa janela larga a faixa é UMA linha; abaixo disso os grupos ficam em 2 linhas (só a largura da JANELA decide, no CSS) e a faixa nunca quebra no meio de um grupo.
+{% endcomment %}{% regroup pagina.regras_em_uso by grupo as blocos %}
+<section class="rup-regras" aria-label="Regras em uso">
+    <span class="rup-regras-titulo">Regras em uso</span>
+    {% for b in blocos %}
+        <div class="rup-regras-grupo">
+            {% for r in b.list %}<span class="rup-regra{% if r.provisorio %} rup-regra--provisoria{% endif %}" title="{{ r.dica }}">{{ r.rotulo }} <strong>{{ r.valor }}</strong>{% if r.provisorio %}<span class="rup-sr"> (provisório)</span>{% endif %}</span>{% endfor %}
+            {% if forloop.last and pagina.regras_tem_provisoria %}<span class="rup-regras-legenda">tracejado = regra provisória</span>{% endif %}
+        </div>
+    {% endfor %}
+</section>

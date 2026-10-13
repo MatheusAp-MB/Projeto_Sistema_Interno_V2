@@ -28,7 +28,7 @@
            fora do Full, com as vendas, o ritmo, o ponto de pedido e a quantidade a pedir, e o estoque em "—" — parciais/estrutura_parcial_lista_fora.html;
         2) o DETALHE de um item (com SKU na URL; no MLB e no Código ML, também gran e item; o Código ML só existe no Full): a curva de estoque, os 4 cartões, o diagnóstico e, no Full, o estoque por Código ML — parciais/estrutura_parcial_detalhe.html.
       O ritmo vem das vendas reais já coletadas (a mesma regra da tela de Vendas). O ESTOQUE do Full vem da última consulta salva de cada Código ML (a mesma da tela "Estoque no Full"); fora do Full o estoque é DIGITADO. Só lê o banco: nada é guardado e o ML só é chamado por CLIQUE
-      (botão "Consultar no Mercado Livre" da tabela de estoque do detalhe).
+      (botão "Atualizar este item" do cabeçalho do detalhe: as vendas dos MLBs do item e o estoque dos Códigos ML dele; 13/10/2026).
       TELA ÚNICA: esta tela ABSORVE a antiga "Full — Planejamento de envios" (que continua funcionando, intocada, até esta ser validada; o atalho fica na barra de cima). Os controles do topo são uma barra para ACHAR + os cartões na ordem da conta (Full: 1 Projeção, 2 Regras de envio ao Full, 3 Quem recomenda;
       Fora do Full: 1 Projeção, 2 Regras de pedido: parciais/estrutura_parcial_controles.html). No Full, dois seletores: "Urgência segundo" (Mercado Livre ou Sistema: de quem é o selo grande e a ordem da lista; a outra aparece pequena) e "Quantidade segundo" (Mercado Livre, Sistema ou "Minha quantidade", digitada no detalhe).
       A quantidade que passa do estoque do depósito (ERP) continua inteira na tela, com o aviso "só há N un no depósito".
@@ -46,6 +46,8 @@
     </div>
 {% endblock %}
 {% block scripts %}
+    {# O orquestrador do "Atualizar" de vendas é o mesmo da tela de Vendas (gestao_vendas); tem que vir ANTES do script_ruptura.js, que o usa no botão "Atualizar este item". #}
+    <script src="{% static 'gestao_vendas/js/atualizador_de_vendas.js' %}"></script>
     <script src="{% static 'gestao_ruptura/js/script_ruptura.js' %}"></script>
     <script src="{% static 'mercado_livre/js/script_filtros_menus.js' %}"></script>
 {% endblock %}

@@ -1,19 +1,12 @@
 {% comment %}
-    * [RESUMO] → O cartão de IDENTIDADE de uma linha das listas da tela "Previsão de Ruptura de estoque" (foto, selos, título que abre o detalhe e os IDs), igual nos dois mundos. Recebe "l" (a linha) e "gran" (sku | mlb | codigo):
-      no MLB o primeiro ID é o do anúncio (estilo .cartao-anuncio-mlb). O desenho é o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css); aqui só vai a peça.
-{% endcomment %}<div class="rup-id">
+    * [RESUMO] → O ITEM de uma linha da tabela da tela "Previsão de Ruptura de estoque" (a primeira coluna, igual nos dois mundos): foto pequena, o nome (que abre a curva de estoque do item) e UMA linha de identificadores
+      (l.id_txt: o primeiro identificador, SKU, MLB ou Código ML, e depois do "·" o SKU). Recebe "l" (a linha). Os selos do anúncio e os avisos de dados NÃO moram mais aqui (regra "uma coluna = um dado"): os avisos estão na coluna "Dados"
+      e os selos do anúncio saíram da tabela. O desenho da foto é o estilo COMPARTILHADO .cartao-anuncio-imagem (core/static/base_compartilhada/css/layout_cartao_anuncio.css); o tamanho e o resto são de layout_ruptura.css (.rup-t-item*).
+{% endcomment %}<div class="rup-t-item">
     {% if l.foto %}<img src="{{ l.foto }}" class="cartao-anuncio-imagem" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">{% else %}<div class="cartao-anuncio-imagem cartao-anuncio-imagem--vazia" role="img" aria-label="Sem foto"><i class="fas fa-image" aria-hidden="true"></i></div>{% endif %}
-    <div class="cartao-anuncio-corpo">
-        <div class="cartao-anuncio-badges">
-            {% for a in l.avisos %}<span class="rup-selo rup-selo--{{ a.classe }}" title="{{ a.dica }}">{{ a.texto }}</span>{% endfor %}
-            {% for s in l.selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i>{% endif %} {{ s.rotulo }}</span>{% endfor %}
-        </div>
-        <div class="cartao-anuncio-titulo">
-            {% if l.url_detalhe %}<a href="{{ l.url_detalhe }}" class="rup-id-link{% if l.codigo %} rup-id-link--codigo{% endif %}" title="{{ l.titulo }}{% if l.subtitulo %} — {{ l.subtitulo }}{% endif %} · abrir a curva de estoque">{{ l.titulo }}{% if l.subtitulo %} <span class="rup-id-sub">{{ l.subtitulo }}</span>{% endif %}</a>
-            {% else %}<span class="rup-id-link rup-id-link--parado" title="{{ l.motivo }}">{{ l.titulo }}</span>{% endif %}
-        </div>
-        <div class="cartao-anuncio-ids">
-            {% for i in l.ids %}<span class="{% if forloop.first and gran == 'mlb' %}cartao-anuncio-mlb{% else %}cartao-anuncio-sku{% endif %}">{{ i }}</span>{% endfor %}
-        </div>
+    <div class="rup-t-item-texto">
+        {% if l.url_detalhe %}<a href="{{ l.url_detalhe }}" class="rup-t-item-titulo" title="{{ l.titulo }} · abrir a curva de estoque">{{ l.titulo }}</a>
+        {% else %}<span class="rup-t-item-titulo rup-t-item-titulo--parado" title="{{ l.titulo }} · {{ l.motivo }}">{{ l.titulo }}</span>{% endif %}
+        <span class="rup-t-item-id" title="{{ l.id_txt }}">{{ l.id_txt }}</span>
     </div>
 </div>

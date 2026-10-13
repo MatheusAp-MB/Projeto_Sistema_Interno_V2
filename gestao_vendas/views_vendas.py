@@ -159,8 +159,9 @@ def view_vendas_atualizar_mlb(request):
     return _responder_coleta(lambda: coletar_mlb(empresa, mlb, dias, usuario, sku, de=de, ate=ate, max_pedidos=maximo))
 
 
-# Função Objetivo: O PLANO do "Atualizar" — NÃO chama o Mercado Livre, só lê o registro de coletas. Para o `sku` (todos os MLBs dele) ou para um
-# `mlb`, de (hoje − `dias`) até hoje, devolve os trechos que faltam buscar (dia nunca coletado, só parcial, ou dentro dos últimos 30 dias) e quantos
+# Função Objetivo: O PLANO do "Atualizar" — NÃO chama o Mercado Livre, só lê o registro de coletas. Para o `sku` (todos os MLBs dele) ou para os `mlb` pedidos
+# (um ou vários: ?mlb=MLB1&mlb=MLB2; é o que a tela "Previsão de Ruptura de estoque" faz para o item aberto: o anúncio dele, os anúncios do Código ML, ou todos os do produto),
+# de (hoje − `dias`) até hoje, devolve os trechos que faltam buscar (dia nunca coletado, só parcial, ou dentro dos últimos 30 dias) e quantos
 # pedidos no máximo cada requisição deve ler. `tudo=1` = reler tudo.
 @require_GET
 def view_vendas_planejar(request):
@@ -169,11 +170,11 @@ def view_vendas_planejar(request):
         MAX_PEDIDOS_POR_REQUISICAO, ErroColetaVendas, dias_padrao, planejar_trechos)
 
     dias = _inteiro(request.GET.get('dias'), dias_padrao())
-    mlb = str(request.GET.get('mlb') or '').strip().upper()
-    if mlb:
-        if not mlb.startswith('MLB'):
+    pedidos = sorted({str(m or '').strip().upper() for m in request.GET.getlist('mlb') if str(m or '').strip()})
+    if pedidos:
+        if not all(m.startswith('MLB') for m in pedidos):
             return JsonResponse({'ok': False, 'mensagem': 'MLB inválido. Recarregue a página e tente de novo.'}, status=400)
-        mlbs = [mlb]
+        mlbs = pedidos
     else:
         produto = carregar_produto(str(request.GET.get('sku') or '').strip())
         mlbs = sorted(produto['mlbs']) if produto else []

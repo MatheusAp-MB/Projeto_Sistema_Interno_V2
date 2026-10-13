@@ -244,6 +244,19 @@
 .rup-produto-titulo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; font-weight: 600; color: #0b2038; }
 .rup-produto-meta { display: flex; gap: 0 18px; overflow: hidden; white-space: nowrap; font-size: 0.8rem; color: #4b5a6b; }
 .rup-produto-meta span { flex: none; }
+/* o frescor dos dados do item (vendas até dd/mm hh:mm · estoque há X h): o mesmo texto da coluna "Atualizado" da lista; laranja quando falta dado ou a consulta é antiga */
+.rup-produto-meta .rup-frescor { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--cor-texto-muted); cursor: help; }   /* o único item da linha que encolhe (com "…") quando falta largura: o balão (title) tem o texto inteiro */
+.rup-produto-meta .rup-frescor--atencao { color: #b45309; font-weight: 600; }
+/* UMA linha de apoio sob a meta (a tela é rígida na vertical): o que o botão atualiza, o andamento e o resultado; o que não cabe vai para o balão */
+.rup-produto-status { margin: 0; min-height: 1.2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; line-height: 1.2; color: var(--cor-texto-muted); }
+.rup-produto-status--ok { color: #1f6a42; font-weight: 600; }
+.rup-produto-status--aviso { color: #b45309; font-weight: 600; }
+.rup-produto-status--erro { color: #b42318; font-weight: 600; }
+/* o botão "Atualizar este item" (usa o estilo .btn-acao do projeto; só ajusta o tamanho e a trava) */
+.rup-atualizar { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; font-size: 0.84rem; font-weight: 600; white-space: nowrap; }
+.rup-atualizar:disabled { opacity: 0.6; cursor: default; }
+.rup-atualizar--girando i { animation: rup-girar 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .rup-atualizar--girando i { animation: none !important; } }
 .rup-link { flex: none; color: var(--cor-primaria-clara); font-size: 0.84rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .rup-link:hover { color: var(--cor-primaria); text-decoration: underline; }
 
@@ -590,10 +603,9 @@
 }
 
 /* ================================================================================================================================================
-   A LISTA (12/10/2026): por Produto (SKU), Anúncio (MLB) ou Código ML, em ordem de urgência
-   Mesmas regras da lista de Vendas: "fluida na horizontal, rígida na vertical". A largura da lista segue a janela (teto de 1800px); quem estica ou encolhe é a coluna do nome; cada linha tem altura
-   FIXA (título em 1 linha com reticências, selos e IDs somem inteiros de trás para a frente) e cada célula de número tem UM valor e UMA linha de apoio. Cuidado ao mexer: um "flex-wrap: wrap" sem
-   altura fixa, um "auto-fit" ou um texto que passe a quebrar traz de volta o problema de a lista mudar de altura quando a barra lateral abre ou fecha.
+   A LISTA (12/10/2026; a tabela foi refeita em 13/10/2026, veja "A TABELA" mais abaixo): por Produto (SKU), Anúncio (MLB) ou Código ML
+   Mesmas regras da lista de Vendas: "fluida na horizontal, rígida na vertical". A largura da lista segue a janela (teto de 1800px); quem estica ou encolhe é a coluna do item; cada linha tem altura FIXA (64px, o que não cabe é cortado) e cada célula
+   tem UM dado e, no máximo, uma linha de apoio. Cuidado ao mexer: um "flex-wrap: wrap" sem altura fixa, um "auto-fit" ou um texto que passe a quebrar traz de volta o problema de a lista mudar de altura quando a barra lateral abre ou fecha.
    ================================================================================================================================================ */
 .rup-pagina--lista { max-width: 1800px; }
 
@@ -955,116 +967,176 @@ a.rup-nivel-cartao--ativo:hover { background: #e1edf8; border-color: var(--cor-p
 
 .rup-nivel--neutro { background: #eef1f6; color: #4b5a6b; }
 
-/* ---- o topo da lista (total + selects) e a tabela ---- */
-.rup-l-lista-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
-.rup-l-total-grupo { display: flex; align-items: center; gap: 4px 16px; min-width: 0; }
+/* ================================================================================================================================================
+   A TABELA (13/10/2026, mockup aprovado pelo Matheus): a MESMA nos dois mundos (Envios Full e Fora do Full). Quem diz QUAIS colunas existem, em que ordem e com que largura é o ruptura_colunas.py (a grade chega pronta em --rup-grade e a largura mínima em --rup-minima,
+   postas no style da tabela): aqui só se desenha. Regras que mandam aqui:
+     - UMA COLUNA = UM DADO: o valor em cima e, no máximo, uma linha pequena de apoio; o resto vai no balão (title) da célula.
+     - "Fluida na horizontal, rígida na vertical": as linhas têm altura FIXA (64px; 58px em janela baixa, até 820px de altura; o que não cabe é cortado) e só a coluna do item estica. A disposição do topo só muda pela largura da JANELA (@media),
+       nunca pelo espaço ao lado da barra lateral.
+     - A tabela mora numa CAIXA com rolagem PRÓPRIA nos dois eixos (pedido do Matheus, 13/10/2026, pensando no PC do escritório: tela de ~20", 1600x900 ou 1366x768). A altura da caixa acompanha a altura da janela; o cabeçalho e a coluna do item
+       ficam PARADOS ao rolar, e a barra de rolagem lateral fica sempre à mão, no pé da caixa (e não lá embaixo, depois de 25 linhas). O script_ruptura.js faz a roda do mouse levar a caixa até o topo da janela ANTES de rolar a tabela por dentro.
+     - Os títulos têm UMA linha para o nome e UMA para a unidade (nunca quebram); a largura de cada coluna (ruptura_lista.py e ruptura_lista_fora.py) foi medida para o título e o conteúdo caberem com folga.
+   ================================================================================================================================================ */
+
+/* ---- a faixa "Regras em uso": só mostra (quem digita são os cartões de cima). Tracejado = regra provisória. Janela estreita: 2 linhas (o título com as regras da conta; embaixo os níveis); 1900px ou mais: tudo numa linha ---- */
+.rup-regras { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 14px; position: relative; margin: 0 0 14px; padding: 8px 14px; background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; font-size: 0.78rem; color: #4b5a6b; }
+.rup-regras-titulo { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #6b7686; white-space: nowrap; }
+.rup-regras-grupo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.rup-regras-grupo:nth-of-type(2) { grid-column: 2; }
+.rup-regras-legenda { font-size: 0.72rem; color: var(--cor-texto-muted); white-space: nowrap; }
+.rup-regra { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 9px; border: 1px solid #d3deea; border-radius: 6px; background: #f1f5fa; white-space: nowrap; cursor: help; }
+.rup-regra strong { font-weight: 700; color: #1a3a5c; }
+.rup-regra--provisoria { border-style: dashed; border-color: #d9b45a; background: #fffbea; }
+@media (min-width: 1900px) {
+    .rup-regras { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+    .rup-regras-grupo:nth-of-type(2) { grid-column: auto; }
+}
+
+/* ---- o topo da lista: total + "?" + limpar | ordem atual | chave "Comparar com o Mercado Livre" | por página. Janela de 1700px ou mais: tudo numa linha; abaixo disso: 2 linhas (total e por página em cima; a ordem e a chave embaixo) ---- */
+.rup-l-lista-topo { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; grid-template-areas: "total ordem chave pagina"; align-items: center; gap: 8px 28px; margin-bottom: 10px; }
+.rup-l-total-grupo { grid-area: total; display: flex; align-items: center; gap: 4px 16px; min-width: 0; }
 .rup-l-total { font-size: 0.9rem; font-weight: 600; color: #243247; white-space: nowrap; }
 .rup-l-limpar { font-size: 0.82rem; font-weight: 600; color: var(--cor-primaria-clara); white-space: nowrap; }
-.rup-l-selects { display: flex; flex: none; align-items: center; gap: 10px 24px; }
+.rup-l-ordem { grid-area: ordem; font-size: 0.82rem; color: #4b5a6b; white-space: nowrap; }
+.rup-l-ordem strong { color: var(--cor-primaria); }
+.rup-l-ordem-dica { display: none; }
 .rup-l-campo { display: flex; align-items: center; gap: 10px; }
-.rup-l-campo .lista-select { min-width: 200px; }
-.rup-l-rolagem { overflow-x: auto; }
-.rup-l-tabela { --rup-l-colunas-numeros: 92px 72px 84px 92px 84px 92px 116px 76px 72px 40px; min-width: 1130px; }   /* janela de até 1499px: colunas enxutas; aqui a tabela rola para o lado dentro da própria caixa (a barra lateral aberta não deixa caber as 11 colunas) */
-/* a lista do FORA DO FULL tem só 6 colunas (nome | estoque | vendas | ritmo | ponto de pedido | pedir | gráfico): a mesma grade, com as medidas dela em qualquer largura de janela (o ".rup-l-tabela" na frente dá a força para valer sobre as medidas das janelas mais largas) */
-.rup-l-tabela.rup-l-tabela--fora { --rup-l-colunas-numeros: 112px 108px 108px 132px 108px 44px; min-width: 860px; }
-@media (max-width: 1499px) {
-    .rup-l-tabela.rup-l-tabela--fora { --rup-l-colunas-numeros: 92px 88px 88px 108px 92px 40px; min-width: 760px; }   /* janela de até 1499px (barra lateral aberta): colunas enxutas para o nome do item ter mais espaço */
+.rup-l-campo--por { grid-area: pagina; }
+.rup-l-campo--por .lista-select { min-width: 96px; }
+@media (max-width: 1699px) {
+    .rup-l-lista-topo { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "total pagina" "ordem chave"; }
+    .rup-l-ordem-dica { display: inline; }
+}
+@media (max-width: 1099px) {
+    .rup-l-lista-topo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "total" "pagina" "ordem" "chave"; }
 }
 
-/* As 11 colunas: nome | estoque | vendas | ritmo | cobertura | ruptura | enviar até | urgência | enviar (un) | nível | gráfico. Cabeçalho e linhas usam a mesma grade. */
-.rup-l-colunas {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--rup-l-colunas-numeros);
-    gap: 8px;
-    align-items: center;
+/* a chave "Comparar com o Mercado Livre": um LINK (GET) desenhado como chave; o roxo é a cor do Mercado Livre nesta tela (grupo e colunas de comparação) */
+.rup-sw { grid-area: chave; display: inline-flex; align-items: center; justify-self: end; gap: 10px; font-size: 0.88rem; font-weight: 600; color: #243247; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.rup-sw:hover { color: #243247; }
+.rup-sw:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 3px; border-radius: 6px; }
+.rup-sw-trilho { position: relative; flex: none; width: 44px; height: 24px; border-radius: 12px; background: #9aa8b8; transition: background 0.15s; }
+.rup-sw-trilho::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #ffffff; transition: left 0.15s; }
+.rup-sw--ligado .rup-sw-trilho { background: #6d28d9; }
+.rup-sw--ligado .rup-sw-trilho::after { left: 23px; }
+.rup-sw--ligado .rup-sw-texto { color: #6d28d9; }
+@media (prefers-reduced-motion: reduce) {
+    .rup-sw-trilho, .rup-sw-trilho::after, .rup-l-cartao::after { transition: none; }
 }
 
-.rup-l-cabecalho { margin-bottom: 8px; padding: 8px 16px; background: #dbe7f3; border: 1px solid #b9cde2; border-radius: 10px; }
-
-.rup-l-cab {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-align: right;
-    font-size: 0.74rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--cor-primaria);
+/* ---- o cartão da tabela e a CAIXA de rolagem (vertical e lateral, as duas dentro do cartão). A altura da caixa é a da janela menos a barra de cima (60px), o respiro de cima (12px), a paginação (~50px) e o respiro de baixo (24px):
+       quando a tabela encosta no topo, a caixa INTEIRA e a paginação cabem na janela. Poucas linhas: a caixa encolhe até o tamanho delas (max-height) ---- */
+.rup-l-cartao { position: relative; background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; box-shadow: 0 1px 2px rgba(20, 41, 67, 0.06); overflow: hidden; }
+/* o aviso de que HÁ MAIS COLUNAS à direita (uma sombra na borda): o script_ruptura.js liga a classe quando a caixa ainda pode rolar para o lado e põe o tamanho das barras de rolagem em --rup-barra-w e --rup-barra-h */
+.rup-l-cartao::after { content: ''; position: absolute; top: 0; right: var(--rup-barra-w, 0px); bottom: var(--rup-barra-h, 0px); z-index: 6; width: 40px; background: linear-gradient(to left, rgba(20, 41, 67, 0.2), rgba(20, 41, 67, 0)); opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+.rup-l-cartao--mais::after { opacity: 1; }
+.rup-l-rolagem { overflow: auto; max-height: max(320px, calc(100vh - 150px)); }
+.rup-l-rolagem:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }   /* a caixa recebe o foco (Tab) para rolar pelo teclado: setas, PageUp, PageDown, Home e End */
+.rup-t { --rup-faixa: 32px; --rup-titulos: 54px; --rup-linha: 64px; --rup-pad: 10px; --rup-recuo: 0px; position: relative; min-width: var(--rup-minima, 1100px); }   /* "relative": o texto só para leitor de tela (.rup-sr, absoluto) fica DENTRO da caixa de rolagem; sem isso ele escapa dela e a página inteira ganha barra lateral */
+@media (max-width: 1999px) {
+    .rup-t { --rup-pad: 6px; --rup-recuo: 8px; }   /* janela menor que 2000px (inclui o Full HD com a barra lateral aberta e o PC do escritório: 1600x900, 1366x768): o respiro lateral das células cai de 10px para 6px e cada coluna ganha 8px a menos (--rup-recuo, usado na grade pelo ruptura_colunas.py) */
 }
-
-.rup-l-cab--nome { text-align: left; }
-.rup-l-cab--esq { text-align: left; }
-.rup-l-cab--centro { text-align: center; }   /* "Nível": no mesmo eixo da etiqueta de nível das linhas */
-
-@media (max-width: 1499px) {
-    .rup-l-cab { font-size: 0.68rem; letter-spacing: 0.01em; }
+@media (max-height: 820px) {
+    .rup-t { --rup-faixa: 28px; --rup-titulos: 48px; --rup-linha: 58px; }   /* janela baixa (768px de tela, 1366x768): faixa, títulos e linhas um pouco mais baixos, para caberem mais linhas na caixa */
 }
+.rup-t-faixa, .rup-t-cab, .rup-t-linha { display: grid; grid-template-columns: var(--rup-grade); }
+.rup-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* cada item: a linha tem altura FIXA (86px), com a foto de 64px e o cartão de identidade cortado dentro dela */
-.rup-l-bloco {
-    margin-bottom: 8px;
-    background: var(--cor-fundo-card);
-    border: 1px solid var(--cor-borda);
-    border-radius: 10px;
-    box-shadow: 0 1px 2px rgba(20, 41, 67, 0.06);
-    overflow: hidden;
-}
+/* a coluna do item fica PARADA à esquerda quando a tabela rola para o lado (faixa, título e linhas), com uma sombra fina na borda */
+.rup-t-g--item, .rup-t-h--item, .rup-t-c--item { position: sticky; left: 0; z-index: 3; box-shadow: 1px 0 0 #cdd9e6, 6px 0 8px -6px rgba(20, 41, 67, 0.18); }
+.rup-t-div { box-shadow: inset 1px 0 0 #d3deea; }   /* a divisória entre grupos: o 1º campo de cada grupo (menos o do item, que tem a sombra dele) */
 
-.rup-l-bloco--ruptura { border-color: #f0b4b4; }
-.rup-l-bloco--critico { border-color: #f3c7a6; }
-.rup-l-linha { height: 86px; padding: 0 16px; }
-.rup-l-bloco:hover { box-shadow: 0 2px 8px rgba(20, 41, 67, 0.1); }
+/* ---- o TOPO (a faixa de grupos + os títulos) fica PARADO no alto da caixa de rolagem; a coluna do item (regra acima) fica parada à esquerda, então o canto dela fica parado nos dois eixos ---- */
+.rup-t-topo { position: sticky; top: 0; z-index: 5; box-shadow: 0 5px 8px -6px rgba(20, 41, 67, 0.3); }
 
-/* identidade da linha (foto + selos + título + IDs): o desenho é o estilo compartilhado .cartao-anuncio-*; aqui só se encaixa a peça na linha e se fixam as alturas */
-.rup-id { display: flex; align-items: center; gap: 12px; min-width: 0; --rup-l-altura-selos: 20px; --rup-l-altura-ids: 18px; }
-.rup-id .cartao-anuncio-imagem { flex: 0 0 64px; }
-.rup-id .cartao-anuncio-corpo { flex: 1 1 0; overflow: hidden; }
-.rup-id .cartao-anuncio-badges { flex-wrap: wrap; height: var(--rup-l-altura-selos); overflow: hidden; }
-.rup-id .cartao-anuncio-ids { flex-wrap: wrap; height: var(--rup-l-altura-ids); overflow: hidden; }
-.rup-id .cartao-anuncio-badges > *,
-.rup-id .cartao-anuncio-ids > * { flex: none; white-space: nowrap; }
-.rup-id .cartao-anuncio-titulo { display: flex; align-items: center; min-width: 0; height: 21px; overflow-wrap: normal; }
-.rup-id-link { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: #0b2038; text-decoration: none; }
-a.rup-id-link:hover { color: var(--cor-primaria); text-decoration: underline; }
-a.rup-id-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 3px; }
-.rup-id-link--codigo { letter-spacing: 0.04em; }
-.rup-id-link--parado { cursor: default; }
-.rup-id-sub { font-weight: 400; letter-spacing: 0; color: var(--cor-texto-muted); }
+/* ---- a faixa de GRUPOS (em cima) ---- */
+.rup-t-faixa { height: var(--rup-faixa); background: #eaf1f8; border-bottom: 1px solid #c9d9ea; }
+.rup-t-g { min-width: 0; padding: 0 var(--rup-pad); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em; line-height: calc(var(--rup-faixa) - 1px); text-transform: uppercase; color: var(--cor-primaria); }
+.rup-t-g--item { padding-left: 16px; background: #eaf1f8; }
+.rup-t-g--ml { background: #e4dcfb; color: #5b21b6; box-shadow: inset 0 -3px 0 #a78bfa; }   /* a COMPARAÇÃO com o Mercado Livre: faixa roxa com um traço mais forte embaixo, para os trios (Sistema | ML | Comparação) saltarem aos olhos */
+.rup-t-g--ml.rup-t-div--ml { box-shadow: inset 2px 0 0 #7c3aed, inset 0 -3px 0 #a78bfa; }
 
-.rup-selo {
-    display: inline-block;
-    padding: 1px 8px;
-    border: 1px solid #b9cde2;
-    border-radius: 6px;
-    background: #e8f1fa;
-    color: var(--cor-primaria);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-    cursor: help;
-}
+/* ---- os TÍTULOS das colunas: nome em cima e unidade embaixo, cada um em UMA linha só (não quebra); a seta do estado fica ao lado do texto, no meio da altura. O que ordena é um link: o texto fica no mesmo eixo do número
+       da coluna (à direita nas de número, à esquerda nas de texto) e a área do clique sobra 6px para os lados ---- */
+.rup-t-cab { height: var(--rup-titulos); background: #dbe7f3; border-bottom: 1px solid #b9cde2; }
+.rup-t-h { display: flex; align-items: center; min-width: 0; padding: 0 var(--rup-pad); }
+.rup-t-h--esq { justify-content: flex-start; }
+.rup-t-h--dir { justify-content: flex-end; }
+.rup-t-h--centro { justify-content: center; }
+.rup-t-h--item { padding-left: 16px; background: #dbe7f3; }
+.rup-t-h--ml { background: #e6e0fa; }
+.rup-t-h--ml.rup-t-div--ml { box-shadow: inset 2px 0 0 #7c3aed; }   /* o começo de cada trio: um traço roxo de 2px (a divisória cinza fina é a dos outros grupos) */
+.rup-t-h--res { background: #d9ccf7; box-shadow: inset 1px 0 0 #b9a3ee; }   /* a coluna "Comparação" do trio (o resultado de A × B): um tom acima das outras duas */
+.rup-t-h-link { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: calc(100% + 12px); margin: 0 -6px; padding: 4px 6px; border-radius: 6px; color: var(--cor-primaria); text-align: left; text-decoration: none; }
+.rup-t-h--dir .rup-t-h-link { flex-direction: row-reverse; text-align: right; }   /* número: a seta fica à esquerda do texto e o texto termina no eixo do número */
+.rup-t-h-link--parado { cursor: help; }
+a.rup-t-h-link:hover { background: rgba(26, 58, 92, 0.08); color: var(--cor-primaria); }
+a.rup-t-h-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: -2px; }
+.rup-t-h-texto { display: block; min-width: 0; }
+.rup-t-h-rotulo { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.02em; line-height: 1.25; text-transform: uppercase; }
+.rup-t-h-un { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; font-size: 0.68rem; font-weight: 400; line-height: 1.25; color: #44607f; }
+.rup-t-h--ml .rup-t-h-link { color: #5b21b6; }
+.rup-t-h--ml .rup-t-h-un { color: #5b4a99; }
+.rup-t-seta { flex: none; width: 12px; height: 12px; }
+.rup-t-seta--neutra { opacity: 0.45; }
 
-.rup-selo--atencao { border-color: #f0c36d; background: #fff4dd; color: #b45309; }
+/* ---- as LINHAS: altura fixa (64px; 58px em janela baixa); o fundo muda com o nível (ruptura e crítico) e com o mouse; a célula do item (parada à esquerda) leva o mesmo fundo ---- */
+.rup-t-bloco { border-top: 1px solid #e6ebf2; }
+.rup-t-linha { --rup-t-fundo: #ffffff; height: var(--rup-linha); background: var(--rup-t-fundo); }
+.rup-t-bloco--ruptura .rup-t-linha { --rup-t-fundo: #fff7f5; }
+.rup-t-bloco--critico .rup-t-linha { --rup-t-fundo: #fffaf5; }
+.rup-t-bloco .rup-t-linha:hover { --rup-t-fundo: #f1f6fc; }
+.rup-t-c { display: flex; align-items: center; min-width: 0; padding: 0 var(--rup-pad); overflow: hidden; font-size: 0.88rem; color: #243247; }
+.rup-t-c--dir { justify-content: flex-end; text-align: right; }
+.rup-t-c--centro { justify-content: center; }
+.rup-t-c--item { gap: 10px; padding-left: 16px; background: var(--rup-t-fundo); }
+.rup-t-c--ml { background: rgba(124, 58, 237, 0.06); }   /* translúcido: o tom do nível (ruptura, crítico) e o do mouse na linha continuam aparecendo por baixo */
+.rup-t-c--ml.rup-t-div--ml { box-shadow: inset 2px 0 0 #7c3aed; }
+.rup-t-c--res { background: rgba(124, 58, 237, 0.13); box-shadow: inset 1px 0 0 #ddd2fb; }
+.rup-t-c--centro:last-child { padding-right: 12px; }
 
-/* ---- as células de número: UM valor e UMA linha de apoio ---- */
-.rup-num { min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
-.rup-num strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; font-weight: 700; line-height: 1.25; color: #0b2038; }
-/* as cores do valor (o ".rup-num" na frente dá a força para valer sobre o ".rup-num strong" de cima) */
-.rup-num .rup-forte--alerta { color: #b34100; }
-.rup-num .rup-forte--vencido { color: #b42318; }
-.rup-num .rup-forte--deposito { color: #b34100; }   /* a quantidade passa do que há no depósito (ERP): laranja, com o triângulo de aviso */
-.rup-aviso-deposito { font-size: 0.8em; }
-.rup-num .rup-forte--qtd { color: #2a6099; }   /* a quantidade sugerida (azul, o tom de "informação" do diagnóstico) */
-.rup-num .rup-forte--nulo { color: var(--cor-texto-muted); font-weight: 600; }   /* sem número ("—"): apagado, para não parecer um zero */
-.rup-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.1em; font-size: 0.72rem; font-weight: 400; color: var(--cor-texto-muted); }
-.rup-sub--atencao { color: #8a6100; font-weight: 600; }
-.rup-sub--alerta { color: #b34100; font-weight: 600; }
-.rup-sub--vencido { color: #b42318; font-weight: 600; }
-.rup-sub--info { color: #4b5a6b; }
+/* o item: foto de 40px, o nome (até 2 linhas) e uma linha de identificadores */
+.rup-t-item { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; }
+.rup-t-item .cartao-anuncio-imagem { flex: 0 0 40px; width: 40px; height: 40px; }
+.rup-t-item-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rup-t-item-titulo { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 0.86rem; font-weight: 600; line-height: 1.25; color: #1a3a5c; overflow-wrap: break-word; text-decoration: none; }
+a.rup-t-item-titulo:hover { color: var(--cor-primaria-clara); text-decoration: underline; }
+a.rup-t-item-titulo:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; border-radius: 3px; }
+.rup-t-item-titulo--parado { cursor: default; }
+.rup-t-item-id { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'SF Mono', Consolas, monospace; font-size: 0.7rem; color: var(--cor-texto-muted); }
 
-/* a barra de cobertura: enche com 3× o lead time; a marca escura a 1/3 é o próprio lead time */
+/* ---- as células: número, número com apoio, chips, tendência, cobertura, "se enviar hoje", quantidade, urgência e comparação ---- */
+.rup-t-num { font-size: 0.92rem; font-weight: 600; color: #0b2038; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rup-t-num.rup-t-num--zero, .rup-t-num.rup-t-num--falta { color: #b42318; }   /* estoque zerado / "Agora" sem tempo de chegar antes da ruptura */
+.rup-t-num.rup-t-num--dia { color: #b34100; }   /* "Agora" que ainda dá tempo, ou o dia de enviar é hoje */
+.rup-t-num.rup-t-num--nulo { color: var(--cor-texto-muted); font-weight: 600; }   /* sem número ("—"): apagado, para não parecer um zero */
+.rup-t-qtd { display: inline-flex; align-items: center; gap: 5px; color: #2a6099; font-weight: 700; }   /* a quantidade sugerida (azul, o tom de "informação" do diagnóstico) */
+.rup-t-num.rup-t-qtd--deposito { color: #b34100; }   /* a quantidade passa do que há no depósito (ERP): laranja, com o triângulo de aviso */
+.rup-t-duplo { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
+.rup-t-apoio { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; font-size: 0.68rem; font-weight: 400; color: var(--cor-texto-muted); }
+.rup-t-pilha { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; max-width: 100%; }
+
+.rup-t-chip { display: inline-flex; align-items: center; max-width: 100%; padding: 1px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rup-t-chip--ativo { background: #dcfce7; color: #15803d; }
+.rup-t-chip--pausa { background: #fef3c7; color: #92400e; }
+.rup-t-chip--outro { background: #eef0f4; color: #4b5a6b; }
+.rup-t-chip--atencao { background: #fff4dd; color: #b45309; box-shadow: inset 0 0 0 1px #f0c36d; }
+.rup-t-chip--info { background: #e8f1fa; color: #1a3a5c; box-shadow: inset 0 0 0 1px #b9cde2; }
+.rup-t-ok { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; font-weight: 600; color: #1f6a42; }
+/* a coluna "Atualizado": duas linhas curtas (vendas até dd/mm hh:mm · estoque há X h); laranja quando falta dado ou a consulta é antiga */
+.rup-t-frescor { display: flex; flex-direction: column; gap: 1px; min-width: 0; max-width: 100%; font-size: 0.72rem; line-height: 1.3; color: #4b5a6b; cursor: help; }
+.rup-t-frescor span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rup-t-frescor--atencao { color: #b45309; }
+
+.rup-t-tend { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+.rup-t-tend--acelerou { color: #b34100; }
+.rup-t-tend--caiu { color: #2a6099; }
+.rup-t-tend--estavel { color: #6b7686; font-weight: 400; }
+.rup-t-tend--nulo { color: var(--cor-texto-muted); font-weight: 600; }
+
+/* a cobertura: o número e, embaixo, a barra (enche com 3× o prazo até vender; a marca escura a 1/3 é o próprio prazo) ou a linha de apoio quando não há barra */
+.rup-t-cob { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; width: 100%; }
+.rup-t-cob .rup-barra { width: 76px; max-width: none; margin: 0; }
 .rup-barra { position: relative; display: block; width: 100%; max-width: 96px; height: 6px; margin: 5px 0 0 auto; border-radius: 3px; background: #e5e9f0; overflow: hidden; }
 .rup-barra::after { content: ''; position: absolute; top: 0; bottom: 0; left: 33.33%; width: 2px; background: rgba(36, 50, 71, 0.55); }
 .rup-barra-preenchimento { display: block; height: 100%; border-radius: 3px; background: #9aa6b4; }
@@ -1073,33 +1145,32 @@ a.rup-id-link:focus-visible { outline: 2px solid var(--cor-primaria-clara); outl
 .rup-barra-preenchimento--baixo { background: #e0a800; }
 .rup-barra-preenchimento--alto { background: #2e9e5b; }
 
-/* a célula de urgência: o selo do Mercado Livre (mesmo registro da tela de Planejamento) e, embaixo, a outra referência pequena (laranja quando as duas divergem) */
-.rup-urg { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
-.rup-urg .badge-tabela { max-width: 100%; min-width: 0; text-transform: none; font-size: 0.74rem; }
-.rup-urg-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rup-urg-vazio { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-muted); }
-.rup-urg .rup-sub { max-width: 100%; }
-.rup-sub--diverge { color: #b34100; font-weight: 600; }
-.rup-l-nivel { display: flex; justify-content: center; min-width: 0; }
-.rup-l-acao { display: flex; justify-content: center; }
+.rup-t-se { font-size: 0.84rem; font-weight: 600; white-space: nowrap; }
+.rup-t-se--falta { color: #b42318; }
+.rup-t-se--dia { color: #b34100; }
+.rup-t-se--folga { color: #1f6a42; }
+.rup-t-se--nulo { color: var(--cor-texto-muted); }
 
-.rup-l-acao-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid #b9cde2;
-    border-radius: 8px;
-    background: var(--cor-fundo-card);
-    color: var(--cor-primaria);
-    text-decoration: none;
-}
+/* a urgência: o selo do registro único de badges (o mesmo da tela de Planejamento de envios) */
+.rup-t-c .badge-tabela { max-width: 100%; min-width: 0; text-transform: none; font-size: 0.74rem; }
+.rup-t-selo-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rup-t-sem { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; font-weight: 600; color: var(--cor-texto-muted); }
 
-a.rup-l-acao-btn:hover { background: #e8f1fa; color: var(--cor-primaria); }
-a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
-.rup-l-acao-btn--parado { border: 1px dashed #c4ccd6; background: #f5f7fa; color: #9aa6b4; cursor: not-allowed; }
+.rup-t-cp { display: inline-flex; align-items: center; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+.rup-t-cp--div { padding: 2px 9px; border-radius: 999px; background: #ede9fe; color: #6d28d9; }
+.rup-t-cp--ml { padding: 2px 9px; border-radius: 999px; background: #ede9fe; color: #6d28d9; }   /* quantidade: o Mercado Livre sugere mais (roxo, a cor dele nesta tela) */
+.rup-t-cp--sis { padding: 2px 9px; border-radius: 999px; background: #e3effb; color: #1f5a99; }   /* quantidade: o Sistema sugere mais (azul, a cor da quantidade do Sistema) */
+.rup-t-cp--ig { color: #4b5a6b; font-weight: 600; }
+.rup-t-cp--sem { color: var(--cor-texto-muted); font-weight: 600; }
 
+/* o botão da última coluna: um LINK direto para o gráfico e o diagnóstico do item (o mesmo destino do nome); sem SKU no cadastro vira um ícone parado, com o motivo no balão */
+.rup-t-exp { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; box-sizing: border-box; border: 1px solid #b9cde2; border-radius: 8px; background: var(--cor-fundo-card); color: var(--cor-primaria); font-size: 0.9rem; text-decoration: none; cursor: pointer; }
+a.rup-t-exp:hover { background: #e8f1fa; border-color: var(--cor-primaria-clara); }
+a.rup-t-exp:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+.rup-t-exp--parado { opacity: 0.45; cursor: default; }
+
+/* o aviso de "nenhum item" dentro do cartão: sem moldura própria (o cartão já tem); fica parado à esquerda e com a largura da parte VISÍVEL da caixa (--rup-visivel, posta pelo script), para o texto centralizado não ficar escondido quando a tabela é mais larga que a janela */
+.rup-t > .rup-l-vazio { position: sticky; left: 0; box-sizing: border-box; width: var(--rup-visivel, 100%); border: 0; border-radius: 0; background: transparent; }
 .rup-l-vazio { padding: 36px 16px; background: var(--cor-fundo-card); border: 1px dashed #b9cde2; border-radius: 10px; text-align: center; font-size: 0.95rem; color: #4b5a6b; }
 
 /* ---- paginação (reaproveita .lista-paginacao*) ---- */
@@ -1132,21 +1203,9 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); cursor: help; }
 .rup-estoque-rolagem { max-height: 260px; overflow: auto; }
 
-/* ---- o botão "Consultar no Mercado Livre" (único lugar que chama o ML, só por clique): o botão e UMA linha de apoio (custo antes do clique; andamento e resultado depois) ---- */
+/* ---- a tabela de estoque só LÊ o banco: o botão que consulta o Mercado Livre agora é o "Atualizar este item" do cabeçalho do item (.rup-atualizar, vendas + estoque juntos) ---- */
 .rup-estoque .rup-painel-titulo { flex: none; white-space: nowrap; }
-.rup-consulta { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; min-width: 0; }
-.rup-consulta .rup-zoom-botao--texto { flex: none; margin-left: 0; white-space: nowrap; }
-.rup-consulta-status { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; color: var(--cor-texto-muted); }
-.rup-consulta-status--erro { color: #b42318; font-weight: 600; }
-.rup-consulta-status--ok { color: #1f6a42; font-weight: 600; }
-.rup-consulta-quando { margin-right: 6px; }
-.rup-consulta-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 1px solid #b9cde2; border-radius: 6px; background: #fff; color: var(--cor-primaria); font-size: 0.7rem; cursor: pointer; vertical-align: middle; }
-.rup-consulta-btn:hover:not(:disabled) { background: #eef3f9; }
-.rup-consulta-btn:disabled { color: #a3adb9; cursor: default; }
-.rup-consulta-btn.rup-consulta-btn--girando i,
-.rup-zoom-botao.rup-consulta-btn--girando i { animation: rup-girar 1s linear infinite; }
 @keyframes rup-girar { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .rup-consulta-btn--girando i { animation: none !important; } }
 /* o atalho para a tela antiga "Full — Planejamento de envios", na barra de cima (o mesmo jeito do botão de perfil) */
 .rup-toolbar-link { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 6px; background: rgba(255, 255, 255, 0.1); color: var(--cor-texto-claro); font-size: 0.82rem; white-space: nowrap; text-decoration: none; }
 .rup-toolbar-link:hover { background: rgba(255, 255, 255, 0.2); color: var(--cor-texto-claro); }
@@ -1195,29 +1254,10 @@ a.rup-l-acao-btn:focus-visible { outline: 2px solid var(--cor-primaria-clara); o
     .rup-niveis { grid-template-columns: 112px minmax(0, 3fr) minmax(0, 1fr); grid-template-areas: "todos acao tranquilo" "nao nao extra"; }
 }
 
-/* janela larga (1500px ou mais): colunas de números mais folgadas */
-@media (min-width: 1500px) {
-    .rup-l-tabela { --rup-l-colunas-numeros: 92px 86px 92px 112px 84px 100px 116px 84px 70px 40px; min-width: 1180px; }
-}
-
-/* janela bem larga (1600px ou mais): ainda mais folgadas */
-@media (min-width: 1600px) {
-    .rup-l-tabela { --rup-l-colunas-numeros: 100px 96px 96px 120px 92px 108px 124px 92px 80px 44px; min-width: 1250px; }
-}
-
-/* cabeçalho da tabela FIXO ao rolar (1500px ou mais, onde a tabela cabe sem rolar para o lado, mesmo com a barra lateral aberta): "sticky" não funciona dentro de uma caixa com rolagem própria, por isso aqui
- * a área de conteúdo e a caixa da tabela deixam de ser caixas de rolagem. O body ganha .rup-tela--lista só na lista. Abaixo de 1500px a tabela rola para o lado e o cabeçalho rola junto. */
-@media (min-width: 1500px) {
-    .rup-tela--lista .conteudo-principal { overflow: visible; }
-    .rup-l-rolagem { overflow: visible; }
-    .rup-l-cabecalho { position: sticky; top: var(--toolbar-altura); z-index: 20; box-shadow: 0 8px 0 0 var(--cor-fundo-pagina); }
-}
-
 /* janela bem pequena (menos de 1100px, sem uso real com a barra lateral): volta a acomodar pela largura */
 @media (max-width: 1099px) {
     .rup-pagina--lista { max-width: none; }
     .rup-niveis { grid-template-columns: minmax(0, 1fr); grid-template-areas: "todos" "acao" "tranquilo" "nao" "extra"; }
     .rup-nivel-cartoes { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-    .rup-l-lista-topo { flex-wrap: wrap; }
     .rup-linha > .rup-campo--busca { flex: 1 1 260px; }
 }

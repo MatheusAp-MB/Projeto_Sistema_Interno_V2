@@ -1,18 +1,22 @@
 /* gestao_ruptura/static/gestao_ruptura/js/script_ruptura.js
  *
  * [RESUMO] → Pequenos atalhos da tela "Previsão de Ruptura de estoque". Nenhum deles é obrigatório: sem JavaScript a tela continua funcionando (é só preencher e clicar em
- *            "Calcular" / clicar nos links). Só o item 5 (botão "Consultar no Mercado Livre", só por clique) chama o Mercado Livre; tudo o mais é GET comum que só lê o banco.
+ *            "Calcular" / clicar nos links). Só o item 5 (botão "Atualizar este item", só por clique) chama o Mercado Livre; tudo o mais é GET comum que só lê o banco.
  *
  *            1) Os atalhos de dias (7, 15, 30...; valem para o mundo da tela: o campo é sempre #rup-dias, mesmo que no endereço seja "dias_f"), o checkbox "Contar o que está a caminho" (só existe no Full), o seletor "Urgência segundo" (Mercado Livre /
  *               Sistema) e o seletor "Quantidade segundo" (Mercado Livre / Sistema / Minha quantidade) refazem o cálculo na hora. Os campos de número e a busca só valem ao apertar Enter ou "Recalcular": enquanto houver algo digitado e ainda não aplicado, o botão ganha uma bolinha laranja. Digitar uma quantidade marca "Minha quantidade" sozinho; escolher outra
  *               referência de quantidade limpa o campo.
- *            2) Os seletores "Ordenar por" e "Por página" da lista (marcados com data-rup-ir) levam para o endereço que está no value da opção escolhida.
+ *            2) O seletor "Por página" da lista (marcado com data-rup-ir) leva para o endereço que está no value da opção escolhida (a ordem não é mais um seletor: é o clique no título da coluna, um link).
  *            3) Foto que não carrega (anúncio sem foto, link vencido) vira o quadradinho "sem foto", para a linha não ficar com o ícone de imagem quebrada.
  *            4) O gráfico da curva de estoque (detalhe): ligar/desligar a curva de cada ritmo, passar o mouse (estoque projetado de cada ritmo naquele dia), zoom (botões ou scroll do mouse), mover e arrastar.
  *               Tudo é conta local sobre os dados que o servidor deixou na página; sem este script o gráfico continua inteiro, só não responde ao mouse.
- *            5) Os botões "Consultar no Mercado Livre" da tabela de estoque (um Código ML, ou todos em fila): chamam o servidor só por clique e recarregam a tela no fim.
+ *            5) O botão "Atualizar este item" (cabeçalho do detalhe): para o item aberto atualiza TUDO o que entra no cálculo dele, só por clique: primeiro as vendas dos MLBs dele (o orquestrador de
+ *               gestao_vendas/atualizador_de_vendas.js, o mesmo da tela de Vendas), depois o estoque de cada Código ML dele, um por vez. Mostra o total exato de chamadas e recarrega a tela já recalculada.
  *            6) Balão de dica no padrão da tela (branco, com setinha) no lugar do balão preto do navegador: o texto continua escrito no atributo title do HTML; ao carregar, este script o troca por
  *               data-rup-dica e mostra o balão ao passar o mouse (ou ao chegar com o Tab). Sem JavaScript, volta o balão nativo do navegador.
+ *            7) A tabela da lista: a largura da parte visível da caixa vai para a variável CSS --rup-visivel (o aviso de "nenhum item" fica parado à esquerda com essa largura) e, enquanto há colunas escondidas à direita,
+ *               o cartão ganha uma sombra na borda (classe rup-l-cartao--mais). O botão da última coluna é um link comum para o gráfico e o diagnóstico: não precisa de script.
+ *            8) A caixa da tabela rola por dentro e tem a altura da janela: o primeiro giro da roda do mouse leva a página até a caixa encostar no topo; depois a roda rola a tabela por dentro (sem este script, a roda rola a tabela direto).
  */
 (function () {
     'use strict';
@@ -563,114 +567,209 @@
     }
     iniciarGrafico();
 
-    // [5] Botões "Consultar no Mercado Livre" da tabela de estoque (detalhe): o ÚNICO lugar desta tela que chama o Mercado Livre, e só por clique. Um Código ML por chamada ao servidor (data-rup-url);
-    //     "Consultar todos" faz os Códigos da tabela UM POR VEZ (em fila). Acesso recusado ou varredura rodando (o servidor responde "interromper") para a fila. Ao terminar, se algum Código foi atualizado,
-    //     a tela recarrega (o endereço guarda o ritmo, o prazo, o chegar antes, a folga e as referências dos dois mundos) e volta a ler só do banco; o resultado fica numa linha de apoio que sobrevive ao recarregamento.
-    var secaoConsulta = document.querySelector('[data-rup-consulta]');
-    if (secaoConsulta) {
-        var urlConsulta = secaoConsulta.getAttribute('data-rup-url');
-        var statusConsulta = secaoConsulta.querySelector('[data-rup-status]');
-        var botoesConsulta = secaoConsulta.querySelectorAll('[data-rup-consultar]');
-        var CHAVE_RESULTADO = 'rup_resultado_da_consulta';
-        var ocupado = false;
+    // [5] O botão "Atualizar este item" (cabeçalho do detalhe): o ÚNICO lugar desta tela que chama o Mercado Livre, e só por clique. Para o item aberto ele atualiza TUDO o que entra no cálculo dele, nesta ordem:
+    //     1) as VENDAS dos MLBs dele, pelo orquestrador de gestao_vendas/js/atualizador_de_vendas.js (o MESMO da tela de Vendas: plano → só o que falta + revisão dos últimos 30 dias → trechos curtos → total de chamadas → guarda o
+    //        clique no banco);
+    //     2) o ESTOQUE de cada Código ML dele, UM POR VEZ (view_ruptura_consultar; no Fora do Full não há Código para consultar e o botão só atualiza as vendas).
+    //     Acesso recusado, coleta de período ou varredura rodando (o servidor responde "interromper") para tudo: se as vendas pararam, o estoque nem começa. No fim soma o total EXATO de chamadas (vendas + estoque), guarda o
+    //     resultado para aparecer depois do recarregamento e, se algo mudou no banco, recarrega a tela (o endereço guarda o ritmo, o prazo, o chegar antes, a folga e as referências dos dois mundos): ela volta a ler só do banco, já
+    //     recalculada. O que o botão precisa (MLBs, Códigos ML, janela e endereços) vem do servidor no JSON #rup-atualizar-dados (ruptura_pagina._botao_de_atualizar): nenhuma regra mora aqui.
+    var botaoAtualizar = document.querySelector('[data-rup-atualizar]');
+    var statusAtualizar = document.querySelector('[data-rup-status]');
+    var jsonAtualizar = document.getElementById('rup-atualizar-dados');
+    var CHAVE_RESULTADO = 'rup_resultado_da_atualizacao';
 
-        function csrfConsulta() {
+    // A linha de apoio do item: o andamento, o resultado e, no balão (data-rup-dica), o detalhe. O title sai porque o [6] troca title por data-rup-dica ao carregar e sobrescreveria o texto novo.
+    function dizer(texto, tom, dica) {
+        if (!statusAtualizar) { return; }
+        statusAtualizar.textContent = texto;
+        statusAtualizar.removeAttribute('title');
+        statusAtualizar.setAttribute('data-rup-dica', dica || texto);
+        statusAtualizar.classList.remove('rup-produto-status--erro', 'rup-produto-status--aviso', 'rup-produto-status--ok');
+        if (tom) { statusAtualizar.classList.add('rup-produto-status--' + tom); }
+    }
+
+    // O resultado do clique anterior (a tela recarregou depois dele): aparece na linha de apoio e vale só para esta visita.
+    try {
+        var guardado = window.sessionStorage.getItem(CHAVE_RESULTADO);
+        if (guardado) {
+            window.sessionStorage.removeItem(CHAVE_RESULTADO);
+            var resultado = JSON.parse(guardado);
+            dizer(resultado.texto, resultado.tom, resultado.dica);
+        }
+    } catch (erro) { /* sem sessionStorage a tela funciona igual: só não repete o resultado */ }
+
+    if (botaoAtualizar && jsonAtualizar && window.AtualizadorDeVendas) {
+        var config = JSON.parse(jsonAtualizar.textContent);
+        var Atualizador = window.AtualizadorDeVendas;
+        var plural = Atualizador.plural;
+        var numeroBR = Atualizador.formatarNumero;
+        var ocupadoAtualizar = false;
+
+        var chamar = Atualizador.chamador(function () {
             var campo = document.querySelector('#rup-csrf input[name="csrfmiddlewaretoken"]');
             return campo ? campo.value : '';
+        });
+        var atualizadorDeVendas = Atualizador.criar({ enderecos: { planejar: config.url_planejar, mlb: config.url_mlb, execucao: config.url_execucao }, sku: config.sku, chamar: chamar });
+
+        function travar(travado) {
+            ocupadoAtualizar = travado;
+            botaoAtualizar.disabled = travado;
+            botaoAtualizar.classList.toggle('rup-atualizar--girando', travado);
         }
 
-        function dizer(texto, tom) {
-            if (!statusConsulta) { return; }
-            statusConsulta.textContent = texto;
-            statusConsulta.setAttribute('data-rup-dica', texto);
-            statusConsulta.classList.remove('rup-consulta-status--erro', 'rup-consulta-status--ok');
-            if (tom) { statusConsulta.classList.add('rup-consulta-status--' + tom); }
-        }
-
-        function travar(travado, botaoClicado) {
-            ocupado = travado;
-            botoesConsulta.forEach(function (botao) {
-                botao.disabled = travado;
-                botao.classList.toggle('rup-consulta-btn--girando', travado && botao === botaoClicado);
+        // Função Objetivo: Consulta UM Código ML (a mesma consulta de sempre). Devolve (sempre, sem rejeitar) {ok, chamadas (número ou null), falhas, interromper, mensagem}.
+        function consultarCodigo(codigo) {
+            return chamar(config.url_consultar, 'POST', { codigo: codigo }).then(function (resposta) {
+                var dados = resposta.dados || {};
+                var chamadas = typeof dados.chamadas === 'number' ? dados.chamadas : null;
+                if (resposta.ok && dados.ok) { return { ok: true, chamadas: chamadas, falhas: dados.falhas || 0 }; }
+                return { ok: false, chamadas: chamadas, interromper: Boolean(dados.interromper), mensagem: dados.mensagem || 'a consulta falhou (resposta inesperada do servidor).' };
+            }).catch(function () {
+                return { ok: false, chamadas: null, interromper: true, mensagem: 'não consegui falar com o servidor.' };
             });
         }
 
-        // O resultado da consulta anterior (a tela recarregou depois dela): aparece na linha de apoio e vale só para esta visita.
-        try {
-            var guardado = window.sessionStorage.getItem(CHAVE_RESULTADO);
-            if (guardado) {
-                window.sessionStorage.removeItem(CHAVE_RESULTADO);
-                var resultado = JSON.parse(guardado);
-                dizer(resultado.texto, resultado.tom);
-            }
-        } catch (erro) { /* sem sessionStorage a tela funciona igual: só não repete o resultado */ }
-
-        function consultar(codigos, botaoClicado) {
-            if (ocupado || !codigos.length) { return; }
-            travar(true, botaoClicado);
-            var posicao = 0, atualizados = 0, problemas = [], parar = false;
-
-            function terminar() {
-                var texto, tom;
-                if (!problemas.length) {
-                    texto = atualizados === 1 ? 'Código atualizado no Mercado Livre.' : atualizados + ' Códigos atualizados no Mercado Livre.';
-                    tom = 'ok';
-                } else {
-                    texto = (atualizados ? atualizados + ' de ' + codigos.length + ' atualizados. ' : 'Nada foi atualizado. ') + problemas[0] + (problemas.length > 1 ? ' (+' + (problemas.length - 1) + ' erro' + (problemas.length > 2 ? 's' : '') + ')' : '');
-                    tom = 'erro';
-                }
-                if (atualizados > 0) {
-                    try { window.sessionStorage.setItem(CHAVE_RESULTADO, JSON.stringify({ texto: texto, tom: tom })); } catch (erro) { /* tudo bem */ }
-                    dizer('Atualizado. Recarregando…', 'ok');
-                    window.location.reload();
-                    return;
-                }
-                dizer(texto, tom);
-                travar(false, null);
-            }
-
+        // Função Objetivo: Consulta os Códigos ML UM POR VEZ. Devolve (sem rejeitar) o balanço {consultados, chamadas (total exato), semContagem, falhasMl, problemas: [texto], parou}.
+        function atualizarEstoque(codigos) {
+            var balanco = { consultados: 0, chamadas: 0, semContagem: 0, falhasMl: 0, problemas: [], parou: false };
+            var posicao = 0;
             function proximo() {
-                if (parar || posicao >= codigos.length) { terminar(); return; }
+                if (balanco.parou || posicao >= codigos.length) { return Promise.resolve(balanco); }
                 var codigo = codigos[posicao];
                 posicao += 1;
-                dizer('Consultando ' + codigo + ' (' + posicao + ' de ' + codigos.length + ')… pode levar alguns segundos.');
-                fetch(urlConsulta, {
-                    method: 'POST', credentials: 'same-origin',
-                    headers: { 'X-CSRFToken': csrfConsulta(), 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codigo: codigo })
-                }).then(function (resposta) {
-                    return resposta.json().catch(function () { return { ok: false, mensagem: 'Resposta inesperada do servidor.' }; });
-                }).then(function (dados) {
-                    if (dados && dados.ok) { atualizados += 1; } else {
-                        problemas.push(codigo + ': ' + ((dados && dados.mensagem) || 'a consulta falhou.'));
-                        if (dados && dados.interromper) { parar = true; }
+                dizer('Estoque: consultando ' + codigo + ' (' + posicao + ' de ' + codigos.length + ')… pode levar alguns segundos.');
+                return consultarCodigo(codigo).then(function (r) {
+                    if (r.chamadas === null) { balanco.semContagem += 1; } else { balanco.chamadas += r.chamadas; }
+                    if (r.ok) {
+                        balanco.consultados += 1;
+                        balanco.falhasMl += r.falhas;
+                    } else {
+                        balanco.problemas.push(codigo + ': ' + r.mensagem);
+                        if (r.interromper) { balanco.parou = true; }
                     }
-                    proximo();
-                }).catch(function () {
-                    problemas.push(codigo + ': não consegui falar com o servidor.');
-                    parar = true;
-                    proximo();
+                    return proximo();
                 });
             }
-            proximo();
+            return proximo();
         }
 
-        botoesConsulta.forEach(function (botao) {
-            botao.addEventListener('click', function () {
-                var alvo = botao.getAttribute('data-rup-consultar');
-                if (alvo === 'todos') {
-                    var codigos = [];
-                    botoesConsulta.forEach(function (outro) {
-                        var codigo = outro.getAttribute('data-rup-consultar');
-                        if (codigo !== 'todos') { codigos.push(codigo); }
-                    });
-                    consultar(codigos, botao);
-                } else {
-                    consultar([alvo], botao);
-                }
+        // Função Objetivo: Fecha o clique: soma o total EXATO de chamadas (vendas + estoque), escreve o resultado na linha de apoio (curto) e no balão (detalhe) e, se algo mudou no banco, recarrega a tela já com o resultado guardado.
+        //                  `vendas` = o retorno de atualizar() do orquestrador (null = não havia MLB); `estoque` = o balanço de atualizarEstoque (null = não havia Código); `falhou` = o motivo de parar antes (plano de vendas que não saiu).
+        function terminar(vendas, estoque, falhou) {
+            var chamadas = (vendas && vendas.ok ? vendas.chamadas : 0) + (estoque ? estoque.chamadas : 0);
+            var semContagem = (vendas && vendas.ok ? vendas.semContagem : 0) + (estoque ? estoque.semContagem : 0);
+            var total = numeroBR(chamadas) + ' ' + plural(chamadas, 'chamada', 'chamadas') + ' ao Mercado Livre' + (semContagem ? ' (contagem incompleta)' : '');
+            var partes = [];
+            var detalhe = [];
+            var tom = 'ok';
+            if (falhou) {
+                tom = 'erro';
+                detalhe.push('Vendas: ' + falhou);
+            }
+            if (vendas && vendas.ok) {
+                partes.push('vendas ' + numeroBR(vendas.chamadas));
+                detalhe.push(vendas.texto);
+                if (vendas.tipo === 'erro') { tom = 'erro'; } else if (vendas.tipo === 'aviso' && tom === 'ok') { tom = 'aviso'; }
+            }
+            if (estoque) {
+                partes.push('estoque ' + numeroBR(estoque.chamadas));
+                var frase = 'Estoque: ' + estoque.consultados + ' de ' + config.codigos.length + ' ' + plural(config.codigos.length, 'Código ML consultado', 'Códigos ML consultados') + ', com ' +
+                    numeroBR(estoque.chamadas) + ' ' + plural(estoque.chamadas, 'chamada', 'chamadas') + '.';
+                if (estoque.falhasMl) { frase += ' O Mercado Livre não devolveu tudo em ' + estoque.falhasMl + ' ' + plural(estoque.falhasMl, 'chamada', 'chamadas') + '.'; if (tom === 'ok') { tom = 'aviso'; } }
+                if (estoque.problemas.length) { frase += ' ' + estoque.problemas.join(' | '); tom = estoque.consultados ? (tom === 'erro' ? 'erro' : 'aviso') : 'erro'; }
+                detalhe.push(frase);
+            }
+            detalhe.push('Total: ' + total + '.');
+            var mudou = Boolean((vendas && vendas.ok && vendas.trechos > 0) || (estoque && estoque.consultados > 0));
+            var texto;
+            if (falhou) {
+                texto = 'Não atualizei: ' + falhou;
+            } else if (vendas && vendas.parou) {
+                var ultima = vendas.balanco.falhas[vendas.balanco.falhas.length - 1];
+                texto = 'Parei no ' + vendas.parou + ': ' + ultima.mensagem;
+            } else if (tom === 'erro' || tom === 'aviso') {
+                texto = 'Atualizado em parte — ' + (partes.length > 1 ? total + ' (' + partes.join(' · ') + ')' : total) + '. Passe o mouse para ver o que deu errado.';
+            } else if (!mudou && !(estoque && estoque.chamadas)) {
+                texto = 'Já estava tudo coletado: ' + total + '.';
+            } else {
+                texto = 'Item atualizado: ' + total + (partes.length > 1 ? ' (' + partes.join(' · ') + ')' : '') + '.';
+            }
+            var dica = detalhe.join(' ');
+            if (mudou) {
+                try { window.sessionStorage.setItem(CHAVE_RESULTADO, JSON.stringify({ texto: texto, dica: dica, tom: tom })); } catch (erro) { /* tudo bem */ }
+                dizer('Atualizado. Recarregando…', 'ok', dica);
+                window.location.reload();
+                return;
+            }
+            dizer(texto, tom, dica);
+            travar(false);
+        }
+
+        function atualizarItem() {
+            if (ocupadoAtualizar) { return; }
+            travar(true);
+            dizer(config.mlbs.length ? 'Vendas: montando o plano…' : 'Estoque: preparando…');
+            var etapaDeVendas = config.mlbs.length
+                ? atualizadorDeVendas.atualizar({
+                    mlbs: config.mlbs, dias: config.dias, tudo: false, tipo: config.tipo, rotulo: 'Item', origem: config.origem,
+                    aoAndar: function (pct) { dizer('Vendas: ' + pct + '%…'); }
+                })
+                : Promise.resolve(null);
+            etapaDeVendas.then(function (vendas) {
+                if (vendas && !vendas.ok) { terminar(null, null, vendas.mensagem); return undefined; }
+                // vendas paradas (acesso recusado, coleta de período rodando, rede caída): o estoque nem começa
+                if (vendas && vendas.parou) { terminar(vendas, null, ''); return undefined; }
+                if (!config.codigos.length) { terminar(vendas, null, ''); return undefined; }
+                return atualizarEstoque(config.codigos).then(function (estoque) { terminar(vendas, estoque, ''); });
             });
-        });
+        }
+
+        botaoAtualizar.addEventListener('click', atualizarItem);
+    } else if (botaoAtualizar && !botaoAtualizar.disabled) {
+        // sem o orquestrador (arquivo não carregou): o botão não finge que funciona
+        botaoAtualizar.disabled = true;
+        dizer('Não consegui carregar o atualizador de vendas. Recarregue a página (Ctrl+F5).', 'erro');
     }
+
+    // [7] A tabela da lista. (a) A caixa que rola (.rup-l-rolagem) guarda a largura da parte visível em --rup-visivel (o CSS usa no aviso de "nenhum item", que fica parado à esquerda) e acompanha o redimensionamento da janela.
+    //     (b) Enquanto ainda há colunas escondidas à direita, o cartão ganha a classe rup-l-cartao--mais (uma sombra na borda direita, no CSS), para quem usa janela estreita saber que a tabela continua para o lado.
+    //     O botão da última coluna é um link normal (para o gráfico e o diagnóstico do item): não tem código aqui.
+    document.querySelectorAll('.rup-l-rolagem').forEach(function (caixa) {
+        var cartao = caixa.parentNode;
+        function avisar() { cartao.classList.toggle('rup-l-cartao--mais', caixa.scrollLeft + caixa.clientWidth < caixa.scrollWidth - 2); }   // ainda há colunas escondidas à direita? a sombra da borda do cartão avisa
+        function medir() {
+            caixa.style.setProperty('--rup-visivel', caixa.clientWidth + 'px');
+            cartao.style.setProperty('--rup-barra-w', (caixa.offsetWidth - caixa.clientWidth) + 'px');
+            cartao.style.setProperty('--rup-barra-h', (caixa.offsetHeight - caixa.clientHeight) + 'px');
+            avisar();
+        }
+        medir();
+        caixa.addEventListener('scroll', avisar, { passive: true });
+        if (window.ResizeObserver) {
+            new ResizeObserver(medir).observe(caixa);
+        } else {
+            window.addEventListener('resize', medir);
+        }
+    });
+
+    // [8] A caixa da tabela rola por dentro (vertical e lateral; pedido do Matheus em 13/10/2026) e tem a altura da janela. Para a roda do mouse não rolar linhas que estão ABAIXO do pé da janela enquanto a tabela ainda está lá embaixo na página,
+    //     o primeiro giro para baixo leva a PÁGINA até a caixa encostar no topo (logo abaixo da barra de cima); dali em diante a roda rola a tabela por dentro e, quando ela chega ao fim, a página segue (o navegador encadeia a rolagem).
+    //     Ficam de fora (o navegador cuida): ctrl (zoom), shift e giro mais lateral que vertical (rolar para o lado), caixa sem rolagem vertical e página que já não tem para onde rolar (senão a roda não faria nada).
+    document.querySelectorAll('.rup-l-rolagem').forEach(function (caixa) {
+        caixa.addEventListener('wheel', function (evento) {
+            if (evento.ctrlKey || evento.shiftKey || evento.deltaY <= 0 || Math.abs(evento.deltaX) > Math.abs(evento.deltaY)) { return; }
+            if (caixa.scrollHeight <= caixa.clientHeight + 1) { return; }
+            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 1) { return; }
+            var barra = document.querySelector('.toolbar');
+            var topoUtil = (barra ? barra.offsetHeight : 60) + 12;
+            var falta = caixa.getBoundingClientRect().top - topoUtil;
+            if (falta <= 1) { return; }
+            var passo = evento.deltaMode === 1 ? evento.deltaY * 16 : (evento.deltaMode === 2 ? window.innerHeight : evento.deltaY);
+            evento.preventDefault();
+            window.scrollBy({ top: Math.min(passo, falta), left: 0, behavior: 'instant' });   // 'instant': a página pode ter scroll-behavior: smooth e a roda não pode ficar "escorregando"
+        }, { passive: false });
+    });
 
     // [6] Balão de dica no padrão da tela. Vale só dentro da tela (.rup-pagina) e do atalho da barra de cima.
     var ESCOPO_DICA = '.rup-pagina, .rup-toolbar-link';

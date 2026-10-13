@@ -1,0 +1,18 @@
+{% comment %}
+    * [RESUMO] → O texto do balão "?" do topo da tabela ("Como ler as colunas"), um para cada mundo (pagina.e_full). Cada título de coluna também tem o seu balão (passe o mouse): este aqui é o resumo de como a tabela inteira funciona.
+{% endcomment %}<strong>Como ler a tabela</strong>
+<span>{{ lista.ajuda }}</span>
+<span><b>Uma coluna, um dado</b>: o nome e a unidade ficam no título. Passe o mouse no título (ou na célula) para ler como o número é calculado. <b>Clique no título</b> para ordenar: a seta mostra o sentido (cinza = não ordena por ela) e clicar de novo inverte. Quem não tem o dado (sem ritmo, sem estoque lido) vai sempre para o fim.</span>
+<span><b>A tabela rola por dentro</b>, para baixo e para o lado: o cabeçalho e a coluna do item ficam parados. Quando há mais colunas à direita, uma sombra aparece na borda da tabela. Em janela estreita, role para o lado (shift + roda do mouse, ou a barra no pé da tabela) para ver o resto.</span>
+{% if pagina.e_full %}
+<span><b>Estoque Full</b>: o do Full, da última consulta salva de cada Código ML (disponível + em transferência + em processo interno; regra provisória). O <b>A caminho</b> (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Contar o que está a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
+<span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Tendência</b>: compara os últimos dias com o período. <b>Cobertura</b>: estoque ÷ ritmo, em dias (a marca na barra é o prazo até vender). <b>Nível</b>: a situação do estoque (veja o "?" da faixa Situação).</span>
+<span><b>Enviar até</b> = data da ruptura − prazo − chegar antes. "Agora" = a data recomendada já passou ou é hoje (vermelho: não dá mais tempo; laranja: ainda dá). <b>Se enviar hoje</b> = o que acontece se o envio sair hoje (folga em dias ou quantos dias vão faltar). <b>Enviar (Sistema)</b> = ritmo × os dias de folga.</span>
+<span><b>Comparar com o Mercado Livre</b>: a chave acrescenta dois blocos roxos, lado a lado, sempre no formato <b>Sistema | Mercado Livre | Comparação</b>. <b>Urgência</b>: a do Sistema (pela data de "Enviar até"), a do Mercado Livre (da consulta de reposição já salva, a mesma da tela de Planejamento de envios) e se ficam na mesma faixa (Iguais ou Divergem). <b>Quantidade a enviar</b>: a do Sistema, a do Mercado Livre e quem sugere mais e quanto a mais (ML +N un, Sistema +N un ou Iguais). Sem número do ML aparece "Sem dado do ML" ou "sem número" (nunca zero). A quantidade do Sistema, nesse caso, passa de "Reposição" para dentro do bloco da quantidade.</span>
+<span><b>Botão da última coluna</b> (ícone de gráfico): abre o gráfico e o diagnóstico do item, o mesmo destino do nome.</span>
+{% else %}
+<span><b>Estoque fora</b>: fica em &quot;—&quot; porque o estoque de fora do Full ainda não vem de nenhuma fonte ligada a esta tela (sem leitura não é estoque zero). Para simular a ruptura, abra o item e digite o estoque no cartão Projeção.</span>
+<span><b>Vendas</b>, <b>Ritmo</b> e <b>Tendência</b>: só o que saiu de fora do Full (coleta, agência, Flex) nos dias completos do período. Ritmo = unidades ÷ dias completos.</span>
+<span><b>Ponto de pedido</b> = ritmo × (prazo + chegar antes): com menos estoque que isso já não dá tempo de pedir e o pedido chegar antes da ruptura. <b>Pedir</b> = ritmo × os dias de folga (a ruptura vai esses dias para frente). As duas contas são das Regras de pedido e não dependem do estoque.</span>
+<span><b>Botão da última coluna</b> (ícone de gráfico): abre o gráfico e o diagnóstico do item, o mesmo destino do nome. É lá que o estoque de fora do Full é digitado.</span>
+{% endif %}

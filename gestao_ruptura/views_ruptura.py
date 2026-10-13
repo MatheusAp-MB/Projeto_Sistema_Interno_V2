@@ -4,8 +4,9 @@
 # de vendas escolhido, em que dia ele acaba, até quando preparar o envio e o nível do estoque.
 #
 # REGRA DO MATHEUS: esta tela NUNCA chama a API do ML (nem a do ERP) sozinha. Abrir, filtrar, ordenar e trocar de referência só LÊEM o banco (as vendas que a tela de Vendas já coletou e a última consulta salva de cada
-# Código ML). A API do Mercado Livre só é chamada por CLIQUE, no botão "Consultar" da tabela "Estoque no Full por Código ML" do detalhe (view_ruptura_consultar). O estoque e o lead time digitados não são guardados
-# e valem só para aquela consulta (ficam no endereço da página).
+# Código ML). A API do Mercado Livre só é chamada por CLIQUE, no botão "Atualizar este item" do detalhe (13/10/2026: UM botão que atualiza TUDO do cálculo do item): as vendas passam pelos endereços da tela de Vendas
+# (planejar, atualizar/mlb, execucao/registrar: o mesmo orquestrador JS, gestao_vendas/static/.../atualizador_de_vendas.js) e o estoque passa por view_ruptura_consultar, um Código ML por chamada. O estoque e o lead time
+# digitados não são guardados e valem só para aquela consulta (ficam no endereço da página).
 
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -24,9 +25,11 @@ def view_ruptura(request):
     return render(request, 'gestao_ruptura/estrutura_ruptura.html', {'pagina': montar_pagina(request.GET, base), 'url_ruptura': base})
 
 
-# Função Objetivo: O botão "Consultar no Mercado Livre" da tabela de estoque do detalhe (um Código ML por chamada; "Consultar todos" chama este endereço uma vez por Código, em fila, pelo JS). Consulta o Código no
+# Função Objetivo: A parte do ESTOQUE do botão "Atualizar este item" do detalhe (um Código ML por chamada; o JS chama este endereço uma vez por Código do item, em fila, DEPOIS das vendas). Consulta o Código no
 # Mercado Livre e grava no banco (a MESMA consulta da tela "Estoque no Full" e do Planejamento: consultar_com_trava); a tela recarrega e volta a ler só do banco. Recusa se uma varredura completa está rodando e se o
 # mesmo Código já está sendo consultado. Erros iguais aos da tela "Estoque no Full"; acesso recusado (502) e varredura rodando (409) vêm com "interromper": o JS para a fila.
+# * [EXPLICAÇÃO] → A resposta de sucesso leva `chamadas` (número) = as requisições reais que a consulta gastou, para o botão somar o total EXATO do clique (vendas + estoque). Resposta de erro não leva: o botão
+#                  diz que a contagem ficou incompleta (nunca chuta).
 @require_POST
 def view_ruptura_consultar(request):
     import traceback
@@ -64,4 +67,4 @@ def view_ruptura_consultar(request):
     mensagem = f'Código {codigo} atualizado: {relatorio.chamadas} {_plural(relatorio.chamadas, "chamada feita", "chamadas feitas")} ao Mercado Livre'
     if n_falhas:
         mensagem += f'; {n_falhas} {_plural(n_falhas, "falhou", "falharam")} (o Mercado Livre não devolveu tudo)'
-    return JsonResponse({'ok': True, 'mensagem': mensagem + '.', 'falhas': n_falhas})
+    return JsonResponse({'ok': True, 'mensagem': mensagem + '.', 'falhas': n_falhas, 'chamadas': relatorio.chamadas})

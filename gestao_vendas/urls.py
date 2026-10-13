@@ -13,7 +13,8 @@ urlpatterns = [
 
     # * [EXPLICAÇÃO] → Botões de atualização (os ÚNICOS caminhos em que a tela chega ao Mercado Livre, sempre por clique), todos granulares:
     #                  "Atualizar" de um MLB (atualizar/mlb/; o "Atualizar produto" da tela primeiro pergunta o plano em planejar/ — só lê o banco,
-    #                  diz o que falta — e depois chama atualizar/mlb/ uma vez por trecho curto, vários ao mesmo tempo),
+    #                  diz o que falta — e depois chama atualizar/mlb/ uma vez por trecho curto, vários ao mesmo tempo; o botão "Atualizar este item" da tela
+    #                  "Previsão de Ruptura de estoque" usa os MESMOS endereços, pelo mesmo orquestrador JS, atualizador_de_vendas.js),
     #                  "Atualizar dia" de um dia da conta toda (atualizar/dia/) e "Coletar período da conta" (periodo/iniciar/, com o andamento
     #                  em periodo/status/ e o botão Parar em periodo/parar/).
     path('planejar/', views_vendas.view_vendas_planejar, name='gestao_vendas_planejar'),

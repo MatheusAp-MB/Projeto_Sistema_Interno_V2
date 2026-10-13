@@ -150,6 +150,14 @@ def urgencias_divergem(urgencia_a, urgencia_b):
     return abs(FAIXA_DA_URGENCIA.get(urgencia_a, 4) - FAIXA_DA_URGENCIA.get(urgencia_b, 4)) >= FAIXAS_PARA_DIVERGIR
 
 
+# Função Objetivo: A diferença entre a quantidade que o Mercado Livre sugere enviar e a do Sistema (ML − Sistema, em unidades): positivo = o ML sugere MAIS; negativo = o Sistema sugere mais; 0 = iguais.
+# None quando falta um dos lados (sem número não é zero: não há o que comparar). Numa faixa do ML vale o começo dela (a mesma regra do gráfico e da urgência).
+def diferenca_de_quantidades(qtd_sistema, qtd_ml):
+    if qtd_sistema is None or qtd_ml is None:
+        return None
+    return qtd_ml - qtd_sistema
+
+
 # Função Objetivo: O ponto de pedido em unidades (ritmo × (prazo + ante), arredondado para cima). None se faltar o ritmo, o prazo ou os dias de antecedência.
 def ponto_de_pedido(media, lead, ante):
     if media is None or lead is None or ante is None:

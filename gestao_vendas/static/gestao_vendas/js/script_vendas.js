@@ -5,8 +5,10 @@
 // e todos começam num CLIQUE:
 //   1) "Atualizar" de um MLB (linha da tabela "Por MLB") e 2) "Atualizar produto" (todos os MLBs do SKU) / "Reler tudo": NÃO leem o período inteiro
 //      de uma vez. A tela pergunta ao servidor o PLANO (só os dias que faltam: dia já coletado completo é pulado, os últimos 30 dias são sempre
-//      relidos; "Reler tudo" lê todos) — pergunta que só lê o banco — e lê o plano em TRECHOS CURTOS, vários ao mesmo tempo (CONCORRENCIA). Trecho com
+//      relidos; "Reler tudo" lê todos) — pergunta que só lê o banco — e lê o plano em TRECHOS CURTOS, vários ao mesmo tempo. Trecho com
 //      pedidos demais volta partido do servidor e os pedaços entram na frente da fila. Um trecho que falha não impede os outros; acesso recusado para tudo.
+//      TUDO ISSO (plano, fila, total de chamadas, resumo e guardar no banco) mora em atualizador_de_vendas.js, o MESMO que o botão "Atualizar este item" da tela
+//      "Previsão de Ruptura de estoque" usa: este arquivo só cuida do botão, do aviso e do recarregamento.
 //   3) o ícone de cada dia do calendário: coleta aquele dia da conta toda (todos os SKUs);
 //   4) "Coletar período da conta": abre a janela de confirmação e, se a pessoa confirmar, o servidor coleta o período escolhido (por calendário) da conta toda em segundo plano.
 //      A tela só pergunta o andamento a cada 2 s, mostra a barra, deixa Parar e, no fim, mostra o resumo. (Ao abrir, ela também pergunta UMA vez se já
@@ -47,32 +49,21 @@
         return document.getElementById(id);
     }
 
-    function plural(n, singular, pluralTexto) {
-        return n === 1 ? singular : pluralTexto;
-    }
-
-    function formatarNumero(n) {
-        return Number(n || 0).toLocaleString('pt-BR');
-    }
+    const plural = AtualizadorDeVendas.plural;
+    const formatarNumero = AtualizadorDeVendas.formatarNumero;
 
     function csrf() {
         const campo = document.querySelector('#vnd-csrf input[name="csrfmiddlewaretoken"]');
         return campo ? campo.value : '';
     }
 
-    // Função Objetivo: Chama o servidor e devolve {ok, status, dados} (dados = o JSON, ou {} se a resposta não for JSON). Só rejeita se a rede falhar.
-    function chamar(url, metodo, corpo) {
-        const opcoes = { method: metodo, credentials: 'same-origin', headers: { 'X-CSRFToken': csrf(), 'Accept': 'application/json' } };
-        if (corpo !== undefined) {
-            opcoes.headers['Content-Type'] = 'application/json';
-            opcoes.body = JSON.stringify(corpo);
-        }
-        return fetch(url, opcoes).then(function (resposta) {
-            return resposta.json().catch(function () { return {}; }).then(function (dados) {
-                return { ok: resposta.ok, status: resposta.status, dados: dados };
-            });
-        });
-    }
+    // Função Objetivo: Chama o servidor e devolve {ok, status, dados}; é a MESMA função do orquestrador de vendas (atualizador_de_vendas.js).
+    const chamar = AtualizadorDeVendas.chamador(csrf);
+
+    // O orquestrador do "Atualizar" (plano → trechos → total de chamadas → guardar no banco) é o mesmo da tela "Previsão de Ruptura de estoque": mora em atualizador_de_vendas.js.
+    const atualizador = AtualizadorDeVendas.criar({
+        enderecos: { planejar: enderecos.planejar, mlb: enderecos.mlb, execucao: enderecos.execucao }, sku: sku, chamar: chamar
+    });
 
     // ---------- aviso flutuante ----------
     const ICONES_AVISO = { ok: 'fa-circle-check', aviso: 'fa-triangle-exclamation', erro: 'fa-circle-xmark', info: 'fa-circle-info' };
@@ -155,218 +146,27 @@
     }
 
     // ---------- atualizar um MLB / um dia / um produto ----------
-    // * [EXPLICAÇÃO] → Trechos lidos AO MESMO TEMPO. Nunca medi o limite do Mercado Livre para este endpoint (as respostas não trazem cabeçalho
-    //                  de limite): se o resumo mostrar recusas (429), baixe este número para 2 ou 1.
-    const CONCORRENCIA = 3;
-    const ESPERA_FILA_MS = 150;
-
-    function diasEntre(de, ate) {
-        return Math.round((Date.parse(ate + 'T00:00:00Z') - Date.parse(de + 'T00:00:00Z')) / 86400000) + 1;
-    }
-
-    // Função Objetivo: Pergunta o PLANO ao servidor (só lê o banco). `mlb` vazio = todos os MLBs do SKU. Devolve (sempre) {ok, plano | mensagem}.
-    function pedirPlano(mlb, tudo) {
-        let url = enderecos.planejar + '?sku=' + encodeURIComponent(sku) + '&dias=' + dias;
-        if (mlb) {
-            url += '&mlb=' + encodeURIComponent(mlb);
-        }
-        if (tudo) {
-            url += '&tudo=1';
-        }
-        return chamar(url, 'GET').then(function (resposta) {
-            const dados = resposta.dados || {};
-            if (!resposta.ok || !dados.ok) {
-                return { ok: false, mensagem: dados.mensagem || 'Não consegui montar o plano de atualização. Tente de novo.' };
+    // Função Objetivo: O "Atualizar" de um MLB (`mlb` preenchido) ou do produto (`mlb` vazio): o orquestrador faz plano → fila de trechos → resumo → guarda no banco;
+    //                  aqui só se cuida do botão (percentual) e, no fim, do aviso e do recarregamento.
+    function atualizar(botao, mlb, tudo) {
+        operacao = true;
+        aplicarTrava(botao, mlb ? '…' : 'Planejando…');
+        atualizador.atualizar({
+            mlbs: mlb ? [mlb] : [], dias: dias, tudo: tudo, tipo: mlb ? 'mlb' : 'produto', rotulo: mlb || 'Produto',
+            aoAndar: function (pct) { aplicarTrava(botao, mlb ? pct + '%' : 'Atualizando… ' + pct + '%'); }
+        }).then(function (r) {
+            operacao = false;
+            if (!r.ok) {
+                aplicarTrava();
+                avisar((mlb ? mlb + ': ' : '') + r.mensagem, 'erro');
+                return;
             }
-            return { ok: true, plano: dados };
-        }).catch(function () {
-            return { ok: false, mensagem: 'Não consegui falar com o servidor. Confira a conexão e tente de novo.' };
-        });
-    }
-
-    // Função Objetivo: Lê UM trecho de UM MLB. Devolve (sempre, sem rejeitar) {tipo: 'ok' | 'dividir' | 'erro', ...}. `maxPedidos` 0 = sem limite.
-    function coletarTrecho(trecho, maxPedidos) {
-        const corpo = { mlb: trecho.mlb, sku: sku, de: trecho.de, ate: trecho.ate };
-        if (maxPedidos) {
-            corpo.max_pedidos = maxPedidos;
-        }
-        return chamar(enderecos.mlb, 'POST', corpo).then(function (resposta) {
-            const dados = resposta.dados || {};
-            // [EXPLICAÇÃO] → `chamadas` = requisições reais que o servidor gastou NESTE trecho; null = o servidor não informou (erro inesperado, rede caída).
-            const chamadas = typeof dados.chamadas === 'number' ? dados.chamadas : null;
-            if (dados.dividir && dados.partes && dados.partes.length > 1) {
-                return { tipo: 'dividir', partes: dados.partes, chamadas: chamadas };
-            }
-            if (!resposta.ok || !dados.ok) {
-                return {
-                    tipo: 'erro', erros429: dados.erros_429 || 0, interromper: Boolean(dados.interromper), chamadas: chamadas,
-                    mensagem: dados.mensagem || 'Não consegui consultar o Mercado Livre. Tente de novo.'
-                };
-            }
-            return { tipo: 'ok', pedidos: dados.pedidos || 0, avisos: dados.avisos || 0, erros429: dados.erros_429 || 0, chamadas: chamadas };
-        }).catch(function () {
-            return { tipo: 'erro', erros429: 0, chamadas: null, interromper: true, mensagem: 'Não consegui falar com o servidor. Confira a conexão e tente de novo.' };
-        });
-    }
-
-    // Função Objetivo: Lê os trechos do plano, CONCORRENCIA por vez. Devolve (sem rejeitar) o balanço: {pedidos, trechos, diasFeitos, erros429, chamadas (total exato), semContagem (trechos que não informaram), comAviso,
-    //                  falhas: [{mlb, de, ate, mensagem}], parou: o MLB onde o acesso foi recusado ou a rede caiu (''), se tudo andou}.
-    //                  `aoAndar(balanco)` é chamada a cada trecho que termina (a tela usa para o percentual no botão).
-    function executarFila(trechos, maxPedidos, aoAndar) {
-        const fila = trechos.slice();
-        const balanco = { pedidos: 0, trechos: 0, diasFeitos: 0, erros429: 0, chamadas: 0, semContagem: 0, comAviso: 0, falhas: [], parou: '' };
-        let ativos = 0;
-        let interrompido = false;
-
-        function trabalhador() {
-            if (interrompido) {
-                return Promise.resolve();
-            }
-            if (!fila.length) {
-                // Fila vazia mas outro trecho ainda lê: ele pode devolver pedaços novos. Espera em vez de sair.
-                return ativos === 0 ? Promise.resolve() : new Promise(function (r) { setTimeout(r, ESPERA_FILA_MS); }).then(trabalhador);
-            }
-            const trecho = fila.shift();
-            ativos += 1;
-            return coletarTrecho(trecho, trecho.dias > 1 ? maxPedidos : 0).then(function (r) {
-                ativos -= 1;
-                balanco.erros429 += r.erros429 || 0;
-                if (r.chamadas === null) {
-                    balanco.semContagem += 1;
-                } else {
-                    balanco.chamadas += r.chamadas;
-                }
-                if (r.tipo === 'dividir') {
-                    const pedacos = r.partes.map(function (p) { return { mlb: trecho.mlb, de: p.de, ate: p.ate, dias: diasEntre(p.de, p.ate) }; });
-                    Array.prototype.unshift.apply(fila, pedacos);
-                } else if (r.tipo === 'ok') {
-                    balanco.trechos += 1;
-                    balanco.pedidos += r.pedidos;
-                    balanco.diasFeitos += trecho.dias;
-                    balanco.comAviso += r.avisos ? 1 : 0;
-                } else {
-                    balanco.falhas.push({ mlb: trecho.mlb, de: trecho.de, ate: trecho.ate, mensagem: r.mensagem });
-                    if (r.interromper) {
-                        interrompido = true;
-                        balanco.parou = trecho.mlb;
-                    }
-                }
-                aoAndar(balanco);
-                return trabalhador();
-            });
-        }
-
-        const trabalhadores = [];
-        for (let i = 0; i < CONCORRENCIA; i += 1) {
-            trabalhadores.push(trabalhador());
-        }
-        return Promise.all(trabalhadores).then(function () { return balanco; });
-    }
-
-    function dataCurta(iso) {
-        return iso.slice(8, 10) + '/' + iso.slice(5, 7);
-    }
-
-    // Função Objetivo: O pedaço da mensagem final com o total EXATO de requisições que o clique gastou no Mercado Livre (a soma dos trechos, inclusive
-    //                  os que voltaram partidos ou falharam). Se algum trecho não informou o número, diz que a contagem está incompleta.
-    function textoDeChamadas(balanco) {
-        const total = formatarNumero(balanco.chamadas) + ' ' + plural(balanco.chamadas, 'chamada', 'chamadas') + ' ao Mercado Livre';
-        const incompleta = balanco.semContagem
-            ? ' (contagem incompleta: ' + balanco.semContagem + ' ' + plural(balanco.semContagem, 'trecho', 'trechos') + ' sem informar)' : '';
-        return total + incompleta;
-    }
-
-    // Função Objetivo: GUARDA no banco o resultado deste clique (o total EXATO de chamadas ao Mercado Livre, trechos, pedidos, tempo...) para consultas futuras
-    //                  (tabela ExecucaoColetaVendasMercadoLivre). Devolve (sempre, sem rejeitar) '' se guardou, ou uma frase de atenção para somar à mensagem
-    //                  quando NÃO conseguiu guardar.
-    function registrarExecucao(mlb, tudo, plano, balanco, segundos, mensagem) {
-        const naoGuardou = ' Atenção: não consegui guardar este total de chamadas no banco.';
-        return chamar(enderecos.execucao, 'POST', {
-            tipo: mlb ? 'mlb' : 'produto', sku: sku, mlb: mlb || '', dias: dias, reler_tudo: Boolean(tudo),
-            mlbs: plano.mlbs || (mlb ? 1 : 0), dias_total: plano.dias_total, dias_a_coletar: plano.dias_a_coletar,
-            trechos: balanco.trechos, trechos_com_falha: balanco.falhas.length, trechos_sem_contagem: balanco.semContagem, parou: Boolean(balanco.parou),
-            pedidos: balanco.pedidos, chamadas: balanco.chamadas, erros_429: balanco.erros429, segundos: segundos, mensagem: mensagem
-        }).then(function (resposta) {
-            return resposta.ok && resposta.dados && resposta.dados.ok ? '' : naoGuardou;
-        }).catch(function () {
-            return naoGuardou;
-        });
-    }
-
-    // Função Objetivo: Monta a mensagem final, GUARDA o resultado do clique no banco (se algum trecho foi tentado) e, se pelo menos um trecho foi lido, recarrega
-    //                  a tela para ler o banco de novo.
-    function finalizarAtualizacao(mlb, tudo, plano, balanco, segundos) {
-        const nTrechos = balanco.trechos + ' ' + plural(balanco.trechos, 'trecho', 'trechos');
-        const pulados = plano.dias_total - plano.dias_a_coletar;
-        const pulou = pulados > 0 && plano.dias_total
-            ? ' O que já estava coletado foi pulado (' + Math.round(100 * pulados / plano.dias_total) + '%).' : '';
-        const recusas = balanco.erros429
-            ? ' O Mercado Livre recusou ' + balanco.erros429 + ' ' + plural(balanco.erros429, 'chamada', 'chamadas') +
-              ' por excesso (429): se isso se repetir, reduza os trechos simultâneos.' : '';
-        let texto;
-        let tipo = 'ok';
-        if (balanco.parou) {
-            const ultima = balanco.falhas[balanco.falhas.length - 1];
-            texto = 'Parei no ' + balanco.parou + ' (' + nTrechos + ' lidos antes). ' + ultima.mensagem + ' Ao todo: ' + textoDeChamadas(balanco) + '.';
-            tipo = 'erro';
-        } else if (balanco.falhas.length) {
-            const lista = balanco.falhas.slice(0, 2).map(function (f) {
-                return f.mlb + ' (' + dataCurta(f.de) + ' a ' + dataCurta(f.ate) + ') — ' + f.mensagem;
-            }).join(' | ');
-            texto = (mlb || 'Produto') + ' atualizado em parte: ' + nTrechos + ' lidos, ' + balanco.falhas.length + ' ' +
-                plural(balanco.falhas.length, 'falhou', 'falharam') + '. ' + lista +
-                (balanco.falhas.length > 2 ? ' (e mais ' + (balanco.falhas.length - 2) + ')' : '') + recusas +
-                ' Ao todo: ' + textoDeChamadas(balanco) + '.';
-            tipo = 'aviso';
-        } else {
-            texto = (mlb || 'Produto') + ' atualizado: ' + formatarNumero(balanco.pedidos) + ' ' + plural(balanco.pedidos, 'pedido', 'pedidos') +
-                ' em ' + nTrechos + ', com ' + textoDeChamadas(balanco) + '.' + pulou + recusas;
-            if (balanco.comAviso || balanco.erros429) {
-                tipo = 'aviso';
-                if (balanco.comAviso) {
-                    texto += ' Em ' + balanco.comAviso + ' ' + plural(balanco.comAviso, 'trecho', 'trechos') + ' o coletor deixou aviso (os textos ficam guardados na coleta, no banco).';
-                }
-            }
-        }
-        // [EXPLICAÇÃO] → Plano sem trechos (tudo já coletado) não gastou chamada nenhuma: nada a guardar.
-        const guardar = plano.trechos.length ? registrarExecucao(mlb, tudo, plano, balanco, segundos, texto) : Promise.resolve('');
-        guardar.then(function (aviso) {
-            if (aviso) {
-                texto += aviso;
-                tipo = tipo === 'ok' ? 'aviso' : tipo;
-            }
-            if (balanco.trechos) {
-                guardarAvisoERecarregar(texto, tipo);
+            if (r.trechos) {
+                guardarAvisoERecarregar(r.texto, r.tipo);
                 return;
             }
             aplicarTrava();
-            avisar(texto, tipo);
-        });
-    }
-
-    // Função Objetivo: O "Atualizar" de um MLB (`mlb` preenchido) ou do produto (`mlb` vazio): plano → fila de trechos → resumo.
-    function atualizar(botao, mlb, tudo) {
-        const inicio = Date.now();
-        operacao = true;
-        aplicarTrava(botao, mlb ? '…' : 'Planejando…');
-        pedirPlano(mlb, tudo).then(function (resposta) {
-            if (!resposta.ok) {
-                operacao = false;
-                aplicarTrava();
-                avisar((mlb ? mlb + ': ' : '') + resposta.mensagem, 'erro');
-                return undefined;
-            }
-            const plano = resposta.plano;
-            const trechos = plano.trechos.slice().sort(function (a, b) { return b.dias - a.dias; });
-            const texto = function (balanco) {
-                const pct = plano.dias_a_coletar ? Math.min(100, Math.round(100 * balanco.diasFeitos / plano.dias_a_coletar)) : 100;
-                return mlb ? pct + '%' : 'Atualizando… ' + pct + '%';
-            };
-            aplicarTrava(botao, texto({ diasFeitos: 0 }));
-            return executarFila(trechos, plano.max_pedidos, function (balanco) { aplicarTrava(botao, texto(balanco)); }).then(function (balanco) {
-                operacao = false;
-                finalizarAtualizacao(mlb, tudo, plano, balanco, Math.round((Date.now() - inicio) / 1000));
-            });
+            avisar(r.texto, r.tipo);
         });
     }
 

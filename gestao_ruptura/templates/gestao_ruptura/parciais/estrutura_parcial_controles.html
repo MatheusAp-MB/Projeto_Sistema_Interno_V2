@@ -4,12 +4,13 @@
         1) PROJEÇÃO — como se projeta quando o estoque acaba. Mexer aqui muda os NÚMEROS: vendas dos últimos N dias do mundo (o ritmo), no detalhe o estoque do mundo (do Full: lido da última consulta; de fora do Full: digitado) e, SÓ NO FULL, "contar o que está a caminho".
         2) REGRAS DE ENVIO AO FULL / REGRAS DE PEDIDO — quando e quanto enviar (ou pedir). Mudam pouco e dependem do responsável (por isso o cartão é mais apagado): prazo até vender, chegar antes da ruptura e folga. Cada mundo tem o SEU prazo (Full: do zero até chegar ao Full;
            Fora do Full: do pedido até a transportadora entregar). A folga é o mesmo conceito nos dois: "estou mandando este envio e quero N dias de estoque de folga" (a nova ruptura vem N dias depois da atual).
-        3) QUEM RECOMENDA — só no FULL (o Mercado Livre só recomenda para o Full). NÃO muda a conta: muda de quem é a urgência e a quantidade que aparecem grandes (a outra aparece pequena) e a ordem da lista.
+        3) QUEM RECOMENDA — só no FULL e só no DETALHE de um item (o Mercado Livre só recomenda para o Full). NÃO muda a conta: muda de quem é a urgência e a quantidade que aparecem grandes (a outra aparece pequena) no detalhe.
+           Na LISTA do Full não há mais este cartão (13/10/2026): a tabela mostra as DUAS referências lado a lado, nos trios de colunas da comparação (a chave "Comparar com o Mercado Livre"), então não há o que escolher.
       A barra de cima (seletor de mundo + Ver por + Buscar na lista; Voltar + seletor no detalhe) fica nas partes lista/detalhe: ela serve para ACHAR, os cartões servem para CONFIAR no número.
     * [EXPLICAÇÃO] → Quando um valor vale: botões e seletores (atalhos de dias, caixa "a caminho", Mercado Livre | Sistema) refazem o cálculo na hora; os campos de número e a busca só valem ao apertar Enter ou "Recalcular", que ganha uma bolinha laranja
       enquanto houver algo digitado e ainda não aplicado (script_ruptura.js). Os nomes técnicos no endereço: Full = dias, lead, ante, folga, estoque; Fora do Full = os mesmos com _f no fim (dias_f, lead_f, ante_f, folga_f, estoque_f); só do Full: caminho, ref_urg, ref_qtd, qtd.
       A disposição (3 cartões no Full, 2 no Fora do Full; 2 ou 1 por linha em janela menor) depende só da largura da JANELA (layout_ruptura.css), nunca do espaço ao lado da barra lateral. Cada cartão tem o "?" com a explicação longa; cada campo tem a frase de apoio embaixo, numa linha só.
-{% endcomment %}<div class="rup-ctls{% if not pagina.e_full %} rup-ctls--2{% endif %}">
+{% endcomment %}<div class="rup-ctls{% if not pagina.e_full or pagina.modo != 'detalhe' %} rup-ctls--2{% endif %}">
     <section class="rup-ctl rup-ctl--projecao" aria-labelledby="rup-ctl-1">
         <header class="rup-ctl-cab">
             <span class="rup-ctl-num" aria-hidden="true">1</span>
@@ -73,7 +74,7 @@
         </div>
     </section>
 
-    {% if pagina.e_full %}
+    {% if pagina.e_full and pagina.modo == 'detalhe' %}
     <section class="rup-ctl rup-ctl--recomenda" aria-labelledby="rup-ctl-3">
         <header class="rup-ctl-cab">
             <span class="rup-ctl-num" aria-hidden="true">3</span>

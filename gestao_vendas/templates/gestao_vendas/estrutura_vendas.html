@@ -518,6 +518,8 @@
     {% endwith %}
 {% endblock %}
 {% block scripts %}
+    {# O orquestrador do "Atualizar" (plano, trechos, total de chamadas, guardar no banco) é o mesmo da tela "Previsão de Ruptura de estoque": tem que vir ANTES do script_vendas.js. #}
+    <script src="{% static 'gestao_vendas/js/atualizador_de_vendas.js' %}"></script>
     <script src="{% static 'gestao_vendas/js/script_vendas.js' %}"></script>
     <script src="{% static 'gestao_vendas/js/script_vendas_calendario.js' %}"></script>
     <script src="{% static 'gestao_vendas/js/script_vendas_dia.js' %}"></script>

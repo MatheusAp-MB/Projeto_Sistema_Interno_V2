@@ -139,10 +139,12 @@ def para_url(comuns, dias=None, detalhe=False):
 # Função Objetivo: Os campos ESCONDIDOS do formulário da tela: tudo o que vai no endereço e que NÃO é um campo visível do mundo que está na tela (o `mundo`, os campos do outro mundo e, no Fora do Full, as escolhas
 # do Full). Assim, aplicar o formulário de um mundo não apaga o que foi digitado no outro. `detalhe=True` no detalhe de um item (os estoques e a quantidade digitados também são campos do formulário).
 # Devolve [{nome, valor}] só do que tem valor (um por valor, nos filtros de vários valores).
+# * [EXPLICAÇÃO] → No Full, a LISTA só tem o campo visível "a caminho" entre as escolhas do Full: o cartão "Quem recomenda" (ref_urg, ref_qtd e a quantidade digitada) só existe no DETALHE de um item (13/10/2026: na lista o Sistema é
+#                  a base e o Mercado Livre é a chave "Comparar com o Mercado Livre"). Na lista essas escolhas viajam escondidas, para a pessoa levá-las ao abrir um item.
 # * [EXPLICAÇÃO] → Os filtros do Hub são campos VISÍVEIS da lista (o painel "Filtros" fica dentro do mesmo formulário), menos a logística no Envios Full (o cartão não existe lá: ela viaja escondida para
 #                  não se perder). No detalhe o painel não aparece: todos os filtros viajam escondidos.
 def campos_escondidos(comuns, detalhe=False):
-    visiveis = {nome_do_campo(c, 'full') for c in CAMPOS_DO_MUNDO} | set(CAMPOS_SO_DO_FULL) if comuns['mundo'] == 'full' else {nome_do_campo(c, 'fora') for c in CAMPOS_DO_MUNDO}
+    visiveis = {nome_do_campo(c, 'full') for c in CAMPOS_DO_MUNDO} | (set(CAMPOS_SO_DO_FULL) if detalhe else {'caminho'}) if comuns['mundo'] == 'full' else {nome_do_campo(c, 'fora') for c in CAMPOS_DO_MUNDO}
     if not detalhe:
         sem_cartao = filtros_escondidos(comuns['mundo'])
         visiveis |= {parametro for chave, parametro in PARAMETROS_DO_FILTRO if chave not in sem_cartao}

@@ -1,7 +1,7 @@
 {% comment %}
-    * [RESUMO] → Os dois seletores do cartão "3 Quem recomenda" — iguais na lista e no detalhe. Só existem no mundo FULL (o Mercado Livre só recomenda para o Full). Recebe "pagina". Decidem DE QUEM é a informação que manda na tela (decisão do Matheus, 12/10/2026); NÃO mudam a conta:
-        1) URGÊNCIA SEGUNDO (era "Referência de urgência"): Mercado Livre (a urgência que o ML calcula, lida da consulta de reposição salva) ou Sistema (a regra desta tela, pela data de "Enviar até"). A escolhida manda na ordem
-           "Mais urgentes primeiro" e aparece grande; a outra aparece pequena na mesma célula.
+    * [RESUMO] → Os dois seletores do cartão "3 Quem recomenda" — só no DETALHE de um item do mundo FULL (o Mercado Livre só recomenda para o Full; na lista a tabela mostra as duas referências lado a lado, na chave "Comparar com o Mercado Livre"). Recebe "pagina". Decidem DE QUEM é a informação que manda na tela (decisão do Matheus, 12/10/2026); NÃO mudam a conta:
+        1) URGÊNCIA SEGUNDO (era "Referência de urgência"): Mercado Livre (a urgência que o ML calcula, lida da consulta de reposição salva) ou Sistema (a regra desta tela, pela data de "Enviar até"). A escolhida aparece grande no detalhe;
+           a outra aparece pequena na mesma célula.
         2) QUANTIDADE SEGUNDO (era "Quanto enviar"): Mercado Livre (a sugestão dele), Sistema (a da regra da tela) ou, só no detalhe de um item, Minha quantidade (a pessoa digita; o campo "Quantas unidades" é o de estrutura_parcial_campo_quanto.html).
     * [EXPLICAÇÃO] → Trocar uma opção refaz o cálculo na hora (script_ruptura.js). Tudo é GET e só lê o banco (a recomendação do ML vem da consulta de reposição já salva: nenhuma chamada ao Mercado Livre). Os nomes no endereço continuam ref_urg e ref_qtd.
       A frase de apoio da quantidade, no detalhe, diz o que a opção escolhida sugere (pagina.qtd_ajuda).

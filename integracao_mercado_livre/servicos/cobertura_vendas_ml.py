@@ -7,6 +7,7 @@
 # REGRAS (as mesmas que a tela mostra):
 #   - Coleta da CONTA TODA (escopo dia ou período) cobre todos os SKUs. Coleta de MLB cobre só aquele MLB (e um produto só fica coberto quando
 #     TODOS os MLBs dele têm o dia).
+#   - UM ITEM (produto, anúncio ou Código ML) é coberto pelos MLBs DELE: a lista e o gráfico da Previsão de Ruptura perguntam a mesma coisa pelo mesmo caminho (indexar_coletas + cobertura_do_indice).
 #   - Dia "completo" = a coleta terminou DEPOIS que o dia acabou. Hoje nunca é completo.
 #   - Coleta com falha não cobre nada; coleta parcial cobre o trecho que chegou a ser lido.
 #
@@ -20,6 +21,7 @@
 #                  O valor 30 é PROVISÓRIO (decisão do Matheus, 11/10/2026: pode subir ou descer aqui). "Reler tudo" ignora esta regra.
 
 import calendar
+from collections import defaultdict
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -61,9 +63,26 @@ def mapa_de_dias(coletas, de, ate):
 # Função Objetivo: Quais dias de [de, ate] têm dado coletado para estes MLBs e quando foi a coleta: {dia: instante}. Conta toda (dia, período)
 # cobre tudo; coleta de MLB só cobre o conjunto quando TODOS os MLBs têm o dia. Sem MLBs: só a conta toda.
 def cobertura(coletas, mlbs, de, ate):
-    mapa = mapa_de_dias([c for c in coletas if c.escopo in (ColetaVendasMercadoLivre.Escopo.DIA, ColetaVendasMercadoLivre.Escopo.PERIODO)], de, ate)
+    return cobertura_do_indice(indexar_coletas(coletas, de, ate), mlbs)
+
+
+# Função Objetivo: Prepara as coletas de [de, ate] UMA vez para responder "o que foi coletado?" de MUITOS itens sem reler nada: o mapa de dias da conta toda e, por MLB, o mapa de dias das coletas daquele MLB.
+# É o que as listas usam (centenas de linhas, uma pergunta por linha, nenhuma consulta nova ao banco). Devolve {'conta': {dia: instante}, 'por_mlb': {mlb: {dia: instante}}}.
+def indexar_coletas(coletas, de, ate):
+    da_conta = [c for c in coletas if c.escopo in (ColetaVendasMercadoLivre.Escopo.DIA, ColetaVendasMercadoLivre.Escopo.PERIODO)]
+    de_mlb = defaultdict(list)
+    for c in coletas:
+        if c.escopo == ColetaVendasMercadoLivre.Escopo.MLB:
+            de_mlb[c.mlb].append(c)
+    return {'conta': mapa_de_dias(da_conta, de, ate), 'por_mlb': {mlb: mapa_de_dias(cs, de, ate) for mlb, cs in de_mlb.items()}}
+
+
+# Função Objetivo: A cobertura de um item (os `mlbs` dele) a partir do índice de indexar_coletas: {dia: instante da coleta}. Conta toda cobre tudo; coleta de MLB só cobre o item quando TODOS os MLBs dele têm o dia
+# (vale o instante mais antigo entre eles). Sem MLBs: só a conta toda. Mesma regra de sempre: `cobertura` é só esta função com o índice montado na hora.
+def cobertura_do_indice(indice, mlbs):
+    mapa = dict(indice['conta'])
     if mlbs:
-        por_mlb = [mapa_de_dias([c for c in coletas if c.escopo == ColetaVendasMercadoLivre.Escopo.MLB and c.mlb == mlb], de, ate) for mlb in mlbs]
+        por_mlb = [indice['por_mlb'].get(mlb, {}) for mlb in mlbs]
         for dia in set.intersection(*[set(m) for m in por_mlb]):
             quando = min(m[dia] for m in por_mlb)
             if quando > mapa.get(dia, RANGE_MIN):

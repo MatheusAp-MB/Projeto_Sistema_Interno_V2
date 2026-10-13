@@ -1,12 +1,9 @@
 {% comment %}
-    * [RESUMO] → A LISTA do mundo ENVIOS FULL da tela "Previsão de Ruptura de estoque" (a do Fora do Full é a parcial lista_fora): uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"), por ordem de URGÊNCIA, com o estoque do Full, as vendas e o
-      ritmo do Full, a cobertura em dias (com barra), a data da ruptura, até quando enviar, a urgência (do Mercado Livre ou do Sistema, conforme a referência escolhida), quanto enviar e o nível. A faixa "Situação" logo acima (parcial
-      estrutura_parcial_situacao.html: "Todos", 6 cartões em 3 grupos e o filtro à parte "Divergem", mais os indicadores de dados) é também o filtro; o "?" das colunas mora no topo da tabela. O nome da linha e o botão do gráfico abrem o detalhe
-      (a curva) do item. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco (o botão de consulta ao ML fica no detalhe de cada item).
+    * [RESUMO] → A LISTA do mundo ENVIOS FULL da tela "Previsão de Ruptura de estoque" (a do Fora do Full é a parcial lista_fora): a barra de cima (mundo, "Ver por", busca), os cartões de controles, os avisos, a faixa "Situação" e a TABELA (parcial
+      estrutura_parcial_tabela.html, a mesma dos dois mundos): uma linha por Produto (SKU), por Anúncio (MLB) ou por Código ML (botões "Ver por"). A faixa "Situação" logo acima (parcial estrutura_parcial_situacao.html: "Todos", 6 cartões em 3 grupos e o filtro
+      à parte "Divergem", mais os indicadores de dados) é também o filtro. O que a tabela mostra e como ordena (clique no título da coluna, a chave "Comparar com o Mercado Livre") está explicado em estrutura_parcial_tabela.html e em
+      funcoes_auxiliares/ruptura_colunas.py. Tudo é LINK ou formulário normal (GET): só os selects e os atalhos de dias usam script_ruptura.js. A lista NUNCA chama o Mercado Livre nem o ERP: só lê o banco (o botão de consulta ao ML fica no detalhe de cada item).
     * [EXPLICAÇÃO] → Recebe "pagina" (ruptura_pagina.montar_pagina) e usa "pagina.lista" (ruptura_lista.montar_lista); os números já vêm formatados de lá.
-    * [EXPLICAÇÃO] → O cartão de identidade de cada linha usa o estilo COMPARTILHADO .cartao-anuncio-* (core/static/base_compartilhada/css/layout_cartao_anuncio.css, carregado em todas as telas) e os
-      selos do anúncio (.badge-tabela) vêm do registro único (layout_badges.css). Aqui a linha tem altura FIXA (o CSS corta o que não cabe: título em 1 linha, selos e IDs somem inteiros de trás para a
-      frente), para nada mudar de altura quando a barra lateral abre ou fecha.
     * [EXPLICAÇÃO] → Os FILTROS do Hub de Anúncios (Marca, Situação do anúncio, Tipo, Flex, Situação do catálogo, Desconto, Faixa de score, Competição e Conexão com ERP) têm os MESMOS parâmetros e as MESMAS opções da tela de Anúncios — Mercado Livre, mas aqui o painel é o em MENUS
       (mercado_livre/parciais/estrutura_parcial_filtros_menus.html, sempre fechado ao abrir a tela; o Hub ainda usa o painel antigo), dentro deste formulário: "Aplicar filtros" e "Recalcular" mandam tudo junto. Quem decide QUEM PASSA é o Hub (classificacao_catalogo.mlbs_visiveis_com_filtros), nunca esta tela
       (ruptura_filtros.py só pergunta). Os filtros decidem quais LINHAS aparecem; os números da linha continuam sendo os do item inteiro (a faixa azul de notas acima do painel explica). O filtro de Logística só vale no Fora do Full
@@ -52,123 +49,5 @@
 
 {% include 'gestao_ruptura/parciais/estrutura_parcial_situacao.html' %}
 
-<section class="rup-l-lista" aria-label="Lista de ruptura">
-    <div class="rup-l-lista-topo">
-        <div class="rup-l-total-grupo">
-            <span class="rup-l-total">{{ lista.total_texto }}</span>
-            {# O "?" das COLUNAS mora aqui, no topo da tabela (o dos cartões de situação mora na faixa Situação): cada explicação perto do que explica. #}
-            <span class="rup-ajuda rup-ajuda--esq" tabindex="0" role="note" aria-label="Como ler as colunas da lista">
-                <i class="fas fa-circle-question" aria-hidden="true"></i>
-                <span class="rup-ajuda-balao">
-                    <strong>Como ler as colunas</strong>
-                    <span>{{ lista.ajuda }}</span>
-                    <span><b>Estoque</b>: o do Full, da última consulta salva de cada Código ML. Conta o disponível + o que está em transferência + o que está em processo interno (regra provisória); retirada, danificadas e perdidas ficam de fora. O "a caminho" (enviado ao Full e ainda não recebido) é só informativo e não entra na cobertura, a não ser que você marque "Contar o que está a caminho": aí ele é somado ao estoque, como se já estivesse no Full hoje.</span>
-                    <span><b>Ritmo</b>: média por dia das vendas que saíram do Full nos dias completos do período. <b>Cobertura</b>: estoque ÷ ritmo, em dias. A marca na barra é o prazo até vender.</span>
-                    <span><b>Urgência</b>: o selo é o da fonte escolhida em "Urgência segundo" (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Mercado Livre vem da consulta de reposição já salva (a mesma da tela de Planejamento de envios); a do Sistema vem da data de &quot;Enviar até&quot; (hoje ou já passou = Urgente; até 7 dias = Esta semana; até 14 = Próxima semana; até 21 = Em 2 semanas). Item sem número do ML mostra &quot;sem número do ML&quot; (nunca zero).</span>
-                    <span><b>Enviar até</b> = data da ruptura − prazo − chegar antes (&quot;Enviar já&quot; = a data recomendada passou, mas ainda dá tempo; &quot;Atrasado&quot; = não dá mais tempo). <b>Enviar (un)</b> = sugestão do Sistema: ritmo × os dias de folga (a ruptura vai esses dias para frente). <b>Nível</b>: a situação do item (veja o "?" da faixa Situação).</span>
-                </span>
-            </span>
-            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> Limpar busca e situação</a>{% endif %}
-        </div>
-        <div class="rup-l-selects">
-            <div class="rup-l-campo">
-                <label for="rup-ordem" class="rup-rotulo">Ordenar por</label>
-                <select id="rup-ordem" class="lista-select" data-rup-ir>
-                    {% for o in lista.ordens %}<option value="{{ o.url }}"{% if o.ativo %} selected{% endif %}>{{ o.rotulo }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="rup-l-campo">
-                <label for="rup-por" class="rup-rotulo">Por página</label>
-                <select id="rup-por" class="lista-select" data-rup-ir>
-                    {% for p in lista.por_pagina %}<option value="{{ p.url }}"{% if p.ativo %} selected{% endif %}>{{ p.rotulo }}</option>{% endfor %}
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <div class="rup-l-rolagem">
-        <div class="rup-l-tabela" role="table" aria-label="Previsão de Ruptura de estoque">
-            <div class="rup-l-colunas rup-l-cabecalho" role="row">
-                <div role="columnheader" class="rup-l-cab rup-l-cab--nome">{{ lista.coluna_nome }}</div>
-                <div role="columnheader" class="rup-l-cab" title="Estoque considerado no Full (da última consulta salva)">Estoque Full</div>
-                <div role="columnheader" class="rup-l-cab" title="Unidades que saíram do Full no período e o faturamento delas">Vendas Full</div>
-                <div role="columnheader" class="rup-l-cab" title="Média por dia das vendas do Full nos dias completos">Ritmo un/dia</div>
-                <div role="columnheader" class="rup-l-cab" title="Quantos dias o estoque dura neste ritmo (estoque ÷ ritmo)">Cobertura dias</div>
-                <div role="columnheader" class="rup-l-cab" title="Dia em que o estoque acaba neste ritmo">Ruptura em</div>
-                <div role="columnheader" class="rup-l-cab" title="Data recomendada para preparar o envio (ruptura − prazo − chegar antes)">Enviar até</div>
-                <div role="columnheader" class="rup-l-cab rup-l-cab--esq" title="Urgência de envio, da fonte escolhida em &quot;Urgência segundo&quot; (Mercado Livre ou Sistema); a outra aparece pequena embaixo. O selo é o mesmo da tela de Planejamento de envios.">Urgência</div>
-                <div role="columnheader" class="rup-l-cab" title="Quanto enviar, da fonte escolhida em &quot;Quantidade segundo&quot; (Mercado Livre ou Sistema); a outra aparece pequena embaixo. A do Sistema é o ritmo × os dias de folga (a ruptura vai esses dias para frente)">Enviar (un)</div>
-                <div role="columnheader" class="rup-l-cab rup-l-cab--centro" title="Nível do estoque (regra provisória)">Nível</div>
-                <div role="columnheader" class="rup-l-cab rup-l-cab--acao"></div>
-            </div>
-
-            {% if lista.vazio %}
-                <div class="rup-l-vazio">
-                    Nenhum item com essa busca, esse nível e esses filtros. Tente o SKU completo, um pedaço do título, o EAN, o MLB ou o Código ML — ou
-                    <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca e a situação</a>{% if lista.painel.tem_filtro_ativo %} ou <a href="{{ lista.painel.url_limpar }}" class="rup-l-limpar">limpe os filtros</a>{% endif %}.
-                </div>
-            {% endif %}
-
-            {% for l in lista.linhas %}
-                <div class="rup-l-bloco rup-l-bloco--{{ l.cat }}" role="rowgroup">
-                    <div class="rup-l-colunas rup-l-linha" role="row">
-                        {% include 'gestao_ruptura/parciais/estrutura_parcial_identidade.html' with l=l gran=lista.gran %}
-                        <div class="rup-num" title="{{ l.estoque_dica }}">
-                            <strong>{{ l.estoque_txt }}</strong>
-                            <small class="rup-sub{% if l.estoque_classe %} rup-sub--{{ l.estoque_classe }}{% endif %}">{{ l.estoque_sub }}</small>
-                        </div>
-                        <div class="rup-num" title="{{ l.vendas_dica }}">
-                            <strong>{{ l.vendas_txt }}</strong>
-                            <small class="rup-sub">{{ l.vendas_sub }}</small>
-                        </div>
-                        <div class="rup-num" title="{{ l.ritmo_dica }}">
-                            <strong>{{ l.ritmo_txt }}</strong>
-                            <small class="rup-sub{% if l.ritmo_sub_classe %} rup-sub--{{ l.ritmo_sub_classe }}{% endif %}">{{ l.ritmo_sub }}</small>
-                        </div>
-                        <div class="rup-num rup-num--cobertura" title="{{ l.cob_dica }}">
-                            <strong>{{ l.cob_txt }}</strong>
-                            {% if l.barra_pct is not None %}
-                                <span class="rup-barra" aria-hidden="true"><span class="rup-barra-preenchimento rup-barra-preenchimento--{{ l.barra_classe }}" style="width: {{ l.barra_pct }}%"></span></span>
-                            {% else %}
-                                <small class="rup-sub">{{ l.cob_sub }}</small>
-                            {% endif %}
-                        </div>
-                        <div class="rup-num">
-                            <strong>{{ l.ruptura_txt }}</strong>
-                            <small class="rup-sub">{{ l.ruptura_sub }}</small>
-                        </div>
-                        <div class="rup-num"{% if l.enviar_dica %} title="{{ l.enviar_dica }}"{% endif %}>
-                            <strong class="rup-forte{% if l.enviar_classe %} rup-forte--{{ l.enviar_classe }}{% endif %}">{{ l.enviar_txt }}</strong>
-                            <small class="rup-sub{% if l.enviar_classe %} rup-sub--{{ l.enviar_classe }}{% endif %}">{{ l.enviar_sub }}</small>
-                        </div>
-                        <div class="rup-urg" title="{{ l.urg_dica }}">
-                            {% if l.urg_selo %}
-                                <span class="badge-tabela {{ l.urg_selo.classe }}">{% if l.urg_selo.icone %}<i class="fas {{ l.urg_selo.icone }}" aria-hidden="true"></i>{% endif %}<span class="rup-urg-texto">{{ l.urg_selo.label }}</span></span>
-                            {% else %}
-                                <span class="rup-urg-vazio">{{ l.urg_vazio }}</span>
-                            {% endif %}
-                            <small class="rup-sub{% if l.urg_sub_classe %} rup-sub--{{ l.urg_sub_classe }}{% endif %}">{{ l.urg_sub }}</small>
-                        </div>
-                        <div class="rup-num" title="{{ l.qtd_dica }}">
-                            <strong class="rup-forte{% if l.qtd_deposito %} rup-forte--deposito{% elif l.qtd_classe %} rup-forte--{{ l.qtd_classe }}{% endif %}">{% if l.qtd_deposito %}<i class="fas fa-triangle-exclamation rup-aviso-deposito" aria-label="{{ l.qtd_deposito }}"></i> {% endif %}{{ l.qtd_txt }}</strong>
-                            <small class="rup-sub">{{ l.qtd_sub }}</small>
-                        </div>
-                        <div class="rup-l-nivel">
-                            {% if l.nivel_rotulo %}<span class="rup-nivel rup-nivel--{{ l.nivel_classe }}" title="{{ l.nivel_dica }}">{{ l.nivel_rotulo }}</span>{% endif %}
-                        </div>
-                        <div class="rup-l-acao">
-                            {% if l.url_detalhe %}
-                                <a href="{{ l.url_detalhe }}" class="rup-l-acao-btn" aria-label="Abrir a curva de estoque de {{ l.titulo }}" title="Abrir a curva de estoque deste item"><i class="fas fa-chart-line" aria-hidden="true"></i></a>
-                            {% else %}
-                                <span class="rup-l-acao-btn rup-l-acao-btn--parado" role="img" aria-label="Indisponível: {{ l.motivo }}" title="{{ l.motivo }}"><i class="fas fa-chart-line" aria-hidden="true"></i></span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-    </div>
-
-    {% include 'gestao_ruptura/parciais/estrutura_parcial_paginacao.html' with lista=lista %}
-</section>
+{% include 'gestao_ruptura/parciais/estrutura_parcial_tabela.html' %}
 {% endwith %}

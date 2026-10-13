@@ -1,0 +1,32 @@
+{% comment %}
+    * [RESUMO] → O CABEÇALHO da tabela (as duas faixas de cima): a faixa de GRUPOS (Identificação, Anúncios e dados, Estoque e vendas, Previsão de ruptura, Reposição e, com a chave ligada, os dois trios da comparação: "Comparação · Urgência" e "Comparação · Quantidade a enviar") e a linha dos TÍTULOS das colunas
+      (nome em cima, unidade embaixo). Recebe "cab" (lista.cabecalho, montado por ruptura_colunas.cabecalho: os dois mundos usam o mesmo). Cada título que ordena é um LINK (GET) com a seta do estado: sem seta cinza = não ordena por ela;
+      seta para cima = crescente; para baixo = decrescente. Clicar na coluna ativa inverte o sentido. A coluna que não ordena (a do gráfico, Estoque fora) é só texto.
+    * [EXPLICAÇÃO] → As larguras NÃO estão aqui: a grade (--rup-grade) vem de cab.grade na tabela e é a MESMA do cabeçalho e das linhas. Os grupos ocupam tantas colunas quanto têm (grid-column: span N, a única medida que vem inline).
+    * [EXPLICAÇÃO] → As duas faixas ficam juntas em .rup-t-topo, que fica PARADO no alto da caixa de rolagem da tabela (a tabela rola por dentro, na vertical e na lateral). O nome e a unidade de cada título ocupam UMA linha cada (não quebram): se o
+      título não couber, o que sobra vira "…" e o texto inteiro está no balão (title) do link. A seta fica ao lado do texto.
+{% endcomment %}<div class="rup-t-topo" role="rowgroup">
+<div class="rup-t-faixa" role="row">
+    {% for g in cab.grupos %}<div class="rup-t-g{% if g.primeiro %} rup-t-g--item{% endif %}{% if g.ml %} rup-t-g--ml{% endif %}{% if g.divisoria %} rup-t-div{% if g.ml %} rup-t-div--ml{% endif %}{% endif %}" role="columnheader" aria-colspan="{{ g.n }}" style="grid-column: span {{ g.n }}">{{ g.rotulo }}</div>{% endfor %}
+</div>
+<div class="rup-t-cab" role="row">
+    {% for c in cab.colunas %}
+        <div class="rup-t-h rup-t-h--{{ c.alinhar }}{% if c.item %} rup-t-h--item{% endif %}{% if c.ml %} rup-t-h--ml{% endif %}{% if c.resultado %} rup-t-h--res{% endif %}{% if c.divisoria %} rup-t-div{% if c.ml %} rup-t-div--ml{% endif %}{% endif %}{% if c.ativa %} rup-t-h--ativa{% endif %}" role="columnheader" aria-sort="{{ c.aria }}">
+            {% if c.ordenavel %}
+                <a href="{{ c.url }}" class="rup-t-h-link" title="{{ c.dica }} · {{ c.dica_da_ordem }}">
+                    <span class="rup-t-h-texto"><span class="rup-t-h-rotulo">{{ c.rotulo }}</span><span class="rup-t-h-un">{{ c.unidade }}</span></span>
+                    <svg class="rup-t-seta rup-t-seta--{{ c.seta }}" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        {% if c.seta == 'cima' %}<path d="M3.5 8.5L7 5l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        {% elif c.seta == 'baixo' %}<path d="M3.5 5.5L7 9l3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        {% else %}<path d="M4 5.5L7 2.5l3 3M4 8.5l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>{% endif %}
+                    </svg>
+                </a>
+            {% elif c.chave == 'acao' %}
+                <span class="rup-sr">{{ c.rotulo }}</span>
+            {% else %}
+                <span class="rup-t-h-link rup-t-h-link--parado" title="{{ c.dica }}"><span class="rup-t-h-texto"><span class="rup-t-h-rotulo">{{ c.rotulo }}</span><span class="rup-t-h-un">{{ c.unidade }}</span></span></span>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+</div>

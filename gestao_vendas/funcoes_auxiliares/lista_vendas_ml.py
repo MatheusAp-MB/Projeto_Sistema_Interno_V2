@@ -34,10 +34,10 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from gestao_vendas.funcoes_auxiliares.vendas_ml import (
-    FUSO, STATUS_CANCELADO, TIPOS_DE_ANUNCIO, _dados_do_anuncio, _decimal_br, _estado_do_dia, _inteiro, _mlbs_fora_pela_logistica, _s, _selos_do_anuncio, _url_segura, classificar_origem,
-    codigo_do_item, data_hora, dinheiro, numero, prefixo_do_no_proprio, url_da_tela)
+    FUSO, STATUS_CANCELADO, TIPOS_DE_ANUNCIO, _dados_do_anuncio, _decimal_br, _inteiro, _mlbs_fora_pela_logistica, _s, _selos_do_anuncio, _url_segura, classificar_origem,
+    codigo_do_item, data_hora, dinheiro, estados_dos_dias, numero, prefixo_do_no_proprio, url_da_tela)
 from integracao_mercado_livre.servicos.cobertura_vendas_ml import (
-    PERIODO_PADRAO, carregar_coletas, cobertura, dia_completo, frase_frente_ao_anterior, frase_no_anterior, inicio_do_periodo, normalizar_periodo,
+    PERIODO_PADRAO, carregar_coletas, cobertura, cobertura_do_indice, dia_completo, frase_frente_ao_anterior, frase_no_anterior, indexar_coletas, inicio_do_periodo, normalizar_periodo,
     periodo_anterior, periodos_de_hoje, primeiro_dia_do_ml)
 from mercado_livre.models import VariacaoAnuncioMercadoLivre, VendaItemMercadoLivre
 from produtos.models import Produto
@@ -318,13 +318,16 @@ def _calcular(periodo, hoje):
 # estoque", app gestao_ruptura): por Produto (SKU), por Anúncio (MLB) e por Código ML. LÊ SÓ DO BANCO (nunca chama o Mercado Livre) e usa as MESMAS regras da lista de vendas: venda
 # cancelada não conta; "Full" é o que classificar_origem decide (a regra única de origem); o SKU e o Código ML de cada venda vêm de _atribuir; "ausente não é zero" (o estado de cada dia).
 # Devolve: `dias` ({'sku' | 'mlb' | 'codigo': {chave: {dia: unidades}}}), `fat` ({...: {chave: {dia: faturamento do Full naquele dia}}}, por dia para quem somar só os dias completos), `estados` ({dia: 'ok' (dia completo) | 'parcial' |
-# 'sem_dado'}), `coletado_em` (a coleta mais recente da conta toda; None se nada foi coletado), `cad` (o cadastro de _carregar_cadastro) e `produtos` ({sku: título, marca, foto...}).
-# * [EXPLICAÇÃO] → Mesmo custo da lista de vendas: 1 consulta do cadastro, 1 das vendas do período (só as colunas necessárias) e 1 dos produtos. Nenhuma consulta por SKU ou por MLB.
-# * [EXPLICAÇÃO] → A cobertura é a da CONTA TODA (como na lista de vendas): se um produto foi atualizado sozinho além do que a conta toda coletou, os dias extras dele não contam aqui.
+# 'sem_dado'}) e `coletado_em` (a coleta mais recente) DA CONTA TODA (são os números do cabeçalho da lista), `indice` (as coletas já preparadas: ver cobertura_do_item), `cad` (o cadastro de _carregar_cadastro) e
+# `produtos` ({sku: título, marca, foto...}).
+# * [EXPLICAÇÃO] → Mesmo custo da lista de vendas: 1 consulta do cadastro, 1 das vendas do período (só as colunas necessárias), 1 dos produtos e 1 das coletas. Nenhuma consulta por SKU ou por MLB.
+# * [EXPLICAÇÃO] → `estados` e `coletado_em` são da CONTA TODA e servem ao cabeçalho ("X/Y dias completos na conta toda"). O ritmo de CADA LINHA usa a cobertura DELA (cobertura_do_item): um produto atualizado
+#                  sozinho além do que a conta toda coletou mostra esses dias, na lista e no gráfico, do mesmo jeito.
 def unidades_por_dia_da_origem(de, hoje, origem):
     dias_do_periodo = [de + timedelta(days=i) for i in range((hoje - de).days + 1)]
-    cob = cobertura(carregar_coletas(de, hoje), [], de, hoje)
-    estados = {d: _estado_do_dia(d, cob) for d in dias_do_periodo}
+    indice = indexar_coletas(carregar_coletas(de, hoje), de, hoje)
+    cob = cobertura_do_indice(indice, [])
+    estados = estados_dos_dias(cob, dias_do_periodo)
     cad = _carregar_cadastro()
     no_proprio = prefixo_do_no_proprio()
     fora_pela_logistica = _mlbs_fora_pela_logistica({mlb: {'tipo': a['tipo']} for mlb, a in cad['anuncios'].items()}, no_proprio)
@@ -344,7 +347,13 @@ def unidades_por_dia_da_origem(de, hoje, origem):
             dias[gran][valor][dia] += qtd
             if preco is not None:
                 fat[gran][valor][dia] += preco * qtd
-    return {'dias': dias, 'fat': fat, 'estados': estados, 'coletado_em': max(cob.values()) if cob else None, 'cad': cad, 'produtos': _carregar_produtos(set(cad['por_sku']))}
+    return {'dias': dias, 'fat': fat, 'estados': estados, 'coletado_em': max(cob.values()) if cob else None, 'indice': indice, 'cad': cad, 'produtos': _carregar_produtos(set(cad['por_sku']))}
+
+
+# Função Objetivo: A cobertura de UM item da lista ({dia: instante da coleta}) a partir do resultado de unidades_por_dia_da_origem: a da conta toda mais as coletas dos MLBs dele (`mlbs` = vendas_ml.mlbs_da_cobertura).
+# Não consulta nada: só lê o índice que a própria chamada já montou. Quem precisa dos estados (ok | parcial | sem_dado) usa vendas_ml.estados_dos_dias com este resultado.
+def cobertura_do_item(dados, mlbs):
+    return cobertura_do_indice(dados['indice'], mlbs)
 
 
 # Função Objetivo: O atalho do Full: as unidades que SAÍRAM DO FULL por dia (unidades_por_dia_da_origem com origem 'full'). É o que a lista do mundo ENVIOS FULL da tela "Previsão de Ruptura de estoque" usa.

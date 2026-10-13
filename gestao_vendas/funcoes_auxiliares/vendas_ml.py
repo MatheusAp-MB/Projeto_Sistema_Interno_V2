@@ -351,6 +351,23 @@ def _estado_do_dia(dia, cob):
     return 'ok' if dia_completo(dia, cob[dia]) else 'parcial'
 
 
+# Função Objetivo: O estado de cada um dos `dias` ('ok' = dia completo | 'parcial' | 'sem_dado') a partir da cobertura (`cob` = {dia: instante da coleta}). É a única conta de "dia completo" das telas que calculam ritmo.
+def estados_dos_dias(cob, dias):
+    return {d: _estado_do_dia(d, cob) for d in dias}
+
+
+# Função Objetivo: Os MLBs que respondem "este item tem o dia coletado?" (a cobertura DO ITEM): um anúncio é coberto por ele mesmo; um Código ML pelos anúncios (do produto) que o usam; o produto (e o recorte
+# No Full / Fora do Full, que também é do produto) por TODOS os anúncios dele. `mlbs_do_sku` = {mlb: {'variacoes': [(variacao_id, Código ML)]}} (o formato de carregar_produto e de lista_vendas_ml._carregar_cadastro).
+# * [EXPLICAÇÃO] → É o DONO ÚNICO dessa escolha: a lista e o gráfico da Previsão de Ruptura chamam esta função e, com a mesma coleta, mostram o mesmo número de "dias completos" para o mesmo item. O botão "Atualizar este item"
+#                  atualiza exatamente estes MLBs (ver gestao_ruptura): o que ele coleta é o que a cobertura exige.
+def mlbs_da_cobertura(nivel, item, mlbs_do_sku):
+    if nivel == 'mlb':
+        return [item]
+    if nivel == 'codigo':
+        return sorted(mlb for mlb, dados in mlbs_do_sku.items() if any(codigo == item for _, codigo in dados['variacoes']))
+    return sorted(mlbs_do_sku)
+
+
 def _s(n, singular, plural):
     return singular if n == 1 else plural
 
@@ -360,7 +377,9 @@ def _s(n, singular, plural):
 # O recorte é o `nivel` ('produto' = tudo, 'full', 'fora', 'mlb' ou 'codigo'; nestes dois últimos `item` é o MLB ou o Código ML, como em _selecionar) e, opcionalmente, a
 # `origem` ('full' ou 'fora') aplicada por cima dele (ex.: nivel 'mlb' + origem 'full' = só o que aquele anúncio vendeu saindo do Full). Sem `item` e `origem` é o de sempre.
 # Devolve: `cadastro` (carregar_produto; None se o SKU não está em Produto), `por_dia` ({dia: unidades}, só dias com venda), `estados` ({dia: 'ok' (dia completo) |
-# 'parcial' (hoje, ou coletado antes do dia acabar) | 'sem_dado' (nunca coletado)}) e `coletado_em` (a coleta mais recente que cobre o período; None se nada foi coletado).
+# 'parcial' (hoje, ou coletado antes do dia acabar) | 'sem_dado' (nunca coletado)}), `coletado_em` (a coleta mais recente que cobre ESTE ITEM; None se nada foi coletado) e `mlbs_cobertura` (os MLBs que
+# a cobertura exige: mlbs_da_cobertura).
+# * [EXPLICAÇÃO] → A cobertura é a DO ITEM (os MLBs dele, ver mlbs_da_cobertura): um anúncio não espera pelos outros anúncios do produto. É a mesma pergunta que as listas fazem (lista_vendas_ml.cobertura_do_item).
 # * [EXPLICAÇÃO] → Mesmas regras da tela de histórico: venda cancelada não conta, a origem vem de classificar_origem (única regra) e "ausente não é zero": dia sem coleta é
 #                  'sem_dado', nunca 0. Quem calcula uma média por dia deve usar só os dias 'ok' (hoje e dia parcial distorcem).
 def unidades_por_dia(sku, nivel, de, ate, item='', origem=''):
@@ -373,9 +392,10 @@ def unidades_por_dia(sku, nivel, de, ate, item='', origem=''):
     por_dia = defaultdict(int)
     for l in recorte:
         por_dia[l['dia']] += l['qtd']
-    cob = cobertura(carregar_coletas(de, ate), list(mlbs), de, ate)
+    mlbs_cob = mlbs_da_cobertura(nivel, item, mlbs)
+    cob = cobertura(carregar_coletas(de, ate), mlbs_cob, de, ate)
     dias = [de + timedelta(days=i) for i in range((ate - de).days + 1)]
-    return {'cadastro': cadastro, 'por_dia': dict(por_dia), 'estados': {d: _estado_do_dia(d, cob) for d in dias}, 'coletado_em': max(cob.values()) if cob else None}
+    return {'cadastro': cadastro, 'por_dia': dict(por_dia), 'estados': estados_dos_dias(cob, dias), 'coletado_em': max(cob.values()) if cob else None, 'mlbs_cobertura': mlbs_cob}
 
 
 # ==================================================== a página ====================================================

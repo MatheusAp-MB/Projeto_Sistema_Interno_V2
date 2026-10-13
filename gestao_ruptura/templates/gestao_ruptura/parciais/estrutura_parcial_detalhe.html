@@ -1,6 +1,6 @@
 {% comment %}
     * [RESUMO] → O DETALHE de um item da tela "Previsão de Ruptura de estoque" (o SKU, ou um MLB / Código ML dele), no mundo escolhido (Envios Full ou Fora do Full): quem é o item, o formulário (ritmo, estoque, prazo, chegar antes e folga do mundo), os 4 cartões, a curva de estoque, o
-      diagnóstico e a tabela "Estoque no Full por Código ML". Abre ao clicar numa linha da lista (o endereço leva o sku e, no MLB e no Código ML, gran e item). Recebe "pagina".
+      diagnóstico e a tabela "Estoque no Full por Código ML". O cabeçalho do item tem o botão "Atualizar este item" (vendas + estoque do item; script_ruptura.js, [5]). Abre ao clicar numa linha da lista (o endereço leva o sku e, no MLB e no Código ML, gran e item). Recebe "pagina".
     * [EXPLICAÇÃO] → O ESTOQUE usado é o LIDO do Full (última consulta salva dos Códigos ML do item) enquanto o campo "Estoque" estiver vazio; digitar um valor SIMULA outro estoque (a linha de baixo
       do formulário diz qual dos dois está valendo). No mundo "Fora do Full" nada é lido do Full: o estoque é digitado (a API de estoque do ERP ainda será corrigida) e as vendas são as de fora do Full. O seletor "Previsão para" da barra de cima troca de mundo mantendo o item aberto.
 {% endcomment %}
@@ -22,7 +22,10 @@
 {% include 'gestao_ruptura/parciais/estrutura_parcial_avisos.html' with caixa=pagina.avisos_caixa %}
 
 {% if pagina.estado == 'ok' %}
-    {% with p=pagina.alvo g=pagina.grafico d=pagina.diagnostico t=pagina.tabela_de_codigos %}
+    {% with p=pagina.alvo g=pagina.grafico d=pagina.diagnostico t=pagina.tabela_de_codigos a=pagina.atualizar f=pagina.frescor %}
+        {# O token do formulário (csrf) que o script_ruptura.js usa nos POST do botão "Atualizar este item" e o JSON com o que ele precisa (MLBs, Códigos ML, janela, endereços). #}
+        <form id="rup-csrf" hidden>{% csrf_token %}</form>
+        {% if a.ativo %}{{ a.config|json_script:"rup-atualizar-dados" }}{% endif %}
         <section class="rup-produto" aria-label="Item analisado">
             {% if p.imagem %}
                 <img src="{{ p.imagem }}" alt="" class="rup-produto-imagem" loading="lazy" referrerpolicy="no-referrer">
@@ -33,9 +36,15 @@
                 <h2 class="rup-produto-titulo" title="{{ p.titulo }}"><span class="rup-produto-tipo">{{ p.tipo }}</span> {{ p.titulo }}</h2>
                 <p class="rup-produto-meta">
                     {% for m in p.meta %}<span>{% if m.rotulo %}{{ m.rotulo }} <strong>{{ m.valor }}</strong>{% else %}<strong>{{ m.valor }}</strong>{% endif %}</span>{% endfor %}
-                    {% if p.atualizado %}<span>vendas atualizadas em <strong>{{ p.atualizado }}</strong></span>{% endif %}
+                    {% if f %}<span class="rup-frescor{% if f.classe %} rup-frescor--{{ f.classe }}{% endif %}" title="{{ f.dica }}">{{ f.vendas }}{% if f.estoque %} · {{ f.estoque }}{% endif %}</span>{% endif %}
                 </p>
+                {# UMA linha de apoio (a tela é rígida na vertical): antes do clique diz o que o botão atualiza; durante e depois, o andamento e o resultado (sobrevive ao recarregamento). #}
+                <p class="rup-produto-status" data-rup-status aria-live="polite" data-rup-padrao="{{ a.apoio }}" title="{{ a.dica }}">{{ a.apoio }}</p>
             </div>
+            {# O botão que atualiza TUDO do cálculo do item (vendas dos MLBs dele + estoque dos Códigos ML dele): a ÚNICA coisa desta tela que chama o Mercado Livre, e só por clique (script_ruptura.js, [5]). #}
+            <button type="button" class="btn-acao rup-atualizar" data-rup-atualizar{% if not a.ativo %} disabled{% endif %} title="{{ a.dica }}">
+                <i class="fas fa-rotate" aria-hidden="true"></i> Atualizar este item
+            </button>
             <a href="{{ p.url_vendas }}" class="rup-link"><i class="fas fa-calendar-days" aria-hidden="true"></i> Ver calendário de vendas</a>
         </section>
         <section class="rup-cartoes" aria-label="Resumo da projeção">
@@ -171,21 +180,10 @@
             </aside>
         </section>
         {% if t %}
-            <section class="rup-estoque" aria-label="Estoque no Full por Código ML" data-rup-consulta data-rup-url="{{ pagina.url_consultar }}">
-                <form id="rup-csrf" hidden>{% csrf_token %}</form>
+            <section class="rup-estoque" aria-label="Estoque no Full por Código ML">
                 <header class="rup-painel-cab">
                     <h2 class="rup-painel-titulo">Estoque no Full por Código ML</h2>
-                    {% comment %}
-                    O ÚNICO lugar da tela que chama o Mercado Livre, e só por clique (script_ruptura.js, [5]). "Consultar todos" chama os Códigos da tabela um por vez e, no fim, recarrega a tela (que volta a ler só do banco).
-                    A linha de baixo do botão é uma só: antes do clique diz o custo ("cerca de N chamadas"), durante e depois diz o andamento e o resultado.
-                    {% endcomment %}
-                    <div class="rup-consulta">
-                        <button type="button" class="rup-zoom-botao rup-zoom-botao--texto" data-rup-consultar="todos"
-                                title="Consulta agora no Mercado Livre {% if t.linhas|length > 1 %}os {{ t.linhas|length }} Códigos ML da tabela, um por vez{% else %}o Código ML da tabela{% endif %}: estoque, reposição (urgência, sugestão e a caminho) e depósito. Quase sempre {{ pagina.chamadas_por_codigo }} chamadas por Código.">
-                            <i class="fas fa-rotate" aria-hidden="true"></i> Consultar {% if t.linhas|length > 1 %}todos {% endif %}no Mercado Livre
-                        </button>
-                        <span class="rup-consulta-status" data-rup-status aria-live="polite" data-rup-padrao="cerca de {{ t.n_chamadas }} chamadas ao Mercado Livre">cerca de {{ t.n_chamadas }} chamadas ao Mercado Livre</span>
-                    </div>
+                    {# Só LÊ o banco: a última consulta salva de cada Código. Para consultar de novo, o botão "Atualizar este item" (no cabeçalho do item) atualiza as vendas e o estoque juntos. #}
                     <span class="rup-estoque-nota" title="{{ t.conta }}">Estoque considerado = disponível + em transferência + em processo interno{% if pagina.caminho %} (+ a caminho, opção marcada){% else %} (regra provisória){% endif %}</span>
                 </header>
                 <div class="rup-estoque-rolagem">
@@ -217,11 +215,7 @@
                                     <td><strong>{{ c.considerado }}</strong></td>
                                     <td>{{ c.a_caminho }}</td>
                                     <td class="rup-col-consulta">
-                                        <span class="rup-consulta-quando">{{ c.consulta }}</span>
-                                        <button type="button" class="rup-consulta-btn" data-rup-consultar="{{ c.codigo }}" aria-label="Consultar o Código {{ c.codigo }} no Mercado Livre"
-                                                title="Consulta agora este Código ML no Mercado Livre (cerca de {{ pagina.chamadas_por_codigo }} chamadas).">
-                                            <i class="fas fa-rotate" aria-hidden="true"></i>
-                                        </button>
+                                        <span>{{ c.consulta }}</span>
                                     </td>
                                 </tr>
                             {% endfor %}

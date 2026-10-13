@@ -1,8 +1,8 @@
 # gestao_ruptura/funcoes_auxiliares/ruptura_lista_fora.py
 #
 # Função Objetivo: A LISTA do mundo FORA DO FULL da tela "Previsão de Ruptura de estoque" (12/10/2026): o que aparece quando nenhum item está aberto e o seletor "Previsão para" está em "Fora do Full". Uma linha por
-# Produto (SKU) ou por Anúncio (MLB), com as vendas e o RITMO de fora do Full, o ponto de pedido e a quantidade a pedir pelas Regras de pedido. Clicar numa linha abre o detalhe (a curva) do item no mesmo mundo,
-# onde o estoque de fora do Full é DIGITADO para simular a ruptura (ruptura_pagina.py). LÊ SÓ DO BANCO: nada aqui chama o Mercado Livre nem o ERP.
+# Produto (SKU) ou por Anúncio (MLB), com as vendas e o RITMO de fora do Full, o ponto de pedido e a quantidade a pedir pelas Regras de pedido. Clicar no nome da linha abre a curva do item no mesmo mundo,
+# onde o estoque de fora do Full é DIGITADO para simular a ruptura (ruptura_pagina.py); o botão da última coluna abre o mesmo lugar. LÊ SÓ DO BANCO: nada aqui chama o Mercado Livre nem o ERP.
 #
 # REGRAS DO MATHEUS que moram aqui (a lista do Full está em ruptura_lista.py; as contas, em ruptura_calculo.py):
 #   - "Ver por Produto considera todos os anúncios fora do Full daquele produto; ver por MLB lista todos os anúncios fora do Full" (12/10/2026). NÃO existe "Código ML" aqui: o Código ML só existe no Full.
@@ -10,6 +10,8 @@
 #     por isso a lista não tem cobertura, ruptura, "pedir até", urgência nem nível (tudo isso depende do estoque). Quando a fonte do estoque for escolhida, ele entra na mesma coluna e essas colunas nascem aqui.
 #   - O RITMO é só o das vendas que SAÍRAM DE FORA DO FULL (lista_vendas_ml.unidades_por_dia_da_origem, origem 'fora', a regra única de classificar_origem): unidades dos dias completos ÷ nº de dias completos,
 #     as mesmas regras da tela de Vendas. Venda cancelada não conta; "ausente não é zero"; "Sem origem informada" não entra.
+#   - A MESMA ESTRUTURA DA LISTA DO FULL (decisão do Matheus, 13/10/2026, ao aprovar o mockup da tabela): grupos de colunas, cabeçalho com nome e unidade, ordem pelo clique no título (ruptura_colunas.py é o dono) e o botão do gráfico
+#     no fim da linha. As contas de vendas, ritmo e tendência são as MESMAS da lista do Full (ruptura_lista.celulas_de_vendas), só muda de onde saem as vendas.
 #   - O prazo até vender, os dias para chegar antes da ruptura e a folga são os das REGRAS DE PEDIDO (cartão 2 do Fora do Full, isolado do Full). Com eles saem as duas colunas que NÃO dependem do estoque:
 #     o PONTO DE PEDIDO (ritmo × (prazo + chegar antes): com menos estoque que isso já não dá tempo de pedir chegando N dias antes da ruptura) e a QUANTIDADE A PEDIR (ritmo × folga).
 #
@@ -25,14 +27,16 @@ import unicodedata
 from datetime import timedelta
 
 from gestao_ruptura.funcoes_auxiliares import ruptura_calculo as calc
-from gestao_ruptura.funcoes_auxiliares.ruptura_lista import POR_PAGINA_OPCOES, POR_PAGINA_PADRAO, _entidade, _escolher, _janela_de_paginas, anuncio_e_de_fora_do_full, anuncio_e_do_full, anuncio_fossil, aviso_anuncios_sem_produto
+from gestao_ruptura.funcoes_auxiliares import ruptura_colunas as col
+from gestao_ruptura.funcoes_auxiliares.ruptura_lista import (POR_PAGINA_OPCOES, POR_PAGINA_PADRAO, _entidade, _escolher, _id_txt, _janela_de_paginas, anuncio_e_de_fora_do_full, anuncio_e_do_full, anuncio_fossil,
+                                                              aviso_anuncios_sem_produto, celula_de_status, celulas_de_vendas, cobertura_da_linha, status_dos_anuncios, tendencia_do_ritmo)
 from gestao_ruptura.funcoes_auxiliares.ruptura_filtros import complemento_do_total, mlbs_permitidos, notas_dos_filtros, painel_do_mundo, passa_no_filtro, sem_filtros_na_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import campos_escondidos, para_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_avisos import aviso, aviso_de_contagem
 from gestao_ruptura.funcoes_auxiliares.ruptura_situacao import indicador_de_vendas
-from gestao_ruptura.funcoes_auxiliares.ruptura_texto import data, inteiro, pct as pct_texto, plural, reais, un_dia
+from gestao_ruptura.funcoes_auxiliares.ruptura_texto import frescor, inteiro, plural, un_dia
 from gestao_vendas.funcoes_auxiliares.lista_vendas_ml import unidades_por_dia_da_origem
-from gestao_vendas.funcoes_auxiliares.vendas_ml import data_hora, numero, url_da_tela
+from gestao_vendas.funcoes_auxiliares.vendas_ml import data_hora, mlbs_da_cobertura, numero, url_da_tela
 
 # (chave na URL, rótulo do botão, ajuda no "?", o que a linha é no plural, no singular). Sem "Código ML": ele só existe no Full.
 GRANULARIDADES = [
@@ -41,12 +45,7 @@ GRANULARIDADES = [
      'anúncios fora do Full', 'anúncio fora do Full'),
 ]
 GRANULARIDADE_PADRAO = 'sku'
-ORDENS = (
-    ('ritmo', 'Maior ritmo (un/dia)'),
-    ('vendas', 'Mais unidades vendidas'),
-    ('nome', 'Nome (A–Z)'),
-)
-ORDEM_PADRAO = 'ritmo'
+ORDEM_PADRAO = 'ritmo'   # a lista abre pelo ritmo, do maior para o menor (a ordem é o clique no título da coluna: ruptura_colunas.py)
 
 
 # ==================================================== as entidades de cada granularidade ====================================================
@@ -81,10 +80,10 @@ def _entidades(gran, dados, permitidos=None):
             if not passa_no_filtro(fora, permitidos):
                 continue
             produto = produtos.get(sku) or {}
-            ids = [f'SKU {sku}', plural(len(fora), 'anúncio fora do Full', 'anúncios fora do Full')] + ([f'{len(no_full)} no Full'] if no_full else [])
-            e = _entidade(sku, sku, produto.get('titulo') or '(SKU fora do cadastro de Produto)', '', produto.get('marca', ''), produto.get('imagem', ''), [], ids, set(),
-                          [sku, produto.get('titulo'), produto.get('marca'), produto.get('ean')] + mlbs)
-            e['em_full'] = sum(1 for m in no_full if sum(por_dia_mlb.get(m, {}).values()) > 0)
+            e = _entidade(sku, sku, produto.get('titulo') or '(SKU fora do cadastro de Produto)', '', produto.get('marca', ''), produto.get('imagem', ''), sku, set(),
+                          [sku, produto.get('titulo'), produto.get('marca'), produto.get('ean')] + mlbs, (), fora, mlbs_da_cobertura('sku', sku, info['mlbs']))
+            e['n_no_full'], e['n_fora'] = len(no_full), len(fora)
+            e['em_full'] = sum(1 for m in no_full if sum(por_dia_mlb.get(m, {}).values()) > 0)   # quantos dos anúncios do Full desse produto tiveram venda de fora do Full no período
             entidades.append(e)
     else:
         for mlb, anuncio in anuncios.items():
@@ -100,68 +99,99 @@ def _entidades(gran, dados, permitidos=None):
             skus = sorted(cad['candidatos'].get(mlb, {}))
             sku = skus[0] if skus else ''
             produto = produtos.get(sku) or {}
-            ids = [mlb, (f'SKU {sku}' + (f' +{len(skus) - 1}' if len(skus) > 1 else '')) if sku else 'sem SKU']
             entidades.append(_entidade(mlb, sku, anuncio['titulo'] or produto.get('titulo') or 'Título indisponível', '', produto.get('marca', ''), anuncio['imagem'] or produto.get('imagem', ''),
-                                       anuncio['selos'], ids, set(), [mlb, anuncio['titulo'], sku, produto.get('marca'), produto.get('ean')]))
+                                       _id_txt(mlb, skus), set(), [mlb, anuncio['titulo'], sku, produto.get('marca'), produto.get('ean')], (), [mlb], mlbs_da_cobertura('mlb', mlb, {})))
     return entidades, fora_da_lista
+
+
+# ==================================================== as colunas (a ordem delas, os nomes e o valor que ordena cada uma) ====================================================
+
+# Função Objetivo: Os GRUPOS e as COLUNAS da lista do Fora do Full, na ordem em que aparecem (o dono de como uma coluna é feita é ruptura_colunas.py; a ordem das células na tela, estrutura_parcial_celulas_fora.html, segue esta).
+# No Produto (SKU) as duas colunas de anúncios contam os de fora do Full e os do Full; no Anúncio (MLB) uma coluna só diz a situação do anúncio (ativo, pausado...).
+# * [EXPLICAÇÃO] → "Estoque fora" NÃO ordena (não tem `valor`): ainda não há fonte ligada, a coluna inteira é "—" e ordenar por ela não diria nada ("ausente não é zero"). Quando a fonte existir, ganha o `valor` e passa a ordenar.
+def _grupos(gran, dias, folga):
+    c = col.coluna
+    if gran == 'sku':
+        anuncios = [
+            c('fora_n', 'Anúncios', 'fora do Full', 100, 'Quantos anúncios deste produto vendem de fora do Full (logística diferente de FULL).', nome='Anúncios fora do Full', valor=lambda l: l['e']['n_fora'], textos=('menos anúncios primeiro', 'mais anúncios primeiro')),
+            c('no_full', 'Anúncios', 'no Full', 100, 'Quantos anúncios deste produto são do Full (logística FULL). O produto também pode vender pelo Full; o estoque e as vendas do Full estão no mundo Envios Full.',
+              nome='Anúncios no Full', valor=lambda l: l['e']['n_no_full'], textos=('menos anúncios primeiro', 'mais anúncios primeiro')),
+        ]
+    else:
+        anuncios = [c('status', 'Anúncios', 'situação', 126, 'Situação do anúncio no Mercado Livre (ativo, pausado...).', alinhar='esq', valor=lambda l: l['status_pausados'], textos=('sem pausados primeiro', 'mais pausados primeiro'))]
+    return [
+        col.grupo('identificacao', 'Identificação', [
+            c('item', 'Item', 'SKU' if gran == 'sku' else 'MLB · SKU', col.LARGURA_MINIMA_DO_ITEM, 'O item da linha (nome, foto e identificadores). O nome abre a curva do item, onde o estoque de fora do Full é digitado.', alinhar='esq',
+              valor=lambda l: l['titulo_ordem'], textos=('A → Z', 'Z → A'), flexivel=True),
+        ]),
+        col.grupo('anuncios', 'Anúncios', anuncios),
+        col.grupo('dados', 'Dados', [
+            c('frescor', 'Atualizado', 'vendas', 156, 'Quão velho é o número da linha: até quando vão as vendas coletadas que cobrem o item. Fora do Full ainda não há estoque lido. Para atualizar, abra o item e clique em "Atualizar este item".', alinhar='esq'),
+        ]),
+        col.grupo('estoque', 'Estoque e vendas · hoje', [
+            c('estoque_fora', 'Estoque fora', 'un', 108, 'Estoque de fora do Full: ainda sem fonte ligada a esta tela, por isso "—" (sem leitura não é estoque zero). Para simular a ruptura, abra o item e digite o estoque.'),
+            c('vendas', 'Vendas fora', f'{dias} dias · un', 118, f'Unidades que saíram de fora do Full nos dias completos dos últimos {dias} dias. É o volume que dá o ritmo.',
+              valor=lambda l: l['vendas_ordem'], primeiro='desc', textos=('menos vendas primeiro', 'mais vendas primeiro')),
+            c('ritmo', 'Ritmo', 'un/dia', 78, 'Média por dia das vendas que saíram de fora do Full nos dias completos do período (unidades ÷ dias completos).',
+              valor=lambda l: l['media'], primeiro='desc', textos=('menor → maior', 'maior → menor')),
+            c('tendencia', 'Tendência', 'do ritmo', 104, 'Compara o ritmo dos últimos dias com o do período inteiro: acelerou, caiu ou estável. Só existe quando o período é maior que os últimos dias comparados.',
+              alinhar='esq', valor=lambda l: l['tend_ordem'], primeiro='desc', textos=('caiu → acelerou', 'acelerou → caiu')),
+        ]),
+        col.grupo('reposicao', 'Reposição · o que pedir', [
+            c('pedido', 'Ponto de pedido', 'un', 142, 'Ritmo × (prazo + chegar antes): com menos estoque que isso já não dá tempo de pedir e o pedido chegar antes da ruptura. Não depende do estoque.',
+              valor=lambda l: l['pedido'], primeiro='desc', textos=('menor → maior', 'maior → menor')),
+            c('pedir', 'Pedir', f'un · {folga} dias de folga', 136, 'A quantidade a pedir: o ritmo × os dias de folga (a ruptura vai esses dias para frente). Não depende do estoque.',
+              valor=lambda l: l['qtd'], primeiro='desc', textos=('menor → maior', 'maior → menor')),
+        ]),
+        col.grupo('detalhes', '', [col.coluna_do_grafico()]),
+    ]
 
 
 # ==================================================== o cálculo de cada linha (todas as linhas, sem texto) ====================================================
 
-# Função Objetivo: Os números de UMA entidade: o ritmo de fora do Full no período e no recente, as unidades e o faturamento dos dias completos, o ponto de pedido e a quantidade a pedir.
-# * [EXPLICAÇÃO] → Sem ritmo (nenhum dia completo) ou com ritmo zero não há ponto de pedido nem quantidade: ficam em None e a tela mostra "—" (nada a pedir, não "zero unidades").
+# Função Objetivo: Os números de UMA entidade: o ritmo de fora do Full no período e no recente, a tendência, as unidades e o faturamento dos dias completos, o ponto de pedido e a quantidade a pedir, mais o valor que ordena cada coluna.
+# * [EXPLICAÇÃO] → Sem ritmo (nenhum dia completo) ou com ritmo zero não há ponto de pedido nem quantidade: ficam em None e a tela mostra "—" (nada a pedir, não "zero unidades"), e vão para o fim da ordem ("ausente não é zero").
 def _calcular_linha(e, gran, dados, ctx):
     por_dia = dados['dias'][gran].get(e['chave'], {})
-    ritmo_p = calc.ritmo_da_janela(ctx['jan_p'], por_dia, dados['estados'])
-    ritmo_r = ritmo_p if ctx['mesmo_ritmo'] else calc.ritmo_da_janela(ctx['jan_r'], por_dia, dados['estados'])
+    cobertura = cobertura_da_linha(e, dados, ctx)   # a cobertura DESTA linha (os MLBs dela), a mesma do gráfico do detalhe
+    ritmo_p = calc.ritmo_da_janela(ctx['jan_p'], por_dia, cobertura['estados'])
+    ritmo_r = ritmo_p if ctx['mesmo_ritmo'] else calc.ritmo_da_janela(ctx['jan_r'], por_dia, cobertura['estados'])
     media = ritmo_p['media']
-    comparacao = None
-    if not ctx['mesmo_ritmo'] and media is not None:
-        comparacao = calc.comparar_ritmos(ritmo_r['media'], media)
-        if comparacao and media <= 0 and not ritmo_r['media']:
-            comparacao = None   # nenhuma venda nos dois ritmos: não há o que comparar
+    comparacao = tendencia_do_ritmo(ritmo_r, media, ctx)   # a mesma conta da lista do Full
     com_ritmo = media is not None and media > 0
-    return {'e': e, 'chave': e['chave'], 'ritmo_p': ritmo_p, 'ritmo_r': ritmo_r, 'media': media, 'un': ritmo_p['unidades'],
-            'fat': sum(v for d, v in dados['fat'][gran].get(e['chave'], {}).items() if d in ctx['completos_p']),
-            'sentido': comparacao['sentido'] if comparacao else '', 'pct': comparacao['pct'] if comparacao else None,
+    status = status_dos_anuncios(e['mlbs'], ctx['anuncios'])
+    return {'e': e, 'chave': e['chave'], 'ritmo_p': ritmo_p, 'ritmo_r': ritmo_r, 'media': media, 'un': ritmo_p['unidades'], 'comparacao': comparacao,
             'pedido': calc.ponto_de_pedido(media, ctx['lead'], ctx['ante']) if com_ritmo else None,
-            'qtd': calc.quantidade_do_sistema(media, ctx['folga']), 'titulo_ordem': e['titulo_ordem']}
-
-
-# Função Objetivo: Põe as linhas na ordem escolhida (quem não tem valor para ordenar vai para o fim, por nome; empate pelo nome).
-def _ordenar(linhas, ordem):
-    if ordem == 'nome':
-        return sorted(linhas, key=lambda l: l['titulo_ordem'])
-    valor = {'ritmo': lambda l: l['media'], 'vendas': lambda l: l['un']}[ordem]
-    com_valor = [l for l in linhas if valor(l) is not None]
-    sem_valor = sorted((l for l in linhas if valor(l) is None), key=lambda l: l['titulo_ordem'])
-    com_valor.sort(key=lambda l: l['titulo_ordem'])
-    com_valor.sort(key=valor, reverse=True)
-    return com_valor + sem_valor
+            'qtd': calc.quantidade_do_sistema(media, ctx['folga']), 'titulo_ordem': e['titulo_ordem'], 'vendas_ate': cobertura['coletado_em'],
+            'status': status, 'status_pausados': status.get('paused', 0),
+            'vendas_ordem': ritmo_p['unidades'] if media is not None else None, 'tend_ordem': {'caiu': 0, 'estavel': 1, 'acelerou': 2}.get(comparacao['sentido']) if comparacao else None}
 
 
 # ==================================================== o texto de cada linha (só as da página) ====================================================
 
-# Função Objetivo: Transforma os números de uma linha nos textos que a tela mostra. Cada célula tem UM valor e UMA linha de apoio (a tela é rígida na vertical); o resto vai no `title` (tooltip) da célula.
+# Função Objetivo: Transforma os números de uma linha nos textos que a tela mostra, UMA célula por coluna (ver _grupos): cada célula tem UM valor e o resto vai no `title` (tooltip) dela, porque a tela é rígida na vertical.
 def _apresentar(l, gran, ctx, base_url):
-    e, lead, ante, folga, dias, recente = l['e'], ctx['lead'], ctx['ante'], ctx['folga'], ctx['dias'], ctx['recente']
-    media, ritmo_r, n_ok = l['media'], l['ritmo_r'], l['ritmo_p']['n_completos']
+    e, lead, ante, folga = l['e'], ctx['lead'], ctx['ante'], ctx['folga']
+    media = l['media']
 
     # ---- estoque: não há fonte ligada, então "—" (nunca zero) e o caminho para simular ----
     estoque_dica = ('O estoque de fora do Full ainda não vem de nenhuma fonte ligada a esta tela, por isso fica em "—" (sem leitura não é estoque zero). '
                     'Para simular a ruptura, abra o item e digite o estoque no cartão Projeção.')
 
-    # ---- vendas e ritmo (só o que saiu de fora do Full) ----
-    vendas_dica = (f'Unidades que saíram de fora do Full e o faturamento delas, só nos {plural(n_ok, "dia completo", "dias completos")} dos últimos {dias} dias (de {data(ctx["de"])} até ontem): é o mesmo volume que '
-                   f'dá o ritmo (unidades ÷ dias completos). Hoje (parcial) e os dias sem coleta ficam de fora; venda cancelada não conta.')
-    if media is None:
-        ritmo_txt, ritmo_dica = '—', f'Nenhum dos últimos {dias} dias está completo na coleta da conta toda: sem ritmo de vendas.'
+    # ---- anúncios ----
+    if gran == 'sku':
+        fora_txt, no_full_txt = numero(e['n_fora']), numero(e['n_no_full']) if e['n_no_full'] else '—'
+        fora_dica = f'{plural(e["n_fora"], "anúncio deste produto vende", "anúncios deste produto vendem")} de fora do Full (logística diferente de FULL).'
+        if e['n_no_full']:
+            no_full_dica = f'{plural(e["n_no_full"], "anúncio deste produto é", "anúncios deste produto são")} do Full (logística FULL): o produto também vende pelo Full.'
+            if e['em_full']:
+                no_full_dica += (f' {plural(e["em_full"], "deles teve", "deles tiveram")} vendas que saíram de fora do Full no período (ex.: Flex, estoque próprio): só essas vendas entram no ritmo daqui; as do Full ficam no mundo Envios Full.')
+        else:
+            no_full_dica = 'Nenhum anúncio deste produto é do Full.'
+        anuncios_chips, anuncios_dica = [], ''
     else:
-        ritmo_txt, ritmo_dica = un_dia(media), f'Média de {un_dia(media)} un/dia (fora do Full) nos {n_ok} dias completos dos últimos {dias}.'
-    ritmo_sub, ritmo_sub_classe = '', ''
-    if l['sentido'] in ('acelerou', 'caiu'):
-        ritmo_sub, ritmo_sub_classe = ('↑ acelerou', 'alerta') if l['sentido'] == 'acelerou' else ('↓ caiu', 'info')
-        ritmo_dica += f' Nos últimos {recente} dias: {un_dia(ritmo_r["media"])} un/dia' + (f' ({pct_texto(l["pct"])}).' if l['pct'] is not None else '.')
+        fora_txt = no_full_txt = fora_dica = no_full_dica = ''
+        anuncios_chips, anuncios_dica = celula_de_status(l['status'], gran)
 
     # ---- ponto de pedido e quantidade (só dependem do ritmo e das Regras de pedido) ----
     if l['pedido'] is None:
@@ -173,53 +203,60 @@ def _apresentar(l, gran, ctx, base_url):
         pedido_txt, pedido_sub = numero(l['pedido']), ''
         pedido_dica = (f'Ponto de pedido = ritmo × (prazo + chegar antes) = {un_dia(media)} × ({lead} + {ante}) = {numero(l["pedido"])} un. É o estoque abaixo do qual já não dá tempo de pedir e o pedido chegar '
                        f'{plural(ante, "dia", "dias")} antes da ruptura: quando o estoque do item chegar a esse número, é hora de pedir. Sem o estoque na lista, ela não diz se o item já está abaixo dele (abra o item e digite o estoque).')
-        qtd_txt, qtd_sub = numero(l['qtd']), f'{plural(folga, "dia", "dias")} de folga'
+        qtd_txt, qtd_sub = numero(l['qtd']), ''
         qtd_dica = (f'Sugestão do Sistema: {numero(l["qtd"])} un = ritmo ({un_dia(media)} un/dia) × folga ({plural(folga, "dia", "dias")}). É a quantidade que acrescenta {plural(folga, "dia", "dias")} de estoque: '
                     f'a nova ruptura vem {plural(folga, "dia", "dias")} depois da atual (ou depois da chegada, que leva {plural(lead, "dia", "dias")}).')
-
-    # ---- selos de atenção (vão junto dos selos do anúncio; o que não cabe na linha some inteiro) ----
-    avisos = []
-    if e.get('em_full'):
-        quem = f'{plural(e["em_full"], "anúncio deste produto é", "anúncios deste produto são")} do Full (logística FULL)'
-        avisos.append({'texto': 'Também no Full', 'classe': 'info', 'dica': f'{quem}, mas teve vendas que saíram de fora do Full no período (ex.: Flex, estoque próprio). Só essas vendas entram no ritmo daqui; as do Full ficam no mundo Envios Full.'})
 
     link = ''
     if e['sku']:
         link = url_da_tela(base_url, sku=e['sku'], gran=gran if gran != 'sku' else None, item=e['chave'] if gran != 'sku' else None, **para_url(ctx['comuns']))
     return {
-        'chave': e['chave'], 'titulo': e['titulo'], 'subtitulo': e['subtitulo'], 'foto': e['foto'], 'selos': e['selos'], 'avisos': avisos, 'ids': e['ids'], 'codigo': False,
-        'url_detalhe': link, 'motivo': 'Sem SKU no cadastro de anúncios: a curva abre por produto.', 'cat': 'fora',
-        'estoque_txt': '—', 'estoque_sub': 'digitar no item', 'estoque_classe': 'info', 'estoque_dica': estoque_dica,
-        'vendas_txt': f'{numero(l["un"])} un', 'vendas_sub': reais(l['fat']), 'vendas_dica': vendas_dica,
-        'ritmo_txt': ritmo_txt, 'ritmo_sub': ritmo_sub, 'ritmo_sub_classe': ritmo_sub_classe, 'ritmo_dica': ritmo_dica,
-        'pedido_txt': pedido_txt, 'pedido_sub': pedido_sub, 'pedido_dica': pedido_dica, 'qtd_txt': qtd_txt, 'qtd_sub': qtd_sub, 'qtd_dica': qtd_dica,
+        'chave': e['chave'], 'titulo': e['titulo'], 'subtitulo': e['subtitulo'], 'foto': e['foto'], 'id_txt': e['id_txt'], 'cat': 'fora',
+        'url_detalhe': link, 'motivo': 'Sem SKU no cadastro de anúncios: a curva abre por produto.',
+        'fora_txt': fora_txt, 'fora_dica': fora_dica, 'no_full_txt': no_full_txt, 'no_full_classe': '' if (e.get('n_no_full') or gran != 'sku') else 'nulo', 'no_full_dica': no_full_dica,
+        'anuncios_chips': anuncios_chips, 'anuncios_dica': anuncios_dica,
+        'frescor': frescor(l['vendas_ate']),
+        'estoque_txt': '—', 'estoque_sub': 'digitar no item', 'estoque_dica': estoque_dica,
+        **celulas_de_vendas(l, ctx, 'de fora do Full', 'fora do Full'),
+        'pedido_txt': pedido_txt, 'pedido_sub': pedido_sub, 'pedido_classe': 'nulo' if pedido_txt == '—' else '', 'pedido_dica': pedido_dica,
+        'qtd_txt': qtd_txt, 'qtd_sub': qtd_sub, 'qtd_classe': 'nulo' if qtd_txt == '—' else '', 'qtd_dica': qtd_dica,
     }
 
 
 # ==================================================== a lista ====================================================
 
-# Função Objetivo: Tudo da lista do Fora do Full a partir da query string. Parâmetros: gran (sku|mlb), q (busca), ord, por e pag; o ritmo (dias), o prazo, os dias para chegar antes da ruptura e a folga chegam já lidos em
-# `comuns` (ruptura_parametros, mundo Fora do Full). Parâmetro inválido volta ao padrão (inclusive o que só existe no Full: gran=codigo, nivel, ord=urgencia). Qualquer mudança de busca ou ordem volta para a página 1.
+# Função Objetivo: Tudo da lista do Fora do Full a partir da query string. Parâmetros: gran (sku|mlb), q (busca), ord (a chave da coluna que ordena) e sentido (asc | desc), por e pag; o ritmo (dias), o prazo, os dias para chegar antes
+# da ruptura e a folga chegam já lidos em `comuns` (ruptura_parametros, mundo Fora do Full). Parâmetro inválido volta ao padrão (inclusive o que só existe no Full: gran=codigo, nivel, comparar, ord=enviar_ate). Qualquer mudança de busca
+# ou ordem volta para a página 1.
 def montar_lista_fora(parametros, base_url, hoje, comuns):
     dias, lead, ante, folga, recente = comuns['dias'], comuns['lead'], comuns['ante'], comuns['folga'], comuns['recente']
     por_chave = {g[0]: g for g in GRANULARIDADES}
     gran = _escolher(parametros, 'gran', por_chave, GRANULARIDADE_PADRAO)
     _, _, ajuda, unidade_plural, unidade_singular = por_chave[gran]
     texto = (parametros.get('q') or '').strip()
-    ordem = _escolher(parametros, 'ord', dict(ORDENS), ORDEM_PADRAO)
     por = inteiro(parametros.get('por'), 1, 1000)
     por = por if por in POR_PAGINA_OPCOES else POR_PAGINA_PADRAO
     numero_da_pagina = inteiro(parametros.get('pag'), 1, 100000) or 1
+    colunas = col.todas_as_colunas(_grupos(gran, dias, folga))
+    escolhida, sentido = col.escolher_ordem(parametros, colunas, ORDEM_PADRAO)
+    primeiro_sentido = {c['chave']: c['primeiro'] for c in colunas}   # o sentido da primeira batida em cada coluna: é o padrão dela e não precisa ir no endereço
     padroes = {'gran': GRANULARIDADE_PADRAO, 'ord': ORDEM_PADRAO, 'por': POR_PAGINA_PADRAO, 'pag': 1}
 
-    # * [EXPLICAÇÃO] → O endereço leva só o que a pessoa mudou: o que é da lista (Ver por, busca, ordem, itens por página e página) sai daqui e as regras dos dois mundos saem de ruptura_parametros.para_url,
-    #                  a mesma fonte do detalhe.
+    # * [EXPLICAÇÃO] → O endereço leva só o que a pessoa mudou: o que é da lista (Ver por, busca, ordem e sentido, itens por página e página) sai daqui e as regras dos dois mundos saem de ruptura_parametros.para_url,
+    #                  a mesma fonte do detalhe. Trocar a coluna da ordem sem dizer o sentido vale o sentido da primeira batida dela; com `sentido` o `ord` vai junto (ele só vale para a coluna dita).
     def parametros_da_url(mudancas):
-        atuais = {'gran': gran, 'q': texto, 'ord': ordem, 'por': por, 'pag': numero_da_pagina}
+        atuais = {'gran': gran, 'q': texto, 'ord': escolhida['chave'], 'sentido': sentido, 'por': por, 'pag': numero_da_pagina}
         atuais.update(mudancas)
+        if 'ord' in mudancas and 'sentido' not in mudancas:
+            atuais['sentido'] = None
         if 'pag' not in mudancas:
             atuais['pag'] = 1
-        return {**{k: (None if v == padroes.get(k) else v) for k, v in atuais.items()}, **para_url(comuns)}
+        if atuais['sentido'] == primeiro_sentido.get(atuais['ord']):
+            atuais['sentido'] = None
+        saida = {k: (None if v == padroes.get(k) else v) for k, v in atuais.items()}
+        if atuais['sentido'] is not None:
+            saida['ord'] = atuais['ord']
+        return {**saida, **para_url(comuns)}
 
     def url(**mudancas):
         return url_da_tela(base_url, **parametros_da_url(mudancas))
@@ -229,15 +266,16 @@ def montar_lista_fora(parametros, base_url, hoje, comuns):
     dados = unidades_por_dia_da_origem(de, hoje, 'fora')
     estados = dados['estados']
     jan_p = [hoje - timedelta(days=i) for i in range(dias, -1, -1)]
+    jan_r = [hoje - timedelta(days=i) for i in range(recente, -1, -1)]
     ctx = {'hoje': hoje, 'dias': dias, 'recente': recente, 'lead': lead, 'ante': ante, 'folga': folga, 'comuns': comuns, 'de': hoje - timedelta(days=dias), 'mesmo_ritmo': dias <= recente,
-           'jan_p': jan_p, 'jan_r': [hoje - timedelta(days=i) for i in range(recente, -1, -1)], 'completos_p': {d for d in jan_p if estados.get(d) == 'ok'}}
+           'jan_p': jan_p, 'jan_r': jan_r, 'jan_todos': sorted(set(jan_p) | set(jan_r)), 'anuncios': dados['cad']['anuncios']}
     permitidos = mlbs_permitidos(comuns)   # os filtros do Hub: None = sem filtro ativo (nada é lido do Hub)
     entidades, fora_da_lista = _entidades(gran, dados, permitidos)
     todas = [_calcular_linha(e, gran, dados, ctx) for e in entidades]
 
     # ---- busca e ordem ----
     procurado = unicodedata.normalize('NFKD', texto).encode('ascii', 'ignore').decode('ascii').lower()
-    filtradas = _ordenar([l for l in todas if not procurado or procurado in l['e']['busca']], ordem)
+    filtradas = col.ordenar([l for l in todas if not procurado or procurado in l['e']['busca']], escolhida, sentido)
 
     # ---- a página atual: só aqui se montam textos e endereços ----
     total = len(filtradas)
@@ -272,14 +310,14 @@ def montar_lista_fora(parametros, base_url, hoje, comuns):
         avisos.append(aviso_de_contagem('info', n_sem, 'anúncio não tem logística no banco', 'anúncios não têm logística no banco',
                                         f'{"Não é" if n_sem == 1 else "Não são"} nem do Full nem de fora do Full e {"fica" if n_sem == 1 else "ficam"} fora das duas listas (o Hub também os esconde ao filtrar por logística).'))
 
-    ordens = [{'rotulo': rotulo, 'url': url(**{'ord': chave}), 'ativo': chave == ordem} for chave, rotulo in ORDENS]
-    # os campos escondidos do formulário: o que é da lista (Ver por, ordem, itens por página) + o que é do outro mundo; os campos visíveis (busca, ritmo, prazo, chegar antes e folga) não viram campo escondido
-    ocultos = [{'nome': k, 'valor': v} for k, v in {'gran': gran, 'ord': ordem, 'por': por}.items() if v != padroes.get(k)] + campos_escondidos(comuns)
+    # os campos escondidos do formulário: o que é da lista (Ver por, ordem e sentido, itens por página) + o que é do outro mundo; os campos visíveis (busca, ritmo, prazo, chegar antes e folga) não viram campo escondido
+    da_lista = parametros_da_url({})
+    ocultos = [{'nome': k, 'valor': da_lista[k]} for k in ('gran', 'ord', 'sentido', 'por') if da_lista.get(k) is not None] + campos_escondidos(comuns)
     return {
-        'gran': gran, 'ajuda': ajuda, 'texto': texto, 'ocultos': ocultos,
+        'gran': gran, 'ajuda': ajuda, 'texto': texto, 'ocultos': ocultos, 'cabecalho': col.cabecalho(_grupos(gran, dias, folga), escolhida, sentido, lambda chave, proximo: url(ord=chave, sentido=proximo)),
         'granularidades': [{'chave': g[0], 'rotulo': g[1], 'ativo': g[0] == gran, 'url': url(gran=g[0])} for g in GRANULARIDADES],
         'dados': [indicador_de_vendas(n_ok, dias, not coletado_em, data_hora(coletado_em) if coletado_em else '')],   # sem estoque de fora do Full não há indicador de estoque (ele nasce com a fonte do estoque)
-        'avisos': avisos, 'ordens': ordens, 'por_pagina': [{'rotulo': str(p), 'url': url(por=p), 'ativo': p == por} for p in POR_PAGINA_OPCOES],
+        'avisos': avisos, 'por_pagina': [{'rotulo': str(p), 'url': url(por=p), 'ativo': p == por} for p in POR_PAGINA_OPCOES],
         'total_texto': f'{numero(total)} {unidade_singular if total == 1 else unidade_plural}' + complemento_do_total(bool(texto), permitidos is not None), 'coluna_nome': por_chave[gran][1], 'linhas': linhas, 'vazio': total == 0,
         'filtros_ativos': bool(texto), 'url_limpar_tudo': url(q=''),
         'painel': painel_do_mundo(comuns, url_da_tela(base_url, **sem_filtros_na_url(parametros_da_url({})))), 'notas_filtros': notas_dos_filtros(comuns, gran, unidade_plural),

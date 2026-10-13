@@ -1,0 +1,116 @@
+{% comment %}
+    * [RESUMO] → UMA LINHA da tabela da tela "Previsão de Ruptura de estoque" (a mesma nos dois mundos): uma célula por coluna do cabeçalho, NA MESMA ORDEM. Recebe "l" (a linha, já com todos os textos
+      prontos: ruptura_lista._apresentar / ruptura_lista_fora._apresentar) e "cab" (lista.cabecalho). A ordem e a quantidade das células vêm do cabeçalho (ruptura_colunas é o dono): aqui só se diz COMO desenhar cada coluna, pela chave dela.
+    * [EXPLICAÇÃO] → UMA CÉLULA = UM DADO (regra do Matheus): o valor em cima e, no máximo, uma linha pequena de apoio; o resto da explicação vai no `title` (balão) da célula. Dado ausente aparece como "—" apagado (nunca como zero).
+      Com a chave "Comparar com o Mercado Livre" os pares comparados vêm em TRIOS lado a lado (Sistema | Mercado Livre | Comparação: chaves urg_sistema, urg_ml, comparacao e qtd, qtd_ml, qtd_comp); a célula "Comparação" (c.resultado) leva um destaque a mais.
+      A última célula (chave `acao`) é UM LINK direto para o gráfico e o diagnóstico do item (o mesmo endereço do nome): a linha não abre painel nenhum.
+      Cada chave de coluna tem o seu ramo abaixo; as chaves do Fora do Full (fora_n, no_full, estoque_fora, pedido, pedir) também moram aqui para as duas listas desenharem do mesmo jeito o que têm em comum (item, anúncios, vendas, ritmo, tendência, gráfico).
+    * [EXPLICAÇÃO] → A linha tem altura FIXA (64px, no CSS): o que não cabe é cortado, nunca empurra a linha de baixo.
+{% endcomment %}<div class="rup-t-bloco rup-t-bloco--{{ l.cat }}" role="rowgroup">
+    <div class="rup-t-linha" role="row">
+        {% for c in cab.colunas %}<div class="rup-t-c rup-t-c--{{ c.alinhar }}{% if c.item %} rup-t-c--item{% endif %}{% if c.ml %} rup-t-c--ml{% endif %}{% if c.resultado %} rup-t-c--res{% endif %}{% if c.divisoria %} rup-t-div{% if c.ml %} rup-t-div--ml{% endif %}{% endif %}" role="cell">
+            {% if c.chave == 'item' %}
+                {% include 'gestao_ruptura/parciais/estrutura_parcial_identidade.html' %}
+
+            {% elif c.chave == 'status' %}
+                <div class="rup-t-pilha" title="{{ l.anuncios_dica }}">
+                    {% for ch in l.anuncios_chips %}<span class="rup-t-chip rup-t-chip--{{ ch.classe }}">{{ ch.texto }}</span>{% endfor %}
+                    {% if l.anuncios_sub %}<span class="rup-t-apoio">{{ l.anuncios_sub }}</span>{% endif %}
+                </div>
+
+            {% elif c.chave == 'dados' %}
+                {% if l.dados_avisos %}
+                    <div class="rup-t-pilha" title="{{ l.dados_dica }}">
+                        {% for a in l.dados_chips %}<span class="rup-t-chip rup-t-chip--{{ a.classe }}">{{ a.texto }}</span>{% endfor %}
+                        {% if l.dados_mais %}<span class="rup-t-apoio">+{{ l.dados_mais }} {% if l.dados_mais == 1 %}aviso{% else %}avisos{% endif %}</span>{% endif %}
+                    </div>
+                {% else %}
+                    <span class="rup-t-ok" title="{{ l.dados_dica }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 7.5l2.5 2.5L11 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Em dia</span>
+                {% endif %}
+
+            {% elif c.chave == 'frescor' %}
+                <div class="rup-t-frescor{% if l.frescor.classe %} rup-t-frescor--{{ l.frescor.classe }}{% endif %}" title="{{ l.frescor.dica }}">
+                    <span>{{ l.frescor.vendas }}</span>{% if l.frescor.estoque %}<span>{{ l.frescor.estoque }}</span>{% endif %}
+                </div>
+
+            {% elif c.chave == 'fora_n' %}
+                <span class="rup-t-num" title="{{ l.fora_dica }}">{{ l.fora_txt }}</span>
+
+            {% elif c.chave == 'no_full' %}
+                <span class="rup-t-num{% if l.no_full_classe %} rup-t-num--{{ l.no_full_classe }}{% endif %}" title="{{ l.no_full_dica }}">{{ l.no_full_txt }}</span>
+
+            {% elif c.chave == 'estoque' %}
+                <span class="rup-t-num{% if l.estoque_classe %} rup-t-num--{{ l.estoque_classe }}{% endif %}" title="{{ l.estoque_dica }}">{{ l.estoque_txt }}</span>
+
+            {% elif c.chave == 'estoque_fora' %}
+                <span class="rup-t-duplo" title="{{ l.estoque_dica }}"><span class="rup-t-num rup-t-num--nulo">{{ l.estoque_txt }}</span><span class="rup-t-apoio">{{ l.estoque_sub }}</span></span>
+
+            {% elif c.chave == 'caminho' %}
+                <span class="rup-t-num{% if l.caminho_classe %} rup-t-num--{{ l.caminho_classe }}{% endif %}" title="{{ l.caminho_dica }}">{{ l.caminho_txt }}</span>
+
+            {% elif c.chave == 'vendas' %}
+                <span class="rup-t-num{% if l.vendas_txt == '—' %} rup-t-num--nulo{% endif %}" title="{{ l.vendas_dica }}">{{ l.vendas_txt }}</span>
+
+            {% elif c.chave == 'ritmo' %}
+                <span class="rup-t-num{% if l.ritmo_txt == '—' %} rup-t-num--nulo{% endif %}" title="{{ l.ritmo_dica }}">{{ l.ritmo_txt }}</span>
+
+            {% elif c.chave == 'tendencia' %}
+                <span class="rup-t-tend rup-t-tend--{{ l.tend_classe }}" title="{{ l.tend_dica }}">
+                    {% if l.tend_classe == 'acelerou' %}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 11V3M3.5 6.5L7 3l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {% elif l.tend_classe == 'caiu' %}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 3v8M3.5 7.5L7 11l3.5-3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    {% elif l.tend_classe == 'estavel' %}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3.5 7h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>{% endif %}
+                    {{ l.tend_txt }}
+                </span>
+
+            {% elif c.chave == 'cobertura' %}
+                <div class="rup-t-cob" title="{{ l.cob_dica }}">
+                    <span class="rup-t-num{% if l.cob_txt == '—' %} rup-t-num--nulo{% endif %}">{{ l.cob_txt }}</span>
+                    {% if l.barra_pct is not None %}<span class="rup-barra" aria-hidden="true"><span class="rup-barra-preenchimento rup-barra-preenchimento--{{ l.barra_classe }}" style="width: {{ l.barra_pct }}%"></span></span>
+                    {% elif l.cob_sub %}<span class="rup-t-apoio">{{ l.cob_sub }}</span>{% endif %}
+                </div>
+
+            {% elif c.chave == 'ruptura' %}
+                <span class="rup-t-num{% if l.ruptura_txt == '—' %} rup-t-num--nulo{% elif l.ruptura_classe %} rup-t-num--{{ l.ruptura_classe }}{% endif %}" title="{{ l.ruptura_dica }}">{{ l.ruptura_txt }}</span>
+
+            {% elif c.chave == 'nivel' %}
+                {% if l.nivel_rotulo %}<span class="rup-nivel rup-nivel--{{ l.nivel_classe }}" title="{{ l.nivel_dica }}">{{ l.nivel_rotulo }}</span>{% endif %}
+
+            {% elif c.chave == 'enviar_ate' %}
+                <span class="rup-t-num{% if l.enviar_classe %} rup-t-num--{{ l.enviar_classe }}{% endif %}" title="{{ l.enviar_dica }}">{{ l.enviar_txt }}</span>
+
+            {% elif c.chave == 'se_hoje' %}
+                <span class="rup-t-se rup-t-se--{{ l.se_classe }}" title="{{ l.se_dica }}">{{ l.se_txt }}</span>
+
+            {% elif c.chave == 'qtd' %}
+                <span class="rup-t-num rup-t-qtd{% if l.qtd_deposito %} rup-t-qtd--deposito{% elif l.qtd_classe %} rup-t-num--{{ l.qtd_classe }}{% endif %}" title="{{ l.qtd_dica }}">{% if l.qtd_deposito %}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" role="img" aria-label="{{ l.qtd_deposito }}"><path d="M7 2L13 12H1L7 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 6v3M7 10.5v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>{% endif %}{{ l.qtd_txt }}</span>
+
+            {% elif c.chave == 'pedido' %}
+                <span class="rup-t-duplo" title="{{ l.pedido_dica }}"><span class="rup-t-num{% if l.pedido_classe %} rup-t-num--{{ l.pedido_classe }}{% endif %}">{{ l.pedido_txt }}</span>{% if l.pedido_sub %}<span class="rup-t-apoio">{{ l.pedido_sub }}</span>{% endif %}</span>
+
+            {% elif c.chave == 'pedir' %}
+                <span class="rup-t-duplo" title="{{ l.qtd_dica }}"><span class="rup-t-num rup-t-qtd{% if l.qtd_classe %} rup-t-num--{{ l.qtd_classe }}{% endif %}">{{ l.qtd_txt }}</span>{% if l.qtd_sub %}<span class="rup-t-apoio">{{ l.qtd_sub }}</span>{% endif %}</span>
+
+            {% elif c.chave == 'urg_sistema' %}
+                {% if l.urg_sistema_selo %}<span class="badge-tabela {{ l.urg_sistema_selo.classe }}" title="{{ l.comp_dica }}">{% if l.urg_sistema_selo.icone %}<i class="fas {{ l.urg_sistema_selo.icone }}" aria-hidden="true"></i>{% endif %}<span class="rup-t-selo-texto">{{ l.urg_sistema_selo.label }}</span></span>
+                {% else %}<span class="rup-t-sem" title="{{ l.comp_dica }}">{{ l.urg_sistema_vazio }}</span>{% endif %}
+
+            {% elif c.chave == 'urg_ml' %}
+                {% if l.urg_ml_selo %}<span class="badge-tabela {{ l.urg_ml_selo.classe }}" title="{{ l.comp_dica }}">{% if l.urg_ml_selo.icone %}<i class="fas {{ l.urg_ml_selo.icone }}" aria-hidden="true"></i>{% endif %}<span class="rup-t-selo-texto">{{ l.urg_ml_selo.label }}</span></span>
+                {% else %}<span class="rup-t-sem" title="{{ l.comp_dica }}">{{ l.urg_ml_vazio }}</span>{% endif %}
+
+            {% elif c.chave == 'qtd_ml' %}
+                <span class="rup-t-num rup-t-qtd{% if l.qtd_ml_deposito %} rup-t-qtd--deposito{% elif l.qtd_ml_classe %} rup-t-num--{{ l.qtd_ml_classe }}{% endif %}" title="{{ l.qtd_ml_dica }}">{% if l.qtd_ml_deposito %}<svg width="14" height="14" viewBox="0 0 14 14" fill="none" role="img" aria-label="{{ l.qtd_ml_deposito }}"><path d="M7 2L13 12H1L7 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 6v3M7 10.5v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>{% endif %}{{ l.qtd_ml_txt }}</span>
+
+            {% elif c.chave == 'comparacao' %}
+                <span class="rup-t-cp rup-t-cp--{{ l.comp_classe }}" title="{{ l.comp_dica }}">{{ l.comp_txt }}</span>
+
+            {% elif c.chave == 'qtd_comp' %}
+                <span class="rup-t-cp rup-t-cp--{{ l.qtd_comp_classe }}" title="{{ l.qtd_comp_dica }}">{{ l.qtd_comp_txt }}</span>
+
+            {% elif c.chave == 'acao' %}
+                {% if l.url_detalhe %}<a href="{{ l.url_detalhe }}" class="rup-t-exp" aria-label="Abrir o gráfico e o diagnóstico de {{ l.titulo }}" title="Abrir o gráfico e o diagnóstico"><i class="fas fa-chart-line" aria-hidden="true"></i></a>
+                {% else %}<span class="rup-t-exp rup-t-exp--parado" role="img" aria-label="Gráfico indisponível: {{ l.motivo }}" title="{{ l.motivo }}"><i class="fas fa-chart-line" aria-hidden="true"></i></span>{% endif %}
+            {% endif %}
+        </div>{% endfor %}
+    </div>
+</div>

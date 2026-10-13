@@ -1,0 +1,49 @@
+{% comment %}
+    * [RESUMO] → O painel de DETALHES de uma linha da tabela (abre no botão da última coluna; o script_ruptura.js só troca o `hidden` e o aria-expanded). É para onde foi o que NÃO é da tabela (regra "uma coluna = um dado"): o faturamento do período, os selos
+      do anúncio (Clássico, Premium, Full, Flex, catálogo...), os anúncios com a situação e o endereço de cada um, os Códigos ML, a CONTA do Sistema em palavras (ruptura, enviar até, se enviar hoje, quantidade), o alerta do depósito (ERP) e o atalho
+      para a curva de estoque e o diagnóstico do item. Recebe "l" (a linha) e "pagina". No Fora do Full não há Códigos ML nem a conta do Full: o painel tem 2 blocos (quem decide é a linha ter ou não a conta do Sistema, l.det_calculo, que só existe no Full).
+    * [EXPLICAÇÃO] → O painel nasce FECHADO (`hidden`): quem não abre não paga nada. Ele fica "grudado" à esquerda e com a largura da parte visível da tabela (a variável CSS --rup-visivel, posta pelo script), para o texto não ficar escondido
+      quando a tabela rola para o lado.
+{% endcomment %}<div class="rup-t-det-caixa" id="{{ l.det_id }}" role="region" aria-label="Detalhes de {{ l.titulo }}" hidden>
+    <div class="rup-t-det{% if not l.det_calculo %} rup-t-det--2{% endif %}">
+        <div class="rup-t-det-bloco">
+            <h3 class="rup-t-det-titulo">Faturamento{% if l.det_selos %} e selos{% endif %}</h3>
+            <p class="rup-t-det-grande">{{ l.det_faturamento }} <span>{{ l.det_periodo }}</span></p>
+            {% if l.det_selos %}
+                <div class="rup-t-det-selos">{% for s in l.det_selos %}<span class="badge-tabela {{ s.classe }}" title="{{ s.dica }}">{% if s.icone %}<i class="fas {{ s.icone }}" aria-hidden="true"></i> {% endif %}{{ s.rotulo }}</span>{% endfor %}</div>
+            {% endif %}
+        </div>
+        <div class="rup-t-det-bloco">
+            <h3 class="rup-t-det-titulo">Anúncios{% if l.det_codigos %} e códigos ML{% endif %}</h3>
+            <ul class="rup-t-det-anuncios">
+                {% for a in l.det_anuncios %}
+                    <li>
+                        {% if a.link %}<a href="{{ a.link }}" class="rup-t-mono" target="_blank" rel="noopener noreferrer" title="Abrir o anúncio no Mercado Livre">{{ a.mlb }}</a>{% else %}<span class="rup-t-mono">{{ a.mlb }}</span>{% endif %}
+                        <span class="rup-t-chip rup-t-chip--{{ a.classe }}">{{ a.status }}</span>
+                        {% if a.titulo %}<span class="rup-t-det-mudo" title="{{ a.titulo }}">{{ a.titulo }}</span>{% endif %}
+                    </li>
+                {% empty %}
+                    <li><span class="rup-t-det-mudo">Nenhum anúncio ligado a esta linha.</span></li>
+                {% endfor %}
+            </ul>
+            {% if l.det_codigos %}<p class="rup-t-det-linha"><span class="rup-t-det-chave">Códigos ML</span><span class="rup-t-mono">{{ l.det_codigos }}</span></p>{% endif %}
+            {% if l.det_no_full %}<p class="rup-t-det-linha"><span class="rup-t-det-mudo">{{ l.det_no_full }}</span></p>{% endif %}
+        </div>
+        {% if l.det_calculo %}
+            <div class="rup-t-det-bloco">
+                <h3 class="rup-t-det-titulo">Como o Sistema calculou</h3>
+                <dl class="rup-t-det-calculo">{% for rotulo, texto in l.det_calculo %}<dt>{{ rotulo }}</dt><dd>{{ texto }}</dd>{% endfor %}</dl>
+                {% for t in l.det_alertas %}
+                    <p class="rup-t-det-alerta"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 2L13 12H1L7 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 6v3M7 10.5v.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>{{ t }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <div class="rup-t-det-acao">
+            {% if l.url_detalhe %}
+                <a href="{{ l.url_detalhe }}" class="btn-acao"><i class="fas fa-chart-line" aria-hidden="true"></i> Abrir gráfico e diagnóstico</a>
+            {% else %}
+                <span class="rup-t-det-mudo">Gráfico indisponível: {{ l.motivo }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>

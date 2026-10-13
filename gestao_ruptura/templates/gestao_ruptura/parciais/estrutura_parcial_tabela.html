@@ -1,0 +1,59 @@
+{% comment %}
+    * [RESUMO] → A TABELA da tela "Previsão de Ruptura de estoque", a MESMA nos dois mundos (Envios Full e Fora do Full): a faixa "Regras em uso", o topo (total, "?", ordem atual, a chave "Comparar com o Mercado Livre" e "Por página"), o cartão com o cabeçalho
+      (faixa de grupos + títulos que ordenam), as linhas e a paginação. O que muda de um mundo para o outro é só QUAIS colunas existem: elas vêm de lista.cabecalho (ruptura_colunas.py é o dono) e as linhas já vêm com os textos prontos
+      (ruptura_lista.py e ruptura_lista_fora.py). Recebe "pagina" (ruptura_pagina.montar_pagina) e "lista" (pagina.lista).
+    * [EXPLICAÇÃO] → O mockup aprovado (13/10/2026) manda: o cabeçalho tem a faixa de GRUPOS em cima e o título de cada coluna (nome + unidade) embaixo; a ordenação é o clique no título (sem seletor "Ordenar por"); a chave "Comparar com o Mercado Livre"
+      acrescenta os dois trios roxos de comparação, Sistema | Mercado Livre | Comparação (só no Full); o botão da última coluna abre direto o gráfico e o diagnóstico do item. A chave é um link (GET), como todo o resto da tela: o endereço já leva a escolha.
+    * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical": a grade (--rup-grade) e a largura mínima (--rup-minima) vêm do cabeçalho; só a coluna do item estica. A tabela mora numa CAIXA com rolagem PRÓPRIA nos dois eixos (.rup-l-rolagem, com a
+      altura da janela): o cabeçalho fica parado no alto e a coluna do item parada à esquerda; quando a janela é estreita a tabela rola para o lado ali dentro. A disposição do topo só muda pela largura da JANELA (@media), nunca pelo espaço ao lado da
+      barra lateral. As linhas têm altura fixa (64px; 58px em janela baixa). A caixa recebe o foco (tabindex) para rolar pelo teclado.
+{% endcomment %}{% with cab=lista.cabecalho %}
+{% include 'gestao_ruptura/parciais/estrutura_parcial_regras_em_uso.html' %}
+
+<section class="rup-l-lista" aria-label="{% if pagina.e_full %}Lista de ruptura{% else %}Lista de vendas de fora do Full{% endif %}">
+    <div class="rup-l-lista-topo">
+        <div class="rup-l-total-grupo">
+            <span class="rup-l-total">{{ lista.total_texto }}</span>
+            {# O "?" das COLUNAS mora aqui, no topo da tabela (o dos cartões de situação mora na faixa Situação): cada explicação perto do que explica. #}
+            <span class="rup-ajuda rup-ajuda--esq" tabindex="0" role="note" aria-label="Como ler a tabela">
+                <i class="fas fa-circle-question" aria-hidden="true"></i>
+                <span class="rup-ajuda-balao">{% include 'gestao_ruptura/parciais/estrutura_parcial_tabela_ajuda.html' %}</span>
+            </span>
+            {% if lista.filtros_ativos %}<a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar"><i class="fas fa-xmark" aria-hidden="true"></i> {% if pagina.e_full %}Limpar busca e situação{% else %}Limpar busca{% endif %}</a>{% endif %}
+        </div>
+        <div class="rup-l-ordem">Ordenado por <strong>{{ cab.ordenado_por }}</strong><span class="rup-l-ordem-dica"> · clique no título de uma coluna para ordenar</span></div>
+        {% if lista.comparar %}
+            <a href="{{ lista.comparar.url }}" class="rup-sw{% if lista.comparar.ligado %} rup-sw--ligado{% endif %}" role="switch" aria-checked="{% if lista.comparar.ligado %}true{% else %}false{% endif %}"
+               title="{% if lista.comparar.ligado %}{{ lista.comparar.info }}. Clique para esconder as colunas do Mercado Livre.{% else %}Acrescenta à tabela a urgência e a quantidade que o Mercado Livre recomenda, para comparar com o Sistema.{% endif %}">
+                <span class="rup-sw-trilho" aria-hidden="true"></span>
+                <span class="rup-sw-texto">Comparar com o Mercado Livre</span>
+            </a>
+        {% endif %}
+        <div class="rup-l-campo rup-l-campo--por">
+            <label for="rup-por" class="rup-rotulo">Por página</label>
+            <select id="rup-por" class="lista-select" data-rup-ir>
+                {% for p in lista.por_pagina %}<option value="{{ p.url }}"{% if p.ativo %} selected{% endif %}>{{ p.rotulo }}</option>{% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="rup-l-cartao">
+        <div class="rup-l-rolagem" tabindex="0">
+            <div class="rup-t" role="table" aria-label="{% if pagina.e_full %}Previsão de Ruptura de estoque do Full{% else %}Vendas e ritmo de fora do Full{% endif %}" style="--rup-grade: {{ cab.grade }}; --rup-minima: {{ cab.largura_minima }}">
+                {% include 'gestao_ruptura/parciais/estrutura_parcial_tabela_cabecalho.html' %}
+
+                {% if lista.vazio %}
+                    <div class="rup-l-vazio">
+                        Nenhum item com essa busca{% if pagina.e_full %}, esse nível{% endif %} e esses filtros. Tente o SKU completo, um pedaço do título, o EAN, o MLB{% if pagina.e_full %} ou o Código ML{% endif %} — ou
+                        <a href="{{ lista.url_limpar_tudo }}" class="rup-l-limpar">limpe a busca{% if pagina.e_full %} e a situação{% endif %}</a>{% if lista.painel.tem_filtro_ativo %} ou <a href="{{ lista.painel.url_limpar }}" class="rup-l-limpar">limpe os filtros</a>{% endif %}.
+                    </div>
+                {% endif %}
+
+                {% for l in lista.linhas %}{% include 'gestao_ruptura/parciais/estrutura_parcial_tabela_linha.html' %}{% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% include 'gestao_ruptura/parciais/estrutura_parcial_paginacao.html' with lista=lista %}
+</section>
+{% endwith %}

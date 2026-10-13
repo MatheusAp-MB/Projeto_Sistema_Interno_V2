@@ -9,7 +9,7 @@
 #     vale o prazo, provisório) e estoque (digitado, opcional, só no detalhe). O Fora do Full usa os mesmos nomes com o sufixo `_f`. Só o Full tem caminho (=1: a opção "Contar o que está a caminho", que soma o
 #     "a caminho" ao estoque lido do Full; desmarcada por padrão) e "Quem recomenda" (ref_urg, ref_qtd, qtd), porque o Mercado Livre só recomenda para o Full. Todos são lidos em ruptura_parametros.py.
 #   - O Código ML é o estoque do Full: o detalhe de um Código ML só existe no mundo Full.
-# LÊ SÓ DO BANCO (as vendas já coletadas pela tela de Vendas e a última consulta salva do estoque do Full) e NUNCA chama sozinha a API do Mercado Livre nem a do ERP (o ML só é chamado por CLIQUE, no botão "Consultar no Mercado Livre" da tabela de estoque; ver views_ruptura.view_ruptura_consultar). Nada do que a pessoa
+# LÊ SÓ DO BANCO (as vendas já coletadas pela tela de Vendas e a última consulta salva do estoque do Full) e NUNCA chama sozinha a API do Mercado Livre nem a do ERP (o ML só é chamado por CLIQUE, no botão "Atualizar este item" do cabeçalho do detalhe: as vendas do item e o estoque dos Códigos ML dele; ver _botao_de_atualizar e views_ruptura.view_ruptura_consultar). Nada do que a pessoa
 # digita é guardado: fica só no endereço da página.
 #
 # REGRAS DO MATHEUS que moram aqui:
@@ -30,8 +30,10 @@
 #                  (formatadores). Este só LIGA tudo e escreve os textos do detalhe.
 # * [EXPLICAÇÃO] → Os textos já saem prontos para o template (strings), e a tela é rígida na vertical: cada cartão tem 1 linha de valor e 1 de apoio (o resto vai no "title" do cartão), então
 #                  nada muda de altura conforme o texto.
-# * [EXPLICAÇÃO] → O ritmo do DETALHE usa a cobertura do PRÓPRIO produto (como a tela de Vendas do produto) e o da LISTA usa a cobertura da conta toda (como a lista de Vendas). Se um produto foi
-#                  atualizado sozinho além do que a conta toda coletou, os dois podem diferir um pouco: é a mesma diferença que já existe entre a lista e o calendário de Vendas.
+# * [EXPLICAÇÃO] → UMA regra só para "dia completo" (decisão do Matheus, 13/10/2026: a lista mostrava 105 un e o gráfico do mesmo item 115): a cobertura de um item são as coletas da conta toda mais as coletas dos
+#                  MLBs DELE (vendas_ml.mlbs_da_cobertura: o anúncio por ele mesmo, o Código ML pelos anúncios que o usam, o produto por todos os anúncios). A lista (ruptura_lista.cobertura_da_linha) e o gráfico
+#                  (vendas_ml.unidades_por_dia) fazem a mesma pergunta pelo mesmo caminho: com a mesma coleta, o mesmo item mostra os mesmos dias completos e o mesmo ritmo. Só o CABEÇALHO da lista
+#                  ("X/Y dias completos na conta toda") olha a conta toda, de propósito: ele diz como está a coleta geral.
 
 from datetime import datetime, timedelta
 from math import ceil, floor
@@ -48,9 +50,10 @@ from gestao_ruptura.funcoes_auxiliares.ruptura_lista_fora import montar_lista_fo
 from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import campos_escondidos, ler_comuns, nomes_do_mundo, para_url
 from gestao_ruptura.funcoes_auxiliares.ruptura_avisos import aviso, organizar_avisos
 from gestao_ruptura.funcoes_auxiliares.ruptura_texto import (
-    aviso_do_deposito, data as _data, data_do_ml, palavras, pct as _pct, plural as _plural, porque_da_urgencia_do_sistema, quantidade_do_ml, un_dia as _un_dia,
+    aviso_do_deposito, data as _data, data_do_ml, frescor, palavras, pct as _pct, plural as _plural, porque_da_urgencia_do_sistema, quantidade_do_ml, un_dia as _un_dia,
 )
 from gestao_vendas.funcoes_auxiliares.vendas_ml import numero, unidades_por_dia, url_da_tela
+from integracao_mercado_livre.servicos.cobertura_vendas_ml import DIAS_DE_REVISAO
 
 FUSO = ZoneInfo('America/Sao_Paulo')
 ATALHOS_DE_DIAS = (7, 15, 30, 60, 90, 120)   # + "1 ano" (o máximo do Mercado Livre), montado em montar_pagina
@@ -65,7 +68,7 @@ GRANULARIDADES_DO_DETALHE = ('sku', 'mlb', 'codigo')
 # a cor do cartão de urgência segue o selo do Mercado Livre (vermelho = urgente ... verde = sem urgência); "Excedente" (sobra) fica azul, a cor de informação do diagnóstico
 TOM_DA_URGENCIA = {'URGENT': 'vermelho', 'THIS_WEEK': 'laranja', 'NEXT_WEEK': 'laranja', 'IN_TWO_WEEKS': 'azul', 'NO_URGENCY': 'verde', 'EXCEDENT': 'azul'}
 FONTE_DA_QUANTIDADE = {'sistema': 'sugestão do Sistema', 'ml': 'sugestão do Mercado Livre', 'manual': 'quantidade digitada por você'}
-CHAMADAS_POR_CODIGO = 3   # quase sempre 3 chamadas ao Mercado Livre por Código ML: estoque, reposição e depósito/Flex (o mesmo número da tela "Estoque no Full")
+CHAMADAS_POR_CODIGO = 3   # quase sempre 3 chamadas ao Mercado Livre por Código ML: estoque, reposição e depósito/Flex (o mesmo número da tela "Estoque no Full"); só a ESTIMATIVA que o botão mostra antes do clique (o total exato vem do servidor)
 ROTULO_DA_RECOMENDACAO = {'REPLENISH': 'repor', 'NO_REPLENISHMENT': 'não repor', 'NO_REPLENISHMENT_BY_RESTRICTION': 'não repor, por restrição'}   # as mesmas palavras da tela de Planejamento
 
 
@@ -405,8 +408,34 @@ def _tabela_de_codigos(codigos, cartoes, mlbs_do_codigo, soma, caminho=False):
         else:
             consulta = 'erro na última consulta' if r['com_erro'] else 'sem consulta salva'
         linhas.append({'codigo': codigo, 'mlbs': ', '.join(mlbs_do_codigo.get(codigo, [])), 'consulta': consulta, 'atencao': (not lido) or bool(r['desatualizados']), **_numeros_da_tabela(r)})
-    return {'linhas': linhas, 'soma': _numeros_da_tabela(soma), 'soma_parcial': soma['estado'] == 'parcial', 'conta': full.texto_da_conta(soma, numero, caminho),
-            'n_chamadas': len(linhas) * CHAMADAS_POR_CODIGO}   # quanto custa "Consultar todos" (o botão só avisa: a API só é chamada por clique)
+    return {'linhas': linhas, 'soma': _numeros_da_tabela(soma), 'soma_parcial': soma['estado'] == 'parcial', 'conta': full.texto_da_conta(soma, numero, caminho)}
+
+
+# Função Objetivo: O botão "Atualizar este item" do cabeçalho do detalhe (decisão do Matheus, 13/10/2026: UM botão que, para 1 item, atualiza TUDO que entra no cálculo dele, vendas e estoque). Devolve o que o template e o JS precisam:
+# `ativo` (há o que atualizar?), `dica` (o balão: o que o clique faz e quanto custa), `apoio` (a linha pequena antes do clique) e `config` (o JSON do script_ruptura.js: os MLBs, os Códigos ML, a janela, os endereços).
+# * [EXPLICAÇÃO] → NADA novo fala com o Mercado Livre: as VENDAS passam pelos mesmos endereços da tela de Vendas (planejar, atualizar/mlb, execucao/registrar) pelo mesmo orquestrador JS (atualizador_de_vendas.js), e o ESTOQUE pela mesma
+#                  consulta de sempre (view_ruptura_consultar), um Código ML por chamada, DEPOIS das vendas. Quais MLBs entram é do dono único da cobertura (vendas_ml.mlbs_da_cobertura, já em `mlbs`): o que o botão coleta é o que o
+#                  "dia completo" do item exige. A janela é a que o gráfico lê (a maior entre o ritmo, o recente e os ritmos do gráfico): o servidor só busca o que falta nela e revisa os últimos DIAS_DE_REVISAO dias.
+# * [EXPLICAÇÃO] → Fora do Full não há estoque lido (`codigos` vem vazio): o botão atualiza só as vendas.
+def _botao_de_atualizar(sku, gran, mlbs, codigos, janela_em_dias):
+    codigos = sorted(codigos)
+    partes = []
+    if mlbs:
+        partes.append(f'as vendas ({_plural(len(mlbs), "anúncio (MLB)", "anúncios (MLB)")}, só o que falta dos últimos {janela_em_dias} dias e a revisão dos últimos {DIAS_DE_REVISAO})')
+    if codigos:
+        partes.append(f'o estoque ({_plural(len(codigos), "Código ML", "Códigos ML")}, um por vez, cerca de {len(codigos) * CHAMADAS_POR_CODIGO} chamadas)')
+    ativo = bool(partes)
+    dica = ('Atualiza agora no Mercado Livre ' + ' e '.join(partes) + ' e recarrega a tela já recalculada. No fim mostra o total exato de chamadas feitas.') if ativo else (
+        'Este item não tem anúncio (MLB) ligado no banco: não há o que atualizar aqui. Use "Coletar período da conta" na tela de Vendas.')
+    apoio = 'atualiza ' + ' e '.join(p.split(' (')[0] for p in partes) if ativo else 'sem anúncio para atualizar'
+    return {
+        'ativo': ativo, 'dica': dica, 'apoio': apoio,
+        'config': {
+            'sku': sku, 'tipo': 'mlb' if gran == 'mlb' else 'produto', 'mlbs': list(mlbs), 'codigos': codigos, 'dias': janela_em_dias, 'origem': 'Previsão de Ruptura',
+            'url_planejar': reverse('gestao_vendas_planejar'), 'url_mlb': reverse('gestao_vendas_atualizar_mlb'), 'url_execucao': reverse('gestao_vendas_execucao_registrar'),
+            'url_consultar': reverse('gestao_ruptura_consultar'),
+        },
+    }
 
 
 # Função Objetivo: A linha de apoio sob o campo de estoque do detalhe: diz DE ONDE vem o estoque usado (lido do Full ou digitado) e o que fazer. Sempre uma linha só (a tela é rígida na vertical).
@@ -420,7 +449,7 @@ def _dica_do_estoque(mundo, digitado, lido, resumo, rotulo, caminho=False):
     if mundo != 'full':
         return {'texto': f'{rotulo}: digite o valor (só o estoque do Full é lido; a API de estoque do ERP ainda será corrigida).', 'classe': 'atencao'}
     if lido is None:
-        return {'texto': 'O estoque do Full deste item não foi lido (sem consulta salva). Digite o estoque para ver a projeção ou clique em "Consultar no Mercado Livre" na tabela de estoque, mais abaixo.', 'classe': 'atencao'}
+        return {'texto': 'O estoque do Full deste item não foi lido (sem consulta salva). Digite o estoque para ver a projeção ou clique em "Atualizar este item" (no alto, ao lado do nome do item).', 'classe': 'atencao'}
     if caminho and resumo['a_caminho']:
         return {'texto': f'Usando o estoque lido do Full: {numero(resumo["considerado"])} un + {numero(resumo["a_caminho"])} a caminho = {numero(lido)} un.{parcial} Digite um valor para simular outro estoque.',
                 'classe': 'atencao' if parcial else ''}
@@ -471,7 +500,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
         'ocultos': [{'nome': 'sku', 'valor': sku}] + ([{'nome': 'gran', 'valor': gran}, {'nome': 'item', 'valor': item}] if gran != 'sku' else []) + campos_escondidos(comuns, detalhe=True),
         'url_lista': url_da_tela(base_url, gran=gran if gran != 'sku' else None, **para_url(comuns)),
         'cartoes': [], 'grafico': None, 'diagnostico': None, 'alvo': None, 'tabela_de_codigos': None, 'dica_do_estoque': {'texto': '', 'classe': ''}, 'deposito': None,
-        'url_consultar': reverse('gestao_ruptura_consultar'), 'chamadas_por_codigo': CHAMADAS_POR_CODIGO,
+        'atualizar': None, 'frescor': None,
     })
 
     de = hoje - timedelta(days=max(dias, recente, max(calc.DIAS_DOS_RITMOS_DO_GRAFICO)))   # o gráfico compara 3, 7, 15 e 30 dias: as vendas desses dias já estão no banco (nada de API)
@@ -490,6 +519,8 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
         return
     codigos = codigos_do_sku if gran == 'sku' else ({c for _, c in mlbs_cad[item]['variacoes'] if c} if gran == 'mlb' else {item})
     mlbs_do_codigo = {c: sorted(m for m, info in mlbs_cad.items() if any(cc == c for _, cc in info['variacoes'])) for c in codigos}
+    # o botão "Atualizar este item": os MLBs são os da cobertura do item (dono único: vendas_ml.mlbs_da_cobertura) e os Códigos ML só existem (para consultar) no mundo Full
+    pagina['atualizar'] = _botao_de_atualizar(sku, gran, dados['mlbs_cobertura'], codigos if e_full else (), (hoje - de).days)
 
     # ---- o estoque: lido do Full (só no mundo Full) ou digitado ----
     resumo = ml = deposito = lido = None
@@ -524,8 +555,7 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
 
     nivel_vendas = {'sku': mundo, 'mlb': 'mlb', 'codigo': 'codigo'}[gran]
     url_vendas = url_da_tela(reverse('gestao_vendas_principal'), sku=sku, nivel=nivel_vendas, item=item if gran != 'sku' else None)
-    coletado_em = dados['coletado_em']
-    atualizado = coletado_em.astimezone(FUSO).strftime('%d/%m %H:%M') if coletado_em else ''
+    pagina['frescor'] = frescor(dados['coletado_em'], resumo)   # "vendas até 13/10 08:12 · estoque há 5 h" (o mesmo texto da coluna "Atualizado" da lista); resumo é None fora do Full
     marca = cadastro['marca']
     if gran == 'sku':
         alvo = {'tipo': 'Produto (SKU)', 'titulo': cadastro['titulo'] or sku, 'imagem': cadastro['imagem'],
@@ -540,14 +570,14 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
         alvo = {'tipo': 'Código ML', 'titulo': f'{item} — {cadastro["titulo"] or sku}', 'imagem': foto,
                 'meta': [('Código ML', item), ('SKU', sku), ('', _plural(len(usados), 'anúncio (MLB)', 'anúncios (MLB)'))]}
     alvo['meta'] = [{'rotulo': rotulo, 'valor': valor} for rotulo, valor in alvo['meta'] if valor]
-    alvo.update({'url_vendas': url_vendas, 'atualizado': atualizado})
+    alvo.update({'url_vendas': url_vendas})
     pagina['alvo'] = alvo
     if n_ok == 0:
-        pagina['avisos'].append(aviso('erro', f'Nenhum dia completo dos últimos {dias} foi coletado para este recorte', 'Sem dias completos não dá para calcular o ritmo.',
-                                      link=url_vendas, link_texto='Atualizar na tela de Vendas'))
+        pagina['avisos'].append(aviso('erro', f'Nenhum dia completo dos últimos {dias} foi coletado para este recorte',
+                                      'Sem dias completos não dá para calcular o ritmo. Clique em "Atualizar este item" (no alto, ao lado do nome do item) para coletar as vendas.'))
     elif n_ok < dias:
-        pagina['avisos'].append(aviso('aviso', 'dias completos na coleta de vendas deste recorte', f'Faltam dados de {dias - n_ok} dos últimos {dias} dias: a média usa só os {n_ok} dias completos que foram coletados.',
-                                      numero_texto=f'{n_ok}/{dias}', link=url_vendas, link_texto='Atualizar na tela de Vendas'))
+        pagina['avisos'].append(aviso('aviso', 'dias completos na coleta de vendas deste recorte', f'Faltam dados de {dias - n_ok} dos últimos {dias} dias: a média usa só os {n_ok} dias completos que foram coletados. Clique em "Atualizar este item" (no alto, ao lado do nome do item) para buscar o que falta.',
+                                      numero_texto=f'{n_ok}/{dias}'))
 
     # ---- os 4 cartões ----
     de_periodo = hoje - timedelta(days=dias)
@@ -643,6 +673,33 @@ def _textos_do_mundo(mundo, lead, ante, folga, dias, hoje):
     }
 
 
+# Função Objetivo: A faixa "Regras em uso" da LISTA (decisão do Matheus, 13/10/2026, mockup da tabela): os números que mandam na tabela, em uma linha de leitura, para quem olha as colunas saber com que regras elas foram calculadas
+# (prazo até vender, chegar antes, folga, o período das vendas e, no Full, onde começam o nível Crítico e o Baixo e se o "a caminho" está somado). São os MESMOS valores dos campos dos cartões (nomes e textos vêm de pagina.txt):
+# aqui só se mostra, quem digita são os cartões. Cada regra: {rotulo, valor, dica, provisorio, grupo}; `grupo` = 'conta' (as regras da conta: prazo, chegar antes, folga, vendas) ou 'niveis' (onde começam os níveis e o "a caminho"):
+# a faixa quebra em 2 linhas entre os dois grupos (só a largura da JANELA decide) e nunca no meio de um deles.
+# * [EXPLICAÇÃO] → "provisório" = ainda vale o número de partida da tela (a regra real depende do responsável pelo Full): o prazo sem digitar e a folga sem digitar. Crítico e Baixo são as regras provisórias de ruptura_calculo.nivel_do_estoque
+#                  (dura menos que o prazo = crítico; até prazo + folga = baixo); o Fora do Full não tem nível (sem estoque na lista).
+def _regras_em_uso(pagina, comuns):
+    txt, lead, ante, folga, dias = pagina['txt'], comuns['lead'], comuns['ante'], comuns['folga'], comuns['dias']
+    regras = [
+        {'rotulo': 'Prazo até vender', 'valor': _plural(lead, 'dia', 'dias'), 'dica': txt['prazo_dica'], 'provisorio': pagina['lead_e_padrao'], 'grupo': 'conta'},
+        {'rotulo': 'Chegar antes', 'valor': _plural(ante, 'dia', 'dias'), 'dica': txt['ante_dica'], 'provisorio': False, 'grupo': 'conta'},
+        {'rotulo': 'Folga', 'valor': _plural(folga, 'dia', 'dias'), 'dica': txt['folga_dica'], 'provisorio': pagina['folga_e_padrao'], 'grupo': 'conta'},
+        {'rotulo': 'Vendas', 'valor': f'últimos {_plural(dias, "dia", "dias")}', 'dica': txt['vendas_dica'], 'provisorio': False, 'grupo': 'conta'},
+    ]
+    if pagina['e_full']:
+        regras += [
+            {'rotulo': 'Crítico', 'valor': f'cobertura menor que {_plural(lead, "dia", "dias")}', 'provisorio': True, 'grupo': 'niveis',
+             'dica': 'Nível Crítico: o estoque dura menos que o prazo até vender, então não dá tempo de repor antes de acabar. É uma regra provisória (ainda não foi definida pelo responsável).'},
+            {'rotulo': 'Baixo', 'valor': f'cobertura até {_plural(lead + folga, "dia", "dias")}', 'provisorio': True, 'grupo': 'niveis',
+             'dica': 'Nível Baixo: o estoque dura até o prazo + a folga. Acima disso é Alto. É uma regra provisória (ainda não foi definida pelo responsável).'},
+        ]
+        if comuns['caminho']:
+            regras.append({'rotulo': 'A caminho', 'valor': 'somado ao estoque', 'provisorio': False, 'grupo': 'niveis',
+                           'dica': 'A opção "Contar o que está a caminho" está marcada: o que já foi enviado ao Full e ainda não chegou é somado ao estoque, como se já estivesse lá hoje (é uma hipótese: não se sabe quando chega).'})
+    return regras
+
+
 # Função Objetivo: O endereço de um mundo (para o seletor "Envios Full | Fora do Full"): leva os parâmetros dos DOIS mundos (trocar de mundo não perde o que foi digitado no outro) e o que identifica a tela
 # (o item aberto no detalhe; a busca, a situação, o "Divergem" e a ordem na lista).
 def _endereco_do_mundo(base_url, parametros, comuns, chave, sku, gran, item):
@@ -650,7 +707,7 @@ def _endereco_do_mundo(base_url, parametros, comuns, chave, sku, gran, item):
     if sku:
         identificacao = {'sku': sku, 'gran': gran if gran != 'sku' else None, 'item': item if gran != 'sku' else None}
     else:
-        identificacao = {k: (parametros.get(k) or '').strip() or None for k in ('gran', 'q', 'nivel', 'diverge', 'ord', 'por')}
+        identificacao = {k: (parametros.get(k) or '').strip() or None for k in ('gran', 'q', 'nivel', 'diverge', 'comparar', 'ord', 'sentido', 'por')}
     return url_da_tela(base_url, **identificacao, **para_url(destino, detalhe=bool(sku)))
 
 
@@ -675,7 +732,7 @@ def montar_pagina(parametros, base_url, hoje=None):
         'folga_e_padrao': comuns['folga_digitada'] is None,
         'txt': _textos_do_mundo(mundo, lead, ante, folga, dias, hoje),
         'avisos': [], 'lista': None, 'estado': 'lista', 'ocultos': [],
-        # * [EXPLICAÇÃO] → Os dois seletores de referência só existem no Full (o Mercado Livre só recomenda para o Full) e na lista e no detalhe. "Minha quantidade" só existe no detalhe de um item (a lista não tem quantidade digitada: lá vale "Sistema").
+        # * [EXPLICAÇÃO] → Os dois seletores de referência só existem no Full (o Mercado Livre só recomenda para o Full) e só no DETALHE de um item (a tabela da lista mostra as duas referências lado a lado, na chave "Comparar com o Mercado Livre"). "Minha quantidade" só existe no detalhe de um item (a lista não tem quantidade digitada: lá vale "Sistema").
         'urg_opcoes': _opcoes_de_urgencia(comuns['ref_urg']),
         'qtd_opcoes': _opcoes_de_quanto_enviar(comuns['ref_qtd'] if (sku or comuns['ref_qtd'] != 'manual') else 'sistema', bool(sku)),
         'atalhos': [{'dias': d, 'rotulo': str(d), 'ativo': d == dias} for d in ATALHOS_DE_DIAS] + [{'dias': maximo, 'rotulo': '1 ano', 'ativo': dias == maximo}],
@@ -685,10 +742,10 @@ def montar_pagina(parametros, base_url, hoje=None):
         pagina['avisos'].append(aviso('info', 'O Mercado Livre guarda cerca de 12 meses de pedidos', f'O ritmo usa {dias} dias (o máximo disponível).'))
     if sku:
         _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku)
-    elif mundo == 'full':
-        pagina['lista'] = montar_lista(parametros, base_url, hoje, comuns)
     else:
-        pagina['lista'] = montar_lista_fora(parametros, base_url, hoje, comuns)
+        pagina['regras_em_uso'] = _regras_em_uso(pagina, comuns)
+        pagina['regras_tem_provisoria'] = any(r['provisorio'] for r in pagina['regras_em_uso'])   # a legenda "tracejado = regra provisória" só aparece quando há alguma
+        pagina['lista'] = montar_lista(parametros, base_url, hoje, comuns) if mundo == 'full' else montar_lista_fora(parametros, base_url, hoje, comuns)
     gran, item = pagina.get('gran', ''), pagina.get('item', '')
     pagina['mundos'] = [{'chave': chave, 'rotulo': rotulo, 'dica': dica, 'ativo': chave == mundo,
                          'desativado': bool(sku) and gran == 'codigo' and chave == 'fora',
