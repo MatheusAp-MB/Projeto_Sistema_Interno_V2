@@ -177,7 +177,9 @@
    (21/09/2026) — mostram se o produto está sendo
    calculado de forma reduzida ou integral. Tela de
    Produto (aba Impostos) e Grade de Precificação ML.
-   3 cores, 3 significados fixos, nunca misturados:
+   4 cores, 4 significados fixos, nunca misturados
+   (integral / reduzido / ST / zero — zero acrescentado
+   em 01/10/2026):
    ================================================ */
 /* * [EXPLICAÇÃO] → Índigo NOVO, de propósito — não é o mesmo azul de
  *                  badge-classico/status-em-revisao/badge-sharing_first_place
@@ -201,6 +203,13 @@
  *                  visualmente com nenhum desses, mesmo lado a lado no
  *                  mesmo card. */
 .badge-fiscal-st                     { background: #f4e4bc; color: #8a6116; }
+/* * [EXPLICAÇÃO] → Ardósia ESCURA (fundo escuro, texto claro) de propósito (01/10/2026) — todos
+ *                  os outros badges fiscais são tons claros; ZERO é o único estado em que o
+ *                  PIS/COFINS de saída vale 0% (CST 02/04/06 no XML do fornecedor, tributo já
+ *                  pago antes — ver pis_cofins_tributo_ja_pago.py), então precisa saltar dos
+ *                  demais sem herdar o sentido de nenhum deles. Não é o ardósia claro de
+ *                  badge-reestruturacao-manual (#e2e8f0/#334155). */
+.badge-fiscal-zero                   { background: #334155; color: #f8fafc; }
 
 
 /* ================================================

@@ -9,7 +9,8 @@
 #                        1 vez por MLB do SKU.
 #   - coletar_dia      → 1 dia da conta toda (todos os SKUs), ~4 páginas em um dia de ~160 pedidos.
 #   - iniciar_periodo  → de (hoje − N dias) até hoje da conta toda, dia por dia, numa THREAD (com andamento e botão Parar), do dia mais novo para o
-#                        mais antigo: se parar no meio, o que ficou pronto é o trecho mais recente, que é o mais valioso.
+#                        mais antigo: se parar no meio, o que ficou pronto é o trecho mais recente, que é o mais valioso. A cada dia que termina, o
+#                        trecho pronto é marcado como coletado (_gravar_ponto_de_retomada): se a coleta cair no meio, perde no máximo 1 dia (13/10/2026).
 #
 # * [EXPLICAÇÃO] → "N dias" aqui significa N dias PARA TRÁS de hoje: o intervalo é [hoje − N, hoje], ou seja, N + 1 dias de calendário (hoje entra, parcial).
 #                  O N vem dos períodos por calendário da tela (Última semana, Último mês...; ver cobertura_vendas_ml.periodos_de_hoje).
@@ -35,7 +36,7 @@
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from math import ceil
@@ -402,8 +403,10 @@ def _mensagem_para_registro(relatorio):
     return texto[:MAX_MENSAGEM_REGISTRADA]
 
 
-def _registrar(relatorio, usuario, sku=''):
-    ColetaVendasMercadoLivre.objects.create(
+# * [EXPLICAÇÃO] → `registro` (13/10/2026): a linha que esta MESMA coleta já gravou antes, no meio do caminho (ver _gravar_ponto_de_retomada). Passando-a, a linha é
+#                  ATUALIZADA com o resultado final em vez de criar uma segunda — continua 1 linha por coleta. Sem `registro`, cria, como sempre.
+def _registrar(relatorio, usuario, sku='', registro=None):
+    campos = dict(
         escopo=relatorio.escopo,
         mlb=relatorio.alvo if relatorio.escopo == ColetaVendasMercadoLivre.Escopo.MLB else '',
         sku=sku, data_de=relatorio.data_de, data_ate=relatorio.data_ate, status=relatorio.status,
@@ -411,6 +414,38 @@ def _registrar(relatorio, usuario, sku=''):
         erros_429=relatorio.erros_429, mensagem=_mensagem_para_registro(relatorio), usuario=usuario[:150],
         iniciado_em=relatorio.iniciado_em, concluido_em=timezone.now(),
     )
+    if registro is None:
+        return ColetaVendasMercadoLivre.objects.create(**campos)
+    for nome, valor in campos.items():
+        setattr(registro, nome, valor)
+    registro.save()
+    return registro
+
+
+# Função Objetivo: Grava (ou atualiza) NO MEIO da coleta do período o "ponto de retomada": a linha de ColetaVendasMercadoLivre que diz "os dias de
+#                  `ultimo_dia_completo` até `hoje` já estão coletados". Chamada a cada dia que termina; a coleta que cai no meio (servidor reiniciado, queda de
+#                  energia, terminal fechado) perde no máximo o dia que estava sendo lido — a próxima coleta continua dali em vez de reler tudo.
+# * [EXPLICAÇÃO] → Antes (achado de 13/10/2026, coleta do ano derrubada no dia 20/04): a linha de cobertura só era gravada no FIM da coleta. Os pedidos de cada dia já iam
+#                  para o banco na hora, mas, sem a linha, a tela dizia "Nada coletado neste período" e a próxima coleta lia tudo de novo (centenas de chamadas ao ML
+#                  repetidas à toa).
+# * [EXPLICAÇÃO] → É 1 linha por coleta, atualizada a cada dia (status PARCIAL, que já significa "data_de/data_ate mostram só o que ficou completo"); no fim,
+#                  _registrar atualiza a MESMA linha com o resultado final. Os dias DENTRO dos últimos DIAS_DE_REVISAO dias continuam sendo relidos em toda coleta
+#                  (regra de dias_pendentes, para pegar cancelamentos) — o ponto de retomada não muda isso.
+# * [EXPLICAÇÃO] → NUNCA derruba a coleta (mesmo padrão de _registrar_execucao): se a gravação falhar, escreve o erro no terminal do servidor e devolve a linha
+#                  anterior; os pedidos já estão salvos e o registro final ainda é tentado no fim.
+def _gravar_ponto_de_retomada(relatorio, usuario, hoje, ultimo_dia_completo, registro):
+    import traceback
+
+    try:
+        parcial = replace(
+            relatorio, data_de=ultimo_dia_completo, data_ate=hoje, status=ColetaVendasMercadoLivre.Status.PARCIAL,
+            mensagem=(f'Coleta em andamento: de {ultimo_dia_completo:%d/%m/%Y} a {hoje:%d/%m/%Y} já coletado. Se esta mensagem ficou, a coleta foi '
+                      f'interrompida antes de terminar (por exemplo, o servidor foi reiniciado): esse trecho está salvo e a próxima coleta continua dali.'),
+        )
+        return _registrar(parcial, usuario, registro=registro)
+    except Exception:
+        traceback.print_exc()
+        return registro
 
 
 # ==================================================== execuções: 1 linha por CLIQUE, com o custo em chamadas ====================================================
@@ -721,7 +756,7 @@ def ler_estado_periodo(empresa):
         if periodo_em_andamento(empresa) is None:
             cache.delete(chave)
             return {'status': 'erro', 'mensagem': 'A coleta anterior parou sem terminar (provavelmente o servidor foi reiniciado). Os dias já '
-                                                  'coletados ficaram salvos. Você pode começar outra.'}
+                                                  'coletados ficaram salvos e marcados como coletados. Você pode começar outra: ela continua de onde parou.'}
         return estado
     cache.delete(chave)
     return estado
@@ -766,6 +801,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
 
     ultimo_dia_completo = None
     trechos_lidos = 0   # dias que terminaram por completo (vira `trechos` na execução registrada ao final)
+    registro_da_coleta = None   # a linha de cobertura desta coleta, criada no 1º dia que termina e atualizada a cada dia (ver _gravar_ponto_de_retomada)
     try:
         api_ml = _api(empresa)
         gravar_andamento(forcar=True)
@@ -794,6 +830,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
             _gravar_pedidos(relatorio, pedidos)
             ultimo_dia_completo = dia
             trechos_lidos += 1
+            registro_da_coleta = _gravar_ponto_de_retomada(relatorio, usuario, hoje, ultimo_dia_completo, registro_da_coleta)
             gravar_andamento()
         gravar_andamento(forcar=True)
     except ErroAutenticacaoAPI:
@@ -819,7 +856,7 @@ def _rodar_periodo_em_thread(empresa, dias, usuario, pendentes):
         else:
             abertura = 'Coleta concluída' if completa else ('Coleta interrompida a pedido' if interrompida else 'Coleta parou')
             relatorio.mensagem = f'{abertura} em {tempo}. ' + _resumo(relatorio, 'Conta toda') + (f' {erro_texto}' if erro_texto else '')
-        _registrar(relatorio, usuario)
+        _registrar(relatorio, usuario, registro=registro_da_coleta)
         _registrar_execucao(relatorio, ExecucaoColetaVendasMercadoLivre.Tipo.PERIODO, usuario, hoje - timedelta(days=dias), hoje, trechos=trechos_lidos,
                             trechos_com_falha=1 if erro_texto else 0, dias_total=dias + 1, dias_a_coletar=len(pendentes), segundos=duracao)
         gravar({

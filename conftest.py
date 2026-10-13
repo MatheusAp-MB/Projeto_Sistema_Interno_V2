@@ -6,6 +6,8 @@ import pytest
 from rich.console import Console
 from rich.table import Table
 
+from core.empresa import EMPRESA_MAGAZINE, definir_empresa_ativa
+
 _console = Console()
 
 CAMINHO_LOG_TESTES = Path('resultados_testes.txt')
@@ -40,6 +42,33 @@ def _resetar_log_de_testes():
     # de "pytest -s" gera um log novo, nunca acumula histórico de rodadas
     # antigas.
     CAMINHO_LOG_TESTES.write_text('', encoding='utf-8')
+
+
+@pytest.fixture(autouse=True)
+def _empresa_ativa_nos_testes():
+    # * [EXPLICAÇÃO] → Desde 27/09/2026 o EmpresaRouter levanta EmpresaNaoDefinidaError em
+    #                  qualquer leitura/escrita de dado de empresa quando nenhuma empresa está
+    #                  ativa (decisão: nunca cair em silêncio no banco da Magazine). Teste de
+    #                  banco não passa por requisição web nem por comando com --empresa, então
+    #                  ninguém definia a empresa e todo teste que criava Produto quebrava já no
+    #                  Setup (achado real de 13/10/2026: 11 falhas em
+    #                  test_nivel_3__creditos_fiscais_para_precificacao.py, 3 delas antigas).
+    #
+    #                  Dono único dessa definição nos testes: aqui. A Magazine é a empresa
+    #                  padrão dos testes — um teste que precise da Samvale chama
+    #                  definir_empresa_ativa(EMPRESA_SAMVALE) por conta própria, no início dele.
+    #
+    #                  Contrapartida conhecida: os testes deixam de acusar "esqueci de definir a
+    #                  empresa" — essa proteção continua valendo no sistema real (web, comandos
+    #                  e scripts), que é onde a decisão de 27/09 importa.
+
+    # Setup
+    definir_empresa_ativa(EMPRESA_MAGAZINE)
+
+    yield
+
+    # TearDown: volta a "nenhuma empresa ativa" — nada vaza de um teste pro outro.
+    definir_empresa_ativa(None)
 
 
 @pytest.fixture(scope='module')

@@ -30,6 +30,11 @@
 #     Produto + CST — o CST lido nesta rodada da planilha quando existir,
 #     senão o cst_saida que já estava gravado (não precisa vir tudo da
 #     mesma linha). Rodam pra TODO produto com NCM+CST salvos.
+#     EXCEÇÃO (01/10/2026, regra de Matheus): produto cujo CST de PIS/COFINS no XML do
+#     fornecedor (impostos_entrada.pis/cofins.cst_xml) é 02, 04 ou 06 tem pis_percentual e
+#     cofins_percentual = 0 SEMPRE — tributo já pago antes pelo fornecedor, nada a recolher na
+#     saída (e nada a creditar na entrada). Esse zero vence a tabela, a redução de base e a
+#     falta de NCM/CST. Regra dona em entrada/pis_cofins_tributo_ja_pago.py.
 #
 # Regra de fallback (decidida no vault, 13/09/2026 — revista): pro
 # cst_saida, quando o EAN não está na planilha desta rodada, o campo não
@@ -86,6 +91,7 @@ from rich.text import Text
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import pis_cofins_tributo_ja_pago_pelo_fornecedor
 from impostos.models import IcmsSaidaPorNcmCstOrigemUf, IcmsSaidaMediaPorNcmCstOrigem, PisCofinsSaidaPorNcmCst
 from produtos.models import Produto
 
@@ -317,6 +323,15 @@ class ImportadorImpostosSaida:
         self.pis_cofins_zerado_nesta_rodada = 0
         self.pis_cofins_continua_vazio = 0
 
+        # * [EXPLICAÇÃO] → Contador À PARTE dos 3 acima (01/10/2026): produto cujo PIS/COFINS
+        #                  de saída foi forçado a 0% pela regra de CST 02/04/06 no XML do
+        #                  fornecedor (tributo já pago — ver pis_cofins_tributo_ja_pago.py).
+        #                  Não é "validado" (não veio de PisCofinsSaidaPorNcmCst) nem
+        #                  "zerado nesta rodada" (que sinaliza dado validado que SUMIU, e
+        #                  pinta de vermelho no relatório) — é um zero por regra fiscal,
+        #                  esperado, por isso fica fora dos 3 e não dispara o alerta.
+        self.pis_cofins_tributo_ja_pago_zero = 0
+
     # Função Objetivo: Carrega em memória os produtos já existentes, só com os campos que este comando toca.
     # Explicação em detalhe: 'ncm' entra aqui porque agora é a chave de
     # busca nas tabelas normalizadas — sem isso no .only(), cada acesso a
@@ -340,6 +355,10 @@ class ImportadorImpostosSaida:
                 'icms_saida_sp', 'icms_saida_media', 'pis_percentual', 'cofins_percentual',
                 'impostos_entrada__origem_mercadoria_cadastro',
                 'impostos_entrada__pis__reducao', 'impostos_entrada__cofins__reducao',
+                # cst_xml de PIS/COFINS entra aqui pelo mesmo motivo (01/10/2026, regra do
+                # tributo já pago — CST 02/04/06): fora do only() cada produto dispararia 1
+                # query extra pra carregar o campo diferido (N+1 no catálogo inteiro).
+                'impostos_entrada__pis__cst_xml', 'impostos_entrada__cofins__cst_xml',
             )
         }
 
@@ -495,10 +514,16 @@ class ImportadorImpostosSaida:
                 origem_produto = impostos_entrada.origem_mercadoria_cadastro
                 reducao_pis = impostos_entrada.pis.reducao
                 reducao_cofins = impostos_entrada.cofins.reducao
+                # CST 02/04/06 no XML do fornecedor = tributo já pago (01/10/2026) — ver o
+                # bloco de PIS/COFINS mais abaixo.
+                pis_ja_pago = pis_cofins_tributo_ja_pago_pelo_fornecedor(impostos_entrada.pis.cst_xml)
+                cofins_ja_pago = pis_cofins_tributo_ja_pago_pelo_fornecedor(impostos_entrada.cofins.cst_xml)
             except ObjectDoesNotExist:
                 origem_produto = None
                 reducao_pis = None
                 reducao_cofins = None
+                pis_ja_pago = False
+                cofins_ja_pago = False
 
             campos_tabela = self._calcular_campos_por_tabela(
                 produto, cst_para_busca, origem_produto, reducao_pis, reducao_cofins,
@@ -529,7 +554,21 @@ class ImportadorImpostosSaida:
             else:
                 self.icms_media_continua_vazio += 1
 
-            if 'pis_percentual' in campos_tabela:
+            # * [EXPLICAÇÃO] → Regra do tributo já pago (Matheus, 01/10/2026): CST de PIS/COFINS
+            #                  02, 04 ou 06 no XML do fornecedor → PIS/COFINS de SAÍDA = 0%,
+            #                  SEMPRE, ignorando a planilha Busca Legal, a redução de base e
+            #                  até a falta de NCM/CST do produto (o zero não depende de
+            #                  achar a linha em PisCofinsSaidaPorNcmCst). Esse bloco vem
+            #                  ANTES dos demais de propósito, pra o zero vencer qualquer
+            #                  valor da tabela. Cada imposto olha o PRÓPRIO cst_xml; o outro
+            #                  (se não for "já pago") segue o caminho normal da tabela.
+            if pis_ja_pago or cofins_ja_pago:
+                campos['pis_percentual'] = Decimal('0') if pis_ja_pago else campos_tabela.get('pis_percentual')
+                campos['cofins_percentual'] = (
+                    Decimal('0') if cofins_ja_pago else campos_tabela.get('cofins_percentual')
+                )
+                self.pis_cofins_tributo_ja_pago_zero += 1
+            elif 'pis_percentual' in campos_tabela:
                 campos['pis_percentual'] = campos_tabela['pis_percentual']
                 campos['cofins_percentual'] = campos_tabela['cofins_percentual']
                 self.pis_cofins_validado += 1
@@ -586,7 +625,9 @@ class ImportadorImpostosSaida:
             f'{self.icms_media_continua_vazio}\n'
             f'        pis/cofins (PisCofinsSaidaPorNcmCst): '
             f'{self.pis_cofins_validado} / {self.pis_cofins_zerado_nesta_rodada} / '
-            f'{self.pis_cofins_continua_vazio}'
+            f'{self.pis_cofins_continua_vazio}\n'
+            f'        pis/cofins forçados a 0% (CST 02/04/06 no XML do fornecedor — tributo já pago, '
+            f'fora da linha acima): {self.pis_cofins_tributo_ja_pago_zero}'
         )
 
 
@@ -687,6 +728,13 @@ def preencher_impostos_saida(stdout, style):
         )
     console.print()
     console.print(tabela_campos)
+
+    # Fora da tabela acima de propósito (ver comentário em pis_cofins_tributo_ja_pago_zero no
+    # __init__): é um zero por regra fiscal, esperado — não entra em "Validado" nem em "Zerado".
+    console.print(
+        f'PIS/COFINS forçados a 0% por CST 02/04/06 no XML do fornecedor (tributo já pago, '
+        f'fora da linha pis/cofins acima): [bold]{importador.pis_cofins_tributo_ja_pago_zero}[/bold]'
+    )
 
     console.print()
     texto_final = (

@@ -149,6 +149,132 @@ def test_sem_quantidade_nota_devolve_none_em_tudo(tabela_resultados):
     # TearDown: nada a desmontar.
 
 
+@pytest.mark.parametrize('cst', ['02', '04', '06'])
+def test_cst_pis_cofins_tributo_ja_pago_zera_credito(tabela_resultados, cst):
+    # Setup: XML do fornecedor com CST de PIS/COFINS 02/04/06 — tributo já pago antes
+    # pelo fornecedor (regra de Matheus, 01/10/2026). A nota ainda traz valor de PIS (1.5) e
+    # COFINS (6.9) — o zero vale "independente do que vier do fornecedor".
+    produto = _criar_produto(f'79000000003{cst}')
+    dados = _dados_xml_nf_padrao(
+        pis=Pis(cst_xml=cst, cst_cadastro='00', base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
+        cofins=Cofins(cst_xml=cst, cst_cadastro='00', base_calculo=90.0, aliquota=7.6, reducao=10.0, valor=6.9),
+    )
+    sincronizar_impostos_entrada_do_xml(produto, dados)
+    guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
+
+    # Exercise
+    creditos = montar_creditos_fiscais_para_precificacao(guarda_chuva)
+
+    # Assert: PIS e COFINS = 0; ICMS e IPI seguem o crédito normal da nota.
+    bateu = (
+        creditos.pis == Decimal('0') and creditos.cofins == Decimal('0')
+        and creditos.icms == Decimal('18.1') and creditos.ipi == Decimal('5.0')
+    )
+    registrar_resultado(
+        tabela_resultados, f'cst_{cst}_zera_credito_pis_cofins',
+        f'CST PIS/COFINS no XML={cst}, valor PIS=1.5, valor COFINS=6.9',
+        'pis=0, cofins=0 (icms=18.1 e ipi=5.0 intactos)',
+        'Tributo já pago antes pelo fornecedor — não há crédito de PIS/COFINS na entrada, mesmo com valor na nota',
+        f'icms={creditos.icms}, ipi={creditos.ipi}, pis={creditos.pis}, cofins={creditos.cofins}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+@pytest.mark.parametrize('cst', ['01', '03', '49'])
+def test_cst_pis_cofins_fora_da_regra_mantem_credito_da_nota(tabela_resultados, cst):
+    # Setup: CST fora de 02/04/06 — a regra do tributo já pago NÃO pode disparar.
+    produto = _criar_produto(f'79000000004{cst}')
+    dados = _dados_xml_nf_padrao(
+        pis=Pis(cst_xml=cst, cst_cadastro='00', base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
+        cofins=Cofins(cst_xml=cst, cst_cadastro='00', base_calculo=90.0, aliquota=7.6, reducao=10.0, valor=6.9),
+    )
+    sincronizar_impostos_entrada_do_xml(produto, dados)
+    guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
+
+    # Exercise
+    creditos = montar_creditos_fiscais_para_precificacao(guarda_chuva)
+
+    # Assert
+    bateu = creditos.pis == Decimal('1.5') and creditos.cofins == Decimal('6.9')
+    registrar_resultado(
+        tabela_resultados, f'cst_{cst}_mantem_credito_pis_cofins',
+        f'CST PIS/COFINS no XML={cst}, valor PIS=1.5, valor COFINS=6.9',
+        'pis=1.5, cofins=6.9 (crédito normal da nota)',
+        'Só 02/04/06 zeram o crédito — qualquer outro CST segue o valor do XML',
+        f'pis={creditos.pis}, cofins={creditos.cofins}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_cst_tributo_ja_pago_so_no_pis_nao_zera_cofins(tabela_resultados):
+    # Setup: PIS com CST 04, COFINS com CST 00 — cada imposto olha o PRÓPRIO cst_xml.
+    produto = _criar_produto('7900000000501')
+    dados = _dados_xml_nf_padrao(
+        pis=Pis(cst_xml='04', cst_cadastro='00', base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
+    )
+    sincronizar_impostos_entrada_do_xml(produto, dados)
+    guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
+
+    # Exercise
+    creditos = montar_creditos_fiscais_para_precificacao(guarda_chuva)
+
+    # Assert
+    bateu = creditos.pis == Decimal('0') and creditos.cofins == Decimal('6.9')
+    registrar_resultado(
+        tabela_resultados, 'cst_tributo_ja_pago_so_no_pis',
+        'CST PIS=04, CST COFINS=00 (valor COFINS=6.9)',
+        'pis=0, cofins=6.9',
+        'A regra é por imposto: o zero do PIS não arrasta o COFINS junto',
+        f'pis={creditos.pis}, cofins={creditos.cofins}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+def test_cst_tributo_ja_pago_zera_pis_cofins_mesmo_sem_quantidade_nota(tabela_resultados):
+    # Setup: produto sincronizado antes de quantidade_nota existir (None), CST 04. Os outros
+    # créditos continuam None (sem quantidade não dá pra dividir por unidade), mas o zero de
+    # PIS/COFINS é regra fiscal — não depende de quantidade.
+    produto = _criar_produto('7900000000502')
+    dados = _dados_xml_nf_padrao(
+        pis=Pis(cst_xml='04', cst_cadastro='00', base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
+        cofins=Cofins(cst_xml='04', cst_cadastro='00', base_calculo=90.0, aliquota=7.6, reducao=10.0, valor=6.9),
+    )
+    sincronizar_impostos_entrada_do_xml(produto, dados)
+    guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
+    guarda_chuva.quantidade_nota = None
+    guarda_chuva.save()
+    guarda_chuva.refresh_from_db()
+
+    # Exercise
+    creditos = montar_creditos_fiscais_para_precificacao(guarda_chuva)
+
+    # Assert
+    bateu = (
+        creditos.pis == Decimal('0') and creditos.cofins == Decimal('0')
+        and creditos.icms is None and creditos.ipi is None
+    )
+    registrar_resultado(
+        tabela_resultados, 'cst_tributo_ja_pago_sem_quantidade_nota',
+        'CST PIS/COFINS=04, quantidade_nota=None',
+        'pis=0, cofins=0; icms e ipi None',
+        'Zero por regra fiscal não precisa de quantidade; os demais créditos seguem None (dado insuficiente)',
+        f'icms={creditos.icms}, ipi={creditos.ipi}, pis={creditos.pis}, cofins={creditos.cofins}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
 @pytest.mark.xfail(reason='Falha de propósito — prova visual da linha FALHOU na tabela')
 def test_caso_de_falha_proposital(tabela_resultados):
     # Setup

@@ -15,6 +15,7 @@ from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 
 from impostos.funcoes_auxiliares.entrada.conversao_valores_impostos import valor_por_unidade
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import pis_cofins_tributo_ja_pago_pelo_fornecedor
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
 
@@ -86,6 +87,24 @@ def _montar_creditos_do_retrato_completo(
     return CreditosFiscaisEntradaParaPrecificacao(
         icms=valor_por_unidade(_credito_icms_da_nota(impostos_entrada), quantidade_nota),
         ipi=valor_por_unidade(impostos_entrada.ipi.valor, quantidade_nota),
-        pis=valor_por_unidade(impostos_entrada.pis.valor, quantidade_nota),
-        cofins=valor_por_unidade(impostos_entrada.cofins.valor, quantidade_nota),
+        pis=_credito_pis_cofins_por_unidade(impostos_entrada.pis, quantidade_nota),
+        cofins=_credito_pis_cofins_por_unidade(impostos_entrada.cofins, quantidade_nota),
     )
+
+
+def _credito_pis_cofins_por_unidade(
+    imposto_entrada: object, quantidade_nota: Decimal | None,
+) -> Decimal | None:
+    # * [EXPLICAÇÃO] → CST de PIS/COFINS 02, 04 ou 06 no XML do fornecedor = tributo já pago
+    #                  antes pelo fornecedor → crédito de entrada é 0, SEMPRE, ignorando o
+    #                  valor que veio na nota (regra de Matheus, 01/10/2026 — dona única em
+    #                  pis_cofins_tributo_ja_pago.py). Vale mesmo sem quantidade_nota: um
+    #                  zero por regra fiscal não depende de dividir por unidade, então não
+    #                  cai na regra "dado insuficiente = None" do dataclass acima.
+    #
+    #                  Cada imposto (PIS e COFINS) olha o PRÓPRIO cst_xml — na prática vêm
+    #                  iguais, mas o modelo guarda os 2 separados.
+    if pis_cofins_tributo_ja_pago_pelo_fornecedor(imposto_entrada.cst_xml):
+        return Decimal('0')
+
+    return valor_por_unidade(imposto_entrada.valor, quantidade_nota)

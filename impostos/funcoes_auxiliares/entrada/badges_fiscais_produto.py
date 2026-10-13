@@ -13,6 +13,13 @@
 #                  / .cofins.reducao (reducao > 0 = REDUZIDO). Produto sem
 #                  nenhuma redução registrada (reducao == 0) é INTEGRAL.
 #
+# * [EXPLICAÇÃO] → PIS/COFINS SAÍDA ZERO (01/10/2026): CST de PIS/COFINS 02, 04 ou 06 no
+#                  XML do fornecedor = tributo já pago antes, saída 0% (regra dona em
+#                  pis_cofins_tributo_ja_pago.py, aplicada de fato em
+#                  preenchimento_impostos_saida.py). ZERO vence REDUZIDO e INTEGRAL: se o
+#                  percentual de saída é 0, mostrar "INTEGRAL" mentiria sobre o cálculo.
+#                  Cada imposto (PIS e COFINS) olha o PRÓPRIO cst_xml.
+#
 # * [EXPLICAÇÃO] → ICMS ENTRADA (INTEGRAL/REDUZIDO/ST): é sobre a ENTRADA,
 #                  não a saída — não existe conceito de redução de base de
 #                  ICMS de saída neste sistema. Prioridade fixa: ST sempre
@@ -35,10 +42,13 @@ from dataclasses import dataclass
 
 from django.core.exceptions import ObjectDoesNotExist
 
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import pis_cofins_tributo_ja_pago_pelo_fornecedor
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
+PIS_SAIDA_ZERO = 'PIS SAÍDA ZERO'
 PIS_SAIDA_REDUZIDO = 'PIS SAÍDA REDUZIDO'
 PIS_SAIDA_INTEGRAL = 'PIS SAÍDA INTEGRAL'
+COFINS_SAIDA_ZERO = 'COFINS SAÍDA ZERO'
 COFINS_SAIDA_REDUZIDO = 'COFINS SAÍDA REDUZIDO'
 COFINS_SAIDA_INTEGRAL = 'COFINS SAÍDA INTEGRAL'
 ICMS_ENTRADA_INTEGRAL = 'ICMS ENTRADA INTEGRAL'
@@ -77,8 +87,12 @@ def montar_badges_fiscais_produto(
     #                  creditos_fiscais_para_precificacao.py) cai no mesmo fallback de
     #                  "sem retrato": a tela da grade não pode quebrar por causa dele.
     try:
-        pis_reduzido = impostos_entrada.pis.reducao > 0
-        cofins_reduzido = impostos_entrada.cofins.reducao > 0
+        pis_rotulo, pis_classe = _badge_pis_cofins_saida(
+            impostos_entrada.pis, PIS_SAIDA_ZERO, PIS_SAIDA_REDUZIDO, PIS_SAIDA_INTEGRAL,
+        )
+        cofins_rotulo, cofins_classe = _badge_pis_cofins_saida(
+            impostos_entrada.cofins, COFINS_SAIDA_ZERO, COFINS_SAIDA_REDUZIDO, COFINS_SAIDA_INTEGRAL,
+        )
 
         if _produto_tem_icms_st(impostos_entrada):
             icms_rotulo, icms_classe = ICMS_ENTRADA_ST, 'badge-fiscal-st'
@@ -90,12 +104,25 @@ def montar_badges_fiscais_produto(
         return _badges_integrais()
 
     return BadgesFiscaisProduto(
-        pis_rotulo=PIS_SAIDA_REDUZIDO if pis_reduzido else PIS_SAIDA_INTEGRAL,
-        pis_classe='badge-fiscal-reduzido' if pis_reduzido else 'badge-fiscal-integral',
-        cofins_rotulo=COFINS_SAIDA_REDUZIDO if cofins_reduzido else COFINS_SAIDA_INTEGRAL,
-        cofins_classe='badge-fiscal-reduzido' if cofins_reduzido else 'badge-fiscal-integral',
+        pis_rotulo=pis_rotulo, pis_classe=pis_classe,
+        cofins_rotulo=cofins_rotulo, cofins_classe=cofins_classe,
         icms_rotulo=icms_rotulo, icms_classe=icms_classe,
     )
+
+
+# Função Objetivo: Escolhe rótulo + classe CSS da badge de PIS ou COFINS de saída de 1 produto.
+# Prioridade fixa: ZERO (tributo já pago, CST 02/04/06 no XML) > REDUZIDO (reducao > 0) > INTEGRAL.
+# imposto_entrada é o PIS ou o COFINS do retrato (mesmos campos cst_xml e reducao nos 2).
+def _badge_pis_cofins_saida(
+    imposto_entrada: object, rotulo_zero: str, rotulo_reduzido: str, rotulo_integral: str,
+) -> tuple[str, str]:
+    if pis_cofins_tributo_ja_pago_pelo_fornecedor(imposto_entrada.cst_xml):
+        return rotulo_zero, 'badge-fiscal-zero'
+
+    if imposto_entrada.reducao > 0:
+        return rotulo_reduzido, 'badge-fiscal-reduzido'
+
+    return rotulo_integral, 'badge-fiscal-integral'
 
 
 # Função Objetivo: As 3 badges "tudo integral" — fallback de produto sem retrato (ou com retrato incompleto).
