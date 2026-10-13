@@ -408,6 +408,20 @@
                                     </td>
                                     <td class="modal-td-valor" colspan="3">{% if linha.valor is not None %}R$ {{ linha.valor|floatformat:2 }}{% else %}—{% endif %}</td>
                                 </tr>
+                                {% if linha.valor_considerado_regra is not None %}
+                                <tr>
+                                    <td class="modal-td-dado">Valor considerado</td>
+                                    <td class="modal-td-valor" colspan="3">R$ {{ linha.valor_considerado_regra|floatformat:2 }} <span class="badge-tabela badge-fiscal-zero">Zerado pela regra</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="modal-td-valor" colspan="4">
+                                        <div class="modal-regra-tributo-pago">
+                                            <p class="modal-regra-tributo-pago-titulo">Veio no XML {% if linha.valor is not None %}R$ {{ linha.valor|floatformat:2 }} por unidade{% else %}um valor ausente nesta nota{% endif %} (CST XML {{ linha.cst_xml }}), mas foi considerado R$ {{ linha.valor_considerado_regra|floatformat:2 }} seguindo a regra.</p>
+                                            <p class="modal-regra-tributo-pago-texto"><strong>Regra:</strong> {{ texto_regra_tributo_ja_pago }}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 {% if linha.aliquota_fcp is not None %}
                                 <tr>
                                     <td class="modal-td-dado">% FCP</td>
@@ -493,7 +507,13 @@
                     <div class="card">
                         <div class="card-header modal-card-cabecalho modal-card-cabecalho-pis">
                             <strong>PIS</strong>
-                            {% if produto.obter_dados_fiscais.pis_percentual is not None %}
+                            {% if regra_saida_pis %}
+                                {% if regra_saida_pis.divergente %}
+                                    <span class="badge-tabela badge-fiscal-rejeitado">Diverge da regra</span>
+                                {% else %}
+                                    <span class="badge-tabela badge-fiscal-zero">Zerado pela regra</span>
+                                {% endif %}
+                            {% elif produto.obter_dados_fiscais.pis_percentual is not None %}
                                 <span class="badge-tabela badge-fiscal-validado">Validado</span>
                             {% elif motivo_pis_cofins %}
                                 <span class="badge-tabela {{ motivo_pis_cofins.badge_classe }}">{{ motivo_pis_cofins.badge_rotulo }}</span>
@@ -507,6 +527,7 @@
                                     <td class="modal-td-valor">{{ produto.obter_dados_fiscais.pis_percentual|floatformat:2 }}%</td>
                                 </tr>
                             </table>
+                            {% include "produtos/parciais/_regra_pis_cofins_saida.html" with regra=regra_saida_pis rotulo="PIS" %}
                             {% include "produtos/parciais/_motivo_fiscal_em_branco.html" with motivo=motivo_pis_cofins %}
                         </div>
                     </div>
@@ -514,7 +535,13 @@
                     <div class="card">
                         <div class="card-header modal-card-cabecalho modal-card-cabecalho-cofins">
                             <strong>COFINS</strong>
-                            {% if produto.obter_dados_fiscais.cofins_percentual is not None %}
+                            {% if regra_saida_cofins %}
+                                {% if regra_saida_cofins.divergente %}
+                                    <span class="badge-tabela badge-fiscal-rejeitado">Diverge da regra</span>
+                                {% else %}
+                                    <span class="badge-tabela badge-fiscal-zero">Zerado pela regra</span>
+                                {% endif %}
+                            {% elif produto.obter_dados_fiscais.cofins_percentual is not None %}
                                 <span class="badge-tabela badge-fiscal-validado">Validado</span>
                             {% elif motivo_pis_cofins %}
                                 <span class="badge-tabela {{ motivo_pis_cofins.badge_classe }}">{{ motivo_pis_cofins.badge_rotulo }}</span>
@@ -528,6 +555,7 @@
                                     <td class="modal-td-valor">{{ produto.obter_dados_fiscais.cofins_percentual|floatformat:2 }}%</td>
                                 </tr>
                             </table>
+                            {% include "produtos/parciais/_regra_pis_cofins_saida.html" with regra=regra_saida_cofins rotulo="COFINS" %}
                             {% include "produtos/parciais/_motivo_fiscal_em_branco.html" with motivo=motivo_pis_cofins %}
                         </div>
                     </div>

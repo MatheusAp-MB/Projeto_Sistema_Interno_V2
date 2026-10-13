@@ -13,6 +13,7 @@ from produtos.models import Produto
 from impostos.models import ImpostosECustosXMLEntradaProduto
 from impostos.funcoes_auxiliares.entrada.sincronizacao_impostos_entrada import sincronizar_impostos_entrada_do_xml
 from impostos.funcoes_auxiliares.entrada.creditos_fiscais_para_precificacao import montar_creditos_fiscais_para_precificacao
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import saida_diverge_da_regra
 from integracao_sysemp.servicos.dados_xml_nf import (
     ClassificacaoFiscalItem, Cofins, Custos, DadosXmlNF, Icms, IcmsRet, IcmsSt,
     IdentificacaoNF, IdentificacaoProduto, Ipi, Pis,
@@ -268,6 +269,65 @@ def test_cst_tributo_ja_pago_zera_pis_cofins_mesmo_sem_quantidade_nota(tabela_re
         'pis=0, cofins=0; icms e ipi None',
         'Zero por regra fiscal não precisa de quantidade; os demais créditos seguem None (dado insuficiente)',
         f'icms={creditos.icms}, ipi={creditos.ipi}, pis={creditos.pis}, cofins={creditos.cofins}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+@pytest.mark.parametrize('cst, esperado', [('02', True), ('04', True), ('06', True), ('00', False), ('01', False)])
+def test_creditos_marcam_se_o_zero_de_pis_cofins_veio_da_regra(tabela_resultados, cst, esperado):
+    # Setup: a EXPLICITUDE da regra (Matheus, 13/10/2026) depende de o crédito gravar o MOTIVO do
+    # zero junto com o zero — pis_zerado_pela_regra/cofins_zerado_pela_regra True só nos CSTs
+    # 02/04/06; qualquer outro CST (inclusive nota com PIS/COFINS de verdade) fica False.
+    produto = _criar_produto(f'79000000006{cst}')
+    dados = _dados_xml_nf_padrao(
+        pis=Pis(cst_xml=cst, cst_cadastro='00', base_calculo=90.0, aliquota=1.65, reducao=10.0, valor=1.5),
+        cofins=Cofins(cst_xml=cst, cst_cadastro='00', base_calculo=90.0, aliquota=7.6, reducao=10.0, valor=6.9),
+    )
+    sincronizar_impostos_entrada_do_xml(produto, dados)
+    guarda_chuva = ImpostosECustosXMLEntradaProduto.objects.get(produto=produto)
+
+    # Exercise
+    creditos = montar_creditos_fiscais_para_precificacao(guarda_chuva)
+
+    # Assert
+    bateu = creditos.pis_zerado_pela_regra is esperado and creditos.cofins_zerado_pela_regra is esperado
+    registrar_resultado(
+        tabela_resultados, f'cst_{cst}_marca_zerado_pela_regra',
+        f'CST PIS/COFINS no XML={cst}',
+        f'pis_zerado_pela_regra={esperado}, cofins_zerado_pela_regra={esperado}',
+        'A auditoria da grade precisa saber se o zero veio da regra (e não de uma nota com valor zero)',
+        f'pis={creditos.pis_zerado_pela_regra}, cofins={creditos.cofins_zerado_pela_regra}',
+        bateu,
+    )
+    assert bateu
+
+    # TearDown: nada a desmontar.
+
+
+@pytest.mark.parametrize('cst, percentual_saida, esperado', [
+    ('02', Decimal('1.65'), True),   # regra manda 0%, cadastro ainda cobra 1,65% → diverge
+    ('02', Decimal('0'), False),     # regra manda 0%, cadastro já é 0% → consistente
+    ('02', None, False),             # cadastro vazio: a precificação lê como 0% → consistente
+    ('00', Decimal('1.65'), False),  # CST fora da regra: saída normal, nada a comparar
+    (None, Decimal('1.65'), False),  # sem CST: a regra nunca dispara
+])
+def test_saida_diverge_da_regra(tabela_resultados, cst, percentual_saida, esperado):
+    # Setup: função pura — não precisa de produto nem de banco.
+
+    # Exercise
+    resultado = saida_diverge_da_regra(cst, percentual_saida)
+
+    # Assert
+    bateu = resultado is esperado
+    registrar_resultado(
+        tabela_resultados, f'saida_diverge_cst_{cst}_pct_{percentual_saida}',
+        f'cst_xml={cst}, percentual de saída={percentual_saida}',
+        f'diverge={esperado}',
+        'Só um percentual de saída POSITIVO num produto cuja regra manda 0% é divergência (vazio vale 0%)',
+        f'diverge={resultado}',
         bateu,
     )
     assert bateu

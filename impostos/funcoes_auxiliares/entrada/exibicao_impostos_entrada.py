@@ -12,6 +12,9 @@ from decimal import Decimal
 
 from impostos.descritores_impostos import DESCRITORES_IMPOSTOS
 from impostos.funcoes_auxiliares.entrada.conversao_valores_impostos import valor_por_unidade
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import (
+    pis_cofins_tributo_ja_pago_pelo_fornecedor, saida_diverge_da_regra,
+)
 from impostos.models import ImpostosECustosXMLEntradaProduto
 
 
@@ -38,6 +41,14 @@ class LinhaImpostoEntrada:
     valor_nota: Decimal | None
     valor_fcp_nota: Decimal | None
     reducao_e_calculada: bool
+
+    # * [EXPLICAÇÃO] → EXPLICITUDE da regra do tributo já pago (Matheus, 13/10/2026 — ver
+    #                  pis_cofins_tributo_ja_pago.py). Os campos acima seguem sendo o dado
+    #                  BRUTO do XML (nunca alterado). Este aqui só existe em PIS/COFINS cujo
+    #                  cst_xml é 02/04/06: é o valor que a PRECIFICAÇÃO considera de verdade
+    #                  (sempre 0), pra a tela mostrar "veio R$ X no XML, considerado R$ 0,00".
+    #                  None = a regra não se aplica a esta linha.
+    valor_considerado_regra: Decimal | None = None
 
 
 @dataclass
@@ -92,6 +103,12 @@ def montar_detalhes_para_exibicao(impostos_entrada: ImpostosECustosXMLEntradaPro
             valor_nota=imposto_ja_persistido.valor,
             valor_fcp_nota=imposto_ja_persistido.valor_fcp if descritor_do_imposto.possui_fcp else None,
             reducao_e_calculada=descritor_do_imposto.a_reducao_e_calculada_no_sistema,
+            valor_considerado_regra=(
+                Decimal('0')
+                if descritor_do_imposto.sujeito_a_regra_tributo_ja_pago
+                and pis_cofins_tributo_ja_pago_pelo_fornecedor(imposto_ja_persistido.cst_xml)
+                else None
+            ),
         ))
 
     return DetalhesImpostosEntradaProduto(
@@ -116,4 +133,38 @@ def montar_detalhes_para_exibicao(impostos_entrada: ImpostosECustosXMLEntradaPro
         custo_unitario=impostos_entrada.custo_unitario,
         custo_total=impostos_entrada.custo_total,
         linhas=linhas_de_impostos,
+    )
+
+
+@dataclass
+class RegraPisCofinsSaidaParaExibicao:
+    # Função Objetivo: O que o card de PIS ou COFINS de SAÍDA (painel do Produto) precisa pra
+    # deixar explícito "veio no XML isto, mas foi considerado 0% seguindo a regra" — o dado
+    # bruto do XML de ENTRADA (a saída em si não vem do XML, vem da tabela NCM+CST, e a regra a
+    # sobrescreve com 0) mais o aviso de divergência. Só existe quando a regra vale.
+    #
+    # divergente=True: a regra manda 0%, mas o percentual de saída que está no cadastro não é
+    # zero (preencher_impostos_saida ainda não rodou depois da regra) — a tela avisa.
+    cst_xml: str
+    aliquota_xml: Decimal | None
+    valor_xml_por_unidade: Decimal | None
+    percentual_saida_cadastro: Decimal | None
+    divergente: bool
+
+
+def montar_regra_pis_cofins_saida_para_exibicao(
+    imposto_entrada: object, quantidade_nota: Decimal | None, percentual_saida_cadastro: Decimal | None,
+) -> RegraPisCofinsSaidaParaExibicao | None:
+    # Função Objetivo: Monta a explicação da regra do tributo já pago pro card de saída de 1
+    # imposto (PIS ou COFINS) — imposto_entrada é o .pis ou o .cofins do retrato RAW (mesmos
+    # campos cst_xml/aliquota/valor nos 2). None quando a regra não se aplica a este imposto.
+    if not pis_cofins_tributo_ja_pago_pelo_fornecedor(imposto_entrada.cst_xml):
+        return None
+
+    return RegraPisCofinsSaidaParaExibicao(
+        cst_xml=imposto_entrada.cst_xml,
+        aliquota_xml=imposto_entrada.aliquota,
+        valor_xml_por_unidade=valor_por_unidade(imposto_entrada.valor, quantidade_nota),
+        percentual_saida_cadastro=percentual_saida_cadastro,
+        divergente=saida_diverge_da_regra(imposto_entrada.cst_xml, percentual_saida_cadastro),
     )

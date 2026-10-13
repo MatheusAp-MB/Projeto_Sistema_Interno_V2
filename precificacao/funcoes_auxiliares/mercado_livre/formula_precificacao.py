@@ -49,6 +49,16 @@ class ProvaImposto:
     valor: Decimal          # já como veio da nota — ainda NÃO dividido por unidade
     base_calculo: Decimal
     aliquota: Decimal
+    # * [EXPLICAÇÃO] → EXPLICITUDE da regra do tributo já pago (Matheus, 13/10/2026 — ver
+    #                  impostos/funcoes_auxiliares/entrada/pis_cofins_tributo_ja_pago.py): só PIS e
+    #                  COFINS preenchem. cst_xml é o CST que o fornecedor informou; zerado_pela_regra
+    #                  é a decisão que o cálculo de crédito TOMOU (vem de
+    #                  CreditosFiscaisEntradaParaPrecificacao, nunca reinterpretada aqui) — assim a
+    #                  tela de auditoria sabe "o crédito é 0 porque a regra mandou, e não porque a
+    #                  nota trouxe zero". Linhas calculadas ANTES disso ficam None/False e a tela
+    #                  não inventa explicação (precisa recalcular a grade).
+    cst_xml: str | None = None
+    zerado_pela_regra: bool = False
 
 
 # Função Objetivo: Foto da nota fiscal de entrada, crua — prova de onde cada crédito vem.
@@ -661,8 +671,14 @@ class FormulaPrecificacao:
             icms_st=ProvaImposto(
                 valor=ie.icms_st.valor, base_calculo=ie.icms_st.base_calculo, aliquota=ie.icms_st.aliquota,
             ) if tem_st else None,
-            pis=ProvaImposto(valor=ie.pis.valor, base_calculo=ie.pis.base_calculo, aliquota=ie.pis.aliquota),
-            cofins=ProvaImposto(valor=ie.cofins.valor, base_calculo=ie.cofins.base_calculo, aliquota=ie.cofins.aliquota),
+            pis=ProvaImposto(
+                valor=ie.pis.valor, base_calculo=ie.pis.base_calculo, aliquota=ie.pis.aliquota,
+                cst_xml=ie.pis.cst_xml, zerado_pela_regra=self._creditos.pis_zerado_pela_regra,
+            ),
+            cofins=ProvaImposto(
+                valor=ie.cofins.valor, base_calculo=ie.cofins.base_calculo, aliquota=ie.cofins.aliquota,
+                cst_xml=ie.cofins.cst_xml, zerado_pela_regra=self._creditos.cofins_zerado_pela_regra,
+            ),
             numero_nf=ie.nr_nf,
             chave_acesso=ie.chave_acesso,
             emissao=ie.emissao.isoformat() if ie.emissao else None,

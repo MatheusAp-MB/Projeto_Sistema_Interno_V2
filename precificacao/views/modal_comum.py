@@ -19,11 +19,23 @@
 # Nota fiscal usada como base (09/10/2026) — NotaFiscalBase/montar_nota_fiscal_base: de qual NF
 # vieram os créditos fiscais do cálculo (lida da foto DadosEntrada.prova_fiscal), comparada com a
 # NF que o produto usa HOJE, pra tela mostrar "NF 12345" e o botão "Ver NF".
+#
+# Regra do tributo já pago explícita (Matheus, 13/10/2026) — RegraPisCofinsAplicada/
+# montar_regra_pis_cofins_aplicada: quando o crédito de PIS/COFINS da grade foi zerado pela regra
+# (CST 02/04/06 no XML do fornecedor — dona única em pis_cofins_tributo_ja_pago.py), a auditoria
+# mostra o valor REAL que veio no XML E "considerado = 0", em todos os lugares onde PIS/COFINS
+# aparece (Passo 4, Passo 5, tabela única de itens e Visão 2). Lida da foto
+# DadosEntrada.prova_fiscal (campos cst_xml/zerado_pela_regra) — linha calculada antes disso não
+# tem esses campos e a tela mostra como sempre, sem inventar explicação (precisa recalcular).
 
 from dataclasses import dataclass
 from datetime import date
 
 from django.core.exceptions import ObjectDoesNotExist
+
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import (
+    TEXTO_REGRA_TRIBUTO_JA_PAGO, saida_diverge_da_regra,
+)
 
 
 @dataclass
@@ -32,6 +44,26 @@ class LinhaPercentualValor:
     percentual: object
     valor: object
     origem: str = 'calculado'
+    # RegraPisCofinsAplicada quando esta linha (PIS/COFINS saída) foi zerada pela regra do
+    # tributo já pago; None em qualquer outra linha — o template só mostra a explicação se existir.
+    regra: object = None
+
+
+# Função Objetivo: A regra do tributo já pago aplicada a 1 imposto (PIS ou COFINS) de 1 cálculo da
+# grade, com os textos EXPLÍCITOS prontos pra tela (Matheus, 13/10/2026): o que veio no XML, o que
+# foi considerado (sempre 0) e por quê. Os textos nascem aqui, uma vez, e todas as telas só os
+# exibem — nunca reescrevem a explicação. A regra em si mora em pis_cofins_tributo_ja_pago.py.
+#   texto_credito  → linha do CRÉDITO de entrada: "veio no XML R$ X por unidade, considerado R$ 0,00".
+#   texto_saida    → linha do PIS/COFINS de SAÍDA: "veio no XML CST 02 (alíq. X%...), considerado 0,00%".
+#                    Se saida_divergente (a grade usou % de saída diferente de zero), vira o AVISO
+#                    "a regra manda 0%, mas esta grade usou X% — rode preencher_impostos_saida".
+@dataclass
+class RegraPisCofinsAplicada:
+    cst_xml: object
+    texto_regra: str
+    texto_credito: str
+    texto_saida: str
+    saida_divergente: bool = False
 
 
 @dataclass
@@ -105,12 +137,20 @@ class PassoFixo:
     pis_valor_nota: object = None
     cofins_valor_nota: object = None
     quantidade_nota: object = None
+    # RegraPisCofinsAplicada de PIS/COFINS quando o crédito foi zerado pela regra do tributo já
+    # pago (None caso contrário); texto_regra é o texto único da regra, '' quando nenhuma vale.
+    regra_pis: object = None
+    regra_cofins: object = None
+    texto_regra: str = ''
 
 
 @dataclass
 class PassoTaxa:
     itens: list
     resultado: object
+    # Texto único da regra do tributo já pago, preenchido só quando PIS ou COFINS saída foi
+    # zerado por ela ('' caso contrário). Cada item carrega a própria RegraPisCofinsAplicada.
+    texto_regra: str = ''
     # * [EXPLICAÇÃO] → R$ equivalente do resultado (% sobre o preço
     #                  final) — pedido explícito de auditoria: todo
     #                  percentual mostra o par em R$ ao lado (11/09).
@@ -229,6 +269,10 @@ class LinhaItemAuditoria:
     # unidade controla como o template formata `valor_reais`:
     # 'reais' (padrão, R$ 0,00) | 'reais_dia' (R$ 0,0000/dia) | 'cm' | 'kg' | 'm3' | 'dias' | 'fator' (número puro, sem sufixo)
     unidade: str = 'reais'
+    # Explicação EXPLÍCITA da regra do tributo já pago ('' quando não se aplica a esta linha) —
+    # regra_divergente=True quando é o AVISO de que a saída usada não bate com a regra.
+    regra_texto: str = ''
+    regra_divergente: bool = False
 
 
 # Função Objetivo: 1 grupo (seção) da tabela única de auditoria — ex: "Comissão", "Taxas".
@@ -391,6 +435,77 @@ def _quantidade_nota(e):
     return prova.get('quantidade_nota')
 
 
+# Função Objetivo: Formata número no padrão brasileiro (milhar com ponto, decimal com vírgula) —
+# os textos da regra do tributo já pago nascem em Python, então precisam sair no mesmo formato que
+# o floatformat dos templates (vírgula), nunca "2.47".
+def _numero_br(valor, casas=2):
+    texto = f'{valor:,.{casas}f}'
+    return texto.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+# Função Objetivo: Quantidade da nota sem zeros à direita (15.000 → "15", 2.5 → "2,5").
+def _quantidade_br(valor):
+    return format(valor.normalize(), 'f').replace('.', ',')
+
+
+# Função Objetivo: Monta a RegraPisCofinsAplicada de 1 imposto (chave 'pis' ou 'cofins') a partir
+# da foto do cálculo (`e` = DadosEntrada em dict). None quando a regra NÃO foi o motivo do crédito
+# zero — inclusive em linha calculada antes dos campos cst_xml/zerado_pela_regra existirem (nunca
+# inventa uma explicação que a foto não registrou).
+def montar_regra_pis_cofins_aplicada(e, dec, chave, rotulo):
+    prova = e.get('prova_fiscal') or {}
+    imposto = prova.get(chave) or {}
+    if not imposto.get('zerado_pela_regra'):
+        return None
+
+    cst_xml = imposto.get('cst_xml')
+    valor_nota = dec(imposto.get('valor'))
+    aliquota_xml = dec(imposto.get('aliquota'))
+    quantidade_nota = dec(prova.get('quantidade_nota'))
+    valor_por_unidade = valor_nota / quantidade_nota if valor_nota is not None and quantidade_nota else None
+
+    if valor_por_unidade is not None:
+        veio_no_xml = (
+            f'R$ {_numero_br(valor_por_unidade)} por unidade '
+            f'(R$ {_numero_br(valor_nota)} na nota ÷ {_quantidade_br(quantidade_nota)} unid.)'
+        )
+    elif valor_nota is not None:
+        veio_no_xml = f'R$ {_numero_br(valor_nota)} na nota (sem quantidade registrada pra dividir por unidade)'
+    else:
+        veio_no_xml = 'um valor que não ficou registrado nesta linha'
+
+    texto_credito = (
+        f'Veio no XML {veio_no_xml}, mas foi considerado R$ 0,00 seguindo a regra '
+        f'(CST XML {cst_xml}: tributo já pago pelo fornecedor, sem crédito).'
+    )
+
+    partes_do_xml = [f'CST {cst_xml}']
+    if aliquota_xml is not None:
+        partes_do_xml.append(f'alíquota {_numero_br(aliquota_xml)}%')
+    if valor_por_unidade is not None:
+        partes_do_xml.append(f'{rotulo} de R$ {_numero_br(valor_por_unidade)} por unidade')
+
+    percentual_saida_usado = dec(e.get(f'{chave}_saida_percentual'))
+    saida_divergente = saida_diverge_da_regra(cst_xml, percentual_saida_usado)
+
+    if saida_divergente:
+        texto_saida = (
+            f'A regra manda 0,00% (CST XML {cst_xml}: tributo já pago pelo fornecedor), mas esta grade usou '
+            f'{_numero_br(percentual_saida_usado)}% de {rotulo} de saída — o que estava no cadastro do produto '
+            f'quando ela foi calculada. Rode preencher_impostos_saida e recalcule a grade.'
+        )
+    else:
+        texto_saida = (
+            f'Veio no XML (entrada): {", ".join(partes_do_xml)} — mas foi considerado 0,00% seguindo a regra '
+            f'(tributo já pago pelo fornecedor: nada a recolher na saída).'
+        )
+
+    return RegraPisCofinsAplicada(
+        cst_xml=cst_xml, texto_regra=TEXTO_REGRA_TRIBUTO_JA_PAGO,
+        texto_credito=texto_credito, texto_saida=texto_saida, saida_divergente=saida_divergente,
+    )
+
+
 # Função Objetivo: Monta os passos 1-6 (custo final até denominador) — IDÊNTICOS entre
 # marketplaces. Passos 7/8 (frete + preço exato) ficam por conta de quem chama, já que
 # o significado da faixa (preço vs peso) e a existência de rebate diferem por canal.
@@ -417,6 +532,13 @@ def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
     pis_valor_nota, _, _ = _prova_imposto(e, 'pis')
     cofins_valor_nota, _, _ = _prova_imposto(e, 'cofins')
     tem_icms_st = bool((e.get('prova_fiscal') or {}).get('tem_icms_st', False))
+
+    # Regra do tributo já pago (CST 02/04/06 no XML) — explícita no crédito (Passo 4) e na saída
+    # (Passo 5). None quando não se aplica (ou linha calculada antes dos campos existirem).
+    regra_pis = montar_regra_pis_cofins_aplicada(e, dec, 'pis', 'PIS')
+    regra_cofins = montar_regra_pis_cofins_aplicada(e, dec, 'cofins', 'COFINS')
+    texto_regra = TEXTO_REGRA_TRIBUTO_JA_PAGO if (regra_pis or regra_cofins) else ''
+
     passo_4 = PassoFixo(
         coleta=dec(i.get('coleta')), armazenagem=dec(i.get('armazenagem')),
         custo_final=dec(i.get('custo_final')), credito_icms=dec(i.get('credito_icms_entrada')),
@@ -425,17 +547,19 @@ def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
         icms_valor_nota=dec(icms_valor_nota), icms_base_calculo=dec(icms_base), icms_aliquota=dec(icms_aliquota),
         tem_icms_st=tem_icms_st, pis_valor_nota=dec(pis_valor_nota), cofins_valor_nota=dec(cofins_valor_nota),
         quantidade_nota=qtd_nota,
+        regra_pis=regra_pis, regra_cofins=regra_cofins, texto_regra=texto_regra,
     )
 
     passo_5 = PassoTaxa(
         itens=[
             LinhaPercentualValor(label_comissao, dec(e.get('comissao_percentual')), dec(i.get('comissao_valor')), origem='config'),
             LinhaPercentualValor('ICMS saída', dec(e.get('icms_saida_percentual')), dec(i.get('icms_saida_valor')), origem='saida'),
-            LinhaPercentualValor('PIS saída', dec(e.get('pis_saida_percentual')), dec(i.get('pis_saida_valor')), origem='saida'),
-            LinhaPercentualValor('COFINS saída', dec(e.get('cofins_saida_percentual')), dec(i.get('cofins_saida_valor')), origem='saida'),
+            LinhaPercentualValor('PIS saída', dec(e.get('pis_saida_percentual')), dec(i.get('pis_saida_valor')), origem='saida', regra=regra_pis),
+            LinhaPercentualValor('COFINS saída', dec(e.get('cofins_saida_percentual')), dec(i.get('cofins_saida_valor')), origem='saida', regra=regra_cofins),
         ],
         resultado=dec(i.get('taxa_percentual')),
         resultado_valor=dec(i.get('taxa_valor')),
+        texto_regra=texto_regra,
     )
     passo_6 = PassoDenominador(
         taxa_percentual=dec(i.get('taxa_percentual')), margem_alvo_percentual=dec(e.get('margem_alvo_percentual')),
@@ -488,6 +612,11 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
     # * [EXPLICAÇÃO] → O grupo 3 é o único cujos valores vêm da nota fiscal — o título
     #                  carrega o número da NF pra ficar 100% explícito de qual nota são.
     #                  Cálculo antigo (sem NF registrada) mantém o título de sempre.
+    # Regra do tributo já pago explícita nas 4 linhas de PIS/COFINS (crédito e saída) — ver
+    # montar_regra_pis_cofins_aplicada. None = a regra não se aplica a esta linha.
+    regra_pis = montar_regra_pis_cofins_aplicada(e, dec, 'pis', 'PIS')
+    regra_cofins = montar_regra_pis_cofins_aplicada(e, dec, 'cofins', 'COFINS')
+
     numero_nf_usada = (e.get('prova_fiscal') or {}).get('numero_nf')
     titulo_creditos = (
         f'3. Créditos fiscais de entrada — NF {numero_nf_usada}' if numero_nf_usada
@@ -510,8 +639,14 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
         GrupoItensAuditoria(titulo_creditos, [
             LinhaItemAuditoria('IPI', 'nf', valor_reais=dec(i.get('ipi_valor')), mini_form=mini(ipi_valor_nota, None)),
             LinhaItemAuditoria('Crédito ICMS entrada', 'nf', valor_reais=dec(i.get('credito_icms_entrada')), valor_percentual=dec(icms_aliquota), mini_form=mini(icms_valor_nota, icms_aliquota)),
-            LinhaItemAuditoria('Crédito PIS entrada', 'nf', valor_reais=dec(i.get('credito_pis')), valor_percentual=dec(pis_aliquota), mini_form=mini(pis_valor_nota, pis_aliquota)),
-            LinhaItemAuditoria('Crédito COFINS entrada', 'nf', valor_reais=dec(i.get('credito_cofins')), valor_percentual=dec(cofins_aliquota), mini_form=mini(cofins_valor_nota, cofins_aliquota)),
+            LinhaItemAuditoria(
+                'Crédito PIS entrada', 'nf', valor_reais=dec(i.get('credito_pis')), valor_percentual=dec(pis_aliquota),
+                mini_form=mini(pis_valor_nota, pis_aliquota), regra_texto=regra_pis.texto_credito if regra_pis else '',
+            ),
+            LinhaItemAuditoria(
+                'Crédito COFINS entrada', 'nf', valor_reais=dec(i.get('credito_cofins')), valor_percentual=dec(cofins_aliquota),
+                mini_form=mini(cofins_valor_nota, cofins_aliquota), regra_texto=regra_cofins.texto_credito if regra_cofins else '',
+            ),
         ]),
         GrupoItensAuditoria('4. Frete de entrada (CIF/FOB)', [
             LinhaItemAuditoria('Frete CIF/FOB', 'produto', valor_reais=dec(i.get('frete_cif_fob_valor')), valor_percentual=dec(e.get('frete_cif_fob_percentual'))),
@@ -529,8 +664,14 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
         ]),
         GrupoItensAuditoria('7. Impostos de saída', [
             LinhaItemAuditoria('ICMS saída', 'saida', valor_reais=dec(i.get('icms_saida_valor')), valor_percentual=dec(e.get('icms_saida_percentual'))),
-            LinhaItemAuditoria('PIS saída', 'saida', valor_reais=dec(i.get('pis_saida_valor')), valor_percentual=dec(e.get('pis_saida_percentual'))),
-            LinhaItemAuditoria('COFINS saída', 'saida', valor_reais=dec(i.get('cofins_saida_valor')), valor_percentual=dec(e.get('cofins_saida_percentual'))),
+            LinhaItemAuditoria(
+                'PIS saída', 'saida', valor_reais=dec(i.get('pis_saida_valor')), valor_percentual=dec(e.get('pis_saida_percentual')),
+                regra_texto=regra_pis.texto_saida if regra_pis else '', regra_divergente=regra_pis.saida_divergente if regra_pis else False,
+            ),
+            LinhaItemAuditoria(
+                'COFINS saída', 'saida', valor_reais=dec(i.get('cofins_saida_valor')), valor_percentual=dec(e.get('cofins_saida_percentual')),
+                regra_texto=regra_cofins.texto_saida if regra_cofins else '', regra_divergente=regra_cofins.saida_divergente if regra_cofins else False,
+            ),
         ]),
         GrupoItensAuditoria('8. Taxas (soma)', [
             LinhaItemAuditoria('Taxa total', 'calculado', valor_reais=dec(i.get('taxa_valor')), valor_percentual=dec(i.get('taxa_percentual'))),
@@ -588,6 +729,13 @@ def montar_alertas(fixo, custo, custo_com_boni, altura, largura, comprimento, ma
     return alertas
 
 
+# Função Objetivo: Prefixa o texto da regra do tributo já pago com o selo em texto, pras linhas
+# da Visão 2 (que não têm selo visual, só a descrição pequena) — nunca deixa o zero sem explicação.
+# divergente=True quando o texto é o AVISO de que a saída usada não bate com a regra.
+def _mini_explicacao_regra(texto, divergente=False):
+    return f'{"DIVERGE DA REGRA" if divergente else "ZERADO PELA REGRA"} — {texto}'
+
+
 # Função Objetivo: Monta a Visão 2 (De onde vem o lucro) — mesmo preço final e mesmos dados
 # da Visão 1, só que de trás pra frente: parte do preço de venda e vai subtraindo cada custo,
 # 1 de cada vez (inclusive os que valem R$ 0,00), até sobrar só o lucro. Pedido explícito
@@ -605,7 +753,10 @@ def montar_visao_2_teardown(passo_1, passo_2, passo_3, passo_4, passo_5, passo_8
     ]
 
     for item in passo_5.itens:
-        linhas.append(LinhaTeardown(item.label, item.valor, item.percentual, 'menos'))
+        linhas.append(LinhaTeardown(
+            item.label, item.valor, item.percentual, 'menos',
+            _mini_explicacao_regra(item.regra.texto_saida, item.regra.saida_divergente) if item.regra else '',
+        ))
 
     linhas.append(LinhaTeardown('Frete', passo_8.frete, pct(passo_8.frete), 'menos'))
 
@@ -621,11 +772,13 @@ def montar_visao_2_teardown(passo_1, passo_2, passo_3, passo_4, passo_5, passo_8
     ))
     linhas.append(LinhaTeardown(
         'Crédito de PIS (nota de entrada)', passo_4.credito_pis, pct(passo_4.credito_pis), 'mais',
-        'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
+        _mini_explicacao_regra(passo_4.regra_pis.texto_credito) if passo_4.regra_pis
+        else 'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
     ))
     linhas.append(LinhaTeardown(
         'Crédito de COFINS (nota de entrada)', passo_4.credito_cofins, pct(passo_4.credito_cofins), 'mais',
-        'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
+        _mini_explicacao_regra(passo_4.regra_cofins.texto_credito) if passo_4.regra_cofins
+        else 'Crédito reduz o custo a recuperar — por isso soma de volta aqui.',
     ))
 
     linhas.append(LinhaTeardown(

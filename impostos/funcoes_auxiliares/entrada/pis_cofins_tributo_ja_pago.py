@@ -28,6 +28,14 @@
 #                  o zero é aplicado só onde o valor vira CÁLCULO DE PREÇO
 #                  (montar_creditos_fiscais_para_precificacao e
 #                  preencher_impostos_saida).
+#
+# * [EXPLICAÇÃO] → EXPLICITUDE (Matheus, 13/10/2026): a etapa de precificação não pode ter
+#                  ambiguidade — nenhuma tela pode mostrar "0" como se fosse dado de tabela
+#                  quando na verdade é esta regra. Onde o zero aparece (painel do Produto e
+#                  auditoria da grade), a tela mostra o valor REAL que veio no XML E deixa
+#                  claro "Valor considerado = 0 (zerado pela regra)", com o texto abaixo.
+#                  O texto da regra mora SÓ aqui (TEXTO_REGRA_TRIBUTO_JA_PAGO) — as telas
+#                  recebem pronto, nunca reescrevem a explicação.
 
 from __future__ import annotations
 
@@ -50,3 +58,29 @@ def pis_cofins_tributo_ja_pago_pelo_fornecedor(cst_xml: object) -> bool:
         return False
 
     return texto.zfill(2) in CSTS_PIS_COFINS_TRIBUTO_JA_PAGO
+
+
+# Função Objetivo: O texto ÚNICO que explica a regra pro usuário, nas telas (ver nota de
+# EXPLICITUDE no topo do arquivo). Painel do Produto e auditoria da grade só exibem esta string.
+TEXTO_REGRA_TRIBUTO_JA_PAGO = (
+    'CST de PIS/COFINS 02, 04 ou 06 no XML do fornecedor significa que o tributo já foi pago '
+    'antecipadamente pelo fornecedor: não há crédito na entrada nem PIS/COFINS a recolher na saída. '
+    'Por isso a precificação considera 0% nos dois lados, sempre, ignorando o valor que veio na nota.'
+)
+
+
+def saida_diverge_da_regra(cst_xml: object, percentual_saida_cadastro: object) -> bool:
+    # Função Objetivo: True quando a regra manda a saída ser 0%, mas o percentual de saída que
+    # está no cadastro (ou que a grade usou) NÃO é zero — sinal de que o preenchimento de
+    # saída (preencher_impostos_saida) ainda não rodou depois da regra, e a precificação estaria
+    # cobrando PIS/COFINS de um produto cujo tributo já foi pago.
+    #
+    # None (campo vazio) NÃO é divergência: a precificação lê vazio como 0%, que é exatamente o
+    # que a regra manda. Só um percentual positivo contradiz a regra.
+    if not pis_cofins_tributo_ja_pago_pelo_fornecedor(cst_xml):
+        return False
+
+    if percentual_saida_cadastro is None:
+        return False
+
+    return percentual_saida_cadastro != 0

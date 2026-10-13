@@ -884,3 +884,50 @@
     color: var(--cor-texto-muted);
     font-style: italic;
 }
+
+
+/* ================================================
+   REGRA DO TRIBUTO JÁ PAGO — EXPLICITUDE (Matheus, 13/10/2026)
+   Quando o CST de PIS/COFINS no XML do fornecedor é 02/04/06 (ver
+   pis_cofins_tributo_ja_pago.py), a precificação considera 0 — e a tela
+   nunca pode mostrar esse 0 como se fosse dado de tabela. Este bloco aparece
+   nos cards de PIS/COFINS de ENTRADA e de SAÍDA: "veio no XML X, mas foi
+   considerado 0 seguindo a regra" + o texto da regra. A pílula "Zerado pela
+   regra" é a classe global badge-fiscal-zero (layout_badges.css); o aviso
+   de divergência reaproveita badge-fiscal-rejeitado (vermelho = crítico) e
+   o mesmo vermelho aqui, nunca uma cor nova.
+   ================================================ */
+.modal-regra-tributo-pago {
+    margin-top: 10px;
+    padding: 9px 12px;
+    background-color: rgba(51, 65, 85, 0.09);
+    border-left: 3px solid #334155;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.modal-regra-tributo-pago p {
+    margin: 0 0 5px;
+}
+
+.modal-regra-tributo-pago p:last-child {
+    margin-bottom: 0;
+}
+
+.modal-regra-tributo-pago-titulo {
+    font-weight: 700;
+}
+
+.modal-regra-tributo-pago-texto {
+    color: var(--cor-texto-muted);
+}
+
+.modal-regra-tributo-pago--alerta {
+    background-color: #fee2e2;
+    border-left-color: #b91c1c;
+}
+
+.modal-regra-tributo-pago--alerta .modal-regra-tributo-pago-titulo {
+    color: #b91c1c;
+}

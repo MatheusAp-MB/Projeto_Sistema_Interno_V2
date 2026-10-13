@@ -53,6 +53,12 @@ class DescritorImposto:
     # só controla o popover de explicação no modal, nunca a gravação.
     a_reducao_e_calculada_no_sistema: bool = False
 
+    # Só PIS e COFINS: o zero da regra do tributo já pago (CST 02/04/06 no XML do fornecedor —
+    # ver pis_cofins_tributo_ja_pago.py) se aplica a eles e a mais nenhum imposto. Esta flag
+    # só controla a EXPLICAÇÃO na tela ("veio X, considerado 0"), nunca a gravação do dado
+    # bruto nem o cálculo do crédito (esse mora em creditos_fiscais_para_precificacao.py).
+    sujeito_a_regra_tributo_ja_pago: bool = False
+
 
 DESCRITORES_IMPOSTOS: tuple[DescritorImposto, ...] = (
     DescritorImposto(
@@ -109,6 +115,7 @@ DESCRITORES_IMPOSTOS: tuple[DescritorImposto, ...] = (
         possui_reducao=True,
         possui_fcp=False,
         a_reducao_e_calculada_no_sistema=True,
+        sujeito_a_regra_tributo_ja_pago=True,
     ),
 
     DescritorImposto(
@@ -121,5 +128,6 @@ DESCRITORES_IMPOSTOS: tuple[DescritorImposto, ...] = (
         possui_reducao=True,
         possui_fcp=False,
         a_reducao_e_calculada_no_sistema=True,
+        sujeito_a_regra_tributo_ja_pago=True,
     ),
 )

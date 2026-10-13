@@ -1055,6 +1055,27 @@
 .audit-tag--referencia { background: var(--audit-slate-bg); color: var(--audit-slate-ink); }
 .audit-mini-form { color: var(--audit-ink-mid); font-size: 11px; font-weight: 400; margin-left: 4px; }
 
+/* Regra do tributo já pago — EXPLICITUDE (Matheus, 13/10/2026): quando o crédito de PIS/COFINS (ou o
+   PIS/COFINS de saída) foi zerado pela regra do CST 02/04/06 no XML do fornecedor (ver
+   pis_cofins_tributo_ja_pago.py), a auditoria nunca mostra o 0 sozinho — mostra "veio no XML X, mas
+   foi considerado 0" (audit-regra-linha) e o texto da regra (audit-regra-explica). A pílula usa a mesma
+   ardósia escura do badge-fiscal-zero do painel do Produto; o aviso de divergência usa o vermelho
+   que a auditoria já tem (--audit-red). */
+.audit-tag--regra { background: #334155; color: #f8fafc; }
+.audit-tag--alerta { background: var(--audit-red-bg); color: var(--audit-red); border: 1px solid var(--audit-red-border); }
+.audit-regra-linha {
+    flex-basis: 100%; font-size: 12px; line-height: 1.45; color: var(--audit-ink-soft);
+    background: rgba(51,65,85,.07); border-left: 3px solid #334155; border-radius: 6px;
+    padding: 6px 10px; margin: 3px 0 6px; font-weight: 400;
+}
+.audit-regra-linha--alerta { background: var(--audit-red-bg); border-left-color: var(--audit-red); color: var(--audit-red); }
+.audit-regra-explica {
+    font-size: 12px; line-height: 1.45; color: var(--audit-ink-mid);
+    border: 1px dashed var(--audit-line); border-radius: 8px; padding: 7px 11px; margin: 0 0 9px;
+}
+.audit-tabela-itens .audit-regra-linha { display: block; margin: 5px 0 2px; }
+.audit-regra-linha .audit-tag { margin-left: 0; margin-right: 6px; }
+
 /* Seção colapsável genérica (hoje usada só em "Todos os itens usados no cálculo") */
 .audit-secao-colapsavel {
     margin: 12px 20px 0;

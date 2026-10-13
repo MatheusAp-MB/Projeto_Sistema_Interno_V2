@@ -2,8 +2,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, get_object_or_404
 from .models import Produto
 from produtos.funcoes_auxiliares.contexto_tela_produtos import ContextoTelaProdutos
-from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import montar_detalhes_para_exibicao
+from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import (
+    montar_detalhes_para_exibicao, montar_regra_pis_cofins_saida_para_exibicao,
+)
 from impostos.funcoes_auxiliares.entrada.badges_fiscais_produto import montar_badges_fiscais_produto
+from impostos.funcoes_auxiliares.entrada.pis_cofins_tributo_ja_pago import TEXTO_REGRA_TRIBUTO_JA_PAGO
 from impostos.funcoes_auxiliares.saida.motivo_impostos_saida import ClassificadorMotivoFiscal
 
 
@@ -62,6 +65,22 @@ def view_painel_produto(request, produto_id):
         if dados_fiscais.pis_percentual is None else None
     )
 
+    # * [EXPLICAÇÃO] → EXPLICITUDE da regra do tributo já pago (Matheus, 13/10/2026 — ver
+    #                  pis_cofins_tributo_ja_pago.py): quando o CST do XML manda zerar, o card
+    #                  de saída mostra "veio no XML X, mas foi considerado 0% seguindo a
+    #                  regra" em vez de um "0,00% Validado" que parece dado de tabela. Usa o
+    #                  mesmo impostos_entrada_raw já resolvido acima (sem nova consulta);
+    #                  raw só é não-None quando os 6 impostos filhos existem.
+    regra_saida_pis = None
+    regra_saida_cofins = None
+    if impostos_entrada_raw is not None:
+        regra_saida_pis = montar_regra_pis_cofins_saida_para_exibicao(
+            impostos_entrada_raw.pis, impostos_entrada_raw.quantidade_nota, dados_fiscais.pis_percentual,
+        )
+        regra_saida_cofins = montar_regra_pis_cofins_saida_para_exibicao(
+            impostos_entrada_raw.cofins, impostos_entrada_raw.quantidade_nota, dados_fiscais.cofins_percentual,
+        )
+
     return render(request, 'produtos/parciais/estrutura_parcial_painel_produto.html', {
         'produto': produto,
         'impostos_entrada': impostos_entrada,
@@ -69,4 +88,7 @@ def view_painel_produto(request, produto_id):
         'motivo_icms_saida_media': motivo_icms_saida_media,
         'motivo_pis_cofins': motivo_pis_cofins,
         'badges_fiscais': badges_fiscais,
+        'regra_saida_pis': regra_saida_pis,
+        'regra_saida_cofins': regra_saida_cofins,
+        'texto_regra_tributo_ja_pago': TEXTO_REGRA_TRIBUTO_JA_PAGO,
     })

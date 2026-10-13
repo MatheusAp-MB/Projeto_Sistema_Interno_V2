@@ -1,0 +1,24 @@
+{% comment %}
+    Explicação EXPLÍCITA da regra do tributo já pago (CST 02/04/06 no XML do fornecedor) num card de
+    PIS ou COFINS de SAÍDA — Matheus, 13/10/2026. A regra mora em
+    impostos/funcoes_auxiliares/entrada/pis_cofins_tributo_ja_pago.py; o texto vem pronto de lá
+    (texto_regra_tributo_ja_pago, no contexto da view), este arquivo só o exibe.
+
+    Parâmetros: regra (RegraPisCofinsSaidaParaExibicao, ou vazio quando a regra não se aplica) e
+    rotulo ("PIS" ou "COFINS"). Sem regra, não renderiza nada.
+{% endcomment %}
+{% if regra %}
+<div class="modal-regra-tributo-pago{% if regra.divergente %} modal-regra-tributo-pago--alerta{% endif %}">
+    {% if regra.divergente %}
+        <p class="modal-regra-tributo-pago-titulo">⚠ O cadastro de saída diverge da regra</p>
+        <p>A regra manda <strong>0,00%</strong>, mas o cadastro deste produto ainda tem <strong>{{ regra.percentual_saida_cadastro|floatformat:2 }}%</strong> de {{ rotulo }} — e a precificação usa o valor do cadastro. Rode <code>preencher_impostos_saida</code> pra alinhar e recalcule a grade.</p>
+    {% else %}
+        <p class="modal-regra-tributo-pago-titulo">Valor considerado = 0,00%</p>
+    {% endif %}
+    <p>Veio no XML (entrada): CST <strong>{{ regra.cst_xml }}</strong>{% if regra.aliquota_xml is not None %} · alíquota {{ regra.aliquota_xml|floatformat:2 }}%{% endif %}{% if regra.valor_xml_por_unidade is not None %} · {{ rotulo }} de R$ {{ regra.valor_xml_por_unidade|floatformat:2 }} por unidade{% endif %}.</p>
+    {% if not regra.divergente %}
+        <p>Mas foi considerado <strong>0,00%</strong> seguindo a regra.</p>
+    {% endif %}
+    <p class="modal-regra-tributo-pago-texto"><strong>Regra:</strong> {{ texto_regra_tributo_ja_pago }}</p>
+</div>
+{% endif %}

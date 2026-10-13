@@ -34,11 +34,18 @@ class CreditosFiscaisEntradaParaPrecificacao:
     # sem quantidade registrada, ou produto sem sincronizar) — quem
     # consome decide não precificar nesse caso, nunca finge um crédito
     # que não existe.
+    #
+    # pis_zerado_pela_regra / cofins_zerado_pela_regra (13/10/2026): True quando o crédito de
+    # PIS/COFINS veio ZERO porque a regra do tributo já pago valeu (CST 02/04/06 no XML — ver
+    # pis_cofins_tributo_ja_pago.py), e não porque a nota trouxe zero. Existe pra a tela de
+    # auditoria da grade nunca ter que adivinhar: o motivo do zero é gravado junto com o zero.
 
     icms: Decimal | None
     ipi: Decimal | None
     pis: Decimal | None
     cofins: Decimal | None
+    pis_zerado_pela_regra: bool = False
+    cofins_zerado_pela_regra: bool = False
 
 
 def _produto_tem_icms_st(impostos_entrada: ImpostosECustosXMLEntradaProduto) -> bool:
@@ -89,6 +96,8 @@ def _montar_creditos_do_retrato_completo(
         ipi=valor_por_unidade(impostos_entrada.ipi.valor, quantidade_nota),
         pis=_credito_pis_cofins_por_unidade(impostos_entrada.pis, quantidade_nota),
         cofins=_credito_pis_cofins_por_unidade(impostos_entrada.cofins, quantidade_nota),
+        pis_zerado_pela_regra=pis_cofins_tributo_ja_pago_pelo_fornecedor(impostos_entrada.pis.cst_xml),
+        cofins_zerado_pela_regra=pis_cofins_tributo_ja_pago_pelo_fornecedor(impostos_entrada.cofins.cst_xml),
     )
 
 

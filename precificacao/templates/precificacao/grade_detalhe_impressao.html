@@ -102,6 +102,7 @@
                         <td>
                             <span class="audit-tag audit-tag--{{ linha.origem }}">{{ linha.origem|capfirst }}</span>
                             {% if linha.mini_form %}<span class="audit-mini-form">{{ linha.mini_form }}</span>{% endif %}
+                                    {% if linha.regra_texto %}<div class="audit-regra-linha{% if linha.regra_divergente %} audit-regra-linha--alerta{% endif %}"><span class="audit-tag {% if linha.regra_divergente %}audit-tag--alerta{% else %}audit-tag--regra{% endif %}">{% if linha.regra_divergente %}Diverge da regra{% else %}Zerado pela regra{% endif %}</span> {{ linha.regra_texto }}</div>{% endif %}
                         </td>
                         <td class="audit-num">{% if linha.valor_reais is not None %}{% if linha.unidade == 'cm' %}{{ linha.valor_reais|floatformat:0 }} cm{% elif linha.unidade == 'kg' %}{{ linha.valor_reais|floatformat:3 }} kg{% elif linha.unidade == 'm3' %}{{ linha.valor_reais|floatformat:5 }} m³{% elif linha.unidade == 'dias' %}{{ linha.valor_reais|floatformat:0 }} dias{% elif linha.unidade == 'fator' %}{{ linha.valor_reais|floatformat:3 }}{% elif linha.unidade == 'reais_dia' %}R$ {{ linha.valor_reais|floatformat:4 }}/dia{% else %}R$ {{ linha.valor_reais|floatformat:2 }}{% endif %}{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
                         <td class="audit-num">{% if linha.valor_percentual is not None %}{{ linha.valor_percentual|floatformat:2 }}%{% else %}<span class="audit-tabela-itens-vazio">—</span>{% endif %}</td>
@@ -127,7 +128,7 @@
                         <div class="audit-input-linha"><span class="k">Custo do produto <span class="audit-tag audit-tag--produto">Produto</span></span><span class="v">R$ {{ det.passo_1.custo_com_boni|floatformat:2 }}</span></div>
                         <div class="audit-input-linha">
                             <span class="k">IPI <span class="audit-tag audit-tag--nf">NF</span>
-                                {% if det.passo_1.ipi_valor_nota is not None and det.passo_1.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_1.ipi_valor_nota|floatformat:2 }} nota ÷ {{ det.passo_1.quantidade_nota|floatformat:0 }} unid.)</span>{% endif %}
+                                {% if det.passo_1.ipi_valor_nota is not None and det.passo_1.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_1.ipi_valor_nota|floatformat:"2g" }} nota ÷ {{ det.passo_1.quantidade_nota|floatformat:"0g" }} unid.)</span>{% endif %}
                             </span>
                             <span class="v">R$ {{ det.passo_1.ipi_valor|floatformat:2 }}</span>
                         </div>
@@ -214,23 +215,26 @@
                         <div class="audit-input-linha"><span class="k">Armazenagem (Passo 3) <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_4.armazenagem|floatformat:2 }}</span></div>
                         <div class="audit-input-linha">
                             <span class="k">Crédito ICMS <span class="audit-tag audit-tag--nf">NF</span>
-                                {% if det.passo_4.icms_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.icms_valor_nota|floatformat:2 }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:0 }} unid.)</span>{% endif %}
+                                {% if det.passo_4.icms_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.icms_valor_nota|floatformat:"2g" }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:"0g" }} unid.)</span>{% endif %}
                             </span>
                             <span class="v">R$ {{ det.passo_4.credito_icms|floatformat:2 }}</span>
                         </div>
                         <div class="audit-input-linha">
-                            <span class="k">Crédito PIS <span class="audit-tag audit-tag--nf">NF</span>
-                                {% if det.passo_4.pis_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.pis_valor_nota|floatformat:2 }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:0 }} unid.)</span>{% endif %}
+                            <span class="k">Crédito PIS <span class="audit-tag audit-tag--nf">NF</span>{% if det.passo_4.regra_pis %}<span class="audit-tag audit-tag--regra">Zerado pela regra</span>{% endif %}
+                                {% if det.passo_4.pis_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.pis_valor_nota|floatformat:"2g" }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:"0g" }} unid.)</span>{% endif %}
                             </span>
                             <span class="v">R$ {{ det.passo_4.credito_pis|floatformat:2 }}</span>
                         </div>
+                        {% if det.passo_4.regra_pis %}<div class="audit-regra-linha">{{ det.passo_4.regra_pis.texto_credito }}</div>{% endif %}
                         <div class="audit-input-linha">
-                            <span class="k">Crédito COFINS <span class="audit-tag audit-tag--nf">NF</span>
-                                {% if det.passo_4.cofins_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.cofins_valor_nota|floatformat:2 }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:0 }} unid.)</span>{% endif %}
+                            <span class="k">Crédito COFINS <span class="audit-tag audit-tag--nf">NF</span>{% if det.passo_4.regra_cofins %}<span class="audit-tag audit-tag--regra">Zerado pela regra</span>{% endif %}
+                                {% if det.passo_4.cofins_valor_nota is not None and det.passo_4.quantidade_nota %}<span class="audit-mini-form">(R$ {{ det.passo_4.cofins_valor_nota|floatformat:"2g" }} nota ÷ {{ det.passo_4.quantidade_nota|floatformat:"0g" }} unid.)</span>{% endif %}
                             </span>
                             <span class="v">R$ {{ det.passo_4.credito_cofins|floatformat:2 }}</span>
                         </div>
+                        {% if det.passo_4.regra_cofins %}<div class="audit-regra-linha">{{ det.passo_4.regra_cofins.texto_credito }}</div>{% endif %}
                     </div>
+                    {% if det.passo_4.texto_regra %}<div class="audit-regra-explica"><b>Regra do tributo já pago:</b> {{ det.passo_4.texto_regra }}</div>{% endif %}
                     <div class="audit-passo-abstrata">Custo final + Coleta + Armazenagem − Crédito ICMS − Crédito PIS − Crédito COFINS</div>
                     <div class="audit-passo-conta">
                         R$ {{ det.passo_4.custo_final|floatformat:2 }} + R$ {{ det.passo_4.coleta|floatformat:2 }} + R$ {{ det.passo_4.armazenagem|floatformat:2 }}
@@ -267,9 +271,11 @@
                 <div class="audit-passo-detalhe">
                     <div class="audit-inputs-box">
                         {% for item in det.passo_5.itens %}
-                        <div class="audit-input-linha"><span class="k">{{ item.label }} <span class="audit-tag audit-tag--{{ item.origem }}">{{ item.origem|capfirst }}</span></span><span class="v">{{ item.percentual|floatformat:2 }}% · R$ {{ item.valor|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">{{ item.label }} <span class="audit-tag audit-tag--{{ item.origem }}">{{ item.origem|capfirst }}</span>{% if item.regra %}<span class="audit-tag {% if item.regra.saida_divergente %}audit-tag--alerta{% else %}audit-tag--regra{% endif %}">{% if item.regra.saida_divergente %}Diverge da regra{% else %}Zerado pela regra{% endif %}</span>{% endif %}</span><span class="v">{{ item.percentual|floatformat:2 }}% · R$ {{ item.valor|floatformat:2 }}</span></div>
+                        {% if item.regra %}<div class="audit-regra-linha{% if item.regra.saida_divergente %} audit-regra-linha--alerta{% endif %}">{{ item.regra.texto_saida }}</div>{% endif %}
                         {% endfor %}
                     </div>
+                    {% if det.passo_5.texto_regra %}<div class="audit-regra-explica"><b>Regra do tributo já pago:</b> {{ det.passo_5.texto_regra }}</div>{% endif %}
                     <div class="audit-passo-abstrata">Comissão + ICMS saída + PIS saída + COFINS saída (% sobre o preço final)</div>
                     <div class="audit-passo-conta">Taxa total = <b>{{ det.passo_5.resultado|floatformat:2 }}%</b> = <b>R$ {{ det.passo_5.resultado_valor|floatformat:2 }}</b></div>
                 </div>
