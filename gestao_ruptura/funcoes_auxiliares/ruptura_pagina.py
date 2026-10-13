@@ -44,7 +44,7 @@ from django.urls import reverse
 from gestao_full.funcoes_auxiliares.full_estoque_ml import a_caminho_dos_codigos, estoque_do_erp, estoque_full_dos_codigos, ml_dos_codigos
 from gestao_ruptura.funcoes_auxiliares import ruptura_calculo as calc
 from gestao_ruptura.funcoes_auxiliares import ruptura_estoque as full
-from gestao_ruptura.funcoes_auxiliares.ruptura_grafico import montar_grafico
+from gestao_ruptura.funcoes_auxiliares.ruptura_grafico import montar_grafico, porque_sem_data
 from gestao_ruptura.funcoes_auxiliares.ruptura_lista import montar_lista
 from gestao_ruptura.funcoes_auxiliares.ruptura_lista_fora import montar_lista_fora
 from gestao_ruptura.funcoes_auxiliares.ruptura_parametros import campos_escondidos, ler_comuns, nomes_do_mundo, para_url
@@ -110,35 +110,35 @@ def _cartao_de_ruptura(rotulo, explicacao, ritmo, estoque, lead, folga, hoje, de
 
 # * [EXPLICAÇÃO] → O diagnóstico é uma lista de CARTÕES EXPANSÍVEIS (pedido do Matheus, 12/10/2026: "muito texto; algo que mostre de forma chamativa o que o usuário precisa ver rápido, e se quiser
 #                  ele abre e vê os detalhes"). Cada cartão tem o RÓTULO ("Data de ruptura"), o VALOR em destaque ("13/12/2026"), um APOIO curto ("em 62 dias") e o DETALHE (a frase explicativa),
-#                  que só aparece ao abrir. A COR (`tom`) segue o mesmo significado do gráfico: vermelho = ruptura / prazo vencido / estoque zerado; verde = dá tempo (enviar até); laranja = atenção
-#                  (último dia de envio, abaixo do ponto de pedido, ritmo acelerou); azul = informação; cinza = sem dado ou sem previsão. A cor nunca é a única pista: o rótulo está escrito.
+#                  que só aparece ao abrir. A COR (`tom`) é a mesma do elemento do gráfico (pedido do Matheus, 13/10/2026): vermelho = a ruptura (e prazo vencido / estoque zerado); laranja = o "Enviar até" (e atenção:
+#                  abaixo do ponto de pedido, ritmo acelerou); verde = a simulação de reposição (e ritmo estável); azul = informação; cinza = sem dado ou sem previsão. A cor nunca é a única pista: o rótulo está escrito.
 def _cartao(tom, icone, rotulo, valor, apoio, detalhe):
     return {'tom': tom, 'icone': icone, 'rotulo': rotulo, 'valor': valor, 'apoio': apoio, 'detalhe': detalhe}
 
 
 # Função Objetivo: O texto do cartão "Enviar até" (no Fora do Full, "Pedir até"; e o do "title") para cada estado da data (ruptura_calculo.envio): `ok` (ainda dá tempo, chegando `ante` dias antes da ruptura), `hoje`
-# (último dia para isso), `ja` (a data recomendada passou, mas ainda dá tempo: chega menos de `ante` dias antes da ruptura) e `vencido` (mesmo enviando hoje vai faltar estoque). `P` = as palavras do mundo
-# (ruptura_texto.palavras). Devolve o cartão (tom, ícone, rótulo, valor, apoio, detalhe).
+# (último dia para isso), `ja` (a data ideal passou, mas ainda dá tempo: chega menos de `ante` dias antes da ruptura) e `vencido` (o último dia passou: vai faltar estoque). A cor é a do "Enviar até" do gráfico (laranja);
+# só o prazo vencido é vermelho (a cor da ruptura). Nenhum texto parte de "hoje" como dia do envio: a data real só existe quando o Mercado Livre libera o agendamento. `P` = as palavras do mundo (ruptura_texto.palavras).
+# Devolve o cartão (tom, ícone, rótulo, valor, apoio, detalhe).
 def _cartao_do_envio(envio, lead, ante, P):
     lead_txt, ante_txt = _plural(lead, 'dia', 'dias'), _plural(ante, 'dia', 'dias')
     regra = f'ruptura − prazo ({lead_txt}) − chegar antes ({ante_txt})' if ante else f'ruptura − prazo ({lead_txt})'
     rotulo = P['enviar_ate']
+    limite_curto = envio['ultimo_dia'].strftime('%d/%m')
     if envio['estado'] == 'vencido':
-        return _cartao('vermelho', 'fa-triangle-exclamation', rotulo, 'Prazo vencido', f'vai faltar {_plural(envio["faltam_dias"], "dia", "dias")}',
-                       f'O prazo {P["do_envio"]} acabou em {_data(envio["ultimo_dia"])}: com prazo de {lead_txt}, mesmo {P["gerundio"]} hoje o produto só fica disponível em '
-                       f'{_data(envio["chegada"])} e vão faltar cerca de {_plural(envio["faltam_dias"], "dia", "dias")} de estoque.')
+        return _cartao('vermelho', 'fa-triangle-exclamation', rotulo, 'Prazo vencido', f'faltam {envio["faltam_dias"]}+ d',
+                       f'O prazo {P["do_envio"]} acabou em {_data(envio["ultimo_dia"])}: com prazo de {lead_txt}, {P["a_remessa"]} chega depois da ruptura e vão faltar pelo menos '
+                       f'{_plural(envio["faltam_dias"], "dia", "dias")} de estoque. Quanto mais tarde {P["verbo"]}, mais falta.')
     if envio['estado'] == 'ja':
-        sobra = envio['sobra_na_chegada']
-        quando = 'no próprio dia da ruptura' if sobra == 0 else f'{_plural(sobra, "dia", "dias")} antes da ruptura'
-        return _cartao('laranja', 'fa-truck-fast', rotulo, P['enviar_ja'], 'chega no dia da ruptura' if sobra == 0 else f'chega {sobra} d antes',
-                       f'A data recomendada ({_data(envio["enviar_ate"])} = {regra}) já passou, mas ainda dá tempo: {P["gerundio"]} hoje, o produto fica disponível em {_data(envio["chegada"])}, '
-                       f'{quando} (o desejado é chegar {ante_txt} antes). O último dia possível é {_data(envio["ultimo_dia"])}.')
+        return _cartao('laranja', 'fa-truck-fast', rotulo, P['enviar_ja'], f'limite {limite_curto}',
+                       f'A data ideal ({_data(envio["enviar_ate"])} = {regra}) já passou, mas ainda dá tempo: o último dia possível é {_data(envio["ultimo_dia"])}, quando {P["a_remessa"]} chega no próprio dia da ruptura. '
+                       f'Quanto mais tarde {P["verbo"]}, menos folga (o ideal é chegar {ante_txt} antes).')
     ultimo = envio['estado'] == 'hoje'
-    chega_txt = (f'{P["gerundio"].capitalize()} até essa data, o produto chega pelo menos {ante_txt} antes da ruptura. O último dia possível (chegando em cima da ruptura) é {_data(envio["ultimo_dia"])}.' if ante
+    chega_txt = (f'{P["gerundio"].capitalize()} até essa data, o produto chega pelo menos {ante_txt} antes da ruptura. O último dia possível, sem margem (chegando em cima da ruptura), é {_data(envio["ultimo_dia"])}.' if ante
                  else f'Com prazo de {lead_txt}, o produto fica disponível quando o estoque acabar.')
-    return _cartao('laranja' if ultimo else 'verde', 'fa-truck-fast', rotulo, _data(envio['enviar_ate']),
+    return _cartao('laranja', 'fa-truck-fast', rotulo, _data(envio['enviar_ate']),
                    'hoje, último dia' if ultimo else f'daqui a {_plural(envio["em_dias"], "dia", "dias")}',
-                   f'Data recomendada = {regra}. {chega_txt}')
+                   f'Data ideal = {regra}. {chega_txt}')
 
 
 # Função Objetivo: O cartão "Quanto enviar" (no Fora do Full, "Quanto pedir") com a sugestão do SISTEMA (ruptura_calculo.sugestao_do_sistema): ritmo × folga, a quantidade que acrescenta `folga` dias de estoque
@@ -154,22 +154,26 @@ def _cartao_de_quanto_enviar(sug, media, lead, folga, P):
                    f'da atual (ou depois da chegada, se o estoque acabar antes dela). O cartão "{P["com"]}" mostra a data.')
 
 
-# Função Objetivo: O cartão "Com o envio" (no Fora do Full, "Com o pedido"): o que acontece com o estoque se a quantidade escolhida for enviada HOJE (ruptura_calculo.com_envio). A remessa chega em `lead` dias; o cartão
-# mostra a data da NOVA ruptura e a folga que a quantidade dá. Verde = a quantidade acrescenta pelo menos a folga desejada; laranja = a remessa chega a tempo, mas acrescenta menos que a folga desejada;
-# vermelho = o estoque atual acaba antes de a remessa chegar (vai faltar produto, e nenhuma quantidade conserta isso).
+# Função Objetivo: O cartão "Com o envio na data ideal" (no Fora do Full, "Com o pedido na data ideal"): o que acontece com o estoque se a quantidade escolhida for enviada na DATA IDEAL (ruptura_calculo.com_envio): a remessa
+# chega `prazo` dias depois e o cartão mostra a data da NOVA ruptura e a folga que a quantidade dá. É a cor da simulação do gráfico (verde = a quantidade acrescenta pelo menos a folga desejada; laranja = a remessa chega a tempo,
+# mas acrescenta menos que a folga desejada). Na data ideal a remessa sempre chega antes da ruptura, então não existe "vai faltar produto" aqui (esse caso é o cartão sem data ideal, logo abaixo).
 def _cartao_com_o_envio(com, lead, folga, hoje, P):
-    chegada, nova = hoje + timedelta(days=lead), hoje + timedelta(days=com['dia_nova_ruptura'])
+    saida, chegada, nova = hoje + timedelta(days=com['dia_do_envio']), hoje + timedelta(days=com['chegada']), hoje + timedelta(days=com['dia_nova_ruptura'])
     dias_apos, dada = floor(com['dias_apos']), floor(round(com['folga_dada'], 6))
-    base = (f'{P["gerundio"].capitalize()} {numero(com["qtd"])} un hoje, {P["a_remessa"]} chega em {_data(chegada)} (prazo de {_plural(lead, "dia", "dias")}). Nesse dia o estoque terá cerca de {numero(round(com["apos"]))} un '
+    base = (f'{P["gerundio"].capitalize()} {numero(com["qtd"])} un na data ideal ({_data(saida)}), {P["a_remessa"]} chega em {_data(chegada)} (prazo de {_plural(lead, "dia", "dias")}). Nesse dia o estoque terá cerca de {numero(round(com["apos"]))} un '
             f'({numero(ceil(com["antes"]))} que sobram + {numero(com["qtd"])} {P["da_remessa"]}), o que dura cerca de {_plural(dias_apos, "dia", "dias")}: nova ruptura em {_data(nova)}.')
-    if com['faltam'] > 0:
-        return _cartao('vermelho', 'fa-circle-exclamation', P['com'], _data(nova), f'falta {com["faltam"]} d antes de chegar',
-                       f'{base} Mas o estoque atual acaba antes de {P["a_remessa"]} chegar: vão faltar cerca de {_plural(com["faltam"], "dia", "dias")} de produto, e nenhuma quantidade conserta isso (só {P["verbo"]} mais cedo).')
+    rotulo, valor, apoio = f'Nova ruptura {P["com_min"]}', _data(nova), f'chega {chegada.strftime("%d/%m")} · folga {dada} d'
     if dada >= folga:
-        return _cartao('verde', 'fa-arrow-trend-up', P['com'], _data(nova), f'folga de {dada} d',
-                       f'{base} Esta quantidade acrescenta {_plural(dada, "dia", "dias")} de estoque: a folga desejada ({_plural(folga, "dia", "dias")}) foi atingida.')
-    return _cartao('laranja', 'fa-triangle-exclamation', P['com'], _data(nova), f'folga de {dada} d (meta {folga} d)',
+        return _cartao('verde', 'fa-arrow-trend-up', rotulo, valor, apoio, f'{base} Esta quantidade acrescenta {_plural(dada, "dia", "dias")} de estoque: a folga desejada ({_plural(folga, "dia", "dias")}) foi atingida.')
+    return _cartao('laranja', 'fa-triangle-exclamation', rotulo, valor, f'{apoio} (meta {folga})',
                    f'{base} Esta quantidade acrescenta só {_plural(dada, "dia", "dias")} de estoque, abaixo da folga desejada ({_plural(folga, "dia", "dias")}).')
+
+
+# Função Objetivo: O cartão que ocupa o lugar do "Com o envio na data ideal" quando NÃO existe data ideal (ela já passou, o estoque está zerado ou não há ruptura prevista): diz por que a simulação não é desenhada e,
+# quando ainda dá para chegar antes da ruptura, qual seria a nova ruptura. `sem` vem de _montar_detalhe ({qtd, fonte, motivo, dia_limite, nova}).
+def _cartao_sem_data_ideal(sem, hoje, P):
+    tom, apoio = {'ja': ('laranja', 'ela já passou'), 'vencido': ('vermelho', 'prazo vencido'), 'zerado': ('vermelho', 'estoque zerado'), 'sem_ruptura': ('cinza', 'sem ruptura prevista')}[sem['motivo']]
+    return _cartao(tom, 'fa-hourglass-end', f'{P["com"]} na data ideal', 'Sem data ideal', apoio, f'{porque_sem_data(sem, hoje, P)} Quantidade da simulação: {numero(sem["qtd"])} un ({sem["fonte"]}).')
 
 
 # Função Objetivo: O cartão "Urgência de envio": a urgência da referência escolhida (Mercado Livre ou Sistema) em destaque e a outra no apoio ("Sistema: Urgente"). O detalhe diz as duas e se concordam. Sem
@@ -232,9 +236,9 @@ def _cartao_do_ml(ml):
     return _cartao('azul', 'fa-store', 'O que o ML recomenda', valor, f'urgência: {selo["label"]}' if selo else 'sem urgência informada', ' '.join(partes))
 
 
-# Função Objetivo: Os cartões de "quanto enviar": o "Quanto enviar" da referência escolhida (a sugestão do Sistema ou a quantidade digitada) e, havendo quantidade, o "Com o envio". `escolha` vem de
-# _quantidade_escolhida e `com` de ruptura_calculo.com_envio (None sem quantidade).
-def _cartoes_de_quanto_enviar(escolha, com, media, lead, folga, hoje, P, deposito=None):
+# Função Objetivo: Os cartões de "quanto enviar": o "Quanto enviar" da referência escolhida (a sugestão do Sistema ou a quantidade digitada) e, havendo quantidade, o "Com o envio na data ideal" (ou, sem data
+# ideal, o cartão que explica a falta dela). `escolha` vem de _quantidade_escolhida, `com` de ruptura_calculo.com_envio (None sem quantidade ou sem data ideal) e `sem_data` de _montar_detalhe.
+def _cartoes_de_quanto_enviar(escolha, com, media, lead, folga, hoje, P, deposito=None, sem_data=None):
     sug, ml = escolha['sugestao'], escolha['ml']
     if escolha['ref'] == 'ml':
         texto, dica = quantidade_do_ml(ml)
@@ -259,6 +263,8 @@ def _cartoes_de_quanto_enviar(escolha, com, media, lead, folga, hoje, P, deposit
         _avisar_do_deposito(cartoes[0], escolha['qtd'], deposito)
     if com is not None:
         cartoes.append(_cartao_com_o_envio(com, lead, folga, hoje, P))
+    elif sem_data is not None:
+        cartoes.append(_cartao_sem_data_ideal(sem_data, hoje, P))
     return cartoes
 
 
@@ -290,7 +296,7 @@ def _quantidade_escolhida(comuns, sugestao, ml):
 # Função Objetivo: O diagnóstico em cartões: a data de ruptura, até quando enviar (chegando `ante` dias antes da ruptura), a urgência (do Mercado Livre ou do Sistema; fora do Full só a do Sistema), quanto enviar
 # (a sugestão do Sistema, a do ML ou a quantidade digitada), o que acontece com o envio, o que o ML recomenda (só no Full), o ponto de pedido, o ritmo recente contra o do período e, se a opção estiver marcada, o
 # "a caminho" que já está na conta. O nível mostrado é o do ritmo do período escolhido. Sem ritmo ou sem estoque não há cartões: só o `resumo` (uma frase dizendo o que falta). `mundo` = 'full' | 'fora' (as palavras).
-def _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, hoje, a_caminho_somado=0, escolha=None, com=None, ml=None, ref_urg='sistema', deposito=None, mundo='full'):
+def _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, hoje, a_caminho_somado=0, escolha=None, com=None, ml=None, ref_urg='sistema', deposito=None, mundo='full', sem_data=None):
     P = palavras(mundo)
     media = ritmo_p['media']
     sem = {'nivel': None, 'nivel_rotulo': '', 'cartoes': []}
@@ -318,7 +324,7 @@ def _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, me
         cartoes.append(_cartao('cinza', 'fa-calendar-xmark', 'Data de ruptura', 'Sem previsão', f'dura mais de {numero(calc.DIAS_MAXIMOS_DA_PROJECAO)} dias', resumo))
     else:
         resumo = f'Com {ritmo_texto} (ritmo dos últimos {dias} dias), o estoque de {numero(estoque)} un dura cerca de {_plural(projecao["dias"], "dia", "dias")}.'
-        cartoes.append(_cartao('vermelho', 'fa-calendar-xmark', 'Data de ruptura', _data(projecao['data']), _em_dias(projecao['dias']), resumo))
+        cartoes.append(_cartao('vermelho', 'fa-calendar-xmark', f'Ruptura {P["sem"]}', _data(projecao['data']), _em_dias(projecao['dias']), resumo))
 
     # ---- 2) o envio, 3) quanto enviar e 4) o ponto de pedido (dependem do prazo, dos dias de antecedência e da folga) ----
     if lead is None:
@@ -336,7 +342,7 @@ def _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, me
             cat_do_sistema = 'ruptura' if situacao == 'zerado' else 'normal'
             cartoes.append(_cartao_de_urgencia(ref_urg, calc.urgencia_do_sistema(cat_do_sistema, envio_do_item), ml, cat_do_sistema, envio_do_item, P, mundo))
         if escolha is not None and situacao in ('zerado', 'normal'):
-            cartoes.extend(_cartoes_de_quanto_enviar(escolha, com, media, lead, folga, hoje, P, deposito))
+            cartoes.extend(_cartoes_de_quanto_enviar(escolha, com, media, lead, folga, hoje, P, deposito, sem_data))
         if ml is not None:
             cartoes.append(_cartao_do_ml(ml))
         if situacao == 'normal':
@@ -613,12 +619,23 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
 
     dias_do_grafico = sorted({n for n in calc.DIAS_DOS_RITMOS_DO_GRAFICO if n <= comuns['maximo']} | {dias})
     series = [{'dias': n, 'media': ritmo_de(n)['media'], 'url': endereco_do_ritmo(n)} for n in dias_do_grafico]
-    # ---- quanto enviar: a sugestão do Sistema (ritmo × folga), a quantidade escolhida e o que acontece com o estoque se ela for enviada hoje ----
+    # ---- quanto enviar: a sugestão do Sistema (ritmo × folga), a quantidade escolhida e o que acontece com o estoque se ela for enviada NA DATA IDEAL ----
+    # * [EXPLICAÇÃO] → Não existe "hoje" na simulação (regra do Matheus, 13/10/2026): a data real do envio só existe quando o Mercado Livre libera o agendamento. A simulação sai na DATA IDEAL ("Enviar até") e chega
+    #                  prazo dias depois; a nova ruptura é a atual + a folga que a quantidade dá. Se a data ideal já passou (ou o estoque está zerado, ou não há ruptura), não há dia para simular: a linha verde não é
+    #                  desenhada e o cartão `sem_data` diz o porquê (e, no "já passou", qual seria a nova ruptura se a remessa chegar até o dia da ruptura).
     sugestao = calc.sugestao_do_sistema(estoque, media, lead, folga)
     escolha = _quantidade_escolhida(comuns, sugestao, ml)
-    com = calc.com_envio(estoque, media, lead, escolha['qtd'])
-    if com:
-        com = {**com, 'fonte': FONTE_DA_QUANTIDADE[ref_qtd]}   # o cartão da linha verde diz de quem é a quantidade (do Sistema, do Mercado Livre ou digitada)
+    qtd_escolhida = escolha['qtd']
+    ideal = calc.data_ideal_do_envio(calc.projetar(estoque, media, hoje), lead, hoje, ante)
+    com = sem_data = None
+    if estoque is not None and media and media > 0 and lead is not None and qtd_escolhida and qtd_escolhida > 0:
+        fonte = FONTE_DA_QUANTIDADE[ref_qtd]   # o cartão da linha verde diz de quem é a quantidade (do Sistema, do Mercado Livre ou digitada)
+        if ideal is not None and ideal['dia'] is not None:
+            com = {**calc.com_envio(estoque, media, lead, qtd_escolhida, ideal['dia']), 'fonte': fonte}
+        else:
+            motivo = ideal['estado'] if ideal is not None else ('zerado' if estoque <= 0 else 'sem_ruptura')
+            nova = calc.com_envio(estoque, media, lead, qtd_escolhida, ideal['dia_limite'])['dia_nova_ruptura'] if (ideal is not None and motivo == 'ja') else None
+            sem_data = {'qtd': qtd_escolhida, 'fonte': fonte, 'motivo': motivo, 'dia_limite': ideal['dia_limite'] if ideal is not None else None, 'nova': nova}
     pagina['qtd_placeholder'] = numero(sugestao['qtd']) if sugestao else 'un'
     if ref_qtd == 'manual':
         pagina['qtd_ajuda'] = f'Digite quantas unidades enviar: a linha verde do gráfico e o cartão "{P["com"]}" mostram como o estoque fica.'
@@ -627,8 +644,8 @@ def _montar_detalhe(parametros, base_url, hoje, comuns, pagina, sku):
         pagina['qtd_ajuda'] = (f'Sugestão do Mercado Livre: {texto_ml} un' + (' (no gráfico vale o começo da faixa).' if '–' in texto_ml else '.')) if texto_ml else f'Sem número do ML ({ml["motivo"] or "sem sugestão de envio"}).'
     else:
         pagina['qtd_ajuda'] = (f'Sugestão do Sistema: {numero(sugestao["qtd"])} un (ritmo × {folga} d de folga).' if sugestao else 'Sem sugestão do Sistema (falta estoque ou ritmo).') if e_full else ''
-    pagina['grafico'] = montar_grafico(estoque, lead, ante, series, dias, hoje, com, folga, mundo)
-    pagina['diagnostico'] = _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, hoje, a_caminho_somado, escolha, com, ml, comuns['ref_urg'], deposito, mundo)
+    pagina['grafico'] = montar_grafico(estoque, lead, ante, series, dias, hoje, com, folga, mundo, sem_data)
+    pagina['diagnostico'] = _diagnostico(estoque, lead, ante, folga, dias, recente, ritmo_p, ritmo_r, mesmo_ritmo, hoje, a_caminho_somado, escolha, com, ml, comuns['ref_urg'], deposito, mundo, sem_data)
 
 
 # ==================================================== a página ====================================================

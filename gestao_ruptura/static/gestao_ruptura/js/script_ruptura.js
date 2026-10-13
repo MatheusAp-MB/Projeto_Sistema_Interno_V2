@@ -116,9 +116,11 @@
     });
 
     // [4] Gráfico da curva de estoque (só no detalhe): ligar/desligar curvas, passar o mouse, zoom (botões ou scroll do mouse sobre o gráfico) e arrastar. TUDO local: o script lê os dados que o servidor
-    //     deixou no próprio HTML (estoque, ritmos, data de hoje) e refaz só as contas simples (estoque − ritmo × dias). Não chama o servidor, o Mercado Livre nem o ERP.
-    //     CADA DATA É UMA COLUNA (da meia-noite dela até a seguinte): a linha do estoque é contínua e cruza o zero dentro da coluna do dia da ruptura (hoje + parte inteira dos dias de estoque);
-    //     o nome da data fica no meio da coluna, o "Enviar até" e a "Ruptura" são faixas da coluna e o mouse destaca o dia inteiro (estoque no COMEÇO do dia; em hoje é o estoque lido).
+    //     deixou no próprio HTML (estoque, ritmos, dia da leitura) e refaz só as contas simples (estoque − ritmo × dias). Não chama o servidor, o Mercado Livre nem o ERP.
+    //     CADA DATA É UMA COLUNA (da meia-noite dela até a seguinte): a linha do estoque é contínua e cruza o zero dentro da coluna do dia da ruptura (dia da leitura + parte inteira dos dias de estoque);
+    //     o nome da data fica no meio da coluna, as linhas de data ("Enviar até", "Ruptura", "Nova ruptura") ficam no meio dela (a "Chegada ideal", no começo) e o mouse destaca o dia inteiro (estoque no
+    //     COMEÇO do dia; no primeiro dia é o estoque lido). Não existe "hoje" no gráfico: a data real do envio depende de quando o Mercado Livre liberar o agendamento.
+    //     A RÉGUA (chips acima do desenho) acompanha o zoom: cada chip tem o começo e o fim em dias (data-rup-ini/fim) e é cortado pela janela visível.
     //     O ZOOM mexe nos DOIS eixos: o horizontal mostra datas cada vez mais próximas (até dia a dia) e o vertical se ajusta ao trecho visível das curvas (mais números, de 1 em 1 unidade nos
     //     limites). As linhas (SVG) são medidas em DIAS no eixo horizontal; o que é texto em HTML (datas, números, "Enviar até", "Ruptura", pontinhos) é reposicionado em %.
     //     Sem este script o gráfico continua inteiro (só não tem zoom, mouse nem caixinhas).
@@ -138,11 +140,11 @@
         var PX_POR_NUMERO = 28;  // espaço mínimo de cada número no eixo vertical
         var FAIXA_MINIMA = 5;    // o menor trecho (em unidades) que o eixo vertical mostra quando há zoom
         var FOLGA = 1e-6;
-        var janela = { a: 0, b: HORIZONTE };   // o trecho visível, em dias a partir de hoje
+        var janela = { a: 0, b: HORIZONTE };   // o trecho visível, em dias a partir do dia da leitura do estoque
         var escala = { min: 0, max: dados.yMax };   // o trecho visível, em unidades de estoque
         var visiveis = {};
         dados.series.forEach(function (s) { visiveis[s.id] = true; });
-        // A COBERTURA DA REMESSA (linha verde, só havendo quantidade para enviar): antes da chegada ela é igual à curva do ritmo em destaque; no dia da chegada (`chega`) o estoque SOBE para `depois` e volta a
+        // A SIMULAÇÃO DE REPOSIÇÃO (linha verde, só havendo quantidade E data ideal): antes da chegada ideal ela é igual à curva do ritmo em destaque; no dia da chegada (`chega`) o estoque SOBE para `depois` e volta a
         // cair no mesmo ritmo até zerar em `tZero` (a nova ruptura). Medida em dias, como as outras linhas.
         var sug = dados.sug || null;
         if (sug) { visiveis[sug.id] = true; }
@@ -232,9 +234,10 @@
                 var meio = t + 0.5;   // o nome da data fica no MEIO da coluna do dia
                 if (meio < janela.a - FOLGA || meio > janela.b + FOLGA) { continue; }
                 var rotuloX = document.createElement('span');
-                rotuloX.className = 'rup-rotulo-x' + (t === 0 ? ' rup-rotulo-x--hoje' : '');
+                rotuloX.className = 'rup-rotulo-x' + (t === 0 ? ' rup-rotulo-x--leitura' : '');
+                if (t === 0) { rotuloX.title = 'Dia da leitura do estoque: o começo do gráfico'; }
                 rotuloX.style.left = porcento(meio) + '%';
-                rotuloX.textContent = t === 0 ? 'HOJE' : dataDoDia(t);
+                rotuloX.textContent = dataDoDia(t);
                 area.appendChild(rotuloX);
             }
             // vertical: de quantas em quantas unidades? Sem zoom ~4 linhas; com zoom, quantas couberem na altura (uma a cada ~28px), chegando a 1 em 1 unidade nos trechos curtos
@@ -280,6 +283,24 @@
             }
         }
 
+        // ---- a régua de chips (acima do desenho): cada chip cobre [ini, fim] em dias; com zoom é cortado pela janela visível e some quando sai dela. Pouco espaço: primeiro some o texto menor
+        //      (as datas), depois o nome (fica só a cor; o balão do chip diz tudo) ----
+        function posicionarRegua() {
+            document.querySelectorAll('[data-rup-regua] [data-rup-ini]').forEach(function (chip) {
+                var ini = Math.max(parseFloat(chip.getAttribute('data-rup-ini')), janela.a);
+                var fim = Math.min(parseFloat(chip.getAttribute('data-rup-fim')), janela.b);
+                var visivel = fim - ini > FOLGA;
+                ocultar(chip, !visivel);
+                if (!visivel) { return; }
+                chip.style.left = porcento(ini) + '%';
+                chip.style.width = ((fim - ini) / tamanho() * 100) + '%';
+                chip.classList.remove('rup-faixa--curta', 'rup-faixa--breve', 'rup-faixa--mini');   // etapas, só avança se o texto não couber: sem as datas → nome curto → sem nome
+                if (chip.scrollWidth > chip.clientWidth + 1) { chip.classList.add('rup-faixa--curta'); }
+                if (chip.scrollWidth > chip.clientWidth + 1) { chip.classList.add('rup-faixa--breve'); }
+                if (chip.scrollWidth > chip.clientWidth + 1) { chip.classList.remove('rup-faixa--curta', 'rup-faixa--breve'); chip.classList.add('rup-faixa--mini'); }
+            });
+        }
+
         // ---- textos, pontinhos e a linha do ponto de pedido: acompanham o zoom dos dois eixos e somem quando saem do trecho visível ----
         function posicionarPecas() {
             area.querySelectorAll('[data-rup-t]').forEach(function (peca) {
@@ -293,24 +314,20 @@
                 }
                 ocultar(peca, !visivel);
                 if (!visivel) { return; }
-                var p = porcento(t);
-                peca.style.left = p + '%';
-                if (peca.hasAttribute('data-rup-lado')) {   // o texto do marcador fica do lado onde há espaço
-                    peca.classList.toggle('rup-etiqueta--esq', p > 55);
-                    peca.classList.toggle('rup-etiqueta--dir', p <= 55);
-                }
+                peca.style.left = porcento(t) + '%';
             });
-            area.querySelectorAll('[data-rup-dia]').forEach(function (peca) {   // "Enviar até" e "Ruptura": o texto fica ao lado da faixa do dia, do lado onde há espaço
-                var dia = parseFloat(peca.getAttribute('data-rup-dia'));
-                var esquerda = porcento(dia) > 55;
-                var ancora = esquerda ? dia : dia + 1;
-                var visivel = dentro(ancora);
+            area.querySelectorAll('[data-rup-x]').forEach(function (peca) {   // as linhas de data: o texto fica ao lado da linha, do lado preferido (data-rup-lado); inverte quando a linha está colada na borda
+                var x = parseFloat(peca.getAttribute('data-rup-x'));
+                var visivel = dentro(x);
                 ocultar(peca, !visivel);
                 if (!visivel) { return; }
-                peca.style.left = porcento(ancora) + '%';
+                var p = porcento(x);
+                var esquerda = peca.getAttribute('data-rup-lado') === 'esq' ? p >= 28 : p > 72;
+                peca.style.left = p + '%';
                 peca.classList.toggle('rup-etiqueta--esq', esquerda);
                 peca.classList.toggle('rup-etiqueta--dir', !esquerda);
             });
+            posicionarRegua();
             var linhaPedido = svg.querySelector('.rup-pedido-linha');
             var rotuloPedido = area.querySelector('.rup-etiqueta--pedido');
             if (linhaPedido && rotuloPedido && dados.pedido) {
@@ -368,7 +385,7 @@
             var passo = tamanho() * fracao;
             ajustar(janela.a + passo, janela.b + passo);
         }
-        function verRuptura() {   // aproxima da região que importa: do dia do "Enviar até" (ou de hoje, se o prazo já passou) até o dia da ruptura (inteiro), com uma folga
+        function verRuptura() {   // aproxima da região que importa: do dia do "Enviar até" (ou do começo, se a data ideal já passou) até o dia da ruptura (inteiro), com uma folga
             if (dados.rupturaDia === null || dados.rupturaDia === undefined) { return; }
             var folga = Math.max(3, Math.ceil((dados.lead || 0) * 0.6));
             var inicio = (dados.enviarDia !== null && dados.enviarDia !== undefined ? dados.enviarDia : dados.rupturaDia - (dados.lead || 0)) - folga;
@@ -401,7 +418,7 @@
         }
         function mostrarCurva(id, mostrar) {
             visiveis[id] = mostrar;
-            area.querySelectorAll('[data-serie="' + id + '"]').forEach(function (peca) { peca.classList.toggle('rup-oculto', !mostrar); });
+            area.parentNode.querySelectorAll('[data-serie="' + id + '"]').forEach(function (peca) { peca.classList.toggle('rup-oculto', !mostrar); });   // inclui o chip da régua (que fica fora da área)
         }
         var ocultas = lerOcultas();
         document.querySelectorAll('[data-rup-curva]').forEach(function (caixa) {
@@ -435,8 +452,8 @@
         }
         function unidades(n) { return numeroBR(n) + ' un'; }
         function textoUnidades(valor) { return valor > 0 && Math.round(valor) < 1 ? 'menos de 1 un' : unidades(valor); }
-        // O mouse destaca o DIA inteiro (a coluna) e mostra o estoque projetado no COMEÇO dele (em hoje é o estoque lido). Na coluna em que uma curva cruza o zero aparece "acaba neste dia";
-        // depois dela, "zerado". É a mesma conta da ruptura: o dia da ruptura é hoje + parte inteira dos dias de estoque.
+        // O mouse destaca o DIA inteiro (a coluna) e mostra o estoque projetado no COMEÇO dele (no primeiro dia é o estoque lido). Na coluna em que uma curva cruza o zero aparece "acaba neste dia";
+        // depois dela, "zerado". É a mesma conta da ruptura: o dia da ruptura é o dia da leitura + parte inteira dos dias de estoque.
         function mostrarDica(t, fx, py) {
             var dia = Math.max(0, Math.min(HORIZONTE - 1, Math.floor(t + FOLGA)));
             var pEsq = porcento(dia);
@@ -448,7 +465,7 @@
             dica.textContent = '';
             var titulo = document.createElement('div');
             titulo.className = 'rup-dica-titulo';
-            titulo.textContent = diaDaSemana(dia) + ', ' + dataDoDia(dia) + ' · ' + (dia === 0 ? 'hoje' : 'em ' + dia + (dia === 1 ? ' dia' : ' dias'));
+            titulo.textContent = diaDaSemana(dia) + ', ' + dataDoDia(dia) + (dia === 0 ? ' · leitura do estoque' : ' · em ' + dia + (dia === 1 ? ' dia' : ' dias'));
             var subtitulo = document.createElement('div');
             subtitulo.className = 'rup-dica-sub';
             subtitulo.textContent = dia === 0 ? 'Estoque atual (o lido)' : 'Estoque no início do dia';

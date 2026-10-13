@@ -62,13 +62,16 @@
         <section class="rup-painel" aria-label="Curva de estoque e diagnóstico">
             <div class="rup-caixa-painel rup-caixa-painel--grafico" id="rup-grafico">
                 {% comment %}
-                    * [EXPLICAÇÃO] → O gráfico tem 4 partes de ALTURA FIXA: o cabeçalho (título + botões de zoom), o desenho, o rodapé (uma dica de leitura) e a fileira com um cartão por ritmo
-                      (3, 7, 15, 30 dias; ou mais um, se o período digitado for outro). O desenho é SVG em DIAS (viewBox "0 0 {horizonte} 100"): o zoom só troca o viewBox. Os textos ficam em HTML por cima.
+                    * [EXPLICAÇÃO] → O gráfico tem 5 partes de ALTURA FIXA: o cabeçalho (título + botões de zoom), a RÉGUA (duas faixas de chips que nomeiam as zonas do fundo e a simulação), o desenho, o rodapé (uma dica
+                      de leitura) e os cartões em dois grupos ("Cenários de ritmo de vendas (sem novo envio)", um por ritmo: 3, 7, 15, 30 dias ou mais um se o período digitado for outro; e "Simulação de reposição").
+                      O desenho é SVG em DIAS (viewBox "0 0 {horizonte} 100"): o zoom só troca o viewBox. Os textos e a régua ficam em HTML por cima/acima. A régua tem as mesmas cores e as mesmas divisas das zonas do
+                      fundo (semáforo clarinho: verde = antes do prazo, laranja = prazo crítico, vermelho = após a ruptura); a de baixo mostra a simulação (verde forte).
                       Os botões de zoom nascem escondidos e o script_ruptura.js os mostra: sem JavaScript o gráfico continua inteiro, só sem zoom, sem passar o mouse e sem ligar/desligar curvas.
-                      CADA DATA É UMA COLUNA (da meia-noite dela até a seguinte): o "Enviar até" e a "Ruptura" são faixas dessa coluna (azul-marinho e vermelha) e o nome da data fica centrado nela; a linha do
-                      estoque cruza o zero dentro da faixa vermelha. As linhas verticais da grade são as divisas entre os dias.
-                      A LEGENDA é o painel "Como ler este gráfico" (logo abaixo, fora da altura fixa do gráfico): cada cor e cada linha desenhada tem a sua amostra e uma explicação com os números do produto
-                      (os textos saem de ruptura_grafico.py; as cores, do CSS). Regra do Matheus (13/10/2026): cada elemento representa UMA única coisa; o verde é só o cenário "enviando hoje".
+                      CADA DATA É UMA COLUNA (da meia-noite dela até a seguinte): o nome da data do eixo fica centrado nela e as linhas de data ("Enviar até", "Ruptura", "Nova ruptura") ficam no meio da coluna; a linha do
+                      estoque cruza o zero dentro da coluna da ruptura. A "Chegada ideal" fica no começo da coluna, onde o estoque sobe. As linhas verticais da grade são as divisas entre os dias.
+                      NÃO existe "hoje" no gráfico: a data real do envio só existe quando o Mercado Livre libera o agendamento, então o que se desenha é a data IDEAL (regra do Matheus, 13/10/2026).
+                      A LEGENDA é o painel "Como ler este gráfico" (logo abaixo, fora da altura fixa do gráfico, fechado de início): cada cor e cada linha desenhada tem a sua amostra e uma explicação com os números do
+                      produto (os textos saem de ruptura_grafico.py; as cores, do CSS). Regra do Matheus (13/10/2026): cada elemento representa UMA única coisa; o verde forte é só a simulação de reposição.
                 {% endcomment %}
                 <header class="rup-painel-cab">
                     <h2 class="rup-painel-titulo">Curva de estoque</h2>
@@ -85,56 +88,72 @@
                 </header>
                 {% if g %}
                     <div class="rup-grafico" role="img" aria-label="{{ g.descricao }}">
+                        {% if g.regua %}
+                            <div class="rup-regua" data-rup-regua>
+                                {% for c in g.regua %}<span class="rup-faixa rup-faixa--{{ c.classe }} rup-faixa--linha{{ c.faixa }}"{% if c.serie %} data-serie="{{ c.serie }}"{% endif %} data-rup-ini="{{ c.ini }}" data-rup-fim="{{ c.fim }}" style="left: {{ c.x }}%; width: {{ c.largura }}%" title="{{ c.titulo }}"><b><span class="rup-faixa-longo">{{ c.rotulo }}</span><span class="rup-faixa-breve">{{ c.breve }}</span></b>{% if c.datas %}<small>· {{ c.datas }}</small>{% endif %}</span>{% endfor %}
+                            </div>
+                        {% endif %}
                         <div class="rup-grafico-area" data-rup-area>
                             <svg class="rup-grafico-svg" viewBox="{{ g.viewbox }}" preserveAspectRatio="none" aria-hidden="true" focusable="false">
                                 {% for z in g.zonas %}<rect class="rup-zona rup-zona--{{ z.classe }}{% if z.atrasada %} rup-zona--atrasada{% endif %}" x="{{ z.inicio }}" y="0" width="{{ z.largura }}" height="100"/>{% endfor %}
                                 {% for t in g.ticks_x %}<line class="rup-grade rup-grade--x" x1="{{ t.t }}" x2="{{ t.t }}" y1="0" y2="100"/>{% endfor %}
                                 {% for t in g.grades_y %}<line class="rup-grade rup-grade--y" x1="0" x2="{{ g.horizonte }}" y1="{{ t.y }}" y2="{{ t.y }}"/>{% endfor %}
                                 {% if g.ponto_de_pedido %}<line class="rup-pedido-linha" x1="0" x2="{{ g.horizonte }}" y1="{{ g.ponto_de_pedido.y }}" y2="{{ g.ponto_de_pedido.y }}"/>{% endif %}
-                                {% for m in g.marcadores %}<rect class="rup-dia rup-dia--{{ m.classe }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} x="{{ m.dia }}" y="0" width="1" height="100"/>{% endfor %}
+                                {% for m in g.marcadores %}<line class="rup-dia rup-dia--{{ m.classe }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} x1="{{ m.posicao }}" x2="{{ m.posicao }}" y1="0" y2="100"/>{% endfor %}
                                 {% for l in g.linhas %}<polyline class="rup-curva rup-cor--{{ l.cor }}{% if l.foco %} rup-curva--foco{% endif %}" data-serie="{{ l.id }}" points="{{ l.pontos }}"/>{% endfor %}
                                 {% if g.remessa %}<polyline class="rup-curva rup-curva--sug rup-cor--{{ g.remessa.cor }}" data-serie="sug" points="{{ g.remessa.pontos }}"/>{% endif %}
                             </svg>
+                            <span class="rup-rotulo-un" title="Estoque em unidades">Un.</span>
                             {% for t in g.grades_y %}<span class="rup-rotulo-y" style="top: {{ t.y }}%">{{ t.rotulo }}</span>{% endfor %}
-                            {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.hoje %} rup-rotulo-x--hoje{% endif %}" style="left: {{ t.x_meio }}%">{{ t.rotulo }}</span>{% endfor %}
-                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} data-rup-dia="{{ m.dia }}" data-rup-lado style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
+                            {% for t in g.ticks_x %}<span class="rup-rotulo-x{% if t.leitura %} rup-rotulo-x--leitura{% endif %}"{% if t.leitura %} title="Dia da leitura do estoque: o começo do gráfico"{% endif %} style="left: {{ t.x_meio }}%">{{ t.rotulo }}</span>{% endfor %}
+                            {% for m in g.marcadores %}<span class="rup-etiqueta rup-etiqueta--{{ m.classe }} rup-etiqueta--{{ m.lado }}"{% if m.serie %} data-serie="{{ m.serie }}"{% endif %} data-rup-x="{{ m.posicao }}" data-rup-lado="{{ m.lado }}" style="left: {{ m.x }}%; top: {{ m.topo }}px">{{ m.rotulo }}</span>{% endfor %}
                             {% for p in g.pontos_de_ruptura %}<span class="rup-ponto-ruptura rup-cor--{{ p.cor }}" data-serie="{{ p.id }}" data-rup-t="{{ p.t }}" style="left: {{ p.x }}%" title="{{ p.rotulo }}"></span>{% endfor %}
                             {% if g.ponto_de_pedido %}<span class="rup-etiqueta rup-etiqueta--pedido{% if g.ponto_de_pedido.abaixo %} rup-etiqueta--abaixo{% endif %}" style="top: {{ g.ponto_de_pedido.y }}%">{{ g.ponto_de_pedido.rotulo }}</span>{% endif %}
                         </div>
                     </div>
                     <div class="rup-grafico-rodape">
-                        {% if g.nota %}<p class="rup-grafico-nota" title="{{ g.nota }}">{{ g.nota }}</p>{% else %}<p class="rup-grafico-nota" title="Cada coluna é um dia. Passe o mouse sobre o gráfico para ver o estoque previsto. O que cada cor e cada linha significam está em “Como ler este gráfico”, logo abaixo.">Cada coluna é um dia · passe o mouse para ver o estoque previsto · cores e linhas: “Como ler este gráfico”, abaixo</p>{% endif %}
+                        {% if g.nota %}<p class="rup-grafico-nota" title="{{ g.nota }}">{{ g.nota }}</p>{% else %}<p class="rup-grafico-nota" title="Cada coluna é um dia. O fundo e a linha grossa são o ritmo em destaque, sem novo envio.{% if g.remessa %} A linha verde simula a reposição na data ideal.{% endif %} Passe o mouse sobre o gráfico para ver o estoque previsto. O que cada cor e cada linha significam está em “Como ler este gráfico”, logo abaixo."><i class="fas fa-circle-info" aria-hidden="true"></i> O fundo e a linha grossa mostram o ritmo em destaque, sem novo envio{% if g.remessa %}; a linha verde simula a reposição na data ideal{% endif %}</p>{% endif %}
                     </div>
-                    <ul class="rup-periodos{% if g.n_cartoes > 4 %} rup-periodos--cinco{% endif %}" style="--rup-n: {{ g.n_cartoes }}" aria-label="Ritmos de venda comparados no gráfico">
-                        {% for p in g.periodos %}
-                            <li class="rup-periodo rup-cor--{{ p.cor }}{% if p.foco %} rup-periodo--foco{% endif %}{% if p.sem_dados %} rup-periodo--sem-dados{% endif %}"{% if p.foco %} aria-current="true"{% endif %} title="{% if p.foco %}Ritmo em destaque. {% endif %}{{ p.dica }}">
-                                <div class="rup-periodo-topo">
-                                    <input type="checkbox" class="rup-periodo-marca" data-rup-curva="{{ p.id }}" aria-label="Mostrar no gráfico a curva do ritmo de {{ p.curto }}"{% if not p.sem_dados %} checked{% endif %}{% if p.foco or p.sem_dados %} disabled{% endif %}>
-                                    {% if p.foco or p.sem_dados %}
-                                        <span class="rup-periodo-nome">{{ p.curto }}</span>
-                                    {% else %}
-                                        <a class="rup-periodo-nome rup-periodo-link" href="{{ p.url }}" title="Destacar o ritmo de {{ p.curto }}">{{ p.curto }}</a>
-                                    {% endif %}
-                                    <span class="rup-periodo-ritmo">{% if p.sem_dados %}sem dados{% else %}{{ p.ritmo_numero }}<span class="rup-periodo-un"> un</span>/dia{% endif %}</span>
-                                </div>
-                                <span class="rup-periodo-linha">Ponto de pedido: {{ p.pedido_numero }}{% if p.pedido_numero != '—' %}<span class="rup-periodo-un"> un</span>{% endif %}</span>
-                                <span class="rup-periodo-linha rup-periodo-linha--{{ p.envio_classe }}">{{ p.envio }}</span>
-                            </li>
-                        {% endfor %}
+                    <div class="rup-cenarios{% if g.n_cartoes > 5 %} rup-cenarios--cheio{% endif %}">
+                        <section class="rup-cenarios-grupo rup-cenarios-grupo--ritmos" style="--rup-n: {{ g.periodos|length }}" aria-label="Cenários de ritmo de vendas, sem novo envio">
+                            <h3 class="rup-cenarios-titulo">Cenários de ritmo de vendas <span>(sem novo envio)</span></h3>
+                            <ul class="rup-periodos" aria-label="Ritmos de venda comparados no gráfico">
+                                {% for p in g.periodos %}
+                                    <li class="rup-periodo rup-cor--{{ p.cor }}{% if p.foco %} rup-periodo--foco{% endif %}{% if p.sem_dados %} rup-periodo--sem-dados{% endif %}"{% if p.foco %} aria-current="true"{% endif %} title="{% if p.foco %}Ritmo em destaque. {% endif %}{{ p.dica }}">
+                                        <div class="rup-periodo-topo">
+                                            <input type="checkbox" class="rup-periodo-marca" data-rup-curva="{{ p.id }}" aria-label="Mostrar no gráfico a curva do ritmo de {{ p.curto }}"{% if not p.sem_dados %} checked{% endif %}{% if p.foco or p.sem_dados %} disabled{% endif %}>
+                                            {% if p.foco or p.sem_dados %}
+                                                <span class="rup-periodo-nome">{{ p.curto }}</span>
+                                            {% else %}
+                                                <a class="rup-periodo-nome rup-periodo-link" href="{{ p.url }}" title="Destacar o ritmo de {{ p.curto }}">{{ p.curto }}</a>
+                                            {% endif %}
+                                            <span class="rup-periodo-ritmo">{% if p.sem_dados %}sem dados{% else %}{{ p.ritmo_numero }}<span class="rup-periodo-un"> un</span>/dia{% endif %}</span>
+                                        </div>
+                                        <span class="rup-periodo-linha">Ponto de pedido: {{ p.pedido_numero }}{% if p.pedido_numero != '—' %}<span class="rup-periodo-un"> un</span>{% endif %}</span>
+                                        <span class="rup-periodo-linha rup-periodo-linha--{{ p.envio_classe }}">{{ p.envio }}</span>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </section>
                         {% if g.cartao_da_remessa %}
                             {% with r=g.cartao_da_remessa %}
-                                <li class="rup-periodo rup-periodo--remessa rup-cor--{{ r.cor }}" title="{{ r.dica }}">
-                                    <div class="rup-periodo-topo">
-                                        <input type="checkbox" class="rup-periodo-marca" data-rup-curva="{{ r.id }}" aria-label="Mostrar no gráfico a cobertura da remessa" checked>
-                                        <span class="rup-periodo-nome">{{ r.curto }}</span>
-                                        <span class="rup-periodo-ritmo">{{ r.quantidade }} un</span>
-                                    </div>
-                                    <span class="rup-periodo-linha">{{ r.chega }}</span>
-                                    <span class="rup-periodo-linha rup-periodo-linha--{{ r.classe }}">{{ r.nova }}</span>
-                                </li>
+                                <section class="rup-cenarios-grupo rup-cenarios-grupo--simulacao" style="--rup-n: 1" aria-label="Simulação de reposição">
+                                    <h3 class="rup-cenarios-titulo">Simulação de reposição</h3>
+                                    <ul class="rup-periodos">
+                                        <li class="rup-periodo rup-periodo--remessa{% if r.sem_data %} rup-periodo--sem-data{% endif %} rup-cor--{{ r.cor }}" title="{{ r.dica }}">
+                                            <div class="rup-periodo-topo">
+                                                <input type="checkbox" class="rup-periodo-marca" data-rup-curva="{{ r.id }}" aria-label="Mostrar no gráfico a simulação de reposição"{% if r.sem_data %} disabled{% else %} checked{% endif %}>
+                                                <span class="rup-periodo-nome">{{ r.curto }}</span>
+                                                <span class="rup-periodo-ritmo">{{ r.quantidade }}<span class="rup-periodo-un"> un</span></span>
+                                            </div>
+                                            <span class="rup-periodo-linha">{{ r.chega }}</span>
+                                            <span class="rup-periodo-linha rup-periodo-linha--{{ r.classe }}">{{ r.nova }}</span>
+                                        </li>
+                                    </ul>
+                                </section>
                             {% endwith %}
                         {% endif %}
-                    </ul>
+                    </div>
                     {{ g.dados|json_script:"rup-grafico-dados" }}
                 {% else %}
                     <p class="rup-vazio">Informe o estoque atual para desenhar a curva.</p>
@@ -178,7 +197,7 @@
                 </div>
             </aside>
             {% if g %}
-                <details class="rup-caixa-painel rup-leitura" open>
+                <details class="rup-caixa-painel rup-leitura">
                     <summary class="rup-painel-cab">
                         <h2 class="rup-painel-titulo">Como ler este gráfico</h2>
                         <span class="rup-leitura-lema">Cada cor e cada linha significam uma única coisa</span>

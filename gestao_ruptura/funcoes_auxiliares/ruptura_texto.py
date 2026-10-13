@@ -15,10 +15,12 @@ PALAVRAS_DOS_MUNDOS = {
     'full': {
         'enviar_ate': 'Enviar até', 'enviar_ja': 'Enviar já', 'acao_cartao': 'Enviar', 'quanto': 'Quanto enviar', 'com': 'Com o envio', 'urgencia': 'Urgência de envio', 'verbo': 'enviar', 'gerundio': 'enviando',
         'enviado': 'enviado', 'a_remessa': 'a remessa', 'da_remessa': 'da remessa', 'o_envio': 'o envio', 'do_envio': 'do envio', 'estoque': 'Estoque no Full', 'vendas_de': 'do Full', 'unidade_de_venda': 'o Full',
+        'sem': 'sem envio', 'com_min': 'com envio',
     },
     'fora': {
         'enviar_ate': 'Pedir até', 'enviar_ja': 'Pedir já', 'acao_cartao': 'Pedir', 'quanto': 'Quanto pedir', 'com': 'Com o pedido', 'urgencia': 'Urgência do pedido', 'verbo': 'pedir', 'gerundio': 'pedindo',
         'enviado': 'pedido', 'a_remessa': 'o pedido', 'da_remessa': 'do pedido', 'o_envio': 'o pedido', 'do_envio': 'do pedido', 'estoque': 'Estoque fora do Full', 'vendas_de': 'de fora do Full', 'unidade_de_venda': 'o estoque de fora',
+        'sem': 'sem pedido', 'com_min': 'com pedido',
     },
 }
 

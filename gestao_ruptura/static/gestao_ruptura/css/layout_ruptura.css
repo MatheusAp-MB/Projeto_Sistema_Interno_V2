@@ -14,8 +14,8 @@
     max-width: 2400px;
     color: #243247;
     font-size: 0.9rem;
-    /* cores FIXAS dos ritmos do gráfico (mesma cor em qualquer produto). REGRA DO GRÁFICO (pedido do Matheus, 13/10/2026): "cada elemento representa 1 única coisa". Por isso os ritmos fogem do verde (o cenário "enviando hoje"),
-       do vermelho (a ruptura), do laranja e do amarelo (as zonas do fundo) e do azul-marinho (o "Enviar até") */
+    /* cores FIXAS dos ritmos do gráfico (mesma cor em qualquer produto). REGRA DO GRÁFICO (pedido do Matheus, 13/10/2026): "cada elemento representa 1 única coisa". Por isso os ritmos fogem do verde (a simulação de reposição),
+       do vermelho (a ruptura) e do laranja (o "Enviar até" e o prazo crítico) */
     --rup-c3: #7655ae;
     --rup-c7: #19829c;
     --rup-c15: #b0508a;
@@ -24,22 +24,34 @@
     /* a cor do MUNDO escolhido nos controles do topo: o azul da tela no Envios Full; verde-água no Fora do Full (".rup-pagina--fora", mais abaixo) */
     --rup-mundo: var(--cor-primaria);
     --rup-mundo-fundo: #edf2f8;
-    /* O VERDE do gráfico é UMA coisa só: o cenário "enviando HOJE" (a linha "Com o envio" e as duas datas que saem dela, "Chega" e "Nova ruptura") */
+    /* O VERDE FORTE do gráfico é UMA coisa só: a simulação de reposição (a linha "Com o envio" e as duas datas que saem dela, "Chegada ideal" e "Nova ruptura") */
     --rup-sug: #1f8a4c;
-    /* zonas do FUNDO do gráfico (ritmo em destaque): antes do envio (sem cor) / chegar antes da ruptura (amarelo) / prazo até vender (laranja) / depois da ruptura (cinza). Nenhuma usa verde nem vermelho: essas cores são das datas e da linha */
-    --rup-zona-antes: transparent;
-    --rup-zona-ante: rgba(235, 183, 30, 0.2);
-    --rup-zona-envio: rgba(224, 122, 31, 0.16);
-    --rup-zona-envio-atrasada: rgba(224, 122, 31, 0.3);
-    --rup-zona-pos: rgba(110, 118, 130, 0.16);
-    /* as DATAS (a coluna inteira do dia): "Enviar até" azul (mais forte que as zonas, para não "sujar" quando cai em cima do amarelo) · "Ruptura" vermelho (o ÚNICO vermelho do gráfico) · "Chega" verde cheio · "Nova ruptura" verde claro com borda tracejada
-       (o verde é o do cenário do envio: se quiser a nova ruptura em outra cor, é só trocar a linha --rup-dia-nova e o --rup-dia-nova-borda). A legenda "Como ler este gráfico" usa estas mesmas variáveis */
-    --rup-dia-enviar: rgba(31, 76, 140, 0.5);
-    --rup-dia-enviar-texto: #1f4c8c;
-    --rup-dia-enviar-borda: #b9cbe3;
-    --rup-dia-ruptura: rgba(180, 35, 24, 0.38);
-    --rup-dia-chega: rgba(31, 138, 76, 0.3);
-    --rup-dia-nova: rgba(31, 138, 76, 0.12);
+    /* zonas do FUNDO do gráfico (ritmo em destaque, sem novo envio): um semáforo bem clarinho. Antes do prazo (verde) / prazo crítico de reposição (laranja; mais forte quando o último dia de envio já passou) / após a ruptura (vermelho).
+       A RÉGUA de chips (--rup-faixa-*) usa os mesmos matizes, um pouco mais fortes, para o texto ficar legível */
+    --rup-zona-antes: rgba(31, 138, 76, 0.07);
+    --rup-zona-critico: rgba(224, 122, 31, 0.11);
+    --rup-zona-critico-atrasada: rgba(224, 122, 31, 0.2);
+    --rup-zona-pos: rgba(180, 35, 24, 0.07);
+    --rup-faixa-antes-fundo: #e4f3ea;
+    --rup-faixa-antes-borda: #b6dac5;
+    --rup-faixa-antes-texto: #1f6a42;
+    --rup-faixa-critico-fundo: #fdeedd;
+    --rup-faixa-critico-borda: #f2cba0;
+    --rup-faixa-critico-texto: #a84f00;
+    --rup-faixa-pos-fundo: #fbe7e5;
+    --rup-faixa-pos-borda: #f0bcb6;
+    --rup-faixa-pos-texto: #b42318;
+    --rup-faixa-cenario-fundo: #cfeadb;
+    --rup-faixa-cenario-borda: #6fbb90;
+    --rup-faixa-cenario-texto: #17613a;
+    /* as LINHAS DE DATA (fininhas, no meio da coluna do dia): "Enviar até" laranja (começa o prazo crítico) · "Ruptura sem envio" vermelho (começa a zona vermelha) · "Chegada ideal" verde cheio (começa a simulação) ·
+       "Nova ruptura" verde tracejado (acaba a simulação). A legenda "Como ler este gráfico" usa estas mesmas variáveis */
+    --rup-dia-enviar: #d9730d;
+    --rup-dia-enviar-texto: #a84f00;
+    --rup-dia-enviar-borda: #f0c79b;
+    --rup-dia-ruptura: #b42318;
+    --rup-dia-chega: #1f8a4c;
+    --rup-dia-nova: #1f8a4c;
     --rup-dia-nova-borda: #1f8a4c;
 }
 
@@ -358,7 +370,7 @@
     border-radius: 10px;
 }
 
-.rup-caixa-painel--grafico { height: 548px; scroll-margin-top: calc(var(--toolbar-altura, 0px) + 12px); }
+.rup-caixa-painel--grafico { height: 600px; scroll-margin-top: calc(var(--toolbar-altura, 0px) + 12px); }
 .rup-caixa-painel--diag { height: 300px; }
 
 .rup-painel-cab {
@@ -377,6 +389,7 @@
 /* ---- rodapé do gráfico: uma dica de leitura (ou a nota, quando precisa). A legenda COMPLETA é o painel "Como ler este gráfico", logo abaixo ---- */
 .rup-grafico-rodape { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; height: 26px; padding: 0 16px; }
 .rup-grafico-nota { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.74rem; color: var(--cor-texto-muted); }
+.rup-grafico-nota i { margin-right: 4px; color: #8793a1; }
 
 /* ---- "COMO LER ESTE GRÁFICO": a legenda didática (os textos saem de ruptura_grafico.py, com os números do produto; as amostras usam as MESMAS variáveis de cor do gráfico) ----
    É um painel que abre e fecha (<details>), embaixo do gráfico, com a largura toda. Fica fora da altura do gráfico: abrir ou fechar não mexe no desenho. */
@@ -398,14 +411,15 @@
 .rup-leitura-item { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 0.8rem; line-height: 1.45; color: #2f4259; }
 .rup-leitura-item strong { display: block; font-weight: 700; color: #0b2038; }
 .rup-amostra { display: block; width: 28px; height: 16px; margin-top: 2px; border: 1px solid rgba(0, 0, 0, 0.16); border-radius: 3px; }
-.rup-amostra--zona-antes { border: 1px dashed #9aa6b4; background: transparent; }
-.rup-amostra--zona-ante { background: var(--rup-zona-ante); }
-.rup-amostra--zona-envio { background: var(--rup-zona-envio); }
-.rup-amostra--zona-pos { background: var(--rup-zona-pos); }
-.rup-amostra--dia-enviar { background: var(--rup-dia-enviar); }
-.rup-amostra--dia-ruptura { background: var(--rup-dia-ruptura); }
-.rup-amostra--dia-chega { background: var(--rup-dia-chega); }
-.rup-amostra--dia-nova { border: 1.5px dashed var(--rup-dia-nova-borda); background: var(--rup-dia-nova); }
+.rup-amostra--zona-antes { border-color: var(--rup-faixa-antes-borda); background: var(--rup-faixa-antes-fundo); }
+.rup-amostra--zona-critico { border-color: var(--rup-faixa-critico-borda); background: var(--rup-faixa-critico-fundo); }
+.rup-amostra--zona-pos { border-color: var(--rup-faixa-pos-borda); background: var(--rup-faixa-pos-fundo); }
+/* as datas são linhas verticais fininhas: a amostra é uma linha em pé no meio da caixinha */
+.rup-amostra--dia-enviar, .rup-amostra--dia-ruptura, .rup-amostra--dia-chega, .rup-amostra--dia-nova { border-color: transparent; background: linear-gradient(var(--rup-linha), var(--rup-linha)) center / 3px 100% no-repeat; }
+.rup-amostra--dia-enviar { --rup-linha: var(--rup-dia-enviar); }
+.rup-amostra--dia-ruptura { --rup-linha: var(--rup-dia-ruptura); }
+.rup-amostra--dia-chega { --rup-linha: var(--rup-dia-chega); }
+.rup-amostra--dia-nova { background: repeating-linear-gradient(to bottom, var(--rup-dia-nova) 0 4px, transparent 4px 7px) center / 3px 100% no-repeat; }
 /* as linhas: a amostra é um traço na cor do ritmo (a mesma --rup-cor do cartão e da curva), igual ao estilo desenhado no gráfico */
 .rup-amostra--linha { height: 0; margin-top: 9px; border: 0; border-top: 3px solid var(--rup-cor); border-radius: 2px; background: none; }
 .rup-amostra--linha-fina { height: 0; margin-top: 9px; border: 0; border-top: 2px dashed var(--rup-cor, #5b6675); background: none; }
@@ -436,27 +450,59 @@
 .rup-zoom-botao:focus-visible { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
 
 /* ---- o gráfico: SVG esticado (linhas e zonas, medidas em DIAS) + textos em HTML por cima, tudo posicionado em % da área ---- */
-.rup-grafico { position: relative; flex: 1 1 auto; min-height: 0; }
-.rup-grafico-area { position: absolute; inset: 16px 30px 38px 68px; user-select: none; touch-action: pan-y; }
+.rup-grafico { --rup-gx-esq: 68px; --rup-gx-dir: 30px; position: relative; flex: 1 1 auto; min-height: 0; }
+.rup-grafico-area { position: absolute; inset: 70px var(--rup-gx-dir) 36px var(--rup-gx-esq); user-select: none; touch-action: pan-y; }
+
+/* ---- a RÉGUA: duas faixas de chips acima do desenho, com o mesmo começo e o mesmo fim de cada zona do fundo (a de cima) e da simulação (a de baixo). O script refaz a posição a cada zoom ---- */
+.rup-regua { position: absolute; top: 10px; right: var(--rup-gx-dir); left: var(--rup-gx-esq); height: 46px; }
+.rup-faixa {
+    position: absolute;
+    box-sizing: border-box;
+    height: 21px;
+    padding: 0 8px;
+    overflow: hidden;
+    border: 1px solid;
+    border-radius: 5px;
+    font-size: 0.72rem;
+    line-height: 19px;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.rup-faixa--linha0 { top: 0; }
+.rup-faixa--linha1 { top: 25px; }
+.rup-faixa b { font-weight: 700; }
+.rup-faixa small { margin-left: 4px; font-size: inherit; font-weight: 500; opacity: 0.85; }
+.rup-faixa--antes { border-color: var(--rup-faixa-antes-borda); background: var(--rup-faixa-antes-fundo); color: var(--rup-faixa-antes-texto); }
+.rup-faixa--critico { border-color: var(--rup-faixa-critico-borda); background: var(--rup-faixa-critico-fundo); color: var(--rup-faixa-critico-texto); }
+.rup-faixa--pos { border-color: var(--rup-faixa-pos-borda); background: var(--rup-faixa-pos-fundo); color: var(--rup-faixa-pos-texto); }
+.rup-faixa--cenario { border-color: var(--rup-faixa-cenario-borda); background: var(--rup-faixa-cenario-fundo); color: var(--rup-faixa-cenario-texto); }
+/* pouco espaço (zoom, ou uma zona de poucos dias), em etapas: some o texto menor (as datas) → o nome encurta ("Prazo crítico") → some o nome; a cor fica e o balão do chip diz tudo */
+.rup-faixa-breve { display: none; }
+.rup-faixa--curta small { display: none; }
+.rup-faixa--breve .rup-faixa-longo { display: none; }
+.rup-faixa--breve .rup-faixa-breve { display: inline; }
+.rup-faixa--mini { padding: 0; }
+.rup-faixa--mini b, .rup-faixa--mini small { display: none; }
 .rup-grafico-area--zoom { cursor: grab; }
 .rup-grafico-area--arrastando { cursor: grabbing; }
 /* o zoom põe linhas fora da janela: elas são cortadas na esquerda e na direita da área (em cima e embaixo sobra folga para a espessura da linha) */
 .rup-grafico-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; clip-path: inset(-8px 0 -8px 0); }
+.rup-rotulo-un { position: absolute; right: 100%; bottom: 100%; padding: 0 8px 6px 0; font-size: 0.72rem; font-weight: 600; color: #4b5a6b; }
 
 .rup-grade { stroke: #e3e8ef; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .rup-grade--x { stroke: #eef1f6; }
 .rup-zona--antes { fill: var(--rup-zona-antes); }
-.rup-zona--ante { fill: var(--rup-zona-ante); }
-.rup-zona--envio { fill: var(--rup-zona-envio); }
-.rup-zona--envio.rup-zona--atrasada { fill: var(--rup-zona-envio-atrasada); }
+.rup-zona--critico { fill: var(--rup-zona-critico); }
+.rup-zona--critico.rup-zona--atrasada { fill: var(--rup-zona-critico-atrasada); }
 .rup-zona--pos { fill: var(--rup-zona-pos); }
 .rup-pedido-linha { stroke: #6c757d; stroke-width: 1.5; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
-/* o DIA do "Enviar até" e o DIA da ruptura: faixas da coluna da data (a linha do estoque cruza o zero dentro da faixa vermelha) */
-.rup-dia { stroke: none; }
-.rup-dia--enviar { fill: var(--rup-dia-enviar); }
-.rup-dia--ruptura { fill: var(--rup-dia-ruptura); }
-.rup-dia--chega { fill: var(--rup-dia-chega); }
-.rup-dia--nova { fill: var(--rup-dia-nova); stroke: var(--rup-dia-nova-borda); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }   /* a nova ruptura é uma projeção: coluna clara com borda tracejada */
+/* as LINHAS DE DATA: uma linha fina no meio da coluna do dia (a "Chegada ideal", no começo dela, onde o estoque sobe). A linha do estoque cruza o zero dentro da coluna da "Ruptura" */
+.rup-dia { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.rup-dia--enviar { stroke: var(--rup-dia-enviar); }
+.rup-dia--ruptura { stroke: var(--rup-dia-ruptura); }
+.rup-dia--chega { stroke: var(--rup-dia-chega); }
+.rup-dia--nova { stroke: var(--rup-dia-nova); stroke-width: 1.8; stroke-dasharray: 5 4; }   /* a nova ruptura é uma projeção: linha tracejada */
 
 /* a COR de cada ritmo é fixa (variáveis no topo): o cartão, a curva, o pontinho e a caixa do mouse leem a mesma --rup-cor */
 .rup-cor--c3 { --rup-cor: var(--rup-c3); }
@@ -484,7 +530,7 @@
 }
 
 .rup-rotulo-x { position: absolute; top: 100%; padding-top: 8px; transform: translateX(-50%); font-size: 0.72rem; color: #4b5a6b; white-space: nowrap; }
-.rup-rotulo-x--hoje { font-weight: 700; color: var(--cor-primaria); }
+.rup-rotulo-x--leitura { font-weight: 700; color: var(--cor-primaria); }   /* o dia da leitura do estoque: o começo do gráfico */
 
 .rup-etiqueta {
     position: absolute;
@@ -534,8 +580,14 @@
 .rup-dica-linha--foco { font-weight: 700; }
 .rup-dica-linha--zerado strong { color: #b42318; }
 
-/* ---- a fileira de cartões, um por ritmo: liga/desliga a curva (caixinha) e põe o ritmo em destaque (clique no nome) ---- */
-.rup-pagina .rup-periodos { display: grid; flex: none; grid-template-columns: repeat(var(--rup-n, 4), minmax(0, 1fr)); gap: 8px; padding: 8px 12px 10px; border-top: 1px solid var(--cor-borda); }
+/* ---- a fileira de cartões em DOIS GRUPOS: "Cenários de ritmo de vendas (sem novo envio)", um cartão por ritmo (liga/desliga a curva na caixinha e põe o ritmo em destaque no clique do nome), e "Simulação de reposição" (a linha verde) ---- */
+.rup-cenarios { display: flex; flex: none; gap: 10px; padding: 8px 12px 10px; border-top: 1px solid var(--cor-borda); container-type: inline-size; }
+.rup-cenarios-grupo { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rup-cenarios-grupo--ritmos { flex: var(--rup-n, 4) 1 0; }
+.rup-cenarios-grupo--simulacao { flex: 1 1 0; padding-left: 10px; border-left: 1px solid var(--cor-borda); }
+.rup-cenarios-titulo { height: 14px; margin: 0; overflow: hidden; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.06em; line-height: 14px; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; color: var(--cor-texto-muted); }
+.rup-cenarios-titulo span { font-weight: 600; letter-spacing: 0.03em; }
+.rup-pagina .rup-periodos { display: grid; grid-template-columns: repeat(var(--rup-n, 4), minmax(0, 1fr)); gap: 8px; }
 .rup-periodo {
     position: relative;
     display: flex;
@@ -554,6 +606,7 @@
 }
 .rup-periodo--foco { border-color: var(--rup-cor); border-top-color: var(--rup-cor); background: #f4f8fd; box-shadow: 0 0 0 1px var(--rup-cor); }
 .rup-periodo--sem-dados { background: #f7f8fa; color: #8793a1; }
+.rup-periodo--sem-data { background: #f7f8fa; }   /* a simulação sem data ideal: o cartão fica, a linha verde não é desenhada */
 .rup-periodo-topo { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; }
 .rup-periodo-marca { flex: none; width: 14px; height: 14px; margin: 0; accent-color: var(--rup-cor); cursor: pointer; position: relative; z-index: 1; }
 .rup-periodo-marca:disabled { cursor: default; }
@@ -564,13 +617,22 @@
 .rup-periodo-link:focus-visible { outline: none; }
 .rup-periodo-link:focus-visible::after { outline: 2px solid var(--cor-primaria-clara); outline-offset: 1px; }
 .rup-periodo-ritmo { min-width: 0; margin-left: auto; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; white-space: nowrap; }
-/* com 5 ritmos (o período digitado não é um dos 4 fixos) os cartões ficam mais estreitos: recuo menor e o "un" do ritmo sai ("1,3/dia"; o "title" do cartão diz "1,3 un/dia") */
-.rup-pagina .rup-periodos--cinco { gap: 6px; padding-left: 8px; padding-right: 8px; }
-.rup-periodos--cinco .rup-periodo { padding-left: 8px; padding-right: 8px; }
-.rup-periodos--cinco .rup-periodo-linha { font-size: 0.7rem; }
-.rup-periodos--cinco .rup-periodo-un { display: none; }
+/* a fileira estreita (a largura é a do PRÓPRIO gráfico, que muda com a barra lateral e com o diagnóstico ao lado): os cartões ficam mais compactos, recuo menor e o "un" sai ("1,3/dia"; o "title" do cartão diz
+   "1,3 un/dia"). Com mais um ritmo (o período digitado não é um dos 4 fixos) a fileira aperta antes, por isso o limite é maior */
+@container (max-width: 1000px) {
+    .rup-pagina .rup-periodos { gap: 6px; }
+    .rup-periodo { padding-left: 8px; padding-right: 8px; }
+    .rup-periodo-linha { font-size: 0.7rem; }
+    .rup-periodo-un { display: none; }
+}
+@container (max-width: 1180px) {
+    .rup-cenarios--cheio .rup-periodo { padding-left: 8px; padding-right: 8px; }
+    .rup-cenarios--cheio .rup-periodo-linha { font-size: 0.7rem; }
+    .rup-cenarios--cheio .rup-periodo-un { display: none; }
+}
 .rup-periodo-linha { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 16px; }
 .rup-periodo-linha--ok { color: #1f6a42; font-weight: 600; }
+.rup-periodo-linha--neutro { color: #5b6675; }
 .rup-periodo-linha--vencido { color: #b42318; font-weight: 700; }
 .rup-periodo-linha--atencao { color: #b34100; font-weight: 700; }
 .rup-vazio { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; padding: 24px; text-align: center; color: var(--cor-texto-muted); }
@@ -578,8 +640,8 @@
 /* ---- diagnóstico ---- */
 .rup-diag-corpo { display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; min-height: 0; padding: 14px 16px; overflow-y: auto; }
 .rup-diag-resumo { font-size: 0.92rem; line-height: 1.45; color: #0b2038; }
-/* diagnóstico em CARTÕES EXPANSÍVEIS: o rótulo, o valor e o apoio ficam à vista; a frase explicativa só aparece ao abrir. A cor (tom) segue o gráfico: vermelho = ruptura / prazo vencido,
-   verde = dá tempo de enviar, laranja = atenção, azul = informação, cinza = sem dado ou sem previsão (a cor nunca é a única pista: o rótulo está escrito). */
+/* diagnóstico em CARTÕES EXPANSÍVEIS: o rótulo, o valor e o apoio ficam à vista; a frase explicativa só aparece ao abrir. A cor (tom) é a do elemento no gráfico: vermelho = ruptura (e prazo vencido),
+   laranja = o "Enviar até" (e atenção), verde = a simulação de reposição, azul = informação, cinza = sem dado ou sem previsão (a cor nunca é a única pista: o rótulo está escrito). */
 .rup-diag-cartoes { display: flex; flex-direction: column; gap: 8px; }
 .rup-diag-cartao {
     --tom-cor: #5b6675;

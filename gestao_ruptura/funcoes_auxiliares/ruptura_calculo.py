@@ -184,19 +184,33 @@ def sugestao_do_sistema(estoque, media, lead, folga):
     return {'qtd': quantidade_do_sistema(media, folga), 'folga': folga, 'sobra_na_chegada': max(0.0, estoque - media * lead), 't_alvo': t_alvo}
 
 
-# Função Objetivo: O que acontece com o estoque SE a remessa de `qtd` unidades for enviada HOJE (qualquer quantidade: a do Sistema, a do ML ou a digitada). A remessa chega em `lead` dias; nesse dia o
-# estoque é o que sobrou (`antes` = max(0, estoque − ritmo × lead)) mais a remessa (`apos`) e passa a cair no mesmo ritmo até zerar em `t_zero` = lead + apos ÷ ritmo (dias a partir de hoje; a nova
-# ruptura cai no dia floor(t_zero), como em projetar). `faltam` = dias sem estoque ANTES de a remessa chegar (a mesma conta do "prazo vencido": lead − dias de estoque; 0 se o estoque aguenta até a
-# chegada). `dias_apos` = quantos dias de vendas o estoque cobre logo depois da chegada. `folga_dada` = quantos dias de estoque a remessa ACRESCENTA (quantidade ÷ ritmo): é o que se compara com a folga
-# desejada (a nova ruptura = max(ruptura atual, chegada) + folga_dada). None se faltar o estoque, o ritmo (ou ritmo zero), o prazo ou a quantidade (zero = nada enviado).
-def com_envio(estoque, media, lead, qtd):
-    if estoque is None or media is None or media <= 0 or lead is None or not qtd or qtd <= 0:
+# Função Objetivo: A DATA IDEAL de envio (ou de pedido) em DIAS a partir do dia da leitura do estoque (0 = o próprio dia da leitura), e em que pé ela está. A tela não parte de "hoje": a data em que o envio
+# realmente sai só existe quando o Mercado Livre libera o agendamento (regra do Matheus, 13/10/2026: "o que deve existir no gráfico é a referência de data ideal"). Devolve {dia, dia_limite, estado} com o `estado`
+# de envio() ('ok' | 'hoje' | 'ja' | 'vencido'); `dia` é a data ideal e SÓ existe enquanto ela não passou (estado 'ok' ou 'hoje'); `dia_limite` = o último dia em que o envio ainda chega no dia da ruptura (pode ser negativo).
+# None quando não há ruptura prevista (estoque zerado, sem vendas, ruptura muito distante) ou falta o prazo.
+def data_ideal_do_envio(projecao, lead, hoje, ante):
+    dados = envio(projecao, lead, hoje, ante)
+    if dados is None:
         return None
-    antes = max(0.0, estoque - media * lead)
+    return {'dia': (dados['enviar_ate'] - hoje).days if dados['estado'] in ('ok', 'hoje') else None, 'dia_limite': (dados['ultimo_dia'] - hoje).days, 'estado': dados['estado']}
+
+
+# Função Objetivo: O que acontece com o estoque SE a remessa de `qtd` unidades for enviada no dia `dia_do_envio` (em dias a partir do dia da leitura do estoque; a tela usa a DATA IDEAL, ver data_ideal_do_envio).
+# A remessa chega em `chegada` = dia_do_envio + lead; nesse dia o estoque é o que sobrou (`antes` = max(0, estoque − ritmo × chegada)) mais a remessa (`apos`) e passa a cair no mesmo ritmo até zerar em
+# `t_zero` = chegada + apos ÷ ritmo (a nova ruptura cai no dia floor(t_zero), como em projetar). `faltam` = dias sem estoque ANTES de a remessa chegar (chegada − dias de estoque; 0 se o estoque aguenta até a
+# chegada: sempre é 0 na data ideal). `dias_apos` = quantos dias de vendas o estoque cobre logo depois da chegada. `folga_dada` = quantos dias de estoque a remessa ACRESCENTA (quantidade ÷ ritmo): é o que se
+# compara com a folga desejada. Enquanto a remessa chega ATÉ o dia da ruptura, a nova ruptura = ruptura atual + folga_dada: não depende do dia do envio, só da quantidade.
+# None se faltar o estoque, o ritmo (ou ritmo zero), o prazo, o dia do envio ou a quantidade (zero = nada enviado).
+def com_envio(estoque, media, lead, qtd, dia_do_envio=0):
+    if estoque is None or media is None or media <= 0 or lead is None or dia_do_envio is None or not qtd or qtd <= 0:
+        return None
+    chegada = dia_do_envio + lead
+    antes = max(0.0, estoque - media * chegada)
     apos = antes + qtd
-    t_zero = lead + apos / media
-    faltam = lead if estoque <= 0 else max(0, lead - floor(estoque / media))
-    return {'qtd': qtd, 'antes': antes, 'apos': apos, 't_zero': t_zero, 'dia_nova_ruptura': floor(t_zero), 'faltam': faltam, 'dias_apos': apos / media, 'dias_antes': antes / media, 'folga_dada': qtd / media}
+    t_zero = chegada + apos / media
+    faltam = chegada if estoque <= 0 else max(0, chegada - floor(estoque / media))
+    return {'qtd': qtd, 'dia_do_envio': dia_do_envio, 'chegada': chegada, 'antes': antes, 'apos': apos, 't_zero': t_zero, 'dia_nova_ruptura': floor(t_zero), 'faltam': faltam, 'dias_apos': apos / media,
+            'dias_antes': antes / media, 'folga_dada': qtd / media}
 
 
 # Função Objetivo: Compara o ritmo recente com o do período escolhido: 'acelerou' (mais de LIMITE_DE_ACELERACAO_PCT acima), 'caiu' (mais de LIMITE abaixo) ou 'estavel',
