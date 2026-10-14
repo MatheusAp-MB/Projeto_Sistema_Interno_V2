@@ -680,6 +680,34 @@ def executar_verificacao(execucao_id):
     return jsonify({'status': 'iniciado', 'execucao_id': execucao_id, 'empresa': empresa})
 
 
+# * [EXPLICAÇÃO] → Teste de vida do agente (14/10/2026). É chamado pelo NAVEGADOR, pela tela "Gestão de APIs": o
+#                  servidor do sistema não consegue chamar este agente (ele só escuta nesta máquina, em
+#                  127.0.0.1). SEM efeito colateral: não mexe em execucao_em_andamento, não abre janela, não
+#                  aciona F8/F9 — só responde "estou aqui" e se o sistema aceita o token dele (chamada leve em
+#                  /api/agente/ping/). O token NUNCA vai na resposta. Mesma validação de `empresa` das
+#                  outras rotas, porque a API exige o cabeçalho X-Empresa em toda chamada.
+@app_flask.route('/ping', methods=['GET'])
+def ping():
+    empresa = request.args.get('empresa')
+    if empresa not in EMPRESAS_VALIDAS_AGENTE:
+        return jsonify({
+            'status': 'erro',
+            'mensagem': f'Parâmetro empresa ausente ou inválido: {empresa!r}.',
+        }), 400
+
+    status_http, erro_de_rede = cliente_api.verificar_conexao(SERVIDOR_DJANGO, TOKEN_AGENTE, empresa)
+    resposta = {
+        'status': 'ok',
+        'ocupado': execucao_em_andamento['ativo'],
+        'servidor': SERVIDOR_DJANGO,
+        'servidor_respondeu': status_http is not None,
+        'status_http_servidor': status_http,
+    }
+    if erro_de_rede:
+        resposta['erro_de_rede'] = erro_de_rede
+    return jsonify(resposta)
+
+
 def _rodar_servidor_flask():
     try:
         app_flask.run(host='127.0.0.1', port=PORTA_LOCAL)

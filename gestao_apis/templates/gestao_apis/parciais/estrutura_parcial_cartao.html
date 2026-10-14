@@ -27,7 +27,15 @@
     </div>
 
     <footer class="gapi-card__acoes">
-        {% if cartao.testavel %}
+        {% if cartao.testavel and cartao.teste_no_navegador %}
+            {# O servidor não alcança esta conexão: o navegador chama o agente do computador e manda o resultado (script_gestao_apis.js). #}
+            <button type="button" class="gapi-btn gapi-btn--primario"
+                    data-testar-url="{% url 'gestao_apis_testar' cartao.id %}"
+                    data-gapi-ping-local data-ping-url="{{ cartao.url_do_teste_local }}" data-empresa="{{ empresa_ativa }}"
+                    title="Este teste usa o navegador deste computador para chamar o agente.">
+                <i class="fas fa-plug-circle-check" aria-hidden="true"></i> Testar
+            </button>
+        {% elif cartao.testavel %}
             <button type="button" class="gapi-btn gapi-btn--primario"
                     hx-post="{% url 'gestao_apis_testar' cartao.id %}"
                     hx-target="closest .gapi-card" hx-swap="outerHTML" hx-indicator="closest .gapi-card"
@@ -39,9 +47,20 @@
                 <i class="fas fa-plug-circle-check" aria-hidden="true"></i> Testar
             </button>
         {% endif %}
+        {# Ações que FAZEM algo no sistema (catálogo: ACOES_DAS_CONEXOES), ao lado do Testar. Formulário comum (POST com CSRF): a resposta é uma troca de página, não um trecho do HTMX. Com data-gapi-situacao-url, o JS abre o destino numa janela pequena e fica esperando ela terminar. #}
+        {% for acao in cartao.acoes %}
+            <form method="post" action="{% url acao.url_nome %}" class="gapi-acao-form" hx-boost="false"{% if acao.url_situacao_nome %} data-gapi-situacao-url="{% url acao.url_situacao_nome %}"{% endif %}>
+                {% csrf_token %}
+                <button type="submit" class="gapi-btn{% if acao.destaque %} gapi-btn--destaque{% endif %}"{% if not acao.habilitada %} disabled{% endif %}
+                        title="{% if acao.habilitada %}{{ acao.dica }}{% else %}{{ acao.motivo }}{% endif %}">
+                    <i class="{{ acao.icone }}" aria-hidden="true"></i> <span class="gapi-btn__texto">{{ acao.rotulo }}</span>
+                </button>
+            </form>
+        {% endfor %}
+        {# Atalhos para outros sites: se faltar largura, encolhem (o texto vira reticências) em vez de sumirem. #}
         {% for link in cartao.links %}
-            <a class="gapi-btn" href="{{ link.url }}" target="_blank" rel="noopener noreferrer" title="{{ link.dica }}">
-                <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> {{ link.rotulo }}
+            <a class="gapi-btn gapi-btn--atalho" href="{{ link.url }}" target="_blank" rel="noopener noreferrer" title="{{ link.dica }}">
+                <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> <span class="gapi-btn__texto">{{ link.rotulo }}</span>
             </a>
         {% endfor %}
     </footer>
@@ -56,8 +75,19 @@
             <dt>Impacto</dt><dd>{{ cartao.impacto }}</dd>
             {% if cartao.como_resolver %}<dt>Próximo passo</dt><dd>{{ cartao.como_resolver }}</dd>{% endif %}
             {% if cartao.evidencia %}<dt>Evidências</dt><dd>{{ cartao.evidencia }}</dd>{% endif %}
+            {% if cartao.resposta %}<dt>Resposta real da API</dt><dd><pre class="gapi-resposta">{{ cartao.resposta }}</pre></dd>{% endif %}
             <dt>Último teste</dt><dd>{{ cartao.quando_completo }}</dd>
             {% if not cartao.testavel %}<dt>Por que não há teste</dt><dd>{{ cartao.motivo_sem_teste }}</dd>{% endif %}
+            {% if cartao.acoes %}
+                <dt>Ações</dt>
+                <dd>
+                    <ul class="gapi-detalhes-links">
+                        {% for acao in cartao.acoes %}
+                            <li><strong>{{ acao.rotulo }}</strong> — {{ acao.dica }}{% if not acao.habilitada %} <em>Indisponível agora: {{ acao.motivo }}</em>{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                </dd>
+            {% endif %}
             {% if cartao.links %}
                 <dt>Atalhos</dt>
                 <dd>
@@ -84,6 +114,7 @@
                             <dt>O que aconteceu</dt><dd>{{ parte.motivo }}</dd>
                             {% if parte.como_resolver %}<dt>Próximo passo</dt><dd>{{ parte.como_resolver }}</dd>{% endif %}
                             {% if parte.evidencia %}<dt>Evidências</dt><dd>{{ parte.evidencia }}</dd>{% endif %}
+                            {% if parte.resposta %}<dt>Resposta real da API</dt><dd><pre class="gapi-resposta">{{ parte.resposta }}</pre></dd>{% endif %}
                             <dt>Último teste</dt><dd>{{ parte.quando_completo }}</dd>
                         </dl>
                     </li>

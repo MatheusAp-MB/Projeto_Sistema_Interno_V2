@@ -11,13 +11,16 @@
 # Workspace), então Shared Drive de verdade e delegação de domínio (as 2
 # soluções "padrão" pra Service Account) não são opção aqui.
 #
-# Autorização inicial (1x só, manual): rodar autorizar_drive_oauth.py na
-# raiz do projeto — abre o navegador, pede login com a conta dona de
-# verdade (financeiromagazinebrasileiro@gmail.com), grava o token de
-# atualização em GOOGLE_DRIVE_OAUTH_TOKEN_JSON. Daí em diante, o token se
-# renova sozinho (refresh(), abaixo) — nunca mais precisa logar de novo, a
-# menos que o acesso seja revogado manualmente em
-# myaccount.google.com/permissions.
+# Autorização: pelo botão "Renovar autorização" do cartão Google Drive, na
+# tela Gestão de APIs (/gestao-apis/) — abre o login do Google com a conta
+# dona de verdade (financeiromagazinebrasileiro@gmail.com) e grava o token
+# de atualização em GOOGLE_DRIVE_OAUTH_TOKEN_JSON (alternativa fora da tela:
+# autorizar_drive_oauth.py, na raiz do projeto). Depois disso o token se
+# renova sozinho (refresh(), abaixo) a cada uso. A autorização só precisa ser
+# refeita quando o acesso for revogado em myaccount.google.com/permissions ou,
+# ENQUANTO o app OAuth do Google estiver em modo "Testando", a cada 7 dias
+# (o Google invalida sozinho — erro invalid_grant). Com o app publicado em
+# produção essa expiração deixa de existir.
 
 from django.conf import settings
 from google.auth.transport.requests import Request as RequisicaoAtualizacaoToken

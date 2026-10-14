@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+{% comment %}
+    Página MÍNIMA da janela pequena do Google (botão "Renovar autorização" da Gestão de APIs). Não usa a estrutura base de
+    propósito: é só o resultado + fechar a janela. O mesmo texto também fica num aviso na tela principal, que se
+    recarrega sozinha quando esta janela termina — por isso fechar aqui é seguro.
+    Nenhum segredo chega aqui: o texto vem pronto de concluir_autorizacao()/iniciar_autorizacao() (só conta mascarada e datas).
+{% endcomment %}
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Autorização do Google Drive</title>
+    <style>
+        html, body { height: 100%; margin: 0; }
+        body {
+            display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+            font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; color: #1f2937; background: #f3f5f8;
+        }
+        .janela {
+            width: 100%; max-width: 420px; padding: 22px 22px 18px; box-sizing: border-box;
+            background: #fff; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+            border-top: 5px solid var(--cor);
+        }
+        .janela--ok { --cor: #1f7a4d; --cor-fundo: #e6f4ec; }
+        .janela--info { --cor: #4b5d73; --cor-fundo: #eef1f5; }
+        .janela--erro { --cor: #b42318; --cor-fundo: #fbe9e7; }
+        .janela__titulo { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; font-size: 1.05rem; color: var(--cor); }
+        .janela__icone {
+            display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+            width: 26px; height: 26px; border-radius: 50%; color: #fff; background: var(--cor); font-weight: 700; font-size: 0.95rem;
+        }
+        .janela__texto { margin: 0 0 14px; padding: 10px 12px; font-size: 0.92rem; line-height: 1.45; background: var(--cor-fundo); border-radius: 6px; overflow-wrap: anywhere; }
+        .janela__rodape { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .janela__nota { margin: 0; font-size: 0.8rem; color: #5b6676; }
+        .janela__botao {
+            padding: 7px 14px; font: inherit; font-size: 0.88rem; font-weight: 600; color: #fff; background: #1b3a5f;
+            border: 0; border-radius: 6px; cursor: pointer;
+        }
+        .janela__botao:focus-visible { outline: 3px solid #8ab4f8; outline-offset: 2px; }
+    </style>
+</head>
+<body data-fechar-em="{{ fechar_em_ms }}">
+    <main class="janela janela--{{ tipo }}" role="status">
+        <h1 class="janela__titulo">
+            <span class="janela__icone" aria-hidden="true">{% if tipo == 'ok' %}&#10003;{% elif tipo == 'info' %}i{% else %}!{% endif %}</span>
+            {% if tipo == 'ok' %}Autorização renovada{% elif tipo == 'info' %}Autorização não alterada{% else %}Não foi possível renovar{% endif %}
+        </h1>
+        <p class="janela__texto">{{ texto }}</p>
+        <div class="janela__rodape">
+            <p class="janela__nota" id="janela-nota">Esta janela fecha sozinha. A tela do sistema já mostra o resultado.</p>
+            <button type="button" class="janela__botao" id="janela-fechar">Fechar</button>
+        </div>
+    </main>
+    <script>
+        (function () {
+            'use strict';
+            var nota = document.getElementById('janela-nota');
+            function fechar() {
+                window.close();
+                // Se o navegador não deixar fechar por aqui, a pessoa fecha pelo X — o resultado já está na tela do sistema.
+                window.setTimeout(function () {
+                    nota.textContent = 'Pode fechar esta janela pelo X e voltar para a tela do sistema.';
+                }, 400);
+            }
+            document.getElementById('janela-fechar').addEventListener('click', fechar);
+            var espera = parseInt(document.body.getAttribute('data-fechar-em'), 10);
+            if (espera > 0) { window.setTimeout(fechar, espera); }
+        })();
+    </script>
+</body>
+</html>

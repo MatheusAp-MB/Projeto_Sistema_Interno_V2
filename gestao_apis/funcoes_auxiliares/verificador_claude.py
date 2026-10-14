@@ -24,8 +24,10 @@
 #   401 chave inválida/revogada · 402 problema de cobrança · 403 chave sem permissão · 404 recurso não
 #   encontrado · 429 limite de uso ou teto de gasto · 5xx/529 instabilidade da Anthropic.
 #
-# * [IMPORTANTE] → O texto de erro devolvido pela API nunca vai pra tela (só o código de status e frases
-#   nossas), e a chave nunca é escrita em lugar nenhum.
+# * [IMPORTANTE] → Os textos de "O que aconteceu / Próximo passo" são sempre nossos (só o código de status
+#   vem da API). A resposta REAL da API (a contagem de tokens, ou o erro que ela devolveu) aparece num bloco
+#   à parte em "Ver detalhes", depois de passar por preparar_resposta_para_exibir() (decisão de 14/10/2026).
+#   A chave nunca é escrita em lugar nenhum.
 # * [IMPORTANTE] → `import anthropic` é feito dentro da função: se a biblioteca faltar no ambiente, só o
 #   cartão do Claude avisa — a tela abre igual.
 
@@ -34,6 +36,7 @@ import os
 from .estados import (
     ATENCAO, COM_PROBLEMA, FUNCIONANDO, NAO_CONFIGURADA, NAO_VERIFICADA, Resultado,
 )
+from .protecao_de_segredos import preparar_resposta_para_exibir
 
 VARIAVEL_CHAVE = 'ANTHROPIC_API_KEY'
 VARIAVEL_WORKSPACE = 'ANTHROPIC_WORKSPACE_ID'
@@ -160,6 +163,21 @@ def _resultado_de_erro_de_status(status, usa_workspace=False):
     )
 
 
+def _corpo_da_resposta_de_erro(erro):
+    resposta = getattr(erro, 'response', None)
+    try:
+        return resposta.text if resposta is not None else ''
+    except Exception:
+        return ''
+
+
+def _corpo_da_resposta_de_sucesso(resposta, tokens):
+    try:
+        return resposta.model_dump()
+    except Exception:
+        return {'input_tokens': tokens}
+
+
 def testar_claude():
     local = ler_local_claude()
     if local.estado == NAO_CONFIGURADA:
@@ -176,14 +194,18 @@ def testar_claude():
         )
 
     workspace = _valor_do_env(VARIAVEL_WORKSPACE)
-    cliente = _criar_cliente(anthropic, _valor_do_env(VARIAVEL_CHAVE), workspace)
+    chave = _valor_do_env(VARIAVEL_CHAVE)
+    segredos = (chave, workspace)
+    cliente = _criar_cliente(anthropic, chave, workspace)
     try:
         resposta = cliente.messages.count_tokens(
             model=MODELO_DO_TESTE,
             messages=[{'role': 'user', 'content': 'ping'}],
         )
     except anthropic.APIStatusError as erro:
-        return _resultado_de_erro_de_status(getattr(erro, 'status_code', 0) or 0, bool(workspace))
+        resultado = _resultado_de_erro_de_status(getattr(erro, 'status_code', 0) or 0, bool(workspace))
+        resultado.resposta = preparar_resposta_para_exibir(_corpo_da_resposta_de_erro(erro), segredos)
+        return resultado
     except anthropic.APIConnectionError as erro:
         # * [EXPLICAÇÃO] → Inclui o tempo esgotado (APITimeoutError). Não diz nada sobre a chave.
         return Resultado(
@@ -194,14 +216,17 @@ def testar_claude():
         )
 
     tokens = getattr(resposta, 'input_tokens', None)
+    corpo = preparar_resposta_para_exibir(_corpo_da_resposta_de_sucesso(resposta, tokens), segredos)
     if not isinstance(tokens, int):
         return Resultado(
             ATENCAO,
             'A API do Claude respondeu ao teste, mas sem a contagem de tokens esperada.',
             como_resolver='Testar de novo; se repetir, conferir a versão da biblioteca "anthropic".',
+            resposta=corpo,
         )
     return Resultado(
         FUNCIONANDO,
         'A API do Claude aceitou a chave. O teste é gratuito, então não confirma que ainda há crédito para gerar textos.',
         evidencia=f'Teste: contagem de tokens no modelo {MODELO_DO_TESTE} respondeu com sucesso.',
+        resposta=corpo,
     )

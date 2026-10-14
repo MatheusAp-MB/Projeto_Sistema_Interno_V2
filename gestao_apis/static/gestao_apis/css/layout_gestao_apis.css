@@ -116,6 +116,52 @@
     border-color: var(--cor-primaria);
 }
 
+/* Botão de ação do cartão (formulário POST, ex.: Renovar autorização) */
+.gapi-acao-form {
+    display: flex;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.gapi-acao-form .gapi-btn:disabled:hover {
+    color: var(--cor-primaria);
+    background: var(--cor-fundo-card);
+    border-color: var(--cor-borda);
+}
+
+/* Ação que é MESMO o próximo passo (ex.: autorização vencida ou perto de vencer): amarelo de "atenção". */
+.gapi-btn--destaque {
+    color: var(--gapi-atencao-texto);
+    background: var(--gapi-atencao-fundo);
+    border-color: #f3d58a;
+}
+
+.gapi-btn--destaque:hover,
+.gapi-acao-form .gapi-btn--destaque:disabled:hover {
+    color: var(--gapi-atencao-texto);
+    background: #fde9a6;
+    border-color: var(--cor-alerta);
+}
+
+/* Atalhos para outros sites: se faltar largura no cartão, encolhem (texto com reticências) e nunca empurram
+   nem escondem os botões de ação. */
+.gapi-btn--atalho {
+    flex-shrink: 1;
+    min-width: 40px;
+    overflow: hidden;
+}
+
+.gapi-btn__texto {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gapi-btn > i {
+    flex-shrink: 0;
+}
+
 /* Botão da barra de cima (fundo azul escuro) */
 .gapi-toolbar-btn {
     display: inline-flex;
@@ -505,6 +551,23 @@
     padding-left: 18px;
 }
 
+/* Resposta real da API (JSON em várias linhas): rola dentro da própria caixa, nunca alarga a janela */
+.gapi-resposta {
+    max-height: 280px;
+    margin: 0;
+    padding: 10px 12px;
+    overflow: auto;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #2b2f33;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: #f6f8fa;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
 .gapi-detalhe-estado {
     margin: 0 0 12px;
 }
@@ -583,6 +646,7 @@
    AVISO DE ERRO NA TELA (falha de rede, resposta inesperada)
    ================================================ */
 .gapi-toast {
+    cursor: pointer;
     position: fixed;
     right: 20px;
     bottom: 20px;
@@ -595,6 +659,19 @@
     border-left: 4px solid var(--cor-negativo);
     border-radius: 6px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+/* Aviso vindo do servidor: verde = deu certo, cinza = informação, vermelho (padrão) = não deu. */
+.gapi-toast--ok {
+    color: var(--gapi-funcionando-texto);
+    background: var(--gapi-funcionando-fundo);
+    border-left-color: var(--gapi-funcionando-texto);
+}
+
+.gapi-toast--info {
+    color: var(--gapi-nao-verificada-texto);
+    background: var(--gapi-nao-verificada-fundo);
+    border-left-color: var(--cor-primaria-clara);
 }
 
 @media (max-width: 575.98px) {

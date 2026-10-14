@@ -12,8 +12,10 @@
 #   'gestao_apis' está em APPS_SEMPRE_COMPARTILHADOS (core/database_router.py)
 #   — a tabela mora sempre no banco 'default'.
 #
-# * [IMPORTANTE] → NUNCA gravar aqui token, chave, senha ou o texto cru de um
-#   erro de API: só texto curto escrito por nós (ver protecao_de_segredos.py).
+# * [IMPORTANTE] → NUNCA gravar aqui token, chave ou senha. Os campos de texto
+#   (motivo, impacto, como_resolver, evidencia) são escritos por nós. O campo
+#   'resposta' guarda a resposta REAL da API (decisão de 14/10/2026), mas SÓ depois de
+#   passar por preparar_resposta_para_exibir() (protecao_de_segredos.py).
 
 from django.db import models
 
@@ -25,6 +27,8 @@ class EventoIntegracao(models.Model):
 
     # * [EXPLICAÇÃO] → 'teste' = alguém clicou em Testar. 'erro_interno' = o
     #                  teste quebrou por falha do NOSSO código (não da API).
+    #                  'autorizacao' = a autorização do Google Drive foi renovada pelo botão da tela
+    #                  (só é gravada quando o login novo foi conferido no Drive).
     acao = models.CharField(max_length=20)
 
     # * [EXPLICAÇÃO] → Um dos 5 estados de funcionando/atencao/com_problema/
@@ -35,6 +39,10 @@ class EventoIntegracao(models.Model):
     impacto = models.CharField(max_length=300, blank=True)
     como_resolver = models.CharField(max_length=300, blank=True)
     evidencia = models.CharField(max_length=300, blank=True)
+
+    # * [EXPLICAÇÃO] → Resposta real da API no teste (JSON em várias linhas, sem segredos, cortada
+    #                  em ~4000 caracteres). Aparece em "Ver detalhes". Vazio nos testes antigos.
+    resposta = models.TextField(blank=True, default='')
 
     # * [EXPLICAÇÃO] → Quem clicou. Sem login (LOGIN_REQUIRED desligado) fica
     #                  o texto "Sem login (acesso aberto)".

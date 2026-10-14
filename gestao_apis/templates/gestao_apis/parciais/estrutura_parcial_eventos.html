@@ -8,9 +8,8 @@
         {% if not eventos_disponiveis %}
             <p class="gapi-vazio gapi-vazio--alerta">
                 <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-                O histórico ainda não está disponível (a tabela não existe no banco). Rode
-                <code>python manage.py makemigrations gestao_apis</code> e depois
-                <code>python manage.py migrate</code>. Enquanto isso os testes funcionam, mas não ficam gravados.
+                O histórico ainda não está disponível (falta a tabela, ou uma coluna dela, no banco). Rode
+                <code>python manage.py migrate</code> e recarregue a página. Enquanto isso os testes funcionam, mas não ficam gravados.
             </p>
         {% elif not eventos %}
             <p class="gapi-vazio">Nenhum teste foi feito ainda. Use "Testar" em um cartão ou "Testar todas".</p>

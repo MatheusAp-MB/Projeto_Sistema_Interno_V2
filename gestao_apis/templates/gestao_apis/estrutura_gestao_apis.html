@@ -29,7 +29,15 @@
     * [IMPORTANTE] → Nenhum segredo (token, chave, senha) chega a este HTML. Os links externos vêm de uma
       lista fechada no servidor (catalogo_conexoes.py).
     {% endcomment %}
-    <div class="gapi-pagina">
+    {% comment %}
+    * [EXPLICAÇÃO] → Aviso de uso único vindo do servidor (ex.: resultado de "Renovar autorização"). Fica fixo no canto
+      da tela — não empurra nada — e some ao clicar ou depois de 30 s (script_gestao_apis.js).
+    {% endcomment %}
+    {% if aviso_da_acao %}
+        <div class="gapi-toast gapi-toast--{{ aviso_da_acao.tipo }}" role="status" data-gapi-aviso title="Clique para fechar">{{ aviso_da_acao.texto }}</div>
+    {% endif %}
+
+    <div class="gapi-pagina"{% if janela_do_google_aguardando %} data-gapi-janela-aguardando{% endif %}>
         {% include 'gestao_apis/parciais/estrutura_parcial_faixa_urgencia.html' %}
 
         <div class="gapi-grade">

@@ -41,3 +41,5 @@ class Resultado:
     impacto: str = ''
     como_resolver: str = ''
     evidencia: str = ''
+    # * [EXPLICAÇÃO] → Resposta REAL da API, já pronta para a tela (vem de preparar_resposta_para_exibir).
+    resposta: str = ''

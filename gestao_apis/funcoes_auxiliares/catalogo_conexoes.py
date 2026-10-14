@@ -26,6 +26,10 @@ from core.empresa import EMPRESA_MAGAZINE, EMPRESA_PADRAO, EMPRESA_SAMVALE, obte
 #                  (informado pelo Matheus em 14/10/2026). Não é segredo.
 GOOGLE_PROJETO_ID = 'agenda-videos-mb-sv'
 
+# * [EXPLICAÇÃO] → Endereço da rota de "ping" do agente local (agente_local/servidor_agente.py, PORTA_LOCAL).
+#                  Duplicado aqui de propósito: o agente é autossuficiente e este sistema não importa nada dele.
+URL_PING_DO_AGENTE = 'http://127.0.0.1:5678/ping'
+
 
 @dataclass(frozen=True)
 class LinkExterno:
@@ -43,7 +47,8 @@ LINKS_EXTERNOS = {
     ),
     'google_identidade_visual': LinkExterno(
         'Branding',
-        'Google Cloud → Branding: nome do app e dados de contato (exigidos antes de publicar).',
+        'Google Cloud → Branding: nome do app, e-mail de suporte e os links da página inicial e da política de '
+        'privacidade (o Google exige estes dois links para publicar o app).',
         f'https://console.cloud.google.com/auth/branding?project={quote(GOOGLE_PROJETO_ID)}',
     ),
     'google_permissoes_conta': LinkExterno(
@@ -80,6 +85,38 @@ LINKS_EXTERNOS = {
 
 
 @dataclass(frozen=True)
+class AcaoDaConexao:
+    """
+    Botão do cartão que FAZ algo no sistema (diferente de LinkExterno, que só leva a outro site).
+    """
+    id: str
+    rotulo: str      # texto curto do botão
+    dica: str        # texto completo (aparece ao passar o mouse)
+    icone: str       # classes do Font Awesome 6
+    url_nome: str    # nome da rota do Django que o botão chama (POST com CSRF)
+    # Só para ações que abrem OUTRO site numa janela pequena (ex.: login do Google): nome da rota que a tela consulta
+    # de tempos em tempos para saber se a janela terminou. Vazio = o botão leva a própria página (sem janela).
+    url_situacao_nome: str = ''
+
+
+# * [DECISÃO, 14/10/2026] → Regra de Matheus: o MÁXIMO de ações possíveis fica sempre em tela — o que dá para fazer
+#   pelo sistema não pode depender de terminal, script ou de caçar a página certa em outro site. Cada ação nova de
+#   uma conexão entra aqui (e em `acoes` da conexão) e aparece no cartão ao lado do Testar. A situação de cada
+#   botão (habilitado, destacado) é decidida em montagem_do_painel.py.
+ACOES_DAS_CONEXOES = {
+    'google_renovar_autorizacao': AcaoDaConexao(
+        'google_renovar_autorizacao',
+        'Renovar autorização',
+        'Abre o login do Google numa janela pequena para autorizar de novo o acesso ao Drive: entre com a conta dona '
+        'do Drive e clique em Continuar. Em modo "Testando" o Google invalida esta autorização a cada 7 dias.',
+        'fas fa-key',
+        'gestao_apis_google_autorizar',
+        'gestao_apis_google_situacao',
+    ),
+}
+
+
+@dataclass(frozen=True)
 class ParteDaConexao:
     """
     Uma verificação independente dentro de uma conexão que o usuário vê como UMA coisa só.
@@ -99,10 +136,16 @@ class Conexao:
     icone: str                 # classes do Font Awesome 6
     impacto_padrao: str        # o que para de funcionar se esta conexão cair
     links: tuple = ()          # ids de LINKS_EXTERNOS
+    acoes: tuple = ()          # ids de ACOES_DAS_CONEXOES (botões que fazem algo no sistema, ao lado do Testar)
     testavel: bool = True
     motivo_sem_teste: str = ''
     empresa: str = None        # EMPRESA_MAGAZINE / EMPRESA_SAMVALE; None = compartilhada (aparece nas duas)
     partes: tuple = ()         # ParteDaConexao; vazio = a conexão é verificada por um caminho só
+    # * [EXPLICAÇÃO] → True = o servidor NÃO consegue fazer o teste sozinho (a conexão mora no computador de quem
+    #   usa, como o agente). Quem testa é o NAVEGADOR: ele chama `url_do_teste_local` e manda a resposta
+    #   para o servidor, que monta o resultado (ver verificador_demais_conexoes.testar_agente).
+    teste_no_navegador: bool = False
+    url_do_teste_local: str = ''
 
 
 IMPACTO_ML = (
@@ -125,6 +168,7 @@ CONEXOES = (
             'nem tocar os vídeos pelo portal.'
         ),
         links=('google_publicar_app', 'google_identidade_visual', 'google_permissoes_conta'),
+        acoes=('google_renovar_autorizacao',),
         partes=(
             ParteDaConexao(
                 id='google_drive_leitura',
@@ -175,8 +219,6 @@ CONEXOES = (
         subtitulo='ERP da Magazine (token de API)',
         icone='fas fa-database',
         impacto_padrao=IMPACTO_SYSEMP,
-        testavel=False,
-        motivo_sem_teste='Ainda não identificamos uma chamada leve do Sysemp para testar sem carregar dados pesados.',
         empresa=EMPRESA_MAGAZINE,
     ),
     Conexao(
@@ -185,8 +227,6 @@ CONEXOES = (
         subtitulo='ERP da Samvale (token de API)',
         icone='fas fa-database',
         impacto_padrao=IMPACTO_SYSEMP,
-        testavel=False,
-        motivo_sem_teste='Ainda não identificamos uma chamada leve do Sysemp para testar sem carregar dados pesados.',
         empresa=EMPRESA_SAMVALE,
     ),
     Conexao(
@@ -198,8 +238,8 @@ CONEXOES = (
             'Sem isso, o agente do computador não consegue enviar postagens, replicações '
             'e verificações de aprovação para o sistema.'
         ),
-        testavel=False,
-        motivo_sem_teste='O sistema ainda não registra o último contato do agente, então não há o que testar daqui.',
+        teste_no_navegador=True,
+        url_do_teste_local=URL_PING_DO_AGENTE,
     ),
 )
 
@@ -231,6 +271,10 @@ def conexoes_da_empresa(empresa=None):
 
 def buscar_conexao(conexao_id):
     return CONEXOES_POR_ID.get(conexao_id)
+
+
+def acoes_da_conexao(conexao):
+    return [ACOES_DAS_CONEXOES[chave] for chave in conexao.acoes if chave in ACOES_DAS_CONEXOES]
 
 
 def links_da_conexao(conexao):

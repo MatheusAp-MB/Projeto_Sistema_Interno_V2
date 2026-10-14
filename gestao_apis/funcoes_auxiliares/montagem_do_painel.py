@@ -26,7 +26,7 @@ from django.db import DatabaseError
 from django.utils import timezone
 
 from .catalogo_conexoes import (
-    CONEXOES, conexoes_da_empresa, ids_de_historico, links_da_conexao, unidades_de_teste,
+    CONEXOES, acoes_da_conexao, conexoes_da_empresa, ids_de_historico, links_da_conexao, unidades_de_teste,
 )
 from .estados import (
     ATENCAO, COM_PROBLEMA, ESTADOS_VISUAIS, FUNCIONANDO, JANELA_DE_VALIDADE_DO_TESTE_HORAS,
@@ -35,7 +35,7 @@ from .estados import (
 from .eventos import listar_eventos, ultimo_evento_da_conexao
 from .tempo_legivel import descrever_duracao
 
-ROTULO_DA_ACAO = {'teste': 'Teste', 'erro_interno': 'Teste (erro interno)'}
+ROTULO_DA_ACAO = {'teste': 'Teste', 'erro_interno': 'Teste (erro interno)', 'autorizacao': 'Autorização'}
 
 
 # ================================================
@@ -60,7 +60,7 @@ def _local_ml(conta):
 
 
 def _local_sysemp(conexao_id):
-    from .verificador_demais_conexoes import ler_local_sysemp
+    from .verificador_sysemp import ler_local_sysemp
     return ler_local_sysemp(conexao_id)
 
 
@@ -72,6 +72,21 @@ def _local_agente():
 def _local_claude():
     from .verificador_claude import ler_local_claude
     return ler_local_claude()
+
+
+def _situacao_renovar_autorizacao_google(partes_por_id, agora):
+    from .autorizacao_google_drive import (
+        PEDIDO_DE_RENOVACAO, precisa_renovar_logo, situacao_da_validade, situacao_para_renovar,
+    )
+    situacao = situacao_para_renovar()
+    # * [EXPLICAÇÃO] → O botão ganha destaque quando renovar é MESMO o próximo passo: o "Envio e vídeos" está
+    #                  pedindo renovação (invalid_grant, 401, arquivo do login ausente — todos começam com
+    #                  PEDIDO_DE_RENOVACAO) ou a autorização feita por esta tela está para vencer/venceu.
+    envio = partes_por_id.get('google_drive_envio') or {}
+    destaque = str(envio.get('como_resolver', '')).startswith(PEDIDO_DE_RENOVACAO)
+    if not destaque:
+        destaque = precisa_renovar_logo(situacao_da_validade(agora))
+    return {'habilitada': situacao.habilitada, 'motivo': situacao.motivo, 'destaque': destaque}
 
 
 def _teste_drive_leitura():
@@ -94,6 +109,22 @@ def _teste_claude():
     return testar_claude()
 
 
+def _teste_sysemp(conexao_id):
+    from .verificador_sysemp import testar_sysemp
+    return testar_sysemp(conexao_id)
+
+
+def _teste_agente(dados_do_navegador):
+    from .verificador_demais_conexoes import testar_agente
+    return testar_agente(dados_do_navegador)
+
+
+# * [EXPLICAÇÃO] → Situação de cada botão de ação do cartão (ACOES_DAS_CONEXOES): recebe os dados das partes do cartão
+#                  e o "agora" e devolve {habilitada, motivo (por que está desligado), destaque}.
+SITUACOES_DAS_ACOES = {
+    'google_renovar_autorizacao': _situacao_renovar_autorizacao_google,
+}
+
 LEITURAS_LOCAIS = {
     'google_drive_leitura': _local_drive_leitura,
     'google_drive_envio': _local_drive_envio,
@@ -110,15 +141,26 @@ TESTES = {
     'google_drive_envio': _teste_drive_envio,
     'ml_mb': lambda: _teste_ml('MB'),
     'ml_sv': lambda: _teste_ml('SV'),
+    'sysemp_mb': lambda: _teste_sysemp('sysemp_mb'),
+    'sysemp_sv': lambda: _teste_sysemp('sysemp_sv'),
     'claude': _teste_claude,
 }
 
 
-def executar_teste(unidade_id):
+# * [EXPLICAÇÃO] → Testes que o servidor NÃO faz sozinho: o navegador faz a parte local (hoje, chamar o agente
+#                  do computador) e manda o resultado junto do clique. Recebem esse dado (request.POST).
+TESTES_COM_DADOS_DO_NAVEGADOR = {
+    'agente': _teste_agente,
+}
+
+
+def executar_teste(unidade_id, dados_do_navegador=None):
     """
     Roda o teste real de UMA unidade (uma conexão simples ou uma parte de conexão) — vai à internet.
     Quem chama trata exceção inesperada como erro interno.
     """
+    if unidade_id in TESTES_COM_DADOS_DO_NAVEGADOR:
+        return TESTES_COM_DADOS_DO_NAVEGADOR[unidade_id](dados_do_navegador or {})
     return TESTES[unidade_id]()
 
 
@@ -138,10 +180,14 @@ def _ler_local_com_seguranca(conexao_id):
 # ================================================
 
 def _juntar_textos(*partes):
+    # * [EXPLICAÇÃO] → Não repete texto: além de partes iguais, uma parte que já está DENTRO de outra some. Foi o que
+    #                  apareceu no cartão do Agente (14/10/2026): a frase "Teste: o navegador ... chama o sistema com
+    #                  a chave dele" vinha da leitura local e também (com o endereço no fim) do último teste.
     vistos = []
     for parte in partes:
-        if parte and parte not in vistos:
-            vistos.append(parte)
+        if not parte or any(parte in visto for visto in vistos):
+            continue
+        vistos = [visto for visto in vistos if visto not in parte] + [parte]
     return ' · '.join(vistos)
 
 
@@ -153,9 +199,13 @@ def _combinar_leitura_local_com_ultimo_evento(local, evento, agora):
 
     if evento.estado == FUNCIONANDO:
         if idade <= timedelta(hours=JANELA_DE_VALIDADE_DO_TESTE_HORAS):
+            # * [EXPLICAÇÃO] → Funcionando não tem problema a resolver, mas a leitura local pode trazer um lembrete
+            #                  (ex.: "renovar a autorização do Google Drive até tal dia") — só quando ela é "Não verificada".
+            lembrete = local.como_resolver if local.estado == NAO_VERIFICADA else ''
             return Resultado(
-                FUNCIONANDO, evento.motivo, evento.impacto, '',
+                FUNCIONANDO, evento.motivo, evento.impacto, lembrete,
                 _juntar_textos(evento.evidencia, local.evidencia),
+                resposta=evento.resposta,
             )
         return Resultado(
             NAO_VERIFICADA,
@@ -169,6 +219,7 @@ def _combinar_leitura_local_com_ultimo_evento(local, evento, agora):
     return Resultado(
         evento.estado, evento.motivo, evento.impacto, evento.como_resolver,
         _juntar_textos(evento.evidencia, local.evidencia),
+        resposta=evento.resposta,
     )
 
 
@@ -247,8 +298,13 @@ def _juntar_partes(itens):
 
     if estado == FUNCIONANDO:
         nomes = ' · '.join(parte.nome for parte, _, _ in itens)
+        # * [EXPLICAÇÃO] → Quando tudo funciona, o único "Próximo passo" possível é um lembrete de uma das partes.
+        lembretes = _juntar_textos_das_partes(
+            [(parte.nome, resultado.como_resolver) for parte, resultado, _ in itens], total, 'se_varias',
+        )
         return Resultado(
-            FUNCIONANDO, f'As {total} verificações da API deram certo ({nomes}).', evidencia=evidencia,
+            FUNCIONANDO, f'As {total} verificações da API deram certo ({nomes}).',
+            como_resolver=lembretes, evidencia=evidencia,
         )
 
     ruins = sorted(
@@ -278,6 +334,7 @@ def _montar_partes_para_tela(itens):
     for parte, resultado, verificado_em in itens:
         visual = ESTADOS_VISUAIS[resultado.estado]
         partes.append({
+            'id': parte.id,
             'nome': parte.nome,
             'descricao': parte.descricao,
             'estado': resultado.estado,
@@ -286,12 +343,39 @@ def _montar_partes_para_tela(itens):
             'motivo': resultado.motivo,
             'como_resolver': resultado.como_resolver or ('Nada a fazer agora.' if resultado.estado == FUNCIONANDO else ''),
             'evidencia': resultado.evidencia,
+            'resposta': resultado.resposta,
             'quando_completo': (
                 'Nunca testada por esta tela.' if verificado_em is None
                 else f'Último teste em {_formatar_data_hora(verificado_em)}.'
             ),
         })
     return partes
+
+
+def _montar_acoes(conexao, partes_para_tela, agora):
+    """Botões do cartão que fazem algo no sistema (catálogo: ACOES_DAS_CONEXOES), cada um com a sua situação."""
+    partes_por_id = {parte['id']: parte for parte in partes_para_tela}
+    acoes = []
+    for acao in acoes_da_conexao(conexao):
+        try:
+            situacao = SITUACOES_DAS_ACOES[acao.id](partes_por_id, agora)
+        except Exception:
+            traceback.print_exc()
+            situacao = {
+                'habilitada': False,
+                'motivo': 'Erro interno ao preparar este botão (não é problema da conexão). Veja o terminal do servidor.',
+                'destaque': False,
+            }
+        acoes.append({
+            'id': acao.id,
+            'rotulo': acao.rotulo,
+            'dica': acao.dica,
+            'icone': acao.icone,
+            'url_nome': acao.url_nome,
+            'url_situacao_nome': acao.url_situacao_nome,
+            **situacao,
+        })
+    return acoes
 
 
 def montar_cartao(conexao, eventos, agora, aviso=''):
@@ -328,6 +412,8 @@ def montar_cartao(conexao, eventos, agora, aviso=''):
         'icone': conexao.icone,
         'testavel': conexao.testavel,
         'motivo_sem_teste': conexao.motivo_sem_teste,
+        'teste_no_navegador': conexao.teste_no_navegador,
+        'url_do_teste_local': conexao.url_do_teste_local,
         'estado': resultado.estado,
         'estado_rotulo': visual['rotulo'],
         'estado_icone': visual['icone'],
@@ -335,9 +421,11 @@ def montar_cartao(conexao, eventos, agora, aviso=''):
         'impacto': resultado.impacto or conexao.impacto_padrao,
         'como_resolver': resultado.como_resolver or ('Nada a fazer agora.' if resultado.estado == FUNCIONANDO else ''),
         'evidencia': resultado.evidencia,
+        'resposta': resultado.resposta,
         'quando': quando,
         'quando_completo': quando_completo,
         'links': links_da_conexao(conexao),
+        'acoes': _montar_acoes(conexao, partes_para_tela, agora),
         'aviso': aviso,
         'partes': partes_para_tela,
     }

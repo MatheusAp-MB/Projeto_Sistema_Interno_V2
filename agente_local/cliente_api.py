@@ -250,3 +250,22 @@ def finalizar_execucao_verificacao(servidor, token, execucao_id, empresa, cancel
         json={'cancelada': cancelada},
         timeout=TIMEOUT_PADRAO,
     ).raise_for_status()
+
+
+# * [EXPLICAÇÃO] → Usada só pela rota /ping do agente (teste da tela "Gestão de APIs", 14/10/2026). Faz a MESMA
+#                  coisa que toda chamada real do agente — chama a API do Django com o token e o cabeçalho
+#                  X-Empresa — mas numa rota que não lê nem grava nada (api/agente/). Devolve
+#                  (status_http, None) quando o servidor respondeu (mesmo com erro, como o 403 de token errado)
+#                  ou (None, nome_do_erro) quando nem chegou lá (sem internet, endereço errado, tempo
+#                  esgotado). Nunca levanta exceção de rede.
+TIMEOUT_PING = 8  # menor que a espera do navegador (12 s, em gestao_apis/static/gestao_apis/js/script_gestao_apis.js)
+
+
+def verificar_conexao(servidor, token, empresa):
+    try:
+        resposta = requests.get(
+            f'{servidor}/api/agente/ping/', headers=_headers(token, empresa), timeout=TIMEOUT_PING,
+        )
+    except requests.exceptions.RequestException as erro:
+        return None, type(erro).__name__
+    return resposta.status_code, None

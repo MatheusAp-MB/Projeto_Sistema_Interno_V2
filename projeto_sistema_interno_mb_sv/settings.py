@@ -185,6 +185,17 @@ GOOGLE_DRIVE_PASTA_TESTE_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_TESTE_SAMVALE')
 GOOGLE_DRIVE_OAUTH_CLIENT_SECRET_JSON = os.getenv('GOOGLE_DRIVE_OAUTH_CLIENT_SECRET_JSON')
 GOOGLE_DRIVE_OAUTH_TOKEN_JSON = os.getenv('GOOGLE_DRIVE_OAUTH_TOKEN_JSON')
 
+# * [EXPLICAÇÃO] → A autorização do Drive é renovada pelo botão "Renovar autorização" do cartão Google Drive na tela
+#                  Gestão de APIs (/gestao-apis/). Os 2 ajustes abaixo são OPCIONAIS — sem eles, tudo funciona no PC local.
+#                  GOOGLE_DRIVE_OAUTH_REDIRECT_URI: endereço de volta cadastrado no Google (vazio = o próprio endereço
+#                  de onde o botão foi clicado + /gestao-apis/google/retorno/). Só precisa preencher no servidor
+#                  (https), junto com um cliente OAuth do tipo "Aplicativo da Web".
+#                  GOOGLE_DRIVE_OAUTH_VALIDADE_EM_DIAS: enquanto o app OAuth do Google está em "Testando" o Google
+#                  invalida a autorização a cada 7 dias (padrão 7). Com o app publicado em produção, colocar 0 —
+#                  a tela para de mostrar a contagem regressiva.
+GOOGLE_DRIVE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_DRIVE_OAUTH_REDIRECT_URI', '')
+GOOGLE_DRIVE_OAUTH_VALIDADE_EM_DIAS = int(os.getenv('GOOGLE_DRIVE_OAUTH_VALIDADE_EM_DIAS', '7'))
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

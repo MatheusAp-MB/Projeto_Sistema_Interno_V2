@@ -11,9 +11,12 @@
 #                      pontos de entrada que o sistema usa (agenda_videos/funcoes_auxiliares/drive/cliente.py).
 #                      Só devolve "Funcionando" se o Google respondeu.
 #
-# * [IMPORTANTE] → Nenhum conteúdo de credencial é lido/mostrado aqui. Os textos de erro são
-#   escritos por nós; só o código curto do erro do Google (ex.: invalid_grant) é repassado.
+# * [IMPORTANTE] → Nenhum conteúdo de credencial é lido/mostrado aqui. Os textos de "O que aconteceu /
+#   Próximo passo" são escritos por nós; só o código curto do erro do Google (ex.: invalid_grant) entra neles.
+#   A resposta REAL do Google (os dados da pasta, ou o erro que ele devolveu) aparece num bloco à parte em
+#   "Ver detalhes", depois de passar por preparar_resposta_para_exibir() (decisão de 14/10/2026).
 
+import json
 import os
 import re
 import time
@@ -28,10 +31,13 @@ from agenda_videos.funcoes_auxiliares.drive.cliente import (
     obter_servico_drive_escrita,
 )
 
+from .autorizacao_google_drive import (
+    PEDIDO_DE_RENOVACAO, descrever_autorizacao_feita, descrever_lembrete, situacao_da_validade,
+)
 from .estados import (
     ATENCAO, COM_PROBLEMA, FUNCIONANDO, NAO_CONFIGURADA, NAO_VERIFICADA, Resultado,
 )
-from .protecao_de_segredos import limpar_texto_externo
+from .protecao_de_segredos import limpar_texto_externo, preparar_resposta_para_exibir
 from .tempo_legivel import descrever_duracao
 
 _PADRAO_CODIGO_DE_ERRO = re.compile(r'^[a-z_]{3,40}$')
@@ -50,11 +56,33 @@ def _pastas_raiz_configuradas():
     return pastas
 
 
-def _ler_nome_da_pasta(servico, pasta_id):
-    arquivo = servico.files().get(
+def _ler_pasta(servico, pasta_id):
+    # * [EXPLICAÇÃO] → Devolve a resposta inteira do Google (id e nome da pasta), não só o nome: ela é
+    #                  mostrada em "Ver detalhes".
+    return servico.files().get(
         fileId=pasta_id, fields='id,name', supportsAllDrives=True,
     ).execute()
-    return arquivo.get('name', '')
+
+
+def _estruturar_corpo(corpo):
+    if isinstance(corpo, (bytes, bytearray)):
+        corpo = bytes(corpo).decode('utf-8', errors='replace')
+    if isinstance(corpo, str):
+        try:
+            return json.loads(corpo)
+        except ValueError:
+            return corpo
+    return corpo
+
+
+def _corpo_do_erro_do_google(erro):
+    # * [EXPLICAÇÃO] → HttpError traz o corpo da resposta do Google; RefreshError traz (mensagem,
+    #                  resposta_do_google) e daí sai só o dicionário da resposta. Outros erros não têm corpo.
+    if isinstance(erro, HttpError):
+        return _estruturar_corpo(getattr(erro, 'content', b''))
+    if isinstance(erro, RefreshError) and len(erro.args) > 1 and isinstance(erro.args[1], dict):
+        return erro.args[1]
+    return ''
 
 
 def _codigo_de_erro_do_google(erro):
@@ -83,9 +111,12 @@ def _resultado_de_erro_do_google(erro, tipo, contexto=''):
             return Resultado(
                 COM_PROBLEMA,
                 f'O Google recusou renovar o login do Drive{sufixo}. A autorização venceu ou foi revogada.',
+                # * [EXPLICAÇÃO] → O botão Renovar autorização (neste cartão) refaz o login pela própria tela. O motivo
+                #                  mais comum desta falha é o app OAuth em modo "Testando": o Google invalida a
+                #                  autorização a cada 7 dias (publicar o app em produção acaba com isso).
                 como_resolver=(
-                    'Publicar o app OAuth em produção (botão "Público") e autorizar de novo com '
-                    'autorizar_drive_oauth.py. Em modo "Testando" a autorização vence a cada 7 dias.'
+                    f'{PEDIDO_DE_RENOVACAO} neste cartão e entrar com a conta dona do Drive. Em modo "Testando" '
+                    'o Google invalida a autorização a cada 7 dias (publicar o app em produção acaba com isso).'
                 ),
             )
         return Resultado(
@@ -107,7 +138,7 @@ def _resultado_de_erro_do_google(erro, tipo, contexto=''):
             return Resultado(
                 COM_PROBLEMA,
                 'O Google respondeu 401: a credencial não foi aceita.',
-                como_resolver='Autorizar de novo o acesso ao Drive.' if tipo == 'envio'
+                como_resolver=f'{PEDIDO_DE_RENOVACAO} neste cartão e entrar com a conta dona do Drive.' if tipo == 'envio'
                 else 'Conferir a chave JSON da conta de serviço.',
             )
         if status == 403:
@@ -141,7 +172,8 @@ def _resultado_de_erro_do_google(erro, tipo, contexto=''):
             COM_PROBLEMA,
             'O arquivo de credencial do Google existe, mas o conteúdo não é válido '
             f'({limpar_texto_externo(erro, 80)}).',
-            como_resolver='Gerar o arquivo de novo (autorizar_drive_oauth.py para o envio, chave JSON para a leitura).',
+            como_resolver=f'{PEDIDO_DE_RENOVACAO} neste cartão para gerar o arquivo do login de novo.' if tipo == 'envio'
+            else 'Gerar a chave JSON da conta de serviço de novo.',
         )
 
     return None
@@ -180,23 +212,30 @@ def testar_drive_leitura():
 
     pastas = _pastas_raiz_configuradas()
     achados = []
+    respostas = {}
     for rotulo, pasta_id in pastas:
         try:
             servico = obter_servico_drive()
-            nome = _ler_nome_da_pasta(servico, pasta_id)
+            arquivo = _ler_pasta(servico, pasta_id)
         except (RefreshError, HttpError, TransportError, httplib2.HttpLib2Error, OSError, ValueError) as erro:
             resultado = _resultado_de_erro_do_google(erro, 'leitura', f'pasta raiz da {rotulo}')
             if resultado is None:
                 raise
             if achados:
                 resultado.evidencia = ' · '.join(achados)
+            corpo_do_erro = _corpo_do_erro_do_google(erro)
+            if corpo_do_erro:
+                respostas[rotulo] = corpo_do_erro
+            resultado.resposta = preparar_resposta_para_exibir(respostas) if respostas else ''
             return resultado
-        achados.append(f'{rotulo}: pasta "{limpar_texto_externo(nome, 60)}" acessível')
+        respostas[rotulo] = arquivo
+        achados.append(f'{rotulo}: pasta "{limpar_texto_externo(arquivo.get("name", ""), 60)}" acessível')
 
     return Resultado(
         FUNCIONANDO,
         'O Google Drive respondeu e a conta de serviço enxerga a pasta raiz.',
         evidencia=' · '.join(achados),
+        resposta=preparar_resposta_para_exibir(respostas),
     )
 
 
@@ -209,7 +248,7 @@ def ler_local_drive_envio():
         return Resultado(
             NAO_CONFIGURADA,
             'O arquivo do login OAuth do Drive não foi encontrado (variável GOOGLE_DRIVE_OAUTH_TOKEN_JSON do .env).',
-            como_resolver='Rodar autorizar_drive_oauth.py para gerar o arquivo.',
+            como_resolver=f'{PEDIDO_DE_RENOVACAO} neste cartão para gerar o arquivo do login.',
         )
     if not _pastas_raiz_configuradas():
         return Resultado(
@@ -228,9 +267,19 @@ def ler_local_drive_envio():
     except OSError:
         pass
 
+    # * [EXPLICAÇÃO] → Quando a última autorização foi feita pelo botão desta tela, o cartão diz até quando ela vale
+    #                  (modo "Testando" = 7 dias) e o "Próximo passo" lembra de renovar antes. Sem esse registro
+    #                  (autorização feita pelo terminal, por exemplo) não há como saber a data, e nada é dito.
+    validade = situacao_da_validade()
+    como_resolver = ''
+    if validade is not None:
+        evidencia = f'{descrever_autorizacao_feita(validade)} {evidencia}'.strip()
+        como_resolver = descrever_lembrete(validade)
+
     return Resultado(
         NAO_VERIFICADA,
         'Configuração completa. Falta testar a conexão com o Google Drive.',
+        como_resolver=como_resolver,
         evidencia=evidencia,
     )
 
@@ -246,15 +295,18 @@ def testar_drive_envio():
         #                  ponto que o "invalid_grant" aparece. Se não venceu ainda, a chamada
         #                  files.get logo abaixo é que prova que o Google aceita o login.
         servico = obter_servico_drive_escrita()
-        nome = _ler_nome_da_pasta(servico, pasta_id)
+        arquivo = _ler_pasta(servico, pasta_id)
     except (RefreshError, HttpError, TransportError, httplib2.HttpLib2Error, OSError, ValueError) as erro:
         resultado = _resultado_de_erro_do_google(erro, 'envio', f'pasta raiz da {rotulo}')
         if resultado is None:
             raise
+        corpo_do_erro = _corpo_do_erro_do_google(erro)
+        resultado.resposta = preparar_resposta_para_exibir({rotulo: corpo_do_erro}) if corpo_do_erro else ''
         return resultado
 
     return Resultado(
         FUNCIONANDO,
         'O Google aceitou o login da conta dona do Drive.',
-        evidencia=f'Pasta raiz da {rotulo} ("{limpar_texto_externo(nome, 60)}") acessível com esse login.',
+        evidencia=f'Pasta raiz da {rotulo} ("{limpar_texto_externo(arquivo.get("name", ""), 60)}") acessível com esse login.',
+        resposta=preparar_resposta_para_exibir({rotulo: arquivo}),
     )

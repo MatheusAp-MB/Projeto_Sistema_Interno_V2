@@ -15,6 +15,9 @@ from ..models import EventoIntegracao
 
 LIMITE_DE_EVENTOS_GUARDADOS = 500
 
+# Um pouco acima do corte feito em protecao_de_segredos.LIMITE_DA_RESPOSTA_EXIBIDA (que ainda acrescenta 1 linha de aviso).
+LIMITE_DA_RESPOSTA_GUARDADA = 4300
+
 # * [EXPLICAÇÃO] → Proteção contra clique repetido: a mesma conexão não é
 #                  testada de novo antes disso (vale pra qualquer pessoa/aba).
 SEGUNDOS_ENTRE_TESTES_DA_MESMA_CONEXAO = 8
@@ -38,6 +41,8 @@ def registrar_evento(conexao_id, acao, resultado, quem):
             impacto=(resultado.impacto or '')[:300],
             como_resolver=(resultado.como_resolver or '')[:300],
             evidencia=(resultado.evidencia or '')[:300],
+            # * [EXPLICAÇÃO] → Já vem pronta (sem segredos e cortada) dos verificadores; o corte aqui é só rede de segurança.
+            resposta=(resultado.resposta or '')[:LIMITE_DA_RESPOSTA_GUARDADA],
             quem=quem[:80],
         )
         _aparar_historico()
@@ -56,15 +61,18 @@ def evento_em_memoria(acao, resultado):
     return SimpleNamespace(
         criado_em=timezone.now(), acao=acao, estado=resultado.estado, motivo=resultado.motivo or '',
         impacto=resultado.impacto or '', como_resolver=resultado.como_resolver or '',
-        evidencia=resultado.evidencia or '',
+        evidencia=resultado.evidencia or '', resposta=resultado.resposta or '',
     )
 
 
 def _aparar_historico():
     # * [EXPLICAÇÃO] → Guarda só os últimos LIMITE_DE_EVENTOS_GUARDADOS. Roda a
     #                  cada gravação, então só sobra um punhado pra apagar.
+    # * [IMPORTANTE] → Os eventos "autorizacao" (renovação do login do Google Drive) nunca são apagados aqui: é
+    #                  deles que a tela tira a data de vencimento da autorização, e uma sequência grande de testes não
+    #                  pode empurrá-los para fora do histórico. São poucos (1 por renovação).
     ids_antigos = list(
-        EventoIntegracao.objects.order_by('-criado_em', '-id')
+        EventoIntegracao.objects.exclude(acao='autorizacao').order_by('-criado_em', '-id')
         .values_list('id', flat=True)[LIMITE_DE_EVENTOS_GUARDADOS:]
     )
     if ids_antigos:
@@ -74,6 +82,11 @@ def _aparar_historico():
 def ultimo_evento_da_conexao(conexao_id):
     """Evento mais recente da conexão, ou None. Levanta DatabaseError se a tabela não existe."""
     return EventoIntegracao.objects.filter(conexao=conexao_id).first()
+
+
+def ultimo_evento_da_acao(conexao_id, acao):
+    """Evento mais recente da conexão para uma ação específica (ex.: 'autorizacao'), ou None. Levanta DatabaseError se a tabela não existe."""
+    return EventoIntegracao.objects.filter(conexao=conexao_id, acao=acao).first()
 
 
 def listar_eventos(limite=60, conexoes=None):
