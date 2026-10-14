@@ -194,7 +194,7 @@
                     <button id="22" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">PIS/COFINS</button>
                     <button id="23" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">MVA</button>
                     <button id="24" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">ST Valor</button>
-                    <button id="25" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Frete CIF/FOB</button>
+                    <button id="25" class="btn-inativo not_active" onclick="alternar_coluna_produtos(this)">Frete Fornecedor %</button>
                 </div>
             </div>
         </div>
@@ -254,7 +254,7 @@
                 <th><a href="{{ cabecalhos.pis_cofins.href }}">PIS/COFINS <i class="fas {{ cabecalhos.pis_cofins.icone }} icone-ordenar {% if cabecalhos.pis_cofins.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.mva.href }}">MVA <i class="fas {{ cabecalhos.mva.icone }} icone-ordenar {% if cabecalhos.mva.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.st_valor.href }}">ST Valor <i class="fas {{ cabecalhos.st_valor.icone }} icone-ordenar {% if cabecalhos.st_valor.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
-                <th><a href="{{ cabecalhos.frete_cif_fob.href }}">Frete CIF/FOB <i class="fas {{ cabecalhos.frete_cif_fob.icone }} icone-ordenar {% if cabecalhos.frete_cif_fob.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
+                <th><a href="{{ cabecalhos.frete_fornecedor.href }}">Frete Fornecedor % <i class="fas {{ cabecalhos.frete_fornecedor.icone }} icone-ordenar {% if cabecalhos.frete_fornecedor.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.criado_em.href }}">Entrada no DB <i class="fas {{ cabecalhos.criado_em.icone }} icone-ordenar {% if cabecalhos.criado_em.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.atualizado_em.href }}">Atualização no DB <i class="fas {{ cabecalhos.atualizado_em.icone }} icone-ordenar {% if cabecalhos.atualizado_em.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
                 <th><a href="{{ cabecalhos.ultima_compra.href }}">Última Compra <i class="fas {{ cabecalhos.ultima_compra.icone }} icone-ordenar {% if cabecalhos.ultima_compra.ativo %}icone-ordenar-ativo{% endif %}"></i></a></th>
@@ -303,7 +303,7 @@
                 <td>{{ produto.obter_dados_fiscais.pis_cofins|floatformat:2|default:"" }}%</td>
                 <td>{{ produto.obter_dados_fiscais.mva|default:"" }}</td>
                 <td>{{ produto.obter_dados_fiscais.st_valor|default:"" }}</td>
-                <td>{{ produto.obter_dados_fiscais.frete_cif_fob|default:"" }}</td>
+                <td>{{ produto.obter_dados_financeiros.frete_fornecedor|floatformat:2|default:"" }}%</td>
                 <td>{{ produto.obter_dados_controle.criado_em|date:"d/m/Y H:i"|default:"" }}</td>
                 <td>{{ produto.obter_dados_controle.atualizado_em|date:"d/m/Y H:i"|default:"" }}</td>
                 <td>{{ produto.obter_dados_controle.ultima_compra|date:"d/m/Y"|default:"" }}</td>

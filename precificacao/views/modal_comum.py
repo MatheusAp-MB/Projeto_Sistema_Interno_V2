@@ -6,7 +6,7 @@
 #
 # Taxonomia de proveniência (campo `origem` em LinhaPercentualValor/LinhaValorUnico) —
 # 5 categorias, usadas pela tela de auditoria pra marcar "isso veio de onde":
-#   'produto'   → cadastro do produto (custo, dimensão declarada, frete_cif_fob%...)
+#   'produto'   → cadastro do produto (custo, dimensão declarada, frete_fornecedor%...)
 #   'nf'        → nota fiscal de entrada / crédito fiscal (ICMS/IPI/PIS/COFINS entrada)
 #   'saida'     → imposto aplicado na venda (ICMS/PIS/COFINS saída)
 #   'config'    → parâmetro operacional (fator de coleta, comissão, margem-alvo, faixas)
@@ -100,7 +100,7 @@ class DimensaoUsada:
 class PassoCustoFinal:
     custo_com_boni: object
     ipi_valor: object
-    frete_cif_fob_valor: object
+    frete_fornecedor_valor: object
     resultado: object
     ipi_valor_nota: object = None
     quantidade_nota: object = None
@@ -369,12 +369,30 @@ def montar_nota_fiscal_base(e, produto):
     )
 
 
+# Função Objetivo: Lê o Frete Fornecedor (percentual e R$ por unidade) do snapshot gravado da grade.
+# * [EXPLICAÇÃO] → Compatibilidade de LEITURA (14/10/2026): grades calculadas ANTES do rename
+#                  frete_cif_fob → frete_fornecedor guardam o frete no detalhamento com as chaves
+#                  antigas. Sem este fallback o modal dessas linhas mostraria o frete em branco
+#                  (e o Passo 1 não fecharia, ou quebraria o teardown) até a grade ser recalculada.
+#                  Só LÊ — nada grava com o nome antigo. Remover quando todas as grades (Magazine
+#                  e Samvale) tiverem sido recalculadas.
+_CHAVE_ANTIGA_FRETE_PERCENTUAL = 'frete_cif_fob_percentual'
+_CHAVE_ANTIGA_FRETE_VALOR = 'frete_cif_fob_valor'
+
+
+def _frete_fornecedor_do_snapshot(e, i):
+    percentual = e.get('frete_fornecedor_percentual', e.get(_CHAVE_ANTIGA_FRETE_PERCENTUAL))
+    valor = i.get('frete_fornecedor_valor', i.get(_CHAVE_ANTIGA_FRETE_VALOR))
+    return percentual, valor
+
+
 # Função Objetivo: Monta a tabela de valores de entrada (créditos de NF + saída + config) —
 # comum a qualquer marketplace.
 def montar_tabela_percentuais(e, i, dec, label_comissao='Comissão'):
+    frete_fornecedor_percentual, frete_fornecedor_valor = _frete_fornecedor_do_snapshot(e, i)
     return [
         LinhaPercentualValor('IPI (crédito de entrada)', None, dec(i.get('ipi_valor')), origem='nf'),
-        LinhaPercentualValor('Frete CIF/FOB', dec(e.get('frete_cif_fob_percentual')), dec(i.get('frete_cif_fob_valor')), origem='produto'),
+        LinhaPercentualValor('Frete Fornecedor', dec(frete_fornecedor_percentual), dec(frete_fornecedor_valor), origem='produto'),
         LinhaPercentualValor('Crédito ICMS (entrada)', None, dec(i.get('credito_icms_entrada')), origem='nf'),
         LinhaPercentualValor('Crédito PIS (entrada)', None, dec(i.get('credito_pis')), origem='nf'),
         LinhaPercentualValor('Crédito COFINS (entrada)', None, dec(i.get('credito_cofins')), origem='nf'),
@@ -513,9 +531,10 @@ def montar_passos_1_a_6(e, i, dec, label_comissao='Comissão'):
     qtd_nota = dec(_quantidade_nota(e))
 
     ipi_valor_nota, _, _ = _prova_imposto(e, 'ipi')
+    _, frete_fornecedor_valor = _frete_fornecedor_do_snapshot(e, i)
     passo_1 = PassoCustoFinal(
         custo_com_boni=dec(e.get('custo_com_boni')), ipi_valor=dec(i.get('ipi_valor')),
-        frete_cif_fob_valor=dec(i.get('frete_cif_fob_valor')),
+        frete_fornecedor_valor=dec(frete_fornecedor_valor),
         resultado=dec(i.get('custo_final')),
         ipi_valor_nota=dec(ipi_valor_nota), quantidade_nota=qtd_nota,
     )
@@ -602,6 +621,8 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
     pis_valor_nota, pis_aliquota = dec(pis_valor_nota_raw), dec(pis_aliquota_raw)
     cofins_valor_nota, cofins_aliquota = dec(cofins_valor_nota_raw), dec(cofins_aliquota_raw)
 
+    frete_fornecedor_percentual, frete_fornecedor_valor = _frete_fornecedor_do_snapshot(e, i)
+
     def mini(valor_nota, aliquota):
         if valor_nota is None or qtd_nota is None:
             return ''
@@ -648,8 +669,8 @@ def montar_tabela_itens_agrupada(e, i, s, dec):
                 mini_form=mini(cofins_valor_nota, cofins_aliquota), regra_texto=regra_cofins.texto_credito if regra_cofins else '',
             ),
         ]),
-        GrupoItensAuditoria('4. Frete de entrada (CIF/FOB)', [
-            LinhaItemAuditoria('Frete CIF/FOB', 'produto', valor_reais=dec(i.get('frete_cif_fob_valor')), valor_percentual=dec(e.get('frete_cif_fob_percentual'))),
+        GrupoItensAuditoria('4. Frete do Fornecedor (entrada)', [
+            LinhaItemAuditoria('Frete Fornecedor', 'produto', valor_reais=dec(frete_fornecedor_valor), valor_percentual=dec(frete_fornecedor_percentual)),
         ]),
         GrupoItensAuditoria('5. Coleta e armazenagem', [
             LinhaItemAuditoria('Metro cúbico', 'calculado', valor_reais=dec(i.get('metro_cubico')), unidade='m3'),
@@ -762,7 +783,7 @@ def montar_visao_2_teardown(passo_1, passo_2, passo_3, passo_4, passo_5, passo_8
 
     linhas.append(LinhaTeardown('Custo do produto', passo_1.custo_com_boni, pct(passo_1.custo_com_boni), 'menos'))
     linhas.append(LinhaTeardown('IPI (crédito da nota de entrada)', passo_1.ipi_valor, pct(passo_1.ipi_valor), 'menos'))
-    linhas.append(LinhaTeardown('Frete CIF/FOB', passo_1.frete_cif_fob_valor, pct(passo_1.frete_cif_fob_valor), 'menos'))
+    linhas.append(LinhaTeardown('Frete Fornecedor', passo_1.frete_fornecedor_valor, pct(passo_1.frete_fornecedor_valor), 'menos'))
     linhas.append(LinhaTeardown('Coleta', passo_2.resultado, pct(passo_2.resultado), 'menos'))
     linhas.append(LinhaTeardown('Armazenagem', passo_3.resultado, pct(passo_3.resultado), 'menos'))
 

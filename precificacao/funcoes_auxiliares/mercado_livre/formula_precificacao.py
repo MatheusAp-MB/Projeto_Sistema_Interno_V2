@@ -95,7 +95,7 @@ class DadosEntrada:
 
     custo: Decimal
     custo_com_boni: Decimal
-    frete_cif_fob_percentual: Decimal
+    frete_fornecedor_percentual: Decimal
     icms_saida_percentual: Decimal
     pis_saida_percentual: Decimal
     cofins_saida_percentual: Decimal
@@ -141,7 +141,7 @@ class DadosEntrada:
 class DadosIntermediarios:
     custo_final: Decimal
     ipi_valor: Decimal
-    frete_cif_fob_valor: Decimal
+    frete_fornecedor_valor: Decimal
 
     metro_cubico: Decimal
     coleta: Decimal
@@ -215,8 +215,8 @@ class DadosFiscaisProduto:
     impostos_entrada: object
     creditos: object
     custo_com_boni: Decimal
-    frete_cif_fob_percentual: Decimal
-    frete_cif_fob_valor: Decimal
+    frete_fornecedor_percentual: Decimal
+    frete_fornecedor_valor: Decimal
     ipi_valor: Decimal
     custo_final: Decimal
 
@@ -333,34 +333,34 @@ class FormulaPrecificacao:
 
         self._creditos = creditos
 
-    # Função Objetivo: Calcula o custo final (IPI + frete CIF/FOB, sobre o custo).
+    # Função Objetivo: Calcula o custo final (IPI + frete fornecedor, sobre o custo).
     def calcular_custo_final(self):
         if self._dados_fiscais_produto is not None:
             d = self._dados_fiscais_produto
             self._custo_com_boni = d.custo_com_boni
-            self._frete_cif_fob_percentual = d.frete_cif_fob_percentual
-            self._frete_cif_fob_valor = d.frete_cif_fob_valor
+            self._frete_fornecedor_percentual = d.frete_fornecedor_percentual
+            self._frete_fornecedor_valor = d.frete_fornecedor_valor
             self._ipi_valor = d.ipi_valor
             self._custo_final = d.custo_final
             return
 
         produto = self.produto
-        frete_cif_fob_percentual = produto.frete_cif_fob or Decimal('0')
+        frete_fornecedor_percentual = produto.frete_fornecedor or Decimal('0')
 
         # IPI já vem em R$ pronto (dividido por unidade em impostos_entrada) —
         # nunca recalculado aqui a partir de percentual.
         ipi_valor = self._creditos.ipi
-        frete_cif_fob_valor = produto.custo * (frete_cif_fob_percentual / 100)
+        frete_fornecedor_valor = produto.custo * (frete_fornecedor_percentual / 100)
 
         # Decisão do Matheus (14/09/2026): custo_com_boni nunca é preenchido na
         # prática (nenhum importador/script grava valor ali) — parou de ser lido.
         # self._custo_com_boni continua existindo só pelo nome (usado pela
         # auditoria/modal), mas agora É produto.custo, sem fallback nenhum.
         self._custo_com_boni = produto.custo
-        self._frete_cif_fob_percentual = frete_cif_fob_percentual
-        self._frete_cif_fob_valor = frete_cif_fob_valor
+        self._frete_fornecedor_percentual = frete_fornecedor_percentual
+        self._frete_fornecedor_valor = frete_fornecedor_valor
         self._ipi_valor = ipi_valor
-        self._custo_final = produto.custo + ipi_valor + frete_cif_fob_valor
+        self._custo_final = produto.custo + ipi_valor + frete_fornecedor_valor
 
     # Função Objetivo: Calcula 1x os dados fiscais/custo que só dependem do PRODUTO —
     # créditos de entrada + custo final — reaproveitáveis por QUALQUER MLB/margem/tipo
@@ -382,8 +382,8 @@ class FormulaPrecificacao:
             impostos_entrada=instancia._impostos_entrada,
             creditos=instancia._creditos,
             custo_com_boni=instancia._custo_com_boni,
-            frete_cif_fob_percentual=instancia._frete_cif_fob_percentual,
-            frete_cif_fob_valor=instancia._frete_cif_fob_valor,
+            frete_fornecedor_percentual=instancia._frete_fornecedor_percentual,
+            frete_fornecedor_valor=instancia._frete_fornecedor_valor,
             ipi_valor=instancia._ipi_valor,
             custo_final=instancia._custo_final,
         )
@@ -698,7 +698,7 @@ class FormulaPrecificacao:
             margem_alvo_percentual=self.margem_alvo_percentual,
             custo=produto.custo,
             custo_com_boni=self._custo_com_boni,
-            frete_cif_fob_percentual=self._frete_cif_fob_percentual,
+            frete_fornecedor_percentual=self._frete_fornecedor_percentual,
             icms_saida_percentual=self._icms_saida_percentual,
             pis_saida_percentual=self._pis_saida_percentual,
             cofins_saida_percentual=self._cofins_saida_percentual,
@@ -726,7 +726,7 @@ class FormulaPrecificacao:
         self.intermediarios = DadosIntermediarios(
             custo_final=self._custo_final,
             ipi_valor=self._ipi_valor,
-            frete_cif_fob_valor=self._frete_cif_fob_valor,
+            frete_fornecedor_valor=self._frete_fornecedor_valor,
             metro_cubico=self._metro_cubico,
             coleta=self._coleta,
             armazenagem_origem=self._armazenagem_origem,
@@ -783,7 +783,7 @@ class FormulaPrecificacao:
         i = self.intermediarios
         s = self.saida
         return [
-            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete CIF/FOB', 'resultado': i.custo_final},
+            {'ordem': 1, 'rotulo': 'Custo final', 'formula': 'custo_com_boni + IPI + frete fornecedor', 'resultado': i.custo_final},
             {'ordem': 2, 'rotulo': 'Coleta', 'formula': 'metro_cúbico × fator_coleta', 'resultado': i.coleta},
             {'ordem': 3, 'rotulo': 'Armazenagem', 'formula': f'origem: {i.armazenagem_origem}', 'resultado': i.armazenagem},
             {'ordem': 4, 'rotulo': 'FIXO', 'formula': 'coleta + armazenagem + custo_final − créditos', 'resultado': i.fixo},

@@ -2,7 +2,8 @@
 * [RESUMO] → Template parcial do modal de detalhes do produto.
 * Retornado pelo HTMX ao clicar em uma linha da tabela de produtos.
 * Exibe todos os campos do produto agrupados por categoria — somente
-* leitura. Estrutura em 2 abas: "Visão Geral" (identificação, dimensões,
+* leitura (exceto o cartão "Financeiro", que edita o Frete Fornecedor via HTMX —
+* ver _cartao_financeiro_produto.html). Estrutura em 2 abas: "Visão Geral" (identificação, dimensões,
 * financeiro, controle, códigos e marketplaces) e "Impostos" (card Fiscal
 * legado do Produto + card novo com os impostos de entrada via XML/Sysemp,
 * lado a lado pra comparação).
@@ -231,7 +232,12 @@
                 </div>
             </div>
 
-                        <!-- Controle -->
+            <!-- Financeiro — Custo (ERP, leitura) + Frete Fornecedor (editável via HTMX) -->
+            <div class="col-md-6">
+                {% include "produtos/parciais/_cartao_financeiro_produto.html" %}
+            </div>
+
+            <!-- Controle -->
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header modal-card-cabecalho">

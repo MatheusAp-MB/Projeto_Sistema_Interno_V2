@@ -29,7 +29,7 @@ LABELS_COLUNAS = {
     'peso_cubado': 'Peso Cubado',
     'icms_saida_sp': 'ICMS Saída SP', 'icms_saida_media': 'ICMS Saída Média',
     'pis_percentual': 'PIS %', 'cofins_percentual': 'COFINS %',
-    'frete_cif_fob': 'Frete CIF/FOB',
+    'frete_fornecedor': 'Frete Fornecedor %',
     'ultima_compra': 'Última Compra', 'cadastrado_erp_em': 'Cadastro no ERP',
     'criado_em': 'Entrada no DB', 'atualizado_em': 'Atualização no DB',
 }
@@ -48,11 +48,11 @@ SECOES_FILTRO_FAIXA = [
         ('peso_cubado', 'Peso Cubado'),
     ]},
     {'titulo': 'Financeiro', 'campos': [
-        ('custo', 'Custo'), ('custo_com_boni', 'Custo c/ Boni')]},
+        ('custo', 'Custo'), ('custo_com_boni', 'Custo c/ Boni'),
+        ('frete_fornecedor', 'Frete Fornecedor %')]},
     {'titulo': 'Fiscal', 'campos': [
         ('icms_saida_sp', 'ICMS Saída SP'), ('icms_saida_media', 'ICMS Saída Média'),
         ('pis_percentual', 'PIS %'), ('cofins_percentual', 'COFINS %'),
-        ('frete_cif_fob', 'Frete CIF/FOB'),
     ]},
     {'titulo': 'Controle DB', 'campos': [
         ('criado_em', 'Entrada no DB'), ('atualizado_em', 'Atualização no DB')]},

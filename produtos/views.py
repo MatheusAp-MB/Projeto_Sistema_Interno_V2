@@ -1,5 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.http import require_POST
+from .forms import FormularioFreteFornecedor
 from .models import Produto
 from produtos.funcoes_auxiliares.contexto_tela_produtos import ContextoTelaProdutos
 from impostos.funcoes_auxiliares.entrada.exibicao_impostos_entrada import (
@@ -91,4 +93,32 @@ def view_painel_produto(request, produto_id):
         'regra_saida_pis': regra_saida_pis,
         'regra_saida_cofins': regra_saida_cofins,
         'texto_regra_tributo_ja_pago': TEXTO_REGRA_TRIBUTO_JA_PAGO,
+        'formulario_frete_fornecedor': FormularioFreteFornecedor(instance=produto),
+    })
+
+
+# Função Objetivo: Salva o Frete Fornecedor digitado no cartão "Financeiro" do painel do produto
+# (POST do HTMX) e devolve o cartão re-renderizado — com o valor normalizado ou com a mensagem de erro.
+# * [EXPLICAÇÃO] → (a) Salva SÓ esse campo (update_fields) — nunca regrava o produto inteiro, pra não
+#                  atropelar uma importação do ERP rodando ao mesmo tempo; atualizado_em entra na lista
+#                  porque auto_now não dispara com update_fields. (b) Erro de validação devolve 200
+#                  (não 400/422) de propósito: o HTMX não troca o conteúdo de respostas 4xx, e o
+#                  usuário precisa ver a mensagem no próprio cartão. (c) Salvar NÃO recalcula as
+#                  grades — o cartão avisa que o novo valor só aparece após o próximo recálculo.
+@require_POST
+def view_salvar_frete_fornecedor(request, produto_id):
+    produto = get_object_or_404(Produto, pk=produto_id)
+    formulario = FormularioFreteFornecedor(request.POST, instance=produto)
+    salvo = False
+
+    if formulario.is_valid():
+        produto = formulario.save(commit=False)
+        produto.save(update_fields=['frete_fornecedor', 'atualizado_em'])
+        formulario = FormularioFreteFornecedor(instance=produto)
+        salvo = True
+
+    return render(request, 'produtos/parciais/_cartao_financeiro_produto.html', {
+        'produto': produto,
+        'formulario_frete_fornecedor': formulario,
+        'frete_fornecedor_salvo': salvo,
     })

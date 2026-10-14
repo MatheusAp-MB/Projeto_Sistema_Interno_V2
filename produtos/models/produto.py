@@ -30,6 +30,7 @@ class DadosIdentificacaoProduto:
 class DadosFinanceirosProduto:
     custo: Decimal
     custo_com_boni: Decimal
+    frete_fornecedor: Decimal
 
 
 # Função Objetivo: Agrupa os dados fiscais do Produto.
@@ -40,7 +41,6 @@ class DadosFiscaisProduto:
     icms_saida_media: Decimal
     pis_percentual: Decimal
     cofins_percentual: Decimal
-    frete_cif_fob: Decimal
 
 
 # Função Objetivo: Agrupa a dimensão do produto PURO, sem embalagem.
@@ -143,6 +143,17 @@ class Produto(models.Model):
     custo_com_boni = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True)
 
+    # * [EXPLICAÇÃO] → Frete Fornecedor (renomeado de frete_cif_fob em 14/10/2026 — decisão de
+    #                  12/09/2026 no vault): PERCENTUAL (0–100) do frete pago ao fornecedor/
+    #                  transportadora na entrada, aplicado sobre produto.custo no Passo 1 (custo
+    #                  final) das 6 grades e no calculo_margem.py. Editável na tela (cartão
+    #                  Financeiro do painel do produto). Nenhum importador grava este campo
+    #                  (CAMPOS_PRODUTO do ERP não o lista), então o valor digitado sobrevive às
+    #                  importações. A definição do campo NÃO mudou no rename — de propósito, pra o
+    #                  makemigrations gerar RenameField (preserva os dados) e não Remove+Add.
+    frete_fornecedor = models.DecimalField(
+        max_digits=6, decimal_places=2, default=0)
+
     # * [EXPLICAÇÃO] → Renomeado (16/07) pra separar EXPLICITAMENTE
     #                  produto sem embalar (dimensão/peso do item
     #                  puro, sem caixa) de produto após embalado
@@ -203,9 +214,6 @@ class Produto(models.Model):
     # o campo nunca era None de verdade no banco, só 0 por default.
     pis_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0, null=True, blank=True)
     cofins_percentual = models.DecimalField(max_digits=6, decimal_places=2, default=0, null=True, blank=True)
-
-    frete_cif_fob = models.DecimalField(
-        max_digits=6, decimal_places=2, default=0)
 
     # * [EXPLICAÇÃO] → Valor mensal de armazenagem importado direto da
     #                  coluna BH da planilha validada de precificação —
@@ -285,6 +293,7 @@ class Produto(models.Model):
     def obter_dados_financeiros(self):
         return DadosFinanceirosProduto(
             custo=self.custo, custo_com_boni=self.custo_com_boni,
+            frete_fornecedor=self.frete_fornecedor,
         )
 
     # Função Objetivo: Devolve os dados fiscais deste produto.
@@ -293,7 +302,6 @@ class Produto(models.Model):
             cst_saida=self.cst_saida,
             icms_saida_sp=self.icms_saida_sp, icms_saida_media=self.icms_saida_media,
             pis_percentual=self.pis_percentual, cofins_percentual=self.cofins_percentual,
-            frete_cif_fob=self.frete_cif_fob,
         )
 
     # Função Objetivo: Devolve a dimensão do produto puro, sem embalagem.

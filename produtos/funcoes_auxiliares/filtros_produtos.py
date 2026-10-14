@@ -44,7 +44,7 @@ CAMPOS_ORDENACAO = {
     'peso_cubado': 'peso_cubado',
     'icms_saida_sp': 'icms_saida_sp', 'icms_saida_media': 'icms_saida_media',
     'pis_percentual': 'pis_percentual', 'cofins_percentual': 'cofins_percentual',
-    'frete_cif_fob': 'frete_cif_fob',
+    'frete_fornecedor': 'frete_fornecedor',
     'ultima_compra': 'ultima_compra', 'cadastrado_erp_em': 'cadastrado_erp_em',
     'criado_em': 'criado_em', 'atualizado_em': 'atualizado_em',
 }
@@ -62,7 +62,7 @@ CAMPOS_FAIXA = [
     'peso_cubado',
     'custo', 'custo_com_boni',
     'icms_saida_sp', 'icms_saida_media',
-    'pis_percentual', 'cofins_percentual', 'frete_cif_fob',
+    'pis_percentual', 'cofins_percentual', 'frete_fornecedor',
     'ultima_compra', 'cadastrado_erp_em', 'criado_em', 'atualizado_em',
 ]
 

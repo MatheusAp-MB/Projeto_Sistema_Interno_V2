@@ -1,0 +1,46 @@
+<!--
+* [RESUMO] → Cartão "Financeiro" da aba Visão Geral do painel do produto (14/10/2026).
+* Duas linhas no mesmo padrão dos outros cartões (rótulo | valor): Custo (ERP), somente leitura, e Frete
+* Fornecedor, o ÚNICO valor editável da tela — uma caixa branca com borda dentro da célula de valor, um
+* lápis ao lado e a explicação num balão que aparece ao passar o mouse (data-tooltip, mesmo padrão do Hub
+* de Promoções). O frete é um PERCENTUAL aplicado sobre o custo e entra no custo final (Passo 1) das
+* grades de todos os marketplaces. Fluxo: o HTMX envia o formulário (que vive dentro da célula de valor)
+* para salvar_frete_fornecedor_produto e troca ESTE cartão inteiro pela resposta da view (valor
+* normalizado, ou a mensagem de erro) — sem JS próprio.
+* Contexto: produto, formulario_frete_fornecedor, frete_fornecedor_salvo (só vem após salvar).
+-->
+<div class="card" id="cartao-financeiro-produto">
+    <div class="card-header modal-card-cabecalho">
+        <strong>Financeiro</strong>
+    </div>
+    <div class="card-body">
+        <table class="modal-tabela">
+            <colgroup>
+                <col class="modal-col-dado">
+                <col class="modal-col-valor">
+            </colgroup>
+            <tr><td class="modal-td-dado">Custo (ERP)</td><td class="modal-td-valor">R$ {{ produto.obter_dados_financeiros.custo|floatformat:"2g" }}</td></tr>
+            <tr>
+                <td class="modal-td-dado"><label class="modal-form-frete-rotulo" for="{{ formulario_frete_fornecedor.frete_fornecedor.id_for_label }}">Frete Fornecedor</label></td>
+                <td class="modal-td-valor modal-td-valor-editavel">
+                    <form class="modal-form-frete" hx-post="{% url 'salvar_frete_fornecedor_produto' produto.pk %}" hx-target="#cartao-financeiro-produto" hx-swap="outerHTML" hx-disabled-elt="find button">
+                        {% csrf_token %}
+                        <div class="modal-form-frete-linha{% if formulario_frete_fornecedor.frete_fornecedor.errors %} modal-form-frete-linha--erro{% endif %}">
+                            <span class="modal-form-frete-campo" data-tooltip="Campo editável. Percentual do frete pago ao fornecedor, aplicado sobre o custo do produto. Entra no custo final (Passo 1) das grades de todos os marketplaces. Use 0 quando não houver frete.">
+                                {{ formulario_frete_fornecedor.frete_fornecedor }}
+                                <span class="modal-form-frete-sufixo">%</span>
+                                <span class="modal-form-frete-lapis" aria-hidden="true">✎</span>
+                            </span>
+                            <button type="submit" class="btn-acao modal-form-frete-salvar">Salvar</button>
+                        </div>
+                        {% if formulario_frete_fornecedor.frete_fornecedor.errors %}
+                        <p class="modal-form-frete-erro" role="alert">{{ formulario_frete_fornecedor.frete_fornecedor.errors.0 }}</p>
+                        {% elif frete_fornecedor_salvo %}
+                        <p class="modal-form-frete-ok" role="status">✓ Salvo. Vale nas grades após o recálculo.</p>
+                        {% endif %}
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>

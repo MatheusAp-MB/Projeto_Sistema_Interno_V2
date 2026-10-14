@@ -61,10 +61,10 @@
             <span class="grade-detalhe-passo-numero">1</span>
             <div>
                 <div class="grade-detalhe-passo-texto">Calculando o custo final</div>
-                <div class="grade-detalhe-passo-abstrata">custo_com_boni + IPI + frete CIF/FOB + ST</div>
+                <div class="grade-detalhe-passo-abstrata">custo_com_boni + IPI + frete fornecedor + ST</div>
                 <div class="grade-detalhe-passo-conta">
                     R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }}
-                    + R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }} + R$ {{ det.passo_1.st_valor|floatformat:2 }}
+                    + R$ {{ det.passo_1.frete_fornecedor_valor|floatformat:2 }} + R$ {{ det.passo_1.st_valor|floatformat:2 }}
                     = R$ {{ det.passo_1.resultado|floatformat:2 }}
                 </div>
             </div>

@@ -121,11 +121,11 @@
                             </span>
                             <span class="v">R$ {{ det.passo_1.ipi_valor|floatformat:2 }}</span>
                         </div>
-                        <div class="audit-input-linha"><span class="k">Frete CIF/FOB R$ <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }}</span></div>
+                        <div class="audit-input-linha"><span class="k">Frete Fornecedor R$ <span class="audit-tag audit-tag--calc">Calculado</span></span><span class="v">R$ {{ det.passo_1.frete_fornecedor_valor|floatformat:2 }}</span></div>
                     </div>
-                    <div class="audit-passo-abstrata">Custo do produto + IPI + Frete CIF/FOB</div>
+                    <div class="audit-passo-abstrata">Custo do produto + IPI + Frete Fornecedor</div>
                     <div class="audit-passo-conta">
-                        R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }} + R$ {{ det.passo_1.frete_cif_fob_valor|floatformat:2 }}
+                        R$ {{ det.passo_1.custo_com_boni|floatformat:2 }} + R$ {{ det.passo_1.ipi_valor|floatformat:2 }} + R$ {{ det.passo_1.frete_fornecedor_valor|floatformat:2 }}
                         = <b>R$ {{ det.passo_1.resultado|floatformat:2 }}</b>
                         {% if not det.custo and not det.custo_com_boni %}<span class="audit-badge audit-badge--ruim">só o IPI, sem custo</span>{% endif %}
                     </div>

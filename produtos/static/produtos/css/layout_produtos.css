@@ -931,3 +931,142 @@
 .modal-regra-tributo-pago--alerta .modal-regra-tributo-pago-titulo {
     color: #b91c1c;
 }
+
+
+/* ================================================
+   CARTÃO FINANCEIRO — FRETE FORNECEDOR EDITÁVEL (Matheus, 14/10/2026)
+   Único campo do cadastro editável pela tela (ver produtos/forms.py). A linha segue o padrão dos outros
+   cartões (rótulo | valor, de layout_modal.css); o que a diferencia é a caixa branca com borda e o lápis,
+   que sinalizam "dá para editar", e o balão de ajuda ao passar o mouse (mesmo padrão data-tooltip do
+   Hub de Promoções, mas aberto PARA BAIXO para não ser cortado pela borda superior da área rolável).
+   O formulário vive dentro da célula de valor e o HTMX troca o cartão inteiro após salvar.
+   Só usa tokens do layout_global.css e o botão global .btn-acao.
+   ================================================ */
+.modal-td-valor.modal-td-valor-editavel {
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+.modal-form-frete {
+    margin: 0;
+}
+
+.modal-form-frete-rotulo {
+    margin: 0;
+    font-weight: inherit;
+    cursor: pointer;
+}
+
+.modal-form-frete-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 10px;
+}
+
+.modal-form-frete-campo {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: text;
+}
+
+.modal-form-frete-input {
+    width: 84px;
+    padding: 2px 8px;
+    background-color: #fff;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 4px;
+    color: rgb(0, 1, 46);
+    font: inherit;
+    text-align: center;
+}
+
+.modal-form-frete-input:hover {
+    border-color: var(--cor-primaria);
+}
+
+.modal-form-frete-input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px rgba(46, 123, 181, 0.25);
+}
+
+.modal-form-frete-linha--erro .modal-form-frete-input {
+    border-color: var(--cor-negativo);
+}
+
+.modal-form-frete-sufixo {
+    color: var(--cor-texto-muted);
+}
+
+.modal-form-frete-lapis {
+    font-size: 0.85rem;
+    line-height: 1;
+    color: var(--cor-primaria-clara);
+}
+
+.modal-form-frete .modal-form-frete-salvar {
+    padding: 3px 12px;
+    font-size: 0.8rem;
+}
+
+.modal-form-frete .modal-form-frete-salvar:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.modal-form-frete-erro,
+.modal-form-frete-ok {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.modal-form-frete-erro {
+    color: var(--cor-negativo);
+}
+
+.modal-form-frete-ok {
+    color: var(--cor-positivo);
+}
+
+/* * [EXPLICAÇÃO] → Balão de ajuda do campo (texto vem do atributo data-tooltip do HTML). */
+.modal-form-frete-campo[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 10px;
+    width: 230px;
+    background: var(--cor-primaria-escura);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.45;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    z-index: 30;
+    pointer-events: none;
+}
+
+.modal-form-frete-campo[data-tooltip]:hover::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 3px;
+    border: 6px solid transparent;
+    border-bottom-color: var(--cor-primaria-escura);
+    z-index: 30;
+    pointer-events: none;
+}
