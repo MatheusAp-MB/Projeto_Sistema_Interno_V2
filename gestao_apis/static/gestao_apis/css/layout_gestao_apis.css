@@ -1,0 +1,607 @@
+/*
+* [RESUMO] → CSS da tela "Gestão de APIs" (painel de saúde das conexões externas).
+* Usa as variáveis globais de cor de layout_global.css (--cor-primaria, --cor-borda etc.).
+*
+* * [DECISÃO, 14/10/2026] → Layout "fluido na horizontal, rígido na vertical": a altura da faixa de
+*   urgência, de cada cartão e da tabela de eventos é FIXA; só a largura acompanha a janela. Texto
+*   comprido é cortado com reticências e o botão "Ver detalhes" mostra tudo.
+* * [EXPLICAÇÃO] → Estado nunca só por cor: toda marca de estado (selo) leva ÍCONE + TEXTO.
+*/
+
+/* ================================================
+   CORES DOS 5 ESTADOS
+   (na <body> para valer também nas janelas, que o JS move para o fim do <body>)
+   ================================================ */
+.gapi-tela {
+    --gapi-funcionando-texto: #2d7a4f;
+    --gapi-funcionando-fundo: #e6f4ea;
+    --gapi-atencao-texto: #92400e;
+    --gapi-atencao-fundo: #fef3c7;
+    --gapi-problema-texto: #b02a37;
+    --gapi-problema-fundo: #fde8e8;
+    --gapi-nao-verificada-texto: #495057;
+    --gapi-nao-verificada-fundo: #eef1f5;
+    --gapi-nao-configurada-texto: #6c757d;
+    --gapi-nao-configurada-fundo: #f1f3f5;
+
+    --gapi-altura-faixa: 64px;
+    --gapi-altura-cartao: 260px;
+    --gapi-altura-eventos: 300px;
+}
+
+.gapi-pagina {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+/* ================================================
+   SELO DE ESTADO (ícone + texto)
+   ================================================ */
+.gapi-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.gapi-pill--funcionando    { color: var(--gapi-funcionando-texto);    background: var(--gapi-funcionando-fundo); }
+.gapi-pill--atencao        { color: var(--gapi-atencao-texto);        background: var(--gapi-atencao-fundo); }
+.gapi-pill--com_problema   { color: var(--gapi-problema-texto);       background: var(--gapi-problema-fundo); }
+.gapi-pill--nao_verificada { color: var(--gapi-nao-verificada-texto); background: var(--gapi-nao-verificada-fundo); }
+.gapi-pill--nao_configurada{ color: var(--gapi-nao-configurada-texto);background: var(--gapi-nao-configurada-fundo); }
+
+/* ================================================
+   BOTÕES
+   ================================================ */
+.gapi-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+
+.gapi-btn:hover {
+    background: #f1f5fa;
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria);
+    text-decoration: none;
+}
+
+.gapi-btn:focus-visible,
+.gapi-card__ver-detalhes:focus-visible,
+.gapi-toolbar-btn:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+.gapi-btn--primario {
+    color: var(--cor-texto-claro);
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+}
+
+.gapi-btn--primario:hover {
+    color: var(--cor-texto-claro);
+    background: var(--cor-primaria-escura);
+    border-color: var(--cor-primaria-escura);
+}
+
+.gapi-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.gapi-btn:disabled:hover {
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+}
+
+/* Botão da barra de cima (fundo azul escuro) */
+.gapi-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--cor-texto-claro);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.gapi-toolbar-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.gapi-toolbar-btn:disabled {
+    opacity: 0.7;
+    cursor: progress;
+}
+
+/* ================================================
+   FAIXA DE URGÊNCIA (altura fixa)
+   ================================================ */
+.gapi-faixa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: var(--gapi-altura-faixa);
+    padding: 0 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.gapi-faixa--com_problema { background: var(--gapi-problema-fundo);     border-color: #f1b8bd; border-left: 4px solid var(--cor-negativo); }
+.gapi-faixa--atencao      { background: var(--gapi-atencao-fundo);      border-color: #f3d58a; border-left: 4px solid var(--cor-alerta); }
+.gapi-faixa--funcionando  { background: var(--gapi-funcionando-fundo);  border-color: #b9dcc7; }
+.gapi-faixa--nao_verificada { background: var(--gapi-nao-verificada-fundo); }
+
+.gapi-faixa__icone {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.gapi-faixa--com_problema .gapi-faixa__icone { color: var(--gapi-problema-texto); }
+.gapi-faixa--atencao .gapi-faixa__icone      { color: var(--gapi-atencao-texto); }
+.gapi-faixa--funcionando .gapi-faixa__icone  { color: var(--gapi-funcionando-texto); }
+.gapi-faixa--nao_verificada .gapi-faixa__icone { color: var(--gapi-nao-verificada-texto); }
+
+.gapi-faixa__textos {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.gapi-faixa__titulo,
+.gapi-faixa__texto {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.gapi-faixa__titulo {
+    font-family: "Nunito", sans-serif;
+    font-size: 0.98rem;
+    color: #2b2f33;
+}
+
+.gapi-faixa__texto {
+    font-size: 0.82rem;
+    color: #515151;
+}
+
+.gapi-faixa__resumo {
+    display: none;
+    font-size: 0.78rem;
+    color: #515151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 34%;
+}
+
+/* O resumo ("1 funcionando · 3 não verificadas...") só aparece em tela larga; em tela menor o espaço é do texto do problema. */
+@media (min-width: 1500px) {
+    .gapi-faixa__resumo { display: block; }
+}
+
+.gapi-btn--faixa {
+    border-color: rgba(0, 0, 0, 0.18);
+}
+
+/* ================================================
+   GRADE DE CARTÕES (2 colunas; as linhas crescem conforme os cartões da empresa)
+   ================================================ */
+.gapi-grade {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 1199.98px) {
+    .gapi-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Número ímpar de cartões (ex.: 5): o último ocupa a linha inteira, sem deixar um buraco ao lado.
+   (Vale só com 2 colunas; abaixo de 1200px a grade já é de 1 coluna.) */
+@media (min-width: 1200px) {
+    .gapi-grade > .gapi-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+.gapi-card {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    row-gap: 8px;
+    height: var(--gapi-altura-cartao);
+    padding: 14px 16px 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(15, 39, 68, 0.06);
+    overflow: hidden;
+}
+
+.gapi-card--com_problema { border-left: 4px solid var(--cor-negativo); padding-left: 13px; }
+.gapi-card--atencao      { border-left: 4px solid var(--cor-alerta);   padding-left: 13px; }
+
+.gapi-card__topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.gapi-card__icone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    color: var(--cor-primaria);
+    background: #eaf0f8;
+    border-radius: 8px;
+}
+
+.gapi-card__titulos {
+    flex: 1;
+    min-width: 0;
+}
+
+.gapi-card__nome {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.gapi-card__sub {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.gapi-card__corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Cada linha mostra no máximo 2 linhas de texto (o resto fica no "Ver detalhes"). */
+.gapi-linha {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: #515151;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+.gapi-linha strong {
+    color: #2b2f33;
+    font-weight: 600;
+}
+
+.gapi-card__meio {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    height: 20px;
+}
+
+.gapi-card__nota {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.gapi-card__nota--aviso {
+    color: var(--gapi-atencao-texto);
+    font-weight: 600;
+}
+
+.gapi-card__ver-detalhes {
+    flex-shrink: 0;
+    padding: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.gapi-card__ver-detalhes:hover {
+    color: var(--cor-primaria);
+    text-decoration: underline;
+}
+
+.gapi-card__acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    overflow: hidden;
+}
+
+/* Cobertura de "testando…" por cima do cartão (a classe htmx-request é posta pelo HTMX). */
+.gapi-card__carregando {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.gapi-card.htmx-request {
+    pointer-events: none;
+}
+
+.gapi-card.htmx-request .gapi-card__carregando {
+    display: flex;
+}
+
+/* ================================================
+   TABELA DE EVENTOS (altura fixa, rolagem própria)
+   ================================================ */
+.gapi-eventos {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.gapi-eventos__cabecalho {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.gapi-eventos__titulo {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--cor-primaria);
+}
+
+.gapi-eventos__sub {
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+}
+
+.gapi-eventos__rolagem {
+    height: var(--gapi-altura-eventos);
+    overflow: auto;
+}
+
+.gapi-tabela {
+    width: 100%;
+    min-width: 1000px;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.gapi-tabela th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--cor-primaria);
+    background: #f1f5fa;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.gapi-tabela td {
+    padding: 7px 12px;
+    height: 38px;
+    border-bottom: 1px solid #edf0f4;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+.gapi-col-quando    { width: 140px; }
+.gapi-col-conexao   { width: 210px; }
+.gapi-col-acao      { width: 130px; }
+.gapi-col-resultado { width: 150px; }
+.gapi-col-quem      { width: 170px; }
+
+.gapi-vazio {
+    margin: 0;
+    padding: 24px 16px;
+    font-size: 0.85rem;
+    color: var(--cor-texto-muted);
+}
+
+.gapi-vazio--alerta {
+    color: var(--gapi-atencao-texto);
+    background: var(--gapi-atencao-fundo);
+}
+
+.gapi-vazio code {
+    font-size: 0.8rem;
+}
+
+/* ================================================
+   JANELAS ("Ver detalhes" e "Ver todos")
+   ================================================ */
+.gapi-detalhes-lista {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 10px 16px;
+    margin: 0;
+    font-size: 0.88rem;
+}
+
+.gapi-detalhes-lista dt {
+    font-weight: 600;
+    color: #2b2f33;
+}
+
+.gapi-detalhes-lista dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.gapi-detalhes-links {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.gapi-detalhe-estado {
+    margin: 0 0 12px;
+}
+
+/* Verificações (partes) de uma conexão, dentro da janela "Ver detalhes" */
+.gapi-partes__titulo {
+    margin: 20px 0 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.gapi-partes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.gapi-parte {
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.gapi-parte--com_problema { border-left: 4px solid var(--cor-negativo); }
+.gapi-parte--atencao      { border-left: 4px solid var(--cor-alerta); }
+
+.gapi-parte__topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 2px;
+}
+
+.gapi-parte__descricao {
+    margin: 0 0 8px;
+    color: #6c757d;
+}
+
+.gapi-detalhes-lista--parte {
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 6px 12px;
+}
+
+.gapi-problema {
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 0.88rem;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.gapi-problema--com_problema { border-left: 4px solid var(--cor-negativo); }
+.gapi-problema--atencao      { border-left: 4px solid var(--cor-alerta); }
+
+.gapi-problema__topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.gapi-problema p {
+    margin: 0 0 4px;
+}
+
+/* ================================================
+   AVISO DE ERRO NA TELA (falha de rede, resposta inesperada)
+   ================================================ */
+.gapi-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2000;
+    max-width: 440px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    color: #842029;
+    background: var(--gapi-problema-fundo);
+    border-left: 4px solid var(--cor-negativo);
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+@media (max-width: 575.98px) {
+    .gapi-detalhes-lista { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .gapi-detalhes-lista dd { margin-bottom: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gapi-btn { transition: none; }
+}

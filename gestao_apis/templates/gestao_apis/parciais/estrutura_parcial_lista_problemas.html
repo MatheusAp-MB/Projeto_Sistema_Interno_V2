@@ -1,0 +1,17 @@
+{# Lista dentro da janela "Ver todos" da faixa de urgência. Com oob=True o HTMX troca por id. #}
+<div id="gapi-lista-problemas"{% if oob %} hx-swap-oob="true"{% endif %}>
+    {% for problema in faixa.problemas %}
+        <div class="gapi-problema gapi-problema--{{ problema.estado }}">
+            <div class="gapi-problema__topo">
+                <strong>{{ problema.nome }}</strong>
+                <span class="gapi-pill gapi-pill--{{ problema.estado }}">
+                    <i class="fas {{ problema.estado_icone }}" aria-hidden="true"></i> {{ problema.estado_rotulo }}
+                </span>
+            </div>
+            <p><strong>O que aconteceu:</strong> {{ problema.motivo }}</p>
+            {% if problema.como_resolver %}<p><strong>Próximo passo:</strong> {{ problema.como_resolver }}</p>{% endif %}
+        </div>
+    {% empty %}
+        <p class="gapi-vazio">Nenhuma conexão com problema ou atenção no momento.</p>
+    {% endfor %}
+</div>

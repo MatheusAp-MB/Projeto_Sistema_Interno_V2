@@ -1,0 +1,14 @@
+{# Faixa de urgência do topo (altura fixa). Com oob=True é a versão "fora de banda" que o HTMX troca por id. #}
+<section id="gapi-faixa" class="gapi-faixa gapi-faixa--{{ faixa.estado }}" role="status" aria-live="polite"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <span class="gapi-faixa__icone"><i class="fas {{ faixa.estado_icone }}" aria-hidden="true"></i></span>
+    <div class="gapi-faixa__textos">
+        <strong class="gapi-faixa__titulo" title="{{ faixa.titulo }}">{{ faixa.titulo }}</strong>
+        <span class="gapi-faixa__texto" title="{{ faixa.texto }}">{{ faixa.texto }}</span>
+    </div>
+    {% if faixa.tem_problema %}
+        <span class="gapi-faixa__resumo" title="{{ faixa.resumo }}">{{ faixa.resumo }}</span>
+        <button type="button" class="gapi-btn gapi-btn--faixa" data-bs-toggle="modal" data-bs-target="#gapi-modal-problemas">
+            Ver todos ({{ faixa.total_problemas }})
+        </button>
+    {% endif %}
+</section>

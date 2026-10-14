@@ -1,0 +1,73 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Gestão de APIs{% endblock %}
+{% block toolbar_titulo %}Configurações — Gestão de APIs{% endblock %}
+{% block toolbar_acoes %}
+    <button type="button" class="gapi-toolbar-btn" id="gapi-btn-testar-todas"
+            title="Testa, uma de cada vez, todas as conexões que têm teste. Cada conexão recebe no máximo 1 a 2 chamadas leves.">
+        <i class="fas fa-plug-circle-check" aria-hidden="true"></i> <span>Testar todas</span>
+    </button>
+{% endblock %}
+{% block body_class %}gapi-tela{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'gestao_apis/css/layout_gestao_apis.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Gestão de APIs" (14/10/2026): painel de saúde das conexões externas do sistema.
+      Só a empresa ativa: cartões dela + compartilhados, em 2 colunas, sempre na mesma ordem. Com
+      Magazine: Google Drive, Mercado Livre MB, Sysemp MB, Agente de automação (4 cartões). Com Samvale: os
+      mesmos, trocando MB por SV (Mercado Livre SV, Sysemp SV). O Google Drive é UM cartão que junta duas
+      verificações (leitura das pastas e envio/vídeos); o detalhe de cada uma está em "Ver detalhes". Quem decide é o campo `empresa` de cada conexão em catalogo_conexoes.py.
+      Cada cartão tem 1 de 5 estados: Funcionando, Atenção, Com problema, Não verificada, Não configurada.
+    * [EXPLICAÇÃO] → Abrir a página não chama nenhuma API externa: o estado vem da configuração local
+      + do último teste gravado (tabela EventoIntegracao). Só o botão "Testar" (HTMX, POST com CSRF) vai
+      à internet, e devolve o cartão novo + a faixa de urgência + a tabela de eventos já atualizados
+      (trocas "fora de banda" do HTMX, por id).
+    * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical": a altura de cada cartão, da faixa
+      de urgência e da tabela de eventos é fixa; texto comprido é cortado e o "Ver detalhes" mostra tudo.
+    * [IMPORTANTE] → Nenhum segredo (token, chave, senha) chega a este HTML. Os links externos vêm de uma
+      lista fechada no servidor (catalogo_conexoes.py).
+    {% endcomment %}
+    <div class="gapi-pagina">
+        {% include 'gestao_apis/parciais/estrutura_parcial_faixa_urgencia.html' %}
+
+        <div class="gapi-grade">
+            {% for cartao in cartoes %}
+                {% include 'gestao_apis/parciais/estrutura_parcial_cartao.html' %}
+            {% endfor %}
+        </div>
+
+        {% include 'gestao_apis/parciais/estrutura_parcial_eventos.html' %}
+    </div>
+
+    {# Janelas (o JS move as duas para o <body>, como o Bootstrap recomenda). #}
+    <div class="modal fade" id="gapi-modal-detalhes" tabindex="-1" aria-labelledby="gapi-modal-detalhes-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="gapi-modal-detalhes-titulo">Detalhes</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body" id="gapi-modal-detalhes-corpo"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="gapi-modal-problemas" tabindex="-1" aria-labelledby="gapi-modal-problemas-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="gapi-modal-problemas-titulo">Conexões que precisam de atenção</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    {% include 'gestao_apis/parciais/estrutura_parcial_lista_problemas.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'gestao_apis/js/script_gestao_apis.js' %}"></script>
+{% endblock %}

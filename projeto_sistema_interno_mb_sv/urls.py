@@ -19,5 +19,6 @@ urlpatterns = [
     path('gestao-full/', include('gestao_full.urls')),
     path('gestao-vendas/', include('gestao_vendas.urls')),
     path('gestao-ruptura/', include('gestao_ruptura.urls')),
+    path('gestao-apis/', include('gestao_apis.urls')),
     path('api/', include('api.urls')),
 ]

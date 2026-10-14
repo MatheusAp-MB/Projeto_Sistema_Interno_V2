@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Gestão de APIs</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+:root{
+  --cor-primaria:#1a3a5c; --cor-primaria-escura:#0f2744; --cor-primaria-clara:#2e7bb5;
+  --cor-fundo-pagina:#e9edf4; --cor-fundo-card:#ffffff; --cor-borda:#dee2e6;
+  --cor-texto:#1f2933; --cor-texto-muted:#6c757d;
+  --ok-bg:#e6f4ea; --ok-tx:#2d7a4f;
+  --at-bg:#fef3c7; --at-tx:#b45309;
+  --er-bg:#fde8e8; --er-tx:#b42318;
+  --nd-bg:#e5e7eb; --nd-tx:#4b5563;
+  --sidebar-largura:260px; --toolbar-altura:60px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Open Sans",-apple-system,"Segoe UI",sans-serif;font-size:14px;color:var(--cor-texto);background:var(--cor-fundo-pagina)}
+h1,h2,h3{font-family:"Nunito",sans-serif;margin:0}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--cor-primaria-clara);outline-offset:2px}
+
+/* ---------- Menu lateral ---------- */
+.sidebar{position:fixed;inset:0 auto 0 0;width:var(--sidebar-largura);background:var(--cor-primaria);color:#fff;overflow-y:auto;transition:transform .2s;z-index:10}
+.sidebar-logo{display:flex;align-items:center;gap:10px;height:var(--toolbar-altura);padding:0 16px;background:rgba(255,255,255,.08);font-family:"Nunito",sans-serif;font-weight:700;font-size:1.05rem}
+.sidebar-logo b{display:grid;place-items:center;width:32px;height:32px;border-radius:6px;background:#fff;color:var(--cor-primaria);font-size:.8rem}
+.sidebar-nav{padding:8px 0}
+.sidebar-grupo{padding:14px 18px 4px;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.sidebar-item{display:flex;align-items:center;gap:12px;padding:11px 18px;color:#fff;text-decoration:none;font-size:.92rem}
+.sidebar-item i{width:18px;text-align:center;opacity:.9}
+.sidebar-item:hover{background:rgba(255,255,255,.08)}
+.sidebar-item.ativo{background:rgba(255,255,255,.16);font-weight:600}
+
+/* ---------- Área principal ---------- */
+.principal{margin-left:var(--sidebar-largura);transition:margin-left .2s;min-width:0}
+body.sidebar-oculta .sidebar{transform:translateX(-100%)}
+body.sidebar-oculta .principal{margin-left:0}
+.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;height:var(--toolbar-altura);padding:0 20px;background:var(--cor-primaria);color:#fff}
+.toolbar-toggle{background:none;border:0;color:#fff;font-size:1.1rem;width:38px;height:38px;border-radius:6px}
+.toolbar-toggle:hover{background:rgba(255,255,255,.12)}
+.toolbar-titulo{font-family:"Nunito",sans-serif;font-weight:700;font-size:1.15rem}
+.toolbar .espaco{flex:1}
+.selo-mock{padding:3px 10px;border-radius:999px;background:var(--at-bg);color:var(--at-tx);font-size:.72rem;font-weight:700}
+.usuario{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;background:rgba(255,255,255,.1);font-size:.85rem}
+
+/* Layout fixo: mesmo nº de colunas sempre; só a largura muda. */
+.conteudo{padding:20px 24px 32px;min-width:960px}
+.faixa-seguranca{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#e0edf7;border:1px solid #bcd5ea;border-radius:8px;color:var(--cor-primaria);font-size:.85rem}
+.faixa-seguranca i{font-size:1rem}
+
+.resumo{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 280px;gap:16px;margin:16px 0}
+.tile{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--cor-fundo-card);border:1px solid var(--cor-borda);border-radius:8px}
+.tile .num{font:700 1.7rem "Nunito",sans-serif;line-height:1}
+.tile .rotulo{font-size:.8rem;color:var(--cor-texto-muted)}
+.tile .icone{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;font-size:.95rem}
+.bloco-teste{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:12px 16px;background:var(--cor-fundo-card);border:1px solid var(--cor-borda);border-radius:8px}
+.bloco-teste small{color:var(--cor-texto-muted);font-size:.75rem}
+
+/* ---------- Botões e etiquetas ---------- */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:6px;border:1px solid var(--cor-borda);background:#fff;color:var(--cor-primaria);font-weight:600;font-size:.82rem;text-decoration:none;white-space:nowrap}
+.btn:hover:not(:disabled){background:#f3f6fa}
+.btn-primario{background:var(--cor-primaria);border-color:var(--cor-primaria);color:#fff}
+.btn-primario:hover:not(:disabled){background:var(--cor-primaria-escura)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.estado{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:4px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.02em;white-space:nowrap}
+.estado-ok{background:var(--ok-bg);color:var(--ok-tx)}
+.estado-atencao{background:var(--at-bg);color:var(--at-tx)}
+.estado-erro{background:var(--er-bg);color:var(--er-tx)}
+.estado-nd{background:var(--nd-bg);color:var(--nd-tx)}
+
+/* ---------- Cartões de conexão (grade fixa: 2 colunas) ---------- */
+.grade-conexoes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.cartao{display:flex;flex-direction:column;min-height:372px;background:var(--cor-fundo-card);border:1px solid var(--cor-borda);border-radius:8px}
+.cartao.cartao-erro{border-color:#f1b5ae}
+.cartao-topo{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--cor-borda)}
+.cartao-icone{display:grid;place-items:center;width:40px;height:40px;border-radius:8px;background:#e0edf7;color:var(--cor-primaria);font-size:1.15rem}
+.cartao-titulos{flex:1;min-width:0}
+.cartao-titulos h3{font-size:1rem}
+.cartao-titulos p{margin:2px 0 0;font-size:.78rem;color:var(--cor-texto-muted)}
+.campos{display:grid;grid-template-columns:170px minmax(0,1fr);gap:7px 12px;margin:0;padding:14px 16px 8px;font-size:.84rem}
+.campos dt{color:var(--cor-texto-muted)}
+.campos dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.codigo{font-family:Consolas,monospace;font-size:.8rem;padding:1px 6px;border-radius:4px;background:#f1f3f5}
+.mensagem{display:flex;gap:10px;align-items:flex-start;min-height:64px;margin:6px 16px 0;padding:10px 12px;border-radius:6px;font-size:.84rem}
+.mensagem.m-ok{background:var(--ok-bg);color:#1f5c3a}
+.mensagem.m-atencao{background:var(--at-bg);color:#8a4310}
+.mensagem.m-erro{background:var(--er-bg);color:#8f1d14}
+.mensagem.m-nd{background:var(--nd-bg);color:var(--nd-tx)}
+.acoes{display:flex;gap:8px;margin-top:auto;padding:12px 16px;border-top:1px solid var(--cor-borda)}
+
+/* Menu "Abrir no ..." */
+.menu{position:relative}
+.menu summary{list-style:none}
+.menu summary::-webkit-details-marker{display:none}
+.menu-lista{position:absolute;bottom:calc(100% + 6px);left:0;min-width:270px;background:#fff;border:1px solid var(--cor-borda);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.14);z-index:4;overflow:hidden}
+.menu-lista a{display:flex;align-items:center;gap:8px;padding:9px 12px;color:var(--cor-texto);text-decoration:none;font-size:.84rem}
+.menu-lista a:hover{background:#f3f6fa}
+.menu-lista small{margin-left:auto;color:var(--cor-texto-muted)}
+
+/* ---------- Registro de eventos ---------- */
+.painel{margin-top:16px;background:var(--cor-fundo-card);border:1px solid var(--cor-borda);border-radius:8px}
+.painel-topo{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--cor-borda)}
+.painel-topo h2{font-size:1rem}
+.painel-topo small{margin-left:auto;color:var(--cor-texto-muted)}
+.rolagem{height:228px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th{position:sticky;top:0;background:#f6f8fb;text-align:left;padding:9px 16px;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--cor-texto-muted)}
+td{padding:9px 16px;border-top:1px solid #eef1f5}
+
+/* ---------- Modal e aviso ---------- */
+.modal-fundo{position:fixed;inset:0;display:none;place-items:center;background:rgba(15,39,68,.55);z-index:30}
+.modal-fundo.aberto{display:grid}
+.modal{width:min(660px,92vw);max-height:90vh;overflow:auto;padding:22px 24px;background:#fff;border-radius:10px}
+.modal h2{font-size:1.15rem;margin-bottom:12px}
+.modal ol{padding-left:20px;margin:0 0 14px;line-height:1.6}
+.modal li{margin-bottom:8px}
+.comando{display:flex;align-items:center;gap:10px;margin:8px 0 0;padding:8px 10px;background:#0f2744;color:#e6eef8;border-radius:6px}
+.comando code{flex:1;font-family:Consolas,monospace;font-size:.82rem;overflow-wrap:anywhere}
+.aviso-seguranca{display:flex;gap:10px;padding:10px 12px;background:#e0edf7;border-radius:6px;font-size:.82rem;color:var(--cor-primaria)}
+.modal-rodape{display:flex;justify-content:flex-end;margin-top:16px}
+.toast{position:fixed;right:20px;bottom:20px;max-width:380px;padding:12px 16px;background:var(--cor-primaria-escura);color:#fff;border-radius:8px;font-size:.86rem;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:40}
+.toast.visivel{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><b>MB</b><span>Sistema MB/SV</span></div>
+  <nav class="sidebar-nav">
+    <a href="#" class="sidebar-item"><i class="fas fa-box"></i><span>Produtos</span></a>
+    <a href="#" class="sidebar-item"><i class="fas fa-landmark"></i><span>Impostos</span></a>
+    <a href="#" class="sidebar-item"><i class="fas fa-calculator"></i><span>Precificação</span></a>
+    <a href="#" class="sidebar-item"><i class="fas fa-store"></i><span>Mercado Livre</span></a>
+    <a href="#" class="sidebar-item"><i class="fas fa-film"></i><span>Agenda de Vídeos</span></a>
+    <div class="sidebar-grupo">Sistema</div>
+    <a href="#" class="sidebar-item ativo"><i class="fas fa-plug"></i><span>Gestão de APIs</span></a>
+    <a href="#" class="sidebar-item"><i class="fas fa-folder-open"></i><span>Arquivos de referência</span></a>
+  </nav>
+</aside>
+
+<div class="principal">
+  <header class="toolbar">
+    <button class="toolbar-toggle" id="alternar-menu" aria-label="Abrir ou fechar o menu lateral"><i class="fas fa-bars"></i></button>
+    <h1 class="toolbar-titulo">Gestão de APIs</h1>
+    <span class="selo-mock">Mockup · dados de exemplo</span>
+    <span class="espaco"></span>
+    <span class="usuario"><i class="fas fa-user-shield"></i> Matheus · Administrador</span>
+  </header>
+
+  <main class="conteudo">
+
+    <div class="faixa-seguranca" role="note">
+      <i class="fas fa-lock"></i>
+      <span><strong>Acesso restrito a administradores.</strong> Esta tela mostra só o estado das conexões. Tokens, chaves e senhas nunca são exibidos, copiados nem registrados.</span>
+    </div>
+
+    <section class="resumo" aria-label="Resumo das conexões">
+      <div class="tile"><span class="icone estado-ok"><i class="fas fa-circle-check"></i></span><div><div class="num">3</div><div class="rotulo">Funcionando</div></div></div>
+      <div class="tile"><span class="icone estado-atencao"><i class="fas fa-triangle-exclamation"></i></span><div><div class="num">1</div><div class="rotulo">Atenção</div></div></div>
+      <div class="tile"><span class="icone estado-erro"><i class="fas fa-circle-xmark"></i></span><div><div class="num">1</div><div class="rotulo">Com problema</div></div></div>
+      <div class="tile"><span class="icone estado-nd"><i class="fas fa-circle-minus"></i></span><div><div class="num">1</div><div class="rotulo">Não configurada</div></div></div>
+      <div class="bloco-teste">
+        <button class="btn btn-primario" data-testar data-resultado="Teste concluído: 3 funcionando, 1 atenção, 1 com problema."><i class="fas fa-rotate"></i> Testar todas</button>
+        <small>Última verificação: 14/10/2026 09:58<br>Faz 1 chamada leve por conexão.</small>
+      </div>
+    </section>
+
+    <section class="grade-conexoes" aria-label="Conexões">
+
+      <!-- 1. Drive — envio e vídeos (COM PROBLEMA) -->
+      <article class="cartao cartao-erro" aria-labelledby="c-drive-envio">
+        <div class="cartao-topo">
+          <span class="cartao-icone"><i class="fa-brands fa-google-drive"></i></span>
+          <div class="cartao-titulos"><h3 id="c-drive-envio">Google Drive — envio e vídeos</h3><p>Portal de vídeos e envio de arquivos</p></div>
+          <span class="estado estado-erro"><i class="fas fa-circle-xmark"></i> Com problema</span>
+        </div>
+        <dl class="campos">
+          <dt>Tipo de acesso</dt><dd>Autorização do usuário (OAuth)</dd>
+          <dt>Autorizado em</dt><dd>07/10/2026</dd>
+          <dt>Validade</dt><dd>Expirou em 14/10/2026 (app em modo Testando)</dd>
+          <dt>Último sucesso</dt><dd>13/10/2026 17:03</dd>
+          <dt>Código do erro</dt><dd><span class="codigo">invalid_grant</span></dd>
+        </dl>
+        <div class="mensagem m-erro"><i class="fas fa-circle-exclamation"></i><span>A autorização do Drive expirou. O portal de vídeos e os envios ao Drive ficam parados até reautorizar.</span></div>
+        <div class="acoes">
+          <button class="btn btn-primario" data-abrir-modal="modal-drive"><i class="fas fa-list-ol"></i> Passo a passo</button>
+          <button class="btn" data-testar data-resultado="Falhou: a autorização expirou (invalid_grant)."><i class="fas fa-rotate"></i> Testar agora</button>
+          <details class="menu">
+            <summary class="btn"><i class="fas fa-arrow-up-right-from-square"></i> Abrir no Google <i class="fas fa-chevron-up"></i></summary>
+            <div class="menu-lista">
+              <a href="#" target="_blank" rel="noopener noreferrer" title="console.cloud.google.com"><i class="fas fa-toggle-on"></i> Status do app (Testando ou Produção)</a>
+              <a href="#" target="_blank" rel="noopener noreferrer" title="console.cloud.google.com"><i class="fas fa-palette"></i> Identidade visual (branding)</a>
+              <a href="#" target="_blank" rel="noopener noreferrer" title="myaccount.google.com"><i class="fas fa-user-lock"></i> Acessos da conta Google</a>
+            </div>
+          </details>
+        </div>
+      </article>
+
+      <!-- 2. Drive — leitura (FUNCIONANDO) -->
+      <article class="cartao" aria-labelledby="c-drive-leitura">
+        <div class="cartao-topo">
+          <span class="cartao-icone"><i class="fa-brands fa-google-drive"></i></span>
+          <div class="cartao-titulos"><h3 id="c-drive-leitura">Google Drive — leitura</h3><p>Listagem de pastas e arquivos</p></div>
+          <span class="estado estado-ok"><i class="fas fa-circle-check"></i> Funcionando</span>
+        </div>
+        <dl class="campos">
+          <dt>Tipo de acesso</dt><dd>Conta de serviço (somente leitura)</dd>
+          <dt>Pasta Magazine</dt><dd>Acessível</dd>
+          <dt>Pasta Samvale</dt><dd>Acessível</dd>
+          <dt>Pasta Sistema Interno MB SV</dt><dd>Acessível</dd>
+          <dt>Última verificação</dt><dd>14/10/2026 09:58</dd>
+        </dl>
+        <div class="mensagem m-ok"><i class="fas fa-circle-check"></i><span>Leitura funcionando normalmente. Esta conexão não expira por prazo.</span></div>
+        <div class="acoes">
+          <button class="btn" data-testar data-resultado="Funcionando: as 3 pastas estão acessíveis."><i class="fas fa-rotate"></i> Testar agora</button>
+          <details class="menu">
+            <summary class="btn"><i class="fas fa-arrow-up-right-from-square"></i> Abrir no Drive <i class="fas fa-chevron-up"></i></summary>
+            <div class="menu-lista">
+              <a href="#" target="_blank" rel="noopener noreferrer" title="drive.google.com"><i class="fas fa-folder"></i> Sistema Interno MB SV</a>
+              <a href="#" target="_blank" rel="noopener noreferrer" title="drive.google.com"><i class="fas fa-folder"></i> Pasta Magazine</a>
+              <a href="#" target="_blank" rel="noopener noreferrer" title="drive.google.com"><i class="fas fa-folder"></i> Pasta Samvale</a>
+            </div>
+          </details>
+        </div>
+      </article>
+
+      <!-- 3. Mercado Livre MB (FUNCIONANDO) -->
+      <article class="cartao" aria-labelledby="c-ml-mb">
+        <div class="cartao-topo">
+          <span class="cartao-icone"><i class="fas fa-store"></i></span>
+          <div class="cartao-titulos"><h3 id="c-ml-mb">Mercado Livre — Magazine (MB)</h3><p>API de anúncios, pedidos e Full</p></div>
+          <span class="estado estado-ok"><i class="fas fa-circle-check"></i> Funcionando</span>
+        </div>
+        <dl class="campos">
+          <dt>Tipo de acesso</dt><dd>OAuth2 com PKCE</dd>
+          <dt>Token de acesso</dt><dd>Renovado automaticamente</dd>
+          <dt>Última renovação</dt><dd>14/10/2026 08:12</dd>
+          <dt>Próxima renovação</dt><dd>14/10/2026 13:42</dd>
+          <dt>Última verificação</dt><dd>14/10/2026 09:58</dd>
+        </dl>
+        <div class="mensagem m-ok"><i class="fas fa-circle-check"></i><span>Tudo certo. O sistema renova o acesso sozinho, 30 minutos antes de vencer.</span></div>
+        <div class="acoes">
+          <button class="btn" data-testar data-resultado="Funcionando: a conta MB respondeu."><i class="fas fa-rotate"></i> Testar agora</button>
+          <a class="btn" href="#" target="_blank" rel="noopener noreferrer" title="developers.mercadolivre.com.br"><i class="fas fa-arrow-up-right-from-square"></i> Abrir painel do app</a>
+        </div>
+      </article>
+
+      <!-- 4. Mercado Livre SV (ATENÇÃO) -->
+      <article class="cartao" aria-labelledby="c-ml-sv">
+        <div class="cartao-topo">
+          <span class="cartao-icone"><i class="fas fa-store"></i></span>
+          <div class="cartao-titulos"><h3 id="c-ml-sv">Mercado Livre — Samvale (SV)</h3><p>API de anúncios, pedidos e Full</p></div>
+          <span class="estado estado-atencao"><i class="fas fa-triangle-exclamation"></i> Atenção</span>
+        </div>
+        <dl class="campos">
+          <dt>Tipo de acesso</dt><dd>OAuth2 com PKCE</dd>
+          <dt>Token de acesso</dt><dd>Renovação automática</dd>
+          <dt>Última renovação com sucesso</dt><dd>14/10/2026 04:10</dd>
+          <dt>Última tentativa</dt><dd>14/10/2026 09:41 — falhou (temporária)</dd>
+          <dt>Próxima tentativa</dt><dd>Automática</dd>
+        </dl>
+        <div class="mensagem m-atencao"><i class="fas fa-triangle-exclamation"></i><span>A renovação falhou por instabilidade do Mercado Livre. O sistema tenta de novo sozinho. Se persistir, será preciso reautorizar.</span></div>
+        <div class="acoes">
+          <button class="btn" data-testar data-resultado="Atenção: a conta SV ainda não renovou. Nova tentativa automática."><i class="fas fa-rotate"></i> Testar agora</button>
+          <a class="btn" href="#" target="_blank" rel="noopener noreferrer" title="developers.mercadolivre.com.br"><i class="fas fa-arrow-up-right-from-square"></i> Abrir painel do app</a>
+        </div>
+      </article>
+
+      <!-- 5. Agente de automação (FUNCIONANDO) -->
+      <article class="cartao" aria-labelledby="c-agente">
+        <div class="cartao-topo">
+          <span class="cartao-icone"><i class="fas fa-robot"></i></span>
+          <div class="cartao-titulos"><h3 id="c-agente">Agente de automação</h3><p>Chave que o agente usa para falar com o sistema</p></div>
+          <span class="estado estado-ok"><i class="fas fa-circle-check"></i> Funcionando</span>
+        </div>
+        <dl class="campos">
+          <dt>Tipo de acesso</dt><dd>Chave de acesso (entrada)</dd>
+          <dt>Chave</dt><dd>Configurada — nunca exibida</dd>
+          <dt>Exibição</dt><dd>Nunca mostrada, copiada ou registrada</dd>
+          <dt>Última troca</dt><dd>Não registrada</dd>
+          <dt>Conferência</dt><dd>A cada chamada do agente</dd>
+        </dl>
+        <div class="mensagem m-ok"><i class="fas fa-key"></i><span>Ao trocar a chave, a nova será mostrada uma única vez, na hora da criação, e nunca mais.</span></div>
+        <div class="acoes">
+          <button class="btn" disabled title="Fase futura"><i class="fas fa-key"></i> Trocar chave</button>
+        </div>
+      </article>
+
+      <!-- 6. TikTok Shop (NÃO CONFIGURADA) -->
+      <article class="cartao" aria-labelledby="c-tiktok">
+        <div class="cartao-topo">
+          <span class="cartao-icone"><i class="fa-brands fa-tiktok"></i></span>
+          <div class="cartao-titulos"><h3 id="c-tiktok">TikTok Shop</h3><p>API oficial (Partner Center)</p></div>
+          <span class="estado estado-nd"><i class="fas fa-circle-minus"></i> Não configurada</span>
+        </div>
+        <dl class="campos">
+          <dt>Tipo de acesso</dt><dd>A definir</dd>
+          <dt>Situação</dt><dd>Em investigação desde 09/10/2026</dd>
+          <dt>Credenciais</dt><dd>Não configuradas</dd>
+          <dt>Última verificação</dt><dd>—</dd>
+          <dt>Próximo passo</dt><dd>Aguardando decisão</dd>
+        </dl>
+        <div class="mensagem m-nd"><i class="fas fa-circle-info"></i><span>Ainda não conectada. Não há nada para testar.</span></div>
+        <div class="acoes">
+          <button class="btn" disabled title="Ainda não disponível"><i class="fas fa-plug"></i> Conectar</button>
+        </div>
+      </article>
+
+    </section>
+
+    <section class="painel" aria-label="Registro de eventos">
+      <div class="painel-topo">
+        <i class="fas fa-clock-rotate-left"></i><h2>Registro de eventos</h2>
+        <small>Guarda quem, quando e o resultado. Nunca guarda tokens, chaves nem respostas completas da API.</small>
+      </div>
+      <div class="rolagem">
+        <table>
+          <thead><tr><th>Data e hora</th><th>Conexão</th><th>Evento</th><th>Usuário</th><th>Resultado</th></tr></thead>
+          <tbody>
+            <tr><td>14/10/2026 09:58</td><td>Google Drive — leitura</td><td>Teste manual</td><td>Matheus</td><td><span class="estado estado-ok">OK</span></td></tr>
+            <tr><td>14/10/2026 09:51</td><td>Google Drive — envio e vídeos</td><td>Renovação automática</td><td>Sistema</td><td><span class="estado estado-erro">Falhou · invalid_grant</span></td></tr>
+            <tr><td>14/10/2026 09:41</td><td>Mercado Livre — SV</td><td>Renovação automática</td><td>Sistema</td><td><span class="estado estado-atencao">Falha temporária</span></td></tr>
+            <tr><td>14/10/2026 08:12</td><td>Mercado Livre — MB</td><td>Renovação automática</td><td>Sistema</td><td><span class="estado estado-ok">OK</span></td></tr>
+            <tr><td>14/10/2026 04:10</td><td>Mercado Livre — SV</td><td>Renovação automática</td><td>Sistema</td><td><span class="estado estado-ok">OK</span></td></tr>
+            <tr><td>13/10/2026 17:03</td><td>Google Drive — envio e vídeos</td><td>Teste manual</td><td>Matheus</td><td><span class="estado estado-ok">OK</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Passo a passo do Drive -->
+<div class="modal-fundo" id="modal-drive" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-drive">
+  <div class="modal">
+    <h2 id="titulo-modal-drive">Reautorizar o Google Drive</h2>
+    <ol>
+      <li>Abra <strong>Status do app</strong> (menu "Abrir no Google"). Se estiver em <strong>Testando</strong>, clique em <strong>Publicar app</strong>. Em Testando, a autorização expira a cada 7 dias.</li>
+      <li>No computador de desenvolvimento, rode o comando abaixo e entre com a conta dona do Drive:
+        <div class="comando"><code id="comando">poetry run python autorizar_drive_oauth.py</code>
+          <button class="btn" id="copiar-comando"><i class="fas fa-copy"></i> Copiar</button></div>
+      </li>
+      <li>Volte a esta tela e clique em <strong>Testar agora</strong>. O estado deve passar para "Funcionando".</li>
+    </ol>
+    <div class="aviso-seguranca"><i class="fas fa-shield-halved"></i><span>O comando não contém senha nem token. O token novo é gravado direto no arquivo do servidor e nunca passa por esta tela.</span></div>
+    <div class="modal-rodape"><button class="btn btn-primario" data-fechar-modal>Fechar</button></div>
+  </div>
+</div>
+
+<div class="toast" id="aviso" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  var corpo = document.body, aviso = document.getElementById('aviso'), tempoAviso;
+
+  document.getElementById('alternar-menu').addEventListener('click', function(){
+    corpo.classList.toggle('sidebar-oculta');
+  });
+
+  function mostrarAviso(texto){
+    aviso.textContent = texto;
+    aviso.classList.add('visivel');
+    clearTimeout(tempoAviso);
+    tempoAviso = setTimeout(function(){ aviso.classList.remove('visivel'); }, 3500);
+  }
+
+  document.querySelectorAll('[data-testar]').forEach(function(botao){
+    botao.addEventListener('click', function(){
+      var original = botao.innerHTML;
+      botao.disabled = true;
+      botao.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testando…';
+      setTimeout(function(){
+        botao.innerHTML = original;
+        mostrarAviso(botao.dataset.resultado);
+        setTimeout(function(){ botao.disabled = false; }, 2000);
+      }, 900);
+    });
+  });
+
+  document.querySelectorAll('[data-abrir-modal]').forEach(function(botao){
+    botao.addEventListener('click', function(){
+      document.getElementById(botao.dataset.abrirModal).classList.add('aberto');
+    });
+  });
+  function fecharModais(){
+    document.querySelectorAll('.modal-fundo.aberto').forEach(function(m){ m.classList.remove('aberto'); });
+  }
+  document.querySelectorAll('[data-fechar-modal]').forEach(function(b){ b.addEventListener('click', fecharModais); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ fecharModais(); } });
+
+  document.getElementById('copiar-comando').addEventListener('click', function(e){
+    var botao = e.currentTarget, texto = document.getElementById('comando').textContent;
+    var feito = function(){ botao.innerHTML = '<i class="fas fa-check"></i> Copiado'; };
+    var falha = function(){ botao.textContent = 'Selecione e copie'; };
+    if(navigator.clipboard){ navigator.clipboard.writeText(texto).then(feito, falha); } else { falha(); }
+    setTimeout(function(){ botao.innerHTML = '<i class="fas fa-copy"></i> Copiar'; }, 2000);
+  });
+
+  document.addEventListener('click', function(e){
+    document.querySelectorAll('details.menu[open]').forEach(function(d){
+      if(!d.contains(e.target)){ d.removeAttribute('open'); }
+    });
+  });
+})();
+</script>
+</body>
+</html>

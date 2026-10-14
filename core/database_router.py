@@ -5,7 +5,11 @@ from core.empresa import obter_alias_banco_ativo
 # A sessão é o próprio mecanismo que decide qual empresa está ativa, então
 # ela não pode estar sujeita a essa mesma decisão (era exatamente isso que
 # causava o F5 voltar pra Magazine: sessão gravada num banco, lida de outro).
-APPS_SEMPRE_COMPARTILHADOS = {'sessions', 'admin', 'contenttypes', 'auth'}
+#
+# * [DECISÃO, 14/10/2026] → 'gestao_apis' também é compartilhado: a tela "Gestão de APIs" mostra
+#   as integrações externas (Drive, Mercado Livre MB/SV, Sysemp...), que são UMA coisa só — o
+#   histórico de testes mora sempre no banco 'default', não um por empresa.
+APPS_SEMPRE_COMPARTILHADOS = {'sessions', 'admin', 'contenttypes', 'auth', 'gestao_apis'}
 
 
 class EmpresaRouter:

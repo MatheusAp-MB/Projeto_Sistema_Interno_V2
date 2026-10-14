@@ -1,0 +1,48 @@
+{# Tabela de eventos (altura fixa, rolagem própria). Com oob=True é a versão que o HTMX troca por id. #}
+<section id="gapi-eventos" class="gapi-eventos"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <header class="gapi-eventos__cabecalho">
+        <h2 class="gapi-eventos__titulo">Eventos recentes</h2>
+        <span class="gapi-eventos__sub">Os testes feitos por esta tela, do mais novo para o mais antigo (guardamos os 500 mais recentes).</span>
+    </header>
+    <div class="gapi-eventos__rolagem">
+        {% if not eventos_disponiveis %}
+            <p class="gapi-vazio gapi-vazio--alerta">
+                <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                O histórico ainda não está disponível (a tabela não existe no banco). Rode
+                <code>python manage.py makemigrations gestao_apis</code> e depois
+                <code>python manage.py migrate</code>. Enquanto isso os testes funcionam, mas não ficam gravados.
+            </p>
+        {% elif not eventos %}
+            <p class="gapi-vazio">Nenhum teste foi feito ainda. Use "Testar" em um cartão ou "Testar todas".</p>
+        {% else %}
+            <table class="gapi-tabela">
+                <thead>
+                    <tr>
+                        <th class="gapi-col-quando">Quando</th>
+                        <th class="gapi-col-conexao">Conexão</th>
+                        <th class="gapi-col-acao">Ação</th>
+                        <th class="gapi-col-resultado">Resultado</th>
+                        <th class="gapi-col-quem">Quem</th>
+                        <th>Detalhe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for evento in eventos %}
+                        <tr>
+                            <td>{{ evento.quando }}</td>
+                            <td title="{{ evento.conexao }}">{{ evento.conexao }}</td>
+                            <td title="{{ evento.acao }}">{{ evento.acao }}</td>
+                            <td>
+                                <span class="gapi-pill gapi-pill--{{ evento.estado }}">
+                                    <i class="fas {{ evento.estado_icone }}" aria-hidden="true"></i> {{ evento.estado_rotulo }}
+                                </span>
+                            </td>
+                            <td title="{{ evento.quem }}">{{ evento.quem }}</td>
+                            <td title="{{ evento.detalhe }}">{{ evento.detalhe }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</section>

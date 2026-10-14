@@ -1,0 +1,96 @@
+{# 1 cartão de conexão (altura fixa). O botão Testar troca ESTE cartão inteiro pelo devolvido pelo servidor. #}
+<article class="gapi-card gapi-card--{{ cartao.estado }}" id="gapi-card-{{ cartao.id }}" data-nome="{{ cartao.nome }}">
+    <header class="gapi-card__topo">
+        <span class="gapi-card__icone"><i class="{{ cartao.icone }}" aria-hidden="true"></i></span>
+        <div class="gapi-card__titulos">
+            <h3 class="gapi-card__nome" title="{{ cartao.nome }}">{{ cartao.nome }}</h3>
+            <p class="gapi-card__sub" title="{{ cartao.subtitulo }}">{{ cartao.subtitulo }}</p>
+        </div>
+        <span class="gapi-pill gapi-pill--{{ cartao.estado }}">
+            <i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}
+        </span>
+    </header>
+
+    <div class="gapi-card__corpo">
+        <p class="gapi-linha" title="{{ cartao.motivo }}"><strong>O que aconteceu:</strong> {{ cartao.motivo }}</p>
+        <p class="gapi-linha" title="{{ cartao.impacto }}"><strong>Impacto:</strong> {{ cartao.impacto }}</p>
+        <p class="gapi-linha" title="{{ cartao.como_resolver }}"><strong>Próximo passo:</strong> {{ cartao.como_resolver|default:"—" }}</p>
+    </div>
+
+    <div class="gapi-card__meio">
+        {% if cartao.aviso %}
+            <span class="gapi-card__nota gapi-card__nota--aviso"><i class="fas fa-hourglass-half" aria-hidden="true"></i> {{ cartao.aviso }}</span>
+        {% else %}
+            <span class="gapi-card__nota" title="{{ cartao.quando }} {{ cartao.evidencia }}">{{ cartao.quando }} {{ cartao.evidencia }}</span>
+        {% endif %}
+        <button type="button" class="gapi-card__ver-detalhes" data-gapi-detalhes>Ver detalhes</button>
+    </div>
+
+    <footer class="gapi-card__acoes">
+        {% if cartao.testavel %}
+            <button type="button" class="gapi-btn gapi-btn--primario"
+                    hx-post="{% url 'gestao_apis_testar' cartao.id %}"
+                    hx-target="closest .gapi-card" hx-swap="outerHTML" hx-indicator="closest .gapi-card"
+                    data-testar-url="{% url 'gestao_apis_testar' cartao.id %}">
+                <i class="fas fa-plug-circle-check" aria-hidden="true"></i> Testar
+            </button>
+        {% else %}
+            <button type="button" class="gapi-btn gapi-btn--primario" disabled title="{{ cartao.motivo_sem_teste }}">
+                <i class="fas fa-plug-circle-check" aria-hidden="true"></i> Testar
+            </button>
+        {% endif %}
+        {% for link in cartao.links %}
+            <a class="gapi-btn" href="{{ link.url }}" target="_blank" rel="noopener noreferrer" title="{{ link.dica }}">
+                <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> {{ link.rotulo }}
+            </a>
+        {% endfor %}
+    </footer>
+
+    {# Texto completo, escondido; o botão "Ver detalhes" copia isto para a janela. #}
+    <div class="gapi-card__detalhes" hidden>
+        <p class="gapi-detalhe-estado">
+            <span class="gapi-pill gapi-pill--{{ cartao.estado }}"><i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}</span>
+        </p>
+        <dl class="gapi-detalhes-lista">
+            <dt>O que aconteceu</dt><dd>{{ cartao.motivo }}</dd>
+            <dt>Impacto</dt><dd>{{ cartao.impacto }}</dd>
+            {% if cartao.como_resolver %}<dt>Próximo passo</dt><dd>{{ cartao.como_resolver }}</dd>{% endif %}
+            {% if cartao.evidencia %}<dt>Evidências</dt><dd>{{ cartao.evidencia }}</dd>{% endif %}
+            <dt>Último teste</dt><dd>{{ cartao.quando_completo }}</dd>
+            {% if not cartao.testavel %}<dt>Por que não há teste</dt><dd>{{ cartao.motivo_sem_teste }}</dd>{% endif %}
+            {% if cartao.links %}
+                <dt>Atalhos</dt>
+                <dd>
+                    <ul class="gapi-detalhes-links">
+                        {% for link in cartao.links %}
+                            <li><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.rotulo }}</a> — {{ link.dica }}</li>
+                        {% endfor %}
+                    </ul>
+                </dd>
+            {% endif %}
+        </dl>
+
+        {% if cartao.partes %}
+            <h4 class="gapi-partes__titulo">Verificações desta conexão</h4>
+            <ul class="gapi-partes">
+                {% for parte in cartao.partes %}
+                    <li class="gapi-parte gapi-parte--{{ parte.estado }}">
+                        <div class="gapi-parte__topo">
+                            <strong>{{ parte.nome }}</strong>
+                            <span class="gapi-pill gapi-pill--{{ parte.estado }}"><i class="fas {{ parte.estado_icone }}" aria-hidden="true"></i> {{ parte.estado_rotulo }}</span>
+                        </div>
+                        <p class="gapi-parte__descricao">{{ parte.descricao }}</p>
+                        <dl class="gapi-detalhes-lista gapi-detalhes-lista--parte">
+                            <dt>O que aconteceu</dt><dd>{{ parte.motivo }}</dd>
+                            {% if parte.como_resolver %}<dt>Próximo passo</dt><dd>{{ parte.como_resolver }}</dd>{% endif %}
+                            {% if parte.evidencia %}<dt>Evidências</dt><dd>{{ parte.evidencia }}</dd>{% endif %}
+                            <dt>Último teste</dt><dd>{{ parte.quando_completo }}</dd>
+                        </dl>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    <div class="gapi-card__carregando" aria-hidden="true"><i class="fas fa-spinner fa-spin"></i> Testando…</div>
+</article>

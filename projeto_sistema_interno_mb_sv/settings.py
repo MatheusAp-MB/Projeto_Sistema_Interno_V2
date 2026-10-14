@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'api',
     'integracao_sysemp',
     'impostos',
+    'gestao_apis',
 ]
 
 MIDDLEWARE = [
