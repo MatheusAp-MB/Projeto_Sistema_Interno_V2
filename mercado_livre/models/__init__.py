@@ -20,3 +20,6 @@ from .operacao_full import OperacaoFullMercadoLivre, CoberturaOperacaoFullMercad
 from .venda_item import VendaItemMercadoLivre
 from .coleta_vendas import ColetaVendasMercadoLivre
 from .execucao_coleta_vendas import ExecucaoColetaVendasMercadoLivre
+from .sugestao_ia_caracteristica import (
+    ConsultaIACaracteristicaMercadoLivre, SugestaoIACaracteristicaMercadoLivre,
+)

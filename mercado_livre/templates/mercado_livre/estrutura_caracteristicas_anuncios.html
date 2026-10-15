@@ -228,6 +228,40 @@
         </div>
 
         {% comment %}
+        * [RESUMO] → Janela "Pedir sugestões à IA?": o botão "Sugerir com IA" de cada
+          produto abre ESTA janela em vez de chamar a IA. Ela diz o que vai acontecer
+          (1 chamada paga, só deste produto, custo, nada vai ao Mercado Livre e as
+          sugestões salvas são substituídas); só o botão "Pedir sugestões" dispara o
+          pedido. O JS preenche os data-campo="ia-modal-*" a cada abertura.
+        {% endcomment %}
+        <div class="modal fade" id="car-modal-ia" tabindex="-1" aria-labelledby="car-modal-ia-titulo" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="car-modal-ia-titulo">Pedir sugestões à IA?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body car-modal-corpo">
+                        <p>
+                            Vou enviar à IA o cadastro de <strong data-campo="ia-modal-produto">—</strong>
+                            e a lista dos campos que esta tela deixa editar. Isso é:
+                        </p>
+                        <ul>
+                            <li><strong>1 chamada paga</strong> à IA (Claude Haiku 5.5), só para este produto;</li>
+                            <li>custo: <strong data-campo="ia-modal-custo">cerca de US$ 0,002</strong>;</li>
+                            <li>nada é enviado ao Mercado Livre.</li>
+                        </ul>
+                        <p class="car-modal-nota" data-campo="ia-modal-substitui" hidden></p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="car-btn car-btn--secundario" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="car-btn car-btn--primario" id="car-modal-ia-confirmar">Pedir sugestões</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% comment %}
         * [RESUMO] → Janela do envio de características: primeiro mostra a prévia
           ("Revisar o envio": ESTAVA ASSIM → VAI FICAR ASSIM, por campo, montada só
           com dados do banco) e, se o usuário confirmar, o resultado do envio. Não

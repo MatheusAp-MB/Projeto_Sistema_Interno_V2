@@ -8,7 +8,8 @@
        campo onde se digita;
     4) de onde veio o valor digitado (você digitou, copiou de um anúncio ou
        — quando a IA estiver conectada — aceitou uma sugestão) e "Desfazer";
-    5) o espaço da sugestão da IA (hoje: "ainda não conectada").
+    5) o espaço da sugestão da IA ("Ainda não pedida" até clicar em "Sugerir com
+       IA" no painel da ficha; sem a chave da IA: "IA ainda não conectada").
   Todo o resto (todos os valores de hoje, regra, "vale para", opções do ML e
   o detalhe anúncio por anúncio) fica na GAVETA do card, que o JS monta a
   partir do <template data-modelo="detalhe"> daqui — sem consultar nada.
@@ -122,7 +123,7 @@
         <div class="car-card-ia-caixa">
             <span class="car-card-ia-titulo"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Sugestão da IA</span>
             <span class="car-card-ia-valor" data-campo="ia-valor">
-                {% if card.editavel %}IA ainda não conectada{% else %}Não disponível neste campo{% endif %}
+                {% if not card.editavel %}Não disponível neste campo{% elif ia_info.conectada %}Ainda não pedida{% else %}IA ainda não conectada{% endif %}
             </span>
         </div>
         <button type="button" class="car-btn car-btn--mini" data-acao="aceitar-ia" hidden>Aceitar</button>

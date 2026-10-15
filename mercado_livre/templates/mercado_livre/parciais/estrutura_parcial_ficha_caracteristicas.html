@@ -44,6 +44,11 @@
 
     {% if ficha.cards %}
         {% include 'mercado_livre/parciais/estrutura_parcial_painel_ia_caracteristicas.html' %}
+        {% comment %}
+        A última consulta à IA deste produto, lida do banco (JSON). O JS a desenha no painel e nos
+        cards ao abrir a ficha — é assim que a sugestão sobrevive ao F5. Só leitura do banco.
+        {% endcomment %}
+        {% if ia_salva_json %}<div data-campo="ia-salva" hidden>{{ ia_salva_json }}</div>{% endif %}
     {% endif %}
 
     {% if ficha.avisos %}

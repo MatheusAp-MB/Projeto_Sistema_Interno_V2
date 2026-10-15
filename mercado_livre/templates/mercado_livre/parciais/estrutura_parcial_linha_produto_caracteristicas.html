@@ -12,14 +12,16 @@
   - O botão "Atualizar" é o único que consulta a API para este produto — por
     isso é um botão separado, nunca dentro do botão de abrir. O envio de
     características (revisar e confirmar) acontece dentro da ficha; as rotas
-    ficam aqui, nos data-url, junto das outras.
+    ficam aqui, nos data-url, junto das outras. O "Sugerir com IA" (painel da
+    ficha) chama o Claude, não o Mercado Livre; a rota dele também fica aqui.
 {% endcomment %}
 <article class="car-produto car-produto--{{ produto.estado }}"
          data-sku="{{ produto.sku }}"
          data-url-ficha="{% url 'mercado_livre_caracteristicas_ficha' produto.sku %}"
          data-url-atualizar="{% url 'mercado_livre_caracteristicas_atualizar' produto.sku %}"
          data-url-revisar="{% url 'mercado_livre_caracteristicas_revisar_envio' produto.sku %}"
-         data-url-enviar="{% url 'mercado_livre_caracteristicas_enviar' produto.sku %}">
+         data-url-enviar="{% url 'mercado_livre_caracteristicas_enviar' produto.sku %}"
+         data-url-sugerir-ia="{% url 'mercado_livre_caracteristicas_sugerir_ia' produto.sku %}">
     <div class="car-produto-linha">
         {% if produto.produto_id %}
             <button type="button"

@@ -9,9 +9,18 @@
 //                3) o botão "Confirmar envio" da janela de envio.
 //              NÃO existe rascunho: o que se digita em "Valor a enviar" vive
 //              só nesta página; sem enviar, o digitado se perde.
-//              A IA ainda NÃO está conectada: os lugares dela (sugestão no
-//              card, custo e tokens no painel do topo da ficha, "Entrada e saída") existem, mas
-//              mostram "—" / "ainda não conectada" — nenhum número inventado.
+//              A IA (Claude Haiku 5.5, esforço low) só é chamada por UM botão:
+//              "Sugerir com IA" (painel do topo da ficha) — uma chamada paga por
+//              produto, nunca em lote, e só depois de CONFIRMAR na janela que
+//              avisa o custo. Ela devolve sugestões já conferidas pelo servidor;
+//              elas aparecem no espaço "Sugestão da IA" de cada card e só entram
+//              no campo se a pessoa clicar em "Aceitar" (no card) ou escolher na
+//              gaveta "Escolher sugestões" (nada vem marcado).
+//              A ÚLTIMA sugestão de cada campo de cada produto fica GRAVADA no
+//              banco: o servidor a devolve dentro da ficha ao abrir (sobrevive ao
+//              F5) e pedir de novo a substitui. O gasto do mês ainda não é
+//              gravado: o painel mostra o da última chamada e "—" no mês —
+//              nenhum número inventado.
 //              As explicações de "passar o mouse" (title) viram um balão
 //              padronizado da tela (car-dica) — ver a seção DICAS.
 
@@ -30,6 +39,8 @@
     var temporizador_status = null;
 
     var envio_em_andamento = false;
+    var ia_em_andamento = false;     // há um pedido à IA em curso (só um por vez, de propósito)
+    var registros_ia = {};           // por SKU: a última consulta à IA (sugestões, custo, tokens, entrada e saída) — vem gravada do servidor
     var produto_em_revisao = null;   // .car-produto cuja janela de envio está aberta
     var valores_em_revisao = null;   // o que foi digitado, exatamente como foi para a prévia
     var origens_em_revisao = null;   // de onde veio cada valor da prévia {atributo: origem}
@@ -212,9 +223,13 @@
             var recarga = corpo.dataset.carregado === '1';
             if (recarga) guardar_estado_visual(produto);
             var digitados = recarga ? coletar_digitados(corpo) : {};
+            var enviados_agora = [];   // campos que acabaram de ser gravados no ML (a sugestão da IA deles deixa de valer)
             if (manter) {
                 Object.keys(digitados).forEach(function (atributo) {
-                    if (manter.indexOf(atributo) === -1) delete digitados[atributo];
+                    if (manter.indexOf(atributo) === -1) {
+                        enviados_agora.push(atributo);
+                        delete digitados[atributo];
+                    }
                 });
             }
 
@@ -223,10 +238,12 @@
             // O "Ver produto" da ficha usa HTMX: o conteúdo novo precisa ser apresentado a ele.
             if (window.htmx && typeof window.htmx.process === 'function') window.htmx.process(corpo);
 
+            carregar_ia_salva(produto, corpo);
             aplicar_memoria_de_envio(produto);
             aplicar_digitados(corpo, digitados);
             restaurar_estado_visual(produto);
             atualizar_barra_envio(produto);
+            reaplicar_ia(produto, enviados_agora);
         }).catch(function () {
             if (primeira_carga) {
                 corpo.dataset.carregado = '0';
@@ -417,6 +434,406 @@
             botao.classList.remove('car-btn--lendo');
             botao.disabled = varredura_rodando;
         });
+    }
+
+    // ================================================
+    // BOTÃO "SUGERIR COM IA" (1 produto) — chama o Claude, NÃO o Mercado Livre
+    // ================================================
+    // * [EXPLICAÇÃO] → O servidor lê a ficha DO BANCO, manda UMA vez ao Claude os campos
+    //   editáveis deste produto e devolve só as sugestões que passaram na conferência.
+    //   Aqui elas viram texto no espaço "Sugestão da IA" de cada card (com o botão
+    //   "Aceitar"); NADA é escrito em "Valor a enviar" sem a pessoa aceitar.
+
+    function desenhar_estado_ia(produto, texto, tipo) {
+        var linha = produto.querySelector('[data-campo="ia-estado"]');
+        if (!linha) return;
+        linha.textContent = texto || '';
+        linha.className = 'car-barra-estado' + (tipo ? ' car-barra-estado--' + tipo : '');
+        linha.hidden = !texto;
+    }
+
+    // Escreve a sugestão (ou "Sem sugestão") no espaço da IA de UM card editável.
+    function desenhar_sugestao_no_card(card, sugestao) {
+        if (card.dataset.editavel !== '1') return;
+        var espaco = card.querySelector('[data-campo="ia-valor"]');
+        if (!espaco) return;
+        var caixa = card.querySelector('.car-card-ia-caixa');
+        var aceitar = card.querySelector('[data-acao="aceitar-ia"]');
+
+        if (caixa) {
+            caixa.removeAttribute('title');
+            caixa.removeAttribute('data-dica');
+        }
+        if (sugestao) {
+            card.dataset.sugestaoIa = JSON.stringify(sugestao.valor);
+            espaco.textContent = sugestao.texto;
+            espaco.classList.add('car-card-ia-valor--sugestao');
+            if (aceitar) aceitar.hidden = false;
+            if (caixa) {
+                caixa.setAttribute('title', 'Sugestão da IA: ' + sugestao.texto +
+                    (sugestao.evidencia ? ' · Evidência: ' + sugestao.evidencia : ''));
+            }
+        } else {
+            delete card.dataset.sugestaoIa;
+            espaco.textContent = 'Sem sugestão';
+            espaco.classList.remove('car-card-ia-valor--sugestao');
+            if (aceitar) aceitar.hidden = true;
+        }
+    }
+
+    // Só os campos que a IA realmente viu: os outros (ex.: um campo que entrou depois de um
+    // "Atualizar") ficam como estavam, em vez de dizer "Sem sugestão" sem ela ter olhado.
+    function aplicar_resultado_ia(produto, registro) {
+        var vistos = registro.campos_enviados || [];
+        var sugestoes = registro.sugestoes || {};
+        produto.querySelectorAll('.car-card').forEach(function (card) {
+            var id = card.dataset.atributo;
+            if (vistos.indexOf(id) === -1) return;
+            desenhar_sugestao_no_card(card, sugestoes[id] || null);
+        });
+    }
+
+    function desenhar_painel_ia(produto, registro) {
+        var ultima = produto.querySelector('[data-campo="ia-ultima"]');
+        var tokens = produto.querySelector('[data-campo="ia-tokens-ultima"]');
+        if (ultima) {
+            ultima.textContent = (registro.consultada_em_txt ? registro.consultada_em_txt + ' · ' : '') +
+                'US$ ' + registro.custo_usd + ' · ' + registro.n_sugestoes +
+                (registro.n_sugestoes === 1 ? ' sugestão' : ' sugestões') + ' · ' +
+                String(registro.duracao_segundos).replace('.', ',') + ' s';
+        }
+        if (tokens) {
+            tokens.textContent = formatar_numero(registro.tokens_entrada) + ' entrada / ' +
+                formatar_numero(registro.tokens_saida) + ' saída';
+        }
+        atualizar_botao_escolher(produto, registro);
+    }
+
+    // "Escolher sugestões" só liga quando há sugestões para escolher (as que sobraram depois dos envios).
+    function atualizar_botao_escolher(produto, registro) {
+        var botao = produto.querySelector('[data-acao="escolher-sugestoes"]');
+        if (!botao) return;
+        var n = registro && registro.sugestoes ? Object.keys(registro.sugestoes).length : 0;
+        botao.disabled = n === 0;
+        botao.setAttribute('title', n
+            ? 'Abre a lista das ' + n + (n === 1 ? ' sugestão' : ' sugestões') + ' da IA para você marcar quais usar. Nada vem marcado.'
+            : 'Ainda não há sugestões da IA para escolher neste produto.');
+    }
+
+    // A última consulta à IA deste produto vem GRAVADA do servidor, dentro da ficha (um <script> JSON).
+    // Só não vale se a consulta mais nova desta página não conseguiu ser gravada (salvo === false):
+    // aí a da memória é a verdadeira.
+    function carregar_ia_salva(produto, corpo) {
+        var no = corpo.querySelector('[data-campo="ia-salva"] script');
+        if (!no) return;
+        var atual = registros_ia[produto.dataset.sku];
+        if (atual && atual.salvo === false) return;
+        try {
+            var registro = JSON.parse(no.textContent);
+            registro.sku = produto.dataset.sku;
+            registro.salvo = true;
+            registros_ia[registro.sku] = registro;
+        } catch (erro) {
+            if (window.console && console.error) console.error(erro);
+        }
+    }
+
+    // Depois que a ficha é recarregada (ex.: "Atualizar"), devolve à tela o que a IA já tinha
+    // respondido — a pessoa pagou por isso e não deve perder. "enviados" = campos que acabaram de
+    // ser gravados no Mercado Livre: a sugestão deles deixa de valer.
+    function reaplicar_ia(produto, enviados) {
+        var registro = registros_ia[produto.dataset.sku];
+        if (!registro) {
+            atualizar_botao_escolher(produto, null);
+            return;
+        }
+        (enviados || []).forEach(function (id) {
+            if (registro.sugestoes) delete registro.sugestoes[id];
+            registro.campos_enviados = (registro.campos_enviados || []).filter(function (outro) { return outro !== id; });
+        });
+        desenhar_painel_ia(produto, registro);
+        aplicar_resultado_ia(produto, registro);
+    }
+
+    function descrever_resultado_ia(dados) {
+        var texto;
+        if (!dados.n_sugestoes) {
+            texto = 'A IA não achou, nos dados do cadastro, informação segura para sugerir nenhum dos ' +
+                dados.n_campos_enviados + ' campos.';
+        } else {
+            texto = 'A IA sugeriu ' + dados.n_sugestoes + ' de ' + dados.n_campos_enviados +
+                ' campos (gravadas: continuam aqui se você recarregar). Use "Aceitar" nos cards ou "Escolher sugestões" — nada vai ao Mercado Livre sem o "Revisar e enviar".';
+        }
+        var ignoradas = dados.ignoradas || [];
+        if (ignoradas.length) {
+            texto += '\n' + ignoradas.length + (ignoradas.length === 1 ? ' sugestão foi descartada' : ' sugestões foram descartadas') +
+                ' por não respeitar a regra do campo ou não ter prova no texto do cadastro (quais e por quê: botão "Entrada e saída").';
+        }
+        if (dados.modo === 'prompt') {
+            texto += '\nA API recusou a resposta estruturada e usei o plano B (JSON pedido no texto).';
+        }
+        if (dados.salvo === false) {
+            texto += '\nATENÇÃO: não consegui gravar esta sugestão no banco — ela some se você recarregar a página. ' +
+                '(Detalhe no terminal do servidor; se a migração 0040 ainda não foi rodada nesta empresa, é por isso.)';
+        }
+        return texto;
+    }
+
+    function sugerir_ia(botao) {
+        if (ia_em_andamento) return;
+        var produto = botao.closest('.car-produto');
+        var texto_botao = botao.querySelector('.car-btn-texto');
+        var texto_original = texto_botao.textContent;
+        var situacao = produto.querySelector('[data-campo="ia-situacao"]');
+        var situacao_original = situacao ? situacao.textContent : '';
+        var botoes = document.querySelectorAll('.car-ficha[data-ia="1"] [data-acao="sugerir-ia"]');
+
+        ia_em_andamento = true;
+        botoes.forEach(function (outro) { outro.disabled = true; });
+        botao.classList.add('car-btn--lendo');
+        texto_botao.textContent = 'Consultando…';
+        if (situacao) situacao.textContent = 'Consultando…';
+        desenhar_estado_ia(produto, 'Enviando os dados deste produto à IA e conferindo a resposta… (alguns segundos)', '');
+
+        chamar_servidor(produto.dataset.urlSugerirIa, 'POST').then(function (resposta) {
+            var dados = resposta.dados || {};
+            if (!resposta.ok || !dados.ok) {
+                desenhar_estado_ia(produto, dados.mensagem || 'Não consegui obter sugestões da IA.', 'erro');
+                return;
+            }
+            dados.sku = produto.dataset.sku;
+            registros_ia[dados.sku] = dados;
+            window.carUltimaChamadaIA = dados;
+            desenhar_painel_ia(produto, dados);
+            aplicar_resultado_ia(produto, dados);
+            var tipo = !dados.n_sugestoes || (dados.ignoradas || []).length || dados.modo === 'prompt' || dados.salvo === false ? 'alerta' : 'ok';
+            desenhar_estado_ia(produto, descrever_resultado_ia(dados), tipo);
+            anunciar('A IA sugeriu ' + dados.n_sugestoes + ' de ' + dados.n_campos_enviados + ' campos.');
+        }).catch(function (erro) {
+            if (window.console && console.error) console.error(erro);
+            desenhar_estado_ia(produto, 'Perdi a conexão com o servidor (ou a resposta veio fora do esperado). Tente de novo.', 'erro');
+        }).then(function () {
+            ia_em_andamento = false;
+            botoes.forEach(function (outro) { outro.disabled = false; });
+            botao.classList.remove('car-btn--lendo');
+            texto_botao.textContent = texto_original;
+            if (situacao) situacao.textContent = situacao_original;
+        });
+    }
+
+    // ================================================
+    // CONFIRMAR ANTES DE PEDIR À IA
+    // ================================================
+    // * [EXPLICAÇÃO] → "Sugerir com IA" NÃO chama a IA direto: abre esta janela, que diz o que vai
+    //   acontecer (1 chamada paga, só deste produto, o custo e que as sugestões salvas serão
+    //   substituídas). Só o botão "Pedir sugestões" da janela dispara o pedido — assim um clique
+    //   errado não gasta nada.
+
+    var produto_a_sugerir = null;     // .car-produto que está na janela de confirmação
+
+    function obter_janela_ia() {
+        var elemento = document.getElementById('car-modal-ia');
+        return window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(elemento) : null;
+    }
+
+    function pedir_sugestao_ia(botao) {
+        if (ia_em_andamento) return;
+        var produto = botao.closest('.car-produto');
+        var janela = obter_janela_ia();
+        if (!janela) {
+            if (window.confirm('Pedir sugestões à IA? Será feita 1 chamada paga (cerca de US$ 0,002), só para este produto.')) sugerir_ia(botao);
+            return;
+        }
+
+        var elemento = document.getElementById('car-modal-ia');
+        var registro = registros_ia[produto.dataset.sku] || null;
+        var titulo = produto.querySelector('.car-produto-titulo');
+        var campo = function (nome) { return elemento.querySelector('[data-campo="' + nome + '"]'); };
+
+        campo('ia-modal-produto').textContent = (titulo ? juntar_espacos(titulo.textContent) : '') + ' (' + produto.dataset.sku + ')';
+        campo('ia-modal-custo').textContent = 'cerca de US$ 0,002' +
+            (registro && registro.custo_usd ? ' (a última deste produto custou US$ ' + registro.custo_usd + ')' : '');
+
+        var nota = campo('ia-modal-substitui');
+        if (registro) {
+            var n = registro.sugestoes ? Object.keys(registro.sugestoes).length : 0;
+            nota.textContent = 'Este produto já foi consultado' + (registro.consultada_em_txt ? ' em ' + registro.consultada_em_txt : '') +
+                (n ? ' e tem ' + n + (n === 1 ? ' sugestão salva' : ' sugestões salvas') : '') +
+                '. As sugestões novas vão SUBSTITUIR as salvas (as antigas não voltam).';
+            nota.hidden = false;
+        } else {
+            nota.hidden = true;
+        }
+
+        produto_a_sugerir = produto;
+        janela.show();
+    }
+
+    function confirmar_pedido_ia() {
+        var produto = produto_a_sugerir;
+        produto_a_sugerir = null;       // um segundo clique na janela não faz nada
+        var janela = obter_janela_ia();
+        if (janela) janela.hide();
+        if (!produto) return;
+        var botao = produto.querySelector('[data-acao="sugerir-ia"]');
+        if (botao && !botao.disabled) sugerir_ia(botao);
+    }
+
+    // ================================================
+    // "ESCOLHER SUGESTÕES" — gaveta com as sugestões da IA e caixas de marcar
+    // ================================================
+    // * [EXPLICAÇÃO] → Lista, na ordem da tela, todo card que hoje mostra uma sugestão da IA. NADA vem
+    //   marcado (regra da tela: nada pré-selecionado). "Aceitar selecionadas" faz o mesmo que o
+    //   "Aceitar" de cada card: coloca o valor em "Valor a enviar" (origem "IA") — não envia nada ao
+    //   Mercado Livre; o envio continua sendo só pelo "Revisar e enviar".
+
+    var escolha_ia_produto = null;    // .car-produto da gaveta aberta
+
+    function escolher_sugestoes(botao) {
+        var produto = botao.closest('.car-produto');
+        var registro = registros_ia[produto.dataset.sku] || null;
+        var itens = [];
+        produto.querySelectorAll('.car-card').forEach(function (card) {
+            if (!card.dataset.sugestaoIa) return;
+            var sugestao = registro && registro.sugestoes ? registro.sugestoes[card.dataset.atributo] : null;
+            var legenda = card.querySelector('.car-card-legenda span');
+            var valor_ia = card.querySelector('[data-campo="ia-valor"]');
+            itens.push({
+                id: card.dataset.atributo,
+                nome: card.dataset.label || card.dataset.atributo,
+                texto: valor_ia ? juntar_espacos(valor_ia.textContent) : '',
+                evidencia: sugestao ? sugestao.evidencia : '',
+                hoje: legenda ? juntar_espacos(legenda.textContent) : '',
+                preparado: card.dataset.alterado === '1'
+            });
+        });
+        if (!itens.length) {
+            anunciar('Não há sugestões da IA para escolher neste produto.');
+            return;
+        }
+
+        escolha_ia_produto = produto;
+        var corpo = criar('div', 'car-gaveta-corpo');
+
+        var ferramentas = criar('div', 'car-ia-ferramentas');
+        var contagem = criar('span', 'car-ia-contagem', '');
+        contagem.dataset.campo = 'ia-contagem';
+        contagem.setAttribute('aria-live', 'polite');
+        ferramentas.appendChild(contagem);
+        [['Marcar todas', 'ia-marcar-todas'], ['Desmarcar todas', 'ia-desmarcar-todas']].forEach(function (par) {
+            var b = criar('button', 'car-btn car-btn--mini', par[0]);
+            b.type = 'button';
+            b.dataset.acao = par[1];
+            ferramentas.appendChild(b);
+        });
+        corpo.appendChild(ferramentas);
+        corpo.appendChild(criar('p', 'car-gaveta-nota',
+            'Nada vem marcado. Marque só o que servir: aceitar coloca o valor em "Valor a enviar" do card — ' +
+            'nada vai ao Mercado Livre sem o "Revisar e enviar".'));
+
+        var lista = criar('ul', 'car-ia-lista');
+        itens.forEach(function (item, indice) {
+            var li = criar('li', 'car-ia-item');
+            var rotulo = criar('label', 'car-ia-item-rotulo');
+            var caixa = criar('input', 'car-ia-marca');
+            caixa.type = 'checkbox';
+            caixa.id = 'car-ia-marca-' + indice;
+            caixa.dataset.atributo = item.id;
+            rotulo.setAttribute('for', caixa.id);
+            rotulo.appendChild(caixa);
+
+            var texto = criar('span', 'car-ia-item-texto');
+            var topo = criar('span', 'car-ia-item-topo', item.nome + ' ');
+            topo.appendChild(criar('code', '', item.id));
+            texto.appendChild(topo);
+            var sugestao = criar('span', 'car-ia-item-sugestao', 'IA sugere: ');
+            sugestao.appendChild(criar('strong', '', item.texto));
+            texto.appendChild(sugestao);
+            if (item.hoje) texto.appendChild(criar('span', 'car-ia-item-nota', item.hoje));
+            if (item.evidencia) texto.appendChild(criar('span', 'car-ia-item-nota', 'Evidência no cadastro: \u201c' + item.evidencia + '\u201d'));
+            if (item.preparado) texto.appendChild(criar('span', 'car-ia-item-aviso', 'Este campo já tem um valor preparado por você: aceitar vai substituí-lo.'));
+            rotulo.appendChild(texto);
+            li.appendChild(rotulo);
+            lista.appendChild(li);
+        });
+        corpo.appendChild(lista);
+        corpo.addEventListener('change', atualizar_escolha_ia);
+
+        var rodape = criar('footer', 'car-gaveta-rodape');
+        var fechar = criar('button', 'car-btn car-btn--secundario', 'Fechar');
+        fechar.type = 'button';
+        fechar.dataset.acao = 'fechar-gaveta';
+        var aceitar = criar('button', 'car-btn car-btn--primario', 'Aceitar selecionadas');
+        aceitar.type = 'button';
+        aceitar.dataset.acao = 'ia-aceitar-selecionadas';
+        aceitar.disabled = true;
+        rodape.appendChild(fechar);
+        rodape.appendChild(aceitar);
+
+        abrir_gaveta({
+            titulo: 'Escolher sugestões da IA',
+            sub: [criar('span', '', itens.length + (itens.length === 1 ? ' sugestão' : ' sugestões') +
+                (registro && registro.consultada_em_txt ? ' · pedidas em ' + registro.consultada_em_txt : ''))],
+            corpo: corpo,
+            rodape: rodape,
+            larga: true
+        });
+        atualizar_escolha_ia();
+    }
+
+    // Conta as marcadas, liga/desliga o botão de aceitar e destaca as linhas marcadas.
+    function atualizar_escolha_ia() {
+        if (!gaveta.fundo) return;
+        var caixas = Array.from(gaveta.fundo.querySelectorAll('.car-ia-marca'));
+        var marcadas = caixas.filter(function (caixa) { return caixa.checked; }).length;
+        caixas.forEach(function (caixa) {
+            caixa.closest('.car-ia-item').classList.toggle('car-ia-item--marcado', caixa.checked);
+        });
+        var contagem = gaveta.fundo.querySelector('[data-campo="ia-contagem"]');
+        if (contagem) contagem.textContent = marcadas + ' de ' + caixas.length + ' marcada' + (marcadas === 1 ? '' : 's');
+        var aceitar = gaveta.fundo.querySelector('[data-acao="ia-aceitar-selecionadas"]');
+        if (aceitar) {
+            aceitar.disabled = marcadas === 0;
+            aceitar.textContent = marcadas ? 'Aceitar selecionadas (' + marcadas + ')' : 'Aceitar selecionadas';
+        }
+    }
+
+    function marcar_todas_sugestoes() {
+        if (!gaveta.fundo) return;
+        gaveta.fundo.querySelectorAll('.car-ia-marca').forEach(function (caixa) { caixa.checked = true; });
+        atualizar_escolha_ia();
+    }
+
+    function desmarcar_todas_sugestoes() {
+        if (!gaveta.fundo) return;
+        gaveta.fundo.querySelectorAll('.car-ia-marca').forEach(function (caixa) { caixa.checked = false; });
+        atualizar_escolha_ia();
+    }
+
+    function aceitar_selecionadas() {
+        var produto = escolha_ia_produto;
+        if (!gaveta.fundo || !produto) return;
+        var marcados = Array.from(gaveta.fundo.querySelectorAll('.car-ia-marca:checked')).map(function (caixa) {
+            return caixa.dataset.atributo;
+        });
+        var aceitas = 0;
+        produto.querySelectorAll('.car-card').forEach(function (card) {
+            if (marcados.indexOf(card.dataset.atributo) === -1 || !card.dataset.sugestaoIa) return;
+            var valor = null;
+            try { valor = JSON.parse(card.dataset.sugestaoIa); } catch (erro) { valor = null; }
+            if (!valor) return;
+            preencher_card(card, valor);
+            atualizar_card(card, 'ia');
+            aceitas += 1;
+        });
+        escolha_ia_produto = null;
+        fechar_gaveta(true);
+        if (!aceitas) return;
+        atualizar_barra_envio(produto);
+        var frase = aceitas + (aceitas === 1 ? ' sugestão aceita' : ' sugestões aceitas') +
+            ' em "Valor a enviar". Nada foi enviado ao Mercado Livre: confira os campos e use "Revisar e enviar".';
+        mostrar_aviso_produto(produto, frase, 'ok');
+        anunciar(frase);
     }
 
     // ================================================
@@ -849,10 +1266,10 @@
         atualizar_barra_envio(produto);
     }
 
-    // "Aceitar" da sugestão da IA — RESERVADO: a IA ainda não está conectada e o
-    // botão fica escondido. Quando houver sugestão, o back-end deixa o valor em
-    // card.dataset.sugestaoIa (JSON no mesmo formato de ler_card) e este botão
-    // o coloca no campo, marcando a origem como "ia" (e não "digitado por você").
+    // "Aceitar" da sugestão da IA: o botão só aparece no card que recebeu uma sugestão (veja
+    // desenhar_sugestao_no_card), cujo valor fica em card.dataset.sugestaoIa (JSON no mesmo
+    // formato de ler_card). Aceitar o coloca no campo, marcando a origem como "ia" (e não
+    // "digitado por você") — mas NÃO envia nada: o envio é só pelo "Revisar e enviar".
     function aceitar_ia(botao) {
         var card = botao.closest('.car-card');
         if (!card || !card.dataset.sugestaoIa) return;
@@ -950,6 +1367,7 @@
 
         painel.appendChild(cab);
         painel.appendChild(opcoes.corpo);
+        if (opcoes.rodape) painel.appendChild(opcoes.rodape);
         fundo.appendChild(painel);
         fundo.addEventListener('click', function (evento) {
             if (evento.target === fundo) fechar_gaveta(true);
@@ -1104,23 +1522,26 @@
         });
     }
 
-    // "Entrada e saída": o que foi enviado à IA e o que ela devolveu. A IA ainda
-    // não está conectada, então não há nada a mostrar — e a tela diz isso, sem
-    // inventar números. Quando houver chamada, o back-end publica o registro em
-    // window.carUltimaChamadaIA = {entrada, saida, tokens_entrada, tokens_saida, custo_usd}.
+    // "Entrada e saída": o que foi enviado à IA e o que ela devolveu, DESTE produto (o registro da
+    // última chamada fica em registros_ia[sku]; o mesmo objeto também vai para window.carUltimaChamadaIA).
+    // Sem chamada ainda, a tela diz isso, sem inventar números.
     function orcamento_ia() {
         var barra = document.querySelector('.car-barra-ia');
         return (barra && barra.dataset.orcamento) || '—';
     }
 
-    function abrir_io_ia() {
-        var registro = window.carUltimaChamadaIA || null;
+    function abrir_io_ia(botao) {
+        var produto = botao && botao.closest('.car-produto');
+        var ficha = botao && botao.closest('.car-ficha');
+        var conectada = !!ficha && ficha.dataset.ia === '1';
+        var registro = (produto && registros_ia[produto.dataset.sku]) || null;
         var corpo = criar('div', 'car-gaveta-corpo');
 
         if (!registro) {
-            corpo.appendChild(criar('p', 'car-gaveta-aviso',
-                'A IA ainda não está conectada: nenhuma chamada foi feita, então não há o que mostrar. ' +
-                'Quando ela for ligada, aqui aparecem o texto exato enviado à IA, o que ela devolveu, o custo e os tokens.'));
+            corpo.appendChild(criar('p', 'car-gaveta-aviso', conectada
+                ? 'Ainda não houve chamada à IA para este produto. Clique em "Sugerir com IA" no painel da ficha; depois, aqui aparecem ' +
+                  'o texto exato enviado à IA, o que ela devolveu, o custo e os tokens.'
+                : 'A IA ainda não está conectada (falta a chave no .env do servidor): nenhuma chamada foi feita, então não há o que mostrar.'));
         }
 
         var metricas = criar('section', 'car-gaveta-bloco');
@@ -1132,7 +1553,10 @@
             ['Tokens da última · entrada', registro && registro.tokens_entrada !== undefined ? formatar_numero(registro.tokens_entrada) : '—'],
             ['Tokens da última · saída', registro && registro.tokens_saida !== undefined ? formatar_numero(registro.tokens_saida) : '—'],
             ['Tokens do mês · entrada', registro && registro.tokens_entrada_mes !== undefined ? formatar_numero(registro.tokens_entrada_mes) : '—'],
-            ['Tokens do mês · saída', registro && registro.tokens_saida_mes !== undefined ? formatar_numero(registro.tokens_saida_mes) : '—']
+            ['Tokens do mês · saída', registro && registro.tokens_saida_mes !== undefined ? formatar_numero(registro.tokens_saida_mes) : '—'],
+            ['Modelo · esforço', registro && registro.modelo_rotulo ? registro.modelo_rotulo + ' · ' + registro.esforco : '—'],
+            ['Modo da resposta', registro && registro.modo ? (registro.modo === 'estruturada' ? 'estruturada' : 'prompt (plano B)') : '—'],
+            ['Duração', registro && registro.duracao_segundos !== undefined ? String(registro.duracao_segundos).replace('.', ',') + ' s' : '—']
         ].forEach(function (par) {
             var item = criar('div', 'car-io-metrica');
             item.appendChild(criar('b', '', par[1]));
@@ -1152,9 +1576,18 @@
             corpo.appendChild(bloco);
         });
 
+        if (registro && registro.ignoradas && registro.ignoradas.length) {
+            var descartadas = criar('section', 'car-gaveta-bloco');
+            descartadas.appendChild(criar('h4', '', 'Descartadas na conferência (' + registro.ignoradas.length + ')'));
+            descartadas.appendChild(criar('pre', 'car-io-json', registro.ignoradas.map(function (item) {
+                return (item.nome || item.campo) + ' — ' + item.motivo;
+            }).join('\n')));
+            corpo.appendChild(descartadas);
+        }
+
         abrir_gaveta({
             titulo: 'Entrada e saída da IA',
-            sub: [criar('span', '', registro ? 'Registro da última chamada' : 'IA ainda não conectada')],
+            sub: [criar('span', '', registro ? 'Última chamada' + (registro.consultada_em_txt ? ' · ' + registro.consultada_em_txt : '') + (registro.usuario ? ' · ' + registro.usuario : '') : (conectada ? 'Sem chamadas ainda' : 'IA ainda não conectada'))],
             corpo: corpo,
             larga: true
         });
@@ -1490,6 +1923,11 @@
         'abrir-detalhe': abrir_detalhe,
         'usar-valor': usar_valor,
         'aceitar-ia': aceitar_ia,
+        'sugerir-ia': pedir_sugestao_ia,
+        'escolher-sugestoes': escolher_sugestoes,
+        'ia-marcar-todas': marcar_todas_sugestoes,
+        'ia-desmarcar-todas': desmarcar_todas_sugestoes,
+        'ia-aceitar-selecionadas': aceitar_selecionadas,
         'escolher-simnao': escolher_simnao,
         'limpar-campo': limpar_campo,
         'descartar-alteracoes': descartar_alteracoes,
@@ -1522,6 +1960,8 @@
     document.addEventListener('keydown', ao_teclar);
 
     document.getElementById('car-modal-confirmar').addEventListener('click', iniciar_varredura);
+    document.getElementById('car-modal-ia-confirmar').addEventListener('click', confirmar_pedido_ia);
+    document.getElementById('car-modal-ia').addEventListener('hidden.bs.modal', function () { produto_a_sugerir = null; });
     document.getElementById('car-modal-envio-confirmar').addEventListener('click', confirmar_envio);
     document.getElementById('car-modal-envio').addEventListener('hidden.bs.modal', ao_fechar_janela_envio);
 

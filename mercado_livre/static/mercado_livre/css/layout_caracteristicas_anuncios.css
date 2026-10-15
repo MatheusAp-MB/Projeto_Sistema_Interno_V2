@@ -2284,6 +2284,28 @@ body.car-tela .conteudo-principal {
     font-weight: 700;
 }
 
+/* Resultado do pedido à IA (ou o erro), na própria linha do painel — junto do botão que a pessoa
+   clicou, sem precisar rolar até o aviso do topo do produto. Ocupa a linha inteira. */
+.car-barra-estado {
+    flex: 1 0 100%;
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: #ece6fa;
+    color: #4b3a7a;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: pre-line;
+}
+
+.car-barra-estado[hidden] {
+    display: none;
+}
+
+.car-barra-estado--ok     { background: var(--car-verde-100); color: var(--car-verde-texto); }
+.car-barra-estado--alerta { background: var(--car-ambar-100); color: var(--car-ambar-texto); }
+.car-barra-estado--erro   { background: var(--car-erro-fundo); color: #a71d2a; }
+
 .car-barra-medidor {
     flex: none;
     display: inline-block;
@@ -2616,6 +2638,110 @@ body.car-tela .conteudo-principal {
 .car-io-metrica small {
     font-size: 0.6875rem;
     color: var(--car-texto-suave);
+}
+
+/* Gaveta "Escolher sugestões da IA": uma linha por sugestão, com caixa de marcar (NADA vem marcado),
+   e um rodapé fixo com o botão de aceitar. Roxo = IA, como no resto da tela. */
+.car-ia-ferramentas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+}
+
+.car-ia-contagem {
+    margin-right: auto;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #4b3a7a;
+    font-variant-numeric: tabular-nums;
+}
+
+.car-ia-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.car-ia-item {
+    border: 1px solid var(--car-linha);
+    border-radius: 9px;
+    background: var(--cor-fundo-card);
+}
+
+.car-ia-item--marcado {
+    border-color: #b9a8e6;
+    background: #f7f5fc;
+}
+
+.car-ia-item-rotulo {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    margin: 0;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.car-ia-marca {
+    width: 16px;
+    height: 16px;
+    margin: 2px 0 0;
+    accent-color: #5b3fa3;
+    cursor: pointer;
+}
+
+.car-ia-item-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.car-ia-item-topo {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--car-texto-forte);
+    overflow-wrap: anywhere;
+}
+
+.car-ia-item-topo code {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--car-texto-fraco);
+}
+
+.car-ia-item-sugestao {
+    font-size: 0.875rem;
+    color: #4b3a7a;
+    overflow-wrap: anywhere;
+}
+
+.car-ia-item-nota {
+    font-size: 0.6875rem;
+    color: var(--car-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.car-ia-item-aviso {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--car-ambar-texto);
+}
+
+.car-gaveta-rodape {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--car-linha);
+    background: var(--cor-fundo-card);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -6,10 +6,17 @@
   custo e os tokens ficam SEMPRE visíveis aqui: última chamada, gasto do mês contra
   o orçamento e tokens de entrada/saída, mais o botão que abre o que foi enviado à
   IA e o que ela devolveu.
-  A IA ainda NÃO está conectada: por isso mostra "—" e "Não conectada" (nenhum
-  número inventado) e os botões "Sugerir com IA" e "Escolher sugestões" ficam
-  desligados. Quando a IA for conectada, o back-end preenche os lugares
-  (data-campo="ia-*") sem mudar o layout.
+  "Sugerir com IA" fica ligado quando a chave da IA está no .env do servidor
+  (ia_info.conectada); sem a chave a pílula diz "Não conectada" e o botão fica
+  desligado. Clicar nele NÃO chama a IA: abre a janela de confirmação (custo, 1
+  chamada só deste produto); só o botão da janela pede. A linha "ia-estado"
+  (escondida até haver o que dizer) mostra aqui mesmo o resultado do pedido ou o erro.
+  A última consulta de cada produto fica gravada no banco e chega dentro da ficha:
+  "Última chamada" e "Tokens" voltam preenchidos ao abrir (a data é a da consulta).
+  "Escolher sugestões" abre a gaveta com as sugestões salvas e caixas de marcar
+  (nada vem marcado); fica desligado enquanto não houver sugestão para escolher.
+  O gasto do MÊS ainda não é gravado: continua "—" (nenhum número inventado).
+  O back-end preenche os lugares (data-campo="ia-*") sem mudar o layout.
 {% endcomment %}
 <div class="car-barra-ia" data-orcamento="{{ ia_info.orcamento_usd }}" role="region" aria-label="IA deste produto">
     <span class="car-barra-titulo"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> IA</span>
@@ -19,12 +26,12 @@
     <span class="car-barra-medidor" role="img" aria-label="Orçamento mensal de IA usado: 0%"><b style="width: 0%"></b></span>
     <span class="car-barra-metrica" title="Tokens da última chamada à IA (entrada = o que foi enviado; saída = o que ela devolveu). Os do mês ficam em Entrada e saída."><strong>Tokens:</strong> <span data-campo="ia-tokens-ultima">— entrada / — saída</span></span>
     <span class="car-barra-acoes">
-        <button type="button" class="car-btn car-btn--mini car-btn--ia" data-acao="sugerir-ia" disabled
-                title="{% if ia_info.conectada %}Pede à IA sugestões para os campos deste produto (uma chamada, só este produto).{% else %}A IA ainda não está conectada.{% endif %}">
-            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Sugerir com IA
+        <button type="button" class="car-btn car-btn--mini car-btn--ia" data-acao="sugerir-ia"{% if not ia_info.conectada %} disabled{% endif %}
+                title="{% if ia_info.conectada %}Pede à IA sugestões para os campos deste produto: uma chamada paga, só deste produto, depois de você confirmar. Substitui as sugestões salvas. Nada vai ao Mercado Livre sem o &quot;Revisar e enviar&quot;.{% else %}A chave da IA (ANTHROPIC_API_KEY) não está no .env deste servidor.{% endif %}">
+            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> <span class="car-btn-texto">Sugerir com IA</span>
         </button>
         <button type="button" class="car-btn car-btn--mini" data-acao="escolher-sugestoes" disabled
-                title="A IA ainda não está conectada: não há sugestões para escolher.">
+                title="Ainda não há sugestões da IA para escolher neste produto.">
             Escolher sugestões
         </button>
         <button type="button" class="car-btn car-btn--mini" data-acao="abrir-io-ia"
@@ -32,4 +39,5 @@
             <i class="fas fa-code" aria-hidden="true"></i> Entrada e saída
         </button>
     </span>
+    <span class="car-barra-estado" data-campo="ia-estado" role="status" hidden></span>
 </div>

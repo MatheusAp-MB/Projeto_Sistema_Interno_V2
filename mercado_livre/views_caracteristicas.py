@@ -10,6 +10,13 @@
 #   - "Confirmar envio"           → view_caracteristicas_enviar_produto
 # Os três guardam o que leram no banco; a tela volta a ler só do banco.
 #
+# A IA (Claude Haiku 5.5, esforço low) é chamada por UM botão só: "Sugerir com IA"
+# → view_caracteristicas_sugerir_ia (1 chamada por produto, nunca em lote, só depois do
+# "confirmar" da tela). Ela só devolve sugestões conferidas; nada vai ao Mercado Livre sem
+# o "Revisar e enviar". A ÚLTIMA sugestão de cada campo de cada produto fica gravada no
+# banco (sugestoes_ia_salvas.py): a ficha a devolve ao abrir (sobrevive ao F5), pedir de
+# novo a substitui, e enviar um campo ao ML tira a sugestão dele.
+#
 # NÃO existe rascunho (decisão do Matheus): o que o usuário digita em "Valor a
 # enviar" vive só na página até ele enviar; nada digitado é gravado no banco.
 # O banco só tem o que o ML devolveu.
@@ -31,6 +38,7 @@ from core.empresa import definir_empresa_ativa, obter_empresa_ativa
 #                  varrer ao mesmo tempo sem se atrapalhar.
 CHAVE_CACHE_VARREDURA = 'caracteristicas_ml_varredura_{empresa}'
 CHAVE_CACHE_TRAVA_PRODUTO = 'caracteristicas_ml_atualizando_{empresa}_{sku}'
+CHAVE_CACHE_TRAVA_IA = 'caracteristicas_ml_ia_{empresa}_{sku}'
 TIMEOUT_CACHE_SEGUNDOS = 900
 
 # * [EXPLICAÇÃO] → Se uma varredura diz "rodando" mas não gravou progresso há
@@ -51,8 +59,9 @@ CHAVES_VALOR_DIGITADO = ('valor_id', 'texto', 'numero', 'unidade')
 MAX_CAMPOS_POR_ENVIO = 300
 
 # * [EXPLICAÇÃO] → Orçamento mensal reservado para a IA (decisão do Matheus:
-#                  US$ 120/mês). Por enquanto a IA NÃO está conectada: a tela
-#                  só mostra o espaço onde o gasto real vai aparecer, sem
+#                  US$ 120/mês). Primeira versão (15/10/2026): a IA está ligada
+#                  quando a chave existe no .env, mas o gasto MENSAL ainda não é
+#                  gravado — a tela mostra só o gasto da última chamada, sem
 #                  inventar número nenhum.
 ORCAMENTO_IA_MENSAL_USD = 120
 MODELO_IA_PREVISTO = 'Haiku 5.5'
@@ -189,13 +198,23 @@ def view_caracteristicas_ficha(request, sku):
     ficha['resumo']['ultima_leitura_txt'] = formatar_data_hora(ficha['resumo']['ultima_leitura'])
     for linha in ficha['tabela']['linhas']:
         linha['lido_em_txt'] = formatar_data_hora(linha['lido_em'])
+    from django.utils.html import json_script
+
+    from mercado_livre.funcoes_auxiliares.sugestao_ia_caracteristicas import ia_configurada
+    from mercado_livre.funcoes_auxiliares.sugestoes_ia_salvas import carregar_registro
+
     ia_info = {
-        'conectada': False,
+        'conectada': ia_configurada(),
         'orcamento_usd': ORCAMENTO_IA_MENSAL_USD,
         'modelo': MODELO_IA_PREVISTO,
     }
+    # * [EXPLICAÇÃO] → A última consulta à IA deste produto (se houver) vai dentro da ficha como JSON: a
+    #                  tela a desenha ao abrir (painel, sugestões nos cards, "Entrada e saída"). É só
+    #                  leitura do banco; nenhuma chamada à IA nem ao Mercado Livre.
+    registro_ia = carregar_registro(ficha['produto']['id'])
     return render(request, 'mercado_livre/parciais/estrutura_parcial_ficha_caracteristicas.html', {
         'ficha': ficha, 'ia_info': ia_info,
+        'ia_salva_json': json_script(registro_ia, None) if registro_ia else '',
     })
 
 
@@ -272,6 +291,67 @@ def view_caracteristicas_atualizar_produto(request, sku):
         'anuncios_lidos': relatorio.anuncios_lidos,
         'total_anuncios': relatorio.total_anuncios,
     })
+
+
+# Função Objetivo: Botão "Sugerir com IA" de 1 produto — pede ao Claude (Haiku 5.5, esforço low) valores
+# para os campos editáveis do produto e devolve só as sugestões que passaram na conferência. LÊ DO BANCO
+# (não chama o Mercado Livre). GRAVA a consulta e as sugestões no banco, SUBSTITUINDO as anteriores deste
+# produto (a tela as mostra nos cards, e elas voltam ao abrir a ficha). Só o "Aceitar" + "Revisar e
+# enviar" levam algo ao Mercado Livre. Uma chamada paga por clique; trava contra duplo clique.
+@require_POST
+def view_caracteristicas_sugerir_ia(request, sku):
+    import traceback
+
+    from django.core.cache import cache
+
+    from mercado_livre.funcoes_auxiliares.sugestao_ia_caracteristicas import (
+        ErroSugestaoIA, ia_configurada, sugerir_caracteristicas,
+    )
+
+    if not ia_configurada():
+        return JsonResponse(
+            {'ok': False, 'mensagem': 'A chave da IA (ANTHROPIC_API_KEY) não está no .env deste servidor.'},
+            status=503,
+        )
+
+    empresa = obter_empresa_ativa()
+    chave_trava = CHAVE_CACHE_TRAVA_IA.format(empresa=empresa, sku=sku)
+    if not cache.add(chave_trava, True, timeout=TIMEOUT_CACHE_SEGUNDOS):
+        return JsonResponse({'ok': False, 'mensagem': 'A IA já está sugerindo para este produto.'}, status=409)
+
+    try:
+        resultado = sugerir_caracteristicas(sku)
+    except ErroSugestaoIA as erro:
+        if erro.detalhe:
+            print(f'[sugerir-ia] {erro.mensagem} | {erro.detalhe}')
+        return JsonResponse({'ok': False, 'mensagem': erro.mensagem}, status=erro.status)
+    except Exception:
+        traceback.print_exc()
+        return JsonResponse(
+            {'ok': False, 'mensagem': 'Falha inesperada ao pedir sugestões à IA. O detalhe está no terminal do servidor.'},
+            status=500,
+        )
+    finally:
+        cache.delete(chave_trava)
+
+    if resultado is None:
+        return JsonResponse({'ok': False, 'mensagem': 'Produto não encontrado.'}, status=404)
+
+    # * [EXPLICAÇÃO] → A IA já foi paga: se gravar no banco falhar (ex.: a migração 0040 ainda não rodou
+    #                  nesta empresa), a sugestão aparece na tela mesmo assim e a tela avisa que ela
+    #                  NÃO ficou guardada (some no F5).
+    from django.utils import timezone
+
+    from mercado_livre.funcoes_auxiliares.caracteristicas_ml import formatar_data_hora
+    from mercado_livre.funcoes_auxiliares.sugestoes_ia_salvas import salvar_consulta
+
+    produto_id = resultado.pop('produto_id', None)
+    salvo, motivo = salvar_consulta(produto_id, resultado, _nome_usuario(request))
+    if not salvo:
+        print(f'[sugerir-ia] não consegui gravar a sugestão no banco | {motivo}')
+    resultado['salvo'] = salvo
+    resultado['consultada_em_txt'] = formatar_data_hora(timezone.now())
+    return JsonResponse({'ok': True, **resultado})
 
 
 # Função Objetivo: Lê do corpo da requisição os campos que o usuário
@@ -397,6 +477,17 @@ def view_caracteristicas_enviar_produto(request, sku):
         )
     if pendentes:
         mensagem += ' Os campos que não ficaram aplicados continuam preenchidos na tela para você tentar de novo.'
+
+    # A sugestão da IA dos campos que ficaram aplicados no Mercado Livre já foi usada: sai do banco (as dos
+    # outros campos continuam). Limpeza apenas — qualquer problema aqui nunca atrapalha o resultado do envio.
+    try:
+        from mercado_livre.funcoes_auxiliares.sugestoes_ia_salvas import apagar_sugestoes_enviadas
+        from produtos.models import Produto
+
+        produto_id = Produto.objects.filter(sku=sku).values_list('id', flat=True).first()
+        apagar_sugestoes_enviadas(produto_id, [a for a in plano['valores'] if a not in pendentes])
+    except Exception:
+        traceback.print_exc()
 
     html = render_to_string(
         'mercado_livre/parciais/estrutura_parcial_resultado_envio_caracteristicas.html',
