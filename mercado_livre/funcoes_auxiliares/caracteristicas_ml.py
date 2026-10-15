@@ -37,6 +37,21 @@ CAMPOS_DE_SISTEMA = {'APGID'}
 TIPOS_DE_SISTEMA = {'grid_row_id'}
 TAGS_QUE_EXCLUEM = ('read_only', 'fixed', 'inferred')
 
+# * [EXPLICAÇÃO] → Campo com a etiqueta hidden NUNCA entra (regra do Matheus,
+#                  15/10/2026): o ML não o mostra ao vendedor. Nem aparece na
+#                  lista de "campos que o ML pede mas não aparecem aqui".
+#                  A leitura da categoria já não grava esses campos; este
+#                  filtro só cobre linhas gravadas antes dessa regra.
+TAG_OCULTO = 'hidden'
+
+# * [EXPLICAÇÃO] → A ficha do ML tem grupos de campos (MAIN = "Características
+#                  principais", OTHER = "Outros"...). A tela mostra uma seção
+#                  por grupo, o principal primeiro. Linha de categoria
+#                  gravada sem grupo (antes de o sistema guardá-lo) só podia
+#                  ser do MAIN.
+GRUPO_PRINCIPAL = 'MAIN'
+ROTULO_GRUPO_PRINCIPAL = 'Características principais'
+
 # * [EXPLICAÇÃO] → A marca vem do cadastro do produto (ERP) e não se edita
 #                  aqui (mockup aprovado). O card mostra o valor do ERP e
 #                  compara com o que os anúncios têm no ML.
@@ -303,6 +318,24 @@ def tipo_na_categoria(atributo):
     return 'texto'
 
 
+# Função Objetivo: Em que grupo da ficha o campo fica, quando o produto tem
+# categorias diferentes. Se QUALQUER categoria o põe no grupo principal, ele
+# fica no principal; senão vale o grupo da categoria mais comum entre os
+# anúncios (por_categoria vem nessa ordem). Linha sem grupo (gravada antes
+# de o sistema guardar o grupo) conta como principal. Devolve
+# (id_do_grupo, rótulo_do_grupo).
+def escolher_grupo(por_categoria):
+    grupos = []
+    for atributo in por_categoria.values():
+        grupo_id = atributo.grupo or GRUPO_PRINCIPAL
+        rotulo = atributo.grupo_rotulo or (ROTULO_GRUPO_PRINCIPAL if grupo_id == GRUPO_PRINCIPAL else grupo_id)
+        grupos.append((grupo_id, rotulo))
+    for grupo_id, rotulo in grupos:
+        if grupo_id == GRUPO_PRINCIPAL:
+            return grupo_id, rotulo
+    return grupos[0]
+
+
 # Função Objetivo: Junta as regras do MESMO campo vindas de várias
 # categorias numa só (ver regras de fusão no cabeçalho do arquivo).
 # por_categoria = {category_id: AtributoCategoriaMercadoLivre}.
@@ -520,6 +553,8 @@ def carregar_contexto_produto(sku):
     ocultos = {}
     for categoria in ordem_categorias:
         for atributo in atributos_por_categoria.get(categoria, []):
+            if TAG_OCULTO in _tags(atributo):
+                continue
             motivo = motivo_exclusao(atributo)
             if motivo:
                 ocultos.setdefault(atributo.atributo_id, {'label': atributo.nome, 'motivo': motivo})
@@ -529,6 +564,23 @@ def carregar_contexto_produto(sku):
                 ordem_campos.append(atributo.atributo_id)
             campos[atributo.atributo_id][categoria] = atributo
     ocultos = {k: v for k, v in ocultos.items() if k not in campos}
+
+    # Em que grupo da ficha cada campo fica, e a ordem dos grupos: o
+    # principal primeiro, os demais na ordem em que aparecem na ficha do ML.
+    # Os campos ficam ordenados grupo por grupo (a tabela e o envio seguem
+    # a mesma ordem dos cards).
+    grupo_do_campo = {atributo_id: escolher_grupo(campos[atributo_id]) for atributo_id in ordem_campos}
+    rotulo_do_grupo = {}
+    ordem_grupos = []
+    for atributo_id in ordem_campos:
+        grupo_id, rotulo = grupo_do_campo[atributo_id]
+        if grupo_id not in rotulo_do_grupo:
+            rotulo_do_grupo[grupo_id] = rotulo
+            ordem_grupos.append(grupo_id)
+    if GRUPO_PRINCIPAL in ordem_grupos:
+        ordem_grupos.remove(GRUPO_PRINCIPAL)
+        ordem_grupos.insert(0, GRUPO_PRINCIPAL)
+    ordem_campos.sort(key=lambda atributo_id: ordem_grupos.index(grupo_do_campo[atributo_id][0]))
 
     # O que cada anúncio lido tem hoje, por atributo.
     cru_por_anuncio = {
@@ -550,6 +602,9 @@ def carregar_contexto_produto(sku):
         'atributos_por_categoria': atributos_por_categoria,
         'campos': campos,
         'ordem_campos': ordem_campos,
+        'grupo_do_campo': grupo_do_campo,
+        'ordem_grupos': ordem_grupos,
+        'rotulo_do_grupo': rotulo_do_grupo,
         'ocultos': ocultos,
         'cru_por_anuncio': cru_por_anuncio,
     }
@@ -558,8 +613,10 @@ def carregar_contexto_produto(sku):
 # Função Objetivo: Monta tudo que a ficha de 1 produto mostra, só com dados
 # do banco. Devolve None se o SKU não existe. Estrutura:
 #   produto, resumo (contagens, categorias, última leitura), avisos,
-#   cards (1 por característica), tabela (colunas e linhas, 1 por anúncio),
-#   ocultos (campos que ficam fora do card e por quê).
+#   cards (1 por característica, grupo por grupo), grupos (os mesmos cards
+#   separados por grupo da ficha do ML, na ordem da tela), tabela (colunas
+#   e linhas, 1 por anúncio), ocultos (campos que ficam fora do card e por
+#   quê).
 def montar_ficha_produto(sku):
     contexto = carregar_contexto_produto(sku)
     if contexto is None:
@@ -578,15 +635,31 @@ def montar_ficha_produto(sku):
     atributos_por_categoria = contexto['atributos_por_categoria']
     campos = contexto['campos']
     ordem_campos = contexto['ordem_campos']
+    grupo_do_campo = contexto['grupo_do_campo']
+    ordem_grupos = contexto['ordem_grupos']
+    rotulo_do_grupo = contexto['rotulo_do_grupo']
     ocultos = contexto['ocultos']
     cru_por_anuncio = contexto['cru_por_anuncio']
 
     cards = []
     for atributo_id in ordem_campos:
-        cards.append(_montar_card(
+        card = _montar_card(
             produto, sku, atributo_id, campos[atributo_id], lidos, total,
             categoria_do_anuncio, cru_por_anuncio, nome_categoria,
-        ))
+        )
+        card['grupo'], card['grupo_rotulo'] = grupo_do_campo[atributo_id]
+        cards.append(card)
+
+    grupos = []
+    for grupo_id in ordem_grupos:
+        cards_do_grupo = [card for card in cards if card['grupo'] == grupo_id]
+        grupos.append({
+            'id': grupo_id,
+            'rotulo': rotulo_do_grupo[grupo_id],
+            'cards': cards_do_grupo,
+            'n': len(cards_do_grupo),
+            'n_atencao': sum(1 for card in cards_do_grupo if card['pede_atencao']),
+        })
 
     tabela = _montar_tabela(anuncios, cards, categoria_do_anuncio, categoria_do_banco, cru_por_anuncio, nome_categoria)
 
@@ -609,6 +682,7 @@ def montar_ficha_produto(sku):
         },
         'avisos': avisos,
         'cards': cards,
+        'grupos': grupos,
         'contagem_cards': {
             'todas': len(cards),
             'atencao': sum(1 for card in cards if card['pede_atencao']),
@@ -636,6 +710,16 @@ def _montar_avisos(anuncios, lidos, total, ordem_categorias, atributos_por_categ
     sem_campos = [c for c in ordem_categorias if not atributos_por_categoria.get(c)]
     for categoria in sem_campos:
         avisos.append(f'Os campos da categoria "{nome_categoria(categoria)}" ainda não foram lidos. Clique em "Atualizar".')
+
+    sem_grupo = [
+        c for c in ordem_categorias
+        if any(not a.grupo for a in atributos_por_categoria.get(c, []))
+    ]
+    for categoria in sem_grupo:
+        avisos.append(
+            f'A categoria "{nome_categoria(categoria)}" foi lida antes de a tela mostrar o grupo "Outros" '
+            f'e as demais características. Clique em "Atualizar" para ler de novo.'
+        )
 
     mudaram = [
         a for a in lidos

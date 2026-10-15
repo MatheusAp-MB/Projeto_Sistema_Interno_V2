@@ -3,10 +3,13 @@
 # Função Objetivo: Contexto "Características (atributos)" — sabe tudo que o
 # ClienteApiMercadoLivre (transporte puro) não deve saber sobre este
 # domínio: quais endpoints chamar e como montar a resposta.
-#   1) O que a CATEGORIA pede no card "Características principais":
-#      grupo MAIN de GET /categories/{id}/technical_specs/input, menos os
-#      atributos com a etiqueta allow_variations; mais a definição de cada
-#      um (tipo, limite, opções, unidades) em GET /categories/{id}/attributes.
+#   1) O que a CATEGORIA pede na ficha técnica: TODOS os grupos de
+#      GET /categories/{id}/technical_specs/input ("Características
+#      principais", "Outros"...), menos os atributos com a etiqueta
+#      allow_variations (são da variação) e os com a etiqueta hidden (o ML
+#      não os mostra ao vendedor; regra do Matheus: oculto NUNCA entra);
+#      mais a definição de cada um (tipo, limite, opções, unidades) em
+#      GET /categories/{id}/attributes.
 #   2) Os valores que o ANÚNCIO tem hoje: GET /items/{mlb} com
 #      include_internal_attributes=true (o multiget /items?ids= NÃO foi
 #      testado com esse parâmetro — por isso a leitura é 1 chamada por MLB).
@@ -57,12 +60,12 @@ class AtributosML:
             return sorted(str(t) for t in tags)
         return []
 
-    # Função Objetivo: Lê o que a categoria pede no card "Características
-    # principais" (2 chamadas: technical_specs/input + attributes). Devolve
-    # {"card": {atributo_id: {...}}, "defs": {atributo_id: {...}}} na ordem
-    # em que o ML mostra os campos. "card" vem do componente de tela
-    # (nome, tags, allow_custom_value, tipo de componente); "defs" vem da
-    # definição do atributo (value_type, tamanho máximo, opções, unidades,
+    # Função Objetivo: Lê o que a categoria pede na ficha técnica (2 chamadas:
+    # technical_specs/input + attributes). Devolve {"card": {atributo_id:
+    # {...}}, "defs": {atributo_id: {...}}} na ordem em que o ML mostra os
+    # campos (grupo por grupo). "card" vem do componente de tela (nome, tags,
+    # allow_custom_value, tipo de componente e o GRUPO do campo); "defs" vem
+    # da definição do atributo (value_type, tamanho máximo, opções, unidades,
     # tags) — só dos atributos que estão no card.
     def buscar_card_categoria(self, category_id: str, pasta_logs) -> dict:
         resposta_specs = self._cliente.chamar(
@@ -71,20 +74,26 @@ class AtributosML:
         )
         card = {}
         for grupo in resposta_specs.json().get("groups", []):
-            if grupo.get("id") != "MAIN":
+            grupo_id = grupo.get("id")
+            if not grupo_id:
                 continue
+            grupo_rotulo = grupo.get("label") or grupo_id
             for componente in grupo.get("components", []):
                 ui_config = componente.get("ui_config") or {}
                 for attr in componente.get("attributes", []):
                     atributo_id = attr.get("id")
                     tags = self._tags_ativas(attr)
-                    if not atributo_id or "allow_variations" in tags:
+                    if not atributo_id or "allow_variations" in tags or "hidden" in tags:
                         continue
+                    if atributo_id in card:
+                        continue  # defesa: investigado em 15/10/2026, nenhum atributo aparece em 2 grupos
                     card[atributo_id] = {
                         "label": attr.get("label") or attr.get("name") or atributo_id,
                         "tags": tags,
                         "allow_custom_value": ui_config.get("allow_custom_value"),  # True / False / None (não informado)
                         "componente": componente.get("component"),
+                        "grupo": grupo_id,
+                        "grupo_rotulo": grupo_rotulo,
                     }
 
         resposta_attrs = self._cliente.chamar(

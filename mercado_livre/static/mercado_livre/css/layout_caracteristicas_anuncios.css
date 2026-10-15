@@ -1203,6 +1203,34 @@
 }
 
 /* ================================================
+   GRUPOS DA FICHA (Características principais, Outros...)
+   ================================================ */
+/* * [EXPLICAÇÃO] → Cada grupo da ficha do ML é uma seção: título com a
+   contagem e, abaixo, o grid de cards. O grupo some quando o filtro
+   esconde todos os cards dele (o JS liga o atributo hidden). */
+.car-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.car-grupo[hidden] {
+    display: none;
+}
+
+.car-grupo-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--car-linha-forte);
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+/* ================================================
    CARDS
    ================================================ */
 /* * [EXPLICAÇÃO] → Cards sempre do MESMO tamanho (como no mockup aprovado):
@@ -1478,8 +1506,8 @@
 }
 
 .car-numero-unidade select {
-    flex: 0 0 90px;
-    width: 90px;
+    flex: 0 0 104px;
+    width: 104px;
 }
 
 .car-simnao {

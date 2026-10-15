@@ -52,7 +52,7 @@ from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI
 console = Console()
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-MLB = "MLB2696429175"  # SKU F7891988006671.001 (Guarany PCP-1,25) — categoria Pulverizadores Manuais
+MLB = "MLB2616936722"  # SKU F7908050719121.001 (Pulverizador Bomba Costal) — categoria MLB209017
 CONTA = "MB"           # "MB" (Magazine) ou "SV" (Samvale) — CONFIRME de qual empresa é esse MLB antes de rodar
 # ========================================
 

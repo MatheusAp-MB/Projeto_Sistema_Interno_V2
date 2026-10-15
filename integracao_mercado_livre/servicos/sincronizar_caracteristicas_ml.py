@@ -25,10 +25,12 @@
 #      o ML informou naquela leitura.
 #   3) Lê o que cada CATEGORIA pede (technical_specs/input + attributes =
 #      2 chamadas por categoria, em paralelo) e grava em
-#      AtributoCategoriaMercadoLivre:
+#      AtributoCategoriaMercadoLivre (todos os grupos da ficha, com o grupo
+#      de cada campo; campos hidden não são gravados):
 #        - varredura completa: relê TODAS as categorias dos anúncios lidos;
 #        - atualizar produto: só as categorias que ainda não estão no banco
-#          (a definição de uma categoria é a mesma para qualquer produto).
+#          ou que foram gravadas sem o grupo (a definição de uma categoria é
+#          a mesma para qualquer produto).
 #
 # Estimativa da varredura completa: ~2 chamadas por categoria + 1 por MLB
 # elegível. O limite do ML é 18.000 chamadas/hora por app.
@@ -100,7 +102,8 @@ CAMPOS_ANUNCIO = [
 
 CAMPOS_ATRIBUTO_CATEGORIA = [
     'nome', 'tipo_valor', 'tags', 'tamanho_maximo', 'unidades_permitidas',
-    'opcoes', 'permite_valor_proprio', 'componente', 'ordem', 'lido_em',
+    'opcoes', 'permite_valor_proprio', 'componente', 'grupo', 'grupo_rotulo',
+    'ordem', 'lido_em',
 ]
 
 FASE_ANUNCIOS = 'lendo_anuncios'
@@ -287,6 +290,8 @@ def _montar_linhas_da_categoria(category_id: str, leitura: dict) -> list[Atribut
             opcoes=definicao.get('values') or None,
             permite_valor_proprio=meta.get('allow_custom_value'),
             componente=meta.get('componente') or '',
+            grupo=meta.get('grupo') or '',
+            grupo_rotulo=meta.get('grupo_rotulo') or '',
             ordem=ordem,
         ))
     return linhas
@@ -312,8 +317,10 @@ def _gravar_categoria(category_id: str, leitura: dict) -> int:
 
 
 # Função Objetivo: Lê e grava o que as categorias pedem. somente_ausentes=True
-# pula as categorias que já têm atributos no banco (usado no "Atualizar" de
-# 1 produto, para não repetir leitura que vale para todos os produtos).
+# pula as categorias que já têm atributos no banco COM o grupo gravado (usado
+# no "Atualizar" de 1 produto, para não repetir leitura que vale para todos
+# os produtos). Categoria gravada antes de existir o grupo (só tinha o MAIN)
+# é relida uma vez.
 def _ler_e_gravar_categorias(
     empresa, api_ml, category_ids, relatorio, ao_progredir, somente_ausentes=False,
 ) -> None:
@@ -332,14 +339,22 @@ def _ler_e_gravar_categorias(
 
     a_ler = [c for c in ids if c in existentes]
     if somente_ausentes and a_ler:
-        ja_no_banco = set(
+        com_atributos = set(
             AtributoCategoriaMercadoLivre.objects
             .filter(categoria_id__in=a_ler)
             .order_by()
             .values_list('categoria_id', flat=True)
             .distinct()
         )
-        a_ler = [c for c in a_ler if c not in ja_no_banco]
+        com_linha_sem_grupo = set(
+            AtributoCategoriaMercadoLivre.objects
+            .filter(categoria_id__in=a_ler, grupo='')
+            .order_by()
+            .values_list('categoria_id', flat=True)
+            .distinct()
+        )
+        em_dia = com_atributos - com_linha_sem_grupo
+        a_ler = [c for c in a_ler if c not in em_dia]
 
     total = len(a_ler)
     relatorio.total_categorias = total
@@ -403,7 +418,8 @@ def varredura_completa(empresa: str, usuario: str = '', ao_progredir=None) -> Re
 
 
 # Função Objetivo: "Atualizar" de 1 produto — relê os anúncios elegíveis
-# daquele SKU (e só as categorias que ainda não estão no banco). Não gera
+# daquele SKU (e só as categorias que ainda não estão no banco ou estão sem
+# o grupo gravado). Não gera
 # linha no histórico de varreduras: a data de cada anúncio já fica em
 # AnuncioMercadoLivre.atributos_ml_lido_em.
 def atualizar_produto(empresa: str, sku: str, ao_progredir=None) -> RelatorioLeituraCaracteristicas:

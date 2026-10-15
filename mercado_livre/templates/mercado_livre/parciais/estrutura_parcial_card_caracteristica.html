@@ -3,8 +3,10 @@
   1) Característica; 2) Valor a enviar; 3) Hoje no Mercado Livre; 4) Regra e
   Vale para. O "Valor a enviar" é onde o usuário digita; o que ele digita vive
   SÓ nesta página (não existe rascunho: sem enviar, o digitado se perde) e
-  campo vazio significa "não mexer no Mercado Livre". A Marca é travada (vem do
-  ERP) e o campo que aceita vários valores ainda não é editável aqui.
+  campo vazio significa "não mexer no Mercado Livre". NADA vem pré-selecionado
+  (regra do Matheus): nem a unidade de medida, que começa em "Unidade" e
+  precisa ser escolhida. A Marca é travada (vem do ERP) e o campo que aceita
+  vários valores ainda não é editável aqui.
   A cor do cabeçalho mostra a situação do campo (verde = igual em todos,
   âmbar = pede atenção, azul = vem do ERP, cinza = vazio ou N/A).
 {% endcomment %}
@@ -69,7 +71,8 @@
                 <div class="car-numero-unidade">
                     <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero" placeholder="Digite o número">
                     <select class="car-campo car-entrada" data-entrada="unidade" aria-label="Unidade de medida">
-                        {% for unidade in card.unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% empty %}<option value="">—</option>{% endfor %}
+                        <option value="" selected>Unidade</option>
+                        {% for unidade in card.unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% endfor %}
                     </select>
                 </div>
             {% elif card.tipo == 'numero' %}

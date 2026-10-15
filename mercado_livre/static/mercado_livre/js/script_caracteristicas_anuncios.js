@@ -185,6 +185,12 @@
             if (mostrar) algum_visivel = true;
         });
 
+        // O grupo (Características principais, Outros...) some junto quando
+        // o filtro esconde todos os cards dele.
+        secao.querySelectorAll('.car-grupo').forEach(function (grupo) {
+            grupo.hidden = !grupo.querySelector('.car-card:not([hidden])');
+        });
+
         secao.querySelector('.car-cards-vazio').hidden = algum_visivel;
     }
 

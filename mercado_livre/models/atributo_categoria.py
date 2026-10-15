@@ -5,12 +5,15 @@ from django.db import models
 class AtributoCategoriaMercadoLivre(models.Model):
     # * [EXPLICAÇÃO] → "O que cada categoria do ML pede": 1 linha para cada
     #                  combinação de categoria + característica (ex.: a
-    #                  categoria X pede o campo "Modelo"). Guarda SÓ as
-    #                  características do card "Características principais"
-    #                  do ML: grupo MAIN de GET /categories/{id}/
-    #                  technical_specs/input, menos as que a API marca com
-    #                  a etiqueta allow_variations (essas pertencem à
-    #                  variação, não ao anúncio). Alimentada SOMENTE pelos
+    #                  categoria X pede o campo "Modelo"). Guarda as
+    #                  características de TODOS os grupos da ficha do ML
+    #                  (GET /categories/{id}/technical_specs/input:
+    #                  "Características principais", "Outros"...), menos as
+    #                  que a API marca com a etiqueta allow_variations
+    #                  (pertencem à variação, não ao anúncio) e menos as
+    #                  marcadas como hidden (o ML não mostra ao vendedor —
+    #                  regra do Matheus: campo oculto NUNCA entra, por isso
+    #                  nem é gravado). Alimentada SOMENTE pelos
     #                  botões da tela de Características dos anúncios
     #                  ("Fazer varredura completa" e "Atualizar" do produto)
     #                  — nunca por chamada automática à API. Dado de
@@ -69,6 +72,15 @@ class AtributoCategoriaMercadoLivre(models.Model):
     #                  BOOLEAN_INPUT...), cru. Ajuda a decidir como desenhar
     #                  o campo no card.
     componente = models.CharField(max_length=40, blank=True)
+
+    # * [EXPLICAÇÃO] → Grupo do campo na ficha do ML: o id cru (MAIN, OTHER...)
+    #                  e o nome que o ML dá ao grupo ("Características
+    #                  principais", "Outros"), para a tela separar os cards
+    #                  por grupo. Vazio = linha gravada ANTES de o sistema
+    #                  guardar o grupo (só havia o MAIN): a tela avisa e o
+    #                  "Atualizar" relê a categoria uma vez.
+    grupo = models.CharField(max_length=40, blank=True)
+    grupo_rotulo = models.CharField(max_length=120, blank=True)
 
     # * [EXPLICAÇÃO] → Posição do campo no card do ML (0, 1, 2...) — para o
     #                  nosso card mostrar na mesma ordem.
