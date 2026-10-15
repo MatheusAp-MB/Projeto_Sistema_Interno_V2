@@ -1,0 +1,90 @@
+{% comment %}
+Resultado de 1 arquivo na janela "Atualizar o sistema com o Drive" (troca a linha "Aguardando"). Recebe `resultado` (de montar_item_da_atualizacao).
+A atualização ESPELHA o arquivo (decisão de 15/10/2026): o que não está no arquivo é removido, por isso a coluna "Removidas" e a nota abaixo da tabela.
+Estado nunca só por cor: o selo e cada empresa levam ícone + texto. Texto que vem do servidor ou do arquivo é escapado pelo Django.
+{% endcomment %}
+<li class="arq-atu arq-atu--{{ resultado.status }}" id="arq-atu-{{ resultado.arquivo_id }}" data-arq-status="{{ resultado.status }}">
+    <div class="arq-atu__topo">
+        <span class="arq-atu__icone"><i class="fas {{ resultado.icone }}" aria-hidden="true"></i></span>
+        <span class="arq-atu__nome">{{ resultado.nome }}</span>
+        <span class="arq-pill arq-pill--{{ resultado.cor }}"><i class="{{ resultado.icone_do_estado }}" aria-hidden="true"></i> {{ resultado.rotulo }}</span>
+    </div>
+
+    {% if resultado.mensagem %}<p class="arq-atu__mensagem">{{ resultado.mensagem }}</p>{% endif %}
+
+    {% if resultado.drive %}
+        <p class="arq-atu__drive" title="Pasta no Drive: {{ resultado.drive.caminho }}">
+            <i class="fab fa-google-drive" aria-hidden="true"></i>
+            Arquivo lido do Drive: {{ resultado.drive.tamanho_texto }}{% if resultado.drive.modificado_em %} · Data do envio do arquivo: {{ resultado.drive.modificado_em|date:"d/m/Y H:i" }}{% endif %}
+        </p>
+    {% endif %}
+
+    {% if resultado.motivos %}
+        <ul class="arq-atu__motivos">
+            {% for motivo in resultado.motivos %}<li>{{ motivo }}</li>{% endfor %}
+        </ul>
+        {% if resultado.motivos_ocultos %}<p class="arq-atu__mais">… e mais {{ resultado.motivos_ocultos }}. A auditoria do cartão mostra a lista completa.</p>{% endif %}
+    {% endif %}
+
+    {% if resultado.empresas %}
+        {# Em tela estreita a tabela rola dentro do próprio quadro (a janela nunca ganha rolagem de lado). #}
+        <div class="arq-atu__rolagem">
+        <table class="arq-atu__tabela">
+            <thead>
+                <tr>
+                    <th scope="col">Empresa</th>
+                    <th scope="col">Resultado</th>
+                    <th scope="col" class="arq-atu__num" title="Linhas que não existiam no sistema e foram criadas.">Novas</th>
+                    <th scope="col" class="arq-atu__num" title="Linhas que já existiam e tiveram algum valor trocado.">Mudaram</th>
+                    <th scope="col" class="arq-atu__num" title="Linhas que já estavam exatamente como o arquivo diz.">Iguais</th>
+                    <th scope="col" class="arq-atu__num" title="Linhas que estavam no sistema mas não estão no arquivo: foram apagadas para o sistema ficar igual ao arquivo.">Removidas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for empresa in resultado.empresas %}
+                    <tr>
+                        <th scope="row">{{ empresa.nome }}</th>
+                        <td class="arq-atu__estado arq-atu__estado--{{ empresa.cor }}"><i class="{{ empresa.icone }}" aria-hidden="true"></i> {{ empresa.rotulo }}</td>
+                        {% if empresa.status == 'ok' %}
+                            <td class="arq-atu__num">{{ empresa.criados }}</td>
+                            <td class="arq-atu__num">{{ empresa.mudaram }}</td>
+                            <td class="arq-atu__num">{{ empresa.iguais }}</td>
+                            <td class="arq-atu__num">{{ empresa.removidas }}</td>
+                        {% else %}
+                            <td class="arq-atu__num arq-atu__num--vazio" colspan="4">—</td>
+                        {% endif %}
+                    </tr>
+                    {% if empresa.status != 'ok' %}
+                        <tr class="arq-atu__detalhe">
+                            <td colspan="6">
+                                {{ empresa.mensagem }}
+                                {% if empresa.motivos %}
+                                    <ul class="arq-atu__motivos">
+                                        {% for motivo in empresa.motivos %}<li>{{ motivo }}</li>{% endfor %}
+                                    </ul>
+                                    {% if empresa.motivos_ocultos %}<p class="arq-atu__mais">… e mais {{ empresa.motivos_ocultos }}.</p>{% endif %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    {% endif %}
+
+    {% for empresa in resultado.empresas_com_remocao %}
+        <p class="arq-atu__nota">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            {{ empresa.nome }}: {{ empresa.removidas }} {% if empresa.removidas == 1 %}linha que estava no sistema e não está{% else %}linhas que estavam no sistema e não estão{% endif %}
+            neste arquivo {% if empresa.removidas == 1 %}foi removida{% else %}foram removidas{% endif %}: o sistema agora é igual ao arquivo.
+        </p>
+    {% endfor %}
+    {% for nota in resultado.notas %}
+        <p class="arq-atu__nota"><i class="fas fa-circle-info" aria-hidden="true"></i> {{ nota }}</p>
+    {% endfor %}
+
+    {% if resultado.link %}
+        <p class="arq-atu__nota"><a class="arq-drive__link" href="{{ resultado.link.url }}" target="_blank" rel="noopener">{{ resultado.link.texto }}</a></p>
+    {% endif %}
+</li>

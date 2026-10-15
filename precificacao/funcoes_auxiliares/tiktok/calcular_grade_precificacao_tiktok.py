@@ -1,6 +1,7 @@
 import time
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from precificacao.funcoes_auxiliares.tiktok.formula_precificacao_tiktok import FormulaPrecificacaoTiktok
+from precificacao.funcoes_auxiliares.gravar_grade_precificacao import gravar_grade_espelhando_o_calculo
 
 
 def _margens():
@@ -88,13 +89,12 @@ def calcular_grade_precificacao_tiktok(stdout, style):
     tempo_calculo_total = time.perf_counter() - inicio_calculo
     stdout.write(f'  ⏱ Loop de cálculo, total: {tempo_calculo_total:.1f}s')
 
-    if para_criar:
-        GradePrecificacaoTiktok.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
-    if para_atualizar:
-        GradePrecificacaoTiktok.objects.bulk_update(
-            para_atualizar, ['preco', 'margem_percentual_obtida', 'frete_usado', 'preco_de_exibicao', 'detalhamento'],
-            batch_size=BATCH_SIZE_PADRAO,
-        )
+    # * [DECISÃO, 15/10/2026] → A grade fica IGUAL ao cálculo: a combinação que agora não tem preço (sem cálculo possível ou com erro de
+    #   validação) tem a linha ANTIGA removida, em vez de ficar com o preço de antes (ver gravar_grade_precificacao.py).
+    removidas = gravar_grade_espelhando_o_calculo(
+        GradePrecificacaoTiktok, existentes, para_criar, para_atualizar,
+        ['preco', 'margem_percentual_obtida', 'frete_usado', 'preco_de_exibicao', 'detalhamento'], BATCH_SIZE_PADRAO,
+    )
 
     tempo_total = time.perf_counter() - inicio_total
 
@@ -102,6 +102,7 @@ def calcular_grade_precificacao_tiktok(stdout, style):
         f'[GRADE TIKTOK] Concluído em {tempo_total:.1f}s!\n'
         f'    Linhas criadas: {len(para_criar)}\n'
         f'    Linhas atualizadas: {len(para_atualizar)}\n'
+        f'    Linhas removidas (sem cálculo possível ou com erro agora): {removidas}\n'
         f'    Sem cálculo possível: {sem_calculo}\n'
         f'    Erros de assert: {len(erros)}'
     ))

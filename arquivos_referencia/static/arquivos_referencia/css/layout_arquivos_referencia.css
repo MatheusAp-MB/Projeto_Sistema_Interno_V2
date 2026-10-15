@@ -26,7 +26,7 @@
     --arq-breve-fundo: #f1f3f5;
 
     --arq-altura-faixa: 64px;
-    --arq-altura-cartao: 362px;   /* 330px dos 4 blocos + 32px da linha "No Drive agora" (20px + 12px de espaço) */
+    --arq-altura-cartao: 450px;   /* 330px dos 4 blocos + 120px do bloco "No Drive agora" (5 linhas de 20px + 4 espaços de 2px = 108px, mais 12px de espaço) */
 }
 
 .arq-pagina {
@@ -60,6 +60,7 @@
 .arq-pill--em_breve    { color: var(--arq-breve-texto);  background: var(--arq-breve-fundo); }
 .arq-pill--consultando { color: var(--arq-breve-texto);  background: var(--arq-breve-fundo); }
 .arq-pill--drive_erro  { color: var(--arq-aviso-texto);  background: var(--arq-aviso-fundo); }
+.arq-pill--aguardando  { color: var(--arq-breve-texto);  background: var(--arq-breve-fundo); }   /* janela de atualização: ainda não começou / em andamento */
 
 /* "No Drive": o arquivo já está lá. É o selo mais forte da tela: verde cheio, com borda, para não passar despercebido. */
 .arq-pill--no_drive {
@@ -341,7 +342,18 @@
 /* ================================================
    LINHA "NO DRIVE AGORA" (o que existe hoje no Drive para este arquivo)
    ================================================ */
-.arq-drive {
+/* O bloco tem SEMPRE 108px (5 linhas de 20px e 4 espaços de 2px), com ou sem todas as linhas: a área de soltar começa no mesmo ponto em todos os cartões. */
+.arq-drive-bloco {
+    display: grid;
+    grid-auto-rows: 20px;
+    row-gap: 2px;
+    height: 108px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.arq-drive,
+.arq-drive-extra {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -353,8 +365,11 @@
     overflow: hidden;
 }
 
-.arq-drive > i {
+.arq-drive > i,
+.arq-drive-extra > i {
     flex-shrink: 0;
+    width: 14px;
+    text-align: center;
     color: var(--cor-primaria-clara);
 }
 
@@ -377,6 +392,47 @@
 .arq-drive--enviado .arq-drive__texto { color: var(--arq-valido-texto); }
 .arq-drive--erro { color: var(--arq-aviso-texto); }
 .arq-drive--erro > i { color: var(--arq-aviso-texto); }
+
+/* Linhas de baixo do bloco: "Data do envio do arquivo", título do sistema e uma linha por empresa. */
+.arq-drive-extra--neutro,
+.arq-drive-extra--neutro > i { color: var(--arq-breve-texto); }
+
+/* Linha de 1 empresa: nome · data · selo (ícone + texto). A data nunca é cortada; quem encolhe (com reticências) é o selo. */
+.arq-sistema {
+    display: grid;
+    grid-template-columns: 68px 124px minmax(0, 1fr);
+    column-gap: 6px;
+    padding-left: 20px;
+}
+
+.arq-sistema__empresa {
+    color: #2b2f33;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.arq-sistema__data {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.arq-sistema__selo {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.arq-sistema__selo > i { margin-right: 4px; }
+
+/* Estado nunca só por cor: cada selo leva ícone + texto; a cor só reforça. */
+.arq-sistema--em_dia .arq-sistema__selo { color: var(--arq-valido-texto); }
+.arq-sistema--desatualizado .arq-sistema__selo,
+.arq-sistema--indisponivel .arq-sistema__selo { color: var(--arq-aviso-texto); }
+.arq-sistema--nunca .arq-sistema__selo,
+.arq-sistema--sem_comparacao .arq-sistema__selo,
+.arq-sistema--nunca .arq-sistema__data { color: var(--arq-breve-texto); }
 
 .arq-drive__link {
     flex-shrink: 0;
@@ -903,7 +959,159 @@
     border-radius: 6px;
 }
 
+/* ================================================
+   JANELA "ATUALIZAR O SISTEMA COM O DRIVE" (resultado, 1 linha por arquivo)
+   Estado nunca só por cor: selo e cada empresa levam ícone + texto.
+   ================================================ */
+.arq-atu-resumo {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: var(--arq-neutro-texto);
+    background: var(--arq-neutro-fundo);
+    border-radius: 6px;
+}
+
+.arq-atu-resumo--ok     { color: var(--arq-valido-texto); background: var(--arq-valido-fundo); font-weight: 600; }
+.arq-atu-resumo--atencao { color: var(--arq-aviso-texto);  background: var(--arq-aviso-fundo);  font-weight: 600; }
+
+.arq-atu-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.arq-atu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.arq-atu--pendente { background: var(--arq-neutro-fundo); }
+
+.arq-atu__topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.arq-atu__icone { flex-shrink: 0; color: var(--cor-primaria); }
+
+.arq-atu__nome {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* "Aguardando" até o pedido começar; "Atualizando…" enquanto o HTMX marca a linha como em andamento. */
+.arq-atu__andando { display: none; }
+.arq-atu.htmx-request .arq-atu__andando { display: inline-flex; }
+.arq-atu.htmx-request .arq-atu__espera { display: none; }
+
+.arq-atu__mensagem {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.arq-atu__drive,
+.arq-atu__nota,
+.arq-atu__mais {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--arq-neutro-texto);
+    overflow-wrap: anywhere;
+}
+
+.arq-atu__motivos {
+    margin: 6px 0 0;
+    padding-left: 18px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.arq-atu__rolagem { overflow-x: auto; }
+
+.arq-atu__tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.arq-atu__tabela th,
+.arq-atu__tabela td {
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.arq-atu__tabela thead th {
+    border-top: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--arq-neutro-texto);
+}
+
+.arq-atu__tabela .arq-atu__num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.arq-atu__num--vazio { color: var(--arq-breve-texto); }
+
+.arq-atu__estado { font-weight: 600; white-space: nowrap; }
+.arq-atu__estado--valido { color: var(--arq-valido-texto); }
+.arq-atu__estado--erro   { color: var(--arq-erro-texto); }
+
+.arq-atu__detalhe td {
+    color: var(--arq-erro-texto);
+    background: var(--arq-erro-fundo);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.arq-atu__detalhe .arq-atu__motivos { color: var(--arq-erro-texto); }
+
+/* Celular: tabela mais compacta para caber sem rolar. */
+@media (max-width: 480px) {
+    .arq-atu { padding: 10px; }
+    .arq-atu__nome { white-space: normal; }
+    .arq-atu__tabela { font-size: 0.72rem; }
+    .arq-atu__tabela th,
+    .arq-atu__tabela td { padding: 5px 3px; }
+    .arq-atu__estado i { margin-right: 1px; }
+    .arq-atu__tabela thead th { font-size: 0.64rem; letter-spacing: 0; text-transform: none; }   /* 6 colunas: sem caixa alta para caber sem rolar */
+}
+
+/* Celular: letra um pouco menor e colunas da linha de empresa mais estreitas, para a data nunca ser cortada (o selo é quem encolhe). */
+@media (max-width: 480px) {
+    .arq-drive,
+    .arq-drive-extra { font-size: 0.72rem; }
+    .arq-sistema { grid-template-columns: 60px 110px minmax(0, 1fr); column-gap: 4px; padding-left: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .arq-btn { transition: none; }
     .arq-drive__atualizar.htmx-request i { animation: none; }
+    .arq-atu .fa-spin { animation: none; }
 }

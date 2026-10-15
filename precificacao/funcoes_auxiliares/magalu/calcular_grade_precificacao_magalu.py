@@ -9,6 +9,7 @@
 import time
 from core.funcoes_auxiliares.constantes_performance import BATCH_SIZE_PADRAO
 from precificacao.funcoes_auxiliares.magalu.formula_precificacao_magalu import FormulaPrecificacaoMagalu
+from precificacao.funcoes_auxiliares.gravar_grade_precificacao import gravar_grade_espelhando_o_calculo
 
 
 # Função Objetivo: Devolve as 4 margens fixas (mesmas do ML, mantidas por padrão).
@@ -98,13 +99,14 @@ def calcular_grade_precificacao_magalu(stdout, style):
     inicio_salvar = time.perf_counter()
     campos_atualizaveis = ['preco', 'margem_percentual_obtida', 'frete_usado', 'detalhamento']
 
-    if para_criar:
-        GradePrecificacaoMagalu.objects.bulk_create(para_criar, batch_size=BATCH_SIZE_PADRAO)
-    if para_atualizar:
-        GradePrecificacaoMagalu.objects.bulk_update(para_atualizar, campos_atualizaveis, batch_size=BATCH_SIZE_PADRAO)
+    # * [DECISÃO, 15/10/2026] → A grade fica IGUAL ao cálculo: a combinação que agora não tem preço (sem cálculo possível ou com erro de
+    #   validação) tem a linha ANTIGA removida, em vez de ficar com o preço de antes (ver gravar_grade_precificacao.py).
+    removidas = gravar_grade_espelhando_o_calculo(
+        GradePrecificacaoMagalu, existentes, para_criar, para_atualizar, campos_atualizaveis, BATCH_SIZE_PADRAO,
+    )
 
     tempo_salvar = time.perf_counter() - inicio_salvar
-    stdout.write(f'  ⏱ Salvar no banco (bulk_create/bulk_update): {tempo_salvar:.1f}s')
+    stdout.write(f'  ⏱ Salvar no banco (remover o que não tem mais cálculo + bulk_create/bulk_update): {tempo_salvar:.1f}s')
 
     tempo_total = time.perf_counter() - inicio_total
 
@@ -112,6 +114,7 @@ def calcular_grade_precificacao_magalu(stdout, style):
         f'[GRADE MAGALU] Concluído em {tempo_total:.1f}s!\n'
         f'    Linhas criadas: {len(para_criar)}\n'
         f'    Linhas atualizadas: {len(para_atualizar)}\n'
+        f'    Linhas removidas (sem cálculo possível ou com erro agora): {removidas}\n'
         f'    Sem cálculo possível (meta inatingível/sem faixa de frete): {sem_calculo}\n'
         f'    Erros de assert: {len(erros)}'
     ))

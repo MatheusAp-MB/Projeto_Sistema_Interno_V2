@@ -1,14 +1,17 @@
 /*
 * [RESUMO] → JS da tela "Arquivos de referência". A conferência e o envio em si são HTMX puro (o servidor devolve o cartão
 * novo). Este arquivo cuida de:
-*   1) mover as janelas (auditoria e confirmação do envio) para o <body>;
+*   1) mover as janelas (auditoria, confirmação do envio, confirmação e resultado da atualização) para o <body>;
 *   2) "Escolher arquivo": abre o seletor de arquivos do formulário do cartão;
 *   3) arrastar e soltar o arquivo no cartão;
 *   4) recusar no navegador um arquivo grande demais (nem sobe pela rede);
 *   5) "Ver auditoria": copia o relatório do cartão para a janela;
 *   6) mostrar um aviso na tela quando algo falha (rede, erro do sistema, login do Drive) ou dá certo (envio);
 *   7) "Enviar para o Drive": confirma numa janela e então manda o arquivo conferido;
-*   8) não deixar a resposta atrasada do Drive apagar o arquivo que a pessoa conferiu enquanto o Drive ainda respondia.
+*   8) não deixar a resposta atrasada do Drive apagar o arquivo que a pessoa conferiu enquanto o Drive ainda respondia;
+*   9) "Atualizar o sistema com o Drive" (botão da barra de cima): confirma numa janela e então atualiza as tabelas de frete, UM arquivo
+*      de cada vez, mostrando o resultado de cada um na janela; ao terminar, os cartões de frete consultam o Drive de novo para mostrar
+*      "Data da última atualização do sistema" e o selo "Em dia".
 *
 * * [EXPLICAÇÃO] → O envio precisa do MESMO arquivo que foi conferido, mas o cartão novo (trocado pelo HTMX depois da
 *   conferência) não carrega o arquivo. Por isso, quando uma conferência dá certo, o arquivo fica guardado aqui na memória do
@@ -30,7 +33,9 @@
     // ---------- 1) Janelas no <body> ----------
     var janela = document.getElementById('arq-modal-auditoria');
     var janelaDoEnvio = document.getElementById('arq-modal-envio');
-    [janela, janelaDoEnvio].forEach(function (modal) {
+    var janelaDaConfirmacao = document.getElementById('arq-modal-atualizar');
+    var janelaDoResultado = document.getElementById('arq-modal-resultado');
+    [janela, janelaDoEnvio, janelaDaConfirmacao, janelaDoResultado].forEach(function (modal) {
         if (modal && modal.parentElement !== document.body) {
             document.body.appendChild(modal);
         }
@@ -290,5 +295,126 @@
     if (janelaDoEnvio) {
         // Fechou sem confirmar (Cancelar, X, Esc ou clique fora): esquece o pedido.
         janelaDoEnvio.addEventListener('hidden.bs.modal', function () { idEmConfirmacao = null; });
+    }
+
+    // ---------- 9) Atualizar o sistema com o Drive ----------
+    // * [EXPLICAÇÃO] → O botão da barra só ABRE a confirmação. Confirmou: a janela de resultado ganha 1 linha "Aguardando" por arquivo
+    //   (copiadas do <template>) e o JS dispara os arquivos UM DEPOIS DO OUTRO — cada linha manda o seu POST (HTMX) e se troca pelo
+    //   resultado que o servidor devolve. Um arquivo com problema não impede os seguintes. Durante a atualização a janela não fecha.
+    var atualizando = false;
+
+    function avisarAntesDeSair(evento) {
+        evento.preventDefault();
+        evento.returnValue = '';
+    }
+
+    // Espera a linha terminar o pedido. O evento do HTMX é entregue à PRÓPRIA linha (mesmo depois de ela ser trocada pelo resultado).
+    function atualizarUma(linha) {
+        return new Promise(function (resolver) {
+            linha.addEventListener('htmx:afterRequest', function (evento) {
+                if (!evento.detail.successful) { marcarFalhaDaLinha(linha); }
+                resolver();
+            }, { once: true });
+            htmx.trigger(linha, 'arq-atualizar');
+        });
+    }
+
+    // O servidor não respondeu direito (erro 500, rede caiu): a linha não foi trocada, então ela mesma passa a dizer isso.
+    // O aviso com o motivo já aparece pelo tratamento geral de erros desta tela.
+    function marcarFalhaDaLinha(linha) {
+        linha.className = 'arq-atu arq-atu--falha_sistema';
+        linha.dataset.arqStatus = 'falha_sistema';
+        var topo = linha.querySelector('.arq-atu__topo');
+        if (topo) {
+            topo.querySelectorAll('.arq-pill').forEach(function (selo) { selo.remove(); });
+            var selo = document.createElement('span');
+            selo.className = 'arq-pill arq-pill--com_erros';
+            selo.innerHTML = '<i class="fas fa-circle-xmark" aria-hidden="true"></i> ';
+            selo.appendChild(document.createTextNode('Não deu certo'));
+            topo.appendChild(selo);
+        }
+        var mensagem = document.createElement('p');
+        mensagem.className = 'arq-atu__mensagem';
+        mensagem.textContent = 'O servidor não respondeu direito a este arquivo. O aviso na tela diz o motivo. O sistema só muda quando o arquivo aparece como "Atualizado" — confira antes de tentar de novo.';
+        linha.appendChild(mensagem);
+    }
+
+    function contarPorStatus(lista) {
+        var contagem = {};
+        lista.querySelectorAll('.arq-atu').forEach(function (linha) {
+            var status = linha.dataset.arqStatus || 'pendente';
+            contagem[status] = (contagem[status] || 0) + 1;
+        });
+        return contagem;
+    }
+
+    function terminarAtualizacao(lista) {
+        var contagem = contarPorStatus(lista);
+        var total = lista.querySelectorAll('.arq-atu').length;
+        var certos = contagem.ok || 0;
+        var resumo = document.getElementById('arq-atu-resumo');
+        var texto;
+        if (certos === total) {
+            texto = total === 1 ? 'A tabela foi conferida e está em dia nas duas empresas.' : 'As ' + total + ' tabelas foram conferidas e estão em dia nas duas empresas.';
+            resumo.className = 'arq-atu-resumo arq-atu-resumo--ok';
+        } else {
+            texto = certos + ' de ' + total + (total === 1 ? ' tabela atualizada' : ' tabelas atualizadas') + ' — confira abaixo o que não entrou e o motivo.';
+            resumo.className = 'arq-atu-resumo arq-atu-resumo--atencao';
+        }
+        resumo.textContent = texto;
+        document.getElementById('arq-modal-resultado-titulo').textContent = 'Resultado da atualização';
+        document.getElementById('arq-resultado-fechar').disabled = false;
+        document.getElementById('arq-resultado-x').disabled = false;
+        atualizando = false;
+        window.removeEventListener('beforeunload', avisarAntesDeSair);
+        atualizarDatasDosCartoes();
+    }
+
+    // Depois da atualização, cada cartão de frete (bloco com data-arq-importavel) refaz a consulta ao Drive: é o mesmo clique do botão de
+    // girar. Assim "Data da última atualização do sistema" e "Em dia" aparecem na hora, sem F5. Bloco ainda carregando não tem botão: ele
+    // mesmo vai consultar e já traz as datas novas.
+    function atualizarDatasDosCartoes() {
+        document.querySelectorAll('.arq-drive-bloco[data-arq-importavel] .arq-drive__atualizar').forEach(function (botao) { botao.click(); });
+    }
+
+    function atualizarOSistema() {
+        if (atualizando || !janelaDoResultado) { return; }
+        var modelo = document.getElementById('arq-atu-modelo');
+        var lista = document.getElementById('arq-atu-lista');
+        if (!modelo || !lista) { return; }
+
+        atualizando = true;
+        window.addEventListener('beforeunload', avisarAntesDeSair);
+        lista.innerHTML = modelo.innerHTML;
+        htmx.process(lista);
+        var resumo = document.getElementById('arq-atu-resumo');
+        resumo.className = 'arq-atu-resumo';
+        resumo.textContent = 'Lendo os arquivos do Drive e gravando no sistema, um de cada vez. Não feche esta janela.';
+        document.getElementById('arq-modal-resultado-titulo').textContent = 'Atualizando o sistema…';
+        document.getElementById('arq-resultado-fechar').disabled = true;
+        document.getElementById('arq-resultado-x').disabled = true;
+        bootstrap.Modal.getOrCreateInstance(janelaDoResultado).show();
+
+        var cadeia = Promise.resolve();
+        lista.querySelectorAll('.arq-atu').forEach(function (linha) {
+            cadeia = cadeia.then(function () { return atualizarUma(linha); });
+        });
+        cadeia.then(function () { terminarAtualizacao(lista); });
+    }
+
+    var botaoAtualizar = document.getElementById('arq-btn-atualizar');
+    if (botaoAtualizar && janelaDaConfirmacao) {
+        botaoAtualizar.addEventListener('click', function () {
+            if (atualizando) { return; }
+            bootstrap.Modal.getOrCreateInstance(janelaDaConfirmacao).show();
+        });
+    }
+
+    var botaoConfirmarAtualizacao = document.getElementById('arq-atualizar-confirmar');
+    if (botaoConfirmarAtualizacao && janelaDaConfirmacao) {
+        botaoConfirmarAtualizacao.addEventListener('click', function () {
+            bootstrap.Modal.getOrCreateInstance(janelaDaConfirmacao).hide();
+            atualizarOSistema();
+        });
     }
 })();

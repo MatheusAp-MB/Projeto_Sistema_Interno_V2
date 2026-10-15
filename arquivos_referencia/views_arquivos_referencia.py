@@ -3,8 +3,17 @@
 # Função Objetivo: Views da tela "Arquivos de referência" — onde se confere e se ENVIA ao Drive os arquivos que o
 # "popular banco" lê: 4 tabelas de frete e 2 planilhas do Busca Legal.
 #
-# * [DECISÃO, 14/10/2026] → O fluxo final tem 2 passos SEPARADOS: (1) conferir e enviar ao Drive (esta tela); (2) atualizar o
-#   sistema com o que está no Drive (outro clique, próximo ciclo). Por isso nenhuma view aqui toca no banco do sistema.
+# * [DECISÃO, 14/10/2026] → O fluxo final tem 2 passos SEPARADOS: (1) conferir e enviar ao Drive; (2) atualizar o sistema com o
+#   que está no Drive (outro clique). Só a view de atualizar (view_atualizar_arquivo) toca no banco do sistema; conferir e enviar
+#   nunca tocam.
+# * [DECISÃO, 15/10/2026] → Passo 2, 1º ciclo (só as 4 tabelas de frete): o botão "Atualizar o sistema com o Drive" faz 1 pedido
+#   POR ARQUIVO, um depois do outro (o JS). Assim a janela mostra o andamento de cada tabela, um arquivo com problema não derruba os
+#   outros, e nenhum pedido fica longo demais. Toda falha PREVISTA volta como resultado do arquivo (resposta 200, linha pronta);
+#   só pedido inválido (arquivo desconhecido, arquivo que o botão não atualiza) volta com erro + JSON.
+# * [DECISÃO, 15/10/2026] → A atualização ESPELHA o arquivo: o que o sistema tem e o arquivo não tem é apagado ("100% síncrono"), e cada
+#   atualização grava, por empresa, quando foi feita e com qual arquivo (model AtualizacaoDoSistema). Quem lê esse histórico é a consulta
+#   ao Drive (view_situacao_no_drive → montar_linha_do_drive): o cartão mostra "Data do envio do arquivo" e "Data da última atualização
+#   do sistema com este arquivo", com o selo "Em dia" quando o sistema leu exatamente o arquivo que o Drive tem agora.
 # * [DECISÃO, 15/10/2026] → 1º e 2º ciclos = só a tela + a AUDITORIA (nada gravado em lugar nenhum). 3º ciclo = o ENVIO ao
 #   Drive: o arquivo continua sem ser gravado em disco ou no banco — vai da memória do servidor direto para o Drive.
 # * [DECISÃO, 15/10/2026] → Mesma proteção da Gestão de APIs: a tela não usa decorador de login (o middleware global de
@@ -28,11 +37,14 @@ from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from .funcoes_auxiliares.atualizacao_do_sistema import (
+    arquivos_que_o_botao_atualiza, atualizar_arquivo, o_botao_atualiza, resultado_de_falha_do_sistema,
+)
 from .funcoes_auxiliares.auditor_de_arquivos import auditar_arquivo
 from .funcoes_auxiliares.catalogo_arquivos import buscar_arquivo
 from .funcoes_auxiliares.envio_ao_drive import ErroDoEnvio, consultar_no_drive, enviar_para_o_drive
 from .funcoes_auxiliares.leitura_planilha import TAMANHO_MAXIMO_DO_ARQUIVO
-from .funcoes_auxiliares.montagem_da_tela import montar_cartao, montar_grupos, montar_linha_do_drive
+from .funcoes_auxiliares.montagem_da_tela import montar_cartao, montar_grupos, montar_item_da_atualizacao, montar_linha_do_drive
 
 TAMANHO_MAXIMO_DO_NOME_EXIBIDO = 150
 
@@ -69,6 +81,7 @@ def view_arquivos_referencia(request):
     #   cartão pergunta ao Drive, só leitura, e vira "No Drive" ou "Sem arquivo no Drive" — ver view_situacao_no_drive.)
     return render(request, 'arquivos_referencia/estrutura_arquivos_referencia.html', {
         'grupos': montar_grupos(),
+        'arquivos_para_atualizar': arquivos_que_o_botao_atualiza(),
         'limite_do_arquivo_em_bytes': TAMANHO_MAXIMO_DO_ARQUIVO,
         'limite_do_arquivo_em_mb': TAMANHO_MAXIMO_DO_ARQUIVO // (1024 * 1024),
     })
@@ -209,5 +222,30 @@ def view_situacao_no_drive(request, arquivo_id):
         contexto.update(oob_cartao=True, cartao=montar_cartao(arquivo, linha_drive=linha))
 
     resposta = render(request, 'arquivos_referencia/parciais/estrutura_parcial_drive.html', contexto)
+    resposta['Cache-Control'] = 'no-store'
+    return resposta
+
+
+@require_POST
+def view_atualizar_arquivo(request, arquivo_id):
+    # * [EXPLICAÇÃO] → Passo 2: lê ESTE arquivo do Drive (só na memória), confere, e grava nas tabelas das duas empresas (tudo ou nada por tabela).
+    #   O arquivo é escolhido pelo ID da lista fechada do catálogo (nada vindo do navegador entra em caminho ou em consulta).
+    #   O que sobe do navegador é só o pedido: o conteúdo vem do Drive, nunca do computador de quem clicou.
+    arquivo = buscar_arquivo(arquivo_id)
+    if arquivo is None:
+        return _erro_do_sistema('Arquivo de referência desconhecido. Recarregue a página.', 404)
+    if not o_botao_atualiza(arquivo.id):
+        return _erro_do_sistema('Este arquivo ainda não é atualizado por este botão.', 409)
+
+    try:
+        resultado = atualizar_arquivo(arquivo)
+    except Exception:
+        traceback.print_exc()
+        resultado = resultado_de_falha_do_sistema(arquivo)
+
+    link = _link_da_gestao_de_apis() if resultado['renovar_autorizacao'] else None
+    resposta = render(request, 'arquivos_referencia/parciais/estrutura_parcial_resultado_atualizacao.html', {
+        'resultado': montar_item_da_atualizacao(resultado, link),
+    })
     resposta['Cache-Control'] = 'no-store'
     return resposta

@@ -16,8 +16,16 @@
 #   "Sem arquivo no Drive" — assim recarregar não "apaga" a informação de que o arquivo já foi enviado.
 # * [EXPLICAÇÃO] → Depois de um envio bem-sucedido o cartão ganha `envio` (o que o Drive guardou) e passa a mostrar
 #   "Enviado ao Drive"; escolher outro arquivo volta ao fluxo normal (conferir → enviar).
+# * [DECISÃO, 15/10/2026] → Cada cartão de arquivo que o sistema importa mostra 2 datas: "Data do envio do arquivo" (a data do arquivo no
+#   Drive) e "Última atualização do sistema" por empresa (quando o botão "Atualizar o sistema com o Drive" gravou esse arquivo), com o
+#   selo "Em dia" ou "Drive tem arquivo mais novo" — assim fica claro se o que está no Drive já foi para o sistema.
 
+from .atualizacao_do_sistema import (
+    EMPRESA_ATUALIZADA, EMPRESA_FALHOU, EMPRESA_RECUSADA, STATUS_ARQUIVO_COM_ERROS, STATUS_ATUALIZADO, STATUS_FALHA_DO_DRIVE,
+    STATUS_FALHA_DO_SISTEMA, STATUS_NAO_ATUALIZOU, STATUS_OCUPADO, STATUS_PARCIAL, STATUS_SEM_ARQUIVO, o_botao_atualiza,
+)
 from .catalogo_arquivos import arquivos_por_grupo
+from .historico_da_atualizacao import situacao_do_sistema
 from .relatorio_auditoria import STATUS_COM_AVISOS, STATUS_COM_ERROS, STATUS_ILEGIVEL, STATUS_VALIDO, formatar_tamanho
 
 ESTADO_CONSULTANDO = 'consultando'
@@ -54,11 +62,15 @@ ESTADO_DO_CARTAO_PELA_LINHA = {
 # `situacao` é o dict de consultar_no_drive. `enviado_agora` marca o resultado de um envio que acabou de dar certo.
 # `sem_arquivo_local` = o cartão ainda não tem arquivo conferido: nesse caso a resposta do Drive também atualiza o selo e a
 # área do cartão (ver view_situacao_no_drive); com arquivo conferido, o cartão mostra o arquivo conferido e só a linha muda.
+# * [EXPLICAÇÃO] → Cartões que o botão "Atualizar o sistema com o Drive" atualiza (`importavel`) ganham, abaixo da linha do Drive, uma
+#   linha por empresa com "Última atualização do sistema" e se o sistema está em dia (`sistema`, de historico_da_atualizacao.py). O
+#   estado "em dia" compara a impressão digital (md5) do arquivo que o Drive tem AGORA com a do último arquivo que o sistema leu.
 def montar_linha_do_drive(
     id_do_arquivo, situacao=None, erro=None, link=None, enviado_agora=False, erro_completo=None, sem_arquivo_local=False,
 ):
     linha = {
         'arquivo_id': id_do_arquivo, 'enviado_agora': enviado_agora, 'sem_arquivo_local': sem_arquivo_local, 'estado': 'carregando',
+        'importavel': o_botao_atualiza(id_do_arquivo), 'sistema': None,
     }
     if erro:
         # `erro` é o texto curto (cabe na linha); `erro_completo` aparece ao passar o mouse.
@@ -71,6 +83,9 @@ def montar_linha_do_drive(
             estado='existe', caminho=situacao['caminho'], copias=situacao['copias'], modificado_em=situacao['modificado_em'],
             tamanho_texto=formatar_tamanho(tamanho) if tamanho is not None else '',
         )
+    # Com o Drive sem resposta (erro) ainda dá para mostrar as datas do sistema; só não dá para dizer "em dia" (md5 desconhecido).
+    if linha['importavel'] and (erro or situacao is not None):
+        linha['sistema'] = situacao_do_sistema(id_do_arquivo, situacao.get('md5') if situacao is not None else None)
     return linha
 
 
@@ -85,7 +100,7 @@ def montar_cartao(arquivo, relatorio=None, quando=None, envio=None, linha_drive=
         if envio is not None:
             situacao_do_envio = {
                 'existe': True, 'copias': 1 + envio['copias_que_ficaram'], 'tamanho_em_bytes': envio['tamanho_em_bytes'],
-                'modificado_em': envio['modificado_em'], 'caminho': envio['caminho'],
+                'modificado_em': envio['modificado_em'], 'caminho': envio['caminho'], 'md5': envio['md5'],
             }
         linha_drive = montar_linha_do_drive(
             arquivo.id, situacao_do_envio, enviado_agora=envio is not None,
@@ -116,6 +131,45 @@ def montar_cartao(arquivo, relatorio=None, quando=None, envio=None, linha_drive=
         'quando': quando,
         'envio': envio,
         'linha_drive': linha_drive,
+    }
+
+
+# ---------- Janela "Atualizar o sistema com o Drive" ----------
+
+# status do arquivo -> (rótulo, ícone completo, sufixo da classe do selo — as mesmas cores dos selos dos cartões)
+ESTADOS_DA_ATUALIZACAO = {
+    STATUS_ATUALIZADO: ('Atualizado', 'fas fa-circle-check', 'valido'),
+    STATUS_PARCIAL: ('Só em uma empresa', 'fas fa-triangle-exclamation', 'com_avisos'),
+    STATUS_NAO_ATUALIZOU: ('Não atualizou', 'fas fa-circle-xmark', 'com_erros'),
+    STATUS_ARQUIVO_COM_ERROS: ('Arquivo com erros', 'fas fa-circle-xmark', 'com_erros'),
+    STATUS_SEM_ARQUIVO: ('Sem arquivo no Drive', 'fas fa-circle-minus', 'sem_arquivo'),
+    STATUS_FALHA_DO_DRIVE: ('Drive sem resposta', 'fas fa-triangle-exclamation', 'drive_erro'),
+    STATUS_OCUPADO: ('Já em andamento', 'fas fa-hourglass-half', 'em_breve'),
+    STATUS_FALHA_DO_SISTEMA: ('Erro do sistema', 'fas fa-circle-xmark', 'com_erros'),
+}
+
+# status de 1 empresa -> (rótulo, ícone completo, classe de cor do texto)
+ESTADOS_DA_EMPRESA = {
+    EMPRESA_ATUALIZADA: ('Gravada', 'fas fa-circle-check', 'valido'),
+    EMPRESA_RECUSADA: ('Não gravou', 'fas fa-circle-xmark', 'erro'),
+    EMPRESA_FALHOU: ('Falhou', 'fas fa-circle-xmark', 'erro'),
+}
+
+
+# Função Objetivo: Junta ao resultado de atualizar_arquivo o que a tela precisa para desenhar (rótulo, ícone e cor de cada estado).
+# Tabela que já estava igual ao Drive em todas as empresas aparece como "Já estava em dia" (também é um resultado bom).
+def montar_item_da_atualizacao(resultado, link=None):
+    rotulo, icone, cor = ESTADOS_DA_ATUALIZACAO[resultado['status']]
+    empresas = resultado['empresas']
+    if resultado['status'] == STATUS_ATUALIZADO and all(e['criados'] == 0 and e['mudaram'] == 0 and e['removidas'] == 0 for e in empresas):
+        rotulo = 'Já estava em dia'
+    empresas_prontas = []
+    for empresa in empresas:
+        rotulo_da_empresa, icone_da_empresa, cor_da_empresa = ESTADOS_DA_EMPRESA[empresa['status']]
+        empresas_prontas.append({**empresa, 'rotulo': rotulo_da_empresa, 'icone': icone_da_empresa, 'cor': cor_da_empresa})
+    return {
+        **resultado, 'rotulo': rotulo, 'icone_do_estado': icone, 'cor': cor, 'empresas': empresas_prontas, 'link': link,
+        'empresas_com_remocao': [e for e in empresas_prontas if e['status'] == EMPRESA_ATUALIZADA and e['removidas']],
     }
 
 

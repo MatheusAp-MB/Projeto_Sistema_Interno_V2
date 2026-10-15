@@ -31,7 +31,7 @@
         {% with linha=cartao.linha_drive %}
         <span class="arq-zona__icone"><i class="fab fa-google-drive" aria-hidden="true"></i></span>
         <p class="arq-zona__titulo" title="{{ cartao.nome_no_drive }}">{{ cartao.nome_no_drive }}</p>
-        <p class="arq-zona__sub">{% if linha.tamanho_texto %}{{ linha.tamanho_texto }} · {% endif %}atualizado{% if linha.modificado_em %} em {{ linha.modificado_em|date:"d/m/Y H:i" }}{% endif %}</p>
+        <p class="arq-zona__sub">{% if linha.tamanho_texto %}{{ linha.tamanho_texto }} · {% endif %}enviado{% if linha.modificado_em %} em {{ linha.modificado_em|date:"d/m/Y H:i" }}{% endif %}</p>
         <p class="arq-zona__contagem">
             <span class="arq-contador arq-contador--ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Arquivo no Drive</span>
             {% if linha.copias > 1 %}<span class="arq-contador arq-contador--aviso" title="Há cópias repetidas na pasta do Drive. O próximo envio manda as extras para a lixeira."><i class="fas fa-clone" aria-hidden="true"></i> {{ linha.copias }} cópias</span>{% endif %}

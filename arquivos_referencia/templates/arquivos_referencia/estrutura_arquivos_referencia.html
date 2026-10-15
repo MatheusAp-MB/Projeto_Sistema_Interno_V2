@@ -3,8 +3,8 @@
 {% block titulo %}Arquivos de referência{% endblock %}
 {% block toolbar_titulo %}Configurações — Arquivos de referência{% endblock %}
 {% block toolbar_acoes %}
-    <button type="button" class="arq-toolbar-btn" disabled
-            title="Chega na próxima etapa: depois de enviar os arquivos ao Drive, este botão atualiza o sistema com o que está lá.">
+    <button type="button" class="arq-toolbar-btn" id="arq-btn-atualizar"
+            title="Lê no Drive as {{ arquivos_para_atualizar|length }} tabelas de frete e atualiza o sistema (Magazine e Samvale). Pede confirmação antes.">
         <i class="fas fa-rotate" aria-hidden="true"></i> <span>Atualizar o sistema com o Drive</span>
     </button>
 {% endblock %}
@@ -20,9 +20,16 @@
       (cada envio troca o arquivo anterior: sempre 1 cópia lá); (2) um clique à parte para atualizar o sistema com o que
       está no Drive.
     * [DECISÃO, 15/10/2026] → 3º ciclo: a tela também ENVIA ao Drive. Depois da conferência, "Enviar para o Drive" abre uma
-      confirmação e troca o arquivo da pasta certa do Drive (sempre 1 cópia). O botão de cima, "Atualizar o sistema com o
-      Drive" (passo 2), continua desligado: chega no próximo ciclo. Cada cartão mostra, em "No Drive agora", o que existe
-      hoje no Drive (o servidor pergunta ao Drive, só leitura).
+      confirmação e troca o arquivo da pasta certa do Drive (sempre 1 cópia). Cada cartão mostra, em "No Drive agora", o que
+      existe hoje no Drive (o servidor pergunta ao Drive, só leitura).
+    * [DECISÃO, 15/10/2026] → Passo 2, 1º ciclo: o botão de cima, "Atualizar o sistema com o Drive", está LIGADO só para as 4 tabelas
+      de frete. Pede confirmação, lê os 4 arquivos do Drive (um de cada vez), confere cada um de novo e grava nas tabelas das DUAS
+      empresas (tudo ou nada por tabela). A janela de resultado mostra, por arquivo e por empresa, quantas linhas são novas, quantas
+      mudaram, quantas já estavam iguais e quantas foram removidas. As planilhas do Busca Legal NÃO entram por este botão (ciclo próprio).
+    * [DECISÃO, 15/10/2026] → A atualização ESPELHA o arquivo ("100% síncrono"): o que está no sistema e não está no arquivo é apagado.
+      Cada cartão de frete mostra "Data do envio do arquivo" e, por empresa, "Data da última atualização do sistema com este arquivo"
+      com o selo "Em dia" (o sistema leu exatamente o arquivo que está no Drive) ou "Drive tem arquivo mais novo".
+    * [IMPORTANTE] → As grades de preço ainda NÃO são recalculadas por este botão (próximo ciclo): a janela de resultado avisa isso.
     * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical", igual à Gestão de APIs: a altura de cada cartão é
       fixa; texto comprido é cortado e o que falta está na janela "Ver auditoria".
     * [EXPLICAÇÃO] → O arquivo escolhido não é guardado em disco nem no banco: fica só na memória do navegador até o envio (que
@@ -30,11 +37,11 @@
     {% endcomment %}
 
     <div class="arq-pagina" data-arq-limite-bytes="{{ limite_do_arquivo_em_bytes }}" data-arq-limite-mb="{{ limite_do_arquivo_em_mb }}">
-        <div class="arq-faixa" title="Escolha ou arraste o arquivo, leia a auditoria completa e então envie ao Drive: o envio troca o arquivo da pasta, que fica sempre com 1 cópia. Atualizar o sistema com o que está no Drive é outro clique, que chega na próxima etapa.">
+        <div class="arq-faixa" title="Escolha ou arraste o arquivo, leia a auditoria completa e então envie ao Drive: o envio troca o arquivo da pasta, que fica sempre com 1 cópia. Depois, o botão “Atualizar o sistema com o Drive” (no alto da tela) lê as tabelas de frete que estão no Drive e grava nas duas empresas. As planilhas do Busca Legal ainda não entram por esse botão.">
             <span class="arq-faixa__icone"><i class="fas fa-circle-info" aria-hidden="true"></i></span>
             <div class="arq-faixa__textos">
-                <span class="arq-faixa__titulo">Etapa atual: conferir e enviar ao Drive</span>
-                <span class="arq-faixa__texto">Escolha ou arraste o arquivo, leia a auditoria e envie ao Drive (troca o arquivo da pasta: sempre 1 cópia). Atualizar o sistema com o Drive vem na próxima etapa.</span>
+                <span class="arq-faixa__titulo">Etapa atual: conferir, enviar ao Drive e atualizar o sistema (frete)</span>
+                <span class="arq-faixa__texto">Escolha o arquivo, leia a auditoria e envie ao Drive (sempre 1 cópia). “Atualizar o sistema com o Drive” grava as tabelas de frete nas duas empresas; o Busca Legal ainda não.</span>
             </div>
         </div>
 
@@ -97,6 +104,70 @@
             </div>
         </div>
     </div>
+
+    {# Confirmação de "Atualizar o sistema com o Drive" (o JS move para o <body>). Só descreve o que vai acontecer: o clique em confirmar é que dispara. #}
+    <div class="modal fade" id="arq-modal-atualizar" tabindex="-1" aria-labelledby="arq-modal-atualizar-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="arq-modal-atualizar-titulo"><i class="fas fa-rotate" aria-hidden="true"></i> Atualizar o sistema com o Drive?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="arq-envio">
+                        <dt>Vai ler</dt>
+                        <dd>
+                            os {{ arquivos_para_atualizar|length }} arquivos de frete que estão no Drive:
+                            {% for arquivo in arquivos_para_atualizar %}{{ arquivo.nome|cut:"Frete — " }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} e {% else %}, {% endif %}{% endif %}{% endfor %}.
+                        </dd>
+                        <dt>Vai gravar em</dt>
+                        <dd>Magazine e Samvale (o frete vale para as duas empresas).</dd>
+                    </dl>
+                    <p class="arq-envio__nota">
+                        Cada arquivo é conferido de novo antes de entrar: arquivo com erro não entra. Cada tabela é gravada por inteiro ou nada.
+                        O sistema fica IGUAL ao arquivo: linhas novas entram, linhas que mudaram são atualizadas e <strong>linhas que não estão no arquivo são removidas</strong>.
+                        No fim você vê quantas linhas foram novas, quantas mudaram, quantas já estavam iguais e quantas foram removidas. As planilhas do
+                        Busca Legal não são alteradas por este botão, e as grades de preço ainda não são recalculadas por ele.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="arq-btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="arq-btn arq-btn--primario" id="arq-atualizar-confirmar">
+                        <i class="fas fa-rotate" aria-hidden="true"></i> <span class="arq-btn__texto">Atualizar o sistema</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Resultado da atualização: 1 linha por arquivo, preenchidas uma depois da outra. Não fecha clicando fora nem com Esc enquanto atualiza. #}
+    <div class="modal fade" id="arq-modal-resultado" tabindex="-1" aria-labelledby="arq-modal-resultado-titulo" aria-hidden="true"
+         data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="arq-modal-resultado-titulo">Atualizando o sistema…</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar" id="arq-resultado-x" disabled></button>
+                </div>
+                <div class="modal-body">
+                    <p class="arq-atu-resumo" id="arq-atu-resumo" role="status" aria-live="polite"></p>
+                    <ul class="arq-atu-lista" id="arq-atu-lista"></ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="arq-btn arq-btn--primario" data-bs-dismiss="modal" id="arq-resultado-fechar" disabled>
+                        <span class="arq-btn__texto">Fechar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Modelo das linhas "Aguardando" (o JS copia para a janela de resultado a cada atualização). #}
+    <template id="arq-atu-modelo">
+        {% for arquivo in arquivos_para_atualizar %}
+            {% include 'arquivos_referencia/parciais/estrutura_parcial_atualizacao_pendente.html' %}
+        {% endfor %}
+    </template>
 {% endblock %}
 {% block scripts %}
     <script src="{% static 'arquivos_referencia/js/script_arquivos_referencia.js' %}"></script>

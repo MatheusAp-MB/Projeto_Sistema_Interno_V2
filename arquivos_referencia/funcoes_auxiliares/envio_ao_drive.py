@@ -1,8 +1,10 @@
 # arquivos_referencia/funcoes_auxiliares/envio_ao_drive.py
 
-# Função Objetivo: Única porta da tela "Arquivos de referência" para o Google Drive. Faz 2 coisas:
+# Função Objetivo: Única porta da tela "Arquivos de referência" para o Google Drive. Faz 3 coisas:
 #   1) consultar_no_drive: o que existe HOJE no Drive para um arquivo de referência (só leitura, não cria nada);
-#   2) enviar_para_o_drive: coloca o arquivo já conferido na pasta certa, TROCANDO o que estava lá — sempre 1 cópia.
+#   2) enviar_para_o_drive: coloca o arquivo já conferido na pasta certa, TROCANDO o que estava lá — sempre 1 cópia;
+#   3) ler_do_drive: lê o arquivo que está no Drive para a MEMÓRIA do servidor (só leitura, nada é gravado em disco) — é o que o botão
+#      "Atualizar o sistema com o Drive" usa (ver atualizacao_do_sistema.py).
 # Não toca no sistema (banco): enviar ao Drive e atualizar o sistema são cliques separados (decisão de 14/10/2026).
 #
 # * [DECISÃO, 14/10/2026] → Fluxo em 2 etapas separadas. Esta é a etapa 1: o arquivo conferido substitui o do Drive, e o
@@ -41,6 +43,8 @@ from httplib2 import HttpLib2Error
 
 from agenda_videos.funcoes_auxiliares.drive.constantes import MIME_PASTA
 
+from .leitura_planilha import TAMANHO_MAXIMO_DO_ARQUIVO
+
 logger = logging.getLogger(__name__)
 
 MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -73,6 +77,13 @@ class ErroDoEnvio(Exception):
     @property
     def resumo(self):
         return self.mensagem.replace(f' {TEXTO_RENOVAR}', '') if self.renovar_autorizacao else self.mensagem
+
+
+class ArquivoAusenteNoDrive(ErroDoEnvio):
+    """O arquivo (ou a pasta dele) ainda não existe no Drive: não há o que ler. Não é falha do Drive — falta enviar o arquivo."""
+
+    def __init__(self, mensagem):
+        super().__init__(mensagem, status=404)
 
 
 # ---------- Conexão ----------
@@ -242,7 +253,8 @@ def _caminho(pasta_raiz, arquivo_de_referencia):
 # ---------- O que existe hoje no Drive ----------
 
 # Função Objetivo: Situação ATUAL de 1 arquivo de referência no Drive. Só leitura (não cria pasta nem arquivo).
-# Devolve {'existe', 'copias', 'tamanho_em_bytes', 'modificado_em', 'caminho'}.
+# Devolve {'existe', 'copias', 'tamanho_em_bytes', 'modificado_em', 'caminho', 'md5'} — `md5` é a impressão digital que o PRÓPRIO Drive
+# calcula do arquivo (None se não existir ou se o Drive não informar); a tela compara com a do último arquivo que o sistema leu.
 def consultar_no_drive(arquivo_de_referencia):
     servico = _servico_do_drive()
     with _traduzindo_falhas_do_google():
@@ -252,11 +264,76 @@ def consultar_no_drive(arquivo_de_referencia):
         copias = _listar_copias(servico, pasta_id, arquivo_de_referencia.nome_no_drive) if pasta_id else []
 
     if not copias:
-        return {'existe': False, 'copias': 0, 'tamanho_em_bytes': None, 'modificado_em': None, 'caminho': caminho}
+        return {'existe': False, 'copias': 0, 'tamanho_em_bytes': None, 'modificado_em': None, 'caminho': caminho, 'md5': None}
     atual = copias[0]
     return {
         'existe': True, 'copias': len(copias), 'tamanho_em_bytes': _tamanho(atual),
-        'modificado_em': _quando(atual), 'caminho': caminho,
+        'modificado_em': _quando(atual), 'caminho': caminho, 'md5': (atual.get('md5Checksum') or '').lower() or None,
+    }
+
+
+# ---------- Leitura ----------
+
+# Função Objetivo: Lê o arquivo que está HOJE no Drive para a memória do servidor (só leitura: não cria nada, não grava em disco —
+# o conteúdo vive só durante a importação e depois some; o servidor guarda apenas código e banco, decisão de 09/10/2026).
+# Devolve {'conteudo' (bytes), 'nome', 'tamanho_em_bytes', 'modificado_em', 'copias', 'caminho', 'md5'}.
+# * [EXPLICAÇÃO] → Se houver mais de 1 arquivo com o nome (alguém subiu à mão), vale o mais recente — a mesma regra do envio e da
+#   consulta — e `copias` avisa quantos existem. Arquivo ausente vira ArquivoAusenteNoDrive (falta enviar, não é falha do Drive).
+# * [IMPORTANTE] → Confere o que chegou com o que o Drive disse ter (MD5 e tamanho): só devolve bytes que bateram, nunca meio arquivo.
+#   O tamanho máximo é o mesmo da conferência na tela (TAMANHO_MAXIMO_DO_ARQUIVO): maior que isso não é uma tabela de referência.
+def ler_do_drive(arquivo_de_referencia):
+    servico = _servico_do_drive()
+    nome = arquivo_de_referencia.nome_no_drive
+
+    with _trava_do_arquivo(arquivo_de_referencia.id), _traduzindo_falhas_do_google():
+        pasta_raiz = _conferir_pasta_raiz(servico)
+        caminho = _caminho(pasta_raiz, arquivo_de_referencia)
+        pasta_id = _achar_pasta(servico, pasta_raiz['id'], arquivo_de_referencia.pasta_no_drive)
+        copias = _listar_copias(servico, pasta_id, nome) if pasta_id else []
+        if not copias:
+            raise ArquivoAusenteNoDrive(
+                f'O Drive ainda não tem “{nome}” em “{caminho}”. Envie o arquivo pelo cartão dele e atualize de novo.',
+            )
+        atual = copias[0]
+        if (atual.get('mimeType') or '').startswith(PREFIXO_MIME_NATIVO_DO_GOOGLE):
+            raise ErroDoEnvio(
+                f'No Drive, “{nome}” é uma Planilha do Google (não um arquivo .xlsx). '
+                'Renomeie ou apague essa planilha no Drive e envie o arquivo de novo pelo cartão.',
+                409,
+            )
+        tamanho_no_drive = _tamanho(atual)
+        if tamanho_no_drive is not None and tamanho_no_drive > TAMANHO_MAXIMO_DO_ARQUIVO:
+            raise ErroDoEnvio(
+                f'O arquivo “{nome}” no Drive é grande demais ({tamanho_no_drive // (1024 * 1024)} MB) para uma tabela de referência. '
+                'Confira se é o arquivo certo.',
+                413,
+            )
+        try:
+            conteudo = servico.files().get_media(fileId=atual['id'], supportsAllDrives=True).execute()
+        except HttpError as erro:
+            if getattr(erro.resp, 'status', None) != 404:
+                raise
+            # Existia na listagem e sumiu no instante seguinte (alguém mexeu na pasta): não é problema da pasta raiz.
+            logger.warning('Drive: o arquivo sumiu entre a listagem e a leitura', exc_info=True)
+            raise ErroDoEnvio('O arquivo mudou de lugar no Drive durante a leitura. Tente de novo.', 409) from erro
+
+    md5_do_drive = (atual.get('md5Checksum') or '').lower()
+    md5_lido = hashlib.md5(conteudo, usedforsecurity=False).hexdigest()
+    veio_inteiro = (
+        md5_do_drive == md5_lido if md5_do_drive else (tamanho_no_drive is None or tamanho_no_drive == len(conteudo))
+    )
+    if not veio_inteiro or len(conteudo) > TAMANHO_MAXIMO_DO_ARQUIVO:
+        logger.error('Drive: a leitura não bateu (Drive md5=%s, %s bytes; lido md5=%s, %s bytes)',
+                     md5_do_drive, tamanho_no_drive, md5_lido, len(conteudo))
+        raise ErroDoEnvio(
+            'O arquivo que chegou do Drive não bateu com o que o Drive informou (a conferência de integridade falhou). '
+            'Tente de novo; se repetir, avise o desenvolvedor.',
+            502,
+        )
+
+    return {
+        'conteudo': conteudo, 'nome': nome, 'tamanho_em_bytes': len(conteudo), 'modificado_em': _quando(atual),
+        'copias': len(copias), 'caminho': caminho, 'md5': md5_lido,
     }
 
 
@@ -283,7 +360,7 @@ def _mandar_copias_repetidas_para_a_lixeira(servico, repetidas):
 
 
 # Função Objetivo: Envia `conteudo` (bytes do .xlsx JÁ conferido) para a pasta certa do Drive, trocando o que estiver lá.
-# Devolve {'nome', 'tamanho_em_bytes', 'modificado_em', 'substituiu', 'copias_removidas', 'copias_que_ficaram', 'caminho'}.
+# Devolve {'nome', 'tamanho_em_bytes', 'modificado_em', 'substituiu', 'copias_removidas', 'copias_que_ficaram', 'caminho', 'md5'}.
 def enviar_para_o_drive(arquivo_de_referencia, conteudo):
     servico = _servico_do_drive()
     md5_do_envio = hashlib.md5(conteudo, usedforsecurity=False).hexdigest()
@@ -330,5 +407,5 @@ def enviar_para_o_drive(arquivo_de_referencia, conteudo):
         'nome': nome, 'tamanho_em_bytes': tamanho_no_drive if tamanho_no_drive is not None else len(conteudo),
         'modificado_em': _quando(gravado), 'substituiu': bool(copias),
         'copias_removidas': removidas, 'copias_que_ficaram': que_ficaram,
-        'caminho': _caminho(pasta_raiz, arquivo_de_referencia),
+        'caminho': _caminho(pasta_raiz, arquivo_de_referencia), 'md5': md5_do_envio,
     }

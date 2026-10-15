@@ -1,0 +1,14 @@
+{% comment %}
+1 linha da janela "Atualizar o sistema com o Drive" ANTES de o arquivo ser atualizado ("Aguardando"). O JS dispara os arquivos um depois do outro
+(evento "arq-atualizar"): cada linha manda 1 POST e se troca pela linha de resultado (estrutura_parcial_resultado_atualizacao.html).
+Enquanto o pedido está em andamento o HTMX põe a classe "htmx-request" e o CSS mostra "Atualizando…" no lugar de "Aguardando".
+{% endcomment %}
+<li class="arq-atu arq-atu--pendente" id="arq-atu-{{ arquivo.id }}" data-arq-status="pendente"
+    hx-post="{% url 'arquivos_referencia_atualizar' arquivo.id %}" hx-trigger="arq-atualizar" hx-swap="outerHTML">
+    <div class="arq-atu__topo">
+        <span class="arq-atu__icone"><i class="fas {{ arquivo.icone }}" aria-hidden="true"></i></span>
+        <span class="arq-atu__nome">{{ arquivo.nome }}</span>
+        <span class="arq-pill arq-pill--aguardando arq-atu__espera"><i class="fas fa-clock" aria-hidden="true"></i> Aguardando</span>
+        <span class="arq-pill arq-pill--aguardando arq-atu__andando"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Atualizando…</span>
+    </div>
+</li>
