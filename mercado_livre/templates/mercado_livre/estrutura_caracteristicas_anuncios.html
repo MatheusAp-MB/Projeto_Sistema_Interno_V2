@@ -2,19 +2,31 @@
 {% load static %}
 {% block titulo %}Características dos anúncios — Mercado Livre{% endblock %}
 {% block toolbar_titulo %}Características dos anúncios — Mercado Livre{% endblock %}
+{% comment %}
+* [EXPLICAÇÃO] → "car-tela" no <body> liga, no CSS desta tela, o ajuste que deixa
+  a barra de envio colada no pé da janela: a área de conteúdo do layout global
+  tem "overflow: auto", e isso impede qualquer "position: sticky" de grudar
+  na janela. Só esta tela troca para "overflow: clip".
+{% endcomment %}
+{% block body_class %}car-tela{% endblock %}
 {% block head_extra %}
+    {# CSS do modal de cadastro do produto (o mesmo da tela de Produtos), antes do CSS desta tela. #}
+    <link rel="stylesheet" href="{% static 'produtos/css/layout_produtos.css' %}">
     <link rel="stylesheet"
           href="{% static 'mercado_livre/css/layout_caracteristicas_anuncios.css' %}">
 {% endblock %}
 {% block conteudo %}
     {% comment %}
-    * [RESUMO] → Tela "Características dos anúncios" do Mercado Livre.
+    * [RESUMO] → Tela "Características dos anúncios" do Mercado Livre. Serve para
+      deixar TODOS os anúncios do mesmo produto (SKU) com a mesma ficha técnica:
+      a pessoa corrige UM campo e ele vale para todos os anúncios que pedem esse
+      campo (1 envio por anúncio).
       Tudo que aparece aqui vem do BANCO. A API do ML só é chamada pelos
       3 botões desta tela ("Fazer varredura completa", o "Atualizar" de cada
       produto e o "Confirmar envio" da janela de envio) — abrir, filtrar,
-      paginar, expandir um produto, digitar ou "Revisar e enviar" nunca chama
-      a API. Não existe rascunho: o que se digita em "Valor a enviar" vive só
-      nesta página até ser enviado.
+      paginar, expandir um produto, abrir os detalhes de um campo, digitar ou
+      "Revisar e enviar" nunca chama a API. Não existe rascunho: o que se
+      digita em "Valor a enviar" vive só nesta página até ser enviado.
     {% endcomment %}
     <div class="car-pagina"
          data-url-varredura-iniciar="{% url 'mercado_livre_caracteristicas_varredura_iniciar' %}"
@@ -22,45 +34,54 @@
 
         <form id="car-csrf" hidden>{% csrf_token %}</form>
 
+        <p class="car-subtitulo">Uma correção por campo, aplicada aos anúncios do produto que pedem esse campo.</p>
+
         <section class="car-painel" aria-label="Leitura do Mercado Livre">
-            <div class="car-painel-icone" aria-hidden="true"><i class="fas fa-database"></i></div>
             <div class="car-painel-texto">
-                <h2 class="car-painel-titulo">Leitura do Mercado Livre</h2>
+                <h2 class="car-painel-titulo">
+                    <i class="fas fa-database" aria-hidden="true"></i> Leitura do Mercado Livre
+                    <span class="car-pilula car-pilula--info">Dados salvos no banco</span>
+                </h2>
                 <p class="car-painel-aviso">
-                    Esta tela mostra só o que já está salvo no banco. O Mercado Livre é consultado
-                    apenas quando você clica em <strong>Fazer varredura completa</strong>, em
-                    <strong>Atualizar</strong> (na linha de um produto) ou em
-                    <strong>Confirmar envio</strong> (na janela de envio de características).
+                    Abrir fichas, buscar e filtrar <strong>não consulta o Mercado Livre</strong>. Somente
+                    <strong>Fazer varredura completa</strong>, <strong>Atualizar</strong> (na linha de um produto) e
+                    <strong>Confirmar envio</strong> (na janela de envio) fazem chamadas à API.
                 </p>
-                {% if ultima_varredura %}
-                    <p class="car-painel-ultima">
-                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
-                        <span>Última varredura completa: <strong>{{ ultima_varredura.iniciada_txt }}</strong>
-                        — {{ ultima_varredura.anuncios_lidos }} de {{ ultima_varredura.total_anuncios }}
-                        anúncio{{ ultima_varredura.total_anuncios|pluralize }} e {{ ultima_varredura.categorias_lidas }}
-                        categoria{{ ultima_varredura.categorias_lidas|pluralize }} lidos
-                        ({{ ultima_varredura.get_situacao_display|lower }}{% if ultima_varredura.usuario %}, por {{ ultima_varredura.usuario }}{% endif %}).</span>
-                    </p>
-                    {% if ultima_varredura.falhas_lista %}
-                        <details class="car-falhas">
-                            <summary>{{ ultima_varredura.falhas_lista|length }} falha{{ ultima_varredura.falhas_lista|length|pluralize }} nessa varredura</summary>
-                            <ul>
-                                {% for falha in ultima_varredura.falhas_lista %}
-                                    <li><code>{{ falha.id|default:falha.tipo }}</code> — {{ falha.erro }}</li>
-                                {% endfor %}
-                            </ul>
-                        </details>
-                    {% endif %}
-                {% else %}
-                    <p class="car-painel-ultima">
-                        <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+                <div class="car-painel-meta">
+                    {% if ultima_varredura %}
+                        <span>Última varredura: <strong>{{ ultima_varredura.iniciada_txt }}</strong>
+                            ({{ ultima_varredura.get_situacao_display|lower }}{% if ultima_varredura.usuario %}, por {{ ultima_varredura.usuario }}{% endif %})</span>
+                        <span><strong>{{ ultima_varredura.anuncios_lidos }}/{{ ultima_varredura.total_anuncios }}</strong> anúncio{{ ultima_varredura.total_anuncios|pluralize }}</span>
+                        <span><strong>{{ ultima_varredura.categorias_lidas }}</strong> categoria{{ ultima_varredura.categorias_lidas|pluralize }}</span>
+                        {% if ultima_varredura.chamadas_total %}
+                            <span>Chamadas reais: <strong>{{ ultima_varredura.chamadas_total }}</strong>
+                                ({{ ultima_varredura.chamadas_anuncios }} de anúncios + {{ ultima_varredura.chamadas_categorias }} de categorias)</span>
+                        {% else %}
+                            <span>Chamadas reais: <strong>não registradas</strong> (varredura anterior à contagem)</span>
+                        {% endif %}
+                    {% else %}
                         <span>Nenhuma varredura completa foi feita ainda.</span>
-                    </p>
+                    {% endif %}
+                    <span>Estimativa de uma nova varredura: <strong>{{ estimativa.n_chamadas }} chamadas</strong></span>
+                    <span id="car-sessao-chamadas" title="Soma das chamadas à API feitas por esta tela nesta aba do navegador (zera ao fechar a aba). O número de cada operação vem do servidor e inclui repetições pedidas pelo Mercado Livre.">
+                        Nesta sessão: <strong data-campo="sessao-total">0</strong> chamadas
+                        <small data-campo="sessao-detalhe"></small>
+                    </span>
+                </div>
+                {% if ultima_varredura and ultima_varredura.falhas_lista %}
+                    <details class="car-falhas">
+                        <summary>{{ ultima_varredura.falhas_lista|length }} falha{{ ultima_varredura.falhas_lista|length|pluralize }} nessa varredura</summary>
+                        <ul>
+                            {% for falha in ultima_varredura.falhas_lista %}
+                                <li><code>{{ falha.id|default:falha.tipo }}</code> — {{ falha.erro }}</li>
+                            {% endfor %}
+                        </ul>
+                    </details>
                 {% endif %}
             </div>
             <div class="car-painel-acao">
                 <button type="button"
-                        class="car-btn car-btn--claro"
+                        class="car-btn car-btn--escuro"
                         id="car-btn-varredura"
                         data-bs-toggle="modal"
                         data-bs-target="#car-modal-varredura">
@@ -112,8 +133,9 @@
                            id="car-busca"
                            name="busca"
                            value="{{ busca }}"
-                           placeholder="Buscar por SKU, título, marca ou MLB"
-                           aria-label="Buscar por SKU, título, marca ou MLB"
+                           placeholder="Buscar por SKU, EAN, título, marca ou MLB"
+                           aria-label="Buscar por SKU, EAN, título, marca ou MLB"
+                           autocomplete="off"
                            class="car-campo">
                 </div>
                 <select name="marca" id="car-marca" class="car-campo car-campo--marca" aria-label="Marca">
@@ -141,16 +163,14 @@
             {% endif %}
         </div>
 
-        <section class="car-lista" aria-label="Produtos">
+        <section class="car-lista" aria-label="Produtos do ERP">
             <div class="car-lista-cab" aria-hidden="true">
-                <div class="car-lista-cab-grade">
-                    <span></span>
-                    <span>Leitura</span>
-                    <span>SKU</span>
-                    <span>Produto</span>
-                    <span>Última leitura</span>
-                </div>
-                <span class="car-lista-cab-espaco"></span>
+                <span>Foto</span>
+                <span>Produto e EAN</span>
+                <span>SKU e marca</span>
+                <span>Leitura e anúncios</span>
+                <span>Última leitura</span>
+                <span>Ações</span>
             </div>
 
             {% for produto in pagina.object_list %}
@@ -195,7 +215,8 @@
                         </ul>
                         <p class="car-modal-nota">
                             Pode levar alguns minutos. Os dados lidos substituem os que estão salvos.
-                            Se o Mercado Livre trocou algum anúncio de categoria, o número real pode ser um pouco diferente.
+                            Quando terminar, a tela mostra quantas chamadas foram realmente feitas
+                            (o número real pode ser um pouco maior: o Mercado Livre às vezes pede para repetir uma chamada).
                         </p>
                     </div>
                     <div class="modal-footer">
@@ -208,9 +229,9 @@
 
         {% comment %}
         * [RESUMO] → Janela do envio de características: primeiro mostra a prévia
-          ("Revisar o envio", montada só com dados do banco) e, se o usuário
-          confirmar, o resultado do envio. Não fecha clicando fora nem com Esc,
-          para ninguém perder o resultado sem querer.
+          ("Revisar o envio": ESTAVA ASSIM → VAI FICAR ASSIM, por campo, montada só
+          com dados do banco) e, se o usuário confirmar, o resultado do envio. Não
+          fecha clicando fora nem com Esc, para ninguém perder o resultado sem querer.
         {% endcomment %}
         <div class="modal fade" id="car-modal-envio" tabindex="-1" aria-labelledby="car-modal-envio-titulo" aria-hidden="true"
              data-bs-backdrop="static" data-bs-keyboard="false">
@@ -231,8 +252,28 @@
                 </div>
             </div>
         </div>
+
+        {# Gaveta de detalhes de um campo e painel "entrada e saída da IA": o JS desenha aqui dentro. #}
+        <div id="car-overlay-root"></div>
+        <div id="car-anunciador" class="car-sr-only" aria-live="polite"></div>
+    </div>
+
+    {# O MESMO modal de cadastro da tela de Produtos (conteúdo trazido por HTMX de painel_produto). #}
+    <div class="modal fade" id="modal-produto" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" id="modal-produto-header">
+                    <h5 class="modal-title" id="modal-produto-titulo-header">Detalhes do Produto</h5>
+                    <button type="button" id="modal-produto-btn-fechar" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="modal-conteudo"></div>
+            </div>
+        </div>
     </div>
 {% endblock %}
 {% block scripts %}
+    <script src="{% static 'produtos/js/script_produtos.js' %}"></script>
     <script src="{% static 'mercado_livre/js/script_caracteristicas_anuncios.js' %}"></script>
 {% endblock %}

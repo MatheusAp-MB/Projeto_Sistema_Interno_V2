@@ -23,6 +23,15 @@
     --car-linha: #e1e8f1;
     --car-linha-forte: #c7d2e0;
     --car-superficie: #f3f6fa;
+
+    /* Zonas da ficha: o fundo do produto aberto é um azul-acinzentado mais firme que o
+       branco dos painéis; as faixas (cabeçalhos e barras de ferramentas) são um tom
+       azul-claro; o "poço" onde ficam os cards é um passo mais claro que o fundo. */
+    --car-zona-fundo: #e3eaf3;
+    --car-faixa: #dde9f5;
+    --car-faixa-borda: #bcd0e4;
+    --car-faixa-suave: #f1f5fa;
+    --car-poco: #edf2f8;
     --car-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
     /* Azul: informação e ação. */
@@ -208,77 +217,87 @@
 /* ================================================
    PAINEL DA LEITURA (botão "Fazer varredura completa")
    ================================================ */
+/* * [EXPLICAÇÃO] → Faixa branca e compacta (borda marinho à esquerda): diz de
+   onde vêm os dados, mostra a última varredura (com as chamadas REAIS que ela
+   gastou), a estimativa da próxima e a soma de chamadas desta sessão. */
 .car-painel {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) auto;
     align-items: center;
-    gap: 16px 22px;
-    padding: 20px 24px;
-    background: var(--cor-primaria);
+    gap: 14px 20px;
+    padding: 12px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-linha);
+    border-left: 4px solid var(--cor-primaria);
     border-radius: 10px;
-    color: var(--cor-texto-claro);
     box-shadow: var(--car-sombra);
 }
 
-.car-painel-icone {
-    flex: none;
-    display: grid;
-    place-items: center;
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.12);
-    font-size: 1.4rem;
-}
-
 .car-painel-texto {
-    flex: 1 1 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .car-painel-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
     margin: 0;
-    font-size: 1.125rem;
-    color: var(--cor-texto-claro);
+    font-family: "Open Sans", sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+.car-painel-titulo > i {
+    color: var(--cor-primaria-clara);
 }
 
 .car-painel-aviso {
     margin: 0;
-    max-width: 80ch;
-    color: rgba(255, 255, 255, 0.84);
+    max-width: 95ch;
+    font-size: 0.75rem;
+    line-height: 1.55;
+    color: var(--car-texto-suave);
 }
 
 .car-painel-aviso strong {
-    color: var(--cor-texto-claro);
+    color: var(--cor-primaria);
 }
 
-.car-painel-ultima {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin: 0;
-    padding: 6px 12px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    font-size: 0.8125rem;
-    color: var(--cor-texto-claro);
+.car-painel-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+    margin-top: 2px;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
 }
 
-.car-painel-ultima i {
-    margin-top: 3px;
-    opacity: 0.8;
+.car-painel-meta strong {
+    color: var(--cor-primaria);
+    font-variant-numeric: tabular-nums;
+}
+
+.car-painel-meta small {
+    margin-left: 4px;
+    font-size: 0.6875rem;
 }
 
 .car-painel-acao {
     flex: none;
 }
 
+.car-falhas {
+    font-size: 0.75rem;
+}
+
 .car-falhas summary {
     cursor: pointer;
-    color: #fcd77a;
+    color: var(--car-ambar-texto);
     font-weight: 700;
 }
 
@@ -287,12 +306,65 @@
     padding-left: 20px;
     max-height: 180px;
     overflow: auto;
-    font-size: 0.8125rem;
 }
 
 .car-falhas code {
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--car-texto-suave);
 }
+
+.car-subtitulo {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+/* Botões extras: escuro (varredura), pequeno e mini (barras e gaveta). */
+.car-btn--escuro {
+    background: #193c5d;
+    border-color: #193c5d;
+    color: var(--cor-texto-claro);
+}
+
+.car-btn--escuro:hover {
+    background: #295374;
+    border-color: #295374;
+    color: var(--cor-texto-claro);
+}
+
+.car-btn--pequeno {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 0.75rem;
+}
+
+.car-btn--mini {
+    min-height: 28px;
+    padding: 0 9px;
+    gap: 5px;
+    border-radius: 6px;
+    background: var(--cor-fundo-card);
+    border-color: var(--car-azul-200);
+    color: var(--car-azul-acao);
+    font-size: 0.6875rem;
+}
+
+.car-btn--mini:hover:not(:disabled) {
+    background: var(--car-azul-100);
+    color: var(--cor-primaria);
+}
+
+.car-sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 
 /* ================================================
    PROGRESSO E RESULTADO DA VARREDURA
@@ -583,45 +655,39 @@
 /* ================================================
    LISTA DE PRODUTOS
    ================================================ */
+/* * [EXPLICAÇÃO] → 6 colunas, iguais no cabeçalho e em cada linha: foto,
+   produto (título + EAN), SKU e marca, leitura e anúncios, última leitura e
+   ações. "overflow: clip" (e não "hidden") de propósito: a barra de envio da
+   ficha usa "position: sticky" e não pode ter uma caixa de rolagem entre ela e
+   a janela. */
 .car-lista {
-    --car-colunas: 18px 150px 168px minmax(0, 1fr) 120px;
-    --car-largura-acao: 136px;
+    --car-colunas: 56px minmax(220px, 1.55fr) minmax(120px, 0.85fr) minmax(150px, 1.05fr) 112px 108px;
 
     background: var(--cor-fundo-card);
     border: 1px solid var(--car-linha);
     border-radius: 10px;
     box-shadow: var(--car-sombra);
     overflow: hidden;
+    overflow: clip;
 }
 
 /* Cabeçalho em azul-marinho, como o cabeçalho da tabela de frete. */
 .car-lista-cab {
-    display: flex;
+    display: grid;
+    grid-template-columns: var(--car-colunas);
     align-items: center;
-    padding: 11px 20px;
+    gap: 12px;
+    padding: 10px 12px 10px 17px;
     background: var(--cor-primaria);
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: rgba(255, 255, 255, 0.9);
 }
 
-.car-lista-cab-grade,
-.car-produto-toggle {
-    display: grid;
-    grid-template-columns: var(--car-colunas);
-    align-items: center;
-    gap: 14px;
-}
-
-.car-lista-cab-grade {
-    flex: 1 1 0;
-    min-width: 0;
-}
-
-.car-lista-cab-espaco {
-    flex: 0 0 var(--car-largura-acao);
+.car-lista-cab > :last-child {
+    text-align: right;
 }
 
 /* A faixa da esquerda mostra, de longe, em que pé está cada produto. */
@@ -639,78 +705,172 @@
     border-bottom: 0;
 }
 
-.car-produto-cab {
-    display: flex;
+.car-produto-linha {
+    display: grid;
+    grid-template-columns: var(--car-colunas);
     align-items: center;
-    padding-right: 20px;
+    gap: 12px;
+    min-height: 74px;
+    padding: 8px 12px;
+    cursor: pointer;
 }
 
-.car-produto--aberto .car-produto-cab {
+.car-produto-linha:hover {
+    background: #f9fbfd;
+}
+
+.car-produto--aberto > .car-produto-linha {
     background: var(--car-azul-50);
 }
 
-.car-produto-toggle {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 14px 0 14px 15px;
-    border: 0;
-    background: transparent;
-    text-align: left;
+.car-produto-foto {
+    display: grid;
+    place-items: center;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 7px;
+    background: linear-gradient(145deg, #f8fbfd, #e5edf4);
+    color: #90a6b8;
+    font-size: 1.25rem;
     cursor: pointer;
-    font: inherit;
-    color: inherit;
+}
+
+.car-produto-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
+}
+
+.car-produto-foto--vazia {
+    cursor: default;
+}
+
+button.car-produto-foto:hover {
+    border-color: var(--cor-primaria-clara);
+}
+
+.car-produto-principal {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.car-produto-toggle {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 27px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 6px;
+    background: var(--cor-fundo-card);
+    cursor: pointer;
 }
 
 .car-produto-toggle:hover {
     background: var(--car-azul-50);
 }
 
-.car-produto-acao {
-    flex: 0 0 var(--car-largura-acao);
-    display: flex;
-    justify-content: flex-end;
-}
-
-.car-btn--atualizar {
-    min-height: 36px;
-    padding: 0 14px;
+.car-produto-toggle[aria-expanded="true"] {
+    background: var(--car-azul-100);
+    border-color: var(--car-azul-200);
 }
 
 .car-chevron {
     color: var(--car-azul-acao);
+    font-size: 0.75rem;
     transition: transform 0.15s;
 }
 
-[aria-expanded="true"] > .car-chevron {
-    transform: rotate(180deg);
+.car-produto-toggle[aria-expanded="true"] .car-chevron,
+.car-tabela-toggle[aria-expanded="true"] .car-chevron {
+    transform: rotate(90deg);
 }
 
-.car-leitura {
+.car-grupo-toggle[aria-expanded="false"] .car-chevron {
+    transform: rotate(-90deg);
+}
+
+.car-produto-abrir {
+    min-width: 0;
+    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
-    min-width: 0;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    font: inherit;
+    color: inherit;
 }
 
-.car-leitura-lidos {
+.car-produto-titulo {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--cor-primaria);
+    overflow-wrap: anywhere;
+}
+
+.car-produto-meta {
+    font-size: 0.6875rem;
+    color: var(--car-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.car-produto-id {
+    min-width: 0;
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.car-produto-nota {
+    font-size: 0.6875rem;
+    color: var(--car-texto-suave);
+    overflow-wrap: anywhere;
+}
+
+.car-produto-leitura {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.car-produto-leitura-linha {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    width: 100%;
+    gap: 4px 8px;
 }
 
 .car-produto-lidos {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     color: var(--car-texto-suave);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
 .car-mini-barra {
-    flex: 1 1 auto;
-    min-width: 36px;
-    height: 6px;
+    width: 100%;
+    max-width: 120px;
+    height: 5px;
     -webkit-appearance: none;
     appearance: none;
     border: 0;
@@ -742,47 +902,34 @@
     background: var(--car-cinza-50);
     border: 1px solid var(--car-linha);
     font-family: var(--car-mono);
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--cor-primaria);
     white-space: nowrap;
 }
 
-.car-produto-nome {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.car-produto-titulo {
-    font-weight: 700;
-    color: var(--cor-primaria);
-    overflow-wrap: anywhere;
-}
-
-.car-produto-meta {
-    font-size: 0.75rem;
-    color: var(--car-texto-suave);
-    overflow-wrap: anywhere;
-}
-
-/* Lembrete na linha do produto quando há valor digitado e não enviado. */
+/* Lembrete na linha do produto quando há valor preparado e não enviado. */
 .car-produto-alterados {
-    align-self: flex-start;
-    margin-top: 4px;
-    padding: 1px 8px;
-    border: 1px dashed var(--car-azul-acao);
-    border-radius: 999px;
-    background: var(--cor-fundo-card);
-    color: var(--car-azul-acao);
-    font-size: 0.75rem;
-    font-weight: 700;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .car-produto-ultima {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.8125rem;
+    font-family: var(--car-mono);
+    font-size: 0.6875rem;
     color: var(--car-texto-suave);
+}
+
+.car-produto-acao {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.car-btn--atualizar {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 0.75rem;
 }
 
 .car-produto-aviso {
@@ -800,7 +947,11 @@
 .car-tabela-painel[hidden],
 .car-tabela-vazia[hidden],
 .car-cards-vazio[hidden],
-.car-card[hidden] {
+.car-grupo-vazio[hidden],
+.car-cards-grade[hidden],
+.car-card[hidden],
+.car-grupo[hidden],
+.car-produto-alterados[hidden] {
     display: none;
 }
 
@@ -808,18 +959,29 @@
 .car-produto-aviso--alerta { background: var(--car-ambar-100); color: var(--car-ambar-texto); }
 .car-produto-aviso--ok     { background: var(--car-verde-100); color: var(--car-verde-texto); }
 
-/* Produto aberto: o fundo azul-claro destaca os cards brancos. */
+/* Produto aberto: o fundo azul-acinzentado faz os painéis brancos "saltarem" e
+   mostra, de longe, onde começa e termina a ficha deste produto. */
 .car-produto-corpo {
-    padding: 20px 24px 24px;
-    background: var(--car-azul-50);
-    border-top: 1px solid var(--car-azul-100);
+    padding: 14px;
+    background: var(--car-zona-fundo);
+    border-top: 1px solid var(--car-faixa-borda);
 }
 
 .car-vazio {
     margin: 0;
-    padding: 28px 16px;
+    padding: 22px 12px;
+    border: 1px dashed var(--car-linha-forte);
+    border-radius: 8px;
+    background: #f7fafd;
     text-align: center;
+    font-size: 0.8125rem;
     color: var(--car-texto-suave);
+}
+
+.car-lista > .car-vazio {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
 }
 
 .car-paginacao {
@@ -839,54 +1001,281 @@
 .car-ficha {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 14px;
 }
 
-.car-ficha-resumo {
+/* Cabeçalho da ficha: a faixa azul-clara que abre o painel de contexto do produto. */
+.car-ficha-cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--car-faixa);
+    border-bottom: 1px solid var(--car-faixa-borda);
+}
+
+.car-ficha-cab-texto {
+    min-width: 0;
+}
+
+.car-ficha-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px;
+    font-family: "Nunito", sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+.car-ficha-sub {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 12px;
-    padding: 12px 16px;
+    gap: 6px 10px;
+}
+
+.car-ficha-texto-suave {
+    font-size: 0.6875rem;
+    color: var(--car-texto-suave);
+}
+
+/* Ícone "i" que guarda no balãozinho (title) as explicações que antes ficavam soltas na tela. */
+.car-ajuda {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: var(--car-azul-acao);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    cursor: help;
+}
+
+.car-ajuda:hover,
+.car-ajuda:focus-visible {
+    background: var(--car-azul-100);
+    outline: 0;
+}
+
+/* * [EXPLICAÇÃO] → DICAS: o balãozinho que aparece ao passar o mouse (ou ao focar com o
+   teclado) num elemento com explicação. O balão nativo do navegador (atributo
+   "title") não aceita estilo — sai preto com letra branca e muda de navegador
+   para navegador —, então o script troca o "title" por "data-dica" e desenha
+   este balão: fundo branco, borda azul-clara da tela, sombra suave e uma setinha
+   apontando para o elemento. Um só balão para a tela inteira. */
+.car-dica {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 2000;
+    max-width: min(340px, calc(100vw - 16px));
+    padding: 8px 11px;
+    border: 1px solid var(--car-faixa-borda);
+    border-radius: 8px;
     background: var(--cor-fundo-card);
-    border: 1px solid var(--car-azul-100);
+    box-shadow: 0 8px 24px rgba(15, 39, 68, 0.18), 0 2px 6px rgba(15, 39, 68, 0.1);
+    color: var(--car-texto-forte);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.45;
+    text-align: left;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.12s ease-out, visibility 0s linear 0.12s;
+}
+
+.car-dica--visivel {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.12s ease-out;
+}
+
+/* Setinha: um quadradinho girado, com a mesma borda do balão. */
+.car-dica::after {
+    content: "";
+    position: absolute;
+    left: var(--seta-x, 50%);
+    width: 9px;
+    height: 9px;
+    margin-left: -5px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-faixa-borda);
+    transform: rotate(45deg);
+}
+
+.car-dica:not(.car-dica--abaixo)::after {
+    bottom: -5px;
+    border-top: 0;
+    border-left: 0;
+}
+
+.car-dica--abaixo::after {
+    top: -5px;
+    border-right: 0;
+    border-bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .car-dica,
+    .car-dica--visivel {
+        transition: none;
+    }
+}
+
+/* * [EXPLICAÇÃO] → PAINEL DE CONTEXTO: cabeçalho da ficha, avisos, categorias e tabela de
+   anúncios viram UM painel só — linhas separadas por filetes, o cabeçalho numa faixa
+   azul-clara —, em vez de quatro caixas brancas soltas competindo entre si. */
+.car-ficha-contexto {
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-faixa-borda);
     border-radius: 10px;
     box-shadow: var(--car-sombra);
+    overflow: hidden;
+    overflow: clip;
 }
 
-.car-ficha-total {
-    font-family: "Nunito", sans-serif;
-    font-size: 1rem;
-    color: var(--cor-primaria);
+/* Na faixa azul do cabeçalho a pílula "info" some (é do mesmo azul): vira branca. */
+.car-ficha-cab .car-pilula--info,
+.car-ficha-cab .car-pilula--neutra {
+    background: var(--cor-fundo-card);
+    border-color: var(--car-azul-200);
 }
 
-.car-ficha-total i {
-    margin-right: 4px;
-    color: var(--cor-primaria-clara);
+.car-ficha-contexto > .car-avisos li {
+    border: 0;
+    border-bottom: 1px solid var(--car-ambar-200);
+    border-radius: 0;
 }
 
-.car-ficha-lidos {
-    color: var(--car-texto-suave);
+.car-ficha-contexto > .car-cobertura {
+    border: 0;
+    border-bottom: 1px solid var(--car-linha);
+    border-radius: 0;
 }
 
-.car-ficha-leitura {
-    margin-left: auto;
-    font-size: 0.75rem;
-    color: var(--car-texto-suave);
+.car-ficha-contexto > .car-tabela-bloco {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
 }
 
-.car-ficha-leitura i {
-    margin-right: 4px;
+.car-ficha-contexto > :last-child {
+    border-bottom: 0;
 }
 
-.car-etiqueta {
-    padding: 2px 10px;
-    border: 1px solid var(--car-azul-200);
-    border-radius: 999px;
+.car-ficha-cab-dir {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.car-cobertura {
+    padding: 0;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-linha);
+    border-radius: 8px;
+}
+
+/* "Categorias" e "Anúncios do produto" são duas gavetas de CONSULTA, com o mesmo peso:
+   mesma altura, mesmo título, mesmo chevron — nenhuma disputa com os cards. */
+.car-cobertura summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.car-cobertura summary::-webkit-details-marker {
+    display: none;
+}
+
+.car-cobertura summary:hover {
     background: var(--car-azul-50);
+}
+
+.car-cobertura summary:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: -2px;
+}
+
+.car-cobertura[open] > summary .car-chevron {
+    transform: rotate(90deg);
+}
+
+.car-cobertura-itens {
+    padding: 2px 14px 14px;
+}
+
+/* Tabela das categorias (mesmo cabeçalho da tabela de anúncios, numa caixa
+   própria com borda — ela é curta, então não precisa de rolagem vertical). */
+.car-tabela-rolagem--curta {
+    max-height: 320px;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 8px;
+}
+
+.car-tabela.car-tabela-categorias {
+    width: 100%;
+    min-width: 560px;
+}
+
+.car-tabela-categorias .car-col-cat-nome {
+    min-width: 170px;
+}
+
+.car-tabela-categorias td.car-col-cat-nome {
     color: var(--cor-primaria);
+}
+
+.car-tabela-categorias .car-col-cat-id {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.car-tabela-categorias .car-col-cat-id code {
+    font-family: var(--car-mono);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
+    color: var(--car-azul-acao);
+    background: none;
+}
+
+.car-tabela-categorias .car-col-cat-caminho {
+    min-width: 260px;
+}
+
+.car-tabela-categorias td.car-col-cat-caminho {
+    font-size: 0.75rem;
+    color: var(--car-texto-suave);
+}
+
+.car-tabela-categorias .car-col-cat-n {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.car-tabela-categorias td.car-col-cat-n {
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+.car-tabela-categorias .car-col-cat-vazio {
+    text-align: center;
+    color: var(--car-texto-suave);
 }
 
 .car-avisos {
@@ -902,11 +1291,12 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border: 1px solid var(--car-ambar-200);
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--car-ambar-50);
     color: var(--car-ambar-texto);
+    font-size: 0.8125rem;
     font-weight: 600;
 }
 
@@ -944,7 +1334,7 @@
     align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 14px;
     border: 0;
     background: var(--cor-fundo-card);
     text-align: left;
@@ -961,7 +1351,7 @@
     flex: none;
     font-family: "Nunito", sans-serif;
     font-weight: 800;
-    font-size: 1rem;
+    font-size: 0.875rem;
     color: var(--cor-primaria);
 }
 
@@ -976,12 +1366,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-}
-
-.car-tabela-dica {
-    flex: none;
-    font-size: 0.75rem;
-    color: var(--car-texto-suave);
 }
 
 .car-tabela-barra {
@@ -1086,20 +1470,49 @@
     color: var(--cor-texto-claro);
 }
 
-/* Colunas fixas à esquerda: MLB e Título. */
+/* Colunas fixas à esquerda: Foto, MLB e Título. */
+.car-tabela .car-col-foto,
 .car-tabela .car-col-mlb,
 .car-tabela .car-col-titulo {
     position: sticky;
     z-index: 3;
 }
 
+.car-tabela th.car-col-foto,
 .car-tabela th.car-col-mlb,
 .car-tabela th.car-col-titulo {
     z-index: 6;
 }
 
-.car-col-mlb {
+.car-col-foto {
     left: 0;
+    width: 64px;
+    min-width: 64px;
+    padding: 6px 10px !important;
+    text-align: center;
+    border-left: 0 !important;
+}
+
+.car-anuncio-foto {
+    display: block;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 6px;
+    background: #fff;
+    object-fit: contain;
+}
+
+.car-anuncio-foto--vazia {
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #f8fbfd, #e5edf4);
+    color: #90a6b8;
+    font-size: 1rem;
+}
+
+.car-col-mlb {
+    left: 64px;
     width: 130px;
     min-width: 130px;
     font-family: var(--car-mono);
@@ -1109,7 +1522,7 @@
 }
 
 .car-col-titulo {
-    left: 130px;
+    left: 194px;
     width: 280px;
     min-width: 280px;
     max-width: 280px;
@@ -1163,369 +1576,393 @@
     left: 0;
 }
 
-/* ================================================
-   SEÇÃO DE CARDS
-   ================================================ */
-.car-secao-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
 
-.car-secao-cab {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px 16px;
-}
-
-.car-secao-titulo {
+/* Seletor do campo mostrado na tabela de anúncios. */
+.car-tabela-escolha {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0;
-    font-size: 1.0625rem;
-    font-weight: 800;
-    color: var(--cor-primaria);
 }
 
-.car-secao-n {
-    min-width: 26px;
-    padding: 0 8px;
-    border-radius: 999px;
-    background: var(--cor-primaria);
-    color: var(--cor-texto-claro);
-    font-family: "Open Sans", sans-serif;
+.car-tabela-escolha-rotulo {
+    margin: 0;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--car-texto-suave);
+}
+
+.car-campo--compacto {
+    width: auto;
+    min-width: 180px;
+    max-width: 300px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 6px;
     font-size: 0.75rem;
-    font-weight: 700;
-    text-align: center;
+}
+
+.car-tabela th[hidden],
+.car-tabela td[hidden] {
+    display: none;
 }
 
 /* ================================================
-   GRUPOS DA FICHA (Características principais, Outros...)
+   FILTROS DOS CARDS E GRUPOS DA FICHA
    ================================================ */
-/* * [EXPLICAÇÃO] → Cada grupo da ficha do ML é uma seção: título com a
-   contagem e, abaixo, o grid de cards. O grupo some quando o filtro
+/* * [EXPLICAÇÃO] → PAINEL DE CARACTERÍSTICAS: a barra de filtros é a faixa azul-clara do topo,
+   cada grupo tem a sua faixa de título e os cards ficam num "poço" um tom mais escuro que o
+   branco do card — assim o olho separa na hora o que é ferramenta, título de grupo e campo. */
+.car-secao-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-faixa-borda);
+    border-radius: 10px;
+    box-shadow: var(--car-sombra);
+    overflow: hidden;
+    overflow: clip;
+}
+
+.car-filtros-cards {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 10px 14px;
+    background: var(--car-faixa);
+    border-bottom: 1px solid var(--car-faixa-borda);
+}
+
+.car-filtros-cards-titulo {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: var(--car-texto-suave);
+}
+
+.car-filtros-cards .car-chip-filtro {
+    min-height: 30px;
+    padding: 0 11px;
+    font-size: 0.75rem;
+}
+
+.car-ponto--azul { background: var(--car-azul-acao); }
+
+.car-chip-filtro--ativo .car-ponto--azul { background: var(--cor-texto-claro); }
+
+/* * [EXPLICAÇÃO] → Cada grupo da ficha do ML (Características principais,
+   Outros...) é uma seção que pode ser recolhida; some sozinha quando o filtro
    esconde todos os cards dele (o JS liga o atributo hidden). */
 .car-grupo {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0;
 }
 
-.car-grupo[hidden] {
-    display: none;
+.car-grupo + .car-grupo {
+    border-top: 1px solid var(--car-faixa-borda);
 }
 
-.car-grupo-titulo {
+.car-grupo-topo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 11px;
+    background: var(--car-faixa-suave);
+    border-bottom: 1px solid var(--car-linha);
+}
+
+.car-grupo-toggle {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 6px 0 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--car-linha-forte);
-    font-size: 0.9375rem;
+    padding: 3px;
+    border: 0;
+    background: transparent;
+    font-size: 0.875rem;
     font-weight: 800;
     color: var(--cor-primaria);
+    text-align: left;
+    cursor: pointer;
+}
+
+.car-grupo-toggle small {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--car-texto-suave);
+}
+
+.car-grupo-toggle:focus-visible,
+.car-card-detalhe:focus-visible,
+.car-btn-simnao:focus-visible,
+.car-limpar:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
 }
 
 /* ================================================
    CARDS
    ================================================ */
-/* * [EXPLICAÇÃO] → Cards sempre do MESMO tamanho (como no mockup aprovado):
-   3 por linha em tela larga, 2 em tela média, 1 no celular. Nenhum card
-   ocupa a linha inteira, nem os de texto. */
-.car-cards {
+/* * [EXPLICAÇÃO] → Cards COMPACTOS, todos da mesma altura (214 px; 196 px com a IA desligada).
+   A largura mínima de cada card é 320 px e o número de colunas é "quantos cards
+   de 320 px cabem na linha": quando a barra lateral fecha e sobra espaço, entra
+   MAIS UM card na linha (em vez de os cards existentes engordarem ou de sobrar
+   uma faixa vazia à direita). A sobra é repartida igualmente entre as colunas,
+   então os cards ficam entre 320 e ~430 px. Com poucos cards no grupo, as colunas
+   vazias continuam reservadas (auto-fill): o card não estica para a linha toda.
+   A ordem dentro do grupo é fixa (o servidor decide) e não muda enquanto a
+   pessoa digita. */
+.car-cards-grade {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px 14px;
+    background: var(--car-poco);
 }
 
-@media (min-width: 760px) {
-    .car-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.car-grupo > .car-grupo-vazio,
+.car-secao-cards > .car-cards-vazio {
+    margin: 12px 14px;
 }
 
-@media (min-width: 1280px) {
-    .car-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-/* A cor do cabeçalho e da borda conta a situação do campo. */
 .car-card {
-    --cab-fundo: var(--car-cinza-50);
-    --cab-linha: var(--car-cinza-100);
-    --card-borda: var(--car-linha-forte);
+    --card-faixa: #9baabc;
 
+    position: relative;
+    height: 214px;
+    min-width: 0;
     display: flex;
     flex-direction: column;
+    padding: 9px 10px;
     background: var(--cor-fundo-card);
-    border: 1px solid var(--card-borda);
-    border-radius: 10px;
-    box-shadow: var(--car-sombra);
-    overflow: hidden;
+    border: 1px solid #cfd9e6;
+    border-left: 3px solid var(--card-faixa);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(35, 65, 97, 0.08);
+    font-size: 0.75rem;
+    scroll-margin-top: 80px;
+    scroll-margin-bottom: 96px;
+    transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.car-card--uniforme {
-    --cab-fundo: var(--car-verde-50);
-    --cab-linha: var(--car-verde-100);
-    --card-borda: var(--car-verde-borda);
-}
-
+/* A faixa da esquerda conta a situação do campo hoje no Mercado Livre. */
 .car-card--diverge,
-.car-card--parcial {
-    --cab-fundo: var(--car-ambar-50);
-    --cab-linha: var(--car-ambar-100);
-    --card-borda: var(--car-ambar-200);
+.car-card--parcial  { --card-faixa: #e2aa32; }
+.car-card--uniforme { --card-faixa: #5ba576; }
+.car-card--erp      { --card-faixa: var(--cor-primaria-clara); }
+.car-card--vazio,
+.car-card--na       { --card-faixa: #abbaca; }
+
+.car-card--travado {
+    background: #fbfcfd;
 }
 
-.car-card--erp {
-    --cab-fundo: var(--car-azul-50);
-    --cab-linha: var(--car-azul-100);
-    --card-borda: var(--car-azul-200);
+/* Digitou algo neste card: o contorno azul conta que há valor esperando envio. */
+.car-card--alterado {
+    border-color: var(--car-azul-acao);
+    box-shadow: 0 0 0 1px var(--car-azul-acao), 0 1px 4px rgba(35, 65, 97, 0.06);
 }
 
-.car-card-cab {
+/* Valor digitado inválido (cliente) ou recusado (servidor): contorno vermelho. */
+.car-card--com-erro {
+    border-color: #d6636f;
+    box-shadow: 0 0 0 1px #d6636f, 0 1px 4px rgba(35, 65, 97, 0.06);
+}
+
+.car-card--com-erro .car-entrada {
+    border-color: #d95b65;
+    background: #fff6f5;
+}
+
+.car-card--destaque {
+    outline: 3px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+.car-card-topo {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
-    padding: 13px 16px 12px;
-    background: var(--cab-fundo);
-    border-bottom: 1px solid var(--cab-linha);
+    gap: 6px;
+    min-height: 36px;
 }
 
 .car-card-ident {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 2px;
 }
 
-/* Pílulas de estado empilhadas à direita do título. */
-.car-cab-estado {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-}
-
-/* Digitou algo neste card: a borda azul conta que há valor esperando envio. */
-.car-card--alterado {
-    --card-borda: var(--car-azul-acao);
-    box-shadow: 0 0 0 1px var(--car-azul-acao), var(--car-sombra);
-}
-
-.car-card--alterado .car-card-secao--envio {
-    background: var(--car-azul-50);
-    border-bottom-color: var(--car-azul-200);
-}
-
-/* O servidor recusou o valor: borda vermelha e a mensagem logo abaixo do campo. */
-.car-card--com-erro {
-    --card-borda: #d6636f;
-    box-shadow: 0 0 0 1px #d6636f, var(--car-sombra);
-}
-
-.car-card--com-erro .car-card-secao--envio {
-    background: var(--car-erro-fundo);
-    border-bottom-color: #f1b0b7;
-}
-
-.car-card--com-erro .car-entrada {
-    border-color: #d6636f;
-}
-
-.car-card-titulo {
+.car-card-nome {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    max-height: 32px;
     margin: 0;
-    font-family: "Nunito", sans-serif;
-    font-size: 1.0625rem;
+    overflow: hidden;
+    font-family: "Open Sans", sans-serif;
+    font-size: 0.75rem;
     font-weight: 800;
-    line-height: 1.25;
-    color: var(--cor-primaria);
+    line-height: 1.27;
+    color: #243950;
     overflow-wrap: anywhere;
 }
 
-.car-card-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 8px;
-}
-
-.car-card-api {
-    font-family: var(--car-mono);
-    font-size: 0.75rem;
-    color: var(--car-texto-suave);
-}
-
-/* Etiqueta de obrigatoriedade: "Obrigatório" é a mais forte. */
+/* Nível de obrigatoriedade: o marcador na frente diz o nível sem depender de cor. */
 .car-nivel {
     display: inline-flex;
     align-items: center;
+    gap: 4px;
+    margin-top: 1px;
+    font-size: 0.5625rem;
+    line-height: 1.2;
+    color: #697b90;
     white-space: nowrap;
-    padding: 1px 8px;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+}
+
+.car-nivel::before {
+    content: "○";
 }
 
 .car-nivel--obrigatorio {
-    background: var(--cor-primaria);
-    color: var(--cor-texto-claro);
+    font-weight: 800;
+    color: #935d00;
 }
 
+.car-nivel--obrigatorio::before { content: "●"; }
+
 .car-nivel--condicional {
+    font-weight: 700;
+    color: #935d00;
+}
+
+.car-nivel--condicional::before { content: "◆"; }
+
+.car-card-detalhe {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 25px;
+    height: 25px;
+    padding: 0;
+    border: 1px solid #e1e7ee;
+    border-radius: 6px;
+    background: #f7f9fc;
+    color: #59738b;
+    font-size: 0.6875rem;
+    cursor: pointer;
+}
+
+.car-card-detalhe:hover {
     background: var(--car-azul-100);
     border-color: var(--car-azul-200);
     color: var(--cor-primaria);
 }
 
-.car-nivel--recomendado {
-    background: var(--cor-fundo-card);
-    border-color: var(--car-linha-forte);
-    color: var(--car-texto-suave);
-}
-
-.car-card-secao {
-    padding: 12px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-/* Valor a enviar: faixa azul-clara e discreta (ainda é só o formato do campo). */
-.car-card-secao--envio {
-    background: var(--car-superficie);
-    border-bottom: 1px solid var(--car-linha);
-}
-
-.car-card-secao--ml {
-    flex: 1 1 auto;
-}
-
-.car-rotulo {
+.car-card-estado {
+    flex: none;
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--cor-primaria);
-}
-
-.car-rotulo i {
-    color: var(--cor-primaria-clara);
-}
-
-/* Rótulo com botão do lado direito ("Valor a enviar" + Desfazer). */
-.car-rotulo--com-acao {
-    justify-content: space-between;
-}
-
-.car-rotulo-texto {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.car-limpar {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 28px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--car-azul-acao);
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: none;
-    letter-spacing: 0;
-    cursor: pointer;
-}
-
-.car-limpar i {
-    color: inherit;
-}
-
-.car-limpar:hover {
-    background: var(--car-azul-100);
-    color: var(--cor-primaria);
-}
-
-.car-limpar:focus-visible {
-    outline: 2px solid var(--cor-primaria-clara);
-    outline-offset: 1px;
-}
-
-.car-ajuda {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75rem;
-    color: var(--car-texto-suave);
-}
-
-.car-ajuda i {
-    color: var(--car-texto-fraco);
-}
-
-.car-travado {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 0 12px;
-    background: var(--car-cinza-100);
-    border: 1px solid var(--car-linha-forte);
-    border-radius: 8px;
-    color: var(--car-cinza-600);
-}
-
-.car-travado input {
-    flex: 1;
+    gap: 5px;
     min-width: 0;
-    min-height: 38px;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    font-weight: 600;
-    color: var(--car-texto-forte);
+    height: 23px;
 }
 
-.car-card .car-campo { min-height: 40px; }
+.car-card .car-pilula {
+    max-width: 180px;
+    padding: 2px 7px;
+    overflow: hidden;
+    border-radius: 5px;
+    font-size: 0.625rem;
+    text-overflow: ellipsis;
+}
+
+.car-card-pend[data-ativo="0"] {
+    visibility: hidden;
+}
+
+.car-card-cobertura {
+    margin-left: auto;
+    font-size: 0.625rem;
+    color: #657b91;
+    white-space: nowrap;
+}
+
+.car-card-legenda {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 7px;
+    margin: 3px 0 4px;
+    font-size: 0.625rem;
+    color: #5d7288;
+}
+
+.car-card-legenda strong {
+    flex: none;
+    color: #4b6680;
+}
+
+.car-card-legenda span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.car-card-controle {
+    flex: none;
+    height: 36px;
+}
+
+.car-card-controle .car-campo {
+    min-height: 35px;
+    height: 35px;
+    padding: 0 10px;
+    border-color: #c9d4e1;
+    border-radius: 6px;
+    font-size: 0.75rem;
+}
+
+.car-card-controle .car-campo:focus {
+    outline: 0;
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 2px var(--car-azul-100);
+}
 
 .car-numero-unidade {
-    display: flex;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 90px;
+    gap: 6px;
 }
 
 .car-numero-unidade select {
-    flex: 0 0 104px;
-    width: 104px;
+    width: 100%;
 }
 
 .car-simnao {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    gap: 6px;
+    height: 35px;
 }
 
-/* Sim / Não: um clica para escolher, clica de novo para desmarcar ("não mexer"). */
+/* Sim / Não: um clique escolhe, outro clique no mesmo desmarca ("não mexer"). */
 .car-btn-simnao {
     flex: 1;
-    min-height: 40px;
-    border: 1px solid var(--car-linha-forte);
-    border-radius: 8px;
-    background: var(--cor-fundo-card);
-    color: var(--car-texto-forte);
+    height: 35px;
+    border: 1px solid #cbd7e3;
+    border-radius: 6px;
+    background: #f8fafd;
+    color: #465e76;
+    font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
 .car-btn-simnao:hover {
@@ -1534,21 +1971,95 @@
 }
 
 .car-btn-simnao[aria-pressed="true"] {
-    background: var(--car-azul-acao);
-    border-color: var(--car-azul-acao);
-    color: var(--cor-texto-claro);
+    background: #e8f3ff;
+    border-color: #5499cb;
+    color: #195888;
 }
 
-.car-btn-simnao:focus-visible {
-    outline: 2px solid var(--cor-primaria-clara);
-    outline-offset: 2px;
+.car-travado {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 35px;
+    padding: 0 10px;
+    background: #f3f5f8;
+    border: 1px dashed var(--car-linha-forte);
+    border-radius: 6px;
+    color: #426484;
+}
+
+.car-travado input {
+    flex: 1;
+    min-width: 0;
+    height: 33px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--car-texto-forte);
+}
+
+.car-card-regra {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    height: 21px;
+    color: #6c8091;
+    font-size: 0.625rem;
+}
+
+.car-card-origem {
+    min-width: 0;
+    overflow: hidden;
+    color: #566e85;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* De onde veio o valor que está no campo — a cor muda para a pessoa reparar. */
+.car-card[data-origem="usuario"] .car-card-origem,
+.car-card[data-origem="existente"] .car-card-origem {
+    color: #265d89;
+    font-weight: 700;
+}
+
+.car-card[data-origem="ia"] .car-card-origem,
+.car-card[data-origem="ia-editada"] .car-card-origem {
+    color: #5b3fa3;
+    font-weight: 700;
+}
+
+.car-card-regra-dir {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.car-limpar {
+    min-height: 20px;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--car-azul-acao);
+    font-size: 0.625rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.car-limpar:hover {
+    background: var(--car-azul-100);
+    color: var(--cor-primaria);
 }
 
 .car-caracteres {
-    align-self: flex-end;
-    font-size: 0.75rem;
+    font-size: 0.625rem;
     font-variant-numeric: tabular-nums;
-    color: var(--car-texto-fraco);
+    color: #7c8fa2;
 }
 
 .car-caracteres--excedido {
@@ -1556,31 +2067,107 @@
     font-weight: 700;
 }
 
+/* Mensagem de erro do campo: cobre a linha "de onde veio" enquanto o erro existir. */
 .car-erro-campo {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-size: 0.8125rem;
+    position: absolute;
+    right: 10px;
+    bottom: 50px;
+    left: 13px;
+    z-index: 1;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--car-erro-fundo);
+    color: #a72c38;
+    font-size: 0.625rem;
     font-weight: 700;
-    color: #a71d2a;
+    line-height: 1.4;
 }
 
-.car-erro-campo::before {
-    flex: none;
-    margin-top: 2px;
-    content: "\f057";
-    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
-    font-weight: 900;
-    font-size: 0.8125rem;
+.car-erro-campo[hidden] {
+    display: none;
 }
 
-.car-chips {
+/* O espaço da sugestão da IA (a IA ainda não está conectada): uma faixa lavanda colada no pé
+   do card — roxo é sempre a cor da IA nesta tela —, que sangra até as bordas dele. */
+.car-card-ia {
+    flex: 1 1 auto;
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
+    min-height: 0;
+    margin: 4px -10px -9px -10px;
+    padding: 6px 10px;
+    background: transparent;
+    border-top: 1px solid #e8edf2;
+    border-radius: 0 0 6px 6px;
 }
 
-/* Chip de valor: azul-claro por padrão; verde/âmbar/cinza quando o valor tem significado. */
+/* Cor só quando HÁ conteúdo: sem sugestão o espaço fica quieto (cinza); com sugestão
+   da IA vira lavanda — assim o olho vai direto para o que a IA realmente trouxe. */
+.car-card-ia:has(.car-card-ia-valor--sugestao) {
+    background: #f5f2fc;
+    border-top-color: #e3dcf4;
+}
+
+.car-card-ia-caixa {
+    min-width: 0;
+    flex: 1;
+}
+
+.car-card-ia-titulo {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    text-transform: uppercase;
+    color: #8b93a7;
+}
+
+.car-card-ia:has(.car-card-ia-valor--sugestao) .car-card-ia-titulo {
+    color: #6a4fb3;
+}
+
+.car-card-ia-valor {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.6875rem;
+    color: #8491a3;
+    font-style: italic;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.car-card-ia-valor--sugestao {
+    color: #475c70;
+    font-style: normal;
+}
+
+/* * [EXPLICAÇÃO] → Enquanto a IA não está conectada (data-ia="0"), repetir um bloco inteiro de
+   "Sugestão da IA" em cada card só pesa: a faixa vira UMA linha (título e aviso lado a lado) e o
+   card fica mais baixo. Quando a IA for conectada (data-ia="1") volta o bloco de duas linhas,
+   com espaço para a sugestão e o botão Aceitar. */
+.car-ficha[data-ia="0"] .car-card {
+    height: 196px;
+}
+
+.car-ficha[data-ia="0"] .car-card-ia-caixa {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.car-ficha[data-ia="0"] .car-card-ia-titulo {
+    flex: none;
+}
+
+.car-ficha[data-ia="0"] .car-card-ia-valor {
+    min-width: 0;
+}
+
+/* Etiquetas e chips usados dentro da gaveta de detalhes. */
 .car-chip {
     display: inline-flex;
     flex-wrap: wrap;
@@ -1610,123 +2197,432 @@
 .car-chip--neutro { background: var(--car-cinza-50);  border-color: var(--car-linha-forte); color: var(--car-cinza-600); }
 .car-chip--vazio  { background: var(--cor-fundo-card); border: 1px dashed #aab6c6; color: var(--car-texto-suave); font-style: italic; }
 
-.car-nota {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    font-size: 0.8125rem;
-    color: var(--car-texto-suave);
+.car-nota--ok     { color: var(--car-verde-texto); font-weight: 700; }
+.car-nota--alerta { color: var(--car-ambar-texto); font-weight: 700; }
+
+/* ================================================
+   AJUSTE DE ROLAGEM DESTA TELA
+   ================================================ */
+/* * [EXPLICAÇÃO] → A área de conteúdo do layout global tem "overflow: auto", e uma
+   caixa assim impede qualquer "position: sticky" de grudar na janela (a barra de
+   envio ficaria no meio da página). Só nesta tela (body.car-tela) trocamos por
+   "overflow: clip", que corta o excesso do mesmo jeito mas NÃO cria rolagem.
+   As tabelas largas continuam rolando dentro das próprias caixas. */
+body.car-tela .conteudo-principal {
+    overflow: visible;
+    overflow: clip;
 }
 
-.car-nota--ok,
-.car-nota--alerta {
-    font-weight: 700;
-}
-
-.car-nota--ok     { color: var(--car-verde-texto); }
-.car-nota--alerta { color: var(--car-ambar-texto); }
-
-/* Ícone na frente do aviso (Font Awesome pelo CSS, sem mexer no HTML). */
-.car-nota--ok::before,
-.car-nota--alerta::before {
-    flex: none;
-    margin-top: 2px;
-    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", sans-serif;
-    font-weight: 900;
-    font-size: 0.8125rem;
-}
-
-.car-nota--ok::before     { content: "\f058"; color: var(--cor-positivo); }
-.car-nota--alerta::before { content: "\f071"; color: #d98a00; }
-
-.car-opcoes {
-    font-size: 0.75rem;
-    color: var(--car-texto-forte);
-}
-
-.car-opcoes summary {
-    cursor: pointer;
-    color: var(--car-azul-acao);
-    font-weight: 700;
-}
-
-.car-opcoes ul {
-    margin: 6px 0 0;
-    padding-left: 18px;
-    max-height: 160px;
-    overflow: auto;
-}
-
-.car-opcoes-mais {
-    margin: 4px 0 0;
-    color: var(--car-texto-suave);
-}
-
-.car-card-rodape {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    padding: 12px 16px 14px;
-    border-top: 1px solid var(--car-linha);
-    background: var(--car-superficie);
-}
-
-.car-card-bloco {
+/* O modal de cadastro do produto (tela de Produtos) pede um modal largo; os modais
+   desta tela (varredura e envio) usam a largura normal do Bootstrap. */
+.car-pagina .modal-dialog {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.car-card-rodape .car-rotulo {
-    color: var(--car-texto-suave);
-}
-
-.car-card-forte {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--car-texto-forte);
-    overflow-wrap: anywhere;
-}
-
-.car-card-suave {
-    font-size: 0.75rem;
-    color: var(--car-texto-suave);
-    overflow-wrap: anywhere;
 }
 
 /* ================================================
-   BARRA DE ENVIO (em cima e embaixo dos cards do produto)
+   BARRA FIXA DO ENVIO E PAINEL DA IA
    ================================================ */
-.car-envio-barra {
+/* * [EXPLICAÇÃO] → Só o ENVIO acompanha a rolagem: a barra fica colada no pé da janela
+   enquanto a ficha do produto está na tela, com quantos campos estão preparados e os
+   botões de enviar (é o que a pessoa quer à mão depois de preencher vários cards).
+   Quando a ficha termina, a barra sobe junto com ela (sticky só vale dentro da ficha).
+   A IA NÃO fica nela: a pessoa pede a sugestão uma vez, não acompanha em tempo real —
+   o painel dela é uma linha parada no topo da ficha (".car-barra-ia", logo abaixo). */
+.car-barra-fixa {
+    position: sticky;
+    bottom: 0;
+    z-index: 25;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 4px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-azul-200);
+    border-radius: 10px;
+    box-shadow: 0 -6px 18px rgba(15, 39, 68, 0.14), 0 2px 6px rgba(15, 39, 68, 0.06);
+}
+
+/* Painel da IA: uma linha lavanda (roxo = IA) logo abaixo do cabeçalho da ficha. */
+.car-barra-ia {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    padding: 6px 14px;
+    background: #f7f5fc;
+    border-bottom: 1px solid #e3dcf4;
+    font-size: 0.6875rem;
+    color: var(--car-texto-suave);
+}
+
+.car-btn--ia {
+    border-color: #b9a8e6;
+    color: #5b3fa3;
+}
+
+.car-btn--ia:hover:not(:disabled) {
+    background: #efe9fb;
+    color: #4b3a7a;
+}
+
+.car-barra-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #5b3fa3;
+}
+
+.car-barra-metrica {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.car-barra-metrica strong {
+    color: #4b3a7a;
+    font-weight: 700;
+}
+
+.car-barra-medidor {
+    flex: none;
+    display: inline-block;
+    width: 64px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e3dcf4;
+}
+
+.car-barra-medidor b {
+    display: block;
+    height: 100%;
+    background: #7a5cc7;
+}
+
+.car-barra-acoes {
+    margin-left: auto;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.car-barra-envio {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 10px 16px;
-    padding: 12px 16px;
-    border: 1px solid var(--car-azul-100);
-    border-radius: 10px;
-    background: var(--cor-fundo-card);
-    box-shadow: var(--car-sombra);
+    gap: 6px 16px;
+    padding: 6px 12px;
 }
 
 .car-envio-contagem {
-    flex: 1 1 260px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    line-height: 1.3;
     margin: 0;
     font-size: 0.8125rem;
-    color: var(--car-texto-suave);
+    font-weight: 700;
+    color: var(--cor-primaria);
 }
 
-.car-envio-contagem--ativa {
-    font-weight: 700;
-    color: var(--car-azul-acao);
+.car-envio-contagem small {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--car-texto-suave);
 }
 
 .car-envio-botoes {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.car-barra-envio .car-btn {
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 0.8125rem;
+}
+
+/* ================================================
+   GAVETA DE DETALHES (e painel "entrada e saída da IA")
+   ================================================ */
+/* * [EXPLICAÇÃO] → Painel que abre pela direita ao clicar em ↗ num card (ou em
+   "Entrada e saída" na barra). O JS monta o conteúdo a partir do que a página
+   já tem — não consulta nada. Fica abaixo dos modais do Bootstrap (z 1055), para
+   o modal do produto poder abrir por cima. Fecha com Esc, no X ou clicando fora. */
+.car-gaveta-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    display: flex;
+    justify-content: flex-end;
+    background: rgba(15, 39, 68, 0.42);
+    animation: car-fundo-entra 0.15s ease-out;
+}
+
+.car-gaveta {
+    width: min(480px, 100vw);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--cor-fundo-card);
+    box-shadow: -8px 0 28px rgba(15, 39, 68, 0.28);
+    animation: car-gaveta-entra 0.18s ease-out;
+    outline: 0;
+}
+
+.car-gaveta--larga {
+    width: min(720px, 100vw);
+}
+
+@keyframes car-fundo-entra {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes car-gaveta-entra {
+    from { transform: translateX(32px); opacity: 0.4; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+
+.car-gaveta-cab {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.car-gaveta-cab h3 {
+    margin: 0;
+    font-family: "Nunito", sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.3;
+    color: var(--cor-texto-claro);
+    overflow-wrap: anywhere;
+}
+
+.car-gaveta-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin: 4px 0 0;
+    font-size: 0.6875rem;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.car-gaveta-sub code {
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.car-gaveta-x {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--cor-texto-claro);
+    font-size: 0.9375rem;
+    cursor: pointer;
+}
+
+.car-gaveta-x:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.car-gaveta-x:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.car-gaveta-corpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px 16px 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: #f7f9fc;
+}
+
+.car-gaveta-aviso {
+    margin: 0;
+    padding: 8px 11px;
+    border: 1px solid var(--car-ambar-200);
+    border-radius: 8px;
+    background: var(--car-ambar-50);
+    color: var(--car-ambar-texto);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.car-gaveta-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 11px 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--car-linha);
+    border-radius: 9px;
+}
+
+.car-gaveta-bloco h4 {
+    margin: 0;
+    font-family: "Open Sans", sans-serif;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--car-texto-suave);
+}
+
+.car-gaveta-bloco h4 small {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.car-gaveta-nota {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--car-texto-suave);
+}
+
+.car-gaveta-valores {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.car-gaveta-valor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 10px;
+}
+
+.car-gaveta-valor > span {
+    min-width: 0;
+}
+
+.car-gaveta-dl {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+}
+
+.car-gaveta-dl > div {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 8px;
+    font-size: 0.8125rem;
+}
+
+.car-gaveta-dl dt {
+    font-weight: 700;
+    color: var(--car-texto-suave);
+}
+
+.car-gaveta-dl dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.car-gaveta-opcoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.car-gaveta-opcoes li {
+    padding: 2px 9px;
+    border: 1px solid var(--car-linha-forte);
+    border-radius: 999px;
+    background: var(--car-cinza-50);
+    font-size: 0.75rem;
+    color: var(--car-cinza-600);
+}
+
+.car-gaveta-rolagem {
+    overflow-x: auto;
+}
+
+/* Painel "Entrada e saída da IA": o que foi enviado e o que voltou, sem enfeite. */
+.car-io-json {
+    margin: 0;
+    padding: 10px 12px;
+    max-height: 280px;
+    overflow: auto;
+    border: 1px solid #d9d4ea;
+    border-radius: 7px;
+    background: #fbfaff;
+    font-family: var(--car-mono);
+    font-size: 0.6875rem;
+    line-height: 1.55;
+    color: #3e3560;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.car-io-json--vazio {
+    color: var(--car-texto-fraco);
+    font-style: italic;
+}
+
+.car-io-metricas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.car-io-metrica {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border: 1px solid #e3dcf4;
+    border-radius: 8px;
+    background: #f5f2fc;
+}
+
+.car-io-metrica b {
+    font-size: 1rem;
+    color: #4b3a7a;
+    font-variant-numeric: tabular-nums;
+}
+
+.car-io-metrica small {
+    font-size: 0.6875rem;
+    color: var(--car-texto-suave);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .car-gaveta-fundo,
+    .car-gaveta {
+        animation: none;
+    }
 }
 
 /* ================================================
@@ -2011,24 +2907,220 @@
     color: var(--car-texto-fraco);
 }
 
+
+/* ================================================
+   PRÉVIA POR CAMPO (ESTAVA ASSIM | VAI FICAR ASSIM) E RESULTADO
+   ================================================ */
+.car-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin: 2px 0;
+}
+
+.car-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 8px 12px;
+    border: 1px solid var(--car-azul-200);
+    border-radius: 8px;
+    background: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+}
+
+.car-stat b {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.car-stat small {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--car-texto-suave);
+}
+
+.car-stat--alerta {
+    border-color: var(--car-ambar-200);
+    background: var(--car-ambar-50);
+    color: var(--car-ambar-texto);
+}
+
+/* Uma linha por campo: o que os anúncios têm hoje → o que vai ficar. */
+.car-revisao-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.car-revisao-tabela th {
+    padding: 8px 12px;
+    background: var(--car-superficie);
+    border-bottom: 1px solid var(--car-linha);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--car-texto-suave);
+    white-space: nowrap;
+}
+
+.car-revisao-tabela th:nth-child(2),
+.car-revisao-tabela th:nth-child(3) {
+    width: 30%;
+}
+
+.car-revisao-tabela td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--car-linha);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.car-revisao-tabela tr:last-child td {
+    border-bottom: 0;
+}
+
+.car-revisao-nome {
+    display: block;
+    font-weight: 800;
+    color: var(--cor-primaria);
+}
+
+.car-revisao-tabela td > .car-previa-nota {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.6875rem;
+}
+
+.car-revisao-antes {
+    display: block;
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    border-left: 3px solid var(--car-cinza-300);
+    border-radius: 0 6px 6px 0;
+    background: var(--car-cinza-50);
+    color: var(--car-texto-suave);
+}
+
+.car-revisao-antes b {
+    font-weight: 700;
+    color: var(--car-cinza-600);
+}
+
+.car-revisao-antes small {
+    font-size: 0.6875rem;
+}
+
+.car-revisao-depois {
+    display: block;
+    padding: 4px 8px;
+    border-left: 3px solid var(--car-azul-acao);
+    border-radius: 0 6px 6px 0;
+    background: var(--car-azul-50);
+    font-weight: 800;
+    color: var(--car-azul-acao);
+}
+
+.car-revisao-detalhe {
+    margin-top: 6px;
+    font-size: 0.75rem;
+}
+
+.car-revisao-detalhe > summary,
+.car-previa-detalhe > summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--car-azul-acao);
+}
+
+.car-previa-detalhe {
+    padding: 8px 12px;
+    border: 1px solid var(--car-linha);
+    border-radius: 9px;
+    background: var(--cor-fundo-card);
+}
+
+.car-previa-detalhe[open] > summary {
+    margin-bottom: 10px;
+}
+
+.car-mini-tabela {
+    width: 100%;
+    margin-top: 6px;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.car-mini-tabela th {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--car-linha);
+    font-size: 0.625rem;
+    font-weight: 800;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--car-texto-suave);
+}
+
+.car-mini-tabela td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--car-linha);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.car-mini-tabela tr:last-child td {
+    border-bottom: 0;
+}
+
+.car-mini-categoria {
+    display: block;
+    font-size: 0.625rem;
+    color: var(--car-texto-fraco);
+}
+
 /* ================================================
    TELAS ESTREITAS
    ================================================ */
+/* Abaixo de 1280px o grupo de colunas da lista perde a "última leitura" (a data
+   continua na ficha); abaixo de 900px a linha do produto vira uma pilha. */
+@media (max-width: 1280px) {
+    .car-lista {
+        --car-colunas: 56px minmax(200px, 1.5fr) minmax(110px, 0.8fr) minmax(140px, 1fr) 108px;
+    }
+
+    .car-lista-cab > :nth-child(5),
+    .car-produto-ultima {
+        display: none;
+    }
+
+    .car-lista-cab > :last-child {
+        text-align: right;
+    }
+}
+
 @media (max-width: 1100px) {
     .car-kpis {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .car-painel {
+        grid-template-columns: 1fr;
+    }
+
+    .car-painel-acao {
+        justify-self: start;
+    }
 }
 
 @media (max-width: 900px) {
-    .car-painel,
     .car-filtros-linha {
         flex-direction: column;
         align-items: stretch;
-    }
-
-    .car-painel-icone {
-        display: none;
     }
 
     .car-campo--marca,
@@ -2041,57 +3133,89 @@
         display: none;
     }
 
-    .car-produto-cab {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 0 16px 12px 0;
+    /* No celular cada produto vira uma pilha: foto + título, SKU, leitura e ação. */
+    .car-lista {
+        --car-colunas: 56px minmax(0, 1fr);
     }
 
-    /* No celular cada linha vira uma pilha: leitura, SKU, nome e data. */
-    .car-produto-toggle {
-        grid-template-columns: 18px minmax(0, 1fr);
+    .car-produto-linha {
+        grid-template-columns: 56px minmax(0, 1fr);
         row-gap: 8px;
+        align-items: start;
     }
 
-    .car-produto-toggle > :not(.car-produto-seta) {
+    .car-produto-id,
+    .car-produto-leitura,
+    .car-produto-acao {
         grid-column: 2;
     }
 
-    .car-produto-toggle .car-produto-seta {
-        grid-row: 1;
-    }
-
-    .car-leitura-lidos {
-        max-width: 240px;
-    }
-
     .car-produto-acao {
-        flex: none;
         justify-content: flex-start;
-        padding-left: 38px;
     }
 
     .car-tabela-toggle {
         flex-wrap: wrap;
     }
 
-    .car-tabela-pilulas,
-    .car-tabela-dica {
+    .car-tabela-pilulas {
         flex: 1 1 100%;
     }
 
-    .car-ficha-leitura {
-        margin-left: 0;
+    .car-ficha-cab {
+        flex-direction: column;
     }
 
     .car-ocultos ul {
         column-count: 1;
     }
+
+    .car-barra-acoes {
+        margin-left: 0;
+    }
 }
 
-/* No celular a tabela da prévia vira uma pilha por campo: cada valor com o
-   seu rótulo em cima (senão a coluna "Vai receber" ficaria fora da tela). */
-@media (max-width: 640px) {
+/* No celular a tabela de revisão vira uma pilha por campo, cada valor com o seu
+   rótulo em cima (senão "Vai ficar assim" ficaria fora da tela). */
+@media (max-width: 720px) {
+    .car-revisao-tabela,
+    .car-revisao-tabela tbody,
+    .car-revisao-tabela tr,
+    .car-revisao-tabela td {
+        display: block;
+        width: 100%;
+    }
+
+    .car-revisao-tabela thead {
+        display: none;
+    }
+
+    .car-revisao-tabela tr {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--car-linha);
+    }
+
+    .car-revisao-tabela tr:last-child {
+        border-bottom: 0;
+    }
+
+    .car-revisao-tabela td,
+    .car-revisao-tabela tr:last-child td {
+        padding: 3px 0;
+        border: 0;
+    }
+
+    .car-revisao-tabela td[data-rotulo]::before {
+        content: attr(data-rotulo);
+        display: block;
+        margin: 4px 0 2px;
+        font-size: 0.625rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--car-texto-suave);
+    }
+
     .car-previa-tabela,
     .car-previa-tabela tbody,
     .car-previa-tabela tr,
@@ -2134,6 +3258,7 @@
     .car-previa-campo {
         min-width: 0;
     }
+
 }
 
 @media (max-width: 520px) {
@@ -2141,9 +3266,24 @@
         grid-template-columns: 1fr;
     }
 
-    .car-envio-botoes,
-    .car-envio-botoes .car-btn {
+    .car-envio-botoes {
         width: 100%;
+    }
+
+    /* No celular os dois botões ficam lado a lado (a barra fixa ocupa menos tela). */
+    .car-envio-botoes .car-btn {
+        flex: 1 1 0;
+        padding: 0 8px;
+    }
+
+    .car-barra-envio {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* A barra fixa ocupa menos do celular: some a explicação, fica a contagem. */
+    .car-envio-contagem small {
+        display: none;
     }
 
     .car-previa-tabela th,
@@ -2152,13 +3292,20 @@
     }
 
     .car-produto-corpo {
-        padding: 14px 12px 16px;
+        padding: 10px 8px 12px;
+    }
+
+    .car-gaveta-dl > div {
+        grid-template-columns: 1fr;
+        gap: 1px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .car-kpi,
-    .car-chevron {
+    .car-chevron,
+    .car-card,
+    .car-btn-simnao {
         transition: none;
     }
 
@@ -2169,8 +3316,25 @@
     .car-btn--lendo i {
         animation: none;
     }
+}
 
-    .car-btn-simnao {
-        transition: none;
-    }
+/* ================================================
+   ACABAMENTOS: origem já enviada, IA e estados na gaveta
+   ================================================ */
+/* Depois de enviado, o card continua dizendo de onde veio o valor (só enquanto
+   não há nada digitado de novo no campo). */
+.car-card[data-origem-enviada][data-origem=""] .car-card-origem {
+    color: var(--car-verde-texto);
+    font-weight: 700;
+}
+
+.car-pilula--ia {
+    background: #ece6fa;
+    color: #4b3a7a;
+}
+
+.car-previa-hoje--nao_pede,
+.car-previa-hoje--nao_lido {
+    font-style: italic;
+    color: var(--car-texto-fraco);
 }

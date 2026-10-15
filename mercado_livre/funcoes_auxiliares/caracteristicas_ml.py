@@ -187,7 +187,7 @@ def resumir_produto(sku):
 
 
 # Função Objetivo: Lista de produtos da tela (1 linha por SKU, sem os
-# cards). Filtros: busca (SKU, título, marca ou MLB), marca e estado da
+# cards). Filtros: busca (SKU, EAN, título, marca ou MLB), marca e estado da
 # leitura (nunca / parcial / completa). Devolve também as contagens por
 # estado (já com busca e marca aplicadas, para os botões de filtro) e as
 # marcas disponíveis.
@@ -197,7 +197,7 @@ def listar_produtos(busca='', marca='', leitura=''):
     por_sku = _agregar_leituras()
     produtos_banco = {
         p['sku']: p
-        for p in Produto.objects.filter(sku__in=list(por_sku)).values('sku', 'titulo', 'marca')
+        for p in Produto.objects.filter(sku__in=list(por_sku)).values('id', 'sku', 'titulo', 'marca', 'ean', 'imagem_url')
     }
 
     todos = []
@@ -209,8 +209,11 @@ def listar_produtos(busca='', marca='', leitura=''):
         estado = _estado_da_leitura(n_anuncios, n_lidos)
         todos.append({
             'sku': sku,
+            'produto_id': produto['id'],
             'titulo': produto['titulo'] or '',
             'marca': produto['marca'] or '',
+            'ean': produto['ean'] or '',
+            'imagem_url': produto['imagem_url'] or '',
             'n_anuncios': n_anuncios,
             'n_lidos': n_lidos,
             'n_categorias': len(dados['categorias']),
@@ -231,6 +234,7 @@ def listar_produtos(busca='', marca='', leitura=''):
         and (
             not termo
             or termo in p['sku'].lower()
+            or termo in p['ean'].lower()
             or termo in p['titulo'].lower()
             or termo in p['marca'].lower()
             or any(termo in (m or '').lower() for m in p['mlbs'])
@@ -474,6 +478,10 @@ ROTULO_OBRIGATORIEDADE = {
     'Não': ('Recomendado', 'car-nivel--recomendado'),
 }
 
+# * [EXPLICAÇÃO] → Nível de obrigatoriedade como chave curta (vira a cor do
+#                  marcador do card e entra na regra de ordem dos cards).
+NIVEL_CHAVE = {'Sim': 'obrigatorio', 'Condicional': 'condicional', 'Não': 'recomendado'}
+
 PILULAS = {
     'uniforme': ('Igual em todos', 'car-pilula--ok'),
     'diverge': ('Valores diferentes', 'car-pilula--alerta'),
@@ -482,6 +490,35 @@ PILULAS = {
     'na': ('N/A', 'car-pilula--neutra'),
     'erp': ('Do ERP', 'car-pilula--info'),
 }
+
+
+# Função Objetivo: Garante que o endereço da foto é http(s) e usa https (a
+# tela é servida em https; imagem http seria bloqueada). Devolve '' se não for
+# um endereço de imagem utilizável.
+def _url_foto(valor):
+    if not isinstance(valor, str):
+        return ''
+    url = valor.strip()
+    if url.startswith('//'):
+        url = 'https:' + url
+    if url.startswith('http://'):
+        url = 'https://' + url[len('http://'):]
+    return url if url.startswith('https://') else ''
+
+
+# Função Objetivo: Foto de capa de 1 anúncio, só com dados do banco: a 1ª foto
+# do próprio anúncio (campo "fotos", como veio do ML) e, se ele não tiver,
+# a imagem da variação do SKU. Devolve '' quando não há nenhuma.
+def _foto_do_anuncio(anuncio, foto_da_variacao):
+    fotos = anuncio.fotos if isinstance(anuncio.fotos, list) else []
+    for item in fotos:
+        endereco = item if isinstance(item, str) else (
+            (item.get('secure_url') or item.get('url')) if isinstance(item, dict) else ''
+        )
+        url = _url_foto(endereco)
+        if url:
+            return url
+    return foto_da_variacao.get(anuncio.id, '')
 
 
 def _rotulo_status(codigo, tipo_anuncio=None):
@@ -512,13 +549,22 @@ def carregar_contexto_produto(sku):
     )
     total = len(anuncios)
 
+    # Uma só consulta nas variações do SKU: a categoria que o banco conhece e,
+    # de reserva, a imagem da variação (para o anúncio sem foto própria).
     categoria_do_banco = {}
-    for anuncio_id, categoria_id in (
+    foto_da_variacao = {}
+    for anuncio_id, categoria_id, imagem_principal, miniatura in (
         VariacaoAnuncioMercadoLivre.objects
-        .filter(anuncio__in=anuncios, produto_id=sku, categoria__isnull=False)
-        .values_list('anuncio_id', 'categoria_id')
+        .filter(anuncio__in=anuncios, produto_id=sku)
+        .order_by('pk')
+        .values_list('anuncio_id', 'categoria_id', 'imagem_principal_url', 'thumbnail_url')
     ):
-        categoria_do_banco.setdefault(anuncio_id, categoria_id)
+        if categoria_id:
+            categoria_do_banco.setdefault(anuncio_id, categoria_id)
+        url = _url_foto(imagem_principal) or _url_foto(miniatura)
+        if url:
+            foto_da_variacao.setdefault(anuncio_id, url)
+    foto_por_anuncio = {a.id: _foto_do_anuncio(a, foto_da_variacao) for a in anuncios}
 
     lidos = [a for a in anuncios if a.atributos_ml_lido_em is not None]
     categoria_do_anuncio = {a.id: a.atributos_ml_categoria_id for a in lidos}
@@ -595,6 +641,7 @@ def carregar_contexto_produto(sku):
         'lidos': lidos,
         'categoria_do_banco': categoria_do_banco,
         'categoria_do_anuncio': categoria_do_anuncio,
+        'foto_por_anuncio': foto_por_anuncio,
         'categorias': categorias,
         'nome_categoria': nome_categoria,
         'contagem_categorias': contagem_categorias,
@@ -640,6 +687,7 @@ def montar_ficha_produto(sku):
     rotulo_do_grupo = contexto['rotulo_do_grupo']
     ocultos = contexto['ocultos']
     cru_por_anuncio = contexto['cru_por_anuncio']
+    foto_por_anuncio = contexto['foto_por_anuncio']
 
     cards = []
     for atributo_id in ordem_campos:
@@ -650,6 +698,14 @@ def montar_ficha_produto(sku):
         card['grupo'], card['grupo_rotulo'] = grupo_do_campo[atributo_id]
         cards.append(card)
 
+    # * [EXPLICAÇÃO] → Ordem FIXA dos cards dentro de cada grupo (a posição de
+    #                  um card nunca muda enquanto a pessoa digita; só muda se a
+    #                  ficha for recarregada depois de um "Atualizar" ou envio).
+    #                  O sort do Python é estável: empate = ordem original do ML.
+    cards.sort(key=lambda card: (
+        ordem_grupos.index(card['grupo']), _posicao_do_card(card), -card['n_pedem'],
+    ))
+
     grupos = []
     for grupo_id in ordem_grupos:
         cards_do_grupo = [card for card in cards if card['grupo'] == grupo_id]
@@ -659,9 +715,13 @@ def montar_ficha_produto(sku):
             'cards': cards_do_grupo,
             'n': len(cards_do_grupo),
             'n_atencao': sum(1 for card in cards_do_grupo if card['pede_atencao']),
+            'n_resolver': sum(1 for card in cards_do_grupo if card['resolver']),
         })
 
-    tabela = _montar_tabela(anuncios, cards, categoria_do_anuncio, categoria_do_banco, cru_por_anuncio, nome_categoria)
+    tabela = _montar_tabela(
+        anuncios, cards, categoria_do_anuncio, categoria_do_banco, cru_por_anuncio, nome_categoria,
+        foto_por_anuncio,
+    )
 
     ultima_leitura = max((a.atributos_ml_lido_em for a in lidos), default=None)
     avisos = _montar_avisos(
@@ -669,13 +729,33 @@ def montar_ficha_produto(sku):
         categoria_do_anuncio, categoria_do_banco, nome_categoria,
     )
 
+    contagem_cards = {
+        'todas': len(cards),
+        'resolver': sum(1 for card in cards if card['resolver']),
+        'obrigatorias': sum(1 for card in cards if card['obrigatorio_qualquer']),
+        'vazios': sum(1 for card in cards if card['estado'] == 'vazio'),
+        'atencao': sum(1 for card in cards if card['pede_atencao']),
+        'n_obrigatorios': sum(1 for card in cards if card['obrigatorio']),
+        'n_condicionais': sum(1 for card in cards if card['nivel_chave'] == 'condicional'),
+    }
+
     return {
-        'produto': {'sku': sku, 'titulo': produto.titulo or '', 'marca': produto.marca or ''},
+        'produto': {
+            'id': produto.id, 'sku': sku, 'titulo': produto.titulo or '',
+            'marca': produto.marca or '', 'ean': produto.ean or '',
+        },
         'resumo': {
             'n_anuncios': total,
             'n_lidos': len(lidos),
             'categorias': [
-                {'id': c, 'nome': nome_categoria(c), 'caminho': categorias.get(c, {}).get('caminho_completo') or '', 'n': contagem_categorias[c]}
+                {
+                    'id': c,
+                    'nome': nome_categoria(c),
+                    'caminho': categorias.get(c, {}).get('caminho_completo') or '',
+                    'n': contagem_categorias[c],
+                    # quantos campos desta ficha a categoria pede
+                    'n_campos': sum(1 for atributo_id in ordem_campos if c in campos[atributo_id]),
+                }
                 for c in ordem_categorias
             ],
             'ultima_leitura': ultima_leitura,
@@ -683,16 +763,44 @@ def montar_ficha_produto(sku):
         'avisos': avisos,
         'cards': cards,
         'grupos': grupos,
-        'contagem_cards': {
-            'todas': len(cards),
-            'atencao': sum(1 for card in cards if card['pede_atencao']),
-            'obrigatorias': sum(1 for card in cards if card['obrigatorio']),
-        },
+        'contagem_cards': contagem_cards,
+        # Filtro que já nasce marcado: "Resolver primeiro" quando há o que
+        # resolver; senão mostra tudo (não deixa a tela vazia sem motivo).
+        'filtro_inicial': 'resolver' if contagem_cards['resolver'] else 'todos',
+        # Campo que a tabela de anúncios mostra ao abrir: o primeiro a resolver
+        # (ou, se não há, o primeiro da ficha). A pessoa troca no seletor.
+        'campo_tabela_inicial': next(
+            (card['atributo_id'] for card in cards if card['resolver']),
+            cards[0]['atributo_id'] if cards else '',
+        ),
         'tabela': tabela,
         'ocultos': sorted(
             ({'id': k, **v} for k, v in ocultos.items()), key=lambda item: item['label'].lower()
         ),
     }
+
+
+# Função Objetivo: Posição do card dentro do grupo (menor = mais acima). A
+# regra, do mais importante para o menos:
+#   0  obrigatório que o usuário pode corrigir e que está diferente, em branco
+#      em parte ou vazio;
+#   1  obrigatório travado (a Marca, que vem do ERP);
+#   2  os demais obrigatórios;
+#   3  obrigatório "em alguns casos";
+#   4  recomendado com valores diferentes;   5  recomendado em branco em parte;
+#   6  recomendado vazio;   7  recomendado já igual em todos;
+#   8  o que não dá para editar (vários valores) e os N/A.
+def _posicao_do_card(card):
+    estado, nivel, editavel = card['estado'], card['nivel_chave'], card['editavel']
+    if nivel == 'obrigatorio':
+        if editavel and estado in ('diverge', 'parcial', 'vazio'):
+            return 0
+        return 2 if editavel else 1
+    if nivel == 'condicional':
+        return 3
+    if editavel:
+        return {'diverge': 4, 'parcial': 5, 'vazio': 6, 'uniforme': 7}.get(estado, 8)
+    return 8
 
 
 def _montar_avisos(anuncios, lidos, total, ordem_categorias, atributos_por_categoria,
@@ -782,15 +890,24 @@ def _montar_card(produto, sku, atributo_id, por_categoria, lidos, total,
         elif fusao['tipo'] == 'lista' and fusao['opcoes'] and not _esta_na_lista(valor, fusao['opcoes']):
             classe += ' car-chip--neutro'
             nota = 'fora da lista'
+        # * [EXPLICAÇÃO] → valor_id e texto crus: a gaveta do card usa para o
+        #                  botão "Usar este valor" (copia o valor que já está
+        #                  nos anúncios para o campo "Valor a enviar").
         chips.append({
             'rotulo': texto, 'n': n, 'n_txt': f'{n} {_plural(n, "anúncio", "anúncios")}',
             'classe': classe, 'nota': nota,
+            'copiavel': (
+                valor['estado'] == 'valor' and not eh_marca and nota != 'fora da lista'
+                and not texto.startswith('[sem nome')
+            ),
+            'valor_id': '' if valor['valor_id'] is None else str(valor['valor_id']),
         })
     if n_branco:
         chips.append({
             'rotulo': 'em branco', 'n': n_branco,
             'n_txt': f'{n_branco} {_plural(n_branco, "anúncio", "anúncios")}',
             'classe': 'car-chip car-chip--vazio', 'nota': '',
+            'copiavel': False, 'valor_id': '',
         })
 
     # estado do card
@@ -834,6 +951,38 @@ def _montar_card(produto, sku, atributo_id, por_categoria, lidos, total,
     #                  o filtro "Pedem atenção" e a cor do card.
     pede_atencao = estado in ('diverge', 'parcial', 'vazio') or (eh_marca and nota_ml_classe == 'car-nota--alerta')
     req_rotulo, req_classe = ROTULO_OBRIGATORIEDADE[fusao['nivel']]
+
+    # * [EXPLICAÇÃO] → O card compacto só tem espaço para o resumo do que há
+    #                  hoje nos anúncios, em 1 linha; o detalhe completo (todos
+    #                  os valores, anúncio por anúncio) fica na gaveta do card.
+    #                  Nos valores diferentes, a linha já mostra o mais comum.
+    editavel = not eh_marca and not fusao['multi']
+    por_frequencia = sorted(valores.items(), key=lambda item: (-item[1], item[0]))
+    if eh_marca:
+        micro = f'ERP: {valor_erp}' if valor_erp else 'Marca sem cadastro no ERP'
+    elif estado == 'vazio':
+        micro = 'Hoje: tudo em branco'
+    elif estado == 'na':
+        micro = 'Hoje: não se aplica (N/A)'
+    elif estado == 'uniforme':
+        micro = f'Hoje: {por_frequencia[0][0]}'
+    elif estado == 'parcial':
+        micro = f'Hoje: {por_frequencia[0][0]} · {n_branco} em branco'
+    else:
+        mais_comum, vezes = por_frequencia[0]
+        micro = f'{len(valores)} valores · mais comum: {mais_comum} ({vezes}×)'
+        if n_branco:
+            micro += f' · {n_branco} em branco'
+    cobertura = f'{n_pedem} de {total} {_plural(total, "anúncio", "anúncios")}'
+
+    # * [EXPLICAÇÃO] → "Resolver primeiro" = o que o usuário PODE corrigir e que
+    #                  merece olhar agora: valores diferentes, campo em branco em
+    #                  parte dos anúncios, ou obrigatório que ninguém preencheu.
+    #                  Não entram campos travados (Marca, vários valores) nem
+    #                  recomendado que já está igual em todos.
+    resolver = editavel and (
+        estado in ('diverge', 'parcial') or (estado == 'vazio' and fusao['nivel'] == 'Sim')
+    )
 
     # "Regra" e "Vale para"
     tipo = fusao['tipo']
@@ -895,7 +1044,15 @@ def _montar_card(produto, sku, atributo_id, por_categoria, lidos, total,
         'label': fusao['label'],
         'req_rotulo': req_rotulo,
         'req_classe': req_classe,
+        'nivel_chave': NIVEL_CHAVE[fusao['nivel']],
         'obrigatorio': fusao['nivel'] == 'Sim',
+        'obrigatorio_qualquer': fusao['nivel'] in ('Sim', 'Condicional'),
+        'editavel': editavel,
+        'resolver': resolver,
+        'micro': micro,
+        'cobertura': cobertura,
+        'n_pedem': n_pedem,
+        'n_branco': n_branco,
         'pede_atencao': pede_atencao,
         'estado': estado,
         'pilula_txt': pilula_txt,
@@ -925,7 +1082,9 @@ def _montar_card(produto, sku, atributo_id, por_categoria, lidos, total,
     }
 
 
-def _montar_tabela(anuncios, cards, categoria_do_anuncio, categoria_do_banco, cru_por_anuncio, nome_categoria):
+def _montar_tabela(anuncios, cards, categoria_do_anuncio, categoria_do_banco, cru_por_anuncio, nome_categoria,
+                   foto_por_anuncio=None):
+    foto_por_anuncio = foto_por_anuncio or {}
     colunas = [
         {'label': card['label'], 'api': card['atributo_id'], 'largura': card['largura']}
         for card in cards
@@ -955,11 +1114,17 @@ def _montar_tabela(anuncios, cards, categoria_do_anuncio, categoria_do_banco, cr
         else:
             celulas = [{'estado': 'nao_lido', 'texto': 'não lido'} for _ in cards]
 
+        # O id do campo em cada célula: a tabela mostra 1 campo por vez
+        # (o escolhido no seletor) e a gaveta do card lê a coluna dele.
+        for celula, card in zip(celulas, cards):
+            celula['atributo_id'] = card['atributo_id']
+
         status = anuncio.atributos_ml_status if lido else (
             anuncio.tipo_de_anuncio.status if anuncio.tipo_de_anuncio else None
         )
         linhas.append({
             'mlb': anuncio.mlb,
+            'foto': foto_por_anuncio.get(anuncio.id, ''),
             'permalink': anuncio.permalink or '',
             'titulo': anuncio.titulo_anuncio or '',
             'categoria_nome': nome_categoria(categoria_exibida),

@@ -1,8 +1,14 @@
 {% comment %}
 * [RESUMO] → Prévia do envio de 1 produto (conteúdo da janela "Revisar o
-  envio"). Feita só com dados do banco: mostra, anúncio por anúncio, o que
-  ele tem hoje e o que vai receber. Se algum valor digitado é inválido, só a
-  lista de erros aparece e o envio fica travado.
+  envio"). Feita só com dados do banco — não chama a API. Mostra, UMA LINHA POR
+  CAMPO: ESTAVA ASSIM (o que os anúncios têm hoje, com quantos) → VAI FICAR
+  ASSIM (o valor que será enviado) e a ORIGEM do valor (digitado por você,
+  copiado de um anúncio, sugestão da IA...). A coluna Origem é preenchida
+  pelo JS da tela, que sabe de onde cada valor veio (elementos
+  [data-origem-de]). O detalhe anúncio por anúncio fica recolhido, em duas
+  camadas: por campo (dentro da linha) e por anúncio (no fim da prévia).
+  Se algum valor digitado é inválido, só a lista de erros aparece e o envio
+  fica travado.
 {% endcomment %}
 <div class="car-previa">
     <p class="car-previa-produto">
@@ -19,19 +25,21 @@
                     <li><strong>{{ erro.label }}</strong> <code>{{ erro.atributo_id }}</code> — {{ erro.mensagem }}</li>
                 {% endfor %}
             </ul>
-            <p class="car-previa-nota">Os campos com erro estão marcados nos cards. Corrija ou apague o valor e clique em "Revisar e enviar" de novo.</p>
+            <p class="car-previa-nota">Os campos com erro estão marcados nos cards. Corrija ou apague o valor e clique em "Revisar e enviar" de novo. Nenhuma chamada à API foi feita.</p>
         </div>
     {% else %}
         {% if plano.pode_enviar %}
             <div class="car-previa-bloco car-previa-bloco--info">
-                <p class="car-previa-resumo">
-                    Vou enviar <strong>{{ plano.n_campos_enviar }} campo{{ plano.n_campos_enviar|pluralize }}</strong>
-                    a <strong>{{ plano.n_mlbs_enviar }} anúncio{{ plano.n_mlbs_enviar|pluralize }}</strong> do Mercado Livre.
-                    Custo: <strong>{{ plano.n_chamadas }} chamada{{ plano.n_chamadas|pluralize }}</strong> à API
-                    (1 de envio e 1 de leitura de volta por anúncio).
-                </p>
+                <div class="car-stats">
+                    <div class="car-stat"><b>{{ plano.n_campos_enviar }}</b><small>campo{{ plano.n_campos_enviar|pluralize }} a enviar</small></div>
+                    <div class="car-stat"><b>{{ plano.n_mlbs_enviar }}</b><small>anúncio{{ plano.n_mlbs_enviar|pluralize }} vão receber</small></div>
+                    <div class="car-stat"><b>{{ plano.n_chamadas }}</b><small>chamada{{ plano.n_chamadas|pluralize }} à API previstas</small></div>
+                    {% if plano.n_fora %}<div class="car-stat car-stat--alerta"><b>{{ plano.n_fora }}</b><small>anúncio{{ plano.n_fora|pluralize }} fica{{ plano.n_fora|pluralize:"m" }} de fora</small></div>{% endif %}
+                </div>
                 <p class="car-previa-nota">
-                    Confira abaixo. Só vai o que está marcado como "Vai receber"; o que já está igual no Mercado Livre não é enviado de novo.
+                    Custo previsto: <strong>{{ plano.n_chamadas }} chamada{{ plano.n_chamadas|pluralize }}</strong>
+                    ({{ plano.n_mlbs_enviar }} de envio + {{ plano.n_mlbs_enviar }} de leitura de volta para conferir). Depois do envio a tela mostra quantas foram realmente feitas.
+                    Só vai o que está em "Vai receber"; o que já está igual no Mercado Livre não é enviado de novo, e anúncio cuja categoria não pede o campo fica fora dele.
                 </p>
             </div>
         {% else %}
@@ -41,65 +49,117 @@
             </div>
         {% endif %}
 
-        <div class="car-previa-anuncios">
-            {% for alvo in plano.mlbs %}
-                <section class="car-previa-anuncio car-previa-anuncio--{{ alvo.situacao }}">
-                    <header class="car-previa-anuncio-cab">
-                        <div class="car-previa-anuncio-ident">
-                            {% if alvo.permalink %}
-                                <a class="car-previa-mlb" href="{{ alvo.permalink }}" target="_blank" rel="noopener">{{ alvo.mlb }}</a>
-                            {% else %}
-                                <span class="car-previa-mlb">{{ alvo.mlb }}</span>
-                            {% endif %}
-                            <span class="car-previa-titulo-anuncio">{{ alvo.titulo|default:"—" }}</span>
-                            <span class="car-previa-categoria">{{ alvo.categoria_nome }}{% if alvo.categoria_id %} <code>{{ alvo.categoria_id }}</code>{% endif %}</span>
-                        </div>
-                        {% if alvo.situacao == 'enviar' %}
-                            <span class="car-pilula car-pilula--info">Vai receber</span>
-                        {% elif alvo.situacao == 'igual' %}
-                            <span class="car-pilula car-pilula--ok">Já está igual</span>
-                        {% elif alvo.situacao == 'nao_pede' %}
-                            <span class="car-pilula car-pilula--neutra">Categoria não pede</span>
-                        {% else %}
-                            <span class="car-pilula car-pilula--alerta">Fica de fora</span>
-                        {% endif %}
-                    </header>
-
-                    {% if alvo.motivo %}<p class="car-previa-motivo">{{ alvo.motivo }}</p>{% endif %}
-
-                    {% if alvo.itens %}
-                        <div class="car-previa-rolagem">
-                            <table class="car-previa-tabela">
-                                <thead>
-                                    <tr>
-                                        <th>Campo</th>
-                                        <th>Hoje no Mercado Livre</th>
-                                        <th class="car-previa-seta" aria-hidden="true"></th>
-                                        <th>Vai receber</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for item in alvo.itens %}
-                                        <tr class="car-previa-item car-previa-item--{{ item.situacao }}">
-                                            <td class="car-previa-campo">{{ item.label }} <code>{{ item.atributo_id }}</code></td>
-                                            {% if item.situacao == 'nao_pede' %}
-                                                <td colspan="3" class="car-previa-sem-envio">A categoria deste anúncio não pede este campo.</td>
-                                            {% else %}
-                                                <td class="car-previa-hoje car-previa-hoje--{{ item.hoje_estado }}" data-rotulo="Hoje no Mercado Livre">{{ item.hoje_txt }}</td>
-                                                <td class="car-previa-seta" aria-hidden="true"><i class="fas fa-arrow-right"></i></td>
-                                                <td class="car-previa-novo" data-rotulo="Vai receber">
-                                                    {{ item.novo_txt }}
-                                                    {% if item.situacao == 'igual' %}<span class="car-previa-igual">já igual — não será enviado</span>{% endif %}
-                                                </td>
-                                            {% endif %}
-                                        </tr>
+        {% if plano.resumo_campos %}
+            <div class="car-previa-rolagem">
+                <table class="car-revisao-tabela">
+                    <thead>
+                        <tr>
+                            <th>Campo e alcance</th>
+                            <th>Estava assim (no ML)</th>
+                            <th>Vai ficar assim</th>
+                            <th>Origem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campo in plano.resumo_campos %}
+                            <tr class="car-revisao-linha" data-atributo="{{ campo.atributo_id }}">
+                                <td data-rotulo="Campo e alcance">
+                                    <span class="car-revisao-nome">{{ campo.label }}</span>
+                                    <code>{{ campo.atributo_id }}</code>
+                                    <span class="car-previa-nota">
+                                        {{ campo.n_pedem }} anúncio{{ campo.n_pedem|pluralize }} pede{{ campo.n_pedem|pluralize:"m" }} este campo
+                                        · {{ campo.n_mudam }} {{ campo.n_mudam|pluralize:"muda,mudam" }}
+                                        {% if campo.n_iguais %}· {{ campo.n_iguais }} já {{ campo.n_iguais|pluralize:"está,estão" }} igual{{ campo.n_iguais|pluralize:",is" }}{% endif %}
+                                        {% if campo.n_nao_pedem %}· {{ campo.n_nao_pedem }} não {{ campo.n_nao_pedem|pluralize:"pede,pedem" }}{% endif %}
+                                    </span>
+                                </td>
+                                <td data-rotulo="Estava assim">
+                                    {% for antes in campo.estavam %}
+                                        <span class="car-revisao-antes">
+                                            <b>{{ antes.texto }}</b> <small>· {{ antes.n }} anúncio{{ antes.n|pluralize }}</small>
+                                        </span>
+                                    {% empty %}
+                                        <span class="car-previa-nota">Nenhum anúncio lido pede este campo.</span>
                                     {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% endif %}
-                </section>
-            {% endfor %}
-        </div>
+                                </td>
+                                <td data-rotulo="Vai ficar assim">
+                                    <span class="car-revisao-depois">{{ campo.novo_txt }}</span>
+                                    <span class="car-previa-nota">nos {{ campo.n_pedem }} anúncio{{ campo.n_pedem|pluralize }} que pede{{ campo.n_pedem|pluralize:"m" }} este campo</span>
+                                    {% if campo.linhas %}
+                                        <details class="car-revisao-detalhe">
+                                            <summary>Ver cada anúncio</summary>
+                                            <table class="car-mini-tabela">
+                                                <thead>
+                                                    <tr><th>Anúncio</th><th>Estava assim</th><th>Vai ficar assim</th><th>Situação</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for linha in campo.linhas %}
+                                                        <tr>
+                                                            <td>
+                                                                {% if linha.permalink %}<a href="{{ linha.permalink }}" target="_blank" rel="noopener"><code>{{ linha.mlb }}</code></a>{% else %}<code>{{ linha.mlb }}</code>{% endif %}
+                                                                <small class="car-mini-categoria">{{ linha.categoria_nome }}</small>
+                                                            </td>
+                                                            {% if linha.situacao == 'nao_pede' %}
+                                                                <td colspan="2" class="car-previa-sem-envio">A categoria deste anúncio não pede este campo.</td>
+                                                                <td><span class="car-pilula car-pilula--neutra">Fica fora</span></td>
+                                                            {% else %}
+                                                                <td class="car-previa-hoje car-previa-hoje--{{ linha.hoje_estado }}">{{ linha.hoje_txt }}</td>
+                                                                <td class="car-previa-novo">{{ linha.novo_txt }}</td>
+                                                                <td>
+                                                                    {% if linha.situacao == 'igual' %}<span class="car-pilula car-pilula--ok">Já está igual</span>{% else %}<span class="car-pilula car-pilula--info">Vai receber</span>{% endif %}
+                                                                </td>
+                                                            {% endif %}
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </details>
+                                    {% endif %}
+                                </td>
+                                <td data-rotulo="Origem"><span class="car-pilula car-pilula--info" data-origem-de="{{ campo.atributo_id }}">✎ Digitado por você</span></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        {% if plano.n_fora %}
+            <p class="car-previa-nota">
+                {{ plano.n_fora }} anúncio{{ plano.n_fora|pluralize }} {{ plano.n_fora|pluralize:"fica,ficam" }} de fora do envio (ainda não {{ plano.n_fora|pluralize:"foi lido,foram lidos" }}
+                ou não {{ plano.n_fora|pluralize:"está mais ativo nem pausado,estão mais ativos nem pausados" }} no Mercado Livre). Veja o motivo de cada um abaixo.
+            </p>
+        {% endif %}
+
+        <details class="car-previa-detalhe">
+            <summary>Ver anúncio por anúncio ({{ plano.mlbs|length }})</summary>
+            <div class="car-previa-anuncios">
+                {% for alvo in plano.mlbs %}
+                    <section class="car-previa-anuncio car-previa-anuncio--{{ alvo.situacao }}">
+                        <header class="car-previa-anuncio-cab">
+                            <div class="car-previa-anuncio-ident">
+                                {% if alvo.permalink %}
+                                    <a class="car-previa-mlb" href="{{ alvo.permalink }}" target="_blank" rel="noopener">{{ alvo.mlb }}</a>
+                                {% else %}
+                                    <span class="car-previa-mlb">{{ alvo.mlb }}</span>
+                                {% endif %}
+                                <span class="car-previa-titulo-anuncio">{{ alvo.titulo|default:"—" }}</span>
+                                <span class="car-previa-categoria">{{ alvo.categoria_nome }}{% if alvo.categoria_id %} <code>{{ alvo.categoria_id }}</code>{% endif %}</span>
+                            </div>
+                            {% if alvo.situacao == 'enviar' %}
+                                <span class="car-pilula car-pilula--info">Vai receber</span>
+                            {% elif alvo.situacao == 'igual' %}
+                                <span class="car-pilula car-pilula--ok">Já está igual</span>
+                            {% elif alvo.situacao == 'nao_pede' %}
+                                <span class="car-pilula car-pilula--neutra">Categoria não pede</span>
+                            {% else %}
+                                <span class="car-pilula car-pilula--alerta">Fica de fora</span>
+                            {% endif %}
+                        </header>
+                        {% if alvo.motivo %}<p class="car-previa-motivo">{{ alvo.motivo }}</p>{% endif %}
+                    </section>
+                {% endfor %}
+            </div>
+        </details>
     {% endif %}
 </div>

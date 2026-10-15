@@ -1,8 +1,10 @@
 {% comment %}
 * [RESUMO] → Resultado do envio de 1 produto (conteúdo da janela depois do
-  "Confirmar envio"): anúncio por anúncio, o que o Mercado Livre respondeu e,
-  campo a campo, se a leitura de volta confirmou o valor enviado. O banco já
-  foi atualizado com o que o Mercado Livre devolveu nessa leitura.
+  "Confirmar envio"): quantos anúncios aceitaram, quantas chamadas à API
+  foram REALMENTE feitas (os PUTs + a leitura de volta, contadas pelo
+  servidor) e, anúncio por anúncio, o que o Mercado Livre respondeu e, campo a
+  campo, se a leitura de volta confirmou o valor enviado. O banco já foi
+  atualizado com o que o Mercado Livre devolveu nessa leitura.
 {% endcomment %}
 <div class="car-previa car-previa--resultado">
     <p class="car-previa-produto">
@@ -22,8 +24,19 @@
         {% if relatorio.acesso_recusado %}
             <p class="car-previa-nota">O Mercado Livre recusou o acesso (token inválido ou vencido). Os anúncios depois disso não foram enviados.</p>
         {% endif %}
+        <div class="car-stats">
+            <div class="car-stat"><b>{{ aceitos }}</b><small>anúncio{{ aceitos|pluralize }} aceito{{ aceitos|pluralize }} pelo ML</small></div>
+            <div class="car-stat{% if pendentes %} car-stat--alerta{% endif %}"><b>{{ pendentes|length }}</b><small>campo{{ pendentes|length|pluralize }} sem confirmação</small></div>
+            <div class="car-stat"><b>{{ relatorio.chamadas_total }}</b><small>chamada{{ relatorio.chamadas_total|pluralize }} à API (feitas)</small></div>
+        </div>
+        <p class="car-previa-nota">
+            Chamadas reais: {{ relatorio.chamadas_envio }} de envio + {{ relatorio.chamadas_leitura }} de leitura de volta
+            (inclui qualquer repetição que o Mercado Livre tenha pedido).
+        </p>
     </div>
 
+    <details class="car-previa-detalhe" {% if not todos_ok %}open{% endif %}>
+    <summary>Ver anúncio por anúncio ({{ relatorio.mlbs|length }})</summary>
     <div class="car-previa-anuncios">
         {% for registro in relatorio.mlbs %}
             <section class="car-previa-anuncio car-previa-anuncio--{{ registro.situacao }}">
@@ -91,6 +104,7 @@
             </section>
         {% endfor %}
     </div>
+    </details>
 
     {% if relatorio.falhas_leitura %}
         <div class="car-previa-bloco car-previa-bloco--alerta">

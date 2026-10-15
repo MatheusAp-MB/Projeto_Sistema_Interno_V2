@@ -33,7 +33,7 @@
 #          a mesma para qualquer produto).
 #
 # Estimativa da varredura completa: ~2 chamadas por categoria + 1 por MLB
-# elegível. O limite do ML é 18.000 chamadas/hora por app.
+# elegível (a tela mostra depois o número REAL de chamadas gastas). O limite do ML é 18.000 chamadas/hora por app.
 #
 # O que o envio faz (enviar_produto): o PLANO (quem recebe o quê) já vem
 # pronto de mercado_livre.funcoes_auxiliares.envio_caracteristicas_ml. Para
@@ -44,6 +44,12 @@
 # confere campo a campo se o ML guardou o que foi enviado. Custo: 1 chamada de
 # envio + 1 de leitura por anúncio que recebe. Nada de categoria é relido.
 #
+# Contagem de chamadas: cada relatório diz quantas requisições HTTP foram
+# REALMENTE feitas ao ML (inclui nova tentativa por 429, timeout e resposta
+# parcial — é o que gasta o limite de 18.000/hora). A contagem vem do
+# contador por thread do cliente da API (requisicoes_enviadas_nesta_thread):
+# cada worker mede o que ele mesmo enviou e soma no relatório com uma trava.
+#
 # Threads: as chamadas à API rodam em threads de trabalho; TODA gravação no
 # banco acontece na thread que chamou o serviço (as threads de trabalho
 # nunca tocam no banco). Como a empresa ativa é thread-local
@@ -52,6 +58,7 @@
 # capturar a empresa na thread da requisição e passá-la para a nova thread
 # (mesmo padrão do Portal do Drive).
 
+import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -62,7 +69,10 @@ from django.db import DatabaseError
 from django.utils import timezone
 
 from api_mercado_livre import ApiMercadoLivre
-from api_mercado_livre.core.estrutura_api.cliente_api import ErroAutenticacaoAPI
+from api_mercado_livre.core.estrutura_api.cliente_api import (
+    ErroAutenticacaoAPI,
+    requisicoes_enviadas_nesta_thread,
+)
 from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE, definir_empresa_ativa
 from mercado_livre.funcoes_auxiliares.caracteristicas_ml import consultar_anuncios_elegiveis
 from mercado_livre.funcoes_auxiliares.envio_caracteristicas_ml import conferir_depois_do_envio
@@ -109,6 +119,11 @@ CAMPOS_ATRIBUTO_CATEGORIA = [
 FASE_ANUNCIOS = 'lendo_anuncios'
 FASE_CATEGORIAS = 'lendo_categorias'
 
+# * [EXPLICAÇÃO] → Vários workers somam no mesmo relatório ao mesmo tempo;
+#                  a trava evita perder contagem (somar em int de dataclass
+#                  não é atômico).
+_TRAVA_CONTAGEM = threading.Lock()
+
 
 @dataclass
 class RelatorioLeituraCaracteristicas:
@@ -121,6 +136,13 @@ class RelatorioLeituraCaracteristicas:
     categorias_lidas: int = 0
     falhas: list[dict] = field(default_factory=list)  # [{"tipo": "anuncio"|"categoria", "id", "erro"}]
     duracao_segundos: float = 0.0
+    # Requisições HTTP reais feitas ao ML (com novas tentativas), por tipo.
+    chamadas_anuncios: int = 0
+    chamadas_categorias: int = 0
+
+    @property
+    def chamadas_total(self) -> int:
+        return self.chamadas_anuncios + self.chamadas_categorias
 
 
 @dataclass
@@ -136,6 +158,13 @@ class RelatorioEnvioCaracteristicas:
     acesso_recusado: bool = False
     falhas_leitura: list[dict] = field(default_factory=list)
     duracao_segundos: float = 0.0
+    # Requisições HTTP reais ao ML: o PUT de cada anúncio e a leitura de volta.
+    chamadas_envio: int = 0
+    chamadas_leitura: int = 0
+
+    @property
+    def chamadas_total(self) -> int:
+        return self.chamadas_envio + self.chamadas_leitura
 
     # Função Objetivo: Quais campos NÃO ficaram aplicados em todos os anúncios
     # que deviam recebê-los (recusado, sem resposta e não confirmado, não
@@ -182,15 +211,30 @@ def _carregar_anuncios(skus=None) -> list[AnuncioMercadoLivre]:
 
 # ─── LEITURA EM PARALELO ────────────────────────────────────────────────
 
+# Função Objetivo: Roda funcao() e soma no relatório quantas requisições HTTP
+# ela enviou DE VERDADE (o contador é da thread atual, então a conta só vale
+# se funcao() roda inteira nesta mesma thread — é o caso dos workers). Soma
+# mesmo quando funcao() falha: a chamada que deu erro também gastou limite.
+def _medir_chamadas(relatorio, campo: str, funcao):
+    antes = requisicoes_enviadas_nesta_thread()
+    try:
+        return funcao()
+    finally:
+        gastas = requisicoes_enviadas_nesta_thread() - antes
+        if relatorio is not None and gastas > 0:
+            with _TRAVA_CONTAGEM:
+                setattr(relatorio, campo, getattr(relatorio, campo) + gastas)
+
+
 # Função Objetivo: Workers das threads — SÓ chamam a API (nunca o banco).
-def _ler_anuncio(empresa: str, api_ml: ApiMercadoLivre, mlb: str) -> dict:
+def _ler_anuncio(empresa: str, api_ml: ApiMercadoLivre, mlb: str, relatorio=None) -> dict:
     definir_empresa_ativa(empresa)
-    return api_ml.buscar_atributos_item(mlb)
+    return _medir_chamadas(relatorio, 'chamadas_anuncios', lambda: api_ml.buscar_atributos_item(mlb))
 
 
-def _ler_categoria(empresa: str, api_ml: ApiMercadoLivre, category_id: str) -> dict:
+def _ler_categoria(empresa: str, api_ml: ApiMercadoLivre, category_id: str, relatorio=None) -> dict:
     definir_empresa_ativa(empresa)
-    return api_ml.buscar_card_categoria(category_id)
+    return _medir_chamadas(relatorio, 'chamadas_categorias', lambda: api_ml.buscar_card_categoria(category_id))
 
 
 # Função Objetivo: Roda funcao(chave) para cada chave em threads e chama
@@ -259,7 +303,7 @@ def _ler_e_gravar_anuncios(empresa, api_ml, anuncios, relatorio, ao_progredir) -
     try:
         _ler_em_paralelo(
             list(por_mlb),
-            lambda mlb: _ler_anuncio(empresa, api_ml, mlb),
+            lambda mlb: _ler_anuncio(empresa, api_ml, mlb, relatorio),
             ao_terminar,
         )
     finally:
@@ -377,7 +421,7 @@ def _ler_e_gravar_categorias(
 
     _ler_em_paralelo(
         a_ler,
-        lambda category_id: _ler_categoria(empresa, api_ml, category_id),
+        lambda category_id: _ler_categoria(empresa, api_ml, category_id, relatorio),
         ao_terminar,
     )
 
@@ -466,6 +510,7 @@ def enviar_produto(empresa: str, plano: dict) -> RelatorioEnvioCaracteristicas:
             registro['mensagem'] = 'Não enviado: o Mercado Livre recusou o acesso num envio anterior.'
             continue
 
+        antes_envio = requisicoes_enviadas_nesta_thread()
         try:
             resultado = api_ml.enviar_atributos_item(alvo['mlb'], alvo['atributos_corpo'])
         except ErroAutenticacaoAPI:
@@ -482,6 +527,11 @@ def enviar_produto(empresa: str, plano: dict) -> RelatorioEnvioCaracteristicas:
                 'ok': False, 'incerto': True, 'status_http': None, 'avisos': [],
                 'mensagem': f'Falha inesperada ao enviar ({type(erro).__name__}). Não sei se o Mercado Livre aplicou; a leitura de volta confere.',
             }
+        finally:
+            # * [EXPLICAÇÃO] → O PUT roda nesta mesma thread, então a diferença
+            #                  do contador é o que ele realmente enviou (o
+            #                  `continue` do 401 também passa por aqui).
+            relatorio.chamadas_envio += requisicoes_enviadas_nesta_thread() - antes_envio
 
         registro['situacao'] = 'aceito' if resultado['ok'] else ('incerto' if resultado['incerto'] else 'recusado')
         registro['mensagem'] = resultado['mensagem']
@@ -513,6 +563,7 @@ def _reler_e_conferir(empresa, api_ml, plano, registros, relatorio) -> None:
         traceback.print_exc()
         relatorio.acesso_recusado = True
     relatorio.falhas_leitura = leitura.falhas
+    relatorio.chamadas_leitura = leitura.chamadas_anuncios
 
     atualizados = {
         anuncio.id: anuncio
@@ -549,5 +600,7 @@ def _fechar_registro(registro, relatorio, situacao) -> None:
     registro.anuncios_lidos = relatorio.anuncios_lidos
     registro.total_categorias = relatorio.total_categorias
     registro.categorias_lidas = relatorio.categorias_lidas
+    registro.chamadas_anuncios = relatorio.chamadas_anuncios
+    registro.chamadas_categorias = relatorio.chamadas_categorias
     registro.falhas = relatorio.falhas[:LIMITE_FALHAS_GUARDADAS] or None
     registro.save()

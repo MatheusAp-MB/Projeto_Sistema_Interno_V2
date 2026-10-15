@@ -1,140 +1,186 @@
 {% comment %}
-* [RESUMO] → 1 card de característica. TODOS os cards têm as mesmas 4 partes:
-  1) Característica; 2) Valor a enviar; 3) Hoje no Mercado Livre; 4) Regra e
-  Vale para. O "Valor a enviar" é onde o usuário digita; o que ele digita vive
-  SÓ nesta página (não existe rascunho: sem enviar, o digitado se perde) e
-  campo vazio significa "não mexer no Mercado Livre". NADA vem pré-selecionado
-  (regra do Matheus): nem a unidade de medida, que começa em "Unidade" e
-  precisa ser escolhida. A Marca é travada (vem do ERP) e o campo que aceita
-  vários valores ainda não é editável aqui.
-  A cor do cabeçalho mostra a situação do campo (verde = igual em todos,
-  âmbar = pede atenção, azul = vem do ERP, cinza = vazio ou N/A).
+* [RESUMO] → 1 card de característica, COMPACTO e sempre do mesmo tamanho
+  (214 px de altura), com a mesma hierarquia em todos:
+    1) nome + nível (Obrigatório / Obrigatório em alguns casos / Recomendado)
+       e o botão de detalhes ↗;
+    2) situação de hoje (pílula) + "✎ Alterado" + em quantos anúncios vale;
+    3) "Valor a enviar" — a linha única de resumo do que há hoje no ML e o
+       campo onde se digita;
+    4) de onde veio o valor digitado (você digitou, copiou de um anúncio ou
+       — quando a IA estiver conectada — aceitou uma sugestão) e "Desfazer";
+    5) o espaço da sugestão da IA (hoje: "ainda não conectada").
+  Todo o resto (todos os valores de hoje, regra, "vale para", opções do ML e
+  o detalhe anúncio por anúncio) fica na GAVETA do card, que o JS monta a
+  partir do <template data-modelo="detalhe"> daqui — sem consultar nada.
+  O que o usuário digita vive SÓ nesta página (não existe rascunho) e campo
+  vazio significa "não mexer no Mercado Livre". NADA vem pré-selecionado
+  (regra do Matheus): nem a unidade de medida, que começa em "Unidade". A Marca
+  é travada (vem do ERP) e o campo que aceita vários valores ainda não é
+  editável aqui.
 {% endcomment %}
-<article class="car-card car-card--{{ card.estado }}"
+<article class="car-card car-card--{{ card.estado }}{% if not card.editavel %} car-card--travado{% endif %}"
          id="{{ card.id_html }}"
          data-atributo="{{ card.atributo_id }}"
+         data-label="{{ card.label }}"
          data-tipo="{{ card.tipo }}"
-         data-editavel="{% if card.eh_marca or card.multi %}0{% else %}1{% endif %}"
-         data-alterado="0"
+         data-editavel="{% if card.editavel %}1{% else %}0{% endif %}"
+         data-estado="{{ card.estado }}"
+         data-nivel="{{ card.nivel_chave }}"
+         data-resolver="{{ card.resolver|yesno:'1,0' }}"
+         data-obrigatorio="{{ card.obrigatorio_qualquer|yesno:'1,0' }}"
          data-atencao="{{ card.pede_atencao|yesno:'1,0' }}"
-         data-obrigatorio="{{ card.obrigatorio|yesno:'1,0' }}">
+         data-alterado="0"
+         data-origem="">
 
-    <header class="car-card-cab">
+    <div class="car-card-topo">
         <div class="car-card-ident">
-            <label class="car-card-titulo" id="{{ card.id_html }}-rotulo" for="{{ card.id_html }}-valor">{{ card.label }}</label>
-            <span class="car-card-meta">
-                <span class="car-nivel {{ card.req_classe }}">{{ card.req_rotulo }}</span>
-                <span class="car-card-api">ID na API: <code>{{ card.atributo_id }}</code></span>
-            </span>
+            <label class="car-card-nome" id="{{ card.id_html }}-rotulo" for="{{ card.id_html }}-valor" title="{{ card.label }}" data-dica-cortado>{{ card.label }}</label>
+            <span class="car-nivel {{ card.req_classe }}">{{ card.req_rotulo }}</span>
         </div>
-        <span class="car-cab-estado">
-            <span class="car-pilula {{ card.pilula_classe }}">{{ card.pilula_txt }}</span>
-            <span class="car-pilula car-pilula--alterado" data-campo="marca-alterado" hidden>Alterado, não enviado</span>
-        </span>
-    </header>
+        <button type="button" class="car-card-detalhe" data-acao="abrir-detalhe"
+                title="Abrir os detalhes deste campo: valores de hoje, regra, opções e anúncios"
+                aria-label="Abrir os detalhes de {{ card.label }}">
+            <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
+        </button>
+    </div>
 
-    <div class="car-card-secao car-card-secao--envio">
-        <span class="car-rotulo car-rotulo--com-acao">
-            <span class="car-rotulo-texto"><i class="fas fa-paper-plane" aria-hidden="true"></i> Valor a enviar</span>
-            {% if not card.eh_marca and not card.multi %}
-                <button type="button" class="car-limpar" data-acao="limpar-campo" hidden>
-                    <i class="fas fa-rotate-left" aria-hidden="true"></i> Desfazer
-                </button>
-            {% endif %}
-        </span>
+    <div class="car-card-estado">
+        <span class="car-pilula {{ card.pilula_classe }}">{{ card.pilula_txt }}</span>
+        <span class="car-pilula car-pilula--alterado car-card-pend" data-campo="marca-alterado" data-ativo="0">✎ Alterado</span>
+        <span class="car-card-cobertura" title="Em quantos anúncios este campo existe (a categoria do anúncio pede)">{{ card.cobertura }}</span>
+    </div>
 
+    <div class="car-card-legenda">
+        <strong>Valor a enviar</strong>
+        <span title="{{ card.micro }}" data-dica-cortado>{{ card.micro }}</span>
+    </div>
+
+    <div class="car-card-controle">
         {% if card.eh_marca %}
             <div class="car-travado">
                 <i class="fas fa-lock" aria-hidden="true"></i>
-                <input type="text" id="{{ card.id_html }}-valor" value="{{ card.valor_erp }}" readonly aria-readonly="true">
+                <input type="text" id="{{ card.id_html }}-valor" value="{{ card.valor_erp }}" readonly aria-readonly="true"
+                       aria-label="Marca (vem do ERP, não é digitada aqui)">
             </div>
-            <span class="car-ajuda">Vem do cadastro do produto (ERP); não é digitada aqui.</span>
         {% elif card.multi %}
             <div class="car-travado">
                 <i class="fas fa-lock" aria-hidden="true"></i>
-                <input type="text" id="{{ card.id_html }}-valor" value="" placeholder="Aceita vários valores" readonly aria-readonly="true">
+                <input type="text" id="{{ card.id_html }}-valor" value="" placeholder="Aceita vários valores · não editável" readonly aria-readonly="true"
+                       aria-label="{{ card.label }}: aceita vários valores, não editável aqui">
             </div>
-            <span class="car-ajuda">Este campo aceita mais de um valor; o envio dele ainda não existe aqui.</span>
-        {% else %}
-            {% if card.simnao %}
-                <div class="car-simnao" role="group" aria-labelledby="{{ card.id_html }}-rotulo" id="{{ card.id_html }}-valor">
-                    {% for opcao in card.opcoes_pares %}
-                        <button type="button" class="car-btn-simnao" data-acao="escolher-simnao" data-valor-id="{{ opcao.id }}" aria-pressed="false">{{ opcao.name }}</button>
-                    {% endfor %}
-                </div>
-            {% elif card.tipo == 'lista' %}
-                <select class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="valor_id">
-                    <option value="">Não mexer neste campo</option>
-                    {% for opcao in card.opcoes_pares %}<option value="{{ opcao.id }}">{{ opcao.name }}</option>{% endfor %}
-                </select>
-            {% elif card.tipo == 'numero_unidade' %}
-                <div class="car-numero-unidade">
-                    <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero" placeholder="Digite o número">
-                    <select class="car-campo car-entrada" data-entrada="unidade" aria-label="Unidade de medida">
-                        <option value="" selected>Unidade</option>
-                        {% for unidade in card.unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% endfor %}
-                    </select>
-                </div>
-            {% elif card.tipo == 'numero' %}
-                <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero" placeholder="Digite o número">
-            {% else %}
-                <input type="text" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="texto" placeholder="Digite aqui"
-                       {% if card.tipo == 'texto_sugestoes' and card.opcoes_exibidas %}list="{{ card.id_html }}-sugestoes"{% endif %}>
-                {% if card.tipo == 'texto_sugestoes' and card.opcoes_exibidas %}
-                    <datalist id="{{ card.id_html }}-sugestoes">
-                        {% for sugestao in card.opcoes_exibidas %}<option value="{{ sugestao }}"></option>{% endfor %}
-                    </datalist>
-                {% endif %}
-                <span class="car-caracteres" data-campo="caracteres" data-limite="{{ card.limite|default:255 }}" aria-live="polite">0 / {{ card.limite|default:255 }}</span>
-            {% endif %}
-            <span class="car-erro-campo" data-campo="erro" role="alert" hidden></span>
-            <span class="car-ajuda">Deixe em branco para não mexer neste campo.</span>
-        {% endif %}
-    </div>
-
-    <div class="car-card-secao car-card-secao--ml">
-        <span class="car-rotulo"><i class="fas fa-store" aria-hidden="true"></i> Hoje no Mercado Livre</span>
-        {% if card.chips %}
-            <div class="car-chips">
-                {% for chip in card.chips %}
-                    <span class="{{ chip.classe }}">
-                        <span class="car-chip-rotulo">{{ chip.rotulo }}</span>
-                        <span class="car-chip-n">· {{ chip.n_txt }}{% if chip.nota %} · {{ chip.nota }}{% endif %}</span>
-                    </span>
+        {% elif card.simnao %}
+            <div class="car-simnao" role="group" aria-labelledby="{{ card.id_html }}-rotulo" id="{{ card.id_html }}-valor">
+                {% for opcao in card.opcoes_pares %}
+                    <button type="button" class="car-btn-simnao" data-acao="escolher-simnao" data-valor-id="{{ opcao.id }}" data-texto="{{ opcao.name }}" aria-pressed="false">{{ opcao.name }}</button>
                 {% endfor %}
             </div>
-        {% endif %}
-        <span class="car-nota {{ card.ml_nota_classe }}">{{ card.ml_nota }}</span>
-
-        {% if card.opcoes_exibidas and not card.booleano and not card.eh_marca %}
-            <details class="car-opcoes">
-                <summary>
-                    {% if card.tipo == 'lista' %}
-                        {% if card.opcoes_total == 1 %}Ver a única opção aceita{% else %}Ver as {{ card.opcoes_total }} opções aceitas{% endif %}
-                    {% else %}
-                        {% if card.opcoes_total == 1 %}Ver a única sugestão do ML{% else %}Ver as {{ card.opcoes_total }} sugestões do ML{% endif %}
-                    {% endif %}
-                </summary>
-                <ul>
-                    {% for opcao in card.opcoes_exibidas %}<li>{{ opcao }}</li>{% endfor %}
-                </ul>
-                {% if card.opcoes_restantes %}
-                    <p class="car-opcoes-mais">… e mais {{ card.opcoes_restantes }}.</p>
-                {% endif %}
-            </details>
+        {% elif card.tipo == 'lista' %}
+            <select class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="valor_id" aria-label="Valor a enviar: {{ card.label }}">
+                <option value="">Não mexer neste campo</option>
+                {% for opcao in card.opcoes_pares %}<option value="{{ opcao.id }}">{{ opcao.name }}</option>{% endfor %}
+            </select>
+        {% elif card.tipo == 'numero_unidade' %}
+            <div class="car-numero-unidade">
+                <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero"
+                       placeholder="Digite o número" aria-label="Número para {{ card.label }}">
+                <select class="car-campo car-entrada" data-entrada="unidade" aria-label="Unidade de medida de {{ card.label }}">
+                    <option value="" selected>Unidade</option>
+                    {% for unidade in card.unidades %}<option value="{{ unidade }}">{{ unidade }}</option>{% endfor %}
+                </select>
+            </div>
+        {% elif card.tipo == 'numero' %}
+            <input type="text" inputmode="decimal" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="numero"
+                   placeholder="Digite o número" aria-label="Valor a enviar: {{ card.label }}">
+        {% else %}
+            <input type="text" autocomplete="off" class="car-campo car-entrada" id="{{ card.id_html }}-valor" data-entrada="texto"
+                   placeholder="Digite aqui" aria-label="Valor a enviar: {{ card.label }}"
+                   {% if card.tipo == 'texto_sugestoes' and card.opcoes_exibidas %}list="{{ card.id_html }}-sugestoes"{% endif %}>
+            {% if card.tipo == 'texto_sugestoes' and card.opcoes_exibidas %}
+                <datalist id="{{ card.id_html }}-sugestoes">
+                    {% for sugestao in card.opcoes_exibidas %}<option value="{{ sugestao }}"></option>{% endfor %}
+                </datalist>
+            {% endif %}
         {% endif %}
     </div>
 
-    <footer class="car-card-rodape">
-        <div class="car-card-bloco">
-            <span class="car-rotulo">Regra</span>
-            <span class="car-card-forte">{{ card.regra1 }}</span>
-            <span class="car-card-suave">{{ card.regra2 }}</span>
+    <div class="car-card-regra">
+        <span class="car-card-origem" data-campo="origem">
+            {% if card.eh_marca %}▣ Vem do ERP{% elif card.multi %}🔒 Não editável aqui{% else %}— Não mexer neste campo{% endif %}
+        </span>
+        <span class="car-card-regra-dir">
+            {% if card.editavel %}
+                <button type="button" class="car-limpar" data-acao="limpar-campo" hidden>Desfazer</button>
+                {% if card.tipo == 'texto' or card.tipo == 'texto_sugestoes' %}
+                    <span class="car-caracteres" data-campo="caracteres" data-limite="{{ card.limite|default:255 }}" aria-live="polite">0/{{ card.limite|default:255 }}</span>
+                {% endif %}
+            {% endif %}
+        </span>
+    </div>
+    <span class="car-erro-campo" data-campo="erro" role="alert" hidden></span>
+
+    <div class="car-card-ia" data-campo="ia">
+        <div class="car-card-ia-caixa">
+            <span class="car-card-ia-titulo"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Sugestão da IA</span>
+            <span class="car-card-ia-valor" data-campo="ia-valor">
+                {% if card.editavel %}IA ainda não conectada{% else %}Não disponível neste campo{% endif %}
+            </span>
         </div>
-        <div class="car-card-bloco">
-            <span class="car-rotulo">Vale para</span>
-            <span class="car-card-forte">{{ card.vale1 }}</span>
-            <span class="car-card-suave">{{ card.vale2 }}</span>
-        </div>
-    </footer>
+        <button type="button" class="car-btn car-btn--mini" data-acao="aceitar-ia" hidden>Aceitar</button>
+    </div>
+
+    <template data-modelo="detalhe">
+        <section class="car-gaveta-bloco">
+            <h4>Hoje no Mercado Livre <small>· {{ card.cobertura }}</small></h4>
+            <p class="car-gaveta-nota {{ card.ml_nota_classe }}">{{ card.ml_nota }}</p>
+            {% if card.chips %}
+                <ul class="car-gaveta-valores">
+                    {% for chip in card.chips %}
+                        <li class="car-gaveta-valor">
+                            <span class="{{ chip.classe }}">
+                                <span class="car-chip-rotulo">{{ chip.rotulo }}</span>
+                                <span class="car-chip-n">· {{ chip.n_txt }}{% if chip.nota %} · {{ chip.nota }}{% endif %}</span>
+                            </span>
+                            {% if chip.copiavel and card.editavel %}
+                                <button type="button" class="car-btn car-btn--mini" data-acao="usar-valor"
+                                        data-texto="{{ chip.rotulo }}" data-valor-id="{{ chip.valor_id }}">Usar este valor</button>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="car-gaveta-nota">Sem valores para mostrar.</p>
+            {% endif %}
+        </section>
+
+        <section class="car-gaveta-bloco">
+            <h4>Regra de preenchimento</h4>
+            <dl class="car-gaveta-dl">
+                <div><dt>Nível</dt><dd>{{ card.req_rotulo }}</dd></div>
+                <div><dt>Regra</dt><dd>{{ card.regra1 }}<br><small>{{ card.regra2 }}</small></dd></div>
+                <div><dt>ID na API</dt><dd><code>{{ card.atributo_id }}</code></dd></div>
+                <div><dt>Editável aqui</dt><dd>{% if card.editavel %}Sim{% elif card.eh_marca %}Não — a marca vem do ERP{% else %}Não — aceita vários valores{% endif %}</dd></div>
+            </dl>
+        </section>
+
+        <section class="car-gaveta-bloco">
+            <h4>Vale para</h4>
+            <p class="car-gaveta-nota"><strong>{{ card.vale1 }}</strong><br>{{ card.vale2 }}</p>
+        </section>
+
+        {% if card.opcoes_exibidas and not card.booleano and not card.eh_marca %}
+            <section class="car-gaveta-bloco">
+                <h4>
+                    {% if card.tipo == 'lista' %}
+                        {% if card.opcoes_total == 1 %}A única opção aceita{% else %}As {{ card.opcoes_total }} opções aceitas{% endif %}
+                    {% else %}
+                        {% if card.opcoes_total == 1 %}A única sugestão do ML{% else %}As {{ card.opcoes_total }} sugestões do ML{% endif %}
+                    {% endif %}
+                </h4>
+                <ul class="car-gaveta-opcoes">
+                    {% for opcao in card.opcoes_exibidas %}<li>{{ opcao }}</li>{% endfor %}
+                </ul>
+                {% if card.opcoes_restantes %}<p class="car-gaveta-nota">… e mais {{ card.opcoes_restantes }}.</p>{% endif %}
+            </section>
+        {% endif %}
+    </template>
 </article>

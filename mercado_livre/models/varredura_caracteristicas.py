@@ -31,6 +31,12 @@ class VarreduraCaracteristicasMercadoLivre(models.Model):
     total_categorias = models.PositiveIntegerField(default=0)
     categorias_lidas = models.PositiveIntegerField(default=0)
 
+    # * [EXPLICAÇÃO] → Requisições HTTP REAIS feitas ao Mercado Livre nesta
+    #                  varredura (inclui nova tentativa por 429/timeout), para
+    #                  a tela mostrar quanto do limite de 18.000/hora ela gastou.
+    chamadas_anuncios   = models.PositiveIntegerField(default=0)
+    chamadas_categorias = models.PositiveIntegerField(default=0)
+
     # * [EXPLICAÇÃO] → Lista de {"tipo", "id", "erro"} do que não foi lido
     #                  (limitada às primeiras ocorrências — o objetivo é
     #                  diagnosticar, não arquivar tudo).
@@ -40,6 +46,10 @@ class VarreduraCaracteristicasMercadoLivre(models.Model):
         verbose_name        = 'Varredura de Características Mercado Livre'
         verbose_name_plural = 'Varreduras de Características Mercado Livre'
         ordering            = ['-iniciada_em']
+
+    @property
+    def chamadas_total(self) -> int:
+        return self.chamadas_anuncios + self.chamadas_categorias
 
     def __str__(self):
         return f'Varredura de {self.iniciada_em:%d/%m/%Y %H:%M} — {self.get_situacao_display()}'

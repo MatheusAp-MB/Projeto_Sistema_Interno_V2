@@ -1,11 +1,18 @@
 {% comment %}
 * [RESUMO] → 1 linha da lista de produtos da tela de Características dos
-  anúncios. O botão da esquerda só abre/fecha a ficha (que é carregada do
-  banco na primeira abertura). O botão "Atualizar" é o único que só LÊ a
-  API para este produto — por isso é um botão separado, nunca dentro do
-  botão de abrir. O envio de características (revisar e confirmar) acontece
-  dentro da ficha do produto; as rotas ficam aqui, nos data-url, junto das
-  outras.
+  anúncios: foto, produto (título + EAN), SKU e marca, leitura e anúncios,
+  última leitura e o botão "Atualizar".
+  - Clicar na FOTO abre o mesmo modal de cadastro da tela de Produtos
+    (#modal-produto, carregado por HTMX — não existe uma segunda ficha de
+    produto). O TÍTULO e o EAN são só texto: não abrem nada (o botão "Ver
+    produto" da ficha já cumpre esse papel).
+  - Clicar na seta (ou em qualquer espaço da linha, inclusive no título)
+    abre/fecha a ficha de características, carregada do banco na primeira
+    abertura.
+  - O botão "Atualizar" é o único que consulta a API para este produto — por
+    isso é um botão separado, nunca dentro do botão de abrir. O envio de
+    características (revisar e confirmar) acontece dentro da ficha; as rotas
+    ficam aqui, nos data-url, junto das outras.
 {% endcomment %}
 <article class="car-produto car-produto--{{ produto.estado }}"
          data-sku="{{ produto.sku }}"
@@ -13,31 +20,63 @@
          data-url-atualizar="{% url 'mercado_livre_caracteristicas_atualizar' produto.sku %}"
          data-url-revisar="{% url 'mercado_livre_caracteristicas_revisar_envio' produto.sku %}"
          data-url-enviar="{% url 'mercado_livre_caracteristicas_enviar' produto.sku %}">
-    <div class="car-produto-cab">
-        <button type="button"
-                class="car-produto-toggle"
-                data-acao="alternar-produto"
-                aria-expanded="false"
-                aria-controls="car-corpo-{{ numero }}">
-            <i class="fas fa-chevron-down car-chevron car-produto-seta" aria-hidden="true"></i>
-            <span class="car-leitura">
-                <span class="car-pilula {{ produto.estado_classe }}" data-campo="estado">{{ produto.estado_rotulo }}</span>
-                <span class="car-leitura-lidos">
-                    <progress class="car-mini-barra" data-campo="barra" max="{{ produto.n_anuncios }}" value="{{ produto.n_lidos }}" aria-hidden="true"></progress>
-                    <span class="car-produto-lidos" data-campo="lidos">{{ produto.n_lidos }} de {{ produto.n_anuncios }} lido{{ produto.n_anuncios|pluralize }}</span>
-                </span>
-            </span>
-            <span class="car-sku">{{ produto.sku }}</span>
-            <span class="car-produto-nome">
+    <div class="car-produto-linha">
+        {% if produto.produto_id %}
+            <button type="button"
+                    class="car-produto-foto"
+                    hx-get="{% url 'painel_produto' produto.produto_id %}"
+                    hx-target="#modal-conteudo"
+                    hx-swap="innerHTML"
+                    onclick="abrirModal()"
+                    title="Abrir o cadastro do produto (foto, descrição e dados do ERP)"
+                    aria-label="Abrir o cadastro de {{ produto.titulo|default:produto.sku }}">
+                {% if produto.imagem_url %}
+                    <img src="{{ produto.imagem_url }}" alt="" loading="lazy">
+                {% else %}
+                    <i class="fas fa-image" aria-hidden="true"></i>
+                {% endif %}
+            </button>
+        {% else %}
+            <span class="car-produto-foto car-produto-foto--vazia" aria-hidden="true"><i class="fas fa-image"></i></span>
+        {% endif %}
+
+        <div class="car-produto-principal">
+            <button type="button"
+                    class="car-produto-toggle"
+                    data-acao="alternar-produto"
+                    aria-expanded="false"
+                    aria-controls="car-corpo-{{ numero }}"
+                    aria-label="Abrir a ficha de características de {{ produto.titulo|default:produto.sku }}">
+                <i class="fas fa-chevron-right car-chevron" aria-hidden="true"></i>
+            </button>
+            <span class="car-produto-abrir">
                 <span class="car-produto-titulo">{{ produto.titulo|default:"(sem título)" }}</span>
-                <span class="car-produto-meta">{{ produto.marca|default:"Sem marca" }} · {{ produto.n_anuncios }} anúncio{{ produto.n_anuncios|pluralize }}</span>
+                <span class="car-produto-meta">EAN: <code>{{ produto.ean|default:"—" }}</code></span>
+            </span>
+        </div>
+
+        <div class="car-produto-id">
+            <span class="car-sku">{{ produto.sku }}</span>
+            <span class="car-produto-nota">{{ produto.marca|default:"Sem marca" }}</span>
+        </div>
+
+        <div class="car-produto-leitura">
+            <span class="car-produto-leitura-linha">
+                <span class="car-pilula {{ produto.estado_classe }}" data-campo="estado">{{ produto.estado_rotulo }}</span>
+                <span class="car-produto-lidos" data-campo="lidos">{{ produto.n_lidos }} de {{ produto.n_anuncios }} lido{{ produto.n_anuncios|pluralize }}</span>
+            </span>
+            <progress class="car-mini-barra" data-campo="barra" max="{{ produto.n_anuncios }}" value="{{ produto.n_lidos }}" aria-hidden="true"></progress>
+            <span class="car-produto-leitura-linha">
+                <span class="car-produto-nota" data-campo="n-anuncios">{{ produto.n_anuncios }} anúncio{{ produto.n_anuncios|pluralize }}</span>
                 <span class="car-produto-alterados" data-campo="alterados-linha" hidden></span>
             </span>
-            <span class="car-produto-ultima" data-campo="ultima">{{ produto.ultima_leitura_txt|default:"—" }}</span>
-        </button>
+        </div>
+
+        <span class="car-produto-ultima" data-campo="ultima">{{ produto.ultima_leitura_txt|default:"—" }}</span>
+
         <div class="car-produto-acao">
             <button type="button" class="car-btn car-btn--secundario car-btn--atualizar" data-acao="atualizar-produto"
-                    title="Consulta o Mercado Livre agora e salva no banco">
+                    title="Consulta o Mercado Livre agora e salva no banco: 1 chamada por anúncio ({{ produto.n_anuncios }} {{ produto.n_anuncios|pluralize:'chamada,chamadas' }}), mais 2 por categoria que o banco ainda não conhece.">
                 <i class="fas fa-rotate" aria-hidden="true"></i> <span class="car-btn-texto">Atualizar</span>
             </button>
         </div>

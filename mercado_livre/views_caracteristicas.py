@@ -50,6 +50,13 @@ INTERVALO_GRAVACAO_PROGRESSO = 1.0
 CHAVES_VALOR_DIGITADO = ('valor_id', 'texto', 'numero', 'unidade')
 MAX_CAMPOS_POR_ENVIO = 300
 
+# * [EXPLICAÇÃO] → Orçamento mensal reservado para a IA (decisão do Matheus:
+#                  US$ 120/mês). Por enquanto a IA NÃO está conectada: a tela
+#                  só mostra o espaço onde o gasto real vai aparecer, sem
+#                  inventar número nenhum.
+ORCAMENTO_IA_MENSAL_USD = 120
+MODELO_IA_PREVISTO = 'Haiku 5.5'
+
 OPCOES_POR_PAGINA = (10, 25, 50, 100)
 POR_PAGINA_PADRAO = 25
 
@@ -182,7 +189,14 @@ def view_caracteristicas_ficha(request, sku):
     ficha['resumo']['ultima_leitura_txt'] = formatar_data_hora(ficha['resumo']['ultima_leitura'])
     for linha in ficha['tabela']['linhas']:
         linha['lido_em_txt'] = formatar_data_hora(linha['lido_em'])
-    return render(request, 'mercado_livre/parciais/estrutura_parcial_ficha_caracteristicas.html', {'ficha': ficha})
+    ia_info = {
+        'conectada': False,
+        'orcamento_usd': ORCAMENTO_IA_MENSAL_USD,
+        'modelo': MODELO_IA_PREVISTO,
+    }
+    return render(request, 'mercado_livre/parciais/estrutura_parcial_ficha_caracteristicas.html', {
+        'ficha': ficha, 'ia_info': ia_info,
+    })
 
 
 # Função Objetivo: Botão "Atualizar" de 1 produto — lê da API os anúncios
@@ -239,17 +253,24 @@ def view_caracteristicas_atualizar_produto(request, sku):
         f'{relatorio.anuncios_lidos} de {relatorio.total_anuncios} '
         f'{_plural(relatorio.total_anuncios, "anúncio lido", "anúncios lidos")}'
     )
+    chamadas_txt = f'{relatorio.chamadas_total} {_plural(relatorio.chamadas_total, "chamada", "chamadas")} à API'
     if relatorio.falhas:
         n_falhas = len(relatorio.falhas)
-        mensagem = f'{lidos_txt}; {n_falhas} {_plural(n_falhas, "falhou", "falharam")} (veja abaixo).'
+        mensagem = f'{lidos_txt}; {n_falhas} {_plural(n_falhas, "falhou", "falharam")} (veja abaixo) · {chamadas_txt}.'
     else:
-        mensagem = f'{lidos_txt} do Mercado Livre.'
+        mensagem = f'{lidos_txt} do Mercado Livre · {chamadas_txt}.'
 
     return JsonResponse({
         'ok': True,
         'mensagem': mensagem,
         'falhas': relatorio.falhas[:10],
         'resumo': resumir_produto(sku),
+        # Requisições HTTP REAIS (com novas tentativas); a tela soma na sessão.
+        'chamadas': relatorio.chamadas_total,
+        'chamadas_anuncios': relatorio.chamadas_anuncios,
+        'chamadas_categorias': relatorio.chamadas_categorias,
+        'anuncios_lidos': relatorio.anuncios_lidos,
+        'total_anuncios': relatorio.total_anuncios,
     })
 
 
@@ -379,7 +400,10 @@ def view_caracteristicas_enviar_produto(request, sku):
 
     html = render_to_string(
         'mercado_livre/parciais/estrutura_parcial_resultado_envio_caracteristicas.html',
-        {'plano': plano, 'relatorio': relatorio, 'aceitos': aceitos, 'a_enviar': a_enviar, 'todos_ok': todos_ok},
+        {
+            'plano': plano, 'relatorio': relatorio, 'aceitos': aceitos, 'a_enviar': a_enviar,
+            'todos_ok': todos_ok, 'pendentes': pendentes,
+        },
         request=request,
     )
     return JsonResponse({
@@ -389,6 +413,10 @@ def view_caracteristicas_enviar_produto(request, sku):
         'pendentes': pendentes,
         'html': html,
         'resumo': resumir_produto(sku),
+        # Requisições HTTP REAIS: os PUTs + a leitura de volta.
+        'chamadas': relatorio.chamadas_total,
+        'chamadas_envio': relatorio.chamadas_envio,
+        'chamadas_leitura': relatorio.chamadas_leitura,
     })
 
 
@@ -460,10 +488,15 @@ def _rodar_varredura_em_thread(empresa, usuario):
             f'Varredura concluída: {relatorio.anuncios_lidos} de {relatorio.total_anuncios} '
             f'{_plural(relatorio.total_anuncios, "anúncio", "anúncios")} e '
             f'{relatorio.categorias_lidas} {_plural(relatorio.categorias_lidas, "categoria", "categorias")} '
-            f'lidos em {int(relatorio.duracao_segundos)} s'
+            f'lidos em {int(relatorio.duracao_segundos)} s · '
+            f'{relatorio.chamadas_total} {_plural(relatorio.chamadas_total, "chamada", "chamadas")} à API '
+            f'({relatorio.chamadas_anuncios} de anúncios + {relatorio.chamadas_categorias} de categorias)'
             + (f', com {n_falhas} {_plural(n_falhas, "falha", "falhas")}.' if n_falhas else '.')
         ),
         'com_falhas': bool(n_falhas),
+        'chamadas': relatorio.chamadas_total,
+        'chamadas_anuncios': relatorio.chamadas_anuncios,
+        'chamadas_categorias': relatorio.chamadas_categorias,
     })
 
 

@@ -1,20 +1,27 @@
 {% comment %}
-* [RESUMO] → Barra de envio de 1 produto. Aparece em cima e embaixo dos cards
-  (mesmo conteúdo; o JS atualiza as duas). Nada aqui chama o Mercado Livre:
-  "Revisar e enviar" só abre a prévia, e o envio de verdade só acontece no
+* [RESUMO] → Barra FIXA do envio da ficha de 1 produto (fica colada no pé da
+  janela enquanto a ficha está na tela): quantos campos estão preparados e os
+  botões. É a ÚNICA peça que acompanha a rolagem, porque é o que a pessoa quer
+  ter à mão depois de preencher vários cards. A IA NÃO fica aqui: o painel dela
+  está no topo da ficha (estrutura_parcial_painel_ia_caracteristicas.html).
+  Nada aqui chama o Mercado Livre: "Revisar e enviar" só abre a prévia
+  ("ESTAVA ASSIM → VAI FICAR ASSIM"), e o envio de verdade só acontece no
   "Confirmar envio" da janela. "Descartar" só limpa o que foi digitado.
 {% endcomment %}
-<div class="car-envio-barra" data-campo="barra-envio">
-    <p class="car-envio-contagem" data-campo="contagem-alterados" role="status" aria-live="polite">
-        Nenhum campo alterado. Campo vazio = não mexe no Mercado Livre.
-    </p>
-    <div class="car-envio-botoes">
-        <button type="button" class="car-btn car-btn--secundario" data-acao="descartar-alteracoes" disabled>
-            <i class="fas fa-eraser" aria-hidden="true"></i> Descartar alterações
-        </button>
-        <button type="button" class="car-btn car-btn--primario" data-acao="revisar-envio" disabled
-                title="Mostra o que cada anúncio vai receber. Ainda não envia nada.">
-            <i class="fas fa-paper-plane" aria-hidden="true"></i> Revisar e enviar
-        </button>
+<div class="car-barra-fixa" data-campo="barra-envio" role="region" aria-label="Envio deste produto">
+    <div class="car-barra-envio">
+        <p class="car-envio-contagem" data-campo="contagem-alterados" role="status" aria-live="polite">
+            <span data-campo="contagem-texto">Nenhum campo preparado</span>
+            <small data-campo="contagem-nota">Campo vazio = não mexe no Mercado Livre</small>
+        </p>
+        <div class="car-envio-botoes">
+            <button type="button" class="car-btn car-btn--secundario" data-acao="descartar-alteracoes" disabled>
+                <i class="fas fa-eraser" aria-hidden="true"></i> Descartar
+            </button>
+            <button type="button" class="car-btn car-btn--primario" data-acao="revisar-envio" disabled
+                    title="Mostra, para cada campo, como está hoje e como vai ficar. Ainda não envia nada.">
+                <i class="fas fa-paper-plane" aria-hidden="true"></i> <span data-campo="texto-revisar">Revisar e enviar</span>
+            </button>
+        </div>
     </div>
 </div>

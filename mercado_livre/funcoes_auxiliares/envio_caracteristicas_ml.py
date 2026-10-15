@@ -28,6 +28,7 @@
 # (valor próprio), remover um valor e marcar N/A.
 
 import re
+from collections import Counter
 from decimal import Decimal, InvalidOperation
 
 from mercado_livre.funcoes_auxiliares.caracteristicas_ml import (
@@ -177,7 +178,9 @@ def _ja_esta_igual(valor, hoje):
 #   erros (lista, 1 por campo inválido) e erros_por_campo (mesmo conteúdo, por id),
 #   valores (atributo_id -> valor conferido, com o corpo do ML),
 #   mlbs (1 por anúncio do produto: situação, motivo, itens e atributos_corpo),
-#   totais (n_mlbs_enviar, n_campos_enviar, n_chamadas) e pode_enviar.
+#   resumo_campos (1 por campo: o que os anúncios tinham, quantos mudam, quantos
+#   já estão iguais — é o que a prévia mostra), n_fora (anúncios que ficam de
+#   fora do envio), totais (n_mlbs_enviar, n_campos_enviar, n_chamadas) e pode_enviar.
 def preparar_envio(sku, digitados):
     contexto = carregar_contexto_produto(sku)
     if contexto is None:
@@ -268,6 +271,51 @@ def preparar_envio(sku, digitados):
 
     a_enviar = [m for m in mlbs if m['situacao'] == 'enviar']
     campos_enviados = {corpo['id'] for m in a_enviar for corpo in m['atributos_corpo']}
+    n_fora = sum(1 for m in mlbs if m['situacao'] == 'pulado')
+
+    # * [EXPLICAÇÃO] → A prévia mostra UMA linha por campo ("estava assim" →
+    #                  "vai ficar assim"), não uma tabela por anúncio. Aqui o
+    #                  plano junta, por campo: o que os anúncios tinham (valor e
+    #                  quantos), quantos vão mudar, quantos já estão iguais,
+    #                  quantos a categoria não pede, e as linhas de cada MLB
+    #                  (para abrir o detalhe).
+    resumo_campos = []
+    for atributo_id, valor in valores.items():
+        estavam = Counter()
+        linhas = []
+        n_mudam = n_iguais = n_nao_pedem = 0
+        for alvo in mlbs:
+            item = next((i for i in alvo['itens'] if i['atributo_id'] == atributo_id), None)
+            if item is None:
+                continue
+            linhas.append({
+                'mlb': alvo['mlb'], 'permalink': alvo['permalink'], 'categoria_nome': alvo['categoria_nome'],
+                'hoje_txt': item['hoje_txt'], 'hoje_estado': item['hoje_estado'],
+                'novo_txt': item['novo_txt'], 'situacao': item['situacao'],
+            })
+            if item['situacao'] == 'nao_pede':
+                n_nao_pedem += 1
+                continue
+            estavam[item['hoje_txt']] += 1
+            if item['situacao'] == 'igual':
+                n_iguais += 1
+            else:
+                n_mudam += 1
+        resumo_campos.append({
+            'atributo_id': atributo_id,
+            'label': valor['label'],
+            'novo_txt': valor['texto'],
+            'n_pedem': n_mudam + n_iguais,
+            'n_mudam': n_mudam,
+            'n_iguais': n_iguais,
+            'n_nao_pedem': n_nao_pedem,
+            'n_fora': n_fora,
+            'estavam': [
+                {'texto': texto, 'n': n}
+                for texto, n in sorted(estavam.items(), key=lambda par: (-par[1], par[0]))
+            ],
+            'linhas': linhas,
+        })
 
     if not digitados:
         motivo_sem_envio = 'Preencha pelo menos um campo antes de enviar.'
@@ -291,6 +339,8 @@ def preparar_envio(sku, digitados):
             for a, v in valores.items()
         ],
         'mlbs': mlbs,
+        'resumo_campos': resumo_campos,
+        'n_fora': n_fora,
         'n_mlbs_enviar': len(a_enviar),
         'n_campos_enviar': len(campos_enviados),
         # 1 chamada de envio + 1 de leitura de volta, para cada anúncio que vai receber.

@@ -1,19 +1,50 @@
 {% comment %}
-* [RESUMO] → Ficha de 1 produto (carregada do banco quando a linha é aberta):
-  resumo e avisos, linha que expande com a tabela de anúncios e, abaixo,
-  os cards das características separados por grupo da ficha do ML
-  ("Características principais", "Outros"...), com a barra "Revisar e
-  enviar" em cima e embaixo deles. Nenhuma parte daqui chama a API.
+* [RESUMO] → Ficha de 1 produto (carregada do banco quando a linha é aberta),
+  de cima para baixo:
+    1) cabeçalho: quantas características a ficha tem e o botão "Ver produto"
+       (mesmo modal da tela de Produtos). O estado de leitura (lidos, última
+       leitura) NÃO se repete aqui: já está na linha do produto, logo acima;
+    2) o painel da IA (custo, tokens e o botão que pede sugestões — uma vez, não
+       acompanha a rolagem);
+    3) categorias dos anúncios e a tabela de anúncios (1 campo por vez, a
+       escolha é feita num seletor — sem a matriz de dezenas de colunas);
+    4) filtros dos cards ("Resolver primeiro", "Obrigatórios", "Vazios",
+       "Todos", "Preparados");
+    5) os cards, por grupo da ficha do ML ("Características principais",
+       "Outros"...), cada grupo recolhível;
+    6) a barra fixa do ENVIO, colada no pé da janela (só o envio).
+  Nenhuma parte daqui chama a API.
 {% endcomment %}
-<div class="car-ficha">
-    <div class="car-ficha-resumo">
-        <strong class="car-ficha-total"><i class="fas fa-store" aria-hidden="true"></i> {{ ficha.resumo.n_anuncios }} anúncio{{ ficha.resumo.n_anuncios|pluralize }}</strong>
-        <span class="car-ficha-lidos">{{ ficha.resumo.n_lidos }} lido{{ ficha.resumo.n_lidos|pluralize }}</span>
-        {% for categoria in ficha.resumo.categorias %}
-            <span class="car-etiqueta" title="{{ categoria.caminho }}">{{ categoria.nome }} · {{ categoria.n }}</span>
-        {% endfor %}
-        <span class="car-ficha-leitura"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Última leitura do ML: {{ ficha.resumo.ultima_leitura_txt|default:"—" }}</span>
-    </div>
+<div class="car-ficha" data-sku="{{ ficha.produto.sku }}" data-filtro-inicial="{{ ficha.filtro_inicial }}" data-ia="{{ ia_info.conectada|yesno:'1,0' }}">
+  <div class="car-ficha-contexto">
+    <header class="car-ficha-cab">
+        <div class="car-ficha-cab-texto">
+            <h3 class="car-ficha-titulo">Ficha técnica do produto
+                <span class="car-ajuda" tabindex="0" role="note" aria-label="Como esta lista funciona"
+                      title="A lista junta os campos de todas as categorias dos anúncios. Uma correção vale só para os anúncios cuja categoria pede aquele campo. A posição dos cards não muda enquanto você edita."><i class="fas fa-circle-info" aria-hidden="true"></i></span>
+            </h3>
+            <div class="car-ficha-sub">
+                <span class="car-pilula car-pilula--info">{{ ficha.contagem_cards.todas }} característica{{ ficha.contagem_cards.todas|pluralize }}</span>
+                <span class="car-ficha-texto-suave">{{ ficha.contagem_cards.n_obrigatorios }} obrigatória{{ ficha.contagem_cards.n_obrigatorios|pluralize }} + {{ ficha.contagem_cards.n_condicionais }} condiciona{{ ficha.contagem_cards.n_condicionais|pluralize:"l,is" }}</span>
+                <span class="car-ficha-texto-suave"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Última leitura do ML: {{ ficha.resumo.ultima_leitura_txt|default:"—" }}</span>
+            </div>
+        </div>
+        <div class="car-ficha-cab-dir">
+            <button type="button"
+                    class="car-btn car-btn--secundario car-btn--pequeno"
+                    hx-get="{% url 'painel_produto' ficha.produto.id %}"
+                    hx-target="#modal-conteudo"
+                    hx-swap="innerHTML"
+                    onclick="abrirModal()"
+                    title="Abrir o cadastro do produto (descrição, fotos e dados do ERP)">
+                <i class="fas fa-circle-info" aria-hidden="true"></i> Ver produto
+            </button>
+        </div>
+    </header>
+
+    {% if ficha.cards %}
+        {% include 'mercado_livre/parciais/estrutura_parcial_painel_ia_caracteristicas.html' %}
+    {% endif %}
 
     {% if ficha.avisos %}
         <ul class="car-avisos">
@@ -23,25 +54,73 @@
         </ul>
     {% endif %}
 
+    <details class="car-cobertura">
+        <summary title="Categorias em que os anúncios estão — cada categoria pede campos diferentes">
+            <i class="fas fa-chevron-right car-chevron" aria-hidden="true"></i>
+            <span class="car-tabela-titulo"><i class="fas fa-sitemap" aria-hidden="true"></i> Categorias dos anúncios</span>
+            <span class="car-pilula car-pilula--info">{{ ficha.resumo.categorias|length }} categoria{{ ficha.resumo.categorias|length|pluralize }}</span>
+        </summary>
+        <div class="car-cobertura-itens">
+            <div class="car-tabela-rolagem car-tabela-rolagem--curta" tabindex="0" aria-label="Categorias dos anúncios deste produto">
+                <table class="car-tabela car-tabela-categorias">
+                    <thead>
+                        <tr>
+                            <th class="car-col-cat-nome">Categoria</th>
+                            <th class="car-col-cat-id">ID</th>
+                            <th class="car-col-cat-caminho">Caminho no Mercado Livre</th>
+                            <th class="car-col-cat-n" title="Anúncios já lidos que estão nesta categoria">Anúncios</th>
+                            <th class="car-col-cat-n" title="Quantos dos campos desta ficha a categoria pede">Campos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for categoria in ficha.resumo.categorias %}
+                            <tr>
+                                <td class="car-col-cat-nome"><b>{{ categoria.nome }}</b></td>
+                                <td class="car-col-cat-id"><code>{{ categoria.id }}</code></td>
+                                <td class="car-col-cat-caminho">{{ categoria.caminho|default:"—" }}</td>
+                                <td class="car-col-cat-n">{{ categoria.n }}</td>
+                                <td class="car-col-cat-n">{{ categoria.n_campos }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="5" class="car-col-cat-vazio">Nenhum anúncio lido ainda — clique em "Atualizar" para o sistema conhecer as categorias.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </details>
+
     {% with tabela=ficha.tabela %}
     <div class="car-tabela-bloco">
         <button type="button"
                 class="car-tabela-toggle"
                 data-acao="alternar-tabela"
                 aria-expanded="false"
-                aria-controls="car-tabela-{{ ficha.produto.sku|slugify }}">
-            <i class="fas fa-chevron-down car-chevron" aria-hidden="true"></i>
+                aria-controls="car-tabela-{{ ficha.produto.sku|slugify }}"
+                title="Veja, anúncio por anúncio, o valor de um campo de cada vez">
+            <i class="fas fa-chevron-right car-chevron" aria-hidden="true"></i>
             <span class="car-tabela-titulo"><i class="fas fa-table-list" aria-hidden="true"></i> Anúncios do produto</span>
             <span class="car-tabela-pilulas">
                 <span class="car-pilula car-pilula--info">{{ tabela.n_total }} anúncio{{ tabela.n_total|pluralize }}</span>
                 {% if tabela.n_nao_lidos %}<span class="car-pilula car-pilula--neutra">{{ tabela.n_nao_lidos }} não lido{{ tabela.n_nao_lidos|pluralize }}</span>{% endif %}
                 {% if tabela.n_com_branco %}<span class="car-pilula car-pilula--alerta">{{ tabela.n_com_branco }} com campo em branco</span>{% endif %}
             </span>
-            <span class="car-tabela-dica">Clique para ver o que cada anúncio tem hoje</span>
         </button>
 
         <div class="car-tabela-painel" id="car-tabela-{{ ficha.produto.sku|slugify }}" hidden>
             <div class="car-tabela-barra">
+                <div class="car-tabela-escolha">
+                    <label for="car-campo-tabela-{{ ficha.produto.sku|slugify }}" class="car-tabela-escolha-rotulo">Campo</label>
+                    <select id="car-campo-tabela-{{ ficha.produto.sku|slugify }}" class="car-campo car-campo--compacto" data-acao-mudar="campo-tabela" aria-label="Campo mostrado na tabela de anúncios">
+                        {% for grupo in ficha.grupos %}
+                            <optgroup label="{{ grupo.rotulo }}">
+                                {% for card in grupo.cards %}
+                                    <option value="{{ card.atributo_id }}" {% if card.atributo_id == ficha.campo_tabela_inicial %}selected{% endif %}>{{ card.label }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="car-chips-leitura" role="group" aria-label="Filtrar anúncios">
                     <button type="button" class="car-chip-filtro car-chip-filtro--ativo" data-acao="filtrar-tabela" data-filtro="todos" aria-pressed="true">
                         <span>Todos</span><span class="car-chip-filtro-n">{{ tabela.n_total }}</span>
@@ -64,12 +143,13 @@
                 <table class="car-tabela">
                     <thead>
                         <tr>
+                            <th class="car-col-foto"><span class="car-sr-only">Foto</span></th>
                             <th class="car-col-mlb">MLB</th>
                             <th class="car-col-titulo">Título</th>
                             <th class="car-col-categoria">Categoria</th>
                             <th class="car-col-status">Situação no ML</th>
                             {% for coluna in tabela.colunas %}
-                                <th class="car-col-campo car-col-campo--{{ coluna.largura }}">
+                                <th class="car-col-campo car-col-campo--{{ coluna.largura }}" data-atributo="{{ coluna.api }}" {% if coluna.api != ficha.campo_tabela_inicial %}hidden{% endif %}>
                                     <span class="car-th-nome">{{ coluna.label }}</span>
                                     <code>{{ coluna.api }}</code>
                                 </th>
@@ -80,6 +160,13 @@
                     <tbody>
                         {% for linha in tabela.linhas %}
                             <tr data-lido="{{ linha.lido|yesno:'1,0' }}" data-branco="{{ linha.tem_branco|yesno:'1,0' }}">
+                                <td class="car-col-foto">
+                                    {% if linha.foto %}
+                                        <img class="car-anuncio-foto" src="{{ linha.foto }}" alt="Foto do anúncio {{ linha.mlb }}" loading="lazy" referrerpolicy="no-referrer">
+                                    {% else %}
+                                        <span class="car-anuncio-foto car-anuncio-foto--vazia" title="Este anúncio não tem foto no banco" aria-hidden="true"><i class="fas fa-image"></i></span>
+                                    {% endif %}
+                                </td>
                                 <td class="car-col-mlb">
                                     {% if linha.permalink %}
                                         <a href="{{ linha.permalink }}" target="_blank" rel="noopener">{{ linha.mlb }}</a>
@@ -97,7 +184,7 @@
                                     {% if linha.status_fora %}<span class="car-status-fora">mudou no ML</span>{% endif %}
                                 </td>
                                 {% for celula in linha.celulas %}
-                                    <td class="car-cel car-cel--{{ celula.estado }}">{{ celula.texto }}</td>
+                                    <td class="car-cel car-cel--{{ celula.estado }}" data-atributo="{{ celula.atributo_id }}" {% if celula.atributo_id != ficha.campo_tabela_inicial %}hidden{% endif %}>{{ celula.texto }}</td>
                                 {% endfor %}
                                 <td class="car-col-lido">{{ linha.lido_em_txt|default:"—" }}</td>
                             </tr>
@@ -109,44 +196,55 @@
         </div>
     </div>
     {% endwith %}
+  </div>
 
     {% if ficha.cards %}
         <section class="car-secao-cards" aria-label="Características">
-            <div class="car-secao-cab">
-                <h3 class="car-secao-titulo">
-                    Características
-                    <span class="car-secao-n">{{ ficha.contagem_cards.todas }}</span>
-                </h3>
+            <div class="car-filtros-cards">
+                <b class="car-filtros-cards-titulo">Mostrar campos</b>
                 <div class="car-chips-leitura" role="group" aria-label="Filtrar características">
-                    <button type="button" class="car-chip-filtro car-chip-filtro--ativo" data-acao="filtrar-cards" data-filtro="todas" aria-pressed="true">
-                        <span>Todas</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.todas }}</span>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="resolver" aria-pressed="false">
+                        <span>Resolver primeiro</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.resolver }}</span>
                     </button>
-                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="atencao" aria-pressed="false">
-                        <span class="car-ponto car-ponto--alerta" aria-hidden="true"></span>
-                        <span>Pedem atenção</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.atencao }}</span>
-                    </button>
-                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="obrigatorias" aria-pressed="false">
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="obrigatorios" aria-pressed="false">
                         <span class="car-ponto car-ponto--marinho" aria-hidden="true"></span>
-                        <span>Obrigatórias</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.obrigatorias }}</span>
+                        <span>Obrigatórios</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.obrigatorias }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="vazios" aria-pressed="false">
+                        <span>Vazios</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.vazios }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="todos" aria-pressed="false">
+                        <span>Todos</span><span class="car-chip-filtro-n">{{ ficha.contagem_cards.todas }}</span>
+                    </button>
+                    <button type="button" class="car-chip-filtro" data-acao="filtrar-cards" data-filtro="preparados" aria-pressed="false">
+                        <span class="car-ponto car-ponto--azul" aria-hidden="true"></span>
+                        <span>Preparados</span><span class="car-chip-filtro-n" data-campo="n-preparados">0</span>
                     </button>
                 </div>
+                <span class="car-ajuda" tabindex="0" role="note" aria-label="O que é Resolver primeiro"
+                      title="Resolver primeiro = valores diferentes ou em branco em parte dos anúncios, mais os obrigatórios ainda vazios — só o que dá para editar aqui."><i class="fas fa-circle-info" aria-hidden="true"></i></span>
             </div>
-            {% include 'mercado_livre/parciais/estrutura_parcial_barra_envio_caracteristicas.html' %}
+
             {% for grupo in ficha.grupos %}
-                <div class="car-grupo" data-grupo="{{ grupo.id }}">
-                    <h4 class="car-grupo-titulo">
-                        {{ grupo.rotulo }}
-                        <span class="car-secao-n">{{ grupo.n }}</span>
-                    </h4>
-                    <div class="car-cards">
+                <section class="car-grupo" data-grupo="{{ grupo.id }}" aria-label="{{ grupo.rotulo }}">
+                    <div class="car-grupo-topo">
+                        <button type="button" class="car-grupo-toggle" data-acao="alternar-grupo" aria-expanded="true"
+                                aria-controls="car-grade-{{ ficha.produto.sku|slugify }}-{{ grupo.id|slugify }}"
+                                title="Ordem fixa: o mais importante vem primeiro">
+                            <i class="fas fa-chevron-down car-chevron" aria-hidden="true"></i>
+                            <span class="car-grupo-nome">{{ grupo.rotulo }}</span>
+                            <small><span data-campo="grupo-total">{{ grupo.n }}</span> no total · <span data-campo="grupo-filtro">{{ grupo.n }}</span> no filtro</small>
+                        </button>
+                    </div>
+                    <div class="car-cards-grade" id="car-grade-{{ ficha.produto.sku|slugify }}-{{ grupo.id|slugify }}">
                         {% for card in grupo.cards %}
                             {% include 'mercado_livre/parciais/estrutura_parcial_card_caracteristica.html' with card=card %}
                         {% endfor %}
                     </div>
-                </div>
+                    <p class="car-vazio car-grupo-vazio" hidden>Nenhum campo deste grupo corresponde ao filtro.</p>
+                </section>
             {% endfor %}
-            <p class="car-vazio car-cards-vazio" hidden>Nenhuma característica neste filtro.</p>
-            {% include 'mercado_livre/parciais/estrutura_parcial_barra_envio_caracteristicas.html' %}
+            <p class="car-vazio car-cards-vazio" hidden>Nenhum campo neste filtro. Escolha "Todos" para ver a ficha completa.</p>
         </section>
     {% else %}
         <p class="car-vazio">
@@ -164,5 +262,9 @@
                 {% endfor %}
             </ul>
         </details>
+    {% endif %}
+
+    {% if ficha.cards %}
+        {% include 'mercado_livre/parciais/estrutura_parcial_barra_envio_caracteristicas.html' %}
     {% endif %}
 </div>
