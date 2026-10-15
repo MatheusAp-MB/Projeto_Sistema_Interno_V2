@@ -67,6 +67,8 @@ class AuditorDeTabelaPorPeso(AuditorDeTabela):
 
         self.memorizar_titulos(linhas[0])
         self.apontar_formulas_sem_resultado(aba)
+        if self.cabecalho_esta_em_outra_linha(aba, linhas, self.cabecalho_esperado()):
+            return
         if not self.conferir_cabecalho(aba, linhas[0], self.cabecalho_esperado()):
             return  # colunas fora do lugar: o resto da conferência só geraria ruído
 

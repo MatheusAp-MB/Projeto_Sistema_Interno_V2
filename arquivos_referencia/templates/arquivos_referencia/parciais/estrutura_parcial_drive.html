@@ -1,0 +1,34 @@
+{% comment %}
+Linha "No Drive agora" de 1 cartão: o que existe hoje no Drive para este arquivo. 4 jeitos: carregando / existe / vazio / erro.
+Em "carregando" o HTMX pergunta ao servidor (só leitura) e troca a própria linha pelo resultado; o botão de girar consulta de novo.
+Quando o cartão ainda não tem arquivo conferido (linha.sem_arquivo_local) o pedido leva ?cartao_vazio=1, e a resposta traz junto o selo
+e a área de soltar do cartão (oob_cartao), já mostrando o que o Drive disse.
+{% endcomment %}
+{% if linha.estado == 'carregando' %}
+    <p class="arq-drive arq-drive--carregando" hx-get="{% url 'arquivos_referencia_drive' linha.arquivo_id %}{% if linha.sem_arquivo_local %}?cartao_vazio=1{% endif %}" hx-trigger="load" hx-swap="outerHTML">
+        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+        <span class="arq-drive__texto">Consultando o Drive…</span>
+    </p>
+{% else %}
+    <p class="arq-drive arq-drive--{{ linha.estado }}{% if linha.enviado_agora %} arq-drive--enviado{% endif %}"{% if linha.estado == 'erro' %} title="{{ linha.erro_completo }}"{% else %} title="Pasta no Drive: {{ linha.caminho }}" data-arq-caminho="{{ linha.caminho }}"{% endif %}>
+        {% if linha.estado == 'erro' %}
+            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+            <span class="arq-drive__texto"><strong>Drive:</strong> {{ linha.erro }}</span>
+            {% if linha.link %}<a class="arq-drive__link" href="{{ linha.link.url }}" target="_blank" rel="noopener">{{ linha.link.texto }}</a>{% endif %}
+        {% elif linha.estado == 'vazio' %}
+            <i class="fab fa-google-drive" aria-hidden="true"></i>
+            <span class="arq-drive__texto"><strong>No Drive agora:</strong> ainda não tem este arquivo (o envio cria).</span>
+        {% else %}
+            <i class="{% if linha.enviado_agora %}fas fa-circle-check{% else %}fab fa-google-drive{% endif %}" aria-hidden="true"></i>
+            <span class="arq-drive__texto"><strong>No Drive agora:</strong>
+                {% if linha.tamanho_texto %}{{ linha.tamanho_texto }} · {% endif %}{% if linha.enviado_agora %}enviado{% else %}atualizado{% endif %}{% if linha.modificado_em %} em {{ linha.modificado_em|date:"d/m/Y H:i" }}{% endif %}{% if linha.copias > 1 %} · {{ linha.copias }} cópias na pasta{% endif %}
+            </span>
+        {% endif %}
+        <button type="button" class="arq-drive__atualizar" hx-get="{% url 'arquivos_referencia_drive' linha.arquivo_id %}{% if linha.sem_arquivo_local %}?cartao_vazio=1{% endif %}" hx-target="closest .arq-drive" hx-swap="outerHTML"
+                title="Consultar o Drive de novo" aria-label="Consultar o Drive de novo"><i class="fas fa-rotate" aria-hidden="true"></i></button>
+    </p>
+{% endif %}
+{% if oob_cartao %}
+    {% include 'arquivos_referencia/parciais/estrutura_parcial_selo.html' with oob=True %}
+    {% include 'arquivos_referencia/parciais/estrutura_parcial_zona.html' with oob=True %}
+{% endif %}

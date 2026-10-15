@@ -2,18 +2,18 @@
 {% with relatorio=cartao.relatorio %}
 <div class="arq-aud">
     <div class="arq-aud__cabecalho">
-        <span class="arq-pill arq-pill--{{ cartao.estado }}"><i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}</span>
+        <span class="arq-pill arq-pill--{{ cartao.estado }}"><i class="{{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}</span>
         <span class="arq-aud__arquivo"><i class="fas fa-file-excel" aria-hidden="true"></i> {{ relatorio.nome_do_arquivo }}</span>
         <span class="arq-aud__meta">{{ relatorio.tamanho_texto }} · conferido em {{ cartao.quando|date:"d/m/Y H:i" }}</span>
     </div>
 
     {# Veredito: 1 frase que diz se pode ou não seguir. #}
     <div class="arq-veredito arq-veredito--{{ cartao.estado }}">
-        <span class="arq-veredito__icone"><i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i></span>
+        <span class="arq-veredito__icone"><i class="{{ cartao.estado_icone }}" aria-hidden="true"></i></span>
         <div class="arq-veredito__textos">
             {% if cartao.estado == 'valido' %}
                 <strong>Tudo certo.</strong>
-                <span>O sistema vai ler este arquivo sem nenhum problema. Ele pode ser enviado ao Drive (o envio chega na próxima etapa).</span>
+                <span>O sistema vai ler este arquivo sem nenhum problema. Ele pode ser enviado ao Drive.</span>
             {% elif cartao.estado == 'com_avisos' %}
                 <strong>Pode ser enviado, mas vale conferir os avisos.</strong>
                 <span>Nada aqui impede o sistema de ler o arquivo. Os avisos são coisas estranhas que merecem uma olhada antes de seguir.</span>

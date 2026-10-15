@@ -83,13 +83,16 @@ class AuditorFreteAmazon(AuditorDeTabela):
 
         self.memorizar_titulos(linhas[0])
         self.apontar_formulas_sem_resultado(aba)
-        cabecalho_ok = self.conferir_cabecalho(aba, linhas[0], [
+        esperadas = [
             (self.coluna_peso_min, 'Peso mínimo', ['peso', 'min']),
             (self.coluna_peso_max, 'Peso máximo', ['peso', 'max']),
             (self.coluna_preco_min, 'Preço mínimo', ['preco', 'min']),
             (self.coluna_preco_max, 'Preço máximo', ['preco', 'max']),
             (self.coluna_valor, 'Valor', ['valor']),
-        ])
+        ]
+        if self.cabecalho_esta_em_outra_linha(aba, linhas, esperadas):
+            return
+        cabecalho_ok = self.conferir_cabecalho(aba, linhas[0], esperadas)
         if not cabecalho_ok:
             return
 

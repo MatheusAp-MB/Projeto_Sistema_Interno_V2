@@ -26,7 +26,7 @@
     --arq-breve-fundo: #f1f3f5;
 
     --arq-altura-faixa: 64px;
-    --arq-altura-cartao: 330px;
+    --arq-altura-cartao: 362px;   /* 330px dos 4 blocos + 32px da linha "No Drive agora" (20px + 12px de espaço) */
 }
 
 .arq-pagina {
@@ -58,6 +58,15 @@
 .arq-pill--ilegivel    { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo); }
 .arq-pill--sem_arquivo { color: var(--arq-neutro-texto); background: var(--arq-neutro-fundo); }
 .arq-pill--em_breve    { color: var(--arq-breve-texto);  background: var(--arq-breve-fundo); }
+.arq-pill--consultando { color: var(--arq-breve-texto);  background: var(--arq-breve-fundo); }
+.arq-pill--drive_erro  { color: var(--arq-aviso-texto);  background: var(--arq-aviso-fundo); }
+
+/* "No Drive": o arquivo já está lá. É o selo mais forte da tela: verde cheio, com borda, para não passar despercebido. */
+.arq-pill--no_drive {
+    color: #fff;
+    background: var(--arq-valido-texto);
+    box-shadow: 0 0 0 1px var(--arq-valido-texto);
+}
 
 /* ================================================
    BOTÕES
@@ -108,6 +117,15 @@
 .arq-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* "Enviado ao Drive": desligado, mas é um estado BOM — por isso fica com a cor cheia (ícone + texto, não só cor). */
+.arq-btn--enviado:disabled {
+    opacity: 1;
+    cursor: default;
+    color: var(--arq-valido-texto);
+    background: var(--arq-valido-fundo);
+    border-color: var(--arq-valido-texto);
 }
 
 .arq-btn__texto {
@@ -232,7 +250,7 @@
 .arq-card {
     position: relative;
     display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto auto auto 1fr auto;   /* topo · corpo · linha do Drive · área de soltar · botões */
     row-gap: 10px;
     height: var(--arq-altura-cartao);
     padding: 14px 16px 12px;
@@ -321,6 +339,83 @@
 }
 
 /* ================================================
+   LINHA "NO DRIVE AGORA" (o que existe hoje no Drive para este arquivo)
+   ================================================ */
+.arq-drive {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 20px;
+    margin: 0;
+    min-width: 0;
+    font-size: 0.78rem;
+    color: #515151;
+    overflow: hidden;
+}
+
+.arq-drive > i {
+    flex-shrink: 0;
+    color: var(--cor-primaria-clara);
+}
+
+.arq-drive__texto {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.arq-drive__texto strong {
+    color: #2b2f33;
+    font-weight: 600;
+}
+
+.arq-drive--carregando { color: #6c757d; }
+.arq-drive--carregando > i { color: #6c757d; }
+.arq-drive--enviado > i { color: var(--arq-valido-texto); }
+.arq-drive--enviado .arq-drive__texto { color: var(--arq-valido-texto); }
+.arq-drive--erro { color: var(--arq-aviso-texto); }
+.arq-drive--erro > i { color: var(--arq-aviso-texto); }
+
+.arq-drive__link {
+    flex-shrink: 0;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--cor-primaria);
+}
+
+.arq-drive__atualizar {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: auto;
+    padding: 0;
+    font-size: 0.7rem;
+    color: #8a94a0;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.arq-drive__atualizar:hover { color: var(--cor-primaria); background: #eef1f5; }
+
+.arq-drive__atualizar:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 1px;
+}
+
+.arq-drive__atualizar.htmx-request i { animation: arq-gira 0.9s linear infinite; }
+
+@keyframes arq-gira {
+    to { transform: rotate(360deg); }
+}
+
+/* ================================================
    ÁREA DE SOLTAR O ARQUIVO
    ================================================ */
 .arq-zona {
@@ -401,6 +496,40 @@
 .arq-card--em_breve .arq-zona__icone { color: #aab3bd; }
 .arq-card--em_breve .arq-zona__titulo { color: #6c757d; }
 
+/* Arquivo JÁ NO DRIVE: a área inteira fica verde (borda contínua, não tracejada), com o nome, o tamanho e a data. Soltar um arquivo
+   novo aqui continua valendo — é assim que se troca o que está no Drive. */
+.arq-zona--no_drive {
+    background: var(--arq-valido-fundo);
+    border: 1.5px solid #9ccfb1;
+}
+
+.arq-zona--no_drive .arq-zona__icone { font-size: 1.5rem; color: var(--arq-valido-texto); }
+.arq-zona--no_drive .arq-zona__titulo { color: var(--arq-valido-texto); }
+.arq-zona--no_drive .arq-zona__sub { color: #3f6b52; }
+
+/* Dica curta de como trocar o arquivo (só na área verde) */
+.arq-zona__dica {
+    max-width: 100%;
+    margin: 2px 0 0;
+    font-size: 0.7rem;
+    color: #4b6a59;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Drive não respondeu: área âmbar (ainda dá para soltar um arquivo e conferir) */
+.arq-zona--drive_erro {
+    background: #fffbeb;
+    border-color: #e6c46b;
+}
+
+.arq-zona--drive_erro .arq-zona__icone { color: var(--arq-aviso-texto); }
+
+/* Ainda consultando o Drive */
+.arq-zona--consultando .arq-zona__icone { color: #8a94a0; }
+.arq-zona--consultando .arq-zona__titulo { color: #6c757d; }
+
 /* "Solte para conferir": aparece por cima da área quando um arquivo está sendo arrastado sobre o cartão */
 .arq-zona__solte {
     position: absolute;
@@ -450,7 +579,8 @@
     overflow: hidden;
 }
 
-.arq-form {
+.arq-form,
+.arq-form-envio {
     display: flex;
     margin: 0;
     flex-shrink: 0;
@@ -476,6 +606,18 @@
 .arq-card.htmx-request .arq-card__carregando {
     display: flex;
 }
+
+/* Dois textos na cobertura: "Conferindo…" (padrão) e "Enviando ao Drive…" (quando o JS põe arq-card--enviando). */
+.arq-carregando__conferindo,
+.arq-carregando__enviando {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.arq-carregando__enviando { display: none; }
+.arq-card--enviando .arq-carregando__conferindo { display: none; }
+.arq-card--enviando .arq-carregando__enviando { display: inline-flex; }
 
 /* ================================================
    JANELA "VER AUDITORIA"
@@ -714,6 +856,54 @@
     border-left-color: var(--cor-primaria-clara);
 }
 
+/* Aviso de "deu certo" (envio feito): verde */
+.arq-toast--ok {
+    color: var(--arq-valido-texto);
+    background: var(--arq-valido-fundo);
+    border-left-color: var(--arq-valido-texto);
+}
+
+.arq-toast__link {
+    display: block;
+    margin-top: 4px;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* ================================================
+   JANELA "ENVIAR AO DRIVE?" (confirmação)
+   ================================================ */
+.arq-envio {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 14px;
+    margin: 0 0 14px;
+    font-size: 0.9rem;
+}
+
+.arq-envio dt {
+    font-weight: 600;
+    color: #2b2f33;
+}
+
+.arq-envio dd {
+    margin: 0;
+    color: #515151;
+    overflow-wrap: anywhere;
+}
+
+.arq-envio__nota {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--arq-neutro-texto);
+    background: var(--arq-neutro-fundo);
+    border-radius: 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .arq-btn { transition: none; }
+    .arq-drive__atualizar.htmx-request i { animation: none; }
 }

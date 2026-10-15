@@ -1,12 +1,20 @@
 /*
-* [RESUMO] → JS da tela "Arquivos de referência". A conferência em si é HTMX puro (o formulário de cada cartão manda o
-* arquivo ao escolher/soltar e o servidor devolve o cartão novo). Este arquivo cuida de:
-*   1) mover a janela da auditoria para o <body>;
+* [RESUMO] → JS da tela "Arquivos de referência". A conferência e o envio em si são HTMX puro (o servidor devolve o cartão
+* novo). Este arquivo cuida de:
+*   1) mover as janelas (auditoria e confirmação do envio) para o <body>;
 *   2) "Escolher arquivo": abre o seletor de arquivos do formulário do cartão;
 *   3) arrastar e soltar o arquivo no cartão;
 *   4) recusar no navegador um arquivo grande demais (nem sobe pela rede);
 *   5) "Ver auditoria": copia o relatório do cartão para a janela;
-*   6) mostrar um aviso na tela quando algo falha (rede, erro do sistema).
+*   6) mostrar um aviso na tela quando algo falha (rede, erro do sistema, login do Drive) ou dá certo (envio);
+*   7) "Enviar para o Drive": confirma numa janela e então manda o arquivo conferido;
+*   8) não deixar a resposta atrasada do Drive apagar o arquivo que a pessoa conferiu enquanto o Drive ainda respondia.
+*
+* * [EXPLICAÇÃO] → O envio precisa do MESMO arquivo que foi conferido, mas o cartão novo (trocado pelo HTMX depois da
+*   conferência) não carrega o arquivo. Por isso, quando uma conferência dá certo, o arquivo fica guardado aqui na memória do
+*   navegador (`conferidos`, por cartão); ao confirmar o envio ele é posto no formulário de envio do cartão. Nada vai para o
+*   disco. Recarregar a página (F5) zera isso — e cada cartão volta a mostrar o que o Drive tem ("No Drive" ou "Sem arquivo no Drive").
+* * [IMPORTANTE] → O servidor não confia nesta tela: confere o arquivo de novo antes de enviar ao Drive.
 */
 (function () {
     'use strict';
@@ -15,54 +23,114 @@
     var LIMITE_EM_BYTES = pagina ? parseInt(pagina.dataset.arqLimiteBytes, 10) || 0 : 0;
     var LIMITE_EM_MB = pagina ? pagina.dataset.arqLimiteMb || '5' : '5';
 
-    // ---------- 1) Janela no <body> ----------
+    // Arquivos já conferidos com sucesso (id do cartão → File) e arquivos cuja conferência ainda está em andamento.
+    var conferidos = new Map();
+    var emConferencia = new Map();
+
+    // ---------- 1) Janelas no <body> ----------
     var janela = document.getElementById('arq-modal-auditoria');
-    if (janela && janela.parentElement !== document.body) {
-        document.body.appendChild(janela);
-    }
+    var janelaDoEnvio = document.getElementById('arq-modal-envio');
+    [janela, janelaDoEnvio].forEach(function (modal) {
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+    });
 
     // ---------- 6) Aviso na tela ----------
-    function mostrarAviso(texto, tipo) {
+    // tipo: (nada) = erro, vermelho · 'info' = "não deu / atenção", cinza · 'ok' = deu certo, verde.
+    // link (opcional): {texto, url} — abre em outra aba para a pessoa não perder as conferências já feitas.
+    function mostrarAviso(texto, tipo, link) {
         var antigo = document.querySelector('.arq-toast');
         if (antigo) { antigo.remove(); }
         var aviso = document.createElement('div');
-        aviso.className = 'arq-toast' + (tipo === 'info' ? ' arq-toast--info' : '');
-        aviso.setAttribute('role', 'alert');
+        aviso.className = 'arq-toast' + (tipo === 'info' ? ' arq-toast--info' : '') + (tipo === 'ok' ? ' arq-toast--ok' : '');
+        aviso.setAttribute('role', tipo === 'ok' ? 'status' : 'alert');
         aviso.title = 'Clique para fechar';
-        aviso.textContent = texto;
+        aviso.appendChild(document.createTextNode(texto));
+        if (link && link.url) {
+            var atalho = document.createElement('a');
+            atalho.className = 'arq-toast__link';
+            atalho.href = link.url;
+            atalho.target = '_blank';
+            atalho.rel = 'noopener';
+            atalho.textContent = link.texto || 'Abrir';
+            atalho.addEventListener('click', function (evento) { evento.stopPropagation(); });
+            aviso.appendChild(atalho);
+        }
         aviso.addEventListener('click', function () { aviso.remove(); });
         document.body.appendChild(aviso);
-        window.setTimeout(function () { aviso.remove(); }, 9000);
+        window.setTimeout(function () { aviso.remove(); }, link ? 15000 : 9000);
     }
 
+    // Devolve {texto, link}: o servidor manda {"mensagem", "link"} quando o problema é dele ou do Drive.
     function mensagemDoErro(xhr) {
         try {
             var corpo = JSON.parse(xhr.responseText);
-            if (corpo && corpo.mensagem) { return corpo.mensagem; }
+            if (corpo && corpo.mensagem) { return { texto: corpo.mensagem, link: corpo.link || null }; }
         } catch (erro) { /* resposta não era JSON */ }
         if (xhr.status === 403) {
-            return 'O servidor recusou o envio (403). Recarregue a página e tente de novo.';
+            return { texto: 'O servidor recusou o envio (403). Recarregue a página e tente de novo.', link: null };
         }
         if (xhr.status === 413) {
-            return 'O arquivo é grande demais para o servidor. Confira se é o arquivo certo.';
+            return { texto: 'O arquivo é grande demais para o servidor. Confira se é o arquivo certo.', link: null };
         }
-        return 'O servidor respondeu com erro ' + xhr.status + '. Veja o terminal do servidor.';
+        return { texto: 'O servidor respondeu com erro ' + xhr.status + '. Veja o terminal do servidor.', link: null };
     }
 
     document.body.addEventListener('htmx:responseError', function (evento) {
-        mostrarAviso(mensagemDoErro(evento.detail.xhr));
+        var erro = mensagemDoErro(evento.detail.xhr);
+        mostrarAviso(erro.texto, undefined, erro.link);
     });
 
     document.body.addEventListener('htmx:sendError', function () {
         mostrarAviso('Não foi possível falar com o servidor do sistema. Confira se ele está no ar.');
     });
 
-    // Terminou (deu certo ou não): limpa o seletor, para a pessoa poder escolher o MESMO arquivo de novo (o navegador só
-    // avisa "mudou" quando o arquivo muda). Se deu certo, o cartão antigo já foi trocado e isto não faz nada.
+    // O servidor avisa por cabeçalho (HX-Trigger → evento "arqAviso"): envio feito, ou envio recusado na conferência.
+    document.body.addEventListener('arqAviso', function (evento) {
+        var dados = evento.detail || {};
+        if (dados.mensagem) { mostrarAviso(dados.mensagem, dados.tipo); }
+    });
+
+    // Chegou a resposta da CONFERÊNCIA, antes de o HTMX trocar o cartão (nesse instante o cartão ainda está na página, então o
+    // evento chega até aqui — depois da troca o HTMX só avisa o elemento que já saiu da página, e ninguém ouve).
+    // Conferência que deu certo: o arquivo fica guardado para o envio. Se falhou, o cartão segue com a conferência anterior.
+    document.body.addEventListener('htmx:beforeSwap', function (evento) {
+        var cartao = evento.detail.elt;
+        var caminho = (evento.detail.pathInfo && evento.detail.pathInfo.requestPath) || '';
+        if (!cartao || !cartao.classList || !cartao.classList.contains('arq-card') || caminho.indexOf('/auditar/') === -1) { return; }
+        var id = cartao.dataset.arqId;
+        if (emConferencia.has(id)) {
+            if (evento.detail.shouldSwap) { conferidos.set(id, emConferencia.get(id)); }
+            emConferencia.delete(id);
+        }
+    });
+
+    // Resposta da consulta ao Drive que também troca o selo e a área de soltar do cartão (hx-swap-oob). Se a pessoa já conferiu um
+    // arquivo neste cartão enquanto o Drive ainda respondia, o cartão tem `data-arq-com-arquivo` e a troca é cancelada: o arquivo
+    // conferido nunca é coberto por uma resposta atrasada (a linha "No Drive agora" continua se atualizando normalmente).
+    document.body.addEventListener('htmx:oobBeforeSwap', function (evento) {
+        var alvo = evento.detail.target;
+        var cartao = alvo && alvo.closest ? alvo.closest('.arq-card') : null;
+        if (cartao && cartao.hasAttribute('data-arq-com-arquivo')) { evento.detail.shouldSwap = false; }
+    });
+
+    // Terminou um pedido. Quando deu certo o cartão antigo já saiu da página e isto não faz nada; quando deu errado o formulário
+    // continua lá e precisa de limpeza.
     document.body.addEventListener('htmx:afterRequest', function (evento) {
         var formulario = evento.detail.elt;
-        var seletor = formulario && formulario.querySelector ? formulario.querySelector('.arq-input') : null;
-        if (seletor) { seletor.value = ''; }
+        if (!formulario || !formulario.classList) { return; }
+
+        if (formulario.classList.contains('arq-form')) {
+            // Limpa o seletor, para a pessoa poder escolher o MESMO arquivo de novo (o navegador só avisa "mudou" quando o arquivo muda).
+            var seletor = formulario.querySelector('.arq-input');
+            if (seletor) { seletor.value = ''; }
+        } else if (formulario.classList.contains('arq-form-envio')) {
+            var seletorDoEnvio = formulario.querySelector('.arq-input-envio');
+            if (seletorDoEnvio) { seletorDoEnvio.value = ''; }
+            var cartao = formulario.closest('.arq-card');
+            if (cartao) { cartao.classList.remove('arq-card--enviando'); }
+        }
     });
 
     // ---------- 2) Escolher arquivo ----------
@@ -83,7 +151,11 @@
             evento.stopPropagation();
             seletor.value = '';
             mostrarAviso('O arquivo tem mais de ' + LIMITE_EM_MB + ' MB — grande demais para uma tabela de referência. Confira se é o arquivo certo.', 'info');
+            return;
         }
+        // Vai conferir: guarda o arquivo "em andamento" (só vira "conferido" se a conferência der certo — ver htmx:afterRequest).
+        var cartao = seletor.closest('.arq-card');
+        if (arquivo && cartao) { emConferencia.set(cartao.dataset.arqId, arquivo); }
     }, true);
 
     // ---------- 3) Arrastar e soltar ----------
@@ -118,7 +190,7 @@
         var cartao = evento.target.closest ? evento.target.closest('.arq-card') : null;
         if (!cartao || cartao.classList.contains('htmx-request')) { return; }
         if (!cartao.hasAttribute('data-arq-soltar')) {
-            mostrarAviso('Esta planilha ainda não tem auditoria — ela chega na próxima etapa.', 'info');
+            mostrarAviso('Esta planilha ainda não tem auditoria.', 'info');
             return;
         }
         var arquivos = evento.dataTransfer.files;
@@ -146,4 +218,77 @@
         document.getElementById('arq-modal-auditoria-corpo').innerHTML = auditoria.innerHTML;
         bootstrap.Modal.getOrCreateInstance(janela).show();
     });
+
+    // ---------- 7) Enviar para o Drive ----------
+    var idEmConfirmacao = null;
+
+    function escrever(id, texto) {
+        var elemento = document.getElementById(id);
+        if (elemento) { elemento.textContent = texto; }
+    }
+
+    // 1º passo: o botão do cartão só ABRE a janela de confirmação, com o que vai acontecer.
+    document.addEventListener('click', function (evento) {
+        var botao = evento.target.closest('[data-arq-enviar]');
+        if (!botao || botao.disabled || !janelaDoEnvio) { return; }
+        var cartao = botao.closest('.arq-card');
+        if (!cartao || cartao.classList.contains('htmx-request')) { return; }
+
+        var id = cartao.dataset.arqId;
+        if (!conferidos.has(id)) {
+            // Não deveria acontecer (o botão só aparece depois de uma conferência feita nesta página); protege contra um estado estranho.
+            mostrarAviso('Esta tela não guardou o arquivo conferido. Escolha o arquivo de novo.', 'info');
+            return;
+        }
+
+        var linhaDoDrive = cartao.querySelector('.arq-drive[data-arq-caminho]');
+        var pasta = linhaDoDrive ? linhaDoDrive.dataset.arqCaminho : botao.dataset.arqPasta;
+        var avisos = parseInt(botao.dataset.arqAvisos, 10) || 0;
+
+        escrever('arq-envio-arquivo', (botao.dataset.arqNome || '') + (botao.dataset.arqTamanho ? ' · ' + botao.dataset.arqTamanho : ''));
+        escrever('arq-envio-destino', pasta + ' › ' + botao.dataset.arqArquivoNoDrive);
+        escrever('arq-envio-avisos', avisos
+            ? avisos + (avisos === 1 ? ' aviso' : ' avisos') + ' (não impedem o envio — confira em “Ver auditoria”)'
+            : 'nenhum');
+
+        idEmConfirmacao = id;
+        bootstrap.Modal.getOrCreateInstance(janelaDoEnvio).show();
+    });
+
+    // 2º passo: confirmou → põe o arquivo conferido no formulário de envio do cartão e dispara o envio (HTMX).
+    function enviarAoDrive(id) {
+        var cartao = document.getElementById('arq-card-' + id);
+        var arquivo = conferidos.get(id);
+        var formulario = cartao && cartao.querySelector('.arq-form-envio');
+        if (!cartao || !formulario || !arquivo) {
+            mostrarAviso('Não achei o arquivo conferido. Escolha o arquivo de novo.', 'info');
+            return;
+        }
+        if (cartao.classList.contains('htmx-request')) { return; }
+
+        // O navegador só guarda uma "referência" ao arquivo: se ele foi movido, apagado ou regravado depois da conferência, não dá para ler.
+        arquivo.slice(0, 1).arrayBuffer().then(function () {
+            var pacote = new DataTransfer();
+            pacote.items.add(arquivo);
+            formulario.querySelector('.arq-input-envio').files = pacote.files;
+            cartao.classList.add('arq-card--enviando');
+            htmx.trigger(formulario, 'arq-enviar');
+        }, function () {
+            mostrarAviso('O navegador não consegue mais ler o arquivo (ele foi movido, apagado ou alterado depois da conferência). Escolha o arquivo de novo.', 'info');
+        });
+    }
+
+    var botaoConfirmar = document.getElementById('arq-envio-confirmar');
+    if (botaoConfirmar) {
+        botaoConfirmar.addEventListener('click', function () {
+            var id = idEmConfirmacao;
+            idEmConfirmacao = null;
+            bootstrap.Modal.getOrCreateInstance(janelaDoEnvio).hide();
+            if (id) { enviarAoDrive(id); }
+        });
+    }
+    if (janelaDoEnvio) {
+        // Fechou sem confirmar (Cancelar, X, Esc ou clique fora): esquece o pedido.
+        janelaDoEnvio.addEventListener('hidden.bs.modal', function () { idEmConfirmacao = null; });
+    }
 })();

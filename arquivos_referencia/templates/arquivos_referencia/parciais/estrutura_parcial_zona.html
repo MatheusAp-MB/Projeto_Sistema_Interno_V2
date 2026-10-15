@@ -1,0 +1,55 @@
+{% comment %}
+Área de soltar de 1 cartão. Mostra, nesta ordem de prioridade: o arquivo que a pessoa acabou de conferir; o arquivo que JÁ ESTÁ no Drive
+(verde); a pasta ainda vazia; o Drive que não respondeu; ou a consulta em andamento. Com oob=True o HTMX a troca no cartão pelo id
+(resposta da consulta ao Drive). Soltar o arquivo em qualquer ponto do cartão vale, seja qual for o estado.
+{% endcomment %}
+<div class="arq-zona arq-zona--{{ cartao.estado }}" id="arq-zona-{{ cartao.id }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+    {% if cartao.relatorio %}
+        <span class="arq-zona__icone"><i class="fas fa-file-excel" aria-hidden="true"></i></span>
+        <p class="arq-zona__titulo" title="{{ cartao.relatorio.nome_do_arquivo }}">{{ cartao.relatorio.nome_do_arquivo }}</p>
+        <p class="arq-zona__sub">{{ cartao.relatorio.tamanho_texto }} · conferido em {{ cartao.quando|date:"d/m/Y H:i" }}</p>
+        <p class="arq-zona__contagem">
+            {% if cartao.relatorio.total_de_erros %}
+                <span class="arq-contador arq-contador--erro"><i class="fas fa-circle-xmark" aria-hidden="true"></i> {{ cartao.relatorio.total_de_erros }} erro{{ cartao.relatorio.total_de_erros|pluralize }}</span>
+            {% endif %}
+            {% if cartao.relatorio.total_de_avisos %}
+                <span class="arq-contador arq-contador--aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.relatorio.total_de_avisos }} aviso{{ cartao.relatorio.total_de_avisos|pluralize }}</span>
+            {% endif %}
+            {% if cartao.envio %}
+                <span class="arq-contador arq-contador--ok"><i class="fab fa-google-drive" aria-hidden="true"></i> Enviado ao Drive</span>
+            {% elif cartao.relatorio.pode_enviar %}
+                <span class="arq-contador arq-contador--ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Pode ser enviado ao Drive</span>
+            {% else %}
+                <span class="arq-contador arq-contador--bloqueado"><i class="fas fa-ban" aria-hidden="true"></i> Não pode ser enviado</span>
+            {% endif %}
+        </p>
+    {% elif not cartao.upload_habilitado %}
+        <span class="arq-zona__icone"><i class="fas fa-hourglass-half" aria-hidden="true"></i></span>
+        <p class="arq-zona__titulo">Sem auditoria ainda</p>
+        <p class="arq-zona__sub">Esta planilha ainda não pode ser conferida por esta tela.</p>
+    {% elif cartao.estado == 'no_drive' %}
+        {% with linha=cartao.linha_drive %}
+        <span class="arq-zona__icone"><i class="fab fa-google-drive" aria-hidden="true"></i></span>
+        <p class="arq-zona__titulo" title="{{ cartao.nome_no_drive }}">{{ cartao.nome_no_drive }}</p>
+        <p class="arq-zona__sub">{% if linha.tamanho_texto %}{{ linha.tamanho_texto }} · {% endif %}atualizado{% if linha.modificado_em %} em {{ linha.modificado_em|date:"d/m/Y H:i" }}{% endif %}</p>
+        <p class="arq-zona__contagem">
+            <span class="arq-contador arq-contador--ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Arquivo no Drive</span>
+            {% if linha.copias > 1 %}<span class="arq-contador arq-contador--aviso" title="Há cópias repetidas na pasta do Drive. O próximo envio manda as extras para a lixeira."><i class="fas fa-clone" aria-hidden="true"></i> {{ linha.copias }} cópias</span>{% endif %}
+        </p>
+        <p class="arq-zona__dica">Para trocar, escolha ou arraste outro arquivo.</p>
+        {% endwith %}
+    {% elif cartao.estado == 'sem_arquivo' %}
+        <span class="arq-zona__icone"><i class="fas fa-cloud-arrow-up" aria-hidden="true"></i></span>
+        <p class="arq-zona__titulo">Arraste o arquivo .xlsx para cá</p>
+        <p class="arq-zona__sub">Ainda não há arquivo no Drive. Ele é conferido antes de ser enviado.</p>
+    {% elif cartao.estado == 'drive_erro' %}
+        <span class="arq-zona__icone"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></span>
+        <p class="arq-zona__titulo">Não consegui ver o Drive agora</p>
+        <p class="arq-zona__sub">Você ainda pode escolher um arquivo para conferir.</p>
+    {% else %}
+        <span class="arq-zona__icone"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i></span>
+        <p class="arq-zona__titulo">Consultando o Drive…</p>
+        <p class="arq-zona__sub">Vendo se este arquivo já está na pasta.</p>
+    {% endif %}
+    <span class="arq-zona__solte" aria-hidden="true"><i class="fas fa-arrow-down" aria-hidden="true"></i> Solte para conferir</span>
+</div>

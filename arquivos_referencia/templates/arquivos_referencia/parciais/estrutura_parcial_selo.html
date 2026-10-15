@@ -1,0 +1,4 @@
+{# Selo de estado de 1 cartão (ícone + texto). Com oob=True o HTMX o troca no cartão pelo id (resposta da consulta ao Drive). #}
+<span class="arq-pill arq-pill--{{ cartao.estado }}" id="arq-pill-{{ cartao.id }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <i class="{{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}
+</span>

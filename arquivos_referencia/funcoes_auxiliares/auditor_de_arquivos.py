@@ -31,7 +31,7 @@ def auditar_arquivo(arquivo, conteudo, nome_do_arquivo_enviado, tamanho_em_bytes
 
     relatorio = RelatorioDeAuditoria(nome_do_arquivo_enviado, len(conteudo) if tamanho_em_bytes is None else tamanho_em_bytes)
     try:
-        leitura = ler_planilha(conteudo)
+        leitura = ler_planilha(conteudo, arquivo.limite_de_linhas)
     except ErroDeLeitura as problema:
         relatorio.nao_conseguiu_ler(problema.o_que, problema.como_corrigir)
         return relatorio

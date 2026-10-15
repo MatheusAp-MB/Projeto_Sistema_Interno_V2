@@ -173,6 +173,13 @@ GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_SAMVALE')
 GOOGLE_DRIVE_PASTA_TESTE_MAGAZINE = os.getenv('GOOGLE_DRIVE_PASTA_TESTE_MAGAZINE')
 GOOGLE_DRIVE_PASTA_TESTE_SAMVALE = os.getenv('GOOGLE_DRIVE_PASTA_TESTE_SAMVALE')
 
+# * [EXPLICAÇÃO] → (15/10/2026) Pasta raiz do SISTEMA no Drive ("Sistema Interno MB SV"): é onde a tela "Arquivos de
+#                  referência" guarda os 6 arquivos que o "popular banco" lê, em 2 subpastas — "Tabelas de Frete" e
+#                  "Tabelas de Impostos de Saida". É UMA pasta só, valendo para as 2 empresas (diferente de
+#                  "Magazine/Samvale Estruturada", que guardam os vídeos por produto). Aceita o ID da pasta ou o link
+#                  inteiro dela (o ID é o trecho depois de /folders/). Quem usa: arquivos_referencia/funcoes_auxiliares/envio_ao_drive.py.
+GOOGLE_DRIVE_PASTA_RAIZ_SISTEMA = os.getenv('GOOGLE_DRIVE_PASTA_RAIZ_SISTEMA')
+
 # * [EXPLICAÇÃO] → Achado real (18/08/2026): Service Account tem SEMPRE 0
 #                  bytes de cota própria (regra da plataforma Google, não
 #                  configurável) — upload de conteúdo novo (diferente de

@@ -19,21 +19,22 @@
       A ideia final tem 2 passos separados: (1) escolher o arquivo, ver a AUDITORIA COMPLETA e só então enviar ao Drive
       (cada envio troca o arquivo anterior: sempre 1 cópia lá); (2) um clique à parte para atualizar o sistema com o que
       está no Drive.
-    * [DECISÃO, 15/10/2026] → Neste 1º ciclo a tela só CONFERE: não há envio ao Drive nem atualização do sistema (os botões
-      já aparecem, desligados, para a pessoa ver o desenho completo). Planilhas do Busca Legal aparecem como
-      "auditoria na próxima etapa".
+    * [DECISÃO, 15/10/2026] → 3º ciclo: a tela também ENVIA ao Drive. Depois da conferência, "Enviar para o Drive" abre uma
+      confirmação e troca o arquivo da pasta certa do Drive (sempre 1 cópia). O botão de cima, "Atualizar o sistema com o
+      Drive" (passo 2), continua desligado: chega no próximo ciclo. Cada cartão mostra, em "No Drive agora", o que existe
+      hoje no Drive (o servidor pergunta ao Drive, só leitura).
     * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical", igual à Gestão de APIs: a altura de cada cartão é
       fixa; texto comprido é cortado e o que falta está na janela "Ver auditoria".
-    * [EXPLICAÇÃO] → O arquivo escolhido não é guardado em lugar nenhum: o resultado vive só neste cartão. Ao recarregar a
-      página (F5) os cartões voltam a "Sem arquivo".
+    * [EXPLICAÇÃO] → O arquivo escolhido não é guardado em disco nem no banco: fica só na memória do navegador até o envio (que
+      o leva direto ao Drive). O resultado vive só neste cartão. Ao recarregar a página (F5) cada cartão volta a mostrar o que o Drive tem: "No Drive" (verde, com nome, tamanho e data) ou "Sem arquivo no Drive".
     {% endcomment %}
 
     <div class="arq-pagina" data-arq-limite-bytes="{{ limite_do_arquivo_em_bytes }}" data-arq-limite-mb="{{ limite_do_arquivo_em_mb }}">
-        <div class="arq-faixa" title="Nesta etapa a tela só confere os arquivos: nada é enviado ao Drive e nada muda no sistema. O envio ao Drive e a atualização do sistema chegam nas próximas etapas.">
+        <div class="arq-faixa" title="Escolha ou arraste o arquivo, leia a auditoria completa e então envie ao Drive: o envio troca o arquivo da pasta, que fica sempre com 1 cópia. Atualizar o sistema com o que está no Drive é outro clique, que chega na próxima etapa.">
             <span class="arq-faixa__icone"><i class="fas fa-circle-info" aria-hidden="true"></i></span>
             <div class="arq-faixa__textos">
-                <span class="arq-faixa__titulo">Etapa atual: só conferência</span>
-                <span class="arq-faixa__texto">Escolha ou arraste cada arquivo para ver a auditoria completa. Nada é enviado ao Drive e nada muda no sistema por aqui — por enquanto.</span>
+                <span class="arq-faixa__titulo">Etapa atual: conferir e enviar ao Drive</span>
+                <span class="arq-faixa__texto">Escolha ou arraste o arquivo, leia a auditoria e envie ao Drive (troca o arquivo da pasta: sempre 1 cópia). Atualizar o sistema com o Drive vem na próxima etapa.</span>
             </div>
         </div>
 
@@ -61,6 +62,38 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body" id="arq-modal-auditoria-corpo"></div>
+            </div>
+        </div>
+    </div>
+
+    {# Confirmação do envio (o JS move para o <body> e preenche os 3 campos antes de abrir). #}
+    <div class="modal fade" id="arq-modal-envio" tabindex="-1" aria-labelledby="arq-modal-envio-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="arq-modal-envio-titulo"><i class="fab fa-google-drive" aria-hidden="true"></i> Enviar ao Drive?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="arq-envio">
+                        <dt>Arquivo conferido</dt>
+                        <dd id="arq-envio-arquivo"></dd>
+                        <dt>Vai para</dt>
+                        <dd id="arq-envio-destino"></dd>
+                        <dt>Avisos</dt>
+                        <dd id="arq-envio-avisos"></dd>
+                    </dl>
+                    <p class="arq-envio__nota">
+                        Troca o arquivo que está no Drive hoje: a pasta fica sempre com 1 cópia (o Drive guarda a versão anterior por um tempo, em
+                        Arquivo → Histórico de versões). O servidor confere o arquivo de novo antes de enviar. Isto não atualiza o sistema.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="arq-btn" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="arq-btn arq-btn--primario" id="arq-envio-confirmar">
+                        <i class="fab fa-google-drive" aria-hidden="true"></i> <span class="arq-btn__texto">Enviar ao Drive</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

@@ -86,13 +86,18 @@ class AuditorFreteML(AuditorDeTabela):
         self.apontar_formulas_sem_resultado(aba)
 
         # O cabeçalho do ML é conferido pelas colunas fixas e pelas 8 faixas de preço.
-        colunas_fixas_ok = self.conferir_cabecalho(aba, linhas[0], [
+        esperadas = [
             (self.coluna_peso_min, 'Peso mín. (kg)', ['peso', 'min']),
             (self.coluna_peso_max, 'Peso máx. (kg)', ['peso', 'max']),
             (self.coluna_regime, 'Regime', ['regime']),
-        ])
+        ]
+        if self.cabecalho_esta_em_outra_linha(aba, linhas, esperadas):
+            return
+        colunas_fixas_ok = self.conferir_cabecalho(aba, linhas[0], esperadas)
+        if not colunas_fixas_ok:
+            return   # arquivo de outra tabela (ou colunas fora do lugar): conferir as faixas de preço só repetiria o mesmo problema
         faixas_de_preco = self._ler_faixas_de_preco(aba, linhas[0])
-        if not colunas_fixas_ok or faixas_de_preco is None:
+        if faixas_de_preco is None:
             return
 
         self._faixas_de_preco_lidas = faixas_de_preco
@@ -105,24 +110,25 @@ class AuditorFreteML(AuditorDeTabela):
     # Função Objetivo: Lê as 8 faixas de preço do cabeçalho e confere ordem, números e buracos.
     # Devolve a lista de FaixaDePreco, ou None se o cabeçalho de preço está quebrado (aí nada mais faz sentido conferir).
     def _ler_faixas_de_preco(self, aba, cabecalho):
-        faixas, quebrou = [], False
+        faixas, quebradas = [], []
         for deslocamento in range(QUANTIDADE_DE_FAIXAS_DE_PRECO):
             coluna = self.coluna_inicial_dos_precos + deslocamento
             bruto = celula(cabecalho, coluna)
             texto = limpar_texto(bruto) if bruto is not None else ''
             if not texto or not PADRAO_DE_NUMERO.search(texto):
-                quebrou = True
-                visto = f'“{texto}”' if texto else 'uma célula vazia'
-                self.relatorio.erro(
-                    descrever_local(aba, 1, coluna),
-                    f'O cabeçalho desta coluna deveria ser uma faixa de preço (ex.: “R$ 19 a R$ 48,99”), mas tem {visto}.',
-                    f'O sistema lê {QUANTIDADE_DE_FAIXAS_DE_PRECO} faixas de preço, nas colunas F a M. Sem número no '
-                    'cabeçalho ele leria “a partir de R$ 0”.',
-                )
+                quebradas.append(f'{get_column_letter(coluna + 1)} ({f"“{texto}”" if texto else "vazia"})')
                 continue
             minimo, maximo = self._importador_para_ler_faixa._parsear_faixa_preco(texto)
             faixas.append(FaixaDePreco(coluna, texto, float(minimo), None if maximo is None else float(maximo), True))
-        if quebrou:
+        if quebradas:
+            # 1 erro só (não 1 por coluna): quando o cabeçalho de preço está ruim, em geral é a mesma causa para todas.
+            self.relatorio.erro(
+                descrever_local(aba, 1),
+                f'O cabeçalho de {len(quebradas)} coluna{"s" if len(quebradas) > 1 else ""} de preço deveria ser uma faixa de preço '
+                f'(ex.: “R$ 19 a R$ 48,99”), mas está vazio ou sem número: {", ".join(quebradas)}.',
+                f'O sistema lê {QUANTIDADE_DE_FAIXAS_DE_PRECO} faixas de preço, nas colunas F a M. Sem número no '
+                'cabeçalho ele leria “a partir de R$ 0”.',
+            )
             return None
 
         # As 8 faixas estão lado a lado na linha 1: em Faixa.linha vai o ÍNDICE DA COLUNA (a posição da faixa).

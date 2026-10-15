@@ -29,6 +29,10 @@ def celula(linha, indice):
     return linha[indice]
 
 
+# Até que linha o auditor procura o cabeçalho quando ele não está na linha 1.
+LINHAS_PROCURADAS_PARA_O_CABECALHO = 15
+
+
 class AuditorDeTabela:
 
     # Função Objetivo: Recebe a planilha já lida e o relatório onde os achados vão sendo registrados.
@@ -70,6 +74,33 @@ class AuditorDeTabela:
                 'estão na ordem original.',
             )
         return tudo_certo
+
+    # Função Objetivo: Confere se UMA linha tem, em cada coluna esperada, as palavras que identificam o cabeçalho.
+    def _linha_e_o_cabecalho(self, linha, esperadas):
+        for indice, _, palavras in esperadas:
+            encontrado = celula(linha, indice)
+            texto = sem_acentos(limpar_texto(encontrado)) if encontrado is not None else ''
+            if not all(palavra in texto for palavra in palavras):
+                return False
+        return True
+
+    # Função Objetivo: O cabeçalho NÃO está na linha 1, mas está mais abaixo? (arquivo com título, legenda ou notas no topo)
+    # Os importadores leem o cabeçalho na linha 1 e os dados da linha 2 em diante — então tudo que estiver acima do cabeçalho
+    # seria lido como dado. Em vez de dezenas de erros de coluna, registra 1 ERRO que explica a causa. Devolve True se registrou.
+    def cabecalho_esta_em_outra_linha(self, aba, linhas, esperadas):
+        if not linhas or self._linha_e_o_cabecalho(linhas[0], esperadas):
+            return False
+        for n_linha, linha in enumerate(linhas[1:LINHAS_PROCURADAS_PARA_O_CABECALHO], start=2):
+            if self._linha_e_o_cabecalho(linha, esperadas):
+                self.relatorio.erro(
+                    descrever_local(aba, n_linha),
+                    f'O cabeçalho da tabela está na linha {n_linha}, mas o sistema lê o cabeçalho na linha 1 e os dados a partir da '
+                    f'linha 2. As {n_linha - 1} linhas de cima (título, legenda ou notas?) seriam lidas como se fossem dados.',
+                    f'Use a versão “limpa” da tabela — cabeçalho na linha 1 e só os dados logo abaixo — ou apague as {n_linha - 1} linhas '
+                    f'acima do cabeçalho (e as notas abaixo da tabela).',
+                )
+                return True
+        return False
 
     # Função Objetivo: Fórmula sem resultado salvo = célula "vazia" para o importador. Registra 1 ERRO por aba.
     def apontar_formulas_sem_resultado(self, aba):
