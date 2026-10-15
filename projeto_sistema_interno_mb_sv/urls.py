@@ -20,5 +20,6 @@ urlpatterns = [
     path('gestao-vendas/', include('gestao_vendas.urls')),
     path('gestao-ruptura/', include('gestao_ruptura.urls')),
     path('gestao-apis/', include('gestao_apis.urls')),
+    path('arquivos-referencia/', include('arquivos_referencia.urls')),
     path('api/', include('api.urls')),
 ]

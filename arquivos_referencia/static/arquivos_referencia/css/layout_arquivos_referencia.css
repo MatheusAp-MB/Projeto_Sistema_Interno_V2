@@ -1,0 +1,719 @@
+/*
+* [RESUMO] → CSS da tela "Arquivos de referência" (conferência das tabelas de frete e das planilhas do Busca Legal).
+* Usa as variáveis globais de cor de layout_global.css (--cor-primaria, --cor-borda etc.) e segue o desenho da
+* Gestão de APIs (gestao_apis): mesmos cartões, mesmos selos, mesma janela de detalhes.
+*
+* * [DECISÃO, 15/10/2026] → Layout "fluido na horizontal, rígido na vertical": a altura da faixa de aviso e de cada cartão
+*   é FIXA; só a largura acompanha a janela. Texto comprido é cortado com reticências e a janela "Ver auditoria"
+*   mostra tudo (com rolagem própria — a janela nunca passa da altura da tela).
+* * [EXPLICAÇÃO] → Estado nunca só por cor: toda marca de estado (selo, contador, veredito) leva ÍCONE + TEXTO.
+*/
+
+/* ================================================
+   CORES DOS ESTADOS
+   (na <body> para valer também na janela, que o JS move para o fim do <body>)
+   ================================================ */
+.arq-tela {
+    --arq-valido-texto: #2d7a4f;
+    --arq-valido-fundo: #e6f4ea;
+    --arq-aviso-texto: #92400e;
+    --arq-aviso-fundo: #fef3c7;
+    --arq-erro-texto: #b02a37;
+    --arq-erro-fundo: #fde8e8;
+    --arq-neutro-texto: #495057;
+    --arq-neutro-fundo: #eef1f5;
+    --arq-breve-texto: #6c757d;
+    --arq-breve-fundo: #f1f3f5;
+
+    --arq-altura-faixa: 64px;
+    --arq-altura-cartao: 330px;
+}
+
+.arq-pagina {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+/* ================================================
+   SELO DE ESTADO (ícone + texto)
+   ================================================ */
+.arq-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.arq-pill--valido      { color: var(--arq-valido-texto); background: var(--arq-valido-fundo); }
+.arq-pill--com_avisos  { color: var(--arq-aviso-texto);  background: var(--arq-aviso-fundo); }
+.arq-pill--com_erros   { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo); }
+.arq-pill--ilegivel    { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo); }
+.arq-pill--sem_arquivo { color: var(--arq-neutro-texto); background: var(--arq-neutro-fundo); }
+.arq-pill--em_breve    { color: var(--arq-breve-texto);  background: var(--arq-breve-fundo); }
+
+/* ================================================
+   BOTÕES
+   ================================================ */
+.arq-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 40px;
+    overflow: hidden;
+}
+
+.arq-btn:hover:not(:disabled) {
+    background: #f1f5fa;
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria);
+}
+
+.arq-btn:focus-visible,
+.arq-toolbar-btn:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+.arq-btn--primario {
+    color: var(--cor-texto-claro);
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+}
+
+.arq-btn--primario:hover:not(:disabled) {
+    color: var(--cor-texto-claro);
+    background: var(--cor-primaria-escura);
+    border-color: var(--cor-primaria-escura);
+}
+
+.arq-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.arq-btn__texto {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.arq-btn > i {
+    flex-shrink: 0;
+}
+
+/* Botão da barra de cima (fundo azul escuro) */
+.arq-toolbar-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--cor-texto-claro);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.arq-toolbar-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ================================================
+   FAIXA DE AVISO DA ETAPA (altura fixa)
+   ================================================ */
+.arq-faixa {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: var(--arq-altura-faixa);
+    padding: 0 16px;
+    background: var(--arq-neutro-fundo);
+    border: 1px solid var(--cor-borda);
+    border-left: 4px solid var(--cor-primaria-clara);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.arq-faixa__icone {
+    font-size: 1.4rem;
+    color: var(--cor-primaria);
+    flex-shrink: 0;
+}
+
+.arq-faixa__textos {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.arq-faixa__titulo,
+.arq-faixa__texto {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.arq-faixa__titulo {
+    font-family: "Nunito", sans-serif;
+    font-size: 0.98rem;
+    color: #2b2f33;
+}
+
+.arq-faixa__texto {
+    font-size: 0.82rem;
+    color: #515151;
+}
+
+/* ================================================
+   GRUPOS E GRADE DE CARTÕES (2 colunas)
+   ================================================ */
+.arq-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.arq-grupo__cabecalho {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+}
+
+.arq-grupo__titulo {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--cor-primaria);
+}
+
+.arq-grupo__sub {
+    font-size: 0.8rem;
+    color: var(--cor-texto-muted);
+}
+
+.arq-grade {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 1199.98px) {
+    .arq-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ================================================
+   CARTÃO (altura fixa)
+   ================================================ */
+.arq-card {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    row-gap: 10px;
+    height: var(--arq-altura-cartao);
+    padding: 14px 16px 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(15, 39, 68, 0.06);
+    overflow: hidden;
+}
+
+.arq-card--com_erros,
+.arq-card--ilegivel { border-left: 4px solid var(--cor-negativo); padding-left: 13px; }
+.arq-card--com_avisos { border-left: 4px solid var(--cor-alerta); padding-left: 13px; }
+
+.arq-card--em_breve { background: #fafbfc; }
+
+.arq-card__topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.arq-card__icone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    color: var(--cor-primaria);
+    background: #eaf0f8;
+    border-radius: 8px;
+}
+
+.arq-card__titulos {
+    flex: 1;
+    min-width: 0;
+}
+
+.arq-card__nome {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.arq-card__sub {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* Altura fixa (2 linhas de "Para quê" + 2 de "Formato esperado"): assim a área de soltar começa no mesmo ponto em todos os cartões da fileira. */
+.arq-card__corpo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 78px;
+    overflow: hidden;
+}
+
+/* Cada linha mostra no máximo 2 linhas de texto (o texto inteiro está no title). */
+.arq-linha {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: #515151;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+.arq-linha strong {
+    color: #2b2f33;
+    font-weight: 600;
+}
+
+/* ================================================
+   ÁREA DE SOLTAR O ARQUIVO
+   ================================================ */
+.arq-zona {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 0;
+    padding: 8px 12px;
+    text-align: center;
+    background: #f8fafc;
+    border: 1.5px dashed #b9c4d3;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.arq-zona__icone {
+    font-size: 1.35rem;
+    line-height: 1;
+    color: var(--cor-primaria-clara);
+}
+
+.arq-zona__titulo {
+    max-width: 100%;
+    margin: 2px 0 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #2b2f33;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.arq-zona__sub {
+    max-width: 100%;
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--cor-texto-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.arq-zona__contagem {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 6px;
+    max-width: 100%;
+    margin: 4px 0 0;
+    overflow: hidden;
+}
+
+.arq-contador {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    border-radius: 999px;
+}
+
+.arq-contador--erro      { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo); }
+.arq-contador--aviso     { color: var(--arq-aviso-texto);  background: var(--arq-aviso-fundo); }
+.arq-contador--ok        { color: var(--arq-valido-texto); background: var(--arq-valido-fundo); }
+.arq-contador--bloqueado { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo); }
+
+/* Cartão sem auditoria (Busca Legal): área apagada, sem destaque de "soltar" */
+.arq-card--em_breve .arq-zona {
+    background: transparent;
+    border-color: #dde2e8;
+}
+
+.arq-card--em_breve .arq-zona__icone { color: #aab3bd; }
+.arq-card--em_breve .arq-zona__titulo { color: #6c757d; }
+
+/* "Solte para conferir": aparece por cima da área quando um arquivo está sendo arrastado sobre o cartão */
+.arq-zona__solte {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    background: rgba(234, 240, 248, 0.96);
+}
+
+.arq-card--soltando {
+    border-color: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 3px rgba(60, 110, 170, 0.18);
+}
+
+.arq-card--soltando .arq-zona {
+    border-color: var(--cor-primaria-clara);
+}
+
+.arq-card--soltando .arq-zona__solte {
+    display: flex;
+}
+
+/* Arrastando sobre um cartão SEM auditoria: avisa que não vai valer */
+.arq-card--soltando[data-arq-sem-auditoria] .arq-zona__solte {
+    color: var(--arq-breve-texto);
+    background: rgba(241, 243, 245, 0.96);
+}
+
+.arq-card--soltando[data-arq-sem-auditoria] {
+    border-color: #c8ced6;
+    box-shadow: none;
+}
+
+/* ================================================
+   BOTÕES DO CARTÃO
+   ================================================ */
+.arq-card__acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    overflow: hidden;
+}
+
+.arq-form {
+    display: flex;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* Cobertura de "conferindo…" por cima do cartão (a classe htmx-request é posta pelo HTMX). */
+.arq-card__carregando {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    background: rgba(255, 255, 255, 0.88);
+}
+
+.arq-card.htmx-request {
+    pointer-events: none;
+}
+
+.arq-card.htmx-request .arq-card__carregando {
+    display: flex;
+}
+
+/* ================================================
+   JANELA "VER AUDITORIA"
+   ================================================ */
+.arq-aud {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.arq-aud__cabecalho {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+}
+
+.arq-aud__arquivo {
+    font-weight: 700;
+    color: #2b2f33;
+    overflow-wrap: anywhere;
+}
+
+.arq-aud__arquivo i {
+    color: var(--arq-valido-texto);
+    margin-right: 4px;
+}
+
+.arq-aud__meta {
+    font-size: 0.82rem;
+    color: var(--cor-texto-muted);
+}
+
+/* Veredito: a frase que diz se o arquivo pode seguir */
+.arq-veredito {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--cor-borda);
+}
+
+.arq-veredito__icone {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    flex-shrink: 0;
+}
+
+.arq-veredito__textos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    font-size: 0.88rem;
+}
+
+.arq-veredito--valido    { color: var(--arq-valido-texto); background: var(--arq-valido-fundo); border-color: #b9dcc7; }
+.arq-veredito--com_avisos{ color: var(--arq-aviso-texto);  background: var(--arq-aviso-fundo);  border-color: #f3d58a; }
+.arq-veredito--com_erros,
+.arq-veredito--ilegivel  { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo);   border-color: #f1b8bd; }
+
+/* Resumo em números */
+.arq-resumo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.arq-resumo__item {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 120px;
+    padding: 6px 12px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.arq-resumo__rotulo {
+    font-size: 0.72rem;
+    color: var(--cor-texto-muted);
+}
+
+.arq-resumo__valor {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Seções (erros, avisos, o que o sistema vai ler) */
+.arq-secao {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.arq-secao__titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.arq-secao__titulo--erro  { color: var(--arq-erro-texto); }
+.arq-secao__titulo--aviso { color: var(--arq-aviso-texto); }
+
+.arq-achados {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.arq-achado {
+    padding: 9px 12px;
+    font-size: 0.86rem;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.arq-achado--erro  { border-left: 4px solid var(--cor-negativo); }
+.arq-achado--aviso { border-left: 4px solid var(--cor-alerta); }
+
+.arq-achado p {
+    margin: 0 0 3px;
+    overflow-wrap: anywhere;
+}
+
+.arq-achado p:last-child {
+    margin-bottom: 0;
+}
+
+.arq-achado__onde {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+}
+
+.arq-achado__onde i {
+    margin-right: 4px;
+}
+
+.arq-achado__como {
+    color: #515151;
+}
+
+.arq-achados__mais {
+    margin: 0;
+    font-size: 0.82rem;
+    font-style: italic;
+    color: var(--cor-texto-muted);
+}
+
+/* Pré-visualização: tabela com rolagem própria, cabeçalho fixo */
+.arq-previa__nota {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--cor-texto-muted);
+}
+
+.arq-previa__rolagem {
+    max-height: 360px;
+    overflow: auto;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.arq-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.arq-tabela th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    color: var(--cor-primaria);
+    background: #f1f5fa;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.arq-tabela td {
+    padding: 4px 10px;
+    white-space: nowrap;
+    border-bottom: 1px solid #edf0f4;
+}
+
+.arq-tabela tbody tr:hover td {
+    background: #f8fafc;
+}
+
+/* ================================================
+   AVISO DE ERRO NA TELA (falha de rede, erro do sistema)
+   ================================================ */
+.arq-toast {
+    cursor: pointer;
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2000;
+    max-width: 440px;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    color: #842029;
+    background: var(--arq-erro-fundo);
+    border-left: 4px solid var(--cor-negativo);
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+/* Aviso de "não dá para fazer isso" (não é falha do sistema): cinza */
+.arq-toast--info {
+    color: var(--arq-neutro-texto);
+    background: var(--arq-neutro-fundo);
+    border-left-color: var(--cor-primaria-clara);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .arq-btn { transition: none; }
+}

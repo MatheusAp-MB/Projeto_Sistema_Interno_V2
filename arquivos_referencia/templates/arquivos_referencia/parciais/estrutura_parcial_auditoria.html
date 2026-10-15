@@ -1,0 +1,91 @@
+{# Auditoria COMPLETA de 1 arquivo (vai dentro da janela "Ver auditoria"). Recebe `cartao` (com `relatorio` e `quando`). Sem ids: o conteúdo é copiado para a janela. #}
+{% with relatorio=cartao.relatorio %}
+<div class="arq-aud">
+    <div class="arq-aud__cabecalho">
+        <span class="arq-pill arq-pill--{{ cartao.estado }}"><i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}</span>
+        <span class="arq-aud__arquivo"><i class="fas fa-file-excel" aria-hidden="true"></i> {{ relatorio.nome_do_arquivo }}</span>
+        <span class="arq-aud__meta">{{ relatorio.tamanho_texto }} · conferido em {{ cartao.quando|date:"d/m/Y H:i" }}</span>
+    </div>
+
+    {# Veredito: 1 frase que diz se pode ou não seguir. #}
+    <div class="arq-veredito arq-veredito--{{ cartao.estado }}">
+        <span class="arq-veredito__icone"><i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i></span>
+        <div class="arq-veredito__textos">
+            {% if cartao.estado == 'valido' %}
+                <strong>Tudo certo.</strong>
+                <span>O sistema vai ler este arquivo sem nenhum problema. Ele pode ser enviado ao Drive (o envio chega na próxima etapa).</span>
+            {% elif cartao.estado == 'com_avisos' %}
+                <strong>Pode ser enviado, mas vale conferir os avisos.</strong>
+                <span>Nada aqui impede o sistema de ler o arquivo. Os avisos são coisas estranhas que merecem uma olhada antes de seguir.</span>
+            {% elif cartao.estado == 'com_erros' %}
+                <strong>Não pode ser enviado.</strong>
+                <span>O sistema leria dados errados (ou ignoraria linhas) com este arquivo. Corrija os erros abaixo na planilha e escolha o arquivo de novo.</span>
+            {% else %}
+                <strong>Não consegui abrir este arquivo.</strong>
+                <span>Veja abaixo o motivo e o que fazer, e escolha o arquivo de novo.</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if relatorio.resumo %}
+        <ul class="arq-resumo" aria-label="Resumo do que foi lido">
+            {% for rotulo, valor in relatorio.resumo %}
+                <li class="arq-resumo__item"><span class="arq-resumo__rotulo">{{ rotulo }}</span><span class="arq-resumo__valor">{{ valor }}</span></li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if relatorio.erros %}
+        <section class="arq-secao">
+            <h4 class="arq-secao__titulo arq-secao__titulo--erro"><i class="fas fa-circle-xmark" aria-hidden="true"></i> Erros — impedem o envio ({{ relatorio.total_de_erros }})</h4>
+            <ul class="arq-achados">
+                {% for achado in relatorio.erros %}
+                    <li class="arq-achado arq-achado--erro">
+                        <p class="arq-achado__onde"><i class="fas fa-location-dot" aria-hidden="true"></i> {{ achado.onde }}</p>
+                        <p class="arq-achado__o-que">{{ achado.o_que }}</p>
+                        {% if achado.como_corrigir %}<p class="arq-achado__como"><strong>Como corrigir:</strong> {{ achado.como_corrigir }}</p>{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            {% if relatorio.erros_ocultos %}
+                <p class="arq-achados__mais">… e mais {{ relatorio.erros_ocultos }} erro{{ relatorio.erros_ocultos|pluralize }} que não {{ relatorio.erros_ocultos|pluralize:"está,estão" }} listado{{ relatorio.erros_ocultos|pluralize }} aqui. Corrija os de cima e confira de novo.</p>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    {% if relatorio.avisos %}
+        <section class="arq-secao">
+            <h4 class="arq-secao__titulo arq-secao__titulo--aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Avisos — não impedem o envio ({{ relatorio.total_de_avisos }})</h4>
+            <ul class="arq-achados">
+                {% for achado in relatorio.avisos %}
+                    <li class="arq-achado arq-achado--aviso">
+                        <p class="arq-achado__onde"><i class="fas fa-location-dot" aria-hidden="true"></i> {{ achado.onde }}</p>
+                        <p class="arq-achado__o-que">{{ achado.o_que }}</p>
+                        {% if achado.como_corrigir %}<p class="arq-achado__como"><strong>Como corrigir:</strong> {{ achado.como_corrigir }}</p>{% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            {% if relatorio.avisos_ocultos %}
+                <p class="arq-achados__mais">… e mais {{ relatorio.avisos_ocultos }} aviso{{ relatorio.avisos_ocultos|pluralize }} que não {{ relatorio.avisos_ocultos|pluralize:"está,estão" }} listado{{ relatorio.avisos_ocultos|pluralize }} aqui.</p>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    {% for previa in relatorio.previas %}
+        <section class="arq-secao">
+            <h4 class="arq-secao__titulo"><i class="fas fa-table-list" aria-hidden="true"></i> O que o sistema vai ler — {{ previa.titulo }}</h4>
+            <p class="arq-previa__nota">{{ previa.total_de_linhas }} linha{{ previa.total_de_linhas|pluralize }}{% if previa.truncada %} — mostrando as primeiras {{ previa.linhas|length }}{% endif %}.</p>
+            <div class="arq-previa__rolagem">
+                <table class="arq-tabela">
+                    <thead><tr>{% for coluna in previa.colunas %}<th>{{ coluna }}</th>{% endfor %}</tr></thead>
+                    <tbody>
+                        {% for linha in previa.linhas %}
+                            <tr>{% for valor in linha %}<td>{{ valor }}</td>{% endfor %}</tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endfor %}
+</div>
+{% endwith %}

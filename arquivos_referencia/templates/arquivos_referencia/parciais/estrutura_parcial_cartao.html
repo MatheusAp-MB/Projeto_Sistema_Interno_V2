@@ -1,0 +1,89 @@
+{# 1 cartão de arquivo de referência (altura fixa). Ao escolher/soltar um arquivo, o HTMX troca ESTE cartão inteiro pelo devolvido pelo servidor. #}
+<article class="arq-card arq-card--{{ cartao.estado }}" id="arq-card-{{ cartao.id }}" data-nome="{{ cartao.nome }}"{% if cartao.upload_habilitado %} data-arq-soltar{% else %} data-arq-sem-auditoria{% endif %}>
+    <header class="arq-card__topo">
+        <span class="arq-card__icone"><i class="fas {{ cartao.icone }}" aria-hidden="true"></i></span>
+        <div class="arq-card__titulos">
+            <h3 class="arq-card__nome" title="{{ cartao.nome }}">{{ cartao.nome }}</h3>
+            <p class="arq-card__sub" title="Nome que o arquivo terá no Drive: {{ cartao.nome_no_drive }}"><i class="fab fa-google-drive" aria-hidden="true"></i> {{ cartao.nome_no_drive }}</p>
+        </div>
+        <span class="arq-pill arq-pill--{{ cartao.estado }}">
+            <i class="fas {{ cartao.estado_icone }}" aria-hidden="true"></i> {{ cartao.estado_rotulo }}
+        </span>
+    </header>
+
+    <div class="arq-card__corpo">
+        <p class="arq-linha" title="{{ cartao.para_que_serve }}"><strong>Para quê:</strong> {{ cartao.para_que_serve }}</p>
+        <p class="arq-linha" title="{{ cartao.formato_esperado }}"><strong>Formato esperado:</strong> {{ cartao.formato_esperado }}</p>
+    </div>
+
+    {# Área de soltar: mostra o que se espera, ou o arquivo já conferido. Soltar o arquivo em qualquer ponto do cartão vale. #}
+    <div class="arq-zona">
+        {% if cartao.relatorio %}
+            <span class="arq-zona__icone"><i class="fas fa-file-excel" aria-hidden="true"></i></span>
+            <p class="arq-zona__titulo" title="{{ cartao.relatorio.nome_do_arquivo }}">{{ cartao.relatorio.nome_do_arquivo }}</p>
+            <p class="arq-zona__sub">{{ cartao.relatorio.tamanho_texto }} · conferido em {{ cartao.quando|date:"d/m/Y H:i" }}</p>
+            <p class="arq-zona__contagem">
+                {% if cartao.relatorio.total_de_erros %}
+                    <span class="arq-contador arq-contador--erro"><i class="fas fa-circle-xmark" aria-hidden="true"></i> {{ cartao.relatorio.total_de_erros }} erro{{ cartao.relatorio.total_de_erros|pluralize }}</span>
+                {% endif %}
+                {% if cartao.relatorio.total_de_avisos %}
+                    <span class="arq-contador arq-contador--aviso"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ cartao.relatorio.total_de_avisos }} aviso{{ cartao.relatorio.total_de_avisos|pluralize }}</span>
+                {% endif %}
+                {% if cartao.relatorio.pode_enviar %}
+                    <span class="arq-contador arq-contador--ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Pode ser enviado ao Drive</span>
+                {% else %}
+                    <span class="arq-contador arq-contador--bloqueado"><i class="fas fa-ban" aria-hidden="true"></i> Não pode ser enviado</span>
+                {% endif %}
+            </p>
+        {% elif cartao.upload_habilitado %}
+            <span class="arq-zona__icone"><i class="fas fa-cloud-arrow-up" aria-hidden="true"></i></span>
+            <p class="arq-zona__titulo">Arraste o arquivo .xlsx para cá</p>
+            <p class="arq-zona__sub">ou use “Escolher arquivo”. O arquivo só é conferido, não é guardado.</p>
+        {% else %}
+            <span class="arq-zona__icone"><i class="fas fa-hourglass-half" aria-hidden="true"></i></span>
+            <p class="arq-zona__titulo">Auditoria na próxima etapa</p>
+            <p class="arq-zona__sub">Esta planilha ainda não pode ser conferida por esta tela.</p>
+        {% endif %}
+        <span class="arq-zona__solte" aria-hidden="true"><i class="fas fa-arrow-down" aria-hidden="true"></i> Solte para conferir</span>
+    </div>
+
+    <footer class="arq-card__acoes">
+        {% if cartao.upload_habilitado %}
+            {# O formulário só leva o arquivo; "change" (escolher ou soltar) dispara a conferência. #}
+            <form class="arq-form" hx-post="{% url 'arquivos_referencia_auditar' cartao.id %}" hx-encoding="multipart/form-data"
+                  hx-trigger="change" hx-target="closest .arq-card" hx-swap="outerHTML" hx-indicator="closest .arq-card">
+                <input type="file" name="arquivo" class="arq-input" accept=".xlsx" hidden aria-label="Arquivo de {{ cartao.nome }}">
+                <button type="button" class="arq-btn arq-btn--primario" data-arq-escolher>
+                    <i class="fas fa-file-arrow-up" aria-hidden="true"></i> <span class="arq-btn__texto">{% if cartao.relatorio %}Escolher outro{% else %}Escolher arquivo{% endif %}</span>
+                </button>
+            </form>
+        {% else %}
+            <button type="button" class="arq-btn arq-btn--primario" disabled title="Esta planilha ainda não tem auditoria.">
+                <i class="fas fa-file-arrow-up" aria-hidden="true"></i> <span class="arq-btn__texto">Escolher arquivo</span>
+            </button>
+        {% endif %}
+
+        {% if cartao.relatorio %}
+            <button type="button" class="arq-btn" data-arq-ver-auditoria title="Abre a auditoria completa: erros, avisos e o que o sistema vai ler.">
+                <i class="fas fa-clipboard-check" aria-hidden="true"></i> <span class="arq-btn__texto">Ver auditoria</span>
+            </button>
+        {% else %}
+            <button type="button" class="arq-btn" disabled title="Escolha um arquivo para ver a auditoria.">
+                <i class="fas fa-clipboard-check" aria-hidden="true"></i> <span class="arq-btn__texto">Ver auditoria</span>
+            </button>
+        {% endif %}
+
+        <button type="button" class="arq-btn" disabled title="Chega na próxima etapa: envia o arquivo conferido ao Drive, trocando o que está lá (sempre 1 cópia).">
+            <i class="fab fa-google-drive" aria-hidden="true"></i> <span class="arq-btn__texto">Enviar para o Drive</span>
+        </button>
+    </footer>
+
+    {# Auditoria completa, escondida; o botão "Ver auditoria" copia isto para a janela. #}
+    {% if cartao.relatorio %}
+        <div class="arq-card__auditoria" hidden>
+            {% include 'arquivos_referencia/parciais/estrutura_parcial_auditoria.html' %}
+        </div>
+    {% endif %}
+
+    <div class="arq-card__carregando" aria-hidden="true"><i class="fas fa-spinner fa-spin"></i> Conferindo o arquivo…</div>
+</article>

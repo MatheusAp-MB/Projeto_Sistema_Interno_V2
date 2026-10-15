@@ -1,0 +1,70 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+{% block titulo %}Arquivos de referência{% endblock %}
+{% block toolbar_titulo %}Configurações — Arquivos de referência{% endblock %}
+{% block toolbar_acoes %}
+    <button type="button" class="arq-toolbar-btn" disabled
+            title="Chega na próxima etapa: depois de enviar os arquivos ao Drive, este botão atualiza o sistema com o que está lá.">
+        <i class="fas fa-rotate" aria-hidden="true"></i> <span>Atualizar o sistema com o Drive</span>
+    </button>
+{% endblock %}
+{% block body_class %}arq-tela{% endblock %}
+{% block head_extra %}
+    <link rel="stylesheet" href="{% static 'arquivos_referencia/css/layout_arquivos_referencia.css' %}">
+{% endblock %}
+{% block conteudo %}
+    {% comment %}
+    * [RESUMO] → Tela "Arquivos de referência" (15/10/2026): onde se confere os arquivos que o "popular banco" lê
+      (4 tabelas de frete e 2 planilhas do Busca Legal). Frente "Rotina Vira Botão", Grupo A.
+      A ideia final tem 2 passos separados: (1) escolher o arquivo, ver a AUDITORIA COMPLETA e só então enviar ao Drive
+      (cada envio troca o arquivo anterior: sempre 1 cópia lá); (2) um clique à parte para atualizar o sistema com o que
+      está no Drive.
+    * [DECISÃO, 15/10/2026] → Neste 1º ciclo a tela só CONFERE: não há envio ao Drive nem atualização do sistema (os botões
+      já aparecem, desligados, para a pessoa ver o desenho completo). Planilhas do Busca Legal aparecem como
+      "auditoria na próxima etapa".
+    * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical", igual à Gestão de APIs: a altura de cada cartão é
+      fixa; texto comprido é cortado e o que falta está na janela "Ver auditoria".
+    * [EXPLICAÇÃO] → O arquivo escolhido não é guardado em lugar nenhum: o resultado vive só neste cartão. Ao recarregar a
+      página (F5) os cartões voltam a "Sem arquivo".
+    {% endcomment %}
+
+    <div class="arq-pagina" data-arq-limite-bytes="{{ limite_do_arquivo_em_bytes }}" data-arq-limite-mb="{{ limite_do_arquivo_em_mb }}">
+        <div class="arq-faixa" title="Nesta etapa a tela só confere os arquivos: nada é enviado ao Drive e nada muda no sistema. O envio ao Drive e a atualização do sistema chegam nas próximas etapas.">
+            <span class="arq-faixa__icone"><i class="fas fa-circle-info" aria-hidden="true"></i></span>
+            <div class="arq-faixa__textos">
+                <span class="arq-faixa__titulo">Etapa atual: só conferência</span>
+                <span class="arq-faixa__texto">Escolha ou arraste cada arquivo para ver a auditoria completa. Nada é enviado ao Drive e nada muda no sistema por aqui — por enquanto.</span>
+            </div>
+        </div>
+
+        {% for grupo in grupos %}
+            <section class="arq-grupo" aria-labelledby="arq-grupo-{{ grupo.id }}">
+                <header class="arq-grupo__cabecalho">
+                    <h2 class="arq-grupo__titulo" id="arq-grupo-{{ grupo.id }}">{{ grupo.titulo }}</h2>
+                    <span class="arq-grupo__sub">{{ grupo.subtitulo }}</span>
+                </header>
+                <div class="arq-grade">
+                    {% for cartao in grupo.cartoes %}
+                        {% include 'arquivos_referencia/parciais/estrutura_parcial_cartao.html' %}
+                    {% endfor %}
+                </div>
+            </section>
+        {% endfor %}
+    </div>
+
+    {# Janela da auditoria (o JS move para o <body>, como o Bootstrap recomenda, e copia para dentro o relatório do cartão). #}
+    <div class="modal fade" id="arq-modal-auditoria" tabindex="-1" aria-labelledby="arq-modal-auditoria-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="arq-modal-auditoria-titulo">Auditoria</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body" id="arq-modal-auditoria-corpo"></div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block scripts %}
+    <script src="{% static 'arquivos_referencia/js/script_arquivos_referencia.js' %}"></script>
+{% endblock %}
