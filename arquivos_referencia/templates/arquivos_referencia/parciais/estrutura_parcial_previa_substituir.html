@@ -1,0 +1,74 @@
+{% comment %}
+Miolo da janela "Prévia do Substituir" (o HTMX troca o conteúdo de #arq-previa-miolo por este). NADA foi gravado: a atualização rodou e foi desfeita.
+Recebe: `resultado` (de montar_item_da_atualizacao), `empresa` (a linha da empresa, com `substituicao`, `etapas`, `atencoes`), `previa_pronta`, `previa_md5`
+(o MD5 do arquivo que esta prévia mostrou: a gravação real exige o MESMO de volta), `empresa_da_tela_nome` e `url_para_baixar`.
+Prévia pronta = o bloco com data-arq-previa-md5, que é o que o JS procura para liberar a caixa "Li a lista…" (sem ele, o botão de apagar nunca libera).
+Problema previsto (Drive fora do ar, arquivo com erro, planilha da empresa errada, atualização em andamento) vem aqui dentro, sem esse bloco, e explica o que fazer.
+Todo texto vem do servidor ou do arquivo e é escapado pelo Django.
+{% endcomment %}
+{% if previa_pronta and empresa %}
+    <div class="arq-previa" data-arq-previa-md5="{{ previa_md5 }}">
+        <p class="arq-previa__faixa" role="status">
+            <i class="fas fa-eye" aria-hidden="true"></i>
+            <span><strong>Prévia: nada foi gravado ainda.</strong> Abaixo está exatamente o que o Substituir faria no sistema da {{ empresa_da_tela_nome }} com a planilha que está no Drive agora.</span>
+        </p>
+
+        {% if resultado.drive %}
+            <p class="arq-atu__drive" title="Pasta no Drive: {{ resultado.drive.caminho }}">
+                <i class="fab fa-google-drive" aria-hidden="true"></i>
+                Planilha lida do Drive: {{ resultado.drive.tamanho_texto }}{% if resultado.drive.modificado_em %} · Data do envio do arquivo: {{ resultado.drive.modificado_em|date:"d/m/Y H:i" }}{% endif %}
+            </p>
+        {% endif %}
+
+        {% include 'arquivos_referencia/parciais/estrutura_parcial_substituicao.html' with substituicao=empresa.substituicao nome_da_empresa=empresa_da_tela_nome depois=False %}
+
+        <details class="arq-previa__passos">
+            <summary>Ver os 4 passos que vão rodar (contas da prévia)</summary>
+            {% include 'arquivos_referencia/parciais/estrutura_parcial_etapas_impostos.html' %}
+        </details>
+
+        {% for nota in resultado.notas %}
+            <p class="arq-atu__nota"><i class="fas fa-circle-info" aria-hidden="true"></i> {{ nota }}</p>
+        {% endfor %}
+        <p class="arq-atu__nota">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            As tabelas de frete continuam sendo atualizadas igual ao arquivo (como sempre) e as grades de preço ainda não são recalculadas por este botão.
+            Esta janela mostra só o que o Substituir apaga na planilha Busca Legal.
+        </p>
+
+        <p class="arq-previa__backup">
+            <button type="button" class="arq-btn" data-arq-baixar data-arq-url="{{ url_para_baixar }}"
+                    title="Baixa para o seu computador uma cópia da planilha que está no Drive agora, antes de o sistema ficar igual a ela.">
+                <i class="fas fa-download" aria-hidden="true"></i> <span class="arq-btn__texto">Baixar a planilha do Drive (backup)</span>
+            </button>
+            <span>Quer guardar uma cópia antes? Baixe agora; esta janela continua aberta.</span>
+        </p>
+    </div>
+{% else %}
+    <div class="arq-previa arq-previa--sem">
+        <p class="arq-previa__faixa arq-previa__faixa--erro" role="alert">
+            <i class="fas {% if resultado.status == 'ocupado' %}fa-hourglass-half{% else %}fa-circle-xmark{% endif %}" aria-hidden="true"></i>
+            <span><strong>Não deu para mostrar a prévia, e nada foi gravado.</strong></span>
+        </p>
+        {% if resultado.mensagem %}<p class="arq-atu__mensagem">{{ resultado.mensagem }}</p>{% endif %}
+        {% if empresa and empresa.mensagem %}<p class="arq-atu__mensagem">{{ empresa.mensagem }}</p>{% endif %}
+        {% if empresa and empresa.motivos %}
+            <ul class="arq-atu__motivos">
+                {% for motivo in empresa.motivos %}<li>{{ motivo }}</li>{% endfor %}
+            </ul>
+            {% if empresa.motivos_ocultos %}<p class="arq-atu__mais">… e mais {{ empresa.motivos_ocultos }}.</p>{% endif %}
+        {% endif %}
+        {% if resultado.motivos %}
+            <ul class="arq-atu__motivos">
+                {% for motivo in resultado.motivos %}<li>{{ motivo }}</li>{% endfor %}
+            </ul>
+            {% if resultado.motivos_ocultos %}<p class="arq-atu__mais">… e mais {{ resultado.motivos_ocultos }}. A auditoria do cartão mostra a lista completa.</p>{% endif %}
+        {% endif %}
+        {% for nota in resultado.notas %}
+            <p class="arq-atu__nota"><i class="fas fa-circle-info" aria-hidden="true"></i> {{ nota }}</p>
+        {% endfor %}
+        {% if resultado.link %}
+            <p class="arq-atu__nota"><a class="arq-drive__link" href="{{ resultado.link.url }}" target="_blank" rel="noopener">{{ resultado.link.texto }}</a></p>
+        {% endif %}
+    </div>
+{% endif %}

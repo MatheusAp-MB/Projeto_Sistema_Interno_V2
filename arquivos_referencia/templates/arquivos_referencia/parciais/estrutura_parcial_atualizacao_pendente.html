@@ -3,8 +3,9 @@
 mostrava (hx-vals): o servidor recusa se a empresa selecionada já for outra (trocada em outra aba) — nunca atualiza a empresa errada. O JS dispara os arquivos um depois do outro
 (evento "arq-atualizar"): cada linha manda 1 POST e se troca pela linha de resultado (estrutura_parcial_resultado_atualizacao.html).
 Enquanto o pedido está em andamento o HTMX põe a classe "htmx-request" e o CSS mostra "Atualizando…" no lugar de "Aguardando".
+A linha da planilha Busca Legal leva o marcador data-arq-busca-legal: no modo Substituir o JS troca o hx-vals só dela (empresa + modo + MD5 da prévia lida).
 {% endcomment %}
-<li class="arq-atu arq-atu--pendente" id="arq-atu-{{ arquivo.id }}" data-arq-status="pendente"
+<li class="arq-atu arq-atu--pendente" id="arq-atu-{{ arquivo.id }}" data-arq-status="pendente"{% if arquivo.grupo == 'impostos_saida' %} data-arq-busca-legal{% endif %}
     hx-post="{% url 'arquivos_referencia_atualizar' arquivo.id %}" hx-vals='{"empresa": "{{ empresa_da_tela }}"}' hx-trigger="arq-atualizar" hx-swap="outerHTML">
     <div class="arq-atu__topo">
         <span class="arq-atu__icone"><i class="fas {{ arquivo.icone }}" aria-hidden="true"></i></span>

@@ -1,0 +1,56 @@
+{% comment %}
+O que o modo SUBSTITUIR da planilha Busca Legal apaga do sistema, bloco por bloco (cada bloco = 1 MOTIVO, com o total exato e a lista).
+Usado nos dois momentos: na PRÉVIA (nada foi gravado: "vai ser apagado") e no RESULTADO (já foi gravado: "foi apagado").
+Recebe `substituicao` (de importacao_busca_legal._montar_substituicao), `nome_da_empresa` e `depois` (verdadeiro no resultado). O texto de cada bloco vale nos dois tempos;
+quem escreve o tempo é o título daqui. Listas são cortadas em 200 linhas pelo servidor, mas o TOTAL é sempre exato ("… e mais N"). Lista curta (até 10 itens) já vem ABERTA, para o que será
+apagado aparecer à vista; lista longa vem recolhida (rolagem própria) para a janela não virar uma parede de texto.
+Estado nunca só por cor: o destaque de "apaga muito" também vem escrito. Todo texto vem do servidor e é escapado pelo Django.
+{% endcomment %}
+<section class="arq-sub{% if substituicao.nada_a_apagar %} arq-sub--nada{% endif %}{% if depois %} arq-sub--depois{% endif %}{% if substituicao.percentual_alto and not depois %} arq-sub--alto{% endif %}" data-arq-substituicao>
+    {% if substituicao.nada_a_apagar %}
+        <p class="arq-sub__nada">
+            <i class="fas fa-circle-check" aria-hidden="true"></i>
+            Nada a apagar: o sistema da {{ nome_da_empresa }} já tinha só o que a planilha tem.
+        </p>
+    {% else %}
+        <h3 class="arq-sub__titulo">
+            <i class="fas fa-trash-can" aria-hidden="true"></i>
+            {% if depois %}Foi APAGADO do sistema da {{ nome_da_empresa }}{% else %}Vai ser APAGADO do sistema da {{ nome_da_empresa }}{% endif %}
+        </h3>
+        {% if substituicao.produtos_perdem_o_cst %}
+            <p class="arq-sub__destaque">
+                <strong>{{ substituicao.produtos_perdem_o_cst }} de {{ substituicao.produtos_com_cst_antes }}</strong> produtos que tinham CST
+                ({{ substituicao.percentual }}%) {% if depois %}ficaram{% else %}ficam{% endif %} sem CST.
+                {% if substituicao.percentual_alto and not depois %}<strong>É bastante coisa: confira se esta é mesmo a planilha completa da {{ nome_da_empresa }}.</strong>{% endif %}
+            </p>
+        {% endif %}
+        {% for bloco in substituicao.blocos %}
+            <div class="arq-sub__bloco">
+                <p class="arq-sub__linha"><strong class="arq-sub__total">{{ bloco.total }}</strong> {{ bloco.texto }}</p>
+                {% if bloco.itens %}
+                    <details class="arq-sub__lista"{% if bloco.total <= 10 %} open{% endif %}>
+                        <summary>Ver {% if bloco.mais %}os primeiros {{ bloco.itens|length }} de {{ bloco.total }}{% elif bloco.total == 1 %}o item{% else %}os {{ bloco.total }} itens{% endif %}</summary>
+                        <ul>
+                            {% for item in bloco.itens %}<li>{{ item }}</li>{% endfor %}
+                        </ul>
+                        {% if bloco.mais %}<p class="arq-atu__mais">… e mais {{ bloco.mais }} {% if bloco.mais == 1 %}item{% else %}itens{% endif %} (o total acima é exato; a lista mostra só os primeiros).</p>{% endif %}
+                    </details>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if not substituicao.nada_a_apagar %}
+    <p class="arq-sub__fica">
+        <i class="fas fa-shield-halved" aria-hidden="true"></i>
+        <span>
+            <strong>Os produtos em si não são apagados</strong> — só o CST e os impostos de saída deles.
+            {% if substituicao.produtos_com_regra_do_tributo_ja_pago %}
+                <strong>{{ substituicao.produtos_com_regra_do_tributo_ja_pago }}</strong>
+                {% if substituicao.produtos_com_regra_do_tributo_ja_pago == 1 %}produto continua{% else %}produtos continuam{% endif %} com PIS/COFINS 0%
+                por outra regra do sistema (tributo já pago na entrada, que não vem da planilha).
+            {% endif %}
+        </span>
+    </p>
+    {% endif %}
+</section>

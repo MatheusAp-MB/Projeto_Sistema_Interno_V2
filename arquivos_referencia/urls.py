@@ -22,8 +22,16 @@ urlpatterns = [
     #                  grava nas tabelas só dessa empresa, tudo ou nada). Devolve a linha de resultado desse arquivo.
     path('atualizar/<slug:arquivo_id>/', views_arquivos_referencia.view_atualizar_arquivo, name='arquivos_referencia_atualizar'),
 
+    # * [EXPLICAÇÃO] → Prévia do modo Substituir da planilha Busca Legal (POST, com CSRF; NADA é gravado: a atualização roda e é desfeita no fim).
+    #                  Devolve a lista exata do que o Substituir apagaria, para a pessoa ler e confirmar antes de gravar de verdade.
+    path('previa/<slug:arquivo_id>/', views_arquivos_referencia.view_previa_do_substituir, name='arquivos_referencia_previa'),
+
     # * [EXPLICAÇÃO] → "Ver arquivo" (só leitura, nada é gravado): mostra o .xlsx como o Excel mostraria, numa janela.
     #                  GET = o arquivo que está no Drive agora (lido na hora). POST = o arquivo que a pessoa acabou de escolher no computador.
     path('ver/<slug:arquivo_id>/', views_arquivos_referencia.view_ver_arquivo_do_drive, name='arquivos_referencia_ver_drive'),
     path('ver-escolhido/<slug:arquivo_id>/', views_arquivos_referencia.view_ver_arquivo_escolhido, name='arquivos_referencia_ver_escolhido'),
+
+    # * [EXPLICAÇÃO] → "Baixar" (GET, só leitura): entrega ao navegador uma CÓPIA do arquivo que está no Drive agora (útil como backup antes de
+    #                  trocar o arquivo ou de atualizar o sistema). O servidor lê do Drive só na memória e repassa; nada é gravado nele.
+    path('baixar/<slug:arquivo_id>/', views_arquivos_referencia.view_baixar_arquivo_do_drive, name='arquivos_referencia_baixar'),
 ]

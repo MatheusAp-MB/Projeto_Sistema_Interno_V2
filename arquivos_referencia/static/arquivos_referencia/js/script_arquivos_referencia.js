@@ -9,12 +9,17 @@
 *   6) mostrar um aviso na tela quando algo falha (rede, erro do sistema, login do Drive) ou dá certo (envio);
 *   7) "Enviar para o Drive": confirma numa janela e então manda o arquivo conferido;
 *   8) não deixar a resposta atrasada do Drive apagar o arquivo que a pessoa conferiu enquanto o Drive ainda respondia;
-*   9) "Atualizar o sistema com o Drive" (botão da barra de cima): confirma numa janela e então atualiza as tabelas de frete DA EMPRESA
-*      SELECIONADA (só ela), UM arquivo de cada vez, mostrando o resultado de cada um na janela; ao terminar, os cartões de frete
-*      consultam o Drive de novo para mostrar "Data da última atualização do sistema" e o selo "Em dia".
+*   9) "Atualizar o sistema com o Drive" (botão da barra de cima): confirma numa janela e então atualiza as tabelas de frete e a planilha Busca Legal
+*      DA EMPRESA SELECIONADA (só ela), UM arquivo de cada vez, mostrando o resultado de cada um na janela; ao terminar, os cartões desses
+*      arquivos consultam o Drive de novo para mostrar "Data da última atualização do sistema" e o selo "Em dia".
 *  10) "Ver arquivo": abre a janela do visualizador (o arquivo do Drive vem por HTMX; o arquivo conferido sai da memória do navegador pelo
 *      formulário escondido do cartão) e mostra na barra de fórmulas o conteúdo da célula clicada. A troca de aba e o "Como no Excel / Valor
 *      bruto" são só CSS (botões de opção escondidos dentro do HTML do visualizador).
+*  11) "Baixar" (linha "No Drive agora" do cartão): pede ao servidor uma cópia do arquivo que está no Drive e a entrega ao navegador para gravar no
+*      computador (backup). Se der erro, mostra o motivo no aviso da tela, em vez de o navegador salvar uma página de erro como se fosse o arquivo.
+*  12) Modo "Substituir" da planilha Busca Legal (escolha na janela de confirmação da seção 9): em vez de gravar, abre a "Prévia do Substituir" (o servidor
+*      lê a planilha, simula e desfaz — nada é gravado) com a lista do que seria apagado. Só depois de a pessoa marcar "Li a lista…" o botão "Substituir e apagar"
+*      libera; ele roda a mesma atualização da seção 9, mandando junto o MD5 da planilha que a prévia mostrou (o servidor recusa sem ele).
 *
 * * [DECISÃO, 16/10/2026] → Independência entre as empresas: a tela é de UMA empresa (data-arq-empresa na página). Cada pedido ao servidor
 *   leva essa empresa e o servidor recusa se a selecionada mudou em outra aba (o aviso pede para recarregar). Nada aqui grava nas duas.
@@ -32,6 +37,7 @@
     var LIMITE_EM_BYTES = pagina ? parseInt(pagina.dataset.arqLimiteBytes, 10) || 0 : 0;
     var LIMITE_EM_MB = pagina ? pagina.dataset.arqLimiteMb || '5' : '5';
     var NOME_DA_EMPRESA = pagina ? pagina.dataset.arqEmpresaNome || '' : '';   // "Magazine" / "Samvale": a empresa que esta tela mostra
+    var EMPRESA_DA_TELA = pagina ? pagina.dataset.arqEmpresa || '' : '';       // o código da empresa que esta tela mostra (vai em todo pedido que mexe no banco)
 
     // Arquivos já conferidos com sucesso (id do cartão → File) e arquivos cuja conferência ainda está em andamento.
     var conferidos = new Map();
@@ -43,7 +49,8 @@
     var janelaDaConfirmacao = document.getElementById('arq-modal-atualizar');
     var janelaDoResultado = document.getElementById('arq-modal-resultado');
     var janelaDoVisualizador = document.getElementById('arq-modal-visualizador');
-    [janela, janelaDoEnvio, janelaDaConfirmacao, janelaDoResultado, janelaDoVisualizador].forEach(function (modal) {
+    var janelaDaPrevia = document.getElementById('arq-modal-previa');   // só existe quando a empresa tem a planilha Busca Legal
+    [janela, janelaDoEnvio, janelaDaConfirmacao, janelaDoResultado, janelaDoVisualizador, janelaDaPrevia].forEach(function (modal) {
         if (modal && modal.parentElement !== document.body) {
             document.body.appendChild(modal);
         }
@@ -395,6 +402,57 @@
         if (campoConteudo) { campoConteudo.textContent = conteudo === '' ? '(célula vazia)' : conteudo; }
     });
 
+    // ---------- 11) Baixar do Drive ----------
+    // * [EXPLICAÇÃO] → O botão não é um link comum de propósito: com um link, um erro (Drive fora do ar, login vencido) faria o navegador salvar a página de
+    //   erro como se fosse a planilha. Aqui o JS pede o arquivo (fetch); se veio, entrega ao navegador com o nome sugerido pelo servidor (cabeçalho
+    //   X-Arquivo-Nome); se não veio, mostra o motivo no aviso da tela. O arquivo passa pela memória do navegador e é solto logo depois.
+    function trocarIconeDoBaixar(botao, classeDoIcone) {
+        var icone = botao.querySelector('i');
+        if (icone) { icone.className = classeDoIcone; }
+    }
+
+    function baixarDoDrive(botao) {
+        var endereco = botao.dataset.arqUrl;
+        if (!endereco || botao.disabled) { return; }
+        botao.disabled = true;
+        trocarIconeDoBaixar(botao, 'fas fa-spinner fa-spin');
+
+        function terminar() {
+            botao.disabled = false;
+            trocarIconeDoBaixar(botao, 'fas fa-download');
+        }
+
+        fetch(endereco, { credentials: 'same-origin', cache: 'no-store' }).then(function (resposta) {
+            if (!resposta.ok) {
+                return resposta.text().then(function (texto) {
+                    var erro = mensagemDoErro({ responseText: texto, status: resposta.status });
+                    mostrarAviso(erro.texto, undefined, erro.link);
+                });
+            }
+            var nome = 'arquivo.xlsx';
+            try { nome = decodeURIComponent(resposta.headers.get('X-Arquivo-Nome') || '') || nome; } catch (erro) { /* cabeçalho estranho: fica o nome padrão */ }
+            return resposta.blob().then(function (conteudo) {
+                var urlTemporaria = URL.createObjectURL(conteudo);
+                var ancora = document.createElement('a');
+                ancora.href = urlTemporaria;
+                ancora.download = nome;
+                ancora.hidden = true;
+                document.body.appendChild(ancora);
+                ancora.click();
+                ancora.remove();
+                window.setTimeout(function () { URL.revokeObjectURL(urlTemporaria); }, 60000);
+                mostrarAviso('Download iniciado: ' + nome + '. É uma cópia do que está no Drive agora.', 'ok');
+            });
+        }).catch(function () {
+            mostrarAviso('Não foi possível falar com o servidor do sistema. Confira se ele está no ar.');
+        }).then(terminar, terminar);
+    }
+
+    document.addEventListener('click', function (evento) {
+        var botao = evento.target.closest ? evento.target.closest('[data-arq-baixar]') : null;
+        if (botao) { baixarDoDrive(botao); }
+    });
+
     // ---------- 9) Atualizar o sistema com o Drive ----------
     // * [EXPLICAÇÃO] → O botão da barra só ABRE a confirmação. Confirmou: a janela de resultado ganha 1 linha "Aguardando" por arquivo
     //   (copiadas do <template>) e o JS dispara os arquivos UM DEPOIS DO OUTRO — cada linha manda o seu POST (HTMX) e se troca pelo
@@ -460,10 +518,10 @@
         var resumo = document.getElementById('arq-atu-resumo');
         var texto;
         if (certos === total) {
-            texto = total === 1 ? 'A tabela foi conferida e o sistema da ' + NOME_DA_EMPRESA + ' está em dia com ela.' : 'As ' + total + ' tabelas foram conferidas e o sistema da ' + NOME_DA_EMPRESA + ' está em dia com elas.';
+            texto = total === 1 ? 'O arquivo foi conferido e o sistema da ' + NOME_DA_EMPRESA + ' está em dia com ele.' : 'Os ' + total + ' arquivos foram conferidos e o sistema da ' + NOME_DA_EMPRESA + ' está em dia com eles.';
             resumo.className = 'arq-atu-resumo arq-atu-resumo--ok';
         } else {
-            texto = certos + ' de ' + total + (total === 1 ? ' tabela atualizada' : ' tabelas atualizadas') + ' — confira abaixo o que não entrou e o motivo.';
+            texto = certos + ' de ' + total + (total === 1 ? ' arquivo atualizado' : ' arquivos atualizados') + ' — confira abaixo o que não entrou e o motivo.';
             resumo.className = 'arq-atu-resumo arq-atu-resumo--atencao';
         }
         resumo.textContent = texto;
@@ -475,14 +533,17 @@
         atualizarDatasDosCartoes();
     }
 
-    // Depois da atualização, cada cartão de frete (bloco com data-arq-importavel) refaz a consulta ao Drive: é o mesmo clique do botão de
+    // Depois da atualização, cada cartão que o botão atualiza (bloco com data-arq-importavel) refaz a consulta ao Drive: é o mesmo clique do botão de
     // girar. Assim "Data da última atualização do sistema" e "Em dia" aparecem na hora, sem F5. Bloco ainda carregando não tem botão: ele
     // mesmo vai consultar e já traz as datas novas.
     function atualizarDatasDosCartoes() {
         document.querySelectorAll('.arq-drive-bloco[data-arq-importavel] .arq-drive__atualizar').forEach(function (botao) { botao.click(); });
     }
 
-    function atualizarOSistema() {
+    // `opcoes` (só no Substituir): {modo: 'substituir', md5: o MD5 da planilha que a prévia mostrou}. Sem opções = Expandir, como sempre.
+    // * [IMPORTANTE] → O modo e o MD5 vão SÓ no pedido da planilha Busca Legal (as tabelas de frete já espelham o arquivo e não têm modo). Quem decide se grava
+    //   é o servidor: sem o MD5 certo (ou com o Drive já trocado depois da prévia) ele não apaga nada.
+    function atualizarOSistema(opcoes) {
         if (atualizando || !janelaDoResultado) { return; }
         var modelo = document.getElementById('arq-atu-modelo');
         var lista = document.getElementById('arq-atu-lista');
@@ -491,6 +552,12 @@
         atualizando = true;
         window.addEventListener('beforeunload', avisarAntesDeSair);
         lista.innerHTML = modelo.innerHTML;
+        if (opcoes && opcoes.modo === 'substituir') {
+            var linhaDaBuscaLegal = lista.querySelector('[data-arq-busca-legal]');
+            if (linhaDaBuscaLegal) {
+                linhaDaBuscaLegal.setAttribute('hx-vals', JSON.stringify({ empresa: EMPRESA_DA_TELA, modo: 'substituir', previa_md5: opcoes.md5 }));
+            }
+        }
         htmx.process(lista);
         var resumo = document.getElementById('arq-atu-resumo');
         resumo.className = 'arq-atu-resumo';
@@ -507,10 +574,103 @@
         cadeia.then(function () { terminarAtualizacao(lista); });
     }
 
+    // ---------- 12) Modo "Substituir": escolha, prévia e só então apagar ----------
+    // * [EXPLICAÇÃO] → A janela de confirmação oferece Expandir (o padrão, SEMPRE marcado ao abrir) e Substituir. No Expandir, confirmar atualiza como sempre.
+    //   No Substituir, confirmar NÃO grava: abre a prévia. A prévia vem do servidor (que simula e desfaz) e mostra TUDO que seria apagado. O botão
+    //   "Substituir e apagar" só libera com a prévia pronta E a caixa "Li a lista…" marcada. Fechar a prévia por qualquer lado não grava nada, e o conteúdo
+    //   dela é jogado fora ao fechar (uma prévia velha nunca é reaproveitada: o MD5 dela só vale para aquela leitura do Drive).
+    function modoEscolhido() {
+        var marcado = document.querySelector('input[name="arq-modo"]:checked');
+        return marcado ? marcado.value : 'expandir';
+    }
+
+    function ajustarOBotaoDaConfirmacao() {
+        var texto = document.getElementById('arq-atualizar-confirmar-texto');
+        var icone = document.getElementById('arq-atualizar-confirmar-icone');
+        if (!texto) { return; }
+        var substituir = modoEscolhido() === 'substituir';
+        texto.textContent = substituir ? texto.dataset.arqTextoSubstituir : texto.dataset.arqTextoExpandir;
+        if (icone) { icone.className = substituir ? 'fas fa-eye' : 'fas fa-rotate'; }
+    }
+
+    document.querySelectorAll('input[name="arq-modo"]').forEach(function (opcao) {
+        opcao.addEventListener('change', ajustarOBotaoDaConfirmacao);
+    });
+
+    var miolo = document.getElementById('arq-previa-miolo');
+    var caixaCiente = document.getElementById('arq-previa-ciente');
+    var botaoApagar = document.getElementById('arq-previa-confirmar');
+
+    function previaPronta() {
+        return miolo ? miolo.querySelector('[data-arq-previa-md5]') : null;
+    }
+
+    function liberarOApagar() {
+        if (botaoApagar) { botaoApagar.disabled = !(previaPronta() && caixaCiente && caixaCiente.checked); }
+    }
+
+    // O Bootstrap ignora fechar uma janela que ainda está abrindo (animação). Um pedido que falha na hora (empresa trocada em outra aba) volta
+    // antes de a janela terminar de abrir; por isso se guarda se ela já abriu e, se não abriu, o fechamento espera ela abrir.
+    var previaJaAbriu = false;
+
+    function fecharAPrevia() {
+        var modal = bootstrap.Modal.getOrCreateInstance(janelaDaPrevia);
+        if (previaJaAbriu) { modal.hide(); return; }
+        janelaDaPrevia.addEventListener('shown.bs.modal', function () { modal.hide(); }, { once: true });
+    }
+
+    function depoisDaPrevia() {
+        if (!miolo) { return; }
+        if (miolo.querySelector('.arq-previa-carregando')) {
+            // O pedido falhou antes de a resposta chegar (empresa trocada em outra aba, servidor fora do ar…): o aviso com o motivo já está na tela.
+            fecharAPrevia();
+            return;
+        }
+        if (caixaCiente) { caixaCiente.checked = false; caixaCiente.disabled = !previaPronta(); }
+        liberarOApagar();
+    }
+
+    function abrirAPrevia() {
+        if (!janelaDaPrevia || !miolo || !janelaDaPrevia.dataset.arqUrl) { return; }
+        miolo.innerHTML = '<p class="arq-previa-carregando" role="status"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> '
+            + 'Lendo a planilha do Drive e calculando o que o Substituir apagaria… Nada é gravado.</p>';
+        if (caixaCiente) { caixaCiente.checked = false; caixaCiente.disabled = true; }
+        if (botaoApagar) { botaoApagar.disabled = true; }
+        bootstrap.Modal.getOrCreateInstance(janelaDaPrevia).show();
+        htmx.ajax('POST', janelaDaPrevia.dataset.arqUrl, { target: miolo, swap: 'innerHTML', values: { empresa: EMPRESA_DA_TELA } })
+            .then(depoisDaPrevia, depoisDaPrevia);
+    }
+
+    if (caixaCiente) { caixaCiente.addEventListener('change', liberarOApagar); }
+
+    if (janelaDaPrevia) {
+        janelaDaPrevia.addEventListener('shown.bs.modal', function () { previaJaAbriu = true; });
+        janelaDaPrevia.addEventListener('hidden.bs.modal', function () {
+            previaJaAbriu = false;
+            if (miolo) { miolo.innerHTML = ''; }
+            if (caixaCiente) { caixaCiente.checked = false; caixaCiente.disabled = true; }
+            if (botaoApagar) { botaoApagar.disabled = true; }
+        });
+    }
+
+    if (botaoApagar) {
+        botaoApagar.addEventListener('click', function () {
+            var marcador = previaPronta();
+            if (!marcador || !caixaCiente || !caixaCiente.checked || atualizando) { return; }
+            var md5 = marcador.dataset.arqPreviaMd5;
+            bootstrap.Modal.getOrCreateInstance(janelaDaPrevia).hide();
+            atualizarOSistema({ modo: 'substituir', md5: md5 });
+        });
+    }
+
     var botaoAtualizar = document.getElementById('arq-btn-atualizar');
     if (botaoAtualizar && janelaDaConfirmacao) {
         botaoAtualizar.addEventListener('click', function () {
             if (atualizando) { return; }
+            // O padrão volta a ser Expandir a cada abertura: ninguém chega ao Substituir por ter escolhido da última vez.
+            var expandir = document.getElementById('arq-modo-expandir');
+            if (expandir) { expandir.checked = true; }
+            ajustarOBotaoDaConfirmacao();
             bootstrap.Modal.getOrCreateInstance(janelaDaConfirmacao).show();
         });
     }
@@ -518,8 +678,9 @@
     var botaoConfirmarAtualizacao = document.getElementById('arq-atualizar-confirmar');
     if (botaoConfirmarAtualizacao && janelaDaConfirmacao) {
         botaoConfirmarAtualizacao.addEventListener('click', function () {
+            var substituir = modoEscolhido() === 'substituir';
             bootstrap.Modal.getOrCreateInstance(janelaDaConfirmacao).hide();
-            atualizarOSistema();
+            if (substituir) { abrirAPrevia(); } else { atualizarOSistema(); }
         });
     }
 })();

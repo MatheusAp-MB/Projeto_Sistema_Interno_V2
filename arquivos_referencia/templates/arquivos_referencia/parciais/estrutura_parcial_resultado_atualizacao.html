@@ -1,7 +1,9 @@
 {% comment %}
 Resultado de 1 arquivo na janela "Atualizar o sistema com o Drive" (troca a linha "Aguardando"). Recebe `resultado` (de montar_item_da_atualizacao).
 Desde 16/10/2026 a atualização é de UMA empresa (a selecionada): `resultado.empresas` tem 1 item, e a tabela mostra a linha dessa empresa.
-A atualização ESPELHA o arquivo (decisão de 15/10/2026): o que não está no arquivo é removido, por isso a coluna "Removidas" e a nota abaixo da tabela.
+A atualização do FRETE ESPELHA o arquivo (decisão de 15/10/2026): o que não está no arquivo é removido, por isso a coluna "Removidas" e a nota abaixo da tabela.
+A planilha BUSCA LEGAL (16/10/2026) mostra, em vez da tabela, os 4 passos que rodaram (resultado.com_etapas). No modo Expandir não remove nada; no modo
+Substituir (empresa.substituicao) mostra antes de tudo o que foi APAGADO, bloco por bloco, igual ao que a pessoa leu na prévia.
 Estado nunca só por cor: o selo e cada empresa levam ícone + texto. Texto que vem do servidor ou do arquivo é escapado pelo Django.
 {% endcomment %}
 <li class="arq-atu arq-atu--{{ resultado.status }}" id="arq-atu-{{ resultado.arquivo_id }}" data-arq-status="{{ resultado.status }}">
@@ -27,7 +29,7 @@ Estado nunca só por cor: o selo e cada empresa levam ícone + texto. Texto que 
         {% if resultado.motivos_ocultos %}<p class="arq-atu__mais">… e mais {{ resultado.motivos_ocultos }}. A auditoria do cartão mostra a lista completa.</p>{% endif %}
     {% endif %}
 
-    {% if resultado.empresas %}
+    {% if resultado.empresas and not resultado.com_etapas %}
         {# Em tela estreita a tabela rola dentro do próprio quadro (a janela nunca ganha rolagem de lado). #}
         <div class="arq-atu__rolagem">
         <table class="arq-atu__tabela">
@@ -73,6 +75,15 @@ Estado nunca só por cor: o selo e cada empresa levam ícone + texto. Texto que 
         </table>
         </div>
     {% endif %}
+
+    {# Substituir (16/10/2026): primeiro o que foi APAGADO (o que a pessoa leu na prévia), depois os 4 passos. #}
+    {% for empresa in resultado.empresas %}
+        {% if empresa.status == 'ok' and empresa.substituicao %}{% include 'arquivos_referencia/parciais/estrutura_parcial_substituicao.html' with substituicao=empresa.substituicao nome_da_empresa=empresa.nome depois=True %}{% endif %}
+    {% endfor %}
+
+    {% for empresa in resultado.empresas %}
+        {% if empresa.status == 'ok' and empresa.etapas %}{% include 'arquivos_referencia/parciais/estrutura_parcial_etapas_impostos.html' %}{% endif %}
+    {% endfor %}
 
     {% for empresa in resultado.empresas_com_remocao %}
         <p class="arq-atu__nota">

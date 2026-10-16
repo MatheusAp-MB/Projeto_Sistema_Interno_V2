@@ -25,7 +25,7 @@
 
 from .atualizacao_do_sistema import (
     EMPRESA_ATUALIZADA, EMPRESA_FALHOU, EMPRESA_RECUSADA, STATUS_ARQUIVO_COM_ERROS, STATUS_ATUALIZADO, STATUS_FALHA_DO_DRIVE,
-    STATUS_FALHA_DO_SISTEMA, STATUS_NAO_ATUALIZOU, STATUS_OCUPADO, STATUS_SEM_ARQUIVO, o_botao_atualiza,
+    STATUS_FALHA_DO_SISTEMA, STATUS_NAO_ATUALIZOU, STATUS_OCUPADO, STATUS_PREVIA, STATUS_PREVIA_INVALIDA, STATUS_SEM_ARQUIVO, o_botao_atualiza,
 )
 from .catalogo_arquivos import arquivos_por_grupo
 from .historico_da_atualizacao import NOMES_CURTOS_DAS_EMPRESAS, situacao_do_sistema
@@ -149,6 +149,8 @@ ESTADOS_DA_ATUALIZACAO = {
     STATUS_FALHA_DO_DRIVE: ('Drive sem resposta', 'fas fa-triangle-exclamation', 'drive_erro'),
     STATUS_OCUPADO: ('Já em andamento', 'fas fa-hourglass-half', 'em_breve'),
     STATUS_FALHA_DO_SISTEMA: ('Erro do sistema', 'fas fa-circle-xmark', 'com_erros'),
+    STATUS_PREVIA: ('Prévia (nada gravado)', 'fas fa-eye', 'em_breve'),
+    STATUS_PREVIA_INVALIDA: ('Nada gravado', 'fas fa-circle-xmark', 'com_erros'),
 }
 
 # status de 1 empresa -> (rótulo, ícone completo, classe de cor do texto)
@@ -160,11 +162,12 @@ ESTADOS_DA_EMPRESA = {
 
 
 # Função Objetivo: Junta ao resultado de atualizar_arquivo o que a tela precisa para desenhar (rótulo, ícone e cor de cada estado).
-# Tabela que já estava igual ao Drive aparece como "Já estava em dia" (também é um resultado bom).
+# Tabela que já estava igual ao Drive aparece como "Já estava em dia" (também é um resultado bom). `nada_mudou` vem de quem gravou: no frete é
+# "nenhuma linha nova, mudada ou removida"; no Busca Legal também conta os produtos cujo imposto mudou e o que o Substituir apagou.
 def montar_item_da_atualizacao(resultado, link=None):
     rotulo, icone, cor = ESTADOS_DA_ATUALIZACAO[resultado['status']]
     empresas = resultado['empresas']
-    if resultado['status'] == STATUS_ATUALIZADO and all(e['criados'] == 0 and e['mudaram'] == 0 and e['removidas'] == 0 for e in empresas):
+    if resultado['status'] == STATUS_ATUALIZADO and all(e['nada_mudou'] for e in empresas):
         rotulo = 'Já estava em dia'
     empresas_prontas = []
     for empresa in empresas:
@@ -173,6 +176,8 @@ def montar_item_da_atualizacao(resultado, link=None):
     return {
         **resultado, 'rotulo': rotulo, 'icone_do_estado': icone, 'cor': cor, 'empresas': empresas_prontas, 'link': link,
         'empresas_com_remocao': [e for e in empresas_prontas if e['status'] == EMPRESA_ATUALIZADA and e['removidas']],
+        # Busca Legal: o resultado traz os passos em vez da tabela "Novas / Mudaram / Iguais / Removidas" (que fica só para o frete e para as falhas).
+        'com_etapas': any(e['status'] == EMPRESA_ATUALIZADA and e['etapas'] for e in empresas_prontas),
     }
 
 

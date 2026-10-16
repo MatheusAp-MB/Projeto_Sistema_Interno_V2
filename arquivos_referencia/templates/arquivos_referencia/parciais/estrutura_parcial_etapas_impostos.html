@@ -1,0 +1,27 @@
+{% comment %}
+Resultado da planilha Busca Legal dentro da janela "Atualizar o sistema com o Drive": os 4 passos, na ORDEM em que rodaram (a ordem é real: cada
+passo usa o que o anterior gravou) e, abaixo, o que pede atenção (grupos que já existiam e mudaram de valor, grupos rejeitados, EANs sem produto).
+Recebe `empresa` (1 item de resultado.empresas, com `etapas` e `atencoes` de importacao_busca_legal.py). Todo texto vem do servidor e é escapado pelo Django.
+Número em tom de aviso sempre traz o texto que explica (nunca só cor).
+{% endcomment %}
+<ol class="arq-etapas">
+    {% for etapa in empresa.etapas %}
+        <li class="arq-etapa">
+            <span class="arq-etapa__titulo"><span class="arq-etapa__n" aria-hidden="true">{{ etapa.numero }}</span> {{ etapa.titulo }}</span>
+            <ul class="arq-etapa__numeros">
+                {% for numero in etapa.numeros %}
+                    <li class="arq-etapa__num{% if numero.tom %} arq-etapa__num--{{ numero.tom }}{% endif %}"><strong>{{ numero.valor }}</strong> {{ numero.texto }}</li>
+                {% endfor %}
+            </ul>
+        </li>
+    {% endfor %}
+</ol>
+{% for atencao in empresa.atencoes %}
+    <div class="arq-atencao">
+        <p class="arq-atencao__titulo"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> {{ atencao.titulo }}</p>
+        <ul>
+            {% for item in atencao.itens %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+        {% if atencao.mais %}<p class="arq-atu__mais">… e mais {{ atencao.mais }}.</p>{% endif %}
+    </div>
+{% endfor %}

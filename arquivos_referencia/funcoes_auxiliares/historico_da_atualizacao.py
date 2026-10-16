@@ -22,6 +22,7 @@ from django.utils import timezone
 from core.empresa import ALIAS_BANCO_POR_EMPRESA, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
 from ..models import AtualizacaoDoSistema
+from .catalogo_arquivos import GRUPO_IMPOSTOS_SAIDA, buscar_arquivo
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,18 @@ def registrar(alias, arquivo_id, md5, enviado_em, novas, mudaram, iguais, removi
     )
 
 
+# Função Objetivo: Os números da última atualização em palavras. Frete conta LINHAS; o Busca Legal conta GRUPOS fiscais (ICMS por NCM+CST+origem
+# e PIS/COFINS por NCM+CST, somados) e, no modo Expandir, nunca remove nada.
+def _numeros_do_registro(registro):
+    arquivo = buscar_arquivo(registro.arquivo_id)
+    if arquivo is not None and arquivo.grupo == GRUPO_IMPOSTOS_SAIDA:
+        return f'{registro.linhas_novas} grupos novos, {registro.linhas_mudaram} mudaram, {registro.linhas_iguais} iguais'
+    return (
+        f'{registro.linhas_novas} novas, {registro.linhas_mudaram} mudaram, {registro.linhas_iguais} iguais, '
+        f'{registro.linhas_removidas} removidas'
+    )
+
+
 # Função Objetivo: Texto que aparece ao passar o mouse na linha da empresa (explica o selo e traz os números da última atualização).
 def _dica_da_empresa(estado, registro):
     if estado == ESTADO_INDISPONIVEL:
@@ -66,10 +79,7 @@ def _dica_da_empresa(estado, registro):
     if registro is None:
         return 'O sistema ainda não foi atualizado com este arquivo por este botão.'
     quando = timezone.localtime(registro.atualizado_em).strftime('%d/%m/%Y %H:%M')
-    numeros = (
-        f'{registro.linhas_novas} novas, {registro.linhas_mudaram} mudaram, {registro.linhas_iguais} iguais, '
-        f'{registro.linhas_removidas} removidas'
-    )
+    numeros = _numeros_do_registro(registro)
     if estado == ESTADO_EM_DIA:
         return f'O sistema foi atualizado com o arquivo que está no Drive agora (em {quando}: {numeros}).'
     if estado == ESTADO_DESATUALIZADO:

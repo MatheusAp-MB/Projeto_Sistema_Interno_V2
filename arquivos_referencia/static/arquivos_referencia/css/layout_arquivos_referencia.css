@@ -120,6 +120,19 @@
     cursor: not-allowed;
 }
 
+/* Botão que APAGA ("Substituir e apagar"): vermelho, para nunca parecer um botão comum. Fica desligado até a prévia ser lida e confirmada. */
+.arq-btn--perigo {
+    color: #ffffff;
+    background: var(--arq-erro-texto);
+    border-color: var(--arq-erro-texto);
+}
+
+.arq-btn--perigo:hover:not(:disabled) {
+    color: #ffffff;
+    background: #8f2330;
+    border-color: #8f2330;
+}
+
 /* "Enviado ao Drive": desligado, mas é um estado BOM — por isso fica com a cor cheia (ícone + texto, não só cor). */
 .arq-btn--enviado:disabled {
     opacity: 1;
@@ -472,6 +485,43 @@
 }
 
 .arq-drive__atualizar:hover { color: var(--cor-primaria); background: #eef1f5; }
+
+/* "Baixar" (16/10/2026): cópia do arquivo que está no Drive. Fica na linha "No Drive agora", logo antes do botão de girar, e cabe nos 20px da
+   linha (a altura do bloco é fixa). O texto da linha encolhe com reticências antes de este botão perder espaço. */
+.arq-drive__baixar {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 18px;
+    margin-left: auto;
+    padding: 0 8px;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--cor-primaria);
+    background: #ffffff;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.arq-drive__baixar > i { width: auto; font-size: 0.66rem; color: inherit; }
+
+.arq-drive__baixar:hover { background: #eaf0f8; }
+
+.arq-drive__baixar:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 1px;
+}
+
+.arq-drive__baixar:disabled { opacity: 0.6; cursor: default; }
+
+/* Com o "Baixar" na linha, é ele quem empurra os botões para a direita; o de girar fica colado nele. */
+.arq-drive__baixar ~ .arq-drive__atualizar { margin-left: 0; }
 
 .arq-drive__atualizar:focus-visible {
     outline: 2px solid var(--cor-primaria-clara);
@@ -1094,6 +1144,77 @@
 
 .arq-atu__detalhe .arq-atu__motivos { color: var(--arq-erro-texto); }
 
+/* Resultado da planilha Busca Legal: os 4 passos na ordem em que rodaram (cada passo usa o que o anterior gravou) e o que pede atenção. */
+.arq-etapas {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.arq-etapa {
+    padding: 8px 10px;
+    background: var(--arq-neutro-fundo);
+    border-radius: 6px;
+}
+
+.arq-etapa__titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.84rem;
+    font-weight: 600;
+}
+
+.arq-etapa__n {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 0.72rem;
+    color: var(--arq-neutro-texto);
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 50%;
+}
+
+.arq-etapa__numeros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    margin: 4px 0 0 28px;
+    padding: 0;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    list-style: none;
+}
+
+.arq-etapa__num strong { font-variant-numeric: tabular-nums; }
+.arq-etapa__num--aviso { color: var(--arq-aviso-texto); }
+
+.arq-atencao {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--arq-aviso-texto);
+    background: var(--arq-aviso-fundo);
+    border-radius: 6px;
+}
+
+.arq-atencao__titulo { margin: 0 0 4px; font-weight: 600; }
+
+.arq-atencao ul {
+    margin: 0;
+    padding-left: 18px;
+    overflow-wrap: anywhere;
+}
+
+.arq-atencao .arq-atu__mais { color: var(--arq-aviso-texto); }
+
 /* Celular: tabela mais compacta para caber sem rolar. */
 @media (max-width: 480px) {
     .arq-atu { padding: 10px; }
@@ -1103,6 +1224,7 @@
     .arq-atu__tabela td { padding: 5px 3px; }
     .arq-atu__estado i { margin-right: 1px; }
     .arq-atu__tabela thead th { font-size: 0.64rem; letter-spacing: 0; text-transform: none; }   /* 6 colunas: sem caixa alta para caber sem rolar */
+    .arq-etapa__numeros { margin-left: 0; }
 }
 
 /* Celular: letra um pouco menor e colunas da linha de empresa mais estreitas, para a data nunca ser cortada (o selo é quem encolhe). */
@@ -1111,6 +1233,193 @@
     .arq-drive-extra { font-size: 0.72rem; }
     .arq-sistema { grid-template-columns: 60px 110px minmax(0, 1fr); column-gap: 4px; padding-left: 0; }
 }
+
+/* ================================================
+   MODO SUBSTITUIR (16/10/2026): escolha do modo, prévia do que será apagado e o que foi apagado
+   O que APAGA tem sempre tom de aviso (vermelho) E texto dizendo o que é: nunca só cor.
+   ================================================ */
+.arq-modos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.arq-modo {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: #515151;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.arq-modo > input { flex-shrink: 0; margin-top: 3px; }
+.arq-modo__texto { min-width: 0; overflow-wrap: anywhere; }
+.arq-modo:has(input:checked) { background: #f1f5fa; border-color: var(--cor-primaria); }
+.arq-modo--substituir:has(input:checked) { background: var(--arq-erro-fundo); border-color: var(--arq-erro-texto); }
+.arq-modo:has(input:focus-visible) { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+.arq-previa {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.arq-previa-carregando {
+    margin: 0;
+    padding: 28px 12px;
+    text-align: center;
+    color: var(--arq-neutro-texto);
+}
+
+.arq-previa__faixa {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: var(--arq-neutro-texto);
+    background: var(--arq-neutro-fundo);
+    border-radius: 6px;
+}
+
+.arq-previa__faixa > i { flex-shrink: 0; margin-top: 2px; }
+.arq-previa__faixa--erro { color: var(--arq-erro-texto); background: var(--arq-erro-fundo); }
+
+.arq-previa__passos > summary,
+.arq-sub__lista > summary {
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.arq-previa__passos[open] > summary { margin-bottom: 8px; }
+
+.arq-previa__backup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--arq-neutro-texto);
+}
+
+/* Rodapé da prévia: a caixa "Li a lista…" fica SEMPRE à vista, colada nos botões (a lista rola dentro da janela, o rodapé não). */
+.arq-previa__rodape {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.arq-previa__ciente {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    color: var(--arq-aviso-texto);
+    background: var(--arq-aviso-fundo);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.arq-previa__ciente > input { flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; cursor: pointer; }
+.arq-previa__ciente > input:disabled { cursor: not-allowed; }
+
+.arq-previa__botoes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+/* O que o Substituir apaga (prévia = "vai ser apagado"; resultado = "foi apagado"). */
+.arq-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: #2b2f33;
+    background: var(--arq-erro-fundo);
+    border: 1px solid var(--arq-erro-texto);
+    border-radius: 8px;
+}
+
+.arq-sub--alto { border-width: 2px; }
+.arq-sub--nada { background: var(--arq-valido-fundo); border-color: var(--arq-valido-texto); }
+.arq-sub--depois { background: var(--arq-neutro-fundo); border-color: var(--cor-borda); }
+
+.arq-sub__titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--arq-erro-texto);
+}
+
+.arq-sub--depois .arq-sub__titulo { color: #2b2f33; }
+
+.arq-sub__destaque,
+.arq-sub__linha,
+.arq-sub__nada {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.arq-sub__nada { color: var(--arq-valido-texto); font-weight: 600; }
+.arq-sub__destaque { color: var(--arq-erro-texto); }
+.arq-sub--depois .arq-sub__destaque { color: #2b2f33; }
+.arq-sub__total { font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+
+.arq-sub__bloco {
+    padding-top: 8px;
+    border-top: 1px solid rgba(176, 42, 55, 0.25);
+}
+
+.arq-sub--depois .arq-sub__bloco { border-top-color: var(--cor-borda); }
+
+.arq-sub__lista ul {
+    max-height: 180px;
+    margin: 6px 0 0;
+    padding: 6px 8px 6px 24px;
+    overflow: auto;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+}
+
+.arq-sub__fica {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    color: var(--arq-valido-texto);
+    background: var(--arq-valido-fundo);
+    border-radius: 6px;
+}
+
+.arq-sub__fica > i { flex-shrink: 0; margin-top: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
     .arq-btn { transition: none; }

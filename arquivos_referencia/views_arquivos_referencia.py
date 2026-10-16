@@ -6,6 +6,8 @@
 # * [DECISÃO, 14/10/2026] → O fluxo final tem 2 passos SEPARADOS: (1) conferir e enviar ao Drive; (2) atualizar o sistema com o
 #   que está no Drive (outro clique). Só a view de atualizar (view_atualizar_arquivo) toca no banco do sistema; conferir e enviar
 #   nunca tocam.
+# * [DECISÃO, 16/10/2026] → Passo 2, ciclo dos impostos: a planilha Busca Legal da empresa selecionada entra no mesmo botão (modo Expandir: nada é
+#   apagado), logo depois das 4 tabelas de frete, no mesmo esquema de 1 pedido por arquivo e com a mesma recusa de tela velha.
 # * [DECISÃO, 15/10/2026] → Passo 2, 1º ciclo (só as 4 tabelas de frete): o botão "Atualizar o sistema com o Drive" faz 1 pedido
 #   POR ARQUIVO, um depois do outro (o JS). Assim a janela mostra o andamento de cada tabela, um arquivo com problema não derruba os
 #   outros, e nenhum pedido fica longo demais. Toda falha PREVISTA volta como resultado do arquivo (resposta 200, linha pronta);
@@ -23,6 +25,15 @@
 #   Dois jeitos: o arquivo que ESTÁ no Drive (GET, lido do Drive na hora) e o arquivo que a pessoa acabou de ESCOLHER (POST; o navegador
 #   manda o arquivo de novo, o servidor só abre na memória). Aqui o problema previsto (Drive fora do ar, arquivo ilegível, empresa trocada
 #   em outra aba) volta SEMPRE como resposta 200 com a explicação dentro da própria janela — assim ela nunca fica "carregando" para sempre.
+# * [DECISÃO, 16/10/2026] → "Baixar": cópia do arquivo que está no Drive agora, para a pessoa guardar no computador (backup antes de trocar o
+#   arquivo ou de atualizar o sistema). O servidor lê do Drive só na memória (a mesma leitura com conferência de integridade do botão de
+#   atualizar) e repassa ao navegador; nada é gravado no servidor. Só leitura: não muda o Drive nem o sistema. Erros voltam como erro + JSON
+#   {"mensagem", "link"} (o JS mostra no aviso da tela), porque a resposta certa é um arquivo, não uma página.
+# * [DECISÃO, 16/10/2026] → Busca Legal em modo SUBSTITUIR (o sistema da empresa fica LITERALMENTE igual à planilha: o que ela não tem é apagado dos produtos
+#   — CST e impostos de saída — e das tabelas de ICMS e PIS/COFINS; os produtos em si nunca são apagados). Como apaga, tem DUAS travas no servidor:
+#   (1) a PRÉVIA (view_previa_do_substituir): roda a mesma atualização dentro de uma transação que é DESFEITA no fim e devolve a lista exata do que seria
+#   apagado, cada item com o motivo; (2) a gravação (view_atualizar_arquivo com modo=substituir) só roda se trouxer o MD5 do arquivo que a prévia mostrou
+#   (`previa_md5`) e o Drive ainda tiver esse mesmo arquivo — senão não grava nada. Quem lê a prévia ainda marca que leu antes de o botão liberar (a tela).
 # * [DECISÃO, 15/10/2026] → 1º e 2º ciclos = só a tela + a AUDITORIA (nada gravado em lugar nenhum). 3º ciclo = o ENVIO ao
 #   Drive: o arquivo continua sem ser gravado em disco ou no banco — vai da memória do servidor direto para o Drive.
 # * [DECISÃO, 15/10/2026] → Mesma proteção da Gestão de APIs: a tela não usa decorador de login (o middleware global de
@@ -39,22 +50,28 @@
 
 import json
 import traceback
+from urllib.parse import quote
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
+from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_GET, require_POST
 
 from core.empresa import EMPRESAS_VALIDAS, obter_empresa_ativa
 
 from .funcoes_auxiliares.atualizacao_do_sistema import (
-    arquivos_que_o_botao_atualiza, atualizar_arquivo, o_botao_atualiza, resultado_de_falha_do_sistema,
+    STATUS_PREVIA, arquivos_que_o_botao_atualiza, atualizar_arquivo, o_botao_atualiza, resultado_de_falha_do_sistema,
 )
 from .funcoes_auxiliares.auditor_de_arquivos import auditar_arquivo
-from .funcoes_auxiliares.catalogo_arquivos import arquivo_e_da_empresa, buscar_arquivo
-from .funcoes_auxiliares.envio_ao_drive import ArquivoAusenteNoDrive, ErroDoEnvio, consultar_no_drive, enviar_para_o_drive, ler_do_drive
+from .funcoes_auxiliares.catalogo_arquivos import GRUPO_FRETE, GRUPO_IMPOSTOS_SAIDA, arquivo_e_da_empresa, buscar_arquivo
+from .funcoes_auxiliares.envio_ao_drive import (
+    MIME_XLSX, ArquivoAusenteNoDrive, ErroDoEnvio, consultar_no_drive, enviar_para_o_drive, ler_do_drive,
+)
+from .funcoes_auxiliares.importacao_busca_legal import MODO_EXPANDIR, MODO_SUBSTITUIR, MODOS_VALIDOS
 from .funcoes_auxiliares.leitura_planilha import TAMANHO_MAXIMO_DO_ARQUIVO, ErroDeLeitura
+from .funcoes_auxiliares.nome_do_download import nome_do_download
 from .funcoes_auxiliares.visualizacao_do_arquivo import ORIGEM_DRIVE, ORIGEM_ESCOLHIDO, montar_visualizacao
 from .funcoes_auxiliares.montagem_da_tela import (
     montar_cartao, montar_grupos, montar_item_da_atualizacao, montar_linha_do_drive, nome_curto_da_empresa,
@@ -113,11 +130,15 @@ def view_arquivos_referencia(request):
     empresa, erro = _empresa_da_requisicao()
     if erro:
         return erro
+    para_atualizar = arquivos_que_o_botao_atualiza(empresa)
     return render(request, 'arquivos_referencia/estrutura_arquivos_referencia.html', {
         'empresa_da_tela': empresa,
         'empresa_da_tela_nome': nome_curto_da_empresa(empresa),
         'grupos': montar_grupos(empresa),
-        'arquivos_para_atualizar': arquivos_que_o_botao_atualiza(empresa),
+        'arquivos_para_atualizar': para_atualizar,
+        # A janela de confirmação descreve cada tipo de arquivo à parte: frete (espelha o arquivo) e Busca Legal (modo Expandir, 1 só por empresa).
+        'arquivos_de_frete_para_atualizar': [a for a in para_atualizar if a.grupo == GRUPO_FRETE],
+        'arquivo_de_impostos_para_atualizar': next((a for a in para_atualizar if a.grupo == GRUPO_IMPOSTOS_SAIDA), None),
         'limite_do_arquivo_em_bytes': TAMANHO_MAXIMO_DO_ARQUIVO,
         'limite_do_arquivo_em_mb': TAMANHO_MAXIMO_DO_ARQUIVO // (1024 * 1024),
     })
@@ -288,6 +309,45 @@ def view_situacao_no_drive(request, arquivo_id):
     return resposta
 
 
+@require_GET
+def view_baixar_arquivo_do_drive(request, arquivo_id):
+    # * [EXPLICAÇÃO] → Cada empresa só baixa os arquivos que são dela (o Busca Legal da outra empresa responde 404, como se não existisse). A tela manda
+    #   `?empresa=`: se a empresa selecionada mudou em outra aba, o servidor recusa (409) e pede para recarregar — a mesma regra do resto da tela.
+    # * [EXPLICAÇÃO] → O corpo é o arquivo do Drive, byte a byte (já conferido por MD5 e tamanho dentro de ler_do_drive). O nome sugerido ao navegador
+    #   leva a data do envio (ver nome_do_download.py) e vai também em X-Arquivo-Nome (texto codificado), porque quem baixa é o JS da tela (fetch),
+    #   que assim consegue mostrar o motivo quando algo dá errado em vez de o navegador salvar uma página de erro como se fosse o arquivo.
+    empresa, erro = _empresa_da_requisicao()
+    if erro:
+        return erro
+    arquivo, erro = _arquivo_visivel(arquivo_id, empresa)
+    if erro:
+        return erro
+    if not _tela_na_empresa_certa(request.GET.get('empresa', empresa), empresa):
+        return _erro_do_sistema(TEXTO_EMPRESA_MUDOU, 409)
+
+    try:
+        lido = ler_do_drive(arquivo)
+    except ArquivoAusenteNoDrive as problema:
+        return _erro_do_sistema(
+            f'Não há o que baixar: o Drive ainda não tem “{arquivo.nome_no_drive}”. Envie o arquivo pelo cartão dele primeiro.', problema.status,
+        )
+    except ErroDoEnvio as problema:
+        return _erro_do_drive(problema)
+    except Exception:
+        traceback.print_exc()
+        return _erro_do_sistema(
+            'O download quebrou por um erro do próprio sistema (não é problema do arquivo). Veja o terminal do servidor.', 500,
+        )
+
+    nome = nome_do_download(lido['nome'], lido['modificado_em'])
+    resposta = HttpResponse(lido['conteudo'], content_type=MIME_XLSX)
+    resposta['Content-Disposition'] = content_disposition_header(True, nome)
+    resposta['X-Arquivo-Nome'] = quote(nome)
+    resposta['X-Content-Type-Options'] = 'nosniff'
+    resposta['Cache-Control'] = 'no-store'
+    return resposta
+
+
 @require_POST
 def view_atualizar_arquivo(request, arquivo_id):
     # * [EXPLICAÇÃO] → Passo 2: lê ESTE arquivo do Drive (só na memória), confere, e grava nas tabelas da empresa SELECIONADA (tudo ou nada).
@@ -305,9 +365,16 @@ def view_atualizar_arquivo(request, arquivo_id):
         return erro
     if not o_botao_atualiza(arquivo.id):
         return _erro_do_sistema('Este arquivo ainda não é atualizado por este botão.', 409)
+    modo = request.POST.get('modo') or MODO_EXPANDIR
+    if modo not in MODOS_VALIDOS:
+        return _erro_do_sistema('Modo de atualização desconhecido. Recarregue a página. Nada foi gravado.', 400)
+    if modo == MODO_SUBSTITUIR and arquivo.grupo != GRUPO_IMPOSTOS_SAIDA:
+        # As tabelas de frete já espelham o arquivo (decisão de 15/10/2026): o Substituir existe só para a planilha Busca Legal.
+        return _erro_do_sistema('O modo Substituir só existe para a planilha Busca Legal. Nada foi gravado.', 409)
 
     try:
-        resultado = atualizar_arquivo(arquivo, empresa)
+        # No Substituir, `previa_md5` é o MD5 do arquivo que a prévia mostrou: sem ele (ou com o Drive já trocado) nada é apagado.
+        resultado = atualizar_arquivo(arquivo, empresa, modo=modo, md5_da_previa=request.POST.get('previa_md5') or None)
     except Exception:
         traceback.print_exc()
         resultado = resultado_de_falha_do_sistema(arquivo, empresa)
@@ -315,6 +382,48 @@ def view_atualizar_arquivo(request, arquivo_id):
     link = _link_da_gestao_de_apis() if resultado['renovar_autorizacao'] else None
     resposta = render(request, 'arquivos_referencia/parciais/estrutura_parcial_resultado_atualizacao.html', {
         'resultado': montar_item_da_atualizacao(resultado, link),
+    })
+    resposta['Cache-Control'] = 'no-store'
+    return resposta
+
+
+@require_POST
+def view_previa_do_substituir(request, arquivo_id):
+    # * [EXPLICAÇÃO] → A prévia do Substituir: mostra, ANTES de qualquer coisa ser apagada, o que o Substituir apagaria. Roda a mesma atualização da
+    #   gravação real dentro de uma transação que é desfeita no fim (nada fica gravado, nem no histórico), então a lista é exatamente o que a
+    #   gravação faria — com o arquivo que está no Drive neste instante. O MD5 desse arquivo volta na tela (data-arq-previa-md5) e é o que a
+    #   gravação real exige de volta.
+    # * [EXPLICAÇÃO] → Problema PREVISTO (Drive fora do ar, arquivo com erro, planilha da empresa errada, já tem atualização em andamento) volta como resposta
+    #   200 com a explicação dentro da própria janela da prévia (como no "Ver arquivo"): ela nunca fica "carregando" para sempre e o botão de
+    #   apagar não é liberado. Só pedido inválido (empresa trocada, arquivo desconhecido, arquivo que não é o Busca Legal) volta com erro + JSON.
+    empresa, erro = _empresa_da_requisicao()
+    if erro:
+        return erro
+    if not _tela_na_empresa_certa(request.POST.get('empresa'), empresa):
+        return _erro_do_sistema(f'{TEXTO_EMPRESA_MUDOU} Nada foi gravado.', 409)
+    arquivo, erro = _arquivo_visivel(arquivo_id, empresa)
+    if erro:
+        return erro
+    if not o_botao_atualiza(arquivo.id) or arquivo.grupo != GRUPO_IMPOSTOS_SAIDA:
+        return _erro_do_sistema('A prévia do Substituir só existe para a planilha Busca Legal.', 409)
+
+    try:
+        resultado = atualizar_arquivo(arquivo, empresa, modo=MODO_SUBSTITUIR, simular=True)
+    except Exception:
+        traceback.print_exc()
+        resultado = resultado_de_falha_do_sistema(arquivo, empresa)
+
+    link = _link_da_gestao_de_apis() if resultado['renovar_autorizacao'] else None
+    item = montar_item_da_atualizacao(resultado, link)
+    previa_pronta = item['status'] == STATUS_PREVIA and bool(item.get('drive'))
+    resposta = render(request, 'arquivos_referencia/parciais/estrutura_parcial_previa_substituir.html', {
+        'resultado': item,
+        'empresa': item['empresas'][0] if item['empresas'] else None,
+        'previa_pronta': previa_pronta,
+        'previa_md5': item['drive']['md5'] if previa_pronta else '',
+        'empresa_da_tela': empresa,
+        'empresa_da_tela_nome': nome_curto_da_empresa(empresa),
+        'url_para_baixar': f"{reverse('arquivos_referencia_baixar', args=[arquivo.id])}?empresa={empresa}",
     })
     resposta['Cache-Control'] = 'no-store'
     return resposta

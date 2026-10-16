@@ -56,6 +56,19 @@ def view_home(request):
     return render(request, 'pagina_home/estrutura_home.html')
 
 # ================================================
+# CONFIGURAÇÕES — página inicial do módulo
+# ================================================
+
+def view_configuracoes_hub(request):
+    # * [EXPLICAÇÃO] → Página inicial do módulo Configurações (2º nível de
+    #                  navegação, mesmo padrão de Impostos, Precificação e
+    #                  Mercado Livre): 1 card por tela. Fica no core porque
+    #                  as telas que ela reúne são de apps diferentes
+    #                  (gestao_apis e arquivos_referencia) e a homepage
+    #                  também é do core.
+    return render(request, 'pagina_configuracoes/estrutura_configuracoes_hub.html')
+
+# ================================================
 # EMPRESA ATIVA — escolher/trocar (Magazine/Samvale)
 # ================================================
 

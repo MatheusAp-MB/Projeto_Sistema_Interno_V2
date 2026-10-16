@@ -16,6 +16,10 @@ urlpatterns = [
     # * [EXPLICAÇÃO] → Tela de escolher/trocar a empresa ativa.
     path('empresa/', views.view_escolher_empresa, name='escolher_empresa'),
 
+    # * [EXPLICAÇÃO] → Página inicial do módulo Configurações — card da
+    #                  homepage e "Visão geral" do menu lateral.
+    path('configuracoes/', views.view_configuracoes_hub, name='configuracoes_hub'),
+
     # * [EXPLICAÇÃO] → Rota da homepage — raiz do sistema.
     #                  Após o login, o usuário é redirecionado para cá.
     path('', views.view_home, name='home'),

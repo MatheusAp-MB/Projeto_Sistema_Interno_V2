@@ -3,7 +3,7 @@ Bloco "No Drive agora" de 1 cartão: o que existe hoje no Drive para este arquiv
 importa, quando o sistema DA EMPRESA SELECIONADA foi atualizado com ele (16/10/2026: a tela mostra só a empresa selecionada, nunca as duas).
 4 jeitos de aparecer: carregando / existe / vazio / erro.
 O bloco tem SEMPRE a mesma altura (4 linhas de 20px, ver .arq-drive-bloco no CSS): assim a área de soltar começa no mesmo ponto em todos os cartões.
-  linha 1  No Drive agora: tamanho · cópias            [botão de girar: consulta de novo]
+  linha 1  No Drive agora: tamanho · cópias            [Baixar: cópia do arquivo] [botão de girar: consulta de novo]
   linha 2  Data do envio do arquivo: (data do arquivo no Drive)
   linha 3  Data da última atualização do sistema com este arquivo:          (cartão que o botão importa)
   linha 4  Magazine (ou Samvale): data + selo "Em dia" / "Drive tem arquivo mais novo" / "Ainda não atualizado" …
@@ -35,6 +35,14 @@ e a área de soltar do cartão (oob_cartao), já mostrando o que o Drive disse.
                     {% if linha.tamanho_texto %}{{ linha.tamanho_texto }}{% else %}arquivo encontrado{% endif %}{% if linha.enviado_agora %} · enviado agora{% endif %}{% if linha.copias > 1 %} · {{ linha.copias }} cópias na pasta{% endif %}
                 </span>
             {% endif %}
+            {% if linha.estado == 'existe' %}
+                {# Cópia do arquivo que está no Drive agora, para guardar no computador (backup antes de trocar o arquivo). Pedido e download: JS, seção 11. #}
+                <button type="button" class="arq-drive__baixar" data-arq-baixar data-arq-url="{% url 'arquivos_referencia_baixar' linha.arquivo_id %}?empresa={{ linha.empresa }}"
+                        title="Baixa para o seu computador uma cópia do arquivo que está no Drive agora (use como backup antes de trocar o arquivo ou de atualizar o sistema)."
+                        aria-label="Baixar uma cópia do arquivo que está no Drive">
+                    <i class="fas fa-download" aria-hidden="true"></i> <span>Baixar</span>
+                </button>
+            {% endif %}
             <button type="button" class="arq-drive__atualizar" hx-get="{% url 'arquivos_referencia_drive' linha.arquivo_id %}?empresa={{ linha.empresa }}{% if linha.sem_arquivo_local %}&amp;cartao_vazio=1{% endif %}" hx-target="closest .arq-drive-bloco" hx-swap="outerHTML"
                     title="Consultar o Drive de novo" aria-label="Consultar o Drive de novo"><i class="fas fa-rotate" aria-hidden="true"></i></button>
         </p>
@@ -57,9 +65,9 @@ e a área de soltar do cartão (oob_cartao), já mostrando o que o Drive disse.
                 </p>
             {% endif %}
         {% else %}
-            <p class="arq-drive-extra arq-drive-extra--neutro" title="As planilhas do Busca Legal ainda não são lidas por este botão (ciclo próprio).">
+            <p class="arq-drive-extra arq-drive-extra--neutro" title="Este arquivo ainda não é lido por este botão.">
                 <i class="fas fa-circle-minus" aria-hidden="true"></i>
-                <span class="arq-drive__texto">Ainda não entra no botão “Atualizar o sistema com o Drive”.</span>
+                <span class="arq-drive__texto">Este arquivo ainda não entra no botão “Atualizar o sistema com o Drive”.</span>
             </p>
         {% endif %}
     </div>

@@ -2,8 +2,8 @@
 * [RESUMO] → Template da homepage do sistema: 1 card por módulo do menu lateral.
 * ATENÇÃO: a ordem, o nome e o ícone dos cards espelham os grupos de
 * base_compartilhada/estrutura_base_global.html (menu lateral) — mudou um, muda o outro.
-* Impostos, Precificação, Mercado Livre e Outros marketplaces levam à página inicial do módulo (2º nível de navegação).
-* Configuração de usuários fica reservada para o futuro (controle de cargo/admin).
+* Impostos, Precificação, Mercado Livre, Outros marketplaces e Configurações levam à página inicial do módulo (2º nível de navegação).
+* Controle de Usuários (cargo/admin) fica reservado para o futuro: aparece como "Em breve" dentro da página da Configurações.
 -->
 {% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
 {% load static %}
@@ -72,13 +72,15 @@
     </a>
 </div>
 
-<!-- Card: Configurações — reservado para o futuro (controle de admin) -->
+<!-- Card: Configurações — página inicial do módulo (Controle de Usuários, Gestão de APIs, Arquivos de Referência) -->
 <div class="col-md-4">
-    <div class="card-modulo card-modulo-vazio">
-        <i class="fas fa-users-cog"></i>
-        <h5>Configurações</h5>
-        <p>Em breve</p>
-    </div>
+    <a href="{% url 'configuracoes_hub' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-sliders-h"></i>
+            <h5>Configurações</h5>
+            <p>Gestão de APIs e arquivos de referência</p>
+        </div>
+    </a>
 </div>
 
 {% endblock %}

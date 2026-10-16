@@ -1,0 +1,45 @@
+<!--
+* [RESUMO] → Página inicial do módulo Configurações (2º nível de navegação, mesmo padrão de
+* Impostos e Precificação): 1 card por tela — Controle de Usuários (em breve), Gestão de APIs e
+* Arquivos de Referência.
+* ATENÇÃO: a ordem, o nome e o ícone dos cards espelham o grupo Configurações de
+* base_compartilhada/estrutura_base_global.html (menu lateral) — mudou um, muda o outro.
+-->
+{% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
+{% load static %}
+
+{% block titulo %}Configurações — Sistema Interno MB/SV{% endblock %}
+{% block toolbar_titulo %}Configurações{% endblock %}
+
+{% block cards %}
+
+<!-- Card: Controle de Usuários — reservado para o futuro (controle de cargo/admin) -->
+<div class="col-md-4">
+    <div class="card-modulo card-modulo-vazio">
+        <i class="fas fa-users"></i>
+        <h5>Controle de Usuários</h5>
+        <p>Em breve</p>
+    </div>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'gestao_apis_painel' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-plug"></i>
+            <h5>Gestão de APIs</h5>
+            <p>Teste e renove as conexões: Mercado Livre, Google Drive, Sysemp, Claude e agente</p>
+        </div>
+    </a>
+</div>
+
+<div class="col-md-4">
+    <a href="{% url 'arquivos_referencia_painel' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-folder-open"></i>
+            <h5>Arquivos de Referência</h5>
+            <p>Tabelas de frete e Busca Legal: conferir, enviar ao Drive e atualizar o sistema</p>
+        </div>
+    </a>
+</div>
+
+{% endblock %}
