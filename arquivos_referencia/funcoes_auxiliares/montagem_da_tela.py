@@ -17,15 +17,18 @@
 # * [EXPLICAÇÃO] → Depois de um envio bem-sucedido o cartão ganha `envio` (o que o Drive guardou) e passa a mostrar
 #   "Enviado ao Drive"; escolher outro arquivo volta ao fluxo normal (conferir → enviar).
 # * [DECISÃO, 15/10/2026] → Cada cartão de arquivo que o sistema importa mostra 2 datas: "Data do envio do arquivo" (a data do arquivo no
-#   Drive) e "Última atualização do sistema" por empresa (quando o botão "Atualizar o sistema com o Drive" gravou esse arquivo), com o
+#   Drive) e "Última atualização do sistema" (quando o botão "Atualizar o sistema com o Drive" gravou esse arquivo), com o
 #   selo "Em dia" ou "Drive tem arquivo mais novo" — assim fica claro se o que está no Drive já foi para o sistema.
+# * [DECISÃO, 16/10/2026] → INDEPENDÊNCIA entre as empresas (igual à Gestão de APIs): tudo aqui é montado PARA UMA EMPRESA (a selecionada
+#   na tela). Os grupos só trazem os cartões dessa empresa (a planilha Busca Legal da outra nem aparece) e a "Última atualização do
+#   sistema" é só a dessa empresa. O arquivo do Drive é o mesmo para as duas, mas a data/selo de cada uma vive no banco dela.
 
 from .atualizacao_do_sistema import (
     EMPRESA_ATUALIZADA, EMPRESA_FALHOU, EMPRESA_RECUSADA, STATUS_ARQUIVO_COM_ERROS, STATUS_ATUALIZADO, STATUS_FALHA_DO_DRIVE,
-    STATUS_FALHA_DO_SISTEMA, STATUS_NAO_ATUALIZOU, STATUS_OCUPADO, STATUS_PARCIAL, STATUS_SEM_ARQUIVO, o_botao_atualiza,
+    STATUS_FALHA_DO_SISTEMA, STATUS_NAO_ATUALIZOU, STATUS_OCUPADO, STATUS_SEM_ARQUIVO, o_botao_atualiza,
 )
 from .catalogo_arquivos import arquivos_por_grupo
-from .historico_da_atualizacao import situacao_do_sistema
+from .historico_da_atualizacao import NOMES_CURTOS_DAS_EMPRESAS, situacao_do_sistema
 from .relatorio_auditoria import STATUS_COM_AVISOS, STATUS_COM_ERROS, STATUS_ILEGIVEL, STATUS_VALIDO, formatar_tamanho
 
 ESTADO_CONSULTANDO = 'consultando'
@@ -62,15 +65,15 @@ ESTADO_DO_CARTAO_PELA_LINHA = {
 # `situacao` é o dict de consultar_no_drive. `enviado_agora` marca o resultado de um envio que acabou de dar certo.
 # `sem_arquivo_local` = o cartão ainda não tem arquivo conferido: nesse caso a resposta do Drive também atualiza o selo e a
 # área do cartão (ver view_situacao_no_drive); com arquivo conferido, o cartão mostra o arquivo conferido e só a linha muda.
-# * [EXPLICAÇÃO] → Cartões que o botão "Atualizar o sistema com o Drive" atualiza (`importavel`) ganham, abaixo da linha do Drive, uma
-#   linha por empresa com "Última atualização do sistema" e se o sistema está em dia (`sistema`, de historico_da_atualizacao.py). O
+# * [EXPLICAÇÃO] → Cartões que o botão "Atualizar o sistema com o Drive" atualiza (`importavel`) ganham, abaixo da linha do Drive, a linha da
+#   EMPRESA da tela com "Última atualização do sistema" e se o sistema está em dia (`sistema`, de historico_da_atualizacao.py). O
 #   estado "em dia" compara a impressão digital (md5) do arquivo que o Drive tem AGORA com a do último arquivo que o sistema leu.
 def montar_linha_do_drive(
-    id_do_arquivo, situacao=None, erro=None, link=None, enviado_agora=False, erro_completo=None, sem_arquivo_local=False,
+    id_do_arquivo, empresa, situacao=None, erro=None, link=None, enviado_agora=False, erro_completo=None, sem_arquivo_local=False,
 ):
     linha = {
-        'arquivo_id': id_do_arquivo, 'enviado_agora': enviado_agora, 'sem_arquivo_local': sem_arquivo_local, 'estado': 'carregando',
-        'importavel': o_botao_atualiza(id_do_arquivo), 'sistema': None,
+        'arquivo_id': id_do_arquivo, 'empresa': empresa, 'enviado_agora': enviado_agora, 'sem_arquivo_local': sem_arquivo_local,
+        'estado': 'carregando', 'importavel': o_botao_atualiza(id_do_arquivo), 'sistema': None,
     }
     if erro:
         # `erro` é o texto curto (cabe na linha); `erro_completo` aparece ao passar o mouse.
@@ -85,14 +88,14 @@ def montar_linha_do_drive(
         )
     # Com o Drive sem resposta (erro) ainda dá para mostrar as datas do sistema; só não dá para dizer "em dia" (md5 desconhecido).
     if linha['importavel'] and (erro or situacao is not None):
-        linha['sistema'] = situacao_do_sistema(id_do_arquivo, situacao.get('md5') if situacao is not None else None)
+        linha['sistema'] = situacao_do_sistema(id_do_arquivo, situacao.get('md5') if situacao is not None else None, empresa)
     return linha
 
 
 # Função Objetivo: Dados de 1 cartão. `relatorio` (RelatorioDeAuditoria) e `quando` (datetime) só existem depois
 # de a pessoa escolher um arquivo; `envio` (dict devolvido por enviar_para_o_drive) só depois de enviá-lo ao Drive.
 # `linha_drive` (de montar_linha_do_drive) já vem pronta quando a própria resposta do Drive está montando o cartão.
-def montar_cartao(arquivo, relatorio=None, quando=None, envio=None, linha_drive=None):
+def montar_cartao(arquivo, empresa, relatorio=None, quando=None, envio=None, linha_drive=None):
     # Logo depois de enviar, a linha do Drive já mostra o que o Drive guardou (sem perguntar de novo); antes disso, ela se
     # preenche sozinha na tela, perguntando ao Drive (hx-get ao carregar).
     if linha_drive is None:
@@ -103,7 +106,7 @@ def montar_cartao(arquivo, relatorio=None, quando=None, envio=None, linha_drive=
                 'modificado_em': envio['modificado_em'], 'caminho': envio['caminho'], 'md5': envio['md5'],
             }
         linha_drive = montar_linha_do_drive(
-            arquivo.id, situacao_do_envio, enviado_agora=envio is not None,
+            arquivo.id, empresa, situacao_do_envio, enviado_agora=envio is not None,
             sem_arquivo_local=relatorio is None and arquivo.auditoria_pronta,
         )
 
@@ -117,6 +120,7 @@ def montar_cartao(arquivo, relatorio=None, quando=None, envio=None, linha_drive=
 
     return {
         'id': arquivo.id,
+        'empresa': empresa,
         'nome': arquivo.nome,
         'icone': arquivo.icone,
         'nome_no_drive': arquivo.nome_no_drive,
@@ -139,7 +143,6 @@ def montar_cartao(arquivo, relatorio=None, quando=None, envio=None, linha_drive=
 # status do arquivo -> (rótulo, ícone completo, sufixo da classe do selo — as mesmas cores dos selos dos cartões)
 ESTADOS_DA_ATUALIZACAO = {
     STATUS_ATUALIZADO: ('Atualizado', 'fas fa-circle-check', 'valido'),
-    STATUS_PARCIAL: ('Só em uma empresa', 'fas fa-triangle-exclamation', 'com_avisos'),
     STATUS_NAO_ATUALIZOU: ('Não atualizou', 'fas fa-circle-xmark', 'com_erros'),
     STATUS_ARQUIVO_COM_ERROS: ('Arquivo com erros', 'fas fa-circle-xmark', 'com_erros'),
     STATUS_SEM_ARQUIVO: ('Sem arquivo no Drive', 'fas fa-circle-minus', 'sem_arquivo'),
@@ -157,7 +160,7 @@ ESTADOS_DA_EMPRESA = {
 
 
 # Função Objetivo: Junta ao resultado de atualizar_arquivo o que a tela precisa para desenhar (rótulo, ícone e cor de cada estado).
-# Tabela que já estava igual ao Drive em todas as empresas aparece como "Já estava em dia" (também é um resultado bom).
+# Tabela que já estava igual ao Drive aparece como "Já estava em dia" (também é um resultado bom).
 def montar_item_da_atualizacao(resultado, link=None):
     rotulo, icone, cor = ESTADOS_DA_ATUALIZACAO[resultado['status']]
     empresas = resultado['empresas']
@@ -173,9 +176,16 @@ def montar_item_da_atualizacao(resultado, link=None):
     }
 
 
-# Função Objetivo: Os grupos da tela, na ordem, cada um com seus cartões ainda sem arquivo.
-def montar_grupos():
+# Função Objetivo: Os grupos da tela PARA A EMPRESA, na ordem, cada um com seus cartões ainda sem arquivo.
+# Grupo que ficou sem nenhum cartão para a empresa não entra (a tela não mostra título vazio).
+def montar_grupos(empresa):
     return [
-        {'id': id_do_grupo, 'titulo': titulo, 'subtitulo': subtitulo, 'cartoes': [montar_cartao(a) for a in arquivos]}
-        for id_do_grupo, titulo, subtitulo, arquivos in arquivos_por_grupo()
+        {'id': id_do_grupo, 'titulo': titulo, 'subtitulo': subtitulo, 'cartoes': [montar_cartao(a, empresa) for a in arquivos]}
+        for id_do_grupo, titulo, subtitulo, arquivos in arquivos_por_grupo(empresa)
+        if arquivos
     ]
+
+
+# Função Objetivo: O nome curto da empresa para os textos da tela ("Magazine" / "Samvale").
+def nome_curto_da_empresa(empresa):
+    return NOMES_CURTOS_DAS_EMPRESAS.get(empresa, empresa.title())

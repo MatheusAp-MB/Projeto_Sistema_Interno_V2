@@ -1,9 +1,11 @@
 {% comment %}
-Área de soltar de 1 cartão. Mostra, nesta ordem de prioridade: o arquivo que a pessoa acabou de conferir; o arquivo que JÁ ESTÁ no Drive
+Área de soltar de 1 cartão. Quando mostra um arquivo (o que está no Drive, ou o que a pessoa acabou de conferir) tem o botão "Ver arquivo": abre
+a janela que mostra esse arquivo como o Excel mostraria (16/10/2026). No arquivo do Drive o botão pede ao servidor (hx-get); no arquivo conferido o
+JS manda o arquivo guardado na memória do navegador pelo formulário escondido .arq-form-ver do cartão. Mostra, nesta ordem de prioridade: o arquivo que a pessoa acabou de conferir; o arquivo que JÁ ESTÁ no Drive
 (verde); a pasta ainda vazia; o Drive que não respondeu; ou a consulta em andamento. Com oob=True o HTMX a troca no cartão pelo id
-(resposta da consulta ao Drive). Soltar o arquivo em qualquer ponto do cartão vale, seja qual for o estado.
+(resposta da consulta ao Drive). Soltar o arquivo em qualquer ponto do cartão vale, seja qual for o estado (a dica "Para trocar, escolha ou arraste outro arquivo" fica no balãozinho da área verde: a altura do cartão é fixa e o botão "Ver arquivo" ocupou o lugar do texto).
 {% endcomment %}
-<div class="arq-zona arq-zona--{{ cartao.estado }}" id="arq-zona-{{ cartao.id }}"{% if oob %} hx-swap-oob="true"{% endif %}>
+<div class="arq-zona arq-zona--{{ cartao.estado }}" id="arq-zona-{{ cartao.id }}"{% if oob %} hx-swap-oob="true"{% endif %}{% if not cartao.relatorio and cartao.estado == 'no_drive' %} title="Para trocar, escolha ou arraste outro arquivo."{% endif %}>
     {% if cartao.relatorio %}
         <span class="arq-zona__icone"><i class="fas fa-file-excel" aria-hidden="true"></i></span>
         <p class="arq-zona__titulo" title="{{ cartao.relatorio.nome_do_arquivo }}">{{ cartao.relatorio.nome_do_arquivo }}</p>
@@ -23,6 +25,9 @@
                 <span class="arq-contador arq-contador--bloqueado"><i class="fas fa-ban" aria-hidden="true"></i> Não pode ser enviado</span>
             {% endif %}
         </p>
+        <button type="button" class="arq-zona__ver" data-arq-ver="escolhido" title="Abre o arquivo que você escolheu, como o Excel mostraria (só leitura).">
+            <i class="fas fa-table" aria-hidden="true"></i> Ver arquivo
+        </button>
     {% elif not cartao.upload_habilitado %}
         <span class="arq-zona__icone"><i class="fas fa-hourglass-half" aria-hidden="true"></i></span>
         <p class="arq-zona__titulo">Sem auditoria ainda</p>
@@ -36,7 +41,11 @@
             <span class="arq-contador arq-contador--ok"><i class="fas fa-circle-check" aria-hidden="true"></i> Arquivo no Drive</span>
             {% if linha.copias > 1 %}<span class="arq-contador arq-contador--aviso" title="Há cópias repetidas na pasta do Drive. O próximo envio manda as extras para a lixeira."><i class="fas fa-clone" aria-hidden="true"></i> {{ linha.copias }} cópias</span>{% endif %}
         </p>
-        <p class="arq-zona__dica">Para trocar, escolha ou arraste outro arquivo.</p>
+        <button type="button" class="arq-zona__ver" data-arq-ver="drive"
+                hx-get="{% url 'arquivos_referencia_ver_drive' cartao.id %}?empresa={{ cartao.empresa }}" hx-target="#arq-viz-miolo" hx-swap="innerHTML"
+                title="Abre o arquivo que está no Drive agora, como o Excel mostraria (só leitura).">
+            <i class="fas fa-table" aria-hidden="true"></i> Ver arquivo
+        </button>
         {% endwith %}
     {% elif cartao.estado == 'sem_arquivo' %}
         <span class="arq-zona__icone"><i class="fas fa-cloud-arrow-up" aria-hidden="true"></i></span>

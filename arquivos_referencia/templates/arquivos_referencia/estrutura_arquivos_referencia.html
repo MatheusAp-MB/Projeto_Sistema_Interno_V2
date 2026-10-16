@@ -4,8 +4,9 @@
 {% block toolbar_titulo %}Configurações — Arquivos de referência{% endblock %}
 {% block toolbar_acoes %}
     <button type="button" class="arq-toolbar-btn" id="arq-btn-atualizar"
-            title="Lê no Drive as {{ arquivos_para_atualizar|length }} tabelas de frete e atualiza o sistema (Magazine e Samvale). Pede confirmação antes.">
+            title="Lê no Drive as {{ arquivos_para_atualizar|length }} tabelas de frete e atualiza o sistema SÓ da empresa selecionada ({{ empresa_da_tela_nome }}). A outra empresa não é alterada. Pede confirmação antes.">
         <i class="fas fa-rotate" aria-hidden="true"></i> <span>Atualizar o sistema com o Drive</span>
+        <span class="arq-toolbar-btn__empresa">{{ empresa_da_tela_nome }}</span>
     </button>
 {% endblock %}
 {% block body_class %}arq-tela{% endblock %}
@@ -23,12 +24,18 @@
       confirmação e troca o arquivo da pasta certa do Drive (sempre 1 cópia). Cada cartão mostra, em "No Drive agora", o que
       existe hoje no Drive (o servidor pergunta ao Drive, só leitura).
     * [DECISÃO, 15/10/2026] → Passo 2, 1º ciclo: o botão de cima, "Atualizar o sistema com o Drive", está LIGADO só para as 4 tabelas
-      de frete. Pede confirmação, lê os 4 arquivos do Drive (um de cada vez), confere cada um de novo e grava nas tabelas das DUAS
-      empresas (tudo ou nada por tabela). A janela de resultado mostra, por arquivo e por empresa, quantas linhas são novas, quantas
-      mudaram, quantas já estavam iguais e quantas foram removidas. As planilhas do Busca Legal NÃO entram por este botão (ciclo próprio).
+      de frete. Pede confirmação, lê os 4 arquivos do Drive (um de cada vez), confere cada um de novo e grava nas tabelas (tudo ou nada
+      por tabela). A janela de resultado mostra, por arquivo, quantas linhas são novas, quantas mudaram, quantas já estavam iguais e
+      quantas foram removidas. As planilhas do Busca Legal NÃO entram por este botão (ciclo próprio).
+    * [DECISÃO, 16/10/2026] → INDEPENDÊNCIA entre as empresas (igual à Gestão de APIs): a tela mostra só a empresa selecionada (cartões,
+      datas e selos) e o botão grava SÓ nela. Os arquivos do frete são um só no Drive, mas cada empresa atualiza o seu sistema com eles,
+      separadamente. A planilha do Busca Legal de cada empresa só aparece na tela dela. (Antes o botão gravava nas duas de uma vez.)
+    * [DECISÃO, 16/10/2026] → "Ver arquivo": em cada cartão que mostra um arquivo (o que está no Drive, ou o que a pessoa acabou de conferir) há
+      um botão que abre uma janela com o .xlsx desenhado como o Excel o mostraria (abas, cores, mesclagens, R$, %, datas) ou em "Valor bruto"
+      (o que está guardado, mais as fórmulas). Só leitura: ver o arquivo nunca grava nada.
     * [DECISÃO, 15/10/2026] → A atualização ESPELHA o arquivo ("100% síncrono"): o que está no sistema e não está no arquivo é apagado.
-      Cada cartão de frete mostra "Data do envio do arquivo" e, por empresa, "Data da última atualização do sistema com este arquivo"
-      com o selo "Em dia" (o sistema leu exatamente o arquivo que está no Drive) ou "Drive tem arquivo mais novo".
+      Cada cartão de frete mostra "Data do envio do arquivo" e, para a empresa selecionada, "Data da última atualização do sistema com
+      este arquivo" com o selo "Em dia" (o sistema leu exatamente o arquivo que está no Drive) ou "Drive tem arquivo mais novo".
     * [IMPORTANTE] → As grades de preço ainda NÃO são recalculadas por este botão (próximo ciclo): a janela de resultado avisa isso.
     * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical", igual à Gestão de APIs: a altura de cada cartão é
       fixa; texto comprido é cortado e o que falta está na janela "Ver auditoria".
@@ -36,12 +43,13 @@
       o leva direto ao Drive). O resultado vive só neste cartão. Ao recarregar a página (F5) cada cartão volta a mostrar o que o Drive tem: "No Drive" (verde, com nome, tamanho e data) ou "Sem arquivo no Drive".
     {% endcomment %}
 
-    <div class="arq-pagina" data-arq-limite-bytes="{{ limite_do_arquivo_em_bytes }}" data-arq-limite-mb="{{ limite_do_arquivo_em_mb }}">
-        <div class="arq-faixa" title="Escolha ou arraste o arquivo, leia a auditoria completa e então envie ao Drive: o envio troca o arquivo da pasta, que fica sempre com 1 cópia. Depois, o botão “Atualizar o sistema com o Drive” (no alto da tela) lê as tabelas de frete que estão no Drive e grava nas duas empresas. As planilhas do Busca Legal ainda não entram por esse botão.">
+    <div class="arq-pagina" data-arq-limite-bytes="{{ limite_do_arquivo_em_bytes }}" data-arq-limite-mb="{{ limite_do_arquivo_em_mb }}"
+         data-arq-empresa="{{ empresa_da_tela }}" data-arq-empresa-nome="{{ empresa_da_tela_nome }}">
+        <div class="arq-faixa" title="Escolha ou arraste o arquivo, leia a auditoria completa e então envie ao Drive: o envio troca o arquivo da pasta, que fica sempre com 1 cópia. Depois, o botão “Atualizar o sistema com o Drive” (no alto da tela) lê as tabelas de frete que estão no Drive e grava só na empresa selecionada ({{ empresa_da_tela_nome }}). As planilhas do Busca Legal ainda não entram por esse botão.">
             <span class="arq-faixa__icone"><i class="fas fa-circle-info" aria-hidden="true"></i></span>
             <div class="arq-faixa__textos">
-                <span class="arq-faixa__titulo">Etapa atual: conferir, enviar ao Drive e atualizar o sistema (frete)</span>
-                <span class="arq-faixa__texto">Escolha o arquivo, leia a auditoria e envie ao Drive (sempre 1 cópia). “Atualizar o sistema com o Drive” grava as tabelas de frete nas duas empresas; o Busca Legal ainda não.</span>
+                <span class="arq-faixa__titulo">{{ empresa_da_tela_nome }} — conferir, enviar ao Drive e atualizar o sistema (frete)</span>
+                <span class="arq-faixa__texto">Você está vendo só a {{ empresa_da_tela_nome }}. “Atualizar o sistema com o Drive” grava as tabelas de frete só nela; a outra empresa é atualizada à parte, quando você a selecionar. O Busca Legal ainda não.</span>
             </div>
         </div>
 
@@ -69,6 +77,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body" id="arq-modal-auditoria-corpo"></div>
+            </div>
+        </div>
+    </div>
+
+    {# Janela "Ver arquivo" (o JS move para o <body>): o miolo é trocado pelo HTMX com o arquivo desenhado como no Excel (ou com a explicação do problema). #}
+    <div class="modal fade" id="arq-modal-visualizador" tabindex="-1" aria-labelledby="arq-modal-visualizador-titulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered arq-viz-dialogo">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="arq-modal-visualizador-titulo">Ver arquivo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body arq-viz-corpo" id="arq-viz-miolo"></div>
             </div>
         </div>
     </div>
@@ -110,7 +131,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="arq-modal-atualizar-titulo"><i class="fas fa-rotate" aria-hidden="true"></i> Atualizar o sistema com o Drive?</h5>
+                    <h5 class="modal-title" id="arq-modal-atualizar-titulo"><i class="fas fa-rotate" aria-hidden="true"></i> Atualizar o sistema da {{ empresa_da_tela_nome }} com o Drive?</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
@@ -121,11 +142,11 @@
                             {% for arquivo in arquivos_para_atualizar %}{{ arquivo.nome|cut:"Frete — " }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} e {% else %}, {% endif %}{% endif %}{% endfor %}.
                         </dd>
                         <dt>Vai gravar em</dt>
-                        <dd>Magazine e Samvale (o frete vale para as duas empresas).</dd>
+                        <dd><strong>só na {{ empresa_da_tela_nome }}</strong> (a empresa selecionada). A outra empresa não é alterada: ela é atualizada à parte, quando você a selecionar.</dd>
                     </dl>
                     <p class="arq-envio__nota">
                         Cada arquivo é conferido de novo antes de entrar: arquivo com erro não entra. Cada tabela é gravada por inteiro ou nada.
-                        O sistema fica IGUAL ao arquivo: linhas novas entram, linhas que mudaram são atualizadas e <strong>linhas que não estão no arquivo são removidas</strong>.
+                        O sistema da {{ empresa_da_tela_nome }} fica IGUAL ao arquivo: linhas novas entram, linhas que mudaram são atualizadas e <strong>linhas que não estão no arquivo são removidas</strong>.
                         No fim você vê quantas linhas foram novas, quantas mudaram, quantas já estavam iguais e quantas foram removidas. As planilhas do
                         Busca Legal não são alteradas por este botão, e as grades de preço ainda não são recalculadas por ele.
                     </p>
@@ -133,7 +154,7 @@
                 <div class="modal-footer">
                     <button type="button" class="arq-btn" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="arq-btn arq-btn--primario" id="arq-atualizar-confirmar">
-                        <i class="fas fa-rotate" aria-hidden="true"></i> <span class="arq-btn__texto">Atualizar o sistema</span>
+                        <i class="fas fa-rotate" aria-hidden="true"></i> <span class="arq-btn__texto">Atualizar a {{ empresa_da_tela_nome }}</span>
                     </button>
                 </div>
             </div>

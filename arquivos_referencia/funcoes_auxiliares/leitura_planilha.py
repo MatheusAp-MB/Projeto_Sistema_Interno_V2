@@ -53,7 +53,7 @@ class LeituraDaPlanilha:
 
 
 # Função Objetivo: Confere o arquivo ANTES de abrir (tamanho, formato, zip seguro).
-def _conferir_o_arquivo(conteudo):
+def conferir_o_arquivo(conteudo):
     if not conteudo:
         raise ErroDeLeitura('O arquivo está vazio.', 'Escolha o arquivo certo e tente de novo.')
     if len(conteudo) > TAMANHO_MAXIMO_DO_ARQUIVO:
@@ -138,7 +138,7 @@ def _achar_formulas_sem_resultado(conteudo, abas_com_valores):
 # Função Objetivo: Ponto de entrada — do conteúdo do arquivo (bytes) para a leitura pronta.
 # Levanta ErroDeLeitura (com texto pronto para a tela) se o arquivo não puder ser lido.
 def ler_planilha(conteudo, limite_de_linhas=LIMITE_DE_LINHAS_POR_ABA):
-    _conferir_o_arquivo(conteudo)
+    conferir_o_arquivo(conteudo)
     abas, ativa = _ler_valores(conteudo, limite_de_linhas)
     formulas = _achar_formulas_sem_resultado(conteudo, abas)
     return LeituraDaPlanilha(abas, ativa, formulas)

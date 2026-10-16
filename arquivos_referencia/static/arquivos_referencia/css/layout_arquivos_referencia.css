@@ -26,7 +26,7 @@
     --arq-breve-fundo: #f1f3f5;
 
     --arq-altura-faixa: 64px;
-    --arq-altura-cartao: 450px;   /* 330px dos 4 blocos + 120px do bloco "No Drive agora" (5 linhas de 20px + 4 espaços de 2px = 108px, mais 12px de espaço) */
+    --arq-altura-cartao: 450px;   /* 330px dos 4 blocos + 98px do bloco "No Drive agora" (4 linhas de 20px + 3 espaços de 2px = 86px, mais 12px de espaço) + 22px para o botão "Ver arquivo" da área de soltar */
 }
 
 .arq-pagina {
@@ -159,6 +159,18 @@
 .arq-toolbar-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+}
+
+/* Etiqueta com a empresa que o botão vai atualizar (a selecionada): ninguém clica sem saber em qual empresa grava. */
+.arq-toolbar-btn__empresa {
+    padding: 1px 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--cor-primaria);
+    background: var(--cor-texto-claro);
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 /* ================================================
@@ -342,12 +354,13 @@
 /* ================================================
    LINHA "NO DRIVE AGORA" (o que existe hoje no Drive para este arquivo)
    ================================================ */
-/* O bloco tem SEMPRE 108px (5 linhas de 20px e 4 espaços de 2px), com ou sem todas as linhas: a área de soltar começa no mesmo ponto em todos os cartões. */
+/* O bloco tem SEMPRE 86px (4 linhas de 20px e 3 espaços de 2px), com ou sem todas as linhas: a área de soltar começa no mesmo ponto em todos os cartões.
+   (Eram 5 linhas/108px quando o cartão mostrava as duas empresas; desde 16/10/2026 mostra só a empresa selecionada.) */
 .arq-drive-bloco {
     display: grid;
     grid-auto-rows: 20px;
     row-gap: 2px;
-    height: 108px;
+    height: 86px;
     min-width: 0;
     overflow: hidden;
 }
@@ -393,7 +406,7 @@
 .arq-drive--erro { color: var(--arq-aviso-texto); }
 .arq-drive--erro > i { color: var(--arq-aviso-texto); }
 
-/* Linhas de baixo do bloco: "Data do envio do arquivo", título do sistema e uma linha por empresa. */
+/* Linhas de baixo do bloco: "Data do envio do arquivo", título do sistema e a linha da empresa selecionada. */
 .arq-drive-extra--neutro,
 .arq-drive-extra--neutro > i { color: var(--arq-breve-texto); }
 
@@ -562,17 +575,6 @@
 .arq-zona--no_drive .arq-zona__icone { font-size: 1.5rem; color: var(--arq-valido-texto); }
 .arq-zona--no_drive .arq-zona__titulo { color: var(--arq-valido-texto); }
 .arq-zona--no_drive .arq-zona__sub { color: #3f6b52; }
-
-/* Dica curta de como trocar o arquivo (só na área verde) */
-.arq-zona__dica {
-    max-width: 100%;
-    margin: 2px 0 0;
-    font-size: 0.7rem;
-    color: #4b6a59;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
 
 /* Drive não respondeu: área âmbar (ainda dá para soltar um arquivo e conferir) */
 .arq-zona--drive_erro {
@@ -1114,4 +1116,479 @@
     .arq-btn { transition: none; }
     .arq-drive__atualizar.htmx-request i { animation: none; }
     .arq-atu .fa-spin { animation: none; }
+}
+
+/* ================================================
+   "VER ARQUIVO" (16/10/2026): o arquivo desenhado como no Excel, só leitura
+   Botão na área de soltar + janela grande com a planilha. Trocas "Como no Excel / Valor bruto" e de abas são só CSS (botões de opção
+   escondidos que vêm ANTES do que controlam, ver estrutura_parcial_visualizador.html). O CSS de cor de cada célula vem junto da janela.
+   ================================================ */
+.arq-zona__ver {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    min-height: 30px;
+    margin-top: 6px;
+    padding: 0 14px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--cor-primaria);
+    background: #ffffff;
+    border: 1px solid var(--cor-primaria-clara);
+    border-radius: 999px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;   /* fica acima da cobertura "Solte para conferir" só para receber o clique; a cobertura aparece em cima quando arrasta */
+}
+
+.arq-zona__ver:hover { background: #eaf0f8; }
+
+.arq-zona__ver:focus-visible {
+    outline: 2px solid var(--cor-primaria-clara);
+    outline-offset: 2px;
+}
+
+.arq-zona__ver:disabled { opacity: 0.6; cursor: default; }
+
+/* Formulário que o JS usa para mandar o arquivo escolhido (guardado no navegador) para a janela. Nunca aparece. */
+.arq-form-ver { display: none; }
+
+/* --- A janela --- */
+.arq-viz-dialogo {
+    width: min(1500px, 96vw);
+    max-width: none;
+    height: calc(100vh - 2rem);
+    height: calc(100dvh - 2rem);
+    margin: 1rem auto;
+}
+
+.arq-viz-dialogo .modal-content {
+    height: 100%;
+    max-height: 100%;
+}
+
+/* Só a explicação do problema (ou "Abrindo…"): a janela encolhe até o tamanho do texto (navegador antigo sem :has() fica com a janela cheia, sem prejuízo). */
+.arq-viz-dialogo:has(.arq-viz-erro, .arq-viz-carregando) { height: auto; }
+
+.arq-viz-corpo {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.arq-viz {
+    --arq-viz-grade: #d9dde3;
+    --arq-viz-cabecalho: #f1f3f6;
+    --arq-viz-cabecalho-texto: #5b6470;
+    --arq-viz-destaque: #1f6f43;          /* verde do Excel: aba ativa e célula escolhida */
+    --arq-viz-aba-ativa: #ffffff;
+    --arq-viz-aba-ativa-texto: #14532d;
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Botões de opção escondidos (continuam acessíveis pelo teclado: o foco aparece no rótulo que eles controlam) */
+.arq-viz__r {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Barra de cima: arquivo + escolha do jeito de mostrar */
+.arq-viz__topo {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 10px 16px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.arq-viz__arquivo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.arq-viz__icone {
+    flex: 0 0 auto;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--arq-viz-destaque);
+}
+
+.arq-viz__textos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.arq-viz__nome {
+    font-size: 0.92rem;
+    color: #2b2f33;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.arq-viz__origem {
+    font-size: 0.76rem;
+    color: var(--cor-texto-muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.arq-viz__modos {
+    display: inline-flex;
+    flex: 0 0 auto;
+    padding: 3px;
+    background: var(--arq-neutro-fundo);
+    border-radius: 999px;
+}
+
+.arq-viz__modo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    margin: 0;
+    padding: 0 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--arq-neutro-texto);
+    white-space: nowrap;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.arq-viz__modo:hover { color: #14532d; }
+
+.arq-viz #arq-viz-m-excel:checked ~ .arq-viz__topo .arq-viz__modo--excel,
+.arq-viz #arq-viz-m-bruto:checked ~ .arq-viz__topo .arq-viz__modo--bruto {
+    color: var(--arq-viz-aba-ativa-texto);
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.arq-viz #arq-viz-m-excel:focus-visible ~ .arq-viz__topo .arq-viz__modo--excel,
+.arq-viz #arq-viz-m-bruto:focus-visible ~ .arq-viz__topo .arq-viz__modo--bruto {
+    outline: 2px solid var(--arq-viz-destaque);
+    outline-offset: 1px;
+}
+
+/* A troca de visão: sem JavaScript. O que o Excel mostra (.vx) x o que está guardado no arquivo, com as fórmulas (.vb). */
+.arq-viz .vb { display: none; }
+.arq-viz #arq-viz-m-bruto:checked ~ .arq-viz__area .vx { display: none; }
+.arq-viz #arq-viz-m-bruto:checked ~ .arq-viz__area .vb { display: inline; }
+
+/* No valor bruto a letra muda para fonte de código: deixa claro que ali é o texto cru do arquivo. */
+.arq-viz #arq-viz-m-bruto:checked ~ .arq-viz__area .arq-viz__tabela td {
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+/* Avisos (aba cortada, abas ocultas, fórmula sem resultado) */
+.arq-viz__avisos {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 6px 16px;
+    max-height: 84px;
+    overflow-y: auto;
+    list-style: none;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--arq-aviso-texto);
+    background: var(--arq-aviso-fundo);
+    border-bottom: 1px solid #f3d58a;
+}
+
+.arq-viz__avisos li { display: flex; gap: 6px; }
+.arq-viz__avisos li > i { flex: 0 0 auto; margin-top: 3px; }
+
+/* Barra de fórmulas: endereço da célula + conteúdo completo */
+.arq-viz__formula {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+    min-height: 30px;
+    font-size: 0.82rem;
+    background: #ffffff;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.arq-viz__endereco {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    padding: 0 10px;
+    font-weight: 700;
+    color: #2b2f33;
+    background: var(--arq-viz-cabecalho);
+    border-right: 1px solid var(--cor-borda);
+}
+
+.arq-viz__fx {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 0 10px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-style: italic;
+    font-weight: 700;
+    color: var(--arq-viz-cabecalho-texto);
+    border-right: 1px solid var(--cor-borda);
+}
+
+.arq-viz__conteudo-da-celula {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-height: 72px;
+    padding: 6px 10px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: #2b2f33;
+}
+
+/* A planilha: a única parte que rola (em pé e de lado) */
+.arq-viz__area {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: #ffffff;
+    -webkit-overflow-scrolling: touch;
+}
+
+.arq-viz__area:focus-visible {
+    outline: 2px solid var(--arq-viz-destaque);
+    outline-offset: -2px;
+}
+
+.arq-viz__aba { display: none; }
+
+.arq-viz__aviso-da-aba {
+    margin: 0;
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    color: var(--arq-neutro-texto);
+    background: var(--arq-neutro-fundo);
+    border-top: 1px solid var(--cor-borda);
+    position: sticky;
+    left: 0;
+}
+
+/* --- A tabela (parecida com a do Excel) --- */
+.arq-viz__tabela {
+    table-layout: fixed;
+    border-collapse: separate;   /* separate (e não collapse): é o que faz as linhas e colunas congeladas grudarem de verdade */
+    border-spacing: 0;
+    font-family: Calibri, "Segoe UI", Arial, "Liberation Sans", sans-serif;
+    font-size: 13px;
+    color: #000000;
+}
+
+.arq-viz__tabela td,
+.arq-viz__tabela th {
+    box-sizing: border-box;
+    height: 20px;
+    padding: 0 4px;
+    line-height: 19px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.arq-viz__tabela td {
+    position: relative;
+    text-align: left;
+    vertical-align: bottom;
+    text-overflow: ellipsis;
+    background: #ffffff;
+    box-shadow: inset -1px -1px 0 var(--arq-viz-grade);   /* as linhas de grade; célula com fundo colorido tira (box-shadow:none na própria célula) */
+}
+
+.arq-viz__tabela--sem-grade td { box-shadow: none; }
+
+.arq-viz__tabela td.n { text-align: right; text-overflow: clip; }
+.arq-viz__tabela td.c { text-align: center; }
+
+/* Fórmula sem resultado salvo: canto vermelho (o sistema lê essa célula como vazia) */
+.arq-viz__tabela td.sr::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-top: 8px solid #d93025;
+    border-left: 8px solid transparent;
+}
+
+.arq-viz__tabela td.arq-viz__sel {
+    outline: 2px solid var(--arq-viz-destaque);
+    outline-offset: -2px;
+    z-index: 1;
+}
+
+/* Cabeçalhos: letras das colunas e números das linhas (sempre à vista) */
+.arq-viz__tabela th {
+    font-size: 11.5px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--arq-viz-cabecalho-texto);
+    background: var(--arq-viz-cabecalho);
+    box-shadow: inset -1px -1px 0 #c9ced6;
+    user-select: none;
+}
+
+.arq-viz__tabela thead th {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    height: 24px;
+    line-height: 23px;
+}
+
+.arq-viz__tabela th.arq-viz__ln,
+.arq-viz__tabela th.arq-viz__lf {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+}
+
+.arq-viz__tabela th.arq-viz__lf { z-index: 4; }              /* número de uma linha congelada: acima das células que passam por baixo */
+.arq-viz__tabela thead th.arq-viz__cf { z-index: 5; }        /* letra de uma coluna congelada */
+.arq-viz__tabela thead th.arq-viz__canto { z-index: 6; left: 0; }
+
+/* Células congeladas (o Excel mantém linhas do topo e colunas da esquerda à vista ao rolar) */
+.arq-viz__tabela td.arq-viz__tf,
+.arq-viz__tabela td.arq-viz__ce { position: sticky; z-index: 2; }
+.arq-viz__tabela td.arq-viz__tf.arq-viz__ce { z-index: 3; }
+
+/* --- Abas, como no pé do Excel --- */
+.arq-viz__abas {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+    gap: 2px;
+    min-height: 36px;
+    padding: 0 8px;
+    overflow-x: auto;
+    background: var(--arq-viz-cabecalho);
+    border-top: 1px solid #c9ced6;
+}
+
+.arq-viz__aba-nome {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    max-width: 240px;
+    margin: 0;
+    padding: 0 16px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--arq-neutro-texto);
+    white-space: nowrap;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.arq-viz__aba-nome:hover { background: #e4e8ee; }
+
+.arq-viz__status {
+    display: none;
+    flex: 0 0 auto;
+    align-self: center;
+    margin-left: auto;
+    padding-left: 16px;
+    font-size: 0.76rem;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}
+
+/* --- Quando não dá para abrir: o motivo no lugar da tabela --- */
+.arq-viz-erro,
+.arq-viz-carregando {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 24px 20px;
+    padding: 16px 18px;
+    border-radius: 8px;
+}
+
+.arq-viz-erro {
+    color: var(--arq-erro-texto);
+    background: var(--arq-erro-fundo);
+    border: 1px solid #f1b8bd;
+}
+
+.arq-viz-erro__icone { flex: 0 0 auto; font-size: 1.5rem; line-height: 1.2; }
+.arq-viz-erro__textos { min-width: 0; }
+.arq-viz-erro__titulo { margin: 0 0 4px; font-weight: 700; }
+.arq-viz-erro__texto,
+.arq-viz-erro__como { margin: 0 0 4px; font-size: 0.88rem; color: #3b3f44; overflow-wrap: anywhere; }
+.arq-viz-erro__como:last-child,
+.arq-viz-erro__texto:last-child { margin-bottom: 0; }
+
+.arq-viz-carregando {
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--arq-neutro-texto);
+    background: var(--arq-neutro-fundo);
+    border: 1px solid var(--cor-borda);
+}
+
+.arq-viz-carregando--erro {
+    color: var(--arq-erro-texto);
+    background: var(--arq-erro-fundo);
+    border-color: #f1b8bd;
+}
+
+/* Celular: a janela ocupa a tela toda; a barra de cima empilha */
+@media (max-width: 576px) {
+    .arq-viz-dialogo {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        margin: 0;
+    }
+    .arq-viz-dialogo .modal-content { border-radius: 0; border: 0; }
+    .arq-viz__topo { padding: 8px 12px; }
+    .arq-viz__origem { white-space: normal; }   /* no celular a data do envio passa para a 2ª linha em vez de ser cortada */
+    .arq-viz__modos { width: 100%; }
+    .arq-viz__modo { flex: 1 1 0; justify-content: center; padding: 0 8px; }
+    .arq-viz__avisos { padding: 6px 12px; }
+    .arq-viz__endereco { min-width: 56px; padding: 0 6px; }
+    .arq-viz__fx { padding: 0 7px; }
+    .arq-viz__aba-nome { padding: 0 12px; }
+    .arq-viz__status { display: none !important; }   /* no celular a contagem de linhas não cabe ao lado das abas */
+    .arq-viz-erro,
+    .arq-viz-carregando { margin: 16px 12px; padding: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .arq-viz-carregando .fa-spin { animation: none; }
 }

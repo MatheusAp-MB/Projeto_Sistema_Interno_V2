@@ -12,8 +12,14 @@
 #   banco procuram hoje na pasta): quem escolhe o arquivo pode ter qualquer nome, o que vai para o Drive sempre usa este.
 # * [DECISÃO, 15/10/2026] → 3º ciclo: ENVIO ao Drive. Cada grupo tem uma subpasta fixa dentro da pasta raiz do sistema
 #   (GOOGLE_DRIVE_PASTA_RAIZ_SISTEMA no .env) — os nomes são os que Matheus criou no Drive em 14/10/2026.
+# * [DECISÃO, 16/10/2026] → INDEPENDÊNCIA entre as empresas (igual à Gestão de APIs): a tela mostra só o que é da empresa selecionada.
+#   `empresa` diz de quem é o arquivo: '' = arquivo COMPARTILHADO (as 4 tabelas de frete: um só arquivo no Drive, mas cada empresa atualiza o
+#   seu sistema com ele, separadamente); EMPRESA_MAGAZINE / EMPRESA_SAMVALE = arquivo daquela empresa (as planilhas do Busca Legal: a outra
+#   empresa nem enxerga o cartão).
 
 from dataclasses import dataclass
+
+from core.empresa import EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
 from .leitura_planilha import LIMITE_DE_LINHAS_POR_ABA
 
@@ -35,8 +41,8 @@ PASTAS_NO_DRIVE_POR_GRUPO = {
 }
 
 SUBTITULOS_DOS_GRUPOS = {
-    GRUPO_FRETE: 'Valem para as duas empresas. O “popular banco” lê estes arquivos para calcular as grades.',
-    GRUPO_IMPOSTOS_SAIDA: 'Um arquivo por empresa. Alimenta ICMS, PIS e COFINS de saída. A conferência consulta os produtos do sistema (só leitura).',
+    GRUPO_FRETE: 'O arquivo é um só para as duas empresas; cada empresa atualiza o seu sistema com ele, separadamente. O “popular banco” lê estes arquivos para calcular as grades.',
+    GRUPO_IMPOSTOS_SAIDA: 'Cada empresa tem a sua planilha: aparece só a da empresa selecionada. Alimenta ICMS, PIS e COFINS de saída. A conferência consulta os produtos do sistema dessa empresa (só leitura).',
 }
 
 
@@ -52,6 +58,7 @@ class ArquivoDeReferencia:
     auditoria_pronta: bool
     classe_do_auditor: str = ''     # "módulo:Classe" dentro de funcoes_auxiliares (importado só quando precisa)
     limite_de_linhas: int = LIMITE_DE_LINHAS_POR_ABA   # tabela de frete é pequena; a Busca Legal tem 1 linha por produto
+    empresa: str = ''       # '' = compartilhado entre as duas empresas; senão, a empresa dona do arquivo (EMPRESA_MAGAZINE / EMPRESA_SAMVALE)
 
     # Subpasta do Drive onde este arquivo mora (decidida pelo grupo).
     @property
@@ -94,6 +101,7 @@ ARQUIVOS = (
         formato_esperado='Aba ativa · cabeçalho na linha 2 · colunas Cód Barras, NCM, CST, PIS, COFINS e as 27 UFs (AC a TO).',
         nome_no_drive='TABELA SAIDA POR UF MAGAZINE.xlsx', auditoria_pronta=True,
         classe_do_auditor='auditoria_busca_legal:AuditorBuscaLegalMagazine', limite_de_linhas=LIMITE_DE_LINHAS_BUSCA_LEGAL,
+        empresa=EMPRESA_MAGAZINE,
     ),
     ArquivoDeReferencia(
         id='busca-legal-samvale', grupo=GRUPO_IMPOSTOS_SAIDA, nome='Busca Legal — Samvale (SV)', icone='fa-file-invoice-dollar',
@@ -101,6 +109,7 @@ ARQUIVOS = (
         formato_esperado='Aba ativa · cabeçalho na linha 2 · colunas Cód Barras, NCM, CST, PIS, COFINS e as 27 UFs (AC a TO).',
         nome_no_drive='TABELA SAIDA POR UF SAMVALE.xlsx', auditoria_pronta=True,
         classe_do_auditor='auditoria_busca_legal:AuditorBuscaLegalSamvale', limite_de_linhas=LIMITE_DE_LINHAS_BUSCA_LEGAL,
+        empresa=EMPRESA_SAMVALE,
     ),
 )
 
@@ -111,12 +120,18 @@ def buscar_arquivo(id_do_arquivo):
     return _POR_ID.get(id_do_arquivo)
 
 
-# Função Objetivo: Os arquivos agrupados na ordem da tela: [(id_do_grupo, titulo, subtitulo, [arquivos])].
-def arquivos_por_grupo():
+# Função Objetivo: O arquivo pode ser visto e usado por esta empresa? Sim se for compartilhado ('') ou se for dela.
+def arquivo_e_da_empresa(arquivo, empresa):
+    return arquivo.empresa in ('', empresa)
+
+
+# Função Objetivo: Os arquivos da EMPRESA agrupados na ordem da tela: [(id_do_grupo, titulo, subtitulo, [arquivos])].
+# O arquivo que é só da outra empresa não entra (a tela de uma empresa nunca mostra o cartão da outra).
+def arquivos_por_grupo(empresa):
     grupos = []
     for id_do_grupo in (GRUPO_FRETE, GRUPO_IMPOSTOS_SAIDA):
         grupos.append((
             id_do_grupo, TITULOS_DOS_GRUPOS[id_do_grupo], SUBTITULOS_DOS_GRUPOS[id_do_grupo],
-            [a for a in ARQUIVOS if a.grupo == id_do_grupo],
+            [a for a in ARQUIVOS if a.grupo == id_do_grupo and arquivo_e_da_empresa(a, empresa)],
         ))
     return grupos

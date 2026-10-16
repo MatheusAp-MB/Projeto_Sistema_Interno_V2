@@ -74,6 +74,14 @@
         {% endif %}
     </footer>
 
+    {# "Ver arquivo" do arquivo conferido: formulário escondido; o JS põe o arquivo (guardado na memória do navegador) no seletor e dispara "arq-ver". #}
+    {% if cartao.relatorio %}
+        <form class="arq-form-ver" hx-post="{% url 'arquivos_referencia_ver_escolhido' cartao.id %}" hx-encoding="multipart/form-data"
+              hx-trigger="arq-ver" hx-target="#arq-viz-miolo" hx-swap="innerHTML">
+            <input type="file" name="arquivo" class="arq-input-ver" accept=".xlsx" hidden aria-label="Arquivo conferido de {{ cartao.nome }}, para ver como no Excel">
+        </form>
+    {% endif %}
+
     {# Auditoria completa, escondida; o botão "Ver auditoria" copia isto para a janela. #}
     {% if cartao.relatorio %}
         <div class="arq-card__auditoria" hidden>

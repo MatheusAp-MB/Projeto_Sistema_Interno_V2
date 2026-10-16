@@ -1,0 +1,91 @@
+{% comment %}
+Conteúdo da janela "Ver arquivo" (o HTMX troca o miolo da janela por isto). Recebe ou `erro` (titulo, texto, como_corrigir, link) ou
+`visualizacao` (de montar_visualizacao: nome, tamanho_texto, origem, modificado_em, abas, avisos, css).
+
+Trocas SEM JavaScript (só CSS, com botões de opção escondidos que vêm ANTES do que eles controlam — por isso a ordem do HTML importa):
+  · "Como no Excel" / "Valor bruto": os botões #arq-viz-m-excel e #arq-viz-m-bruto; no modo bruto some o texto formatado (.vx) e aparece o valor
+    guardado no arquivo, com as fórmulas (.vb).
+  · Abas: um botão #arq-viz-a-N por aba; o CSS mostra só o painel #arq-viz-p-N da aba marcada.
+O JS só cuida da barra de fórmulas (clicar numa célula mostra o endereço e o conteúdo completo).
+Tudo que veio do arquivo é escapado pelo Django; a tabela de cada aba (aba.html) já vem montada e escapada de tabela_do_visualizador.py.
+{% endcomment %}
+{% if erro %}
+    <div class="arq-viz-erro" role="alert">
+        <span class="arq-viz-erro__icone"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></span>
+        <div class="arq-viz-erro__textos">
+            <p class="arq-viz-erro__titulo">{{ erro.titulo }}</p>
+            <p class="arq-viz-erro__texto">{{ erro.texto }}</p>
+            {% if erro.como_corrigir %}<p class="arq-viz-erro__como"><strong>O que fazer:</strong> {{ erro.como_corrigir }}</p>{% endif %}
+            {% if erro.link %}<p class="arq-viz-erro__como"><a class="arq-drive__link" href="{{ erro.link.url }}" target="_blank" rel="noopener">{{ erro.link.texto }}</a></p>{% endif %}
+        </div>
+    </div>
+{% else %}
+    <div class="arq-viz" data-arq-origem="{{ visualizacao.origem }}">
+        <style>
+            {{ visualizacao.css|safe }}
+            {% for aba in visualizacao.abas %}
+            #arq-viz-a-{{ aba.indice }}:checked ~ .arq-viz__area #arq-viz-p-{{ aba.indice }} { display: block; }
+            #arq-viz-a-{{ aba.indice }}:checked ~ .arq-viz__abas label[for="arq-viz-a-{{ aba.indice }}"] { background: var(--arq-viz-aba-ativa); color: var(--arq-viz-aba-ativa-texto); font-weight: 700; box-shadow: inset 0 -3px 0 var(--arq-viz-destaque); }
+            #arq-viz-a-{{ aba.indice }}:checked ~ .arq-viz__abas .arq-viz__status[data-arq-aba="{{ aba.indice }}"] { display: inline; }
+            #arq-viz-a-{{ aba.indice }}:focus-visible ~ .arq-viz__abas label[for="arq-viz-a-{{ aba.indice }}"] { outline: 2px solid var(--arq-viz-destaque); outline-offset: -2px; }
+            {% endfor %}
+        </style>
+
+        <input type="radio" class="arq-viz__r" name="arq-viz-modo" id="arq-viz-m-excel" checked>
+        <input type="radio" class="arq-viz__r" name="arq-viz-modo" id="arq-viz-m-bruto">
+        {% for aba in visualizacao.abas %}
+            <input type="radio" class="arq-viz__r" name="arq-viz-aba" id="arq-viz-a-{{ aba.indice }}"{% if aba.ativa %} checked{% endif %}>
+        {% endfor %}
+
+        <div class="arq-viz__topo">
+            <div class="arq-viz__arquivo">
+                <span class="arq-viz__icone"><i class="fas fa-file-excel" aria-hidden="true"></i></span>
+                <div class="arq-viz__textos">
+                    <strong class="arq-viz__nome" title="{{ visualizacao.nome }}">{{ visualizacao.nome }}</strong>
+                    <span class="arq-viz__origem">
+                        {% if visualizacao.origem == 'drive' %}
+                            <i class="fab fa-google-drive" aria-hidden="true"></i> Arquivo que está no Drive agora{% if visualizacao.modificado_em %} · enviado em {{ visualizacao.modificado_em|date:"d/m/Y H:i" }}{% endif %}
+                        {% else %}
+                            <i class="fas fa-laptop" aria-hidden="true"></i> Arquivo escolhido neste computador
+                        {% endif %}
+                        · {{ visualizacao.tamanho_texto }} · só leitura
+                    </span>
+                </div>
+            </div>
+            <div class="arq-viz__modos" role="group" aria-label="Jeito de mostrar os valores">
+                <label for="arq-viz-m-excel" class="arq-viz__modo arq-viz__modo--excel" title="Os números como o Excel mostra: R$, %, kg, datas, casas decimais."><i class="fas fa-table" aria-hidden="true"></i> Como no Excel</label>
+                <label for="arq-viz-m-bruto" class="arq-viz__modo arq-viz__modo--bruto" title="O que está guardado no arquivo, sem formatação{% if visualizacao.tem_formula %}, e as fórmulas no lugar dos resultados{% endif %}."><i class="fas fa-code" aria-hidden="true"></i> Valor bruto</label>
+            </div>
+        </div>
+
+        {% if visualizacao.avisos %}
+            <ul class="arq-viz__avisos">
+                {% for aviso in visualizacao.avisos %}<li><i class="fas fa-circle-info" aria-hidden="true"></i> {{ aviso }}</li>{% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="arq-viz__formula" role="status" aria-live="polite">
+            <span class="arq-viz__endereco" id="arq-viz-endereco">—</span>
+            <span class="arq-viz__fx" aria-hidden="true">fx</span>
+            <span class="arq-viz__conteudo-da-celula" id="arq-viz-conteudo-da-celula">Clique numa célula para ver o conteúdo completo{% if visualizacao.tem_formula %} e a fórmula{% endif %}.</span>
+        </div>
+
+        <div class="arq-viz__area" tabindex="0" aria-label="Planilha, somente leitura">
+            {% for aba in visualizacao.abas %}
+                <div class="arq-viz__aba" id="arq-viz-p-{{ aba.indice }}" role="tabpanel">
+                    {% if aba.html %}{{ aba.html|safe }}{% endif %}
+                    {% if aba.resumo %}<p class="arq-viz__aviso-da-aba">{{ aba.resumo }}</p>{% endif %}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="arq-viz__abas" role="tablist" aria-label="Abas do arquivo">
+            {% for aba in visualizacao.abas %}
+                <label for="arq-viz-a-{{ aba.indice }}" role="tab" class="arq-viz__aba-nome" title="{{ aba.nome }}">{{ aba.nome }}</label>
+            {% endfor %}
+            {% for aba in visualizacao.abas %}
+                <span class="arq-viz__status" data-arq-aba="{{ aba.indice }}">{% if aba.linhas %}{{ aba.linhas }} linha{{ aba.linhas|pluralize }} × {{ aba.colunas }} coluna{{ aba.colunas|pluralize }}{% else %}aba vazia{% endif %}</span>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}

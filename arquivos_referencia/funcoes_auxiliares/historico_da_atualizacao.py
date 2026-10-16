@@ -1,9 +1,11 @@
 # arquivos_referencia/funcoes_auxiliares/historico_da_atualizacao.py
 
-# Função Objetivo: Gravar e ler o histórico "quando o sistema foi atualizado com este arquivo" (model AtualizacaoDoSistema), nas DUAS
-# empresas. Quem grava é a atualização do sistema (atualizacao_do_sistema.py); quem lê é a linha "No Drive agora" de cada cartão.
+# Função Objetivo: Gravar e ler o histórico "quando o sistema foi atualizado com este arquivo" (model AtualizacaoDoSistema), no banco de
+# CADA empresa. Quem grava é a atualização do sistema (atualizacao_do_sistema.py); quem lê é a linha "No sistema" de cada cartão.
 #
-# * [EXPLICAÇÃO] → Estado de cada empresa para um arquivo (sempre ícone + texto na tela, nunca só cor):
+# * [DECISÃO, 16/10/2026] → INDEPENDÊNCIA entre as empresas: a leitura é SEMPRE de uma empresa só (a selecionada na tela). A tela da
+#   Magazine nunca mostra a data/selo da Samvale, e vice-versa (igual à Gestão de APIs).
+# * [EXPLICAÇÃO] → Estado da empresa para um arquivo (sempre ícone + texto na tela, nunca só cor):
 #   - "em dia": o sistema foi atualizado com EXATAMENTE o arquivo que está no Drive agora (mesma impressão digital, MD5);
 #   - "desatualizado": o sistema foi atualizado alguma vez, mas o Drive tem uma versão diferente (alguém enviou um arquivo novo);
 #   - "nunca": o sistema nunca foi atualizado com este arquivo por este botão;
@@ -17,7 +19,7 @@ import logging
 from django.db import connections
 from django.utils import timezone
 
-from core.empresa import ALIAS_BANCO_POR_EMPRESA, EMPRESAS_VALIDAS, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
+from core.empresa import ALIAS_BANCO_POR_EMPRESA, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 
 from ..models import AtualizacaoDoSistema
 
@@ -86,31 +88,29 @@ def _estado_da_empresa(registro, md5_do_drive):
     return ESTADO_EM_DIA if registro.arquivo_md5.lower() == md5_do_drive.lower() else ESTADO_DESATUALIZADO
 
 
-# Função Objetivo: O histórico de 1 arquivo nas duas empresas, pronto para a tela:
-#   {'empresas': [{'empresa', 'nome', 'estado', 'rotulo', 'icone', 'dica', 'atualizado_em', 'novas', 'mudaram', 'iguais', 'removidas'}, ...]}
+# Função Objetivo: O histórico de 1 arquivo em UMA empresa (a da tela), pronto para a tela:
+#   {'empresa', 'nome', 'estado', 'rotulo', 'icone', 'dica', 'atualizado_em', 'novas', 'mudaram', 'iguais', 'removidas'}
 # `md5_do_drive` = impressão digital do arquivo que está no Drive AGORA (None se o Drive não respondeu).
-def situacao_do_sistema(arquivo_id, md5_do_drive):
-    empresas = []
-    for empresa in EMPRESAS_VALIDAS:
-        alias = ALIAS_BANCO_POR_EMPRESA[empresa]
-        registro = None
-        estado = None
-        try:
-            if tabela_existe(alias):
-                registro = AtualizacaoDoSistema.objects.using(alias).filter(arquivo_id=arquivo_id).first()
-            else:
-                estado = ESTADO_INDISPONIVEL
-        except Exception:
-            logger.exception('Histórico da atualização: não consegui ler o banco %s', alias)
+# Só lê o banco desta empresa (explicitamente, por alias): nunca o da outra.
+def situacao_do_sistema(arquivo_id, md5_do_drive, empresa):
+    alias = ALIAS_BANCO_POR_EMPRESA[empresa]
+    registro = None
+    estado = None
+    try:
+        if tabela_existe(alias):
+            registro = AtualizacaoDoSistema.objects.using(alias).filter(arquivo_id=arquivo_id).first()
+        else:
             estado = ESTADO_INDISPONIVEL
-        if estado is None:
-            estado = _estado_da_empresa(registro, md5_do_drive)
-        rotulo, icone = ESTADOS_DO_HISTORICO[estado]
-        empresas.append({
-            'empresa': empresa, 'nome': NOMES_CURTOS_DAS_EMPRESAS.get(empresa, empresa.title()), 'estado': estado,
-            'rotulo': rotulo, 'icone': icone, 'dica': _dica_da_empresa(estado, registro),
-            'atualizado_em': registro.atualizado_em if registro else None,
-            'novas': registro.linhas_novas if registro else 0, 'mudaram': registro.linhas_mudaram if registro else 0,
-            'iguais': registro.linhas_iguais if registro else 0, 'removidas': registro.linhas_removidas if registro else 0,
-        })
-    return {'empresas': empresas}
+    except Exception:
+        logger.exception('Histórico da atualização: não consegui ler o banco %s', alias)
+        estado = ESTADO_INDISPONIVEL
+    if estado is None:
+        estado = _estado_da_empresa(registro, md5_do_drive)
+    rotulo, icone = ESTADOS_DO_HISTORICO[estado]
+    return {
+        'empresa': empresa, 'nome': NOMES_CURTOS_DAS_EMPRESAS.get(empresa, empresa.title()), 'estado': estado,
+        'rotulo': rotulo, 'icone': icone, 'dica': _dica_da_empresa(estado, registro),
+        'atualizado_em': registro.atualizado_em if registro else None,
+        'novas': registro.linhas_novas if registro else 0, 'mudaram': registro.linhas_mudaram if registro else 0,
+        'iguais': registro.linhas_iguais if registro else 0, 'removidas': registro.linhas_removidas if registro else 0,
+    }
