@@ -5,8 +5,10 @@ A atualização do FRETE ESPELHA o arquivo (decisão de 15/10/2026): o que não 
 A planilha BUSCA LEGAL (16/10/2026) mostra, em vez da tabela, os 4 passos que rodaram (resultado.com_etapas). No modo Expandir não remove nada; no modo
 Substituir (empresa.substituicao) mostra antes de tudo o que foi APAGADO, bloco por bloco, igual ao que a pessoa leu na prévia.
 Estado nunca só por cor: o selo e cada empresa levam ícone + texto. Texto que vem do servidor ou do arquivo é escapado pelo Django.
+Ciclo 3 (16/10/2026): a linha carrega `data-arq-grades` (ids das grades locais que usam o que este arquivo mudou; só aparece quando algo mudou de verdade) e
+`data-arq-grade-ml-pendente` (a grade do Mercado Livre também ficou desatualizada). O JS lê isso depois de todos os arquivos e recalcula as grades, uma por pedido.
 {% endcomment %}
-<li class="arq-atu arq-atu--{{ resultado.status }}" id="arq-atu-{{ resultado.arquivo_id }}" data-arq-status="{{ resultado.status }}">
+<li class="arq-atu arq-atu--{{ resultado.status }}" id="arq-atu-{{ resultado.arquivo_id }}" data-arq-status="{{ resultado.status }}"{% if resultado.grades_a_recalcular %} data-arq-grades="{{ resultado.grades_a_recalcular|join:',' }}"{% endif %}{% if resultado.grade_do_ml_pendente %} data-arq-grade-ml-pendente{% endif %}>
     <div class="arq-atu__topo">
         <span class="arq-atu__icone"><i class="fas {{ resultado.icone }}" aria-hidden="true"></i></span>
         <span class="arq-atu__nome">{{ resultado.nome }}</span>

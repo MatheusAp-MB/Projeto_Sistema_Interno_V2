@@ -33,6 +33,7 @@ dependencies = [
     "flask-cors (>=6.0.5,<7.0.0)",
     "google-auth-oauthlib (>=1.4.0,<2.0.0)",
     "anthropic (>=1.13.0,<2.0.0)",
+    "google-genai (>=2.31.0,<3.0.0)",
 ]
 
 [build-system]

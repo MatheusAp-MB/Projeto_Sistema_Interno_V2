@@ -59,7 +59,7 @@
             <form class="arq-form-envio" hx-post="{% url 'arquivos_referencia_enviar' cartao.id %}" hx-encoding="multipart/form-data"
                   hx-trigger="arq-enviar" hx-target="closest .arq-card" hx-swap="outerHTML" hx-indicator="closest .arq-card">
                 <input type="file" name="arquivo" class="arq-input-envio" accept=".xlsx" hidden aria-label="Arquivo conferido de {{ cartao.nome }}, para enviar ao Drive">
-                <button type="button" class="arq-btn arq-btn--primario" data-arq-enviar
+                <button type="button" class="arq-btn arq-btn--primario" data-arq-enviar{% if cartao.com_modo %} data-arq-com-modo{% endif %}
                         data-arq-nome="{{ cartao.relatorio.nome_do_arquivo }}" data-arq-tamanho="{{ cartao.relatorio.tamanho_texto }}"
                         data-arq-avisos="{{ cartao.relatorio.total_de_avisos }}"
                         data-arq-pasta="{{ cartao.pasta_no_drive }}" data-arq-arquivo-no-drive="{{ cartao.nome_no_drive }}"
@@ -72,6 +72,12 @@
                 <i class="fab fa-google-drive" aria-hidden="true"></i> <span class="arq-btn__texto">Enviar para o Drive</span>
             </button>
         {% endif %}
+
+        {# Modelo: planilha igual ao arquivo real (mesmo visual e formato que o sistema lê); sempre disponível, não depende do Drive nem de ter escolhido arquivo. #}
+        <a class="arq-btn arq-btn--modelo" href="{% url 'arquivos_referencia_modelo' cartao.id %}" download
+           title="Baixa o modelo deste arquivo: o mesmo formato e visual do arquivo real, só com 1 linha de exemplo (2 no Mercado Livre) e uma linha cinza escura marcando o fim. Nenhum valor de frete vem preenchido.">
+            <i class="fas fa-file-excel" aria-hidden="true"></i> <span class="arq-btn__texto">Modelo</span>
+        </a>
     </footer>
 
     {# "Ver arquivo" do arquivo conferido: formulário escondido; o JS põe o arquivo (guardado na memória do navegador) no seletor e dispara "arq-ver". #}

@@ -27,8 +27,9 @@ from .atualizacao_do_sistema import (
     EMPRESA_ATUALIZADA, EMPRESA_FALHOU, EMPRESA_RECUSADA, STATUS_ARQUIVO_COM_ERROS, STATUS_ATUALIZADO, STATUS_FALHA_DO_DRIVE,
     STATUS_FALHA_DO_SISTEMA, STATUS_NAO_ATUALIZOU, STATUS_OCUPADO, STATUS_PREVIA, STATUS_PREVIA_INVALIDA, STATUS_SEM_ARQUIVO, o_botao_atualiza,
 )
-from .catalogo_arquivos import arquivos_por_grupo
+from .catalogo_arquivos import GRUPO_IMPOSTOS_SAIDA, arquivos_por_grupo
 from .historico_da_atualizacao import NOMES_CURTOS_DAS_EMPRESAS, situacao_do_sistema
+from .recalculo_das_grades import STATUS_GRADE_FALHOU, STATUS_GRADE_OCUPADA, STATUS_GRADE_RECALCULADA
 from .relatorio_auditoria import STATUS_COM_AVISOS, STATUS_COM_ERROS, STATUS_ILEGIVEL, STATUS_VALIDO, formatar_tamanho
 
 ESTADO_CONSULTANDO = 'consultando'
@@ -128,6 +129,7 @@ def montar_cartao(arquivo, empresa, relatorio=None, quando=None, envio=None, lin
         'para_que_serve': arquivo.para_que_serve,
         'formato_esperado': arquivo.formato_esperado,
         'upload_habilitado': arquivo.auditoria_pronta,
+        'com_modo': arquivo.grupo == GRUPO_IMPOSTOS_SAIDA,   # só a planilha Busca Legal tem modo (Expandir/Substituir): a janela de envio mostra o modo da empresa
         'estado': estado,
         'estado_rotulo': rotulo,
         'estado_icone': icone,
@@ -178,6 +180,24 @@ def montar_item_da_atualizacao(resultado, link=None):
         'empresas_com_remocao': [e for e in empresas_prontas if e['status'] == EMPRESA_ATUALIZADA and e['removidas']],
         # Busca Legal: o resultado traz os passos em vez da tabela "Novas / Mudaram / Iguais / Removidas" (que fica só para o frete e para as falhas).
         'com_etapas': any(e['status'] == EMPRESA_ATUALIZADA and e['etapas'] for e in empresas_prontas),
+    }
+
+
+# status da grade -> (rótulo, ícone completo, sufixo da classe do selo — as mesmas cores dos selos dos arquivos)
+ESTADOS_DA_GRADE = {
+    STATUS_GRADE_RECALCULADA: ('Recalculada', 'fas fa-circle-check', 'valido'),
+    STATUS_GRADE_OCUPADA: ('Já em andamento', 'fas fa-hourglass-half', 'em_breve'),
+    STATUS_GRADE_FALHOU: ('Não recalculou', 'fas fa-circle-xmark', 'com_erros'),
+}
+
+
+# Função Objetivo: Junta ao resultado de recalcular_grade o que a tela precisa para desenhar (rótulo, ícone e cor do estado).
+# `nota_sem_espelho` = grade que NÃO apaga linha antiga (Raia, Shopee) e que teve combinação sem preço: a linha antiga dessas fica com o preço de antes, e a tela diz isso.
+def montar_item_da_grade(resultado):
+    rotulo, icone, cor = ESTADOS_DA_GRADE[resultado['status']]
+    return {
+        **resultado, 'rotulo': rotulo, 'icone_do_estado': icone, 'cor': cor,
+        'nota_sem_espelho': resultado['status'] == STATUS_GRADE_RECALCULADA and not resultado['espelha'] and resultado['sem_calculo'] > 0,
     }
 
 

@@ -1,0 +1,16 @@
+{% comment %}
+1 linha da janela "Atualizar o sistema com o Drive" para uma GRADE DE PREÇO ainda não recalculada ("Aguardando"). Recebe `grade` (recalculo_das_grades.GradeLocal).
+Só entra na janela quando o que foi gravado afeta a grade (o JS copia do <template id="arq-grade-modelo">). Cada pedido leva a empresa que a tela mostrava (hx-vals):
+o servidor recusa se a empresa selecionada já for outra — nunca recalcula a empresa errada. O JS dispara as grades uma depois da outra (evento "arq-recalcular"):
+cada linha manda 1 POST e se troca pela linha de resultado (estrutura_parcial_resultado_grade.html). Enquanto o pedido está em andamento o HTMX põe a classe
+"htmx-request" e o CSS mostra "Recalculando…" no lugar de "Aguardando".
+{% endcomment %}
+<li class="arq-atu arq-atu--pendente arq-atu--grade" id="arq-grade-{{ grade.id }}" data-arq-tipo="grade" data-arq-grade="{{ grade.id }}" data-arq-status="pendente"
+    hx-post="{% url 'arquivos_referencia_recalcular_grade' grade.id %}" hx-vals='{"empresa": "{{ empresa_da_tela }}"}' hx-trigger="arq-recalcular" hx-swap="outerHTML">
+    <div class="arq-atu__topo">
+        <span class="arq-atu__icone"><i class="fas fa-calculator" aria-hidden="true"></i></span>
+        <span class="arq-atu__nome">Grade de preço — {{ grade.nome }}</span>
+        <span class="arq-pill arq-pill--aguardando arq-atu__espera"><i class="fas fa-clock" aria-hidden="true"></i> Aguardando</span>
+        <span class="arq-pill arq-pill--aguardando arq-atu__andando"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Recalculando…</span>
+    </div>
+</li>

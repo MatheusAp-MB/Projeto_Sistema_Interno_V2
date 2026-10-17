@@ -142,6 +142,21 @@
     border-color: var(--arq-valido-texto);
 }
 
+/* "Modelo" (link que baixa a planilha vazia): fica colado à direita do rodapé e nunca é o botão que encolhe; no celular só o ícone. */
+.arq-btn--modelo {
+    margin-left: auto;
+    flex-shrink: 0;
+    text-decoration: none;
+}
+
+.arq-btn--modelo:hover {
+    text-decoration: none;
+}
+
+@media (max-width: 640px) {
+    .arq-btn--modelo .arq-btn__texto { display: none; }
+}
+
 .arq-btn__texto {
     min-width: 0;
     overflow: hidden;
@@ -1071,6 +1086,23 @@
 .arq-atu__andando { display: none; }
 .arq-atu.htmx-request .arq-atu__andando { display: inline-flex; }
 .arq-atu.htmx-request .arq-atu__espera { display: none; }
+.arq-atu.htmx-request .arq-atu__fim { display: none; }   /* "Tentar de novo" de uma grade: some o selo de falha enquanto recalcula */
+
+/* Título da seção "Grades de preço que usam o que mudou" (entra na janela depois do último arquivo, só quando alguma grade foi afetada). */
+.arq-atu-secao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 0;
+    padding: 0 2px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--arq-neutro-texto);
+}
+
+.arq-atu__botoes { margin: 0; }
 
 .arq-atu__mensagem {
     margin: 0;
@@ -1264,6 +1296,69 @@
 .arq-modo:has(input:checked) { background: #f1f5fa; border-color: var(--cor-primaria); }
 .arq-modo--substituir:has(input:checked) { background: var(--arq-erro-fundo); border-color: var(--arq-erro-texto); }
 .arq-modo:has(input:focus-visible) { outline: 2px solid var(--cor-primaria-clara); outline-offset: 2px; }
+
+/* Card de configuração do topo da tela (16/10/2026): o MODO da planilha Busca Legal da empresa. É a única escolha de modo; as janelas de envio e de atualizar só o mostram. */
+.arq-config {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+    background: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.arq-config__cabecalho {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 2px 12px;
+}
+
+.arq-config__titulo { margin: 0; font-size: 1.05rem; color: var(--cor-primaria); }
+.arq-config__titulo > i { margin-right: 6px; }
+.arq-config__sub { font-size: 0.8rem; color: var(--cor-texto-muted); }
+.arq-config__frete { margin-left: auto; font-size: 0.78rem; color: var(--arq-neutro-texto); white-space: nowrap; }
+.arq-config__frete > i { margin-right: 4px; }
+
+/* As 2 opções sempre lado a lado (layout fixo: a largura é fluida, a quantidade de colunas não muda com a barra lateral). */
+.arq-config__opcoes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.arq-config .arq-modo { height: 100%; }
+.arq-modo__texto small { display: block; margin-top: 2px; font-size: 0.78rem; font-weight: 400; color: var(--cor-texto-muted); }
+.arq-config__aviso { margin: 0; font-size: 0.8rem; color: var(--arq-aviso-texto); }
+
+/* Linha do modo na janela "Enviar ao Drive?" (só a planilha Busca Legal): mostra o modo da empresa, não o escolhe. */
+.arq-envio__modo { margin: 0 0 12px; font-size: 0.9rem; color: #243247; }
+
+/* Corpo da janela "Atualizar o sistema com o Drive?": o mesmo molde das outras janelas de confirmação do sistema (1 frase + tópicos curtos + 1 nota). */
+.arq-modal-corpo { font-size: 0.9rem; color: #243247; }
+.arq-modal-corpo p { margin: 0 0 10px; }
+.arq-modal-corpo ul { margin: 0 0 12px; padding-left: 1.2rem; }
+.arq-modal-corpo li + li { margin-top: 6px; }
+.arq-modal-alerta { color: var(--arq-erro-texto); }
+
+/* Selo do modo da Busca Legal (no cartão e na janela de atualizar). O que APAGA leva tom de aviso E o texto "Substituir": nunca só cor. */
+.arq-modo-chip {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 4px;
+    padding: 0 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 18px;
+    white-space: nowrap;
+    vertical-align: middle;
+    border-radius: 999px;
+}
+
+.arq-modo-chip--expandir   { color: var(--arq-neutro-texto); background: var(--arq-neutro-fundo); }
+.arq-modo-chip--substituir { color: var(--arq-erro-texto);   background: var(--arq-erro-fundo); }
 
 .arq-previa {
     display: flex;

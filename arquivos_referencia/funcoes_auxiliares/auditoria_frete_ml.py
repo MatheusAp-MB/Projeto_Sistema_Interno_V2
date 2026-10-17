@@ -12,7 +12,9 @@
 #     Grátis Rápido"); Regime com qualquer outro texto (até um espaço a mais) é pulado pelo importador;
 #   - peso máximo: número, ou texto "sem limite" na última faixa. QUALQUER texto ali é lido como "sem limite" — um
 #     "0,5" digitado como texto viraria uma faixa sem teto. Aqui só "sem limite" passa;
-#   - a chave de cada valor é (peso mínimo, preço mínimo, regime): linha repetida sobrescreve a anterior em silêncio.
+#   - a chave de cada valor é (peso mínimo, preço mínimo, regime): linha repetida sobrescreve a anterior em silêncio;
+#   - [DECISÃO, 17/10/2026] célula de preço vazia só AVISA (a tabela real tem células legítimas sem valor), mas uma planilha SEM NENHUM valor de
+#     frete é ERRO: é o que acontece com o modelo da tela (botão "Modelo") enviado sem preencher, e ele não pode seguir para o Drive.
 # * [IMPORTANTE] → Os textos válidos do Regime vêm do próprio model (FreteML.Regime), via o importador — nunca
 #   escritos de novo aqui.
 
@@ -104,6 +106,7 @@ class AuditorFreteML(AuditorDeTabela):
         registros = self._ler_linhas(aba, linhas, faixas_de_preco)
         self._conferir_faixas_de_peso(aba, registros)
         self._conferir_regimes_e_valores(aba, registros)
+        self._conferir_se_ha_algum_valor(aba, registros)
         self._resumir(registros, faixas_de_preco)
         self._montar_previa(aba, registros, faixas_de_preco)
 
@@ -286,6 +289,15 @@ class AuditorFreteML(AuditorDeTabela):
                     formatar_valor=formatar_dinheiro,
                     quando='ao passar para a faixa de preço seguinte (mais cara)',
                 )
+
+    # Função Objetivo: Tabela sem nenhum valor de frete não serve para nada (e seria gravada no Drive no lugar da tabela de verdade): erro.
+    def _conferir_se_ha_algum_valor(self, aba, registros):
+        if registros and all(r.confiavel for r in registros) and not any(v is not None for r in registros for v in r.valores):
+            self.relatorio.erro(
+                self.local(aba),
+                'A planilha não tem nenhum valor de frete: todas as células de preço estão vazias.',
+                'Preencha os valores de frete (R$) de cada faixa de peso e de preço. Se este é o modelo da tela, ele só mostra o formato.',
+            )
 
     def _resumir(self, registros, faixas_de_preco):
         confiaveis = [r for r in registros if r.confiavel]

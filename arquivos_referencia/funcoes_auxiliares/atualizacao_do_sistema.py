@@ -18,6 +18,10 @@
 #   desfeita no fim e devolve o que SERIA apagado, sem gravar nada (nem o histórico); (2) o Substituir de verdade só roda se vier junto o md5 do
 #   arquivo cuja prévia a pessoa leu, e esse md5 ainda for o do arquivo que está no Drive agora: se alguém trocou o arquivo no meio do caminho,
 #   NADA é gravado e a pessoa lê a prévia do arquivo novo. O Expandir não tem prévia nem essa trava (não apaga nada).
+# * [DECISÃO, 16/10/2026] → O MODO da Busca Legal (Expandir/Substituir) NÃO é escolhido aqui: é uma configuração da EMPRESA (card no topo da tela; ver
+#   configuracao_da_importacao.py) que vale para o envio e para esta atualização. Atualizar o sistema só LÊ esse modo (do banco da empresa pedida) e o aplica;
+#   sem configuração gravada é Expandir, que nunca apaga. As travas do Substituir (prévia + md5) continuam aqui, no momento de gravar. Só a PRÉVIA fixa o modo
+#   (modo=Substituir, simular=True).
 # * [DECISÃO, 16/10/2026] → INDEPENDÊNCIA entre as empresas (igual à Gestão de APIs): o botão atualiza SÓ a empresa selecionada na tela.
 #   Antes gravava nas duas de uma vez (decisão de 15/10/2026, revogada pelo Matheus em 16/10/2026). O arquivo do Drive continua um só
 #   para as duas, mas cada empresa atualiza o seu banco quando quiser, separadamente: atualizar a Magazine nunca mexe na Samvale.
@@ -38,8 +42,10 @@
 #   casa com o arquivo, tenha mudado ou não. "Removidas" = linhas que já existiam no banco e o arquivo não menciona.
 # * [IMPORTANTE] → Os importadores (o mesmo código do "popular banco") só CRIAM e ATUALIZAM; quem REMOVE o que sobrou é este módulo, logo
 #   depois do importador e DENTRO da mesma transação. O "popular banco" de terminal continua como sempre foi (não remove nada).
-# * [IMPORTANTE] → Este passo ainda NÃO recalcula as grades de preço (calcular_grade_*). Enquanto isso, quando a tabela muda, o resultado
-#   avisa que a grade daquele marketplace continua com os preços da tabela anterior (o recálculo automático é o próximo ciclo).
+# * [DECISÃO, 16/10/2026] → Ciclo 3: este passo NÃO recalcula grade nenhuma (continua só gravando o arquivo), mas diz à tela QUAIS grades de preço locais
+#   (Magalu, TikTok Shop, Amazon, Raia, Shopee) usam o que acabou de mudar (`grades_a_recalcular`, de recalculo_das_grades.py). A tela as recalcula
+#   logo depois, uma por pedido (view_recalcular_grade). "Já estava em dia" não recalcula nada. A grade do Mercado Livre (usa a API do ML) fica para o
+#   ciclo 4: enquanto isso, quando o que mudou também a afeta, o resultado avisa que ela continua com os preços de antes (`grade_do_ml_pendente`).
 # * [EXPLICAÇÃO] → O importador escolhe o banco pela empresa ativa da requisição (EmpresaRouter). Por isso a gravação define a empresa
 #   pedida como ativa e SEMPRE devolve a original no fim (a requisição continua na empresa que a pessoa escolheu na tela).
 
@@ -58,9 +64,11 @@ from core.empresa import (
 
 from .auditor_de_arquivos import auditar_arquivo
 from .catalogo_arquivos import ARQUIVOS, GRUPO_IMPOSTOS_SAIDA, arquivo_e_da_empresa
+from .configuracao_da_importacao import modo_da_busca_legal
 from .envio_ao_drive import ArquivoAusenteNoDrive, ErroDoEnvio, ler_do_drive
 from .historico_da_atualizacao import registrar, tabela_existe
 from .importacao_busca_legal import MODO_EXPANDIR, MODO_SUBSTITUIR, MODOS_VALIDOS, ImportacaoDeImpostosRecusada, executar_busca_legal
+from .recalculo_das_grades import SaidaSilenciosa as _SaidaSilenciosa, grades_afetadas
 from .relatorio_auditoria import formatar_tamanho
 
 logger = logging.getLogger(__name__)
@@ -94,7 +102,7 @@ class ImportacaoDeTabela:
     classe: str     # classe ImportadorFrete* (a MESMA que o popular banco usa)
     app: str        # app do model (para achar o model sem importar à força)
     modelo: str
-    grade: str      # nome da grade de preços que usa esta tabela (só para o aviso "grade ainda não recalculada")
+    grade: str      # nome da grade de preços que usa esta tabela (informativo; quem decide o que recalcular é recalculo_das_grades.py)
 
 
 # id do cartão (catalogo_arquivos.py) -> como importar. É a lista FECHADA do que o botão atualiza hoje.
@@ -129,14 +137,8 @@ def o_botao_atualiza(id_do_arquivo):
     return id_do_arquivo in IMPORTACOES or id_do_arquivo in IDS_DA_BUSCA_LEGAL
 
 
-# Função Objetivo: Onde os importadores escrevem "[FRETE ML] ... 10/40 linhas": aqui ninguém lê, então se descarta (o resultado vai para a tela).
-class _SaidaSilenciosa:
-
-    def write(self, *_, **__):
-        return 0
-
-    def flush(self):
-        pass
+# * [EXPLICAÇÃO] → `_SaidaSilenciosa` (importada acima de recalculo_das_grades.py) é onde os importadores escrevem "[FRETE ML] ... 10/40 linhas":
+#   ninguém lê, então se descarta (o resultado vai para a tela). A tela de recálculo das grades usa a mesma.
 
 
 # Função Objetivo: O importador achou erro de linha: a transação inteira daquela tabela é desfeita (levanta dentro do bloco atômico).
@@ -281,7 +283,7 @@ def _resultado_base(arquivo, empresa, status, mensagem='', **extras):
         'arquivo_id': arquivo.id, 'nome': arquivo.nome, 'icone': arquivo.icone, 'nome_no_drive': arquivo.nome_no_drive, 'status': status,
         'empresa': empresa, 'empresa_nome': _nome_da_empresa(empresa),
         'mensagem': mensagem, 'drive': None, 'notas': [], 'motivos': [], 'motivos_ocultos': 0, 'empresas': [],
-        'renovar_autorizacao': False, **extras,
+        'renovar_autorizacao': False, 'grades_a_recalcular': (), 'grade_do_ml_pendente': False, **extras,
     }
 
 
@@ -309,18 +311,19 @@ def _resumo_da_empresa(resultado_da_empresa):
 # Função Objetivo: Atualiza o sistema de UMA empresa com UM arquivo do Drive. `arquivo` é um ArquivoDeReferencia do catálogo (a view já
 # conferiu que o botão o atualiza e que ele é visível para esta empresa); `empresa` é a empresa selecionada na tela. Falha PREVISTA vira
 # resultado (para a tela); bug do sistema sobe como exceção (a view registra e avisa).
-# Só a planilha Busca Legal tem `modo` (Expandir/Substituir) e `simular` (a prévia do Substituir: nada é gravado). `md5_da_previa` = o md5 do
-# arquivo cuja prévia a pessoa leu: obrigatório (e conferido com o do Drive agora) quando o Substituir vai gravar de verdade.
-def atualizar_arquivo(arquivo, empresa, modo=MODO_EXPANDIR, simular=False, md5_da_previa=None):
+# Só a planilha Busca Legal tem `modo` (Expandir/Substituir) e `simular` (a prévia do Substituir: nada é gravado). `modo=None` (o jeito normal de gravar) = o modo
+# configurado para a empresa (Expandir se não houver); só a prévia passa `modo=MODO_SUBSTITUIR` de propósito. `md5_da_previa` = o md5 do arquivo cuja
+# prévia a pessoa leu: obrigatório (e conferido com o do Drive agora) quando o Substituir vai gravar de verdade.
+def atualizar_arquivo(arquivo, empresa, modo=None, simular=False, md5_da_previa=None):
     # Proteção de quem chama: empresa desconhecida ou arquivo de outra empresa nunca chega a tocar em banco nenhum.
     if empresa not in EMPRESAS_VALIDAS:
         raise ValueError(f'Empresa desconhecida: {empresa!r}')
     if not arquivo_e_da_empresa(arquivo, empresa):
         raise ValueError(f'O arquivo {arquivo.id} não é da empresa {empresa}.')
-    if modo not in MODOS_VALIDOS:
+    if modo is not None and modo not in MODOS_VALIDOS:
         raise ValueError(f'Modo de atualização desconhecido: {modo!r}')
     importacao = IMPORTACOES.get(arquivo.id)   # None = planilha do Busca Legal (outro pipeline)
-    if importacao is not None and (modo != MODO_EXPANDIR or simular):
+    if importacao is not None and (modo not in (None, MODO_EXPANDIR) or simular):
         raise ValueError('Modo Substituir e prévia só existem para a planilha Busca Legal; as tabelas de frete já espelham o arquivo.')
     if simular and modo != MODO_SUBSTITUIR:
         raise ValueError('A prévia só existe para o modo Substituir (o Expandir não apaga nada).')
@@ -342,6 +345,13 @@ def atualizar_arquivo(arquivo, empresa, modo=MODO_EXPANDIR, simular=False, md5_d
                 arquivo, empresa, STATUS_FALHA_DO_DRIVE, problema.resumo, renovar_autorizacao=problema.renovar_autorizacao,
             )
 
+        if importacao is not None:
+            modo = MODO_EXPANDIR   # as tabelas de frete não têm modo: sempre espelham o arquivo
+        elif modo is None:
+            # O modo configurado para a empresa (banco dela); qualquer coisa fora do esperado vira o padrão seguro, que não apaga.
+            modo = modo_da_busca_legal(empresa)
+            if modo not in MODOS_VALIDOS:
+                modo = MODO_EXPANDIR
         conteudo = lido['conteudo']
         drive = {
             'tamanho_texto': formatar_tamanho(lido['tamanho_em_bytes']), 'modificado_em': lido['modificado_em'],
@@ -351,7 +361,8 @@ def atualizar_arquivo(arquivo, empresa, modo=MODO_EXPANDIR, simular=False, md5_d
             # Trava do Substituir: só apaga o que a pessoa VIU na prévia. Sem prévia, ou com o arquivo do Drive trocado depois dela: nada é gravado.
             return _resultado_base(
                 arquivo, empresa, STATUS_PREVIA_INVALIDA,
-                ('O Substituir só grava depois de você ler a prévia do que será apagado, e esta atualização não trouxe a prévia. Nada foi gravado.'
+                ('O modo da Busca Legal está em SUBSTITUIR (apaga o que a planilha não tem), mas esta tela não mostrou a prévia do que será apagado '
+                 '(o modo foi mudado depois que a tela abriu). Nada foi gravado: recarregue a página e atualize de novo.'
                  if not md5_da_previa else
                  'O arquivo que está no Drive mudou depois da prévia que você leu (alguém enviou outro arquivo). Nada foi gravado: abra a '
                  'atualização de novo e leia a prévia do arquivo novo.'),
@@ -385,18 +396,19 @@ def atualizar_arquivo(arquivo, empresa, modo=MODO_EXPANDIR, simular=False, md5_d
             # Prévia pronta: nada foi gravado (a transação foi desfeita). `drive['md5']` identifica o arquivo que esta prévia mostrou.
             return _resultado_base(arquivo, empresa, STATUS_PREVIA, '', drive=drive, notas=notas, empresas=[da_empresa])
         status, mensagem = _resumo_da_empresa(da_empresa)
-        # Dado mudou, grade ainda não foi recalculada: o aviso existe para essa diferença nunca passar em silêncio.
+        # Dado mudou: quais grades de preço usam isso. As locais são recalculadas pela tela logo depois (1 pedido por grade); a do Mercado Livre
+        # ainda não faz parte do botão, e esse aviso existe para a diferença nunca passar em silêncio.
+        grades, grade_do_ml_pendente = (), False
         if da_empresa['status'] == EMPRESA_ATUALIZADA and not da_empresa['nada_mudou']:
-            if importacao is not None:
+            grades, grade_do_ml_pendente = grades_afetadas(arquivo.id, importacao is None, da_empresa)
+            if grade_do_ml_pendente:
                 notas.append(
-                    f'A grade de precificação do {importacao.grade} da {nome} ainda NÃO foi recalculada com esta mudança: ela continua com os '
-                    'preços calculados pela tabela anterior até ser recalculada.'
+                    f'A grade de precificação do Mercado Livre da {nome} ainda NÃO foi recalculada com esta mudança: ela continua com os preços '
+                    'calculados antes até ser recalculada (esse recálculo usa a API do Mercado Livre e ainda não faz parte deste botão).'
                 )
-            elif da_empresa['produtos_mudaram']:
-                notas.append(
-                    f'As grades de preço de todos os marketplaces da {nome} usam estes impostos e ainda NÃO foram recalculadas com esta mudança: '
-                    'continuam com os preços calculados com os impostos anteriores até serem recalculadas.'
-                )
-        return _resultado_base(arquivo, empresa, status, mensagem, drive=drive, notas=notas, empresas=[da_empresa])
+        return _resultado_base(
+            arquivo, empresa, status, mensagem, drive=drive, notas=notas, empresas=[da_empresa],
+            grades_a_recalcular=grades, grade_do_ml_pendente=grade_do_ml_pendente,
+        )
     finally:
         trava.release()

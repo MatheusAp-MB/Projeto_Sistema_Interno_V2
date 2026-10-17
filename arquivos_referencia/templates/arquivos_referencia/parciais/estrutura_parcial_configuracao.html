@@ -1,0 +1,31 @@
+{% comment %}
+Card de configuração do topo da tela (16/10/2026): o MODO da planilha Busca Legal da empresa selecionada. É a ÚNICA escolha de modo da tela: vale para o envio ao Drive e
+para o "Atualizar o sistema" (as duas janelas só mostram o modo daqui). Trocar o modo grava na hora no banco da empresa (HTMX troca este card pelo gravado); se a troca
+falhar, o JS pede o card de novo para voltar ao valor gravado. Tabelas de frete não têm modo: sempre Substituir.
+Contexto: configuracao ({modo, disponivel, alterado_em}), empresa_da_tela, empresa_da_tela_nome.
+{% endcomment %}
+<section class="arq-config" id="arq-config-importacao" aria-labelledby="arq-config-titulo" data-arq-modo="{{ configuracao.modo }}">
+    <header class="arq-config__cabecalho">
+        <h2 class="arq-config__titulo" id="arq-config-titulo"><i class="fas fa-sliders" aria-hidden="true"></i> Modo de importação dos impostos</h2>
+        <span class="arq-config__sub">Planilha Busca Legal da {{ empresa_da_tela_nome }} · vale ao enviar ao Drive e ao atualizar o sistema</span>
+        <span class="arq-config__frete" title="As tabelas de frete não têm modo: o sistema sempre fica igual ao arquivo."><i class="fas fa-lock" aria-hidden="true"></i> Tabelas de frete: sempre Substituir</span>
+    </header>
+    <form class="arq-config__form" hx-post="{% url 'arquivos_referencia_modo' %}" hx-trigger="change" hx-target="#arq-config-importacao" hx-swap="outerHTML" hx-disabled-elt="find input">
+        <input type="hidden" name="empresa" value="{{ empresa_da_tela }}">
+        <div class="arq-config__opcoes" role="radiogroup" aria-labelledby="arq-config-titulo">
+            <label class="arq-modo" for="arq-config-expandir">
+                <input type="radio" name="modo" id="arq-config-expandir" value="expandir"{% if configuracao.modo == 'expandir' %} checked{% endif %}{% if not configuracao.disponivel %} disabled{% endif %}>
+                <span class="arq-modo__texto"><strong>Expandir</strong> (padrão)
+                    <small>Envia: junta ao arquivo do Drive. Atualiza: acrescenta e atualiza, sem apagar nada.</small></span>
+            </label>
+            <label class="arq-modo arq-modo--substituir" for="arq-config-substituir">
+                <input type="radio" name="modo" id="arq-config-substituir" value="substituir"{% if configuracao.modo == 'substituir' %} checked{% endif %}{% if not configuracao.disponivel %} disabled{% endif %}>
+                <span class="arq-modo__texto"><strong>Substituir</strong>
+                    <small>Envia: troca o arquivo do Drive inteiro. Atualiza: o sistema fica igual à planilha, apagando o resto (você vê a lista antes).</small></span>
+            </label>
+        </div>
+    </form>
+    {% if not configuracao.disponivel %}
+        <p class="arq-config__aviso" role="alert"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Não deu para ler a configuração deste banco (falta rodar o migrate). Enquanto isso o modo é Expandir e não pode ser mudado.</p>
+    {% endif %}
+</section>

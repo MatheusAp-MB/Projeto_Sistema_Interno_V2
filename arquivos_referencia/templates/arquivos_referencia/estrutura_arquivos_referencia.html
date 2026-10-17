@@ -4,7 +4,7 @@
 {% block toolbar_titulo %}Configurações — Arquivos de referência{% endblock %}
 {% block toolbar_acoes %}
     <button type="button" class="arq-toolbar-btn" id="arq-btn-atualizar"
-            title="Lê no Drive as {{ arquivos_de_frete_para_atualizar|length }} tabelas de frete{% if arquivo_de_impostos_para_atualizar %} e a planilha Busca Legal (impostos de saída){% endif %} e atualiza o sistema SÓ da empresa selecionada ({{ empresa_da_tela_nome }}). A outra empresa não é alterada. Pede confirmação antes.">
+            title="Lê no Drive as tabelas de frete{% if arquivo_de_impostos_para_atualizar %} e a planilha Busca Legal{% endif %} e atualiza só o sistema da {{ empresa_da_tela_nome }}. Pede confirmação antes.">
         <i class="fas fa-rotate" aria-hidden="true"></i> <span>Atualizar o sistema com o Drive</span>
         <span class="arq-toolbar-btn__empresa">{{ empresa_da_tela_nome }}</span>
     </button>
@@ -31,7 +31,10 @@
       EXPANDIR (o que está na planilha entra ou é atualizado; nada é apagado por não estar nela). Roda os 4 passos dos impostos de saída em ordem
       e numa transação só; a janela de resultado mostra cada passo, os grupos que mudaram de valor e os grupos rejeitados. O modo Substituir
       (espelho com remoção) veio no ciclo seguinte (nota logo abaixo).
-    * [DECISÃO, 16/10/2026] → Modo SUBSTITUIR da Busca Legal (escolha na janela de confirmação, ao lado do Expandir que continua sendo o padrão): depois da
+    * [DECISÃO, 16/10/2026] → MODO da Busca Legal (Expandir/Substituir) = UMA configuração da empresa, num card no topo da tela (abaixo da faixa azul), que vale para os dois
+      passos: no ENVIO, Expandir junta a planilha ao arquivo do Drive (existentes atualizadas, novas no final) e Substituir troca o arquivo inteiro; no ATUALIZAR, Expandir atualiza o que
+      existe e cria o que falta, e Substituir deixa o sistema igual à planilha. As janelas de envio e de atualizar só MOSTRAM o modo (não o escolhem); as tabelas de frete não têm modo
+      (sempre Substituir). Modo SUBSTITUIR da Busca Legal (no "Atualizar", abre a prévia antes de gravar): depois da
       confirmação o sistema da empresa fica LITERALMENTE igual à planilha — o que ela não tem é apagado dos produtos (CST e impostos de saída; o produto em si
       nunca é apagado) e das tabelas de ICMS e PIS/COFINS. Como apaga, antes disso abre a "Prévia do Substituir" (nada gravado), com TUDO que será apagado, por
       motivo, com totais exatos e listas; só depois de marcar "Li a lista…" o botão "Substituir e apagar" libera. O servidor também exige a prévia (MD5).
@@ -45,7 +48,9 @@
       Cada cartão de frete mostra "Data do envio do arquivo" e, para a empresa selecionada, "Data da última atualização do sistema com
       este arquivo" com o selo "Em dia" (o sistema leu exatamente o arquivo que está no Drive) ou "Drive tem arquivo mais novo". Vale também
       para a planilha Busca Legal.
-    * [IMPORTANTE] → As grades de preço ainda NÃO são recalculadas por este botão (próximo ciclo): a janela de resultado avisa isso.
+    * [DECISÃO, 16/10/2026] → Ciclo 3: depois de gravar os arquivos, a MESMA janela recalcula sozinha as grades de preço locais (Magalu, TikTok Shop, Amazon, Raia,
+      Shopee) que usam o que mudou, uma de cada vez, cada uma mostrando o resultado. "Já estava em dia" não recalcula nada. A grade do Mercado Livre (usa a API do ML)
+      ainda NÃO é recalculada por este botão (ciclo 4): a janela de resultado avisa isso.
     * [EXPLICAÇÃO] → Layout "fluido na horizontal, rígido na vertical", igual à Gestão de APIs: a altura de cada cartão é
       fixa; texto comprido é cortado e o que falta está na janela "Ver auditoria".
     * [EXPLICAÇÃO] → O arquivo escolhido não é guardado em disco nem no banco: fica só na memória do navegador até o envio (que
@@ -61,6 +66,10 @@
                 <span class="arq-faixa__texto">Você está vendo só a {{ empresa_da_tela_nome }}. “Atualizar o sistema com o Drive” grava as tabelas de frete e a planilha Busca Legal só nela; a outra empresa é atualizada à parte, quando você a selecionar.</span>
             </div>
         </div>
+
+        {% if arquivo_de_impostos_para_atualizar %}
+            {% include 'arquivos_referencia/parciais/estrutura_parcial_configuracao.html' %}
+        {% endif %}
 
         {% for grupo in grupos %}
             <section class="arq-grupo" aria-labelledby="arq-grupo-{{ grupo.id }}">
@@ -103,7 +112,7 @@
         </div>
     </div>
 
-    {# Confirmação do envio (o JS move para o <body> e preenche os 3 campos antes de abrir). #}
+    {# Confirmação do envio (o JS move para o <body> e preenche os 3 campos antes de abrir). Só quando o cartão é o da planilha Busca Legal, aparece UMA linha com o modo da empresa (Expandir junta ao arquivo do Drive; Substituir troca o arquivo inteiro): ela só mostra, o modo se escolhe no card do topo da tela. #}
     <div class="modal fade" id="arq-modal-envio" tabindex="-1" aria-labelledby="arq-modal-envio-titulo" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -120,10 +129,11 @@
                         <dt>Avisos</dt>
                         <dd id="arq-envio-avisos"></dd>
                     </dl>
-                    <p class="arq-envio__nota">
-                        Troca o arquivo que está no Drive hoje: a pasta fica sempre com 1 cópia (o Drive guarda a versão anterior por um tempo, em
-                        Arquivo → Histórico de versões). O servidor confere o arquivo de novo antes de enviar. Isto não atualiza o sistema.
+                    <p class="arq-envio__modo" id="arq-envio-modo" hidden>
+                        <span data-arq-envio-modo-linha="expandir"><span class="arq-modo-chip arq-modo-chip--expandir"><i class="fas fa-circle-plus" aria-hidden="true"></i> Expandir</span> junta as linhas desta planilha ao arquivo do Drive.</span>
+                        <span data-arq-envio-modo-linha="substituir" hidden><span class="arq-modo-chip arq-modo-chip--substituir"><i class="fas fa-trash-can" aria-hidden="true"></i> Substituir</span> troca o arquivo do Drive por inteiro.</span>
                     </p>
+                    <p class="arq-envio__nota" id="arq-envio-nota" data-arq-texto-padrao="Troca o arquivo do Drive (a versão anterior fica no histórico do Drive). Isto não atualiza o sistema." data-arq-texto-com-modo="A versão anterior do arquivo fica no histórico do Drive. Isto não atualiza o sistema.">Troca o arquivo do Drive (a versão anterior fica no histórico do Drive). Isto não atualiza o sistema.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="arq-btn" data-bs-dismiss="modal">Cancelar</button>
@@ -135,58 +145,30 @@
         </div>
     </div>
 
-    {# Confirmação de "Atualizar o sistema com o Drive" (o JS move para o <body>). Só descreve o que vai acontecer: o clique em confirmar é que dispara. #}
+    {# Confirmação de "Atualizar o sistema com o Drive" (o JS move para o <body>). Mesmo molde das outras janelas do sistema: pergunta no título, 1 frase, tópicos curtos, 1 nota. Só descreve; o clique em confirmar é que dispara. A linha da Busca Legal mostra o modo da empresa (o JS lê do card do topo e liga uma das 2 linhas); o texto longo mora na janela de resultado, quando for verdade. #}
     <div class="modal fade" id="arq-modal-atualizar" tabindex="-1" aria-labelledby="arq-modal-atualizar-titulo" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="arq-modal-atualizar-titulo"><i class="fas fa-rotate" aria-hidden="true"></i> Atualizar o sistema da {{ empresa_da_tela_nome }} com o Drive?</h5>
+                    <h5 class="modal-title" id="arq-modal-atualizar-titulo"><i class="fas fa-rotate" aria-hidden="true"></i> Atualizar a {{ empresa_da_tela_nome }} com o Drive?</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div class="modal-body">
-                    <dl class="arq-envio">
-                        <dt>Vai ler</dt>
-                        <dd>
-                            no Drive: os {{ arquivos_de_frete_para_atualizar|length }} arquivos de frete
-                            ({% for arquivo in arquivos_de_frete_para_atualizar %}{{ arquivo.nome|cut:"Frete — " }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} e {% else %}, {% endif %}{% endif %}{% endfor %}){% if arquivo_de_impostos_para_atualizar %}
-                            e a planilha Busca Legal da {{ empresa_da_tela_nome }} (impostos de saída){% endif %}.
-                        </dd>
-                        <dt>Vai gravar em</dt>
-                        <dd><strong>só na {{ empresa_da_tela_nome }}</strong> (a empresa selecionada). A outra empresa não é alterada: ela é atualizada à parte, quando você a selecionar.</dd>
+                <div class="modal-body arq-modal-corpo">
+                    <p>Vou ler os arquivos do Drive e gravar <strong>só na {{ empresa_da_tela_nome }}</strong>:</p>
+                    <ul>
+                        <li><strong>{{ arquivos_de_frete_para_atualizar|length }} tabela{{ arquivos_de_frete_para_atualizar|length|pluralize }} de frete</strong> — o sistema fica igual aos arquivos (o que não está neles sai).</li>
                         {% if arquivo_de_impostos_para_atualizar %}
-                            <dt id="arq-modo-rotulo">Busca Legal</dt>
-                            <dd>
-                                <div class="arq-modos" role="radiogroup" aria-labelledby="arq-modo-rotulo">
-                                    <label class="arq-modo" for="arq-modo-expandir">
-                                        <input type="radio" name="arq-modo" id="arq-modo-expandir" value="expandir" checked>
-                                        <span class="arq-modo__texto">
-                                            <strong>Expandir</strong> (padrão): o que está na planilha entra (se é novo) ou é atualizado (se já existe).
-                                            <strong>Nada é apagado</strong> por não estar na planilha.
-                                        </span>
-                                    </label>
-                                    <label class="arq-modo arq-modo--substituir" for="arq-modo-substituir">
-                                        <input type="radio" name="arq-modo" id="arq-modo-substituir" value="substituir">
-                                        <span class="arq-modo__texto">
-                                            <strong>Substituir</strong>: o sistema da {{ empresa_da_tela_nome }} fica <strong>igual à planilha</strong>. O que a planilha não tem é
-                                            <strong>apagado</strong> (CST e impostos de saída dos produtos e grupos de ICMS e PIS/COFINS). Antes de apagar, você vê a lista completa do
-                                            que será afetado e confirma.
-                                        </span>
-                                    </label>
-                                </div>
-                                Nos dois modos roda os 4 passos dos impostos de saída, em ordem: CST dos produtos, ICMS, PIS/COFINS e impostos nos produtos.
-                            </dd>
+                            <li data-arq-modo-linha="expandir"><strong>Busca Legal</strong> — <span class="arq-modo-chip arq-modo-chip--expandir"><i class="fas fa-circle-plus" aria-hidden="true"></i> Expandir</span> acrescenta e atualiza. Não apaga nada.</li>
+                            <li data-arq-modo-linha="substituir" class="arq-modal-alerta" hidden><strong>Busca Legal</strong> — <span class="arq-modo-chip arq-modo-chip--substituir"><i class="fas fa-trash-can" aria-hidden="true"></i> Substituir</span> apaga o que a planilha não tem. Você vê a lista antes.</li>
                         {% endif %}
-                    </dl>
-                    <p class="arq-envio__nota">
-                        Cada arquivo é conferido de novo antes de entrar: arquivo com erro não entra. Cada arquivo é gravado por inteiro ou nada.
-                        As tabelas de frete ficam IGUAIS ao arquivo: linhas novas entram, linhas que mudaram são atualizadas e <strong>linhas que não estão no arquivo são removidas</strong>.
-                        {% if arquivo_de_impostos_para_atualizar %}Na planilha Busca Legal, o imposto de cada grupo de produtos (NCM + CST + origem) pode mudar, e isso vale para todos os produtos do grupo, estejam ou não na planilha: a janela de resultado lista os grupos que mudaram de valor e os que foram rejeitados. {% endif %}As grades de preço ainda não são recalculadas por este botão.
-                    </p>
+                        <li><strong>Grades de preço</strong> — recalculo as que usam o que mudou.</li>
+                    </ul>
+                    <p class="arq-envio__nota">Arquivo com erro não entra, e cada arquivo é gravado inteiro ou nada.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="arq-btn" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="arq-btn arq-btn--primario" id="arq-atualizar-confirmar">
-                        <i class="fas fa-rotate" aria-hidden="true" id="arq-atualizar-confirmar-icone"></i> <span class="arq-btn__texto" id="arq-atualizar-confirmar-texto" data-arq-texto-expandir="Atualizar a {{ empresa_da_tela_nome }}" data-arq-texto-substituir="Ver prévia do Substituir">Atualizar a {{ empresa_da_tela_nome }}</span>
+                        <i class="fas fa-rotate" aria-hidden="true" id="arq-atualizar-confirmar-icone"></i> <span class="arq-btn__texto" id="arq-atualizar-confirmar-texto" data-arq-texto-expandir="Atualizar a {{ empresa_da_tela_nome }}" data-arq-texto-substituir="Ver prévia">Atualizar a {{ empresa_da_tela_nome }}</span>
                     </button>
                 </div>
             </div>
@@ -247,6 +229,14 @@
     <template id="arq-atu-modelo">
         {% for arquivo in arquivos_para_atualizar %}
             {% include 'arquivos_referencia/parciais/estrutura_parcial_atualizacao_pendente.html' %}
+        {% endfor %}
+    </template>
+
+    {# Modelo das grades de preço (Ciclo 3): o JS copia para a janela SÓ as grades que o que foi gravado afeta (cada linha de arquivo diz quais em data-arq-grades). #}
+    <template id="arq-grade-modelo">
+        <li class="arq-atu-secao" id="arq-grade-secao"><i class="fas fa-calculator" aria-hidden="true"></i> Grades de preço que usam o que mudou</li>
+        {% for grade in grades_para_recalcular %}
+            {% include 'arquivos_referencia/parciais/estrutura_parcial_grade_pendente.html' %}
         {% endfor %}
     </template>
 {% endblock %}

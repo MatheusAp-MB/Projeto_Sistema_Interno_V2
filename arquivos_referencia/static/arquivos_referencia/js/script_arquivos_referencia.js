@@ -17,7 +17,7 @@
 *      bruto" são só CSS (botões de opção escondidos dentro do HTML do visualizador).
 *  11) "Baixar" (linha "No Drive agora" do cartão): pede ao servidor uma cópia do arquivo que está no Drive e a entrega ao navegador para gravar no
 *      computador (backup). Se der erro, mostra o motivo no aviso da tela, em vez de o navegador salvar uma página de erro como se fosse o arquivo.
-*  12) Modo "Substituir" da planilha Busca Legal (escolha na janela de confirmação da seção 9): em vez de gravar, abre a "Prévia do Substituir" (o servidor
+*  12) Modo "Substituir" da planilha Busca Legal (o modo é a configuração da empresa no card do topo da tela; a janela da seção 9 só o mostra): em vez de gravar, abre a "Prévia do Substituir" (o servidor
 *      lê a planilha, simula e desfaz — nada é gravado) com a lista do que seria apagado. Só depois de a pessoa marcar "Li a lista…" o botão "Substituir e apagar"
 *      libera; ele roda a mesma atualização da seção 9, mandando junto o MD5 da planilha que a prévia mostrou (o servidor recusa sem ele).
 *
@@ -97,13 +97,24 @@
         return { texto: 'O servidor respondeu com erro ' + xhr.status + '. Veja o terminal do servidor.', link: null };
     }
 
+    // O card de modo (topo da tela): se trocar o modo falhou (empresa trocada em outra aba, banco sem a tabela, servidor fora do ar), o card volta ao valor que está
+    // gravado (o servidor devolve o card pelo GET da mesma rota), para a tela nunca mostrar um modo que não valeu.
+    function voltarOCardDoModo(evento) {
+        var formulario = evento.detail && evento.detail.elt;
+        if (!formulario || !formulario.classList || !formulario.classList.contains('arq-config__form')) { return; }
+        var url = formulario.getAttribute('hx-post');
+        if (url) { htmx.ajax('GET', url, { target: '#arq-config-importacao', swap: 'outerHTML' }); }
+    }
+
     document.body.addEventListener('htmx:responseError', function (evento) {
         var erro = mensagemDoErro(evento.detail.xhr);
         mostrarAviso(erro.texto, undefined, erro.link);
+        voltarOCardDoModo(evento);
     });
 
-    document.body.addEventListener('htmx:sendError', function () {
+    document.body.addEventListener('htmx:sendError', function (evento) {
         mostrarAviso('Não foi possível falar com o servidor do sistema. Confira se ele está no ar.');
+        voltarOCardDoModo(evento);
     });
 
     // O servidor avisa por cabeçalho (HX-Trigger → evento "arqAviso"): envio feito, ou envio recusado na conferência.
@@ -271,9 +282,30 @@
             ? avisos + (avisos === 1 ? ' aviso' : ' avisos') + ' (não impedem o envio — confira em “Ver auditoria”)'
             : 'nenhum');
 
+        // Só o cartão da planilha Busca Legal mostra o modo da empresa (lido do card do topo da tela): Expandir junta a planilha ao arquivo do Drive, Substituir troca
+        // o arquivo inteiro. A janela só mostra; quem escolhe o modo é o card do topo. O servidor lê o modo gravado na hora de enviar (o navegador não manda modo).
+        var comModo = botao.hasAttribute('data-arq-com-modo');
+        var linhaDoModo = document.getElementById('arq-envio-modo');
+        if (linhaDoModo) {
+            var modoDaEmpresa = modoDaConfiguracao() || 'expandir';
+            linhaDoModo.hidden = !comModo;
+            linhaDoModo.querySelectorAll('[data-arq-envio-modo-linha]').forEach(function (linha) {
+                linha.hidden = linha.dataset.arqEnvioModoLinha !== modoDaEmpresa;
+            });
+        }
+        var notaDoEnvio = document.getElementById('arq-envio-nota');
+        if (notaDoEnvio) { notaDoEnvio.textContent = comModo ? notaDoEnvio.dataset.arqTextoComModo : notaDoEnvio.dataset.arqTextoPadrao; }
+
         idEmConfirmacao = id;
         bootstrap.Modal.getOrCreateInstance(janelaDoEnvio).show();
     });
+
+    // O modo da empresa, como o card do topo da tela mostra AGORA ('expandir', 'substituir' ou null se a tela não tem o card).
+    function modoDaConfiguracao() {
+        var card = document.getElementById('arq-config-importacao');
+        var modo = card ? card.dataset.arqModo : null;
+        return modo === 'substituir' || modo === 'expandir' ? modo : null;
+    }
 
     // 2º passo: confirmou → põe o arquivo conferido no formulário de envio do cartão e dispara o envio (HTMX).
     function enviarAoDrive(id) {
@@ -457,6 +489,10 @@
     // * [EXPLICAÇÃO] → O botão da barra só ABRE a confirmação. Confirmou: a janela de resultado ganha 1 linha "Aguardando" por arquivo
     //   (copiadas do <template>) e o JS dispara os arquivos UM DEPOIS DO OUTRO — cada linha manda o seu POST (HTMX) e se troca pelo
     //   resultado que o servidor devolve. Um arquivo com problema não impede os seguintes. Durante a atualização a janela não fecha.
+    // * [DECISÃO, 16/10/2026] → Ciclo 3: depois do ÚLTIMO arquivo, a mesma janela ganha 1 linha por GRADE DE PREÇO afetada (cada linha de arquivo que mudou algo diz
+    //   quais grades usam isso em data-arq-grades; as linhas "Aguardando" vêm do <template id="arq-grade-modelo">) e as recalcula UMA DEPOIS DA OUTRA, cada uma com o seu
+    //   pedido e o seu resultado. "Já estava em dia" não gera grade nenhuma. Grade que falha mostra "Tentar de novo" (atualizar os arquivos de novo não adiantaria: a
+    //   tabela já está em dia). A janela só libera o Fechar quando acaba tudo.
     var atualizando = false;
 
     function avisarAntesDeSair(evento) {
@@ -465,13 +501,14 @@
     }
 
     // Espera a linha terminar o pedido. O evento do HTMX é entregue à PRÓPRIA linha (mesmo depois de ela ser trocada pelo resultado).
-    function atualizarUma(linha) {
+    // `nomeDoEvento`: 'arq-atualizar' (linha de arquivo, o padrão) ou 'arq-recalcular' (linha de grade de preço).
+    function atualizarUma(linha, nomeDoEvento) {
         return new Promise(function (resolver) {
             linha.addEventListener('htmx:afterRequest', function (evento) {
                 if (!evento.detail.successful) { marcarFalhaDaLinha(linha, evento.detail.xhr); }
                 resolver();
             }, { once: true });
-            htmx.trigger(linha, 'arq-atualizar');
+            htmx.trigger(linha, nomeDoEvento || 'arq-atualizar');
         });
     }
 
@@ -480,7 +517,8 @@
     // (ex.: "A empresa selecionada mudou… Nada foi gravado."); senão, mostra o texto geral abaixo.
     // O aviso com o motivo também aparece pelo tratamento geral de erros desta tela.
     function marcarFalhaDaLinha(linha, xhr) {
-        linha.className = 'arq-atu arq-atu--falha_sistema';
+        var ehGrade = linha.dataset.arqTipo === 'grade';
+        linha.className = 'arq-atu' + (ehGrade ? ' arq-atu--grade' : '') + ' arq-atu--falha_sistema';
         linha.dataset.arqStatus = 'falha_sistema';
         var topo = linha.querySelector('.arq-atu__topo');
         if (topo) {
@@ -498,33 +536,125 @@
             var corpo = JSON.parse(xhr.responseText);
             if (corpo && typeof corpo.mensagem === 'string') { motivo = corpo.mensagem; }
         } catch (erro) { /* resposta não era JSON (erro 500, rede caiu): vale o texto geral */ }
-        mensagem.textContent = motivo || 'O servidor não respondeu direito a este arquivo. O aviso na tela diz o motivo. O sistema só muda quando o arquivo aparece como "Atualizado" — confira antes de tentar de novo.';
+        mensagem.textContent = motivo || (ehGrade
+            ? 'O servidor não respondeu direito a esta grade. O aviso na tela diz o motivo. A grade só mudou se aparecer como "Recalculada" — confira antes de tentar de novo.'
+            : 'O servidor não respondeu direito a este arquivo. O aviso na tela diz o motivo. O sistema só muda quando o arquivo aparece como "Atualizado" — confira antes de tentar de novo.');
         linha.appendChild(mensagem);
+        if (ehGrade) { linha.appendChild(botaoDeTentarDeNovo(linha)); }
     }
 
-    function contarPorStatus(lista) {
-        var contagem = {};
-        lista.querySelectorAll('.arq-atu').forEach(function (linha) {
-            var status = linha.dataset.arqStatus || 'pendente';
-            contagem[status] = (contagem[status] || 0) + 1;
-        });
-        return contagem;
+    // Grade que não respondeu: "Tentar de novo" manda o MESMO pedido da linha (mesma URL e mesma empresa) e troca a linha pelo resultado novo.
+    function botaoDeTentarDeNovo(linha) {
+        var paragrafo = document.createElement('p');
+        paragrafo.className = 'arq-atu__botoes';
+        var botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'arq-btn';
+        botao.setAttribute('hx-post', linha.getAttribute('hx-post'));
+        botao.setAttribute('hx-vals', linha.getAttribute('hx-vals'));
+        botao.setAttribute('hx-target', '#' + linha.id);
+        botao.setAttribute('hx-swap', 'outerHTML');
+        botao.setAttribute('hx-indicator', '#' + linha.id);
+        botao.setAttribute('hx-disabled-elt', 'this');
+        botao.innerHTML = '<i class="fas fa-rotate-right" aria-hidden="true"></i> <span class="arq-btn__texto">Tentar de novo</span>';
+        paragrafo.appendChild(botao);
+        linha.appendChild(paragrafo);
+        htmx.process(botao);
+        return paragrafo;
     }
 
-    function terminarAtualizacao(lista) {
-        var contagem = contarPorStatus(lista);
-        var total = lista.querySelectorAll('.arq-atu').length;
-        var certos = contagem.ok || 0;
+    // Quantas linhas (de arquivo, ou de grade) têm o status "ok" (gravado / recalculada).
+    function contarCertas(linhas) {
+        var certas = 0;
+        linhas.forEach(function (linha) { if (linha.dataset.arqStatus === 'ok') { certas += 1; } });
+        return certas;
+    }
+
+    // O resumo da janela: o que aconteceu com os ARQUIVOS e, se houve, com as GRADES de preço. Só escreve o texto (quem chama cuida do resto da janela).
+    // A grade do Mercado Livre nunca é recalculada aqui (ciclo 4): quando o que mudou também a afeta, o resumo diz isso e o resultado vira "atenção".
+    function escreverOResumo(lista) {
+        var arquivos = Array.prototype.slice.call(lista.querySelectorAll('.arq-atu:not([data-arq-tipo="grade"])'));
+        var grades = Array.prototype.slice.call(lista.querySelectorAll('.arq-atu[data-arq-tipo="grade"]'));
+        var total = arquivos.length;
+        var certos = contarCertas(arquivos);
+        var gradesCertas = contarCertas(grades);
+        var gradeDoMLPendente = lista.querySelector('[data-arq-grade-ml-pendente]') !== null;
         var resumo = document.getElementById('arq-atu-resumo');
         var texto;
         if (certos === total) {
             texto = total === 1 ? 'O arquivo foi conferido e o sistema da ' + NOME_DA_EMPRESA + ' está em dia com ele.' : 'Os ' + total + ' arquivos foram conferidos e o sistema da ' + NOME_DA_EMPRESA + ' está em dia com eles.';
-            resumo.className = 'arq-atu-resumo arq-atu-resumo--ok';
         } else {
             texto = certos + ' de ' + total + (total === 1 ? ' arquivo atualizado' : ' arquivos atualizados') + ' — confira abaixo o que não entrou e o motivo.';
-            resumo.className = 'arq-atu-resumo arq-atu-resumo--atencao';
         }
+        if (grades.length) {
+            if (gradesCertas === grades.length) {
+                texto += grades.length === 1 ? ' A grade de preço que usa o que mudou foi recalculada.' : ' As ' + grades.length + ' grades de preço que usam o que mudou foram recalculadas.';
+            } else {
+                var faltam = grades.length - gradesCertas;
+                if (grades.length === 1) {
+                    texto += ' A grade de preço NÃO foi recalculada e continua com os preços de antes — use "Tentar de novo" nela.';
+                } else if (faltam === 1) {
+                    texto += ' 1 das ' + grades.length + ' grades de preço NÃO foi recalculada e continua com os preços de antes — use "Tentar de novo" nela.';
+                } else {
+                    texto += ' ' + faltam + ' das ' + grades.length + ' grades de preço NÃO foram recalculadas e continuam com os preços de antes — use "Tentar de novo" nelas.';
+                }
+            }
+        }
+        if (gradeDoMLPendente) {
+            texto += ' A grade do Mercado Livre ainda NÃO foi recalculada (ela usa a API do ML e ainda não faz parte deste botão).';
+        }
+        var tudoCerto = certos === total && gradesCertas === grades.length && !gradeDoMLPendente;
+        resumo.className = 'arq-atu-resumo ' + (tudoCerto ? 'arq-atu-resumo--ok' : 'arq-atu-resumo--atencao');
         resumo.textContent = texto;
+    }
+
+    // Quando a pessoa tenta de novo uma grade, depois de a janela já ter terminado, o servidor avisa (HX-Trigger → "arqGradeTerminou") e o resumo se refaz.
+    // Durante a atualização o resumo é escrito só no fim (o evento é ignorado); o pequeno atraso espera o HTMX trocar a linha pelo resultado novo.
+    document.body.addEventListener('arqGradeTerminou', function () {
+        if (atualizando) { return; }
+        var lista = document.getElementById('arq-atu-lista');
+        if (lista && lista.querySelector('[data-arq-tipo="grade"]')) {
+            window.setTimeout(function () { escreverOResumo(lista); }, 80);
+        }
+    });
+
+    // Depois do último arquivo: recalcula, uma por vez, as grades de preço que os arquivos gravados afetam. Sem grade afetada, não faz nada (a janela segue como antes).
+    function recalcularAsGrades(lista) {
+        var modelo = document.getElementById('arq-grade-modelo');
+        if (!modelo || !modelo.content) { return Promise.resolve(); }
+        var afetadas = {};
+        lista.querySelectorAll('.arq-atu[data-arq-grades]').forEach(function (linha) {
+            linha.dataset.arqGrades.split(',').forEach(function (id) { if (id) { afetadas[id] = true; } });
+        });
+        var modelos = Array.prototype.filter.call(modelo.content.querySelectorAll('[data-arq-grade]'), function (linha) {
+            return afetadas[linha.dataset.arqGrade];
+        });
+        if (!modelos.length) { return Promise.resolve(); }
+
+        var resumo = document.getElementById('arq-atu-resumo');
+        resumo.className = 'arq-atu-resumo';
+        resumo.textContent = 'Arquivos gravados. Agora o sistema recalcula, uma de cada vez, as grades de preço da ' + NOME_DA_EMPRESA + ' que usam o que mudou. Não feche esta janela.';
+        document.getElementById('arq-modal-resultado-titulo').textContent = 'Recalculando as grades de preço da ' + NOME_DA_EMPRESA + '…';
+
+        var secao = modelo.content.querySelector('.arq-atu-secao');
+        if (secao) { lista.appendChild(secao.cloneNode(true)); }
+        var linhas = modelos.map(function (linhaDoModelo) {
+            var linha = linhaDoModelo.cloneNode(true);
+            lista.appendChild(linha);
+            htmx.process(linha);
+            return linha;
+        });
+        var secaoNaLista = linhas[0].previousElementSibling;   // o título da seção, que acabou de entrar logo antes da 1ª grade
+        if (secaoNaLista) { secaoNaLista.scrollIntoView({ block: 'nearest' }); }
+        var cadeia = Promise.resolve();
+        linhas.forEach(function (linha) {
+            cadeia = cadeia.then(function () { return atualizarUma(linha, 'arq-recalcular'); });
+        });
+        return cadeia;
+    }
+
+    function terminarAtualizacao(lista) {
+        escreverOResumo(lista);
         document.getElementById('arq-modal-resultado-titulo').textContent = 'Resultado da atualização — ' + NOME_DA_EMPRESA;
         document.getElementById('arq-resultado-fechar').disabled = false;
         document.getElementById('arq-resultado-x').disabled = false;
@@ -540,9 +670,10 @@
         document.querySelectorAll('.arq-drive-bloco[data-arq-importavel] .arq-drive__atualizar').forEach(function (botao) { botao.click(); });
     }
 
-    // `opcoes` (só no Substituir): {modo: 'substituir', md5: o MD5 da planilha que a prévia mostrou}. Sem opções = Expandir, como sempre.
-    // * [IMPORTANTE] → O modo e o MD5 vão SÓ no pedido da planilha Busca Legal (as tabelas de frete já espelham o arquivo e não têm modo). Quem decide se grava
-    //   é o servidor: sem o MD5 certo (ou com o Drive já trocado depois da prévia) ele não apaga nada.
+    // `opcoes` (só no Substituir): {md5: o MD5 da planilha que a prévia mostrou}. Sem opções = o jeito normal (Expandir).
+    // * [IMPORTANTE] → O modo NÃO vai no pedido: quem sabe o modo é a configuração da empresa (card do topo) e o servidor a lê do banco. O MD5 vai SÓ no pedido da planilha
+    //   Busca Legal (as tabelas de frete já espelham o arquivo e não têm modo). Quem decide se grava é o servidor: planilha em Substituir sem o MD5 certo (ou com o
+    //   Drive já trocado depois da prévia) não apaga nada.
     function atualizarOSistema(opcoes) {
         if (atualizando || !janelaDoResultado) { return; }
         var modelo = document.getElementById('arq-atu-modelo');
@@ -552,10 +683,10 @@
         atualizando = true;
         window.addEventListener('beforeunload', avisarAntesDeSair);
         lista.innerHTML = modelo.innerHTML;
-        if (opcoes && opcoes.modo === 'substituir') {
+        if (opcoes && opcoes.md5) {
             var linhaDaBuscaLegal = lista.querySelector('[data-arq-busca-legal]');
             if (linhaDaBuscaLegal) {
-                linhaDaBuscaLegal.setAttribute('hx-vals', JSON.stringify({ empresa: EMPRESA_DA_TELA, modo: 'substituir', previa_md5: opcoes.md5 }));
+                linhaDaBuscaLegal.setAttribute('hx-vals', JSON.stringify({ empresa: EMPRESA_DA_TELA, previa_md5: opcoes.md5 }));
             }
         }
         htmx.process(lista);
@@ -571,31 +702,35 @@
         lista.querySelectorAll('.arq-atu').forEach(function (linha) {
             cadeia = cadeia.then(function () { return atualizarUma(linha); });
         });
-        cadeia.then(function () { terminarAtualizacao(lista); });
+        cadeia.then(function () { return recalcularAsGrades(lista); })
+            .catch(function (erro) { if (window.console) { window.console.error(erro); } })   // a janela nunca pode ficar travada
+            .then(function () { terminarAtualizacao(lista); });
     }
 
-    // ---------- 12) Modo "Substituir": escolha, prévia e só então apagar ----------
-    // * [EXPLICAÇÃO] → A janela de confirmação oferece Expandir (o padrão, SEMPRE marcado ao abrir) e Substituir. No Expandir, confirmar atualiza como sempre.
-    //   No Substituir, confirmar NÃO grava: abre a prévia. A prévia vem do servidor (que simula e desfaz) e mostra TUDO que seria apagado. O botão
+    // ---------- 12) Planilha em modo "Substituir": a prévia vem antes de apagar ----------
+    // * [EXPLICAÇÃO] → O modo da Busca Legal NÃO se escolhe na janela de "Atualizar o sistema": é a configuração da empresa, no card do topo da tela (data-arq-modo do card).
+    //   A janela só MOSTRA esse modo. No Expandir (ou sem modo conhecido), confirmar atualiza como
+    //   sempre. No Substituir, confirmar NÃO grava: abre a prévia. A prévia vem do servidor (que simula e desfaz) e mostra TUDO que seria apagado. O botão
     //   "Substituir e apagar" só libera com a prévia pronta E a caixa "Li a lista…" marcada. Fechar a prévia por qualquer lado não grava nada, e o conteúdo
     //   dela é jogado fora ao fechar (uma prévia velha nunca é reaproveitada: o MD5 dela só vale para aquela leitura do Drive).
-    function modoEscolhido() {
-        var marcado = document.querySelector('input[name="arq-modo"]:checked');
-        return marcado ? marcado.value : 'expandir';
-    }
+    // * [IMPORTANTE] → Esta tela pode estar velha (alguém mudou o modo em outra aba ou computador). Quem decide é sempre o servidor, que lê o modo gravado na hora de
+    //   gravar: com o modo em Substituir e sem a prévia desta tela, não grava nada.
+    var modoMostrado = null;   // o modo que a janela de confirmação mostrou ao abrir ('expandir', 'substituir' ou null = ainda não se sabe)
 
-    function ajustarOBotaoDaConfirmacao() {
+    // Liga, na janela de confirmação, a linha da Busca Legal que bate com o modo da empresa, e ajusta o botão (no Substituir ele vira "Ver prévia").
+    function mostrarOModoNaConfirmacao() {
+        modoMostrado = modoDaConfiguracao();
+        var linhaCerta = modoMostrado || 'expandir';
+        document.querySelectorAll('#arq-modal-atualizar [data-arq-modo-linha]').forEach(function (linha) {
+            linha.hidden = linha.dataset.arqModoLinha !== linhaCerta;
+        });
         var texto = document.getElementById('arq-atualizar-confirmar-texto');
         var icone = document.getElementById('arq-atualizar-confirmar-icone');
         if (!texto) { return; }
-        var substituir = modoEscolhido() === 'substituir';
+        var substituir = modoMostrado === 'substituir';
         texto.textContent = substituir ? texto.dataset.arqTextoSubstituir : texto.dataset.arqTextoExpandir;
         if (icone) { icone.className = substituir ? 'fas fa-eye' : 'fas fa-rotate'; }
     }
-
-    document.querySelectorAll('input[name="arq-modo"]').forEach(function (opcao) {
-        opcao.addEventListener('change', ajustarOBotaoDaConfirmacao);
-    });
 
     var miolo = document.getElementById('arq-previa-miolo');
     var caixaCiente = document.getElementById('arq-previa-ciente');
@@ -659,7 +794,7 @@
             if (!marcador || !caixaCiente || !caixaCiente.checked || atualizando) { return; }
             var md5 = marcador.dataset.arqPreviaMd5;
             bootstrap.Modal.getOrCreateInstance(janelaDaPrevia).hide();
-            atualizarOSistema({ modo: 'substituir', md5: md5 });
+            atualizarOSistema({ md5: md5 });
         });
     }
 
@@ -667,10 +802,7 @@
     if (botaoAtualizar && janelaDaConfirmacao) {
         botaoAtualizar.addEventListener('click', function () {
             if (atualizando) { return; }
-            // O padrão volta a ser Expandir a cada abertura: ninguém chega ao Substituir por ter escolhido da última vez.
-            var expandir = document.getElementById('arq-modo-expandir');
-            if (expandir) { expandir.checked = true; }
-            ajustarOBotaoDaConfirmacao();
+            mostrarOModoNaConfirmacao();
             bootstrap.Modal.getOrCreateInstance(janelaDaConfirmacao).show();
         });
     }
@@ -678,7 +810,7 @@
     var botaoConfirmarAtualizacao = document.getElementById('arq-atualizar-confirmar');
     if (botaoConfirmarAtualizacao && janelaDaConfirmacao) {
         botaoConfirmarAtualizacao.addEventListener('click', function () {
-            var substituir = modoEscolhido() === 'substituir';
+            var substituir = modoMostrado === 'substituir';   // o que a janela mostrou ao abrir (não o que o cartão diz agora)
             bootstrap.Modal.getOrCreateInstance(janelaDaConfirmacao).hide();
             if (substituir) { abrirAPrevia(); } else { atualizarOSistema(); }
         });

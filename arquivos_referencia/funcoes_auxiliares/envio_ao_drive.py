@@ -23,6 +23,12 @@
 # * [EXPLICAÇÃO] → Autenticação: a mesma do portal de vídeos para ESCREVER (login OAuth da conta dona do Drive, token em
 #   GOOGLE_DRIVE_OAUTH_TOKEN_JSON, renovado pelo botão "Renovar autorização" da Gestão de APIs). A conta de serviço só lê e
 #   nunca teve acesso a esta pasta, então não é usada aqui. Quando o Google recusa o login, o erro já diz onde renovar.
+# * [DECISÃO, 16/10/2026] → MODO Expandir da planilha Busca Legal no ENVIO: em vez de trocar o arquivo do Drive por inteiro, o envio JUNTA a planilha nova ao
+#   arquivo que já está lá (existentes atualizadas, novas no final — ver uniao_da_busca_legal.py). Quem decide o modo é a configuração da empresa (card no topo da
+#   tela; ver configuracao_da_importacao.py): este módulo não conhece o modo, só recebe `juntar`, uma função que recebe os bytes do arquivo que está no Drive AGORA
+#   e devolve os bytes que devem ficar lá. O Substituir (e as tabelas de frete) não passam `juntar`: o arquivo é trocado por inteiro, como sempre foi.
+# * [IMPORTANTE] → A leitura do arquivo atual, a junção e a gravação acontecem DENTRO da mesma trava do arquivo: dois envios ao mesmo tempo não se atropelam
+#   (o segundo junta ao resultado do primeiro). A leitura confere tamanho e MD5, como ler_do_drive.
 # * [IMPORTANTE] → Erros previstos (login vencido, pasta não configurada, sem permissão, Google fora do ar) viram
 #   `ErroDoEnvio`, com texto para a pessoa e o status HTTP. O detalhe técnico vai só para o log do servidor.
 
@@ -359,12 +365,46 @@ def _mandar_copias_repetidas_para_a_lixeira(servico, repetidas):
     return removidas, len(repetidas) - removidas
 
 
+# Função Objetivo: Baixa para a memória o arquivo que está no Drive (um item de _listar_copias) e confere o que chegou com o que o Drive disse ter (MD5 e
+# tamanho): só devolve bytes que bateram. Chamada DENTRO da trava do arquivo, por quem vai juntar a planilha nova ao que já está lá.
+def _baixar_conferido(servico, arquivo_do_drive, nome):
+    tamanho_no_drive = _tamanho(arquivo_do_drive)
+    if tamanho_no_drive is not None and tamanho_no_drive > TAMANHO_MAXIMO_DO_ARQUIVO:
+        raise ErroDoEnvio(
+            f'O arquivo “{nome}” que está no Drive é grande demais ({tamanho_no_drive // (1024 * 1024)} MB) para juntar a planilha nova a ele. '
+            'Confira se é o arquivo certo (ou use o modo Substituir).',
+            413,
+        )
+    try:
+        atual = servico.files().get_media(fileId=arquivo_do_drive['id'], supportsAllDrives=True).execute()
+    except HttpError as erro:
+        if getattr(erro.resp, 'status', None) != 404:
+            raise
+        logger.warning('Drive: o arquivo sumiu entre a listagem e a leitura', exc_info=True)
+        raise ErroDoEnvio('O arquivo mudou de lugar no Drive durante a leitura. Nada foi enviado. Tente de novo.', 409) from erro
+    md5_do_drive = (arquivo_do_drive.get('md5Checksum') or '').lower()
+    md5_lido = hashlib.md5(atual, usedforsecurity=False).hexdigest()
+    veio_inteiro = md5_do_drive == md5_lido if md5_do_drive else (tamanho_no_drive is None or tamanho_no_drive == len(atual))
+    if not veio_inteiro or len(atual) > TAMANHO_MAXIMO_DO_ARQUIVO:
+        logger.error('Drive: a leitura para juntar não bateu (Drive md5=%s, %s bytes; lido md5=%s, %s bytes)',
+                     md5_do_drive, tamanho_no_drive, md5_lido, len(atual))
+        raise ErroDoEnvio(
+            'O arquivo que chegou do Drive não bateu com o que o Drive informou (a conferência de integridade falhou). Nada foi enviado. Tente de novo.',
+            502,
+        )
+    return atual
+
+
 # Função Objetivo: Envia `conteudo` (bytes do .xlsx JÁ conferido) para a pasta certa do Drive, trocando o que estiver lá.
-# Devolve {'nome', 'tamanho_em_bytes', 'modificado_em', 'substituiu', 'copias_removidas', 'copias_que_ficaram', 'caminho', 'md5'}.
-def enviar_para_o_drive(arquivo_de_referencia, conteudo):
+# `juntar` (opcional) = modo Expandir: uma função que recebe os bytes do arquivo que está no Drive AGORA e devolve (bytes_que_ficam_no_Drive, resumo_da_junção);
+# quem a escreve confere o resultado e levanta ErroDoEnvio para recusar (nada é enviado). Se ainda não há arquivo no Drive, `juntar` não é chamada e `conteudo`
+# vai como está. Sem `juntar` o arquivo é trocado por inteiro (modo Substituir e tabelas de frete).
+# Devolve {'nome', 'tamanho_em_bytes', 'modificado_em', 'substituiu', 'copias_removidas', 'copias_que_ficaram', 'caminho', 'md5', 'juncao'} — `juncao` é o resumo
+# devolvido por `juntar` (None quando não houve junção).
+def enviar_para_o_drive(arquivo_de_referencia, conteudo, juntar=None):
     servico = _servico_do_drive()
-    md5_do_envio = hashlib.md5(conteudo, usedforsecurity=False).hexdigest()
     nome = arquivo_de_referencia.nome_no_drive
+    juncao = None
 
     with _trava_do_arquivo(arquivo_de_referencia.id), _traduzindo_falhas_do_google():
         pasta_raiz = _conferir_pasta_raiz(servico)
@@ -376,6 +416,9 @@ def enviar_para_o_drive(arquivo_de_referencia, conteudo):
                 'Renomeie ou apague essa planilha no Drive e envie de novo.',
                 409,
             )
+        if juntar is not None and copias:
+            conteudo, juncao = juntar(_baixar_conferido(servico, copias[0], nome))
+        md5_do_envio = hashlib.md5(conteudo, usedforsecurity=False).hexdigest()
         conteudo_para_o_drive = MediaIoBaseUpload(io.BytesIO(conteudo), mimetype=MIME_XLSX, resumable=False)
 
         if copias:
@@ -407,5 +450,5 @@ def enviar_para_o_drive(arquivo_de_referencia, conteudo):
         'nome': nome, 'tamanho_em_bytes': tamanho_no_drive if tamanho_no_drive is not None else len(conteudo),
         'modificado_em': _quando(gravado), 'substituiu': bool(copias),
         'copias_removidas': removidas, 'copias_que_ficaram': que_ficaram,
-        'caminho': _caminho(pasta_raiz, arquivo_de_referencia), 'md5': md5_do_envio,
+        'caminho': _caminho(pasta_raiz, arquivo_de_referencia), 'md5': md5_do_envio, 'juncao': juncao,
     }

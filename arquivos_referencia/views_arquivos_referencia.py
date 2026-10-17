@@ -8,6 +8,13 @@
 #   nunca tocam.
 # * [DECISÃO, 16/10/2026] → Passo 2, ciclo dos impostos: a planilha Busca Legal da empresa selecionada entra no mesmo botão (modo Expandir: nada é
 #   apagado), logo depois das 4 tabelas de frete, no mesmo esquema de 1 pedido por arquivo e com a mesma recusa de tela velha.
+# * [DECISÃO, 16/10/2026] → Passo 3 (Ciclo 3): depois dos arquivos, a MESMA janela recalcula as grades de preço LOCAIS que usam o que mudou (Magalu, TikTok Shop, Amazon,
+#   Raia, Shopee), 1 pedido por grade (view_recalcular_grade), uma depois da outra, com a mesma recusa de tela velha (409 se a empresa selecionada mudou). Só a view de
+#   atualizar e a de recalcular tocam no banco do sistema. A grade do Mercado Livre (usa a API do ML) fica para o ciclo 4.
+# * [DECISÃO, 16/10/2026] → O MODO da Busca Legal (Expandir/Substituir) é UMA configuração da empresa, num card no topo da tela (view_modo_da_importacao grava no banco
+#   da empresa), e vale para os dois passos: no ENVIO, Expandir junta a planilha ao arquivo que está no Drive (view_enviar_arquivo → uniao_da_busca_legal) e Substituir
+#   troca o arquivo por inteiro; no ATUALIZAR, Expandir atualiza o que existe e cria o que falta, e Substituir deixa o sistema igual à planilha. Nenhuma das duas janelas
+#   escolhe o modo: só mostram o da empresa. O navegador não manda o modo em pedido nenhum: o servidor lê da configuração. Quem apaga continua com as 2 travas (prévia + md5).
 # * [DECISÃO, 15/10/2026] → Passo 2, 1º ciclo (só as 4 tabelas de frete): o botão "Atualizar o sistema com o Drive" faz 1 pedido
 #   POR ARQUIVO, um depois do outro (o JS). Assim a janela mostra o andamento de cada tabela, um arquivo com problema não derruba os
 #   outros, e nenhum pedido fica longo demais. Toda falha PREVISTA volta como resultado do arquivo (resposta 200, linha pronta);
@@ -57,24 +64,31 @@ from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from core.empresa import EMPRESAS_VALIDAS, obter_empresa_ativa
+from impostos.funcoes_auxiliares.saida.preenchimento_impostos_saida import COLUNA_EAN
 
 from .funcoes_auxiliares.atualizacao_do_sistema import (
     STATUS_PREVIA, arquivos_que_o_botao_atualiza, atualizar_arquivo, o_botao_atualiza, resultado_de_falha_do_sistema,
 )
 from .funcoes_auxiliares.auditor_de_arquivos import auditar_arquivo
+from .funcoes_auxiliares.modelo_do_arquivo import ModeloDesatualizado, gerar_modelo
 from .funcoes_auxiliares.catalogo_arquivos import GRUPO_FRETE, GRUPO_IMPOSTOS_SAIDA, arquivo_e_da_empresa, buscar_arquivo
+from .funcoes_auxiliares.configuracao_da_importacao import (
+    MODOS_DA_IMPORTACAO, ConfiguracaoIndisponivel, gravar_modo_da_busca_legal, modo_da_busca_legal, situacao_do_modo,
+)
 from .funcoes_auxiliares.envio_ao_drive import (
     MIME_XLSX, ArquivoAusenteNoDrive, ErroDoEnvio, consultar_no_drive, enviar_para_o_drive, ler_do_drive,
 )
-from .funcoes_auxiliares.importacao_busca_legal import MODO_EXPANDIR, MODO_SUBSTITUIR, MODOS_VALIDOS
+from .funcoes_auxiliares.importacao_busca_legal import MODO_EXPANDIR, MODO_SUBSTITUIR
 from .funcoes_auxiliares.leitura_planilha import TAMANHO_MAXIMO_DO_ARQUIVO, ErroDeLeitura
 from .funcoes_auxiliares.nome_do_download import nome_do_download
+from .funcoes_auxiliares.recalculo_das_grades import GRADES_LOCAIS, buscar_grade, recalcular_grade, resultado_de_falha_da_grade
+from .funcoes_auxiliares.uniao_da_busca_legal import ErroDaUniao, juntar_planilhas
 from .funcoes_auxiliares.visualizacao_do_arquivo import ORIGEM_DRIVE, ORIGEM_ESCOLHIDO, montar_visualizacao
 from .funcoes_auxiliares.montagem_da_tela import (
-    montar_cartao, montar_grupos, montar_item_da_atualizacao, montar_linha_do_drive, nome_curto_da_empresa,
+    montar_cartao, montar_grupos, montar_item_da_atualizacao, montar_item_da_grade, montar_linha_do_drive, nome_curto_da_empresa,
 )
 
 TAMANHO_MAXIMO_DO_NOME_EXIBIDO = 150
@@ -134,8 +148,10 @@ def view_arquivos_referencia(request):
     return render(request, 'arquivos_referencia/estrutura_arquivos_referencia.html', {
         'empresa_da_tela': empresa,
         'empresa_da_tela_nome': nome_curto_da_empresa(empresa),
+        'configuracao': situacao_do_modo(empresa),   # o card de modo no topo da tela
         'grupos': montar_grupos(empresa),
         'arquivos_para_atualizar': para_atualizar,
+        'grades_para_recalcular': GRADES_LOCAIS,   # o JS copia para a janela só as que o que foi gravado afeta
         # A janela de confirmação descreve cada tipo de arquivo à parte: frete (espelha o arquivo) e Busca Legal (modo Expandir, 1 só por empresa).
         'arquivos_de_frete_para_atualizar': [a for a in para_atualizar if a.grupo == GRUPO_FRETE],
         'arquivo_de_impostos_para_atualizar': next((a for a in para_atualizar if a.grupo == GRUPO_IMPOSTOS_SAIDA), None),
@@ -203,6 +219,26 @@ def view_auditar_arquivo(request, arquivo_id):
     return resposta
 
 
+# Função Objetivo: A função que o envio usa no modo EXPANDIR: recebe os bytes do arquivo que está no Drive AGORA, junta a planilha nova a ele (pelo EAN) e confere o
+# arquivo que ficaria lá com a MESMA auditoria do envio. Qualquer problema vira ErroDoEnvio (nada é enviado e a pessoa lê o motivo no aviso).
+def _funcao_de_juntar(arquivo, conteudo_novo):
+    def juntar(conteudo_do_drive):
+        try:
+            uniao = juntar_planilhas(conteudo_do_drive, conteudo_novo, COLUNA_EAN)
+        except ErroDaUniao as problema:
+            raise ErroDoEnvio(f'{problema} Nada foi enviado.', 409) from problema
+        resultante = uniao.pop('conteudo')
+        relatorio = auditar_arquivo(arquivo, resultante, 'arquivo do Drive depois de juntar', tamanho_em_bytes=len(resultante))
+        if not relatorio.pode_enviar:
+            raise ErroDoEnvio(
+                'O arquivo que ficaria no Drive depois de juntar a planilha não passou na conferência (ele ficaria com erro). Nada foi enviado. '
+                'Corrija o arquivo, ou use o modo Substituir para trocar o arquivo do Drive por inteiro.',
+                409,
+            )
+        return resultante, uniao
+    return juntar
+
+
 @require_POST
 def view_enviar_arquivo(request, arquivo_id):
     empresa, erro = _empresa_da_requisicao()
@@ -227,8 +263,12 @@ def view_enviar_arquivo(request, arquivo_id):
             resposta, 'Este arquivo não passou na conferência feita agora, então NÃO foi enviado ao Drive. Veja a auditoria.', 'info',
         )
 
+    # O modo (Expandir/Substituir) só existe para a planilha Busca Legal e vem da configuração da empresa (lida AGORA do banco; o navegador não manda modo nenhum).
+    # Expandir junta a planilha ao arquivo do Drive; Substituir (e as tabelas de frete) trocam o arquivo por inteiro.
+    modo = modo_da_busca_legal(empresa) if arquivo.grupo == GRUPO_IMPOSTOS_SAIDA else None
+    juntar = _funcao_de_juntar(arquivo, conteudo) if modo == MODO_EXPANDIR else None
     try:
-        envio = enviar_para_o_drive(arquivo, conteudo)
+        envio = enviar_para_o_drive(arquivo, conteudo, juntar=juntar)
     except ErroDoEnvio as problema:
         return _erro_do_drive(problema)
     except Exception:
@@ -239,9 +279,23 @@ def view_enviar_arquivo(request, arquivo_id):
             500,
         )
 
-    mensagem = f'Enviado ao Drive: {envio["nome"]}. ' + (
-        'O arquivo que estava lá foi trocado.' if envio['substituiu'] else 'Era um arquivo novo na pasta.'
-    )
+    juncao = envio['juncao']
+    if juncao:
+        mensagem = (
+            f'Enviado ao Drive: {envio["nome"]}. Modo Expandir: as linhas da planilha foram juntadas ao arquivo que já estava lá — '
+            f'{juncao["atualizadas"]} atualizada{"" if juncao["atualizadas"] == 1 else "s"}, {juncao["novas"]} nova{"" if juncao["novas"] == 1 else "s"} no final, '
+            f'{juncao["iguais"]} já {"estava" if juncao["iguais"] == 1 else "estavam"} igual{"" if juncao["iguais"] == 1 else "is"}.'
+        )
+        if juncao['formulas_viraram_valor']:
+            mensagem += f' {juncao["formulas_viraram_valor"]} fórmula(s) do arquivo do Drive passaram a guardar só o valor.'
+        if juncao['sem_chave']:
+            mensagem += f' {juncao["sem_chave"]} linha(s) da planilha sem EAN foram ignoradas.'
+    else:
+        mensagem = f'Enviado ao Drive: {envio["nome"]}. ' + (
+            'O arquivo que estava lá foi trocado.' if envio['substituiu'] else 'Era um arquivo novo na pasta.'
+        )
+        if modo == MODO_SUBSTITUIR:
+            mensagem += ' Modo Substituir: o arquivo do Drive foi trocado por inteiro.'
     tipo = 'ok'
     if envio['copias_removidas'] == 1:
         mensagem += ' 1 cópia repetida foi para a lixeira do Drive.'
@@ -348,6 +402,38 @@ def view_baixar_arquivo_do_drive(request, arquivo_id):
     return resposta
 
 
+@require_GET
+def view_baixar_modelo(request, arquivo_id):
+    # * [EXPLICAÇÃO] → "Modelo" (GET, só leitura): entrega uma planilha IGUAL ao arquivo real (visual e estrutura), só com o cabeçalho, 1 linha de exemplo
+    #   (2 no Mercado Livre) e uma linha cinza escura marcando o fim, para a pessoa usar de guia
+    #   (ver modelo_do_arquivo.py). Não consulta o Drive nem o banco: é um arquivo guardado em modelos_base, conferido na hora contra o que o
+    #   importador lê, então funciona até com o Drive fora do ar.
+    #   A Busca Legal da outra empresa responde 404, como nos outros botões do cartão.
+    empresa, erro = _empresa_da_requisicao()
+    if erro:
+        return erro
+    arquivo, erro = _arquivo_visivel(arquivo_id, empresa)
+    if erro:
+        return erro
+
+    try:
+        modelo = gerar_modelo(arquivo)
+    except ModeloDesatualizado as exc:
+        # * [EXPLICAÇÃO] → O modelo guardado não bate mais com o importador: melhor avisar do que entregar um arquivo que o sistema leria errado.
+        return _erro_do_sistema(
+            f'O modelo deste arquivo ficou desatualizado: {exc}. Rode scripts_dev/gerar_modelos_base_dos_arquivos_de_referencia.py '
+            'e, se o erro continuar, o importador mudou e o script precisa acompanhar.', 500)
+    except Exception:
+        traceback.print_exc()
+        return _erro_do_sistema('Não consegui montar o modelo por um erro do próprio sistema. Veja o terminal do servidor.', 500)
+
+    resposta = HttpResponse(modelo['conteudo'], content_type=MIME_XLSX)
+    resposta['Content-Disposition'] = content_disposition_header(True, modelo['nome'])
+    resposta['X-Content-Type-Options'] = 'nosniff'
+    resposta['Cache-Control'] = 'no-store'
+    return resposta
+
+
 @require_POST
 def view_atualizar_arquivo(request, arquivo_id):
     # * [EXPLICAÇÃO] → Passo 2: lê ESTE arquivo do Drive (só na memória), confere, e grava nas tabelas da empresa SELECIONADA (tudo ou nada).
@@ -365,16 +451,11 @@ def view_atualizar_arquivo(request, arquivo_id):
         return erro
     if not o_botao_atualiza(arquivo.id):
         return _erro_do_sistema('Este arquivo ainda não é atualizado por este botão.', 409)
-    modo = request.POST.get('modo') or MODO_EXPANDIR
-    if modo not in MODOS_VALIDOS:
-        return _erro_do_sistema('Modo de atualização desconhecido. Recarregue a página. Nada foi gravado.', 400)
-    if modo == MODO_SUBSTITUIR and arquivo.grupo != GRUPO_IMPOSTOS_SAIDA:
-        # As tabelas de frete já espelham o arquivo (decisão de 15/10/2026): o Substituir existe só para a planilha Busca Legal.
-        return _erro_do_sistema('O modo Substituir só existe para a planilha Busca Legal. Nada foi gravado.', 409)
 
     try:
-        # No Substituir, `previa_md5` é o MD5 do arquivo que a prévia mostrou: sem ele (ou com o Drive já trocado) nada é apagado.
-        resultado = atualizar_arquivo(arquivo, empresa, modo=modo, md5_da_previa=request.POST.get('previa_md5') or None)
+        # O modo NÃO vem do navegador: o servidor lê a configuração da empresa (card no topo da tela). Se for Substituir, `previa_md5` é o MD5 do arquivo que a
+        # prévia mostrou: sem ele (ou com o Drive já trocado) nada é apagado.
+        resultado = atualizar_arquivo(arquivo, empresa, md5_da_previa=request.POST.get('previa_md5') or None)
     except Exception:
         traceback.print_exc()
         resultado = resultado_de_falha_do_sistema(arquivo, empresa)
@@ -384,6 +465,37 @@ def view_atualizar_arquivo(request, arquivo_id):
         'resultado': montar_item_da_atualizacao(resultado, link),
     })
     resposta['Cache-Control'] = 'no-store'
+    return resposta
+
+
+@require_POST
+def view_recalcular_grade(request, grade_id):
+    # * [EXPLICAÇÃO] → Passo 3: recalcula UMA grade de preço local da empresa SELECIONADA (a mesma calculadora do terminal, tudo ou nada). A grade é escolhida pelo ID
+    #   da lista fechada (GRADES_LOCAIS): nada vindo do navegador entra em nome de módulo ou de função. A grade do Mercado Livre não está na lista (ciclo 4).
+    # * [IMPORTANTE] → Como na atualização, o pedido OBRIGATORIAMENTE diz em qual empresa a tela estava (`empresa`): faltou, ou a empresa selecionada agora é outra
+    #   (trocada em outra aba) → 409 e NADA é recalculado.
+    # * [EXPLICAÇÃO] → Falha prevista (outro recálculo igual em andamento) e erro do sistema voltam como linha de resultado (200), com o botão "Tentar de novo".
+    #   O cabeçalho HX-Trigger avisa a janela (evento "arqGradeTerminou") para ela atualizar o resumo, inclusive quando a pessoa tenta de novo depois.
+    empresa, erro = _empresa_da_requisicao()
+    if erro:
+        return erro
+    if not _tela_na_empresa_certa(request.POST.get('empresa'), empresa):
+        return _erro_do_sistema(f'{TEXTO_EMPRESA_MUDOU} Nada foi recalculado.', 409)
+    grade = buscar_grade(grade_id)
+    if grade is None:
+        return _erro_do_sistema('Grade de preço desconhecida. Recarregue a página. Nada foi recalculado.', 404)
+
+    try:
+        resultado = recalcular_grade(grade, empresa)
+    except Exception:
+        traceback.print_exc()
+        resultado = resultado_de_falha_da_grade(grade, empresa)
+
+    resposta = render(request, 'arquivos_referencia/parciais/estrutura_parcial_resultado_grade.html', {
+        'resultado': montar_item_da_grade(resultado),
+    })
+    resposta['Cache-Control'] = 'no-store'
+    resposta['HX-Trigger'] = json.dumps({'arqGradeTerminou': {'grade': grade.id}})
     return resposta
 
 
@@ -521,3 +633,33 @@ def view_ver_arquivo_escolhido(request, arquivo_id):
             'Erro do sistema', 'Erro do próprio sistema ao desenhar o arquivo (não é problema do arquivo). Veja o terminal do servidor.',
         ))
     return _janela_do_visualizador(request, visualizacao)
+
+
+# Função Objetivo: O card de configuração do topo da tela (o MODO da Busca Legal da empresa selecionada). GET = devolve o card (a tela o usa para voltar ao valor
+# gravado quando uma troca falha); POST = grava o modo escolhido no banco da empresa e devolve o card novo, com um aviso.
+# * [IMPORTANTE] → Como o resto da tela, recusa (409, nada alterado) se a empresa selecionada agora não é a que a tela mostrava; modo fora da lista é recusado (400).
+@require_http_methods(['GET', 'POST'])
+def view_modo_da_importacao(request):
+    empresa, erro = _empresa_da_requisicao()
+    if erro:
+        return erro
+    aviso = None
+    if request.method == 'POST':
+        if not _tela_na_empresa_certa(request.POST.get('empresa'), empresa):
+            return _erro_do_sistema(f'{TEXTO_EMPRESA_MUDOU} O modo não foi alterado.', 409)
+        modo = request.POST.get('modo')
+        if modo not in MODOS_DA_IMPORTACAO:
+            return _erro_do_sistema('Modo desconhecido. Recarregue a página. O modo não foi alterado.', 400)
+        try:
+            gravar_modo_da_busca_legal(empresa, modo)
+        except ConfiguracaoIndisponivel as problema:
+            return _erro_do_sistema(str(problema), 409)
+        aviso = (
+            f'Modo da Busca Legal na {nome_curto_da_empresa(empresa)}: {"Substituir" if modo == MODO_SUBSTITUIR else "Expandir"}. '
+            'Vale ao enviar ao Drive e ao atualizar o sistema.'
+        )
+    resposta = render(request, 'arquivos_referencia/parciais/estrutura_parcial_configuracao.html', {
+        'configuracao': situacao_do_modo(empresa), 'empresa_da_tela': empresa, 'empresa_da_tela_nome': nome_curto_da_empresa(empresa),
+    })
+    resposta['Cache-Control'] = 'no-store'
+    return _com_aviso(resposta, aviso, 'ok') if aviso else resposta

@@ -35,8 +35,8 @@
 #   se enxerga o produto que NÃO está na planilha mas mudou, porque o grupo (NCM+CST+Origem) dele mudou de valor.
 # * [EXPLICAÇÃO] → Cada tabela de imposto é por GRUPO, não por produto: um EAN novo entrando num grupo que já existe pode trocar o valor do
 #   grupo inteiro (e, com isso, o imposto de produtos que nem estão na planilha). Por isso a janela lista os grupos que mudaram de valor.
-# * [IMPORTANTE] → Este passo ainda NÃO recalcula as grades de preço: o resultado avisa quando algum imposto de produto mudou (o recálculo
-#   automático é um ciclo à parte).
+# * [IMPORTANTE] → Este passo NÃO recalcula grade nenhuma: ele só grava os impostos. Quando algum imposto de produto mudou, quem chama (atualizacao_do_sistema.py)
+#   diz à tela quais grades de preço recalcular (Ciclo 3, 16/10/2026: as 5 locais são recalculadas pela própria janela; a do Mercado Livre fica para o ciclo 4).
 
 import io
 from dataclasses import dataclass, field

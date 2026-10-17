@@ -127,3 +127,10 @@ def calcular_grade_precificacao_magalu(stdout, style):
             stdout.write(style.ERROR(f'      ... e mais {len(erros) - 20} erro(s)'))
 
     stdout.write(f'  📊 Consultas ao banco (SQL) no total: {len(connection.queries_log)}')
+
+    # * [EXPLICAÇÃO] → Devolve os números para a tela "Arquivos de referência" (recálculo automático depois de "Atualizar o sistema com o Drive").
+    #   O comando de terminal ignora o retorno, então nada mudou para quem roda pelo terminal.
+    return {
+        'criadas': len(para_criar), 'atualizadas': len(para_atualizar), 'removidas': removidas,
+        'sem_calculo': sem_calculo, 'erros': erros,
+    }

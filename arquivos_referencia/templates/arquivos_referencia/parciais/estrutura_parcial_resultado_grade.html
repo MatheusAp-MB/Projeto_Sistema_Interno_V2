@@ -1,0 +1,66 @@
+{% comment %}
+Resultado de 1 GRADE DE PREÇO na janela "Atualizar o sistema com o Drive" (troca a linha "Aguardando"). Recebe `resultado` (de montar_item_da_grade).
+A grade é recalculada para UMA empresa (a selecionada), por inteiro ou nada (1 transação): se falhar, a grade continua com os preços de antes e a linha traz o botão
+"Tentar de novo" (atualizar os arquivos de novo não recalcularia: a tabela já está em dia). "Atualizadas" = linhas que já existiam e foram recalculadas (todas são
+regravadas, tenham mudado de preço ou não). "Removidas" só existe nas grades que espelham o cálculo (Magalu, TikTok, Amazon); nas outras aparece "—".
+"Sem preço" = combinações (produto × margem × tipo) para as quais o cálculo não chega a um preço (meta inatingível, sem faixa de frete...).
+Estado nunca só por cor: o selo leva ícone + texto. Texto que vem do servidor é escapado pelo Django.
+{% endcomment %}
+<li class="arq-atu arq-atu--grade arq-atu--{{ resultado.status }}" id="arq-grade-{{ resultado.grade_id }}" data-arq-tipo="grade" data-arq-grade="{{ resultado.grade_id }}" data-arq-status="{{ resultado.status }}">
+    <div class="arq-atu__topo">
+        <span class="arq-atu__icone"><i class="fas fa-calculator" aria-hidden="true"></i></span>
+        <span class="arq-atu__nome">Grade de preço — {{ resultado.nome }}</span>
+        <span class="arq-pill arq-pill--aguardando arq-atu__andando"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Recalculando…</span>
+        <span class="arq-pill arq-pill--{{ resultado.cor }} arq-atu__fim"><i class="{{ resultado.icone_do_estado }}" aria-hidden="true"></i> {{ resultado.rotulo }}</span>
+    </div>
+
+    {% if resultado.mensagem %}
+        <p class="arq-atu__mensagem">{{ resultado.mensagem }}{% if resultado.status == 'ok' %} Levou {{ resultado.segundos|floatformat:1 }} s.{% endif %}</p>
+    {% endif %}
+
+    {% if resultado.status == 'ok' %}
+        <div class="arq-atu__rolagem">
+        <table class="arq-atu__tabela">
+            <thead>
+                <tr>
+                    <th scope="col" class="arq-atu__num" title="Linhas de preço que não existiam e foram criadas.">Criadas</th>
+                    <th scope="col" class="arq-atu__num" title="Linhas que já existiam e foram recalculadas (todas são regravadas, tenham mudado de preço ou não).">Atualizadas</th>
+                    <th scope="col" class="arq-atu__num" title="Linhas antigas apagadas porque a combinação deixou de ter preço. Só existe nas grades que espelham o cálculo (Magalu, TikTok Shop e Amazon).">Removidas</th>
+                    <th scope="col" class="arq-atu__num" title="Combinações de produto, margem e tipo para as quais o cálculo não chega a um preço (meta inatingível, sem faixa de frete...).">Sem preço</th>
+                    <th scope="col" class="arq-atu__num" title="Combinações com erro de validação nos dados do produto: também ficam sem preço.">Com erro</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="arq-atu__num">{{ resultado.criadas }}</td>
+                    <td class="arq-atu__num">{{ resultado.atualizadas }}</td>
+                    {% if resultado.removidas is None %}<td class="arq-atu__num arq-atu__num--vazio" title="Esta grade não apaga linhas antigas.">—</td>{% else %}<td class="arq-atu__num">{{ resultado.removidas }}</td>{% endif %}
+                    <td class="arq-atu__num">{{ resultado.sem_calculo }}</td>
+                    <td class="arq-atu__num">{{ resultado.total_de_erros }}</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+
+        {% if resultado.exemplos_de_erro %}
+            <ul class="arq-atu__motivos">
+                {% for exemplo in resultado.exemplos_de_erro %}<li>{{ exemplo }}</li>{% endfor %}
+            </ul>
+            {% if resultado.exemplos_ocultos %}<p class="arq-atu__mais">… e mais {{ resultado.exemplos_ocultos }}.</p>{% endif %}
+        {% endif %}
+
+        {% if resultado.nota_sem_espelho %}
+            <p class="arq-atu__nota">
+                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                Esta grade não apaga linhas antigas (como no terminal): se alguma das {{ resultado.sem_calculo }} combinações sem preço já tinha linha, ela continua com o preço de antes.
+            </p>
+        {% endif %}
+    {% else %}
+        <p class="arq-atu__botoes">
+            <button type="button" class="arq-btn" hx-post="{% url 'arquivos_referencia_recalcular_grade' resultado.grade_id %}" hx-vals='{"empresa": "{{ resultado.empresa }}"}'
+                    hx-target="#arq-grade-{{ resultado.grade_id }}" hx-swap="outerHTML" hx-indicator="#arq-grade-{{ resultado.grade_id }}" hx-disabled-elt="this">
+                <i class="fas fa-rotate-right" aria-hidden="true"></i> <span class="arq-btn__texto">Tentar de novo</span>
+            </button>
+        </p>
+    {% endif %}
+</li>

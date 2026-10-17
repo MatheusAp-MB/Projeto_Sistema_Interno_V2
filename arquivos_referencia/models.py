@@ -36,3 +36,25 @@ class AtualizacaoDoSistema(models.Model):
 
     def __str__(self):
         return f'{self.arquivo_id} — {self.atualizado_em:%d/%m/%Y %H:%M}'
+
+
+# Função Objetivo: Guardar, POR EMPRESA, as configurações de como a tela "Arquivos de referência" importa os arquivos. Hoje existe 1: o MODO da planilha
+# Busca Legal (Expandir ou Substituir), escolhido no card de configuração no topo da tela.
+#
+# * [DECISÃO, 16/10/2026] → O modo é uma CONFIGURAÇÃO da empresa (não uma propriedade de um arquivo do Drive) e vale para os dois passos: ao ENVIAR ao
+#   Drive (Expandir junta a planilha ao arquivo do Drive; Substituir troca o arquivo inteiro) e ao ATUALIZAR o sistema (Expandir atualiza o que existe e cria o
+#   que falta; Substituir deixa o sistema igual à planilha). Fica no banco de CADA empresa: cada uma tem a sua planilha Busca Legal e o seu modo. As tabelas
+#   de frete não têm modo (sempre espelham o arquivo). Sem linha gravada, o modo é Expandir (o padrão seguro: nunca apaga).
+# * [EXPLICAÇÃO] → 1 linha por configuração (`chave` é única); `valor` é o texto escolhido.
+
+class ConfiguracaoDaImportacao(models.Model):
+    chave = models.SlugField(max_length=60, unique=True, help_text='Qual configuração é (ex.: modo-da-busca-legal).')
+    valor = models.CharField(max_length=30, help_text='O valor escolhido (ex.: expandir ou substituir).')
+    alterado_em = models.DateTimeField(auto_now=True, help_text='Quando a configuração foi alterada pela última vez.')
+
+    class Meta:
+        verbose_name = 'Configuração da importação'
+        verbose_name_plural = 'Configurações da importação'
+
+    def __str__(self):
+        return f'{self.chave} = {self.valor}'
